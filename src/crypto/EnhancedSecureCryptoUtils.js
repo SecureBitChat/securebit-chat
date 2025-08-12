@@ -720,7 +720,7 @@ class EnhancedSecureCryptoUtils {
             }
         } catch (error) {
             EnhancedSecureCryptoUtils.secureLog.log('error', 'ECDSA key generation failed', { error: error.message });
-            throw new Error('Не удалось создать ключи для цифровых подписей');
+            throw new Error('Failed to generate keys for digital signatures');
         }
     }
 
@@ -758,7 +758,7 @@ class EnhancedSecureCryptoUtils {
             }
         } catch (error) {
             EnhancedSecureCryptoUtils.secureLog.log('error', 'Data signing failed', { error: error.message });
-            throw new Error('Не удалось подписать данные');
+            throw new Error('Failed to sign data');
         }
     }
 
@@ -809,7 +809,7 @@ class EnhancedSecureCryptoUtils {
             }
         } catch (error) {
             EnhancedSecureCryptoUtils.secureLog.log('error', 'Signature verification failed', { error: error.message });
-            throw new Error('Не удалось проверить цифровую подпись');
+            throw new Error('Failed to verify digital signature');
         }
     }
 
@@ -888,7 +888,7 @@ class EnhancedSecureCryptoUtils {
                 error: error.message,
                 keyType
             });
-            throw new Error(`Не удалось экспортировать ${keyType} ключ: ${error.message}`);
+            throw new Error(`Failed to export ${keyType} key: ${error.message}`);
         }
     }
 
@@ -956,7 +956,7 @@ class EnhancedSecureCryptoUtils {
                 error: error.message,
                 expectedKeyType
             });
-            throw new Error(`Не удалось импортировать подписанный ключ: ${error.message}`);
+            throw new Error(`Failed to import the signed key: ${error.message}`);
         }
     }
 
@@ -973,7 +973,7 @@ class EnhancedSecureCryptoUtils {
             return keyData;
         } catch (error) {
             EnhancedSecureCryptoUtils.secureLog.log('error', 'Legacy public key export failed', { error: error.message });
-            throw new Error('Не удалось экспортировать публичный ключ');
+            throw new Error('Failed to export the public key');
         }
     }
 
@@ -1019,7 +1019,7 @@ class EnhancedSecureCryptoUtils {
             }
         } catch (error) {
             EnhancedSecureCryptoUtils.secureLog.log('error', 'Legacy public key import failed', { error: error.message });
-            throw new Error('Не удалось импортировать публичный ключ');
+            throw new Error('Failed to import the public key');
         }
     }
 
@@ -1075,16 +1075,13 @@ class EnhancedSecureCryptoUtils {
             return keyOrFingerprint._securityMetadata.trusted === true;
         }
 
-        // If we can't determine trust status, assume untrusted for safety
         return false;
     }
 
-
-        // Import public key from signed package with MANDATORY verification
     static async importPublicKeyFromSignedPackage(signedPackage, verifyingKey = null, options = {}) {
         try {
             if (!signedPackage || !signedPackage.keyData || !signedPackage.signature) {
-                throw new Error('Неверный формат подписанного пакета ключа');
+                throw new Error('Invalid signed key package format');
             }
 
             // Validate all required fields are present
@@ -1096,7 +1093,7 @@ class EnhancedSecureCryptoUtils {
                     missingFields: missingFields,
                     availableFields: Object.keys(signedPackage)
                 });
-                throw new Error(`Отсутствуют обязательные поля в подписанном пакете: ${missingFields.join(', ')}`);
+                throw new Error(`Required fields are missing in the signed package: ${missingFields.join(', ')}`);
             }
 
             // SECURITY ENHANCEMENT: MANDATORY signature verification for signed packages
@@ -1131,8 +1128,8 @@ class EnhancedSecureCryptoUtils {
                 }
 
                 // REJECT the signed package if no verifying key provided
-                throw new Error('КРИТИЧЕСКАЯ ОШИБКА БЕЗОПАСНОСТИ: Подписанный пакет ключа получен без ключа проверки. ' +
-                                'Это может указывать на попытку MITM-атаки. Импорт отклонен для обеспечения безопасности.');
+                throw new Error('CRITICAL SECURITY ERROR: Signed key package received without a verification key. ' +
+                                'This may indicate a possible MITM attack attempt. Import rejected for security reasons.');
             }
 
             // Validate key structure
@@ -1152,8 +1149,8 @@ class EnhancedSecureCryptoUtils {
                     version: signedPackage.version,
                     attackPrevented: true
                 });
-                throw new Error('КРИТИЧЕСКАЯ ОШИБКА БЕЗОПАСНОСТИ: Недействительная подпись ключа обнаружена. ' +
-                                'Это указывает на попытку MITM-атаки. Импорт ключа отклонен.');
+                throw new Error('CRITICAL SECURITY ERROR: Invalid key signature detected. ' +
+                                'This indicates a possible MITM attack attempt. Key import rejected.');
             }
 
             // Additional MITM protection: Check for key reuse and suspicious patterns
@@ -1224,7 +1221,7 @@ class EnhancedSecureCryptoUtils {
                 error: error.message,
                 securityImplications: 'Potential security breach prevented'
             });
-            throw new Error(`Не удалось импортировать публичный ключ из подписанного пакета: ${error.message}`);
+            throw new Error(`Failed to import the public key from the signed package: ${error.message}`);
         }
     }
 
@@ -1237,7 +1234,7 @@ class EnhancedSecureCryptoUtils {
                     privateKeyType: typeof privateKey,
                     privateKeyAlgorithm: privateKey?.algorithm?.name
                 });
-                throw new Error('Приватный ключ не является CryptoKey');
+                throw new Error('The private key is not a valid CryptoKey.');
             }
             
             if (!(publicKey instanceof CryptoKey)) {
@@ -1245,7 +1242,7 @@ class EnhancedSecureCryptoUtils {
                     publicKeyType: typeof publicKey,
                     publicKeyAlgorithm: publicKey?.algorithm?.name
                 });
-                throw new Error('Публичный ключ не является CryptoKey');
+                throw new Error('The private key is not a valid CryptoKey.');
             }
             
             // Validate salt size (should be 64 bytes for enhanced security)
@@ -1458,7 +1455,7 @@ class EnhancedSecureCryptoUtils {
                     encryptionKeyType: typeof encryptionKey,
                     encryptionKeyAlgorithm: encryptionKey?.algorithm?.name
                 });
-                throw new Error('Производный ключ шифрования не является CryptoKey');
+                throw new Error('The derived encryption key is not a valid CryptoKey.');
             }
             
             if (!(macKey instanceof CryptoKey)) {
@@ -1466,7 +1463,7 @@ class EnhancedSecureCryptoUtils {
                     macKeyType: typeof macKey,
                     macKeyAlgorithm: macKey?.algorithm?.name
                 });
-                throw new Error('Производный MAC ключ не является CryptoKey');
+                throw new Error('The derived MAC key is not a valid CryptoKey.');
             }
             
             if (!(metadataKey instanceof CryptoKey)) {
@@ -1474,7 +1471,7 @@ class EnhancedSecureCryptoUtils {
                     metadataKeyType: typeof metadataKey,
                     metadataKeyAlgorithm: metadataKey?.algorithm?.name
                 });
-                throw new Error('Производный ключ метаданных не является CryptoKey');
+                throw new Error('The derived metadata key is not a valid CryptoKey.');
             }
 
             EnhancedSecureCryptoUtils.secureLog.log('info', 'Enhanced shared keys derived successfully', {
@@ -1495,7 +1492,7 @@ class EnhancedSecureCryptoUtils {
             };
         } catch (error) {
             EnhancedSecureCryptoUtils.secureLog.log('error', 'Enhanced key derivation failed', { error: error.message });
-            throw new Error(`Не удалось создать общие ключи шифрования: ${error.message}`);
+            throw new Error(`Failed to create shared encryption keys: ${error.message}`);
         }
     }
 
@@ -1559,7 +1556,7 @@ class EnhancedSecureCryptoUtils {
             return proof;
         } catch (error) {
             EnhancedSecureCryptoUtils.secureLog.log('error', 'Authentication proof creation failed', { error: error.message });
-            throw new Error(`Не удалось создать криптографическое доказательство: ${error.message}`);
+            throw new Error(`Failed to create cryptographic proof: ${error.message}`);
         }
     }
 
@@ -1617,7 +1614,7 @@ class EnhancedSecureCryptoUtils {
             return true;
         } catch (error) {
             EnhancedSecureCryptoUtils.secureLog.log('error', 'Authentication proof verification failed', { error: error.message });
-            throw new Error(`Не удалось проверить криптографическое доказательство: ${error.message}`);
+            throw new Error(`Failed to verify cryptographic proof: ${error.message}`);
         }
     }
 
@@ -1630,7 +1627,7 @@ class EnhancedSecureCryptoUtils {
             return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         } catch (error) {
             EnhancedSecureCryptoUtils.secureLog.log('error', 'Public key hashing failed', { error: error.message });
-            throw new Error('Не удалось создать хеш публичного ключа');
+            throw new Error('Failed to create hash of the public key');
         }
     }
 
@@ -1727,7 +1724,7 @@ class EnhancedSecureCryptoUtils {
                 error: error.message,
                 messageId
             });
-            throw new Error(`Не удалось зашифровать сообщение: ${error.message}`);
+            throw new Error(`Failed to encrypt the message: ${error.message}`);
         }
     }
 
@@ -1827,7 +1824,7 @@ class EnhancedSecureCryptoUtils {
             };
         } catch (error) {
             EnhancedSecureCryptoUtils.secureLog.log('error', 'Message decryption failed', { error: error.message });
-            throw new Error(`Не удалось расшифровать сообщение: ${error.message}`);
+            throw new Error(`Failed to decrypt the message: ${error.message}`);
         }
     }
 
@@ -1875,7 +1872,7 @@ class EnhancedSecureCryptoUtils {
             return fingerprint;
         } catch (error) {
             EnhancedSecureCryptoUtils.secureLog.log('error', 'Key fingerprint calculation failed', { error: error.message });
-            throw new Error('Не удалось вычислить отпечаток ключа');
+            throw new Error('Failed to compute the key fingerprint');
         }
     }
 }
