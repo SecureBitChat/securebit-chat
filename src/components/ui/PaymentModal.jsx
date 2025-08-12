@@ -513,7 +513,7 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                         React.createElement('i', { key: 'error-icon', className: 'fas fa-exclamation-triangle text-red-400 mt-0.5' }),
                         React.createElement('div', { key: 'error-text', className: 'flex-1' }, [
                             React.createElement('div', { key: 'error-message', className: 'text-red-400 text-sm' }, error),
-                            (error.includes('инвойса') || paymentStatus === 'failed') && React.createElement('button', { 
+                            (error.includes('invoice') || paymentStatus === 'failed') && React.createElement('button', { 
                                 key: 'retry-btn',
                                 onClick: () => createRealInvoice(selectedType),
                                 className: 'mt-2 text-orange-400 hover:text-orange-300 underline text-sm'
