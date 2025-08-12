@@ -14,52 +14,53 @@ const EnhancedMinimalHeader = ({
         switch (status) {
             case 'connected':
                 return {
-                    text: 'Подключено',
-                    className: 'status-connected',
-                    badgeClass: 'bg-green-500/10 text-green-400 border-green-500/20'
-                };
+                text: 'Connected',
+                className: 'status-connected',
+                badgeClass: 'bg-green-500/10 text-green-400 border-green-500/20'
+            };
             case 'verifying':
                 return {
-                    text: 'Верификация...',
+                    text: 'Verifying...',
                     className: 'status-verifying',
                     badgeClass: 'bg-purple-500/10 text-purple-400 border-purple-500/20'
                 };
             case 'connecting':
                 return {
-                    text: 'Подключение...',
+                    text: 'Connecting...',
                     className: 'status-connecting',
                     badgeClass: 'bg-blue-500/10 text-blue-400 border-blue-500/20'
                 };
             case 'retrying':
                 return {
-                    text: 'Переподключение...',
+                    text: 'Retrying...',
                     className: 'status-connecting',
                     badgeClass: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
                 };
             case 'failed':
                 return {
-                    text: 'Ошибка',
+                    text: 'Error',
                     className: 'status-failed',
                     badgeClass: 'bg-red-500/10 text-red-400 border-red-500/20'
                 };
             case 'reconnecting':
                 return {
-                    text: 'Переподключение...',
+                    text: 'Reconnecting...',
                     className: 'status-connecting',
                     badgeClass: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
                 };
             case 'peer_disconnected':
                 return {
-                    text: 'Собеседник отключился',
+                    text: 'Peer disconnected',
                     className: 'status-failed',
                     badgeClass: 'bg-orange-500/10 text-orange-400 border-orange-500/20'
                 };
             default:
                 return {
-                    text: 'Не подключен',
+                    text: 'Not connected',
                     className: 'status-disconnected',
                     badgeClass: 'bg-gray-500/10 text-gray-400 border-gray-500/20'
                 };
+
         }
     };
 
@@ -67,8 +68,7 @@ const EnhancedMinimalHeader = ({
 
     const handleSecurityClick = () => {
         if (securityLevel?.verificationResults) {
-            console.log('Security verification results:', securityLevel.verificationResults);
-            alert('Детали проверки безопасности:\n\n' + 
+            alert('Security check details:\n\n' + 
                 Object.entries(securityLevel.verificationResults)
                     .map(([key, result]) => `${key}: ${result.passed ? '✅' : '❌'} ${result.details}`)
                     .join('\n')
@@ -87,7 +87,6 @@ const EnhancedMinimalHeader = ({
                 key: 'content',
                 className: 'flex items-center justify-between h-16'
             }, [
-                // Logo and Title - Mobile Responsive
                 React.createElement('div', {
                     key: 'logo-section',
                     className: 'flex items-center space-x-2 sm:space-x-3'
@@ -119,7 +118,6 @@ const EnhancedMinimalHeader = ({
                     key: 'status-section',
                     className: 'flex items-center space-x-2 sm:space-x-3'
                 }, [
-                    // Session Timer - показывать если есть активная сессия
                     (() => {
                         const hasActive = sessionManager?.hasActiveSession();
                         const hasTimer = !!window.SessionTimer;
@@ -197,7 +195,7 @@ const EnhancedMinimalHeader = ({
                                 securityLevel.color === 'green' ? 'bg-green-500/20' :
                                 securityLevel.color === 'yellow' ? 'bg-yellow-500/20' : 'bg-red-500/20'
                             }`,
-                            title: `${securityLevel.level} (${securityLevel.score}%) - Нажмите для деталей`,
+                            title: `${securityLevel.level} (${securityLevel.score}%) - Click for details`,
                             onClick: handleSecurityClick
                         }, [
                             React.createElement('i', {
@@ -237,7 +235,7 @@ const EnhancedMinimalHeader = ({
                         React.createElement('span', {
                             key: 'disconnect-text',
                             className: 'hidden sm:inline'
-                        }, 'Отключить')
+                        }, 'Disconnect')
                     ])
                 ])
             ])
