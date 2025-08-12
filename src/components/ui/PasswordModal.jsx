@@ -12,7 +12,7 @@ const PasswordModal = ({ isOpen, onClose, onSubmit, action, password, setPasswor
     };
     
     const getActionText = () => {
-        return action === 'offer' ? 'приглашения' : 'ответа';
+        return action === 'offer' ? 'invitation' : 'response';
     };
     
     return React.createElement('div', {
@@ -37,7 +37,7 @@ const PasswordModal = ({ isOpen, onClose, onSubmit, action, password, setPasswor
                 React.createElement('h3', {
                     key: 'title',
                     className: 'text-lg font-medium text-primary'
-                }, 'Ввод пароля')
+                }, 'Password input')
             ]),
             React.createElement('form', {
                 key: 'form',
@@ -47,13 +47,13 @@ const PasswordModal = ({ isOpen, onClose, onSubmit, action, password, setPasswor
                 React.createElement('p', {
                     key: 'description',
                     className: 'text-secondary text-sm'
-                }, `Введите пароль для расшифровки ${getActionText()}:`),
+                }, `Enter password for decryption ${getActionText()}:`),
                 React.createElement('input', {
                     key: 'password-input',
                     type: 'password',
                     value: password,
                     onChange: (e) => setPassword(e.target.value),
-                    placeholder: 'Введите пароль...',
+                    placeholder: 'Enter password...',
                     className: 'w-full p-3 bg-gray-900/30 border border-gray-500/20 rounded-lg text-primary placeholder-gray-500 focus:border-purple-500/40 focus:outline-none transition-all',
                     autoFocus: true
                 }),
@@ -69,7 +69,7 @@ const PasswordModal = ({ isOpen, onClose, onSubmit, action, password, setPasswor
                         React.createElement('i', {
                             className: 'fas fa-unlock-alt mr-2'
                         }),
-                        'Расшифровать'
+                        'Decrypt'
                     ]),
                     React.createElement('button', {
                         key: 'cancel',
@@ -80,7 +80,7 @@ const PasswordModal = ({ isOpen, onClose, onSubmit, action, password, setPasswor
                         React.createElement('i', {
                             className: 'fas fa-times mr-2'
                         }),
-                        'Отмена'
+                        'Cancel'
                     ])
                 ])
             ])
