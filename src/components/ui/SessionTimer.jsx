@@ -1,7 +1,6 @@
 const React = window.React;
 
 const SessionTimer = ({ timeLeft, sessionType }) => {
-    // Отладочная информация
     console.log('SessionTimer render:', { timeLeft, sessionType });
     
     if (!timeLeft || timeLeft <= 0) {
