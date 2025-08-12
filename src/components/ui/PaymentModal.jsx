@@ -295,7 +295,7 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                 React.createElement('h2', { 
                     key: 'title', 
                     className: 'text-xl font-semibold text-primary' 
-                }, step === 'select' ? 'Выберите тип сессии' : 'Оплата сессии'),
+                }, step === 'select' ? 'Select session type' : 'Session payment'),
                 React.createElement('button', { 
                     key: 'close',
                     onClick: onClose, 
