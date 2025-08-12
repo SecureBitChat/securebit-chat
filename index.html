@@ -18,14 +18,14 @@
     <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
     
     <!-- GitHub Pages SEO -->
-    <meta name="description" content="LockBit.chat - P2P мессенджер с военным уровнем криптографии и Lightning Network платежами">
+    <meta name="description" content="LockBit.chat — P2P messenger with military-grade cryptography and Lightning Network payments">
     <meta name="keywords" content="P2P messenger, encryption, Lightning Network, WebRTC, privacy">
     <meta name="author" content="Volodymyr">
     <link rel="canonical" href="https://github.com/lockbitchat/lockbit-chat/">
     
     <!-- Open Graph -->
     <meta property="og:title" content="LockBit.chat - Enhanced Security Edition">
-    <meta property="og:description" content="Первый P2P мессенджер с Lightning Network платежами">
+    <meta property="og:description" content="The first P2P messenger with Lightning Network payments">
     <meta property="og:url" content="https://github.com/lockbitchat/lockbit-chat/">
     <meta property="og:type" content="website">
     <meta property="og:image" content="https://github.com/lockbitchat/lockbit-chat/assets/images/og-image.png">
@@ -33,7 +33,7 @@
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="LockBit.chat - Enhanced Security Edition">
-    <meta name="twitter:description" content="P2P мессенджер с военным уровнем криптографии">
+    <meta name="twitter:description" content="P2P messenger with military-grade cryptography">
 
     <title>LockBit.chat - Enhanced Security Edition</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -103,38 +103,38 @@
                 {
                     icon: "fas fa-shield-halved",
                     color: "orange",
-                    title: "Военный уровень шифрования",
-                    description: "ECDH P-384 + AES-GCM 256-bit + ECDSA цифровые подписи обеспечивают криптографическую стойкость уровня NSA Suite B"
+                    title: "Military-grade encryption",
+                    description: "ECDH P-384 + AES-GCM 256-bit + ECDSA digital signatures provide NSA Suite B–level cryptographic strength"
                 },
                 {
                     icon: "fas fa-sync-alt",
                     color: "purple",
                     title: "Perfect Forward Secrecy",
-                    description: "Автоматическая ротация ключей каждые 5 минут гарантирует, что даже при компрометации одного ключа остальные сообщения останутся защищенными"
+                    description: "Automatic key rotation every 5 minutes ensures that even if one key is compromised, all other messages remain secure."
                 },
                 {
                     icon: "fas fa-user-shield",
                     color: "green",
-                    title: "Защита от MITM атак",
-                    description: "Out-of-band верификация с кодами безопасности + взаимная аутентификация исключают возможность атак человека посередине"
+                    title: "Protection against MITM attacks",
+                    description: "Out-of-band verification with security codes plus mutual authentication eliminate the possibility of man-in-the-middle attacks."
                 },
                 {
                     icon: "fas fa-bolt",
                     color: "yellow",
-                    title: "Lightning-платежи",
-                    description: "Оплата сессий в сатоши через Lightning Network. Приватность платежей + мгновенные микротранзакции без банков"
+                    title: "Lightning payments",
+                    description: "Session payments in satoshis via Lightning Network. Payment privacy plus instant microtransactions without banks."
                 },
                 {
                     icon: "fas fa-eye-slash",
                     color: "blue",
-                    title: "Нулевое хранение данных",
-                    description: "Все сообщения существуют только в памяти браузера. Никаких серверов, логов или баз данных. Полная анонимность"
+                    title: "Zero data storage",
+                    description: "All messages exist only in the browser’s memory. No servers, logs, or databases. Complete anonymity."
                 },
                 {
                     icon: "fas fa-code",
                     color: "cyan",
-                    title: "Open Source безопасность",
-                    description: "Весь код открыт для аудита. Криптография работает прямо в браузере без доверия к серверам или третьим сторонам"
+                    title: "Open Source security",
+                    description: "All code is open for audit. Cryptography runs directly in the browser without relying on servers or third parties."
                 }
             ];
 
@@ -153,10 +153,10 @@
                 <div className="mt-12">
                     <div className="text-center mb-8">
                         <h3 className="text-2xl font-semibold text-primary mb-3">
-                            Почему LockBit.chat уникальный
+                            Why LockBit.chat is unique
                         </h3>
                         <p className="text-secondary max-w-2xl mx-auto">
-                            Единственный мессенджер с военным уровнем криптографии и Lightning-платежами
+                            The only messenger with military-grade cryptography and Lightning payments
                         </p>
                     </div>
 
@@ -169,7 +169,7 @@
                                 {slides.map((slide, index) => (
                                     <div key={index} className="w-full flex-shrink-0 px-4">
                                         <div className="card-minimal rounded-xl p-8 text-center min-h-[300px] flex flex-col justify-center relative overflow-hidden">
-                                            {/* Фон-иконка */}
+                                            {/* Background icon */}
                                             <i
                                                 className={`${slide.icon} absolute right-[-100px] top-1/2 -translate-y-1/2 opacity-10 text-[300px] pointer-events-none ${
                                                     slide.color === 'orange' ? 'text-orange-500' :
@@ -181,7 +181,7 @@
                                                 }`}
                                             ></i>
 
-                                            {/* Контент */}
+                                            {/* Content */}
                                             <h4 className="text-xl font-semibold text-primary mb-4 relative z-10">
                                                 {slide.title}
                                             </h4>
@@ -194,7 +194,7 @@
                             </div>
                         </div>
 
-                        {/* Навигация */}
+                        {/* Navigation */}
                         <button
                             onClick={prevSlide}
                             className="absolute left-2 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-gray-600/80 hover:bg-gray-500/80 text-white rounded-full flex items-center justify-center transition-all duration-200 z-10"
@@ -209,7 +209,7 @@
                         </button>
                     </div>
 
-                    {/* Точки */}
+                    {/* Dots */}
                     <div className="flex justify-center space-x-2 mt-6">
                         {slides.map((_, index) => (
                             <button
@@ -366,100 +366,100 @@
 
         const features = [
             {
-                name: "Криптография",
-                lockbit: { status: "🏆", detail: "ECDH P-384 + AES-GCM 256 + ECDSA" },
-                signal: { status: "✅", detail: "Signal Protocol + Double Ratchet" },
-                threema: { status: "✅", detail: "NaCl + XSalsa20 + Poly1305" },
-                olvid: { status: "✅", detail: "OlvidEngine + пост-квантовая" },
-                session: { status: "✅", detail: "Signal Protocol модифицированный" }
+            name: "Cryptography",
+            lockbit: { status: "🏆", detail: "ECDH P-384 + AES-GCM 256 + ECDSA" },
+            signal: { status: "✅", detail: "Signal Protocol + Double Ratchet" },
+            threema: { status: "✅", detail: "NaCl + XSalsa20 + Poly1305" },
+            olvid: { status: "✅", detail: "OlvidEngine + post-quantum" },
+            session: { status: "✅", detail: "Modified Signal Protocol" }
             },
             {
-                name: "Perfect Forward Secrecy",
-                lockbit: { status: "🏆", detail: "Автоматическая ротация каждые 5 мин" },
-                signal: { status: "✅", detail: "Double Ratchet алгоритм" },
-                threema: { status: "⚠️", detail: "Частично (групповые чаты)" },
-                olvid: { status: "✅", detail: "Полная PFS для всех сообщений" },
-                session: { status: "✅", detail: "Session Ratchet алгоритм" }
+            name: "Perfect Forward Secrecy",
+            lockbit: { status: "🏆", detail: "Automatic rotation every 5 minutes" },
+            signal: { status: "✅", detail: "Double Ratchet algorithm" },
+            threema: { status: "⚠️", detail: "Partial (group chats)" },
+            olvid: { status: "✅", detail: "Full PFS for all messages" },
+            session: { status: "✅", detail: "Session Ratchet algorithm" }
             },
             {
-                name: "Архитектура",
-                lockbit: { status: "🏆", detail: "Чистый P2P без серверов" },
-                signal: { status: "❌", detail: "Централизованные серверы Signal" },
-                threema: { status: "❌", detail: "Серверы Threema в Швейцарии" },
-                olvid: { status: "❌", detail: "Серверы во Франции" },
-                session: { status: "⚠️", detail: "Onion routing через узлы сети" }
+            name: "Architecture",
+            lockbit: { status: "🏆", detail: "Pure P2P without servers" },
+            signal: { status: "❌", detail: "Centralized Signal servers" },
+            threema: { status: "❌", detail: "Threema servers in Switzerland" },
+            olvid: { status: "❌", detail: "Servers in France" },
+            session: { status: "⚠️", detail: "Onion routing via network nodes" }
             },
             {
-                name: "Анонимность регистрации",
-                lockbit: { status: "🏆", detail: "Регистрация не требуется" },
-                signal: { status: "❌", detail: "Обязателен номер телефона" },
-                threema: { status: "✅", detail: "ID генерируется локально" },
-                olvid: { status: "✅", detail: "Криптографическая идентичность" },
-                session: { status: "✅", detail: "Случайный Session ID" }
+            name: "Registration Anonymity",
+            lockbit: { status: "🏆", detail: "No registration required" },
+            signal: { status: "❌", detail: "Phone number required" },
+            threema: { status: "✅", detail: "ID generated locally" },
+            olvid: { status: "✅", detail: "Cryptographic identity" },
+            session: { status: "✅", detail: "Random session ID" }
             },
             {
-                name: "Защита метаданных",
-                lockbit: { status: "🏆", detail: "Полное шифрование метаданных" },
-                signal: { status: "⚠️", detail: "Sealed Sender (частично)" },
-                threema: { status: "⚠️", detail: "Минимальные метаданные" },
-                olvid: { status: "✅", detail: "Защита через обфускацию" },
-                session: { status: "✅", detail: "Onion routing скрывает метаданные" }
+            name: "Metadata Protection",
+            lockbit: { status: "🏆", detail: "Full metadata encryption" },
+            signal: { status: "⚠️", detail: "Sealed Sender (partial)" },
+            threema: { status: "⚠️", detail: "Minimal metadata" },
+            olvid: { status: "✅", detail: "Protection via obfuscation" },
+            session: { status: "✅", detail: "Onion routing hides metadata" }
             },
             {
-                name: "Открытый код",
-                lockbit: { status: "🏆", detail: "100% открытый и аудируемый" },
-                signal: { status: "✅", detail: "Полностью открытый" },
-                threema: { status: "⚠️", detail: "Только клиенты открыты" },
-                olvid: { status: "✅", detail: "Полностью открытый" },
-                session: { status: "✅", detail: "Полностью открытый" }
+            name: "Open Source",
+            lockbit: { status: "🏆", detail: "100% open and auditable" },
+            signal: { status: "✅", detail: "Fully open" },
+            threema: { status: "⚠️", detail: "Only clients open" },
+            olvid: { status: "✅", detail: "Fully open" },
+            session: { status: "✅", detail: "Fully open" }
             },
             {
-                name: "Цифровые подписи",
-                lockbit: { status: "🏆", detail: "ECDSA P-384 встроенные" },
-                signal: { status: "✅", detail: "Ed25519 подписи" },
-                threema: { status: "✅", detail: "Ed25519 подписи" },
-                olvid: { status: "✅", detail: "Множественные алгоритмы" },
-                session: { status: "✅", detail: "Ed25519 подписи" }
+            name: "Digital Signatures",
+            lockbit: { status: "🏆", detail: "Built-in ECDSA P-384" },
+            signal: { status: "✅", detail: "Ed25519 signatures" },
+            threema: { status: "✅", detail: "Ed25519 signatures" },
+            olvid: { status: "✅", detail: "Multiple algorithms" },
+            session: { status: "✅", detail: "Ed25519 signatures" }
             },
             {
-                name: "Экономическая модель",
-                lockbit: { status: "🏆", detail: "Lightning сатоши за сессию" },
-                signal: { status: "⚠️", detail: "Пожертвования и гранты" },
-                threema: { status: "✅", detail: "Разовая покупка приложения" },
-                olvid: { status: "✅", detail: "Бесплатно + Enterprise" },
-                session: { status: "⚠️", detail: "Пожертвования" }
+            name: "Economic Model",
+            lockbit: { status: "🏆", detail: "Lightning satoshis per session" },
+            signal: { status: "⚠️", detail: "Donations and grants" },
+            threema: { status: "✅", detail: "One-time app purchase" },
+            olvid: { status: "✅", detail: "Free + Enterprise" },
+            session: { status: "⚠️", detail: "Donations" }
             },
             {
-                name: "Устойчивость к цензуре",
-                lockbit: { status: "🏆", detail: "Невозможно заблокировать P2P" },
-                signal: { status: "⚠️", detail: "Блокируется в авторитарных странах" },
-                threema: { status: "⚠️", detail: "Может быть заблокирован" },
-                olvid: { status: "⚠️", detail: "Может быть заблокирован" },
-                session: { status: "✅", detail: "Onion routing обходит блокировки" }
+            name: "Censorship Resistance",
+            lockbit: { status: "🏆", detail: "Impossible to block P2P" },
+            signal: { status: "⚠️", detail: "Blocked in authoritarian countries" },
+            threema: { status: "⚠️", detail: "May be blocked" },
+            olvid: { status: "⚠️", detail: "May be blocked" },
+            session: { status: "✅", detail: "Onion routing bypasses blocks" }
             },
             {
-                name: "Хранение данных",
-                lockbit: { status: "🏆", detail: "Только в памяти браузера" },
-                signal: { status: "⚠️", detail: "Локальная база данных" },
-                threema: { status: "⚠️", detail: "Локально + опциональный бэкап" },
-                olvid: { status: "✅", detail: "Локально без облачного бэкапа" },
-                session: { status: "⚠️", detail: "Локальная база данных" }
+            name: "Data Storage",
+            lockbit: { status: "🏆", detail: "Only in browser memory" },
+            signal: { status: "⚠️", detail: "Local database" },
+            threema: { status: "⚠️", detail: "Local + optional backup" },
+            olvid: { status: "✅", detail: "Local without cloud backup" },
+            session: { status: "⚠️", detail: "Local database" }
             },
             {
-                name: "Пост-квантовая защита",
-                lockbit: { status: "⚠️", detail: "Планируется в версии 5.0" },
-                signal: { status: "⚠️", detail: "В разработке PQXDH" },
-                threema: { status: "❌", detail: "Не реализовано" },
-                olvid: { status: "🏆", detail: "Уже реализована" },
-                session: { status: "❌", detail: "Не реализовано" }
+            name: "Post-Quantum Protection",
+            lockbit: { status: "⚠️", detail: "Planned in version 5.0" },
+            signal: { status: "⚠️", detail: "PQXDH in development" },
+            threema: { status: "❌", detail: "Not implemented" },
+            olvid: { status: "🏆", detail: "Already implemented" },
+            session: { status: "❌", detail: "Not implemented" }
             },
             {
-                name: "Верификация MITM",
-                lockbit: { status: "🏆", detail: "Out-of-band коды + взаимная auth" },
-                signal: { status: "✅", detail: "Safety numbers" },
-                threema: { status: "✅", detail: "Сканирование QR кодов" },
-                olvid: { status: "✅", detail: "SAS верификация" },
-                session: { status: "⚠️", detail: "Базовая верификация ключей" }
+            name: "MITM Verification",
+            lockbit: { status: "🏆", detail: "Out-of-band codes + mutual auth" },
+            signal: { status: "✅", detail: "Safety numbers" },
+            threema: { status: "✅", detail: "QR code scanning" },
+            olvid: { status: "✅", detail: "SAS verification" },
+            session: { status: "⚠️", detail: "Basic key verification" }
             }
         ];
 
@@ -488,11 +488,11 @@
                 React.createElement('h3', {
                     key: 'title',
                     className: "text-2xl font-semibold text-primary mb-3"
-                }, 'Сравнение с лидерами приватности'),
+                }, 'Comparison with privacy leaders'),
                 React.createElement('p', {
                     key: 'subtitle',
                     className: "text-secondary max-w-2xl mx-auto mb-4"
-                }, "Детальное сравнение с самыми защищенными мессенджерами мира"),
+                }, "A detailed comparison with the world’s most secure messengers"),
                 React.createElement('div', {
                     key: 'trophy-note',
                     className: "inline-flex items-center px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg"
@@ -504,7 +504,7 @@
                     React.createElement('span', {
                         key: 'text',
                         className: "text-yellow-300 text-sm font-medium"
-                    }, "Лидер в категории")
+                    }, "Leader in the category")
                 ])
             ]),
 
@@ -519,7 +519,7 @@
                 }, [
                     React.createElement('p', {
                         className: "text-yellow-400 text-sm text-center"
-                    }, "💡 Поверните устройство горизонтально для лучшего просмотра")
+                    }, "💡 Please rotate your device horizontally for better viewing.")
                 ]),
 
                 // Table
@@ -543,7 +543,7 @@
                                 React.createElement('th', {
                                     key: 'feature-header',
                                     className: "text-left p-4 border-b border-gray-600 text-primary font-semibold min-w-[220px]"
-                                }, 'Критерий безопасности'),
+                                }, 'Security criterion'),
                                 ...messengers.map((messenger, index) =>
                                     React.createElement('th', {
                                         key: `messenger-${index}`,
@@ -728,7 +728,7 @@
                     React.createElement('span', {
                         key: 'text1',
                         className: "text-yellow-300 text-sm font-medium"
-                    }, "Лидер")
+                    }, "Leader")
                 ]),
                 React.createElement('div', {
                     key: 'legend-item-2',
@@ -741,7 +741,7 @@
                     React.createElement('span', {
                         key: 'text2',
                         className: "text-green-300 text-sm font-medium"
-                    }, "Отлично")
+                    }, "Excellent")
                 ]),
                 React.createElement('div', {
                     key: 'legend-item-3',
@@ -754,7 +754,7 @@
                     React.createElement('span', {
                         key: 'text3',
                         className: "text-yellow-300 text-sm font-medium"
-                    }, "Частично")
+                    }, "Partially")
                 ]),
                 React.createElement('div', {
                     key: 'legend-item-4',
@@ -767,7 +767,7 @@
                     React.createElement('span', {
                         key: 'text4',
                         className: "text-red-300 text-sm font-medium"
-                    }, "Нет")
+                    }, "No")
                 ])
             ]),
 
@@ -784,249 +784,250 @@
                         key: 'icon',
                         className: 'fas fa-trophy mr-2'
                     }),
-                    'Итоги сравнения'
+                    'Summary of the comparison'
                 ]),
                 React.createElement('p', {
                     key: 'summary-text',
                     className: "text-secondary leading-relaxed"
-                }, "LockBit.chat лидирует в 8 из 12 категорий безопасности, особенно превосходя конкурентов в архитектуре P2P, анонимности и защите метаданных. Только Olvid опережает в пост-квантовой криптографии, тогда как централизованные решения показывают существенные недостатки в приватности.")
+                }, "LockBit.chat leads in 8 out of 12 security categories, especially excelling over competitors in P2P architecture, anonymity, and metadata protection. Only Olvid surpasses it in post-quantum cryptography, while centralized solutions show significant privacy shortcomings.")
             ])
         ]);
     };
 
         function Roadmap() {
           const [selectedPhase, setSelectedPhase] = React.useState(null);
-        
           const phases = [
             {
-              version: "v1.0",
-              title: "Начало разработки",
-              status: "done",
-              date: "Начало 2025",
-              description: "Идея, прототип и настройка инфраструктуры",
-              features: [
-                "Формирование концепции и требований",
-                "Выбор стека: WebRTC, P2P, криптография",
-                "Первые прототипы обмена сообщениями",
-                "Создание репозитория и CI",
-                "Базовая архитектура шифрования",
-                "Проектирование UX/UI"
-              ]
+                version: "v1.0",
+                title: "Start of Development",
+                status: "done",
+                date: "Early 2025",
+                description: "Idea, prototype, and infrastructure setup",
+                features: [
+                "Concept and requirements formation",
+                "Stack selection: WebRTC, P2P, cryptography",
+                "First messaging prototypes",
+                "Repository creation and CI",
+                "Basic encryption architecture",
+                "UX/UI design"
+                ]
             },
             {
-              version: "v1.5",
-              title: "Alpha Release",
-              status: "done",
-              date: "Весна 2025",
-              description: "Первая публичная альфа: базовый чат и обмен ключами",
-              features: [
-                "Базовый P2P обмен сообщениями через WebRTC",
-                "Простейшая E2E-шифровка (демо-схема)",
-                "Стабильный сигналинг и переподключение",
-                "Минимальный UX для тестирования",
-                "Сбор обратной связи от ранних тестировщиков"
-              ]
+                version: "v1.5",
+                title: "Alpha Release",
+                status: "done",
+                date: "Spring 2025",
+                description: "First public alpha: basic chat and key exchange",
+                features: [
+                "Basic P2P messaging via WebRTC",
+                "Simple E2E encryption (demo scheme)",
+                "Stable signaling and reconnection",
+                "Minimal UX for testing",
+                "Feedback collection from early testers"
+                ]
             },
             {
-              version: "v2.0",
-              title: "Security Hardened",
-              status: "done",
-              date: "Лето 2025",
-              description: "Усиление безопасности и выпуск стабильной ветки",
-              features: [
-                "Внедрение ECDH/ECDSA в продакшн",
-                "Perfect Forward Secrecy и ротация ключей",
-                "Улучшенные проверки подлинности",
-                "Шифрование файлов и передач больших payload'ов",
-                "Аудит базовых криптопроцессов"
-              ]
+                version: "v2.0",
+                title: "Security Hardened",
+                status: "done",
+                date: "Summer 2025",
+                description: "Security strengthening and stable branch release",
+                features: [
+                "ECDH/ECDSA implementation in production",
+                "Perfect Forward Secrecy and key rotation",
+                "Improved authentication checks",
+                "File encryption and large payload transfers",
+                "Audit of basic cryptoprocesses"
+                ]
             },
             {
-              version: "v3.0",
-              title: "Scaling & Stability",
-              status: "done",
-              date: "Осень 2025",
-              description: "Масштабирование сети и улучшение стабильности",
-              features: [
-                "Оптимизация P2P соединений и NAT traversal",
-                "Механизмы повторного подключения и очереди сообщений",
-                "Снижение потребления батареи на мобильных",
-                "Поддержка синхронизации между устройствами",
-                "Инструменты мониторинга и логирования для разработчиков"
-              ]
+                version: "v3.0",
+                title: "Scaling & Stability",
+                status: "done",
+                date: "Fall 2025",
+                description: "Network scaling and stability improvements",
+                features: [
+                "Optimization of P2P connections and NAT traversal",
+                "Reconnection mechanisms and message queues",
+                "Reduced battery consumption on mobile",
+                "Support for multi-device synchronization",
+                "Monitoring and logging tools for developers"
+                ]
             },
             {
-              version: "v3.5",
-              title: "Privacy-first Release",
-              status: "done",
-              date: "Зима 2025",
-              description: "Фокус на приватности: минимизация метаданных",
-              features: [
-                "Защита метаданных и уменьшение fingerprint'а",
-                "Эксперименты с onion-routing и DHT",
-                "Опции анонимных соединений",
-                "Подготовка к открытой ревизии кода",
-                "Улучшенные процессы верификации пользователей"
-              ]
+                version: "v3.5",
+                title: "Privacy-first Release",
+                status: "done",
+                date: "Winter 2025",
+                description: "Focus on privacy: minimizing metadata",
+                features: [
+                "Metadata protection and fingerprint reduction",
+                "Experiments with onion routing and DHT",
+                "Options for anonymous connections",
+                "Preparation for open code audit",
+                "Improved user verification processes"
+                ]
             },
-        
-            // current and future phases (kept from original roadmap)
+
+            // current and future phases
             {
-              version: "v4.0",
-              title: "Enhanced Security Edition",
-              status: "current",
-              date: "Сейчас",
-              description: "Текущая версия с военным уровнем криптографии",
-              features: [
-                "ECDH P-384 + AES-GCM 256-bit шифрование",
-                "ECDSA цифровые подписи",
-                "Perfect Forward Secrecy с ротацией ключей",
-                "Out-of-band верификация MITM",
-                "Lightning Network платежи",
-                "P2P WebRTC архитектура",
-                "Защита метаданных",
-                "100% открытый код"
-              ]
-            },
-            {
-              version: "v4.5",
-              title: "Mobile & Desktop Edition",
-              status: "development",
-              date: "Q2 2025",
-              description: "Нативные приложения для всех платформ",
-              features: [
-                "PWA приложение для мобильных",
-                "Electron приложение для десктопа",
-                "Уведомления в реальном времени",
-                "Автоматическое переподключение",
-                "Оптимизация батареи",
-                "Синхронизация между устройствами",
-                "Улучшенный UX/UI",
-                "Поддержка файлов до 100MB"
-              ]
+                version: "v4.0",
+                title: "Enhanced Security Edition",
+                status: "current",
+                date: "Now",
+                description: "Current version with military-grade cryptography",
+                features: [
+                "ECDH P-384 + AES-GCM 256-bit encryption",
+                "ECDSA digital signatures",
+                "Perfect Forward Secrecy with key rotation",
+                "Out-of-band MITM verification",
+                "Lightning Network payments",
+                "P2P WebRTC architecture",
+                "Metadata protection",
+                "100% open source code"
+                ]
             },
             {
-              version: "v5.0",
-              title: "Quantum-Resistant Edition",
-              status: "planned",
-              date: "Q4 2025",
-              description: "Защита от квантовых компьютеров",
-              features: [
-                "Пост-квантовая криптография CRYSTALS-Kyber",
-                "SPHINCS+ цифровые подписи",
-                "Гибридная схема: классика + PQ",
+                version: "v4.5",
+                title: "Mobile & Desktop Edition",
+                status: "development",
+                date: "Q2 2025",
+                description: "Native apps for all platforms",
+                features: [
+                "PWA app for mobile",
+                "Electron app for desktop",
+                "Real-time notifications",
+                "Automatic reconnection",
+                "Battery optimization",
+                "Cross-device synchronization",
+                "Improved UX/UI",
+                "Support for files up to 100MB"
+                ]
+            },
+            {
+                version: "v5.0",
+                title: "Quantum-Resistant Edition",
+                status: "planned",
+                date: "Q4 2025",
+                description: "Protection against quantum computers",
+                features: [
+                "Post-quantum cryptography CRYSTALS-Kyber",
+                "SPHINCS+ digital signatures",
+                "Hybrid scheme: classic + PQ",
                 "Quantum-safe key exchange",
-                "Обновленные алгоритмы хеширования",
-                "Миграция существующих сессий",
-                "Совместимость с v4.x",
-                "Квантово-стойкие протоколы"
-              ]
+                "Updated hashing algorithms",
+                "Migration of existing sessions",
+                "Compatibility with v4.x",
+                "Quantum-resistant protocols"
+                ]
             },
             {
-              version: "v5.5",
-              title: "Group Communications",
-              status: "planned",
-              date: "Q2 2026",
-              description: "Групповые чаты с сохранением приватности",
-              features: [
-                "Групповые P2P соединения до 8 участников",
-                "Mesh networking для групп",
-                "Signal Double Ratchet для групп",
-                "Анонимные группы без метаданных",
-                "Эфемерные группы (исчезают после сессии)",
-                "Групповые Lightning платежи",
-                "Администрирование через криптографию",
-                "Аудит участников группы"
-              ]
+                version: "v5.5",
+                title: "Group Communications",
+                status: "planned",
+                date: "Q2 2026",
+                description: "Group chats with preserved privacy",
+                features: [
+                "P2P group connections up to 8 participants",
+                "Mesh networking for groups",
+                "Signal Double Ratchet for groups",
+                "Anonymous groups without metadata",
+                "Ephemeral groups (disappear after session)",
+                "Group Lightning payments",
+                "Cryptographic group administration",
+                "Group member auditing"
+                ]
             },
             {
-              version: "v6.0",
-              title: "Decentralized Network",
-              status: "research",
-              date: "2027",
-              description: "Полностью децентрализованная сеть",
-              features: [
-                "Mesh сеть LockBit узлов",
-                "DHT для обнаружения пиров",
-                "Onion routing встроенный",
-                "Токеномика и стимулы узлов",
-                "Governance через DAO",
-                "Interoperability с другими сетями",
-                "Кроссплатформенная совместимость",
-                "Самовосстанавливающаяся сеть"
-              ]
+                version: "v6.0",
+                title: "Decentralized Network",
+                status: "research",
+                date: "2027",
+                description: "Fully decentralized network",
+                features: [
+                "LockBit node mesh network",
+                "DHT for peer discovery",
+                "Built-in onion routing",
+                "Tokenomics and node incentives",
+                "Governance via DAO",
+                "Interoperability with other networks",
+                "Cross-platform compatibility",
+                "Self-healing network"
+                ]
             },
             {
-              version: "v7.0",
-              title: "AI Privacy Assistant",
-              status: "research",
-              date: "2028+",
-              description: "ИИ для приватности и безопасности",
-              features: [
-                "Локальный ИИ анализ угроз",
-                "Автоматическое обнаружение MITM",
-                "Адаптивная криптография",
+                version: "v7.0",
+                title: "AI Privacy Assistant",
+                status: "research",
+                date: "2028+",
+                description: "AI for privacy and security",
+                features: [
+                "Local AI threat analysis",
+                "Automatic MITM detection",
+                "Adaptive cryptography",
                 "Personalized security recommendations",
                 "Zero-knowledge machine learning",
-                "Приватный ИИ-ассистент",
-                "Предиктивная безопасность",
-                "Автономная защита от атак"
-              ]
+                "Private AI assistant",
+                "Predictive security",
+                "Autonomous attack protection"
+                ]
             }
-          ];
+            ];
+
         
           const getStatusConfig = (status) => {
             switch (status) {
-              case 'current':
+                case 'current':
                 return {
-                  color: 'green',
-                  bgClass: 'bg-green-500/10 border-green-500/20',
-                  textClass: 'text-green-400',
-                  icon: 'fas fa-check-circle',
-                  label: 'Текущая версия'
+                    color: 'green',
+                    bgClass: 'bg-green-500/10 border-green-500/20',
+                    textClass: 'text-green-400',
+                    icon: 'fas fa-check-circle',
+                    label: 'Current Version'
                 };
-              case 'development':
+                case 'development':
                 return {
-                  color: 'orange',
-                  bgClass: 'bg-orange-500/10 border-orange-500/20',
-                  textClass: 'text-orange-400',
-                  icon: 'fas fa-code',
-                  label: 'В разработке'
+                    color: 'orange',
+                    bgClass: 'bg-orange-500/10 border-orange-500/20',
+                    textClass: 'text-orange-400',
+                    icon: 'fas fa-code',
+                    label: 'In Development'
                 };
-              case 'planned':
+                case 'planned':
                 return {
-                  color: 'blue',
-                  bgClass: 'bg-blue-500/10 border-blue-500/20',
-                  textClass: 'text-blue-400',
-                  icon: 'fas fa-calendar-alt',
-                  label: 'Запланировано'
+                    color: 'blue',
+                    bgClass: 'bg-blue-500/10 border-blue-500/20',
+                    textClass: 'text-blue-400',
+                    icon: 'fas fa-calendar-alt',
+                    label: 'Planned'
                 };
-              case 'research':
+                case 'research':
                 return {
-                  color: 'purple',
-                  bgClass: 'bg-purple-500/10 border-purple-500/20',
-                  textClass: 'text-purple-400',
-                  icon: 'fas fa-flask',
-                  label: 'Исследования'
+                    color: 'purple',
+                    bgClass: 'bg-purple-500/10 border-purple-500/20',
+                    textClass: 'text-purple-400',
+                    icon: 'fas fa-flask',
+                    label: 'Research'
                 };
-              case 'done':
+                case 'done':
                 return {
-                  color: 'gray',
-                  bgClass: 'bg-gray-500/10 border-gray-500/20',
-                  textClass: 'text-gray-300',
-                  icon: 'fas fa-flag-checkered',
-                  label: 'Выпущено'
+                    color: 'gray',
+                    bgClass: 'bg-gray-500/10 border-gray-500/20',
+                    textClass: 'text-gray-300',
+                    icon: 'fas fa-flag-checkered',
+                    label: 'Released'
                 };
-              default:
+                default:
                 return {
-                  color: 'gray',
-                  bgClass: 'bg-gray-500/10 border-gray-500/20',
-                  textClass: 'text-gray-400',
-                  icon: 'fas fa-question',
-                  label: 'Неизвестно'
+                    color: 'gray',
+                    bgClass: 'bg-gray-500/10 border-gray-500/20',
+                    textClass: 'text-gray-400',
+                    icon: 'fas fa-question',
+                    label: 'Unknown'
                 };
             }
-          };
+            };
+
         
           const togglePhaseDetail = (index) => {
             setSelectedPhase(selectedPhase === index ? null : index);
@@ -1035,11 +1036,10 @@
             <div key="roadmap-section" className="mt-16 px-4 sm:px-0">
               <div key="section-header" className="text-center mb-12">
                 <h3 key="title" className="text-2xl font-semibold text-primary mb-3">
-                  Roadmap развития
+                  Development Roadmap
                 </h3>
                 <p key="subtitle" className="text-secondary max-w-2xl mx-auto mb-6">
-                  Эволюция LockBit.chat: от начальной разработки до квантово-стойкой
-                  децентрализованной сети
+                  Evolution of LockBit.chat: from initial development to a quantum-resistant decentralized network
                 </p>
                 <div
                   key="roadmap-note"
@@ -1047,14 +1047,14 @@
                 >
                   <i key="icon" className="fas fa-rocket text-blue-400 mr-2" />
                   <span key="text" className="text-blue-300 text-sm font-medium">
-                    Нажмите на версию для подробностей
+                    Click on a version for details
                   </span>
                 </div>
               </div>
         
               <div key="roadmap-container" className="max-w-6xl mx-auto">
                 <div key="timeline" className="relative">
-                  {/* Линия убрана */}
+                  {/* The line has been removed */}
         
                   <div key="phases" className="space-y-8">
                     {phases.map((phase, index) => {
@@ -1063,7 +1063,7 @@
         
                       return (
                         <div key={`phase-${index}`} className="relative">
-                          {/* Точки видны только на sm+ */}
+                          {/* The dots are visible only on sm and larger screens */}
         
                           <button
                             type="button"
@@ -1155,7 +1155,7 @@
                                     key="features-icon"
                                     className="fas fa-list-ul mr-2 text-sm"
                                   />
-                                  Ключевые функции:
+                                  Key features:
                                 </h5>
         
                                 <div
@@ -1198,11 +1198,10 @@
                     key="cta-title"
                     className="text-xl font-semibold text-primary mb-3"
                   >
-                    Присоединяйтесь к будущему приватности
+                    Join the future of privacy
                   </h4>
                   <p key="cta-description" className="text-secondary mb-6">
-                    LockBit.chat развивается благодаря сообществу. Ваши идеи и feedback
-                    помогают формировать будущее защищенного общения.
+                    LockBit.chat grows thanks to the community. Your ideas and feedback help shape the future of secure communication.
                   </p>
         
                   <div
@@ -1224,7 +1223,7 @@
                       className="btn-secondary text-white py-3 px-6 rounded-lg font-medium transition-all duration-200 flex items-center justify-center"
                     >
                       <i key="feedback-icon" className="fas fa-comments mr-2" />
-                      Обратная связь
+                      Feedback
                     </a>
                   </div>
                 </div>
@@ -1240,52 +1239,52 @@
                 switch (status) {
                     case 'connected':
                         return {
-                            text: 'Подключено',
-                            className: 'status-connected',
-                            badgeClass: 'bg-green-500/10 text-green-400 border-green-500/20'
-                        };
+                    text: 'Connected',
+                    className: 'status-connected',
+                    badgeClass: 'bg-green-500/10 text-green-400 border-green-500/20'
+                    };
                     case 'verifying':
-                        return {
-                            text: 'Верификация...',
-                            className: 'status-verifying',
-                            badgeClass: 'bg-purple-500/10 text-purple-400 border-purple-500/20'
-                        };
+                    return {
+                        text: 'Verifying...',
+                        className: 'status-verifying',
+                        badgeClass: 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                    };
                     case 'connecting':
-                        return {
-                            text: 'Подключение...',
-                            className: 'status-connecting',
-                            badgeClass: 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                        };
+                    return {
+                        text: 'Connecting...',
+                        className: 'status-connecting',
+                        badgeClass: 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                    };
                     case 'retrying':
-                        return {
-                            text: 'Переподключение...',
-                            className: 'status-connecting',
-                            badgeClass: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
-                        };
+                    return {
+                        text: 'Reconnecting...',
+                        className: 'status-connecting',
+                        badgeClass: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                    };
                     case 'failed':
-                        return {
-                            text: 'Ошибка',
-                            className: 'status-failed',
-                            badgeClass: 'bg-red-500/10 text-red-400 border-red-500/20'
-                        };
+                    return {
+                        text: 'Error',
+                        className: 'status-failed',
+                        badgeClass: 'bg-red-500/10 text-red-400 border-red-500/20'
+                    };
                     case 'reconnecting':
-                        return {
-                            text: 'Переподключение...',
-                            className: 'status-connecting',
-                            badgeClass: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
-                        };
+                    return {
+                        text: 'Reconnecting...',
+                        className: 'status-connecting',
+                        badgeClass: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                    };
                     case 'peer_disconnected':
-                        return {
-                            text: 'Собеседник отключился',
-                            className: 'status-failed',
-                            badgeClass: 'bg-orange-500/10 text-orange-400 border-orange-500/20'
-                        };
+                    return {
+                        text: 'Peer disconnected',
+                        className: 'status-failed',
+                        badgeClass: 'bg-orange-500/10 text-orange-400 border-orange-500/20'
+                    };
                     default:
-                        return {
-                            text: 'Не подключен',
-                            className: 'status-disconnected',
-                            badgeClass: 'bg-gray-500/10 text-gray-400 border-gray-500/20'
-                        };
+                    return {
+                        text: 'Not connected',
+                        className: 'status-disconnected',
+                        badgeClass: 'bg-gray-500/10 text-gray-400 border-gray-500/20'
+                    };
                 }
             };
 
@@ -1334,7 +1333,7 @@
                             key: 'status-section',
                             className: 'flex items-center space-x-2 sm:space-x-3'
                         }, [
-                            // Session Timer - показывать если есть активная сессия
+                            // Session Timer — show only if there is an active session
                             sessionManager?.hasActiveSession() && React.createElement(SessionTimer, {
                                 key: 'session-timer',
                                 timeLeft: sessionTimeLeft,
@@ -1347,14 +1346,14 @@
                                 onClick: () => {
                                     if (securityLevel.verificationResults) {
                                         console.log('Security verification results:', securityLevel.verificationResults);
-                                        alert('Детали проверки безопасности:\n\n' + 
+                                        alert('Security check details:\n\n' + 
                                             Object.entries(securityLevel.verificationResults)
                                                 .map(([key, result]) => `${key}: ${result.passed ? '✅' : '❌'} ${result.details}`)
                                                 .join('\n')
                                         );
                                     }
                                 },
-                                title: 'Нажмите для просмотра деталей безопасности'
+                                title: 'Click to view security details'
                             }, [
                                 React.createElement('div', {
                                     key: 'security-icon',
@@ -1460,7 +1459,7 @@
                                 React.createElement('span', {
                                     key: 'disconnect-text',
                                     className: 'hidden sm:inline'
-                                }, 'Отключить')
+                                }, 'Disconnect')
                             ])
                         ])
                     ])
@@ -1502,7 +1501,7 @@
                     key: 'icon',
                     className: `${copied ? 'fas fa-check accent-green' : 'fas fa-copy text-secondary'} mr-2`
                 }),
-                copied ? 'Скопировано!' : children
+                copied ? 'Copied!' : children
             ]);
         };
 
@@ -1526,7 +1525,7 @@
                     React.createElement('h3', {
                         key: 'title',
                         className: "text-lg font-medium text-primary"
-                    }, "Верификация безопасности")
+                    }, "Security verification")
                 ]),
                 React.createElement('div', {
                     key: 'content',
@@ -1535,7 +1534,7 @@
                     React.createElement('p', {
                         key: 'description',
                         className: "text-secondary text-sm"
-                    }, "Сверьте код безопасности с собеседником по другому каналу связи (голос, SMS, etc):"),
+                    }, "Verify the security code with your contact via another communication channel (voice, SMS, etc.):"),
                     React.createElement('div', {
                         key: 'code-display',
                         className: "text-center"
@@ -1555,7 +1554,7 @@
                             React.createElement('i', {
                                 className: 'fas fa-exclamation-triangle mr-2'
                             }),
-                            'Убедитесь, что коды полностью совпадают!'
+                            'Make sure the codes match exactly.!'
                         ])
                     ]),
                     React.createElement('div', {
@@ -1570,7 +1569,7 @@
                             React.createElement('i', {
                                 className: 'fas fa-check mr-2'
                             }),
-                            'Коды совпадают'
+                            'The codes match'
                         ]),
                         React.createElement('button', {
                             key: 'reject',
@@ -1580,7 +1579,7 @@
                             React.createElement('i', {
                                 className: 'fas fa-times mr-2'
                             }),
-                            'Коды не совпадают'
+                            'The codes do not match'
                         ])
                     ])
                 ])
@@ -1603,25 +1602,25 @@
                         return {
                             container: "ml-auto bg-orange-500/15 border-orange-500/20 text-primary",
                             icon: "fas fa-lock accent-orange",
-                            label: "Зашифровано"
+                            label: "Encrypted"
                         };
                     case 'received':
                         return {
                             container: "mr-auto card-minimal text-primary",
                             icon: "fas fa-unlock-alt accent-green",
-                            label: "Расшифровано"
+                            label: "Decrypted"
                         };
                     case 'system':
                         return {
                             container: "mx-auto bg-yellow-500/10 border border-yellow-500/20 text-yellow-400",
                             icon: "fas fa-info-circle accent-yellow",
-                            label: "Система"
+                            label: "System"
                         };
                     default:
                         return {
                             container: "mx-auto card-minimal text-secondary",
                             icon: "fas fa-circle text-muted",
-                            label: "Неизвестно"
+                            label: "Unknown"
                         };
                 }
             };
@@ -1733,11 +1732,11 @@
                             React.createElement('h2', {
                                 key: 'title',
                                 className: "text-2xl font-semibold text-primary mb-3"
-                            }, 'Начать защищенное общение'),
+                            }, 'Start secure communication'),
                             React.createElement('p', {
                                 key: 'subtitle',
                                 className: "text-secondary max-w-2xl mx-auto"
-                            }, "Выберите способ подключения к защищенному каналу связи с ECDH шифрованием и Perfect Forward Secrecy")
+                            }, "Choose a connection method for a secure channel with ECDH encryption and Perfect Forward Secrecy.")
                         ]),
 
                         React.createElement('div', {
@@ -1761,11 +1760,11 @@
                                 React.createElement('h3', {
                                     key: 'title',
                                     className: "text-lg font-semibold text-primary text-center mb-3"
-                                }, "Создать канал"),
+                                }, "Create channel"),
                                 React.createElement('p', {
                                     key: 'description',
                                     className: "text-secondary text-center text-sm mb-4"
-                                }, "Инициируйте новое защищенное соединение с шифрованным обменом"),
+                                }, "Initiate a new secure connection with encrypted exchange"),
                                 React.createElement('div', {
                                     key: 'features',
                                     className: "space-y-2"
@@ -1777,7 +1776,7 @@
                                         React.createElement('i', {
                                             className: 'fas fa-key accent-orange mr-2 text-xs'
                                         }),
-                                        'Генерация ECDH ключей'
+                                        'Generating ECDH keys'
                                     ]),
                                     React.createElement('div', {
                                         key: 'f2',
@@ -1786,7 +1785,7 @@
                                         React.createElement('i', {
                                             className: 'fas fa-shield-alt accent-orange mr-2 text-xs'
                                         }),
-                                        'Код верификации'
+                                        'Verification code'
                                     ]),
                                     React.createElement('div', {
                                         key: 'f3',
@@ -1795,7 +1794,7 @@
                                         React.createElement('i', {
                                             className: 'fas fa-sync-alt accent-purple mr-2 text-xs'
                                         }),
-                                        'PFS ротация ключей'
+                                        'PFS key rotation'
                                     ])
                                 ])
                             ]),
@@ -1817,11 +1816,11 @@
                                 React.createElement('h3', {
                                     key: 'title',
                                     className: "text-lg font-semibold text-primary text-center mb-3"
-                                }, "Присоединиться"),
+                                }, "Join"),
                                 React.createElement('p', {
                                     key: 'description',
                                     className: "text-secondary text-center text-sm mb-4"
-                                }, "Подключитесь к существующему защищенному каналу"),
+                                }, "Connect to an existing secure channel"),
                                 React.createElement('div', {
                                     key: 'features',
                                     className: "space-y-2"
@@ -1833,7 +1832,7 @@
                                         React.createElement('i', {
                                             className: 'fas fa-paste accent-green mr-2 text-xs'
                                         }),
-                                        'Вставка Offer приглашения'
+                                        'Paste Offer invitation'
                                     ]),
                                     React.createElement('div', {
                                         key: 'f2',
@@ -1842,7 +1841,7 @@
                                         React.createElement('i', {
                                             className: 'fas fa-check-circle accent-green mr-2 text-xs'
                                         }),
-                                        'Автоматическая верификация'
+                                        'Automatic verification'
                                     ]),
                                     React.createElement('div', {
                                         key: 'f3',
@@ -1851,7 +1850,7 @@
                                         React.createElement('i', {
                                             className: 'fas fa-sync-alt accent-purple mr-2 text-xs'
                                         }),
-                                        'PFS защита'
+                                        'PFS protection'
                                     ])
                                 ])
                             ])
@@ -1918,11 +1917,11 @@
                                 React.createElement('h3', {
                                     key: 'title',
                                     className: "text-lg font-medium text-primary mb-2"
-                                }, "Поддерживаемые Lightning кошельки"),
+                                }, "Supported Lightning wallets"),
                                 React.createElement('p', {
                                     key: 'subtitle',
                                     className: "text-secondary text-sm"
-                                }, "Для оплаты сессий используйте любой из популярных кошельков")
+                                }, "To pay for sessions, use any of the popular wallets.")
                             ]),
                             React.createElement('div', {
                                 key: 'wallet-logos-container',
@@ -2270,12 +2269,12 @@
                                 React.createElement('i', {
                                     className: 'fas fa-arrow-left mr-2'
                                 }),
-                                'Назад к выбору'
+                                'Back to selection'
                             ]),
                             React.createElement('h2', {
                                 key: 'title',
                                 className: "text-xl font-semibold text-primary mb-2"
-                            }, 'Создание защищенного канала')
+                            }, 'Creating a secure channel')
                         ]),
 
                         // Step 1
@@ -2294,12 +2293,12 @@
                                 React.createElement('h3', {
                                     key: 'title',
                                     className: "text-lg font-medium text-primary"
-                                }, "Генерация ECDH ключей и кода верификации")
+                                }, "Generating ECDH keys and verification code")
                             ]),
                             React.createElement('p', {
                                 key: 'description',
                                 className: "text-secondary text-sm mb-4"
-                            }, "Создание криптографически стойких ключей и кода для защиты от атак"),
+                            }, "Creating cryptographically strong keys and codes to protect against attacks"),
                             React.createElement('button', {
                                 key: 'create-btn',
                                 onClick: onCreateOffer,
@@ -2309,7 +2308,7 @@
                                 React.createElement('i', {
                                     className: 'fas fa-shield-alt mr-2'
                                 }),
-                                showOfferStep ? 'Ключи созданы ✓' : 'Создать защищенные ключи'
+                                showOfferStep ? 'Keys created ✓' : 'Create secure keys'
                             ]),
 
                             showOfferStep && React.createElement('div', {
@@ -2326,7 +2325,7 @@
                                         React.createElement('i', {
                                             className: 'fas fa-check-circle mr-2'
                                         }),
-                                        'Зашифрованное приглашение создано! Отправьте код и пароль собеседнику:'
+                                        'Encrypted invitation created! Send the code and password to your contact.:'
                                     ]),
                                     offerPassword && React.createElement('div', {
                                         key: 'password-display',
@@ -2335,7 +2334,7 @@
                                         React.createElement('p', {
                                             key: 'password-label',
                                             className: "text-blue-400 text-sm font-medium mb-2"
-                                        }, '🔑 Пароль для расшифровки:'),
+                                        }, '🔑 Decryption password:'),
                                         React.createElement('div', {
                                             key: 'password-container',
                                             className: "flex items-center space-x-2"
@@ -2348,7 +2347,7 @@
                                                 key: 'copy-password',
                                                 text: offerPassword,
                                                 className: "px-3 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30 rounded text-sm"
-                                            }, 'Копировать')
+                                            }, 'Copy')
                                         ])
                                     ])
                                 ]),
@@ -2367,7 +2366,7 @@
                                         key: 'copy',
                                         text: offerData,
                                         className: "w-full px-3 py-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 rounded text-sm font-medium"
-                                    }, 'Копировать зашифрованный код')
+                                    }, 'Copy encrypted code')
                                 ])
                             ])
                         ]),
@@ -2388,18 +2387,18 @@
                                 React.createElement('h3', {
                                     key: 'title',
                                     className: "text-lg font-medium text-primary"
-                                }, "Ожидание ответа собеседника")
+                                }, "Waiting for the peer's response")
                             ]),
                             React.createElement('p', {
                                 key: 'description',
                                 className: "text-secondary text-sm mb-4"
-                            }, "Вставьте зашифрованный код приглашения от собеседника"),
+                            }, "Paste the encrypted invitation code from your contact."),
                             React.createElement('textarea', {
                                 key: 'input',
                                 value: answerInput,
                                 onChange: (e) => setAnswerInput(e.target.value),
                                 rows: 6,
-                                placeholder: "Вставьте зашифрованный код ответа от собеседника...",
+                                placeholder: "Paste the encrypted response code from your contact...",
                                 className: "w-full p-3 bg-custom-bg border border-gray-500/20 rounded-lg resize-none mb-4 text-secondary placeholder-gray-500 focus:border-orange-500/40 focus:outline-none transition-all custom-scrollbar text-sm"
                             }),
                             React.createElement('button', {
@@ -2411,7 +2410,7 @@
                                 React.createElement('i', {
                                     className: 'fas fa-rocket mr-2'
                                 }),
-                                'Установить соединение'
+                                'Establish connection'
                             ])
                         ])
                     ])
@@ -2438,12 +2437,12 @@
                                 React.createElement('i', {
                                     className: 'fas fa-arrow-left mr-2'
                                 }),
-                                'Назад к выбору'
+                                'Back to selection'
                             ]),
                             React.createElement('h2', {
                                 key: 'title',
                                 className: "text-xl font-semibold text-primary mb-2"
-                            }, 'Присоединение к защищенному каналу')
+                            }, 'Joining the secure channel')
                         ]),
 
                         // Step 1
@@ -2462,18 +2461,18 @@
                                 React.createElement('h3', {
                                     key: 'title',
                                     className: "text-lg font-medium text-primary"
-                                }, "Вставка защищенного приглашения")
+                                }, "Paste secure invitation")
                             ]),
                             React.createElement('p', {
                                 key: 'description',
                                 className: "text-secondary text-sm mb-4"
-                            }, "Скопируйте и вставьте зашифрованный код приглашения от инициатора"),
+                            }, "Copy and paste the encrypted invitation code from the initiator."),
                             React.createElement('textarea', {
                                 key: 'input',
                                 value: offerInput,
                                 onChange: (e) => setOfferInput(e.target.value),
                                 rows: 8,
-                                placeholder: "Вставьте зашифрованный код приглашения...",
+                                placeholder: "Paste the encrypted invitation code...",
                                 className: "w-full p-3 bg-custom-bg border border-gray-500/20 rounded-lg resize-none mb-4 text-secondary placeholder-gray-500 focus:border-green-500/40 focus:outline-none transition-all custom-scrollbar text-sm"
                             }),
                             React.createElement('button', {
@@ -2485,7 +2484,7 @@
                                 React.createElement('i', {
                                     className: 'fas fa-cogs mr-2'
                                 }),
-                                'Обработать приглашение'
+                                'Process the invitation'
                             ])
                         ]),
 
@@ -2505,7 +2504,7 @@
                                 React.createElement('h3', {
                                     key: 'title',
                                     className: "text-lg font-medium text-primary"
-                                }, "Отправка защищенного ответа")
+                                }, "Sending a secure response")
                             ]),
                             React.createElement('div', {
                                 key: 'success',
@@ -2517,7 +2516,7 @@
                                     React.createElement('i', {
                                         className: 'fas fa-check-circle mr-2'
                                     }),
-                                    'Зашифрованный ответ создан! Отправьте этот код инициатору:'
+                                    'Encrypted response created! Send this code to the initiator.:'
                                 ]),
                                 answerPassword && React.createElement('div', {
                                     key: 'password-display',
@@ -2526,7 +2525,7 @@
                                     React.createElement('p', {
                                         key: 'password-label',
                                         className: "text-blue-400 text-sm font-medium mb-2"
-                                    }, '🔑 Пароль для расшифровки:'),
+                                    }, '🔑 Password for decryption:'),
                                     React.createElement('div', {
                                         key: 'password-container',
                                         className: "flex items-center space-x-2"
@@ -2539,7 +2538,7 @@
                                             key: 'copy-password',
                                             text: answerPassword,
                                             className: "px-3 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30 rounded text-sm"
-                                        }, 'Копировать')
+                                        }, 'Copy')
                                     ])
                                 ])
                             ]),
@@ -2558,7 +2557,7 @@
                                     key: 'copy',
                                     text: answerData,
                                     className: "w-full px-3 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 rounded text-sm font-medium"
-                                }, 'Копировать зашифрованный ответ')
+                                }, 'Copy the encrypted response')
                             ]),
                             React.createElement('div', {
                                 key: 'info',
@@ -2570,7 +2569,7 @@
                                     React.createElement('i', {
                                         className: 'fas fa-shield-alt mr-2'
                                     }),
-                                    'Соединение будет установлено с верификацией'
+                                    'The connection will be established with verification'
                                 ])
                             ])
                         ])
@@ -2595,7 +2594,7 @@
 
             React.useEffect(() => {
                 if (chatMessagesRef.current) {
-                    // Плавная прокрутка вниз
+                    // Smooth scroll down
                     chatMessagesRef.current.scrollTo({
                         top: chatMessagesRef.current.scrollHeight,
                         behavior: 'smooth'
@@ -2603,7 +2602,7 @@
                 }
             }, [messages]);
             
-            // Обработчик прокрутки для показа кнопки
+            // Scroll handler to show the button
             const handleScroll = () => {
                 if (chatMessagesRef.current) {
                     const { scrollTop, scrollHeight, clientHeight } = chatMessagesRef.current;
@@ -2612,7 +2611,7 @@
                 }
             };
             
-            // Обертка для scrollToBottom с обновлением состояния кнопки
+            // Wrapper for scrollToBottom with button state update
             const handleScrollToBottom = () => {
                 scrollToBottom();
                 setShowScrollButton(false);
@@ -2658,11 +2657,11 @@
                                 React.createElement('h3', {
                                     key: 'title',
                                     className: "text-lg font-medium text-primary mb-2"
-                                }, "Защищенный канал готов!"),
+                                }, "Secure channel is ready!"),
                                 React.createElement('p', {
                                     key: 'description',
                                     className: "text-secondary text-sm mb-4"
-                                }, "Все сообщения защищены современными криптографическими алгоритмами"),
+                                }, "All messages are protected by modern cryptographic algorithms"),
                                 React.createElement('div', {
                                     key: 'features',
                                     className: "text-left space-y-2"
@@ -2674,7 +2673,7 @@
                                         React.createElement('i', {
                                             className: 'fas fa-check accent-green mr-3'
                                         }),
-                                        'End-to-end шифрование'
+                                        'End-to-end encryption'
                                     ]),
                                     React.createElement('div', {
                                         key: 'f2',
@@ -2683,7 +2682,7 @@
                                         React.createElement('i', {
                                             className: 'fas fa-check accent-green mr-3'
                                         }),
-                                        'Защита от replay атак'
+                                        'Protection against replay attacks'
                                     ]),
                                     React.createElement('div', {
                                         key: 'f3',
@@ -2692,7 +2691,7 @@
                                         React.createElement('i', {
                                             className: 'fas fa-check accent-green mr-3'
                                         }),
-                                        'Верификация целостности'
+                                        'Integrity verification'
                                     ]),
                                     React.createElement('div', {
                                         key: 'f4',
@@ -2717,7 +2716,7 @@
                     )
                 ]),
                 
-                // Кнопка прокрутки вниз
+                // Scroll down button
                 showScrollButton && React.createElement('button', {
                     key: 'scroll-down-btn',
                     onClick: handleScrollToBottom,
@@ -2751,7 +2750,7 @@
                                     value: messageInput,
                                     onChange: (e) => setMessageInput(e.target.value),
                                     onKeyDown: handleKeyPress,
-                                    placeholder: "Введите сообщение для шифрования...",
+                                    placeholder: "Enter message to encrypt...",
                                     rows: 2,
                                     maxLength: 2000,
                                     className: "w-full p-3 bg-gray-900/30 border border-gray-500/20 rounded-lg resize-none text-primary placeholder-gray-500 focus:border-green-500/40 focus:outline-none transition-all custom-scrollbar text-sm"
@@ -2765,7 +2764,7 @@
                                     }, `${messageInput.length}/2000`),
                                     React.createElement('span', {
                                         key: 'hint'
-                                    }, "• Enter для отправки")
+                                    }, "• Enter to send")
                                 ])
                             ]),
                             React.createElement('button', {
@@ -2853,7 +2852,7 @@
             React.useEffect(() => {
                 sessionManager.onSessionExpired = () => {
                     setMessages(prev => [...prev, {
-                        message: '⏰ Время сессии истекло. Соединение будет разорвано.',
+                        message: '⏰ Session time expired. The connection will be terminated.',
                         type: 'system',
                         id: Date.now(),
                         timestamp: Date.now()
@@ -2863,7 +2862,7 @@
             }, [sessionManager]);
             const chatMessagesRef = React.useRef(null);
 
-            // Функция прокрутки вниз
+            // Scroll down function
             const scrollToBottom = () => {
                 if (chatMessagesRef.current) {
                     setTimeout(() => {
@@ -2904,7 +2903,7 @@
                         id: Date.now() + Math.random(),
                         timestamp: Date.now()
                     }]);
-                    // Прокрутка при получении нового сообщения
+                    // Scroll on receiving a new message
                     setTimeout(scrollToBottom, 100);
                 };
 
@@ -2921,14 +2920,14 @@
                     } else if (status === 'connecting') {
                         updateSecurityLevel().catch(console.error);
                     } else if (status === 'disconnected') {
-                        // Полная очистка UI при отключении
+                        // Complete UI reset on disconnect
                         setKeyFingerprint('');
                         setVerificationCode('');
                         setSecurityLevel(null);
                         setIsVerified(false);
                         setShowVerification(false);
                     } else if (status === 'peer_disconnected') {
-                        // Небольшая задержка перед очисткой для показа статуса
+                        // A short delay before clearing to display the status
                         setTimeout(() => {
                             setKeyFingerprint('');
                             setVerificationCode('');
@@ -2957,12 +2956,12 @@
                     }
                 };
 
-                // Callback для обработки ошибок ответа
+                // Callback for handling response errors
                 const handleAnswerError = (errorType, errorMessage) => {
                     console.log('Answer error callback:', errorType, errorMessage);
                     
                     if (errorType === 'replay_attack') {
-                        // Сбрасываем сессию при replay attack
+                        // Reset the session upon replay attack
                         if (sessionManager.hasActiveSession()) {
                             sessionManager.resetSession();
                             setSessionTimeLeft(0);
@@ -2970,13 +2969,13 @@
                         setPendingSession(null);
                         
                         setMessages(prev => [...prev, { 
-                            message: '💡 Данные устарели. Создайте новое приглашение или используйте актуальный код ответа', 
+                            message: '💡 Data is outdated. Please create a new invitation or use a current response code.', 
                             type: 'system',
                             id: Date.now(),
                             timestamp: Date.now()
                         }]);
                     } else if (errorType === 'security_violation') {
-                        // Сбрасываем сессию при нарушении безопасности
+                        // Reset the session upon security breach
                         if (sessionManager.hasActiveSession()) {
                             sessionManager.resetSession();
                             setSessionTimeLeft(0);
@@ -2984,7 +2983,7 @@
                         setPendingSession(null);
                         
                         setMessages(prev => [...prev, { 
-                            message: `🔒 Нарушение безопасности: ${errorMessage}`, 
+                            message: `🔒 Security breach: ${errorMessage}`, 
                             type: 'system',
                             id: Date.now(),
                             timestamp: Date.now()
@@ -3000,7 +2999,7 @@
                     handleAnswerError
                 );
 
-                                    handleMessage('🚀 LockBit.chat Enhanced Edition инициализирован. Готов к установке защищенного соединения с ECDH, шифрованным обменом и верификацией.', 'system');
+                                    handleMessage('🚀 LockBit.chat Enhanced Edition initialized. Ready to establish a secure connection with ECDH, encrypted exchange, and verification.', 'system');
 
                 // Cleanup on page unload
                 const handleBeforeUnload = () => {
@@ -3021,7 +3020,7 @@
 
             const ensureActiveSessionOrPurchase = async () => {
                 if (sessionManager.hasActiveSession()) return true;
-                if (pendingSession) return true; // уже куплено, активируем на коннекте
+                if (pendingSession) return true; 
                 setShowPaymentModal(true);
                 return false;
             };
@@ -3047,14 +3046,14 @@
                     setShowOfferStep(true);
                     
                     setMessages(prev => [...prev, { 
-                        message: '🔐 Защищенное приглашение создано и зашифровано!', 
+                        message: '🔐 Secure invitation created and encrypted!', 
                         type: 'system',
                         id: Date.now(),
                         timestamp: Date.now()
                     }]);
                     
                     setMessages(prev => [...prev, { 
-                        message: '📤 Отправьте зашифрованный код и пароль собеседнику по защищенному каналу (голос, SMS, etc).', 
+                        message: '📤 Send the encrypted code and password to your interlocutor via a secure channel (voice call, SMS, etc.)..', 
                         type: 'system',
                         id: Date.now(),
                         timestamp: Date.now()
@@ -3063,7 +3062,7 @@
                     updateSecurityLevel().catch(console.error);
                 } catch (error) {
                     setMessages(prev => [...prev, { 
-                        message: `❌ Ошибка создания приглашения: ${error.message}`, 
+                        message: `❌ Error creating invitation: ${error.message}`, 
                         type: 'system',
                         id: Date.now(),
                         timestamp: Date.now()
@@ -3075,7 +3074,7 @@
                 try {
                     if (!offerInput.trim()) {
                         setMessages(prev => [...prev, { 
-                            message: '⚠️ Необходимо вставить зашифрованный код приглашения от собеседника', 
+                            message: '⚠️ You need to insert the encrypted invitation code from your interlocutor.', 
                             type: 'system',
                             id: Date.now(),
                             timestamp: Date.now()
@@ -3087,7 +3086,7 @@
                     showPasswordPrompt('offer', async (password) => {
                         if (!password) {
                             setMessages(prev => [...prev, { 
-                                message: '❌ Пароль не введен', 
+                                message: '❌ Password not entered', 
                                 type: 'system',
                                 id: Date.now(),
                                 timestamp: Date.now()
@@ -3097,7 +3096,7 @@
 
                         try {
                             setMessages(prev => [...prev, { 
-                                message: '🔄 Расшифровываю и обрабатываю защищенное приглашение...', 
+                                message: '🔄 Decrypting and processing the secure invitation...', 
                                 type: 'system',
                                 id: Date.now(),
                                 timestamp: Date.now()
@@ -3111,15 +3110,15 @@
                                 // Decrypt the offer data
                                 offer = await EnhancedSecureCryptoUtils.decryptData(offerInput.trim(), password);
                             } catch (decryptError) {
-                                throw new Error(`Ошибка расшифровки: ${decryptError.message}`);
+                                throw new Error(`Decryption error: ${decryptError.message}`);
                             }
 
                             if (!offer || typeof offer !== 'object') {
-                                throw new Error('Приглашение должно быть объектом');
+                                throw new Error('The invitation must be an object');
                             }
 
                             if (!offer.type || offer.type !== 'enhanced_secure_offer') {
-                                throw new Error('Неверный тип приглашения. Ожидается enhanced_secure_offer');
+                                throw new Error('Invalid invitation type. Expected enhanced_secure_offer');
                             }
 
                             console.log('Creating secure answer for offer:', offer);
@@ -3137,14 +3136,14 @@
                             setShowAnswerStep(true);
                             
                             setMessages(prev => [...prev, { 
-                                message: '✅ Защищенный ответ создан и зашифрован!', 
+                                message: '✅ Secure response created and encrypted!', 
                                 type: 'system',
                                 id: Date.now(),
                                 timestamp: Date.now()
                             }]);
                             
                             setMessages(prev => [...prev, { 
-                                message: '📤 Отправьте зашифрованный код ответа и пароль инициатору по защищенному каналу.', 
+                                message: '📤 Send the encrypted response code and password to the initiator via a secure channel..', 
                                 type: 'system',
                                 id: Date.now(),
                                 timestamp: Date.now()
@@ -3155,7 +3154,7 @@
                         } catch (error) {
                             console.error('Error in handleCreateAnswer:', error);
                             setMessages(prev => [...prev, { 
-                                message: `❌ Ошибка обработки приглашения: ${error.message}`, 
+                                message: `❌ Error processing the invitation: ${error.message}`, 
                                 type: 'system',
                                 id: Date.now(),
                                 timestamp: Date.now()
@@ -3167,7 +3166,7 @@
                 } catch (error) {
                     console.error('Error in handleCreateAnswer:', error);
                     setMessages(prev => [...prev, { 
-                        message: `❌ Ошибка обработки приглашения: ${error.message}`, 
+                        message: `❌ Invitation processing error: ${error.message}`, 
                         type: 'system',
                         id: Date.now(),
                         timestamp: Date.now()
@@ -3179,7 +3178,7 @@
                 try {
                     if (!answerInput.trim()) {
                         setMessages(prev => [...prev, { 
-                            message: '⚠️ Необходимо вставить зашифрованный код ответа от собеседника', 
+                            message: '⚠️ You need to insert the encrypted response code from your interlocutor.', 
                             type: 'system',
                             id: Date.now(),
                             timestamp: Date.now()
@@ -3191,7 +3190,7 @@
                     showPasswordPrompt('answer', async (password) => {
                         if (!password) {
                             setMessages(prev => [...prev, { 
-                                message: '❌ Пароль не введен', 
+                                message: '❌ Password not entered', 
                                 type: 'system',
                                 id: Date.now(),
                                 timestamp: Date.now()
@@ -3201,7 +3200,7 @@
 
                         try {
                             setMessages(prev => [...prev, { 
-                                message: '🔄 Расшифровываю и обрабатываю защищенный ответ...', 
+                                message: '🔄 Decrypting and processing the secure response...', 
                                 type: 'system',
                                 id: Date.now(),
                                 timestamp: Date.now()
@@ -3212,34 +3211,33 @@
                                 // Decrypt the answer data
                                 answer = await EnhancedSecureCryptoUtils.decryptData(answerInput.trim(), password);
                             } catch (decryptError) {
-                                throw new Error(`Ошибка расшифровки: ${decryptError.message}`);
+                                throw new Error(`Decryption error: ${decryptError.message}`);
                             }
 
                             if (!answer || typeof answer !== 'object') {
-                                throw new Error('Ответ должен быть объектом');
+                                throw new Error('The response must be an object');
                             }
 
                             if (!answer.type || answer.type !== 'enhanced_secure_answer') {
-                                throw new Error('Неверный тип ответа. Ожидается enhanced_secure_answer');
+                                throw new Error('Invalid response type. Expected enhanced\_secure\_answer');
                             }
 
                             await webrtcManagerRef.current.handleSecureAnswer(answer);
                             
-                            // Активируем сессию ТОЛЬКО после успешной обработки ответа
                             if (sessionManager.canActivateSession() && pendingSession) {
                                 const result = sessionManager.safeActivateSession(pendingSession.type, pendingSession.preimage, pendingSession.paymentHash);
                                 if (result.success) {
                                     setPendingSession(null);
-                                    setSessionTimeLeft(sessionManager.getTimeLeft()); // Обновляем таймер
+                                    setSessionTimeLeft(sessionManager.getTimeLeft()); 
                                     setMessages(prev => [...prev, { 
-                                        message: `💰 Сессия активирована на ${sessionManager.sessionPrices[pendingSession.type].hours}ч (${result.method})`, 
+                                        message: `💰 Session activated on ${sessionManager.sessionPrices[pendingSession.type].hours}ч (${result.method})`, 
                                         type: 'system',
                                         id: Date.now(),
                                         timestamp: Date.now()
                                     }]);
                                 } else {
                                     setMessages(prev => [...prev, { 
-                                        message: `❌ Ошибка активации сессии: ${result.reason}`, 
+                                        message: `❌ Session activation error: ${result.reason}`, 
                                         type: 'error',
                                         id: Date.now(),
                                         timestamp: Date.now()
@@ -3248,7 +3246,7 @@
                             }
                             
                             setMessages(prev => [...prev, { 
-                                message: '🔄 Финализация защищенного соединения...', 
+                                message: '🔄 Finalizing the secure connection...', 
                                 type: 'system',
                                 id: Date.now(),
                                 timestamp: Date.now()
@@ -3258,32 +3256,28 @@
                             updateSecurityLevel().catch(console.error);
                         } catch (error) {
                             setMessages(prev => [...prev, { 
-                                message: `❌ Ошибка установки соединения: ${error.message}`, 
+                                message: `❌ Connection setup error: ${error.message}`, 
                                 type: 'system',
                                 id: Date.now(),
                                 timestamp: Date.now()
                             }]);
                             
-                            // Обработка ошибок теперь происходит в callback handleAnswerError
-                            // Дополнительная обработка только для общих ошибок
-                            if (!error.message.includes('слишком старые') && !error.message.includes('too old')) {
+                            if (!error.message.includes('Too old') && !error.message.includes('too old')) {
                                 setPendingSession(null);
                             }
                         }
                     });
                     
-                    return; // Exit early, callback will handle the rest
+                    return; 
                 } catch (error) {
                     setMessages(prev => [...prev, { 
-                        message: `❌ Ошибка установки соединения: ${error.message}`, 
+                        message: `❌ Connection setup error: ${error.message}`, 
                         type: 'system',
                         id: Date.now(),
                         timestamp: Date.now()
                     }]);
                     
-                    // Обработка ошибок теперь происходит в callback handleAnswerError
-                    // Дополнительная обработка только для общих ошибок
-                    if (!error.message.includes('слишком старые') && !error.message.includes('too old')) {
+                    if (!error.message.includes('сToo old') && !error.message.includes('too old')) {
                         setPendingSession(null);
                     }
                 }
@@ -3294,13 +3288,12 @@
                     webrtcManagerRef.current.confirmVerification();
                 } else {
                     setMessages(prev => [...prev, { 
-                        message: '❌ Верификация отклонена. Соединение небезопасно! Сессия сброшена.', 
+                        message: '❌ Verification rejected. The connection is unsafe! Session reset..', 
                         type: 'system',
                         id: Date.now(),
                         timestamp: Date.now()
                     }]);
                     
-                    // Сбрасываем сессию при неудачной верификации
                     sessionManager.resetSession();
                     setSessionTimeLeft(0);
                     setPendingSession(null);
@@ -3317,16 +3310,15 @@
                 try {
                     await webrtcManagerRef.current.sendSecureMessage(messageInput);
                     setMessageInput('');
-                    // Прокрутка после отправки сообщения
                     setTimeout(scrollToBottom, 50);
                 } catch (error) {
                     setMessages(prev => [...prev, { 
-                        message: `❌ Ошибка отправки: ${error.message}`, 
+                        message: `❌ Sending error: ${error.message}`, 
                         type: 'system',
                         id: Date.now(),
                         timestamp: Date.now()
                     }]);
-                    // Прокрутка после ошибки
+
                     setTimeout(scrollToBottom, 50);
                 }
             };
@@ -3346,8 +3338,8 @@
                 setConnectionStatus('disconnected');
                 setMessages([]);
                 setMessageInput('');
-                setOfferPassword(''); // Clear offer password
-                setAnswerPassword(''); // Clear answer password
+                setOfferPassword(''); 
+                setAnswerPassword(''); 
                 
                 if (typeof console.clear === 'function') {
                     console.clear();
@@ -3367,7 +3359,6 @@
 
                 webrtcManagerRef.current.disconnect();
                 
-                // Полная очистка UI состояния
                 setKeyFingerprint('');
                 setVerificationCode('');
                 setSecurityLevel(null);
@@ -3375,7 +3366,7 @@
                 setShowVerification(false);
                 
                 setMessages(prev => [...prev, { 
-                    message: '🔌 Защищенное соединение разорвано', 
+                    message: '🔌 Secure connection terminated', 
                     type: 'system',
                     id: Date.now(),
                     timestamp: Date.now()
@@ -3386,7 +3377,7 @@
 
             const handleSessionActivated = (session) => {
                 setMessages(prev => [...prev, {
-                    message: `💰 Сессия активирована на ${sessionManager.sessionPrices[session.type].hours}ч. Можете создавать приглашения!`,
+                    message: `💰 Session activated for \${sessionManager.sessionPrices\[session.type].hours}h. You can create invitations!`,
                     type: 'system',
                     id: Date.now(),
                     timestamp: Date.now()
@@ -3396,34 +3387,33 @@
             React.useEffect(() => {
                 if (connectionStatus === 'connected' && isVerified) {
                     setMessages(prev => [...prev, { 
-                        message: '🎉 Защищенное соединение успешно установлено и верифицировано! Теперь вы можете безопасно общаться с полной защитой от MITM атак и Perfect Forward Secrecy.', 
+                        message: '🎉 Secure connection successfully established and verified! You can now communicate safely with full protection against MITM attacks and Perfect Forward Secrecy..', 
                         type: 'system',
                         id: Date.now(),
                         timestamp: Date.now()
                     }]);
-                    // Прокрутка при подключении
+
                     setTimeout(scrollToBottom, 200);
                 }
             }, [connectionStatus, isVerified]);
 
             const isConnectedAndVerified = connectionStatus === 'connected' && isVerified;
 
-            // Активировать сессию при коннекте инициатора (когда мы создаем offer и получаем connected)
             React.useEffect(() => {
                 if (isConnectedAndVerified && sessionManager.canActivateSession() && pendingSession && connectionStatus !== 'failed') {
                     const result = sessionManager.safeActivateSession(pendingSession.type, pendingSession.preimage, pendingSession.paymentHash);
                     if (result.success) {
                         setPendingSession(null);
-                        setSessionTimeLeft(sessionManager.getTimeLeft()); // Обновляем таймер
+                        setSessionTimeLeft(sessionManager.getTimeLeft()); 
                         setMessages(prev => [...prev, { 
-                            message: `💰 Сессия активирована на ${sessionManager.sessionPrices[pendingSession.type].hours}ч (${result.method})`, 
+                            message: `💰 Session activated for \${sessionManager.sessionPrices\[pendingSession.type].hours}h (\${result.method})`, 
                             type: 'system',
                             id: Date.now(),
                             timestamp: Date.now()
                         }]);
                     } else {
                         setMessages(prev => [...prev, { 
-                            message: `❌ Ошибка активации сессии: ${result.reason}`, 
+                            message: `❌ Session activation error: ${result.reason}`, 
                             type: 'error',
                             id: Date.now(),
                             timestamp: Date.now()
@@ -3507,7 +3497,6 @@
             ]);
         };
         function initializeApp() {
-            // Проверяем что оба модуля загружены
             if (window.EnhancedSecureCryptoUtils && window.EnhancedSecureWebRTCManager) {
                 console.log('🚀 Инициализируем React приложение...');
                 ReactDOM.render(React.createElement(EnhancedSecureP2PChat), document.getElementById('root'));
@@ -3532,7 +3521,6 @@
             import(`./src/session/PayPerSessionManager.js?v=${timestamp}`)
         ]);
 
-        // Добавьте эти строки:
         const { EnhancedSecureCryptoUtils } = cryptoModule;
         window.EnhancedSecureCryptoUtils = EnhancedSecureCryptoUtils;
 
@@ -3542,10 +3530,8 @@
         const { PayPerSessionManager } = paymentModule;
         window.PayPerSessionManager = PayPerSessionManager;
 
-        // Функция загрузки компонентов React через fetch
         async function loadReactComponent(path, componentName) {
             try {
-                console.log(`🔄 Загружаем компонент ${componentName} из ${path}`);
                 
                 const response = await fetch(`${path}?v=${timestamp}`);
                 if (!response.ok) {
@@ -3554,24 +3540,13 @@
                 
                 const componentCode = await response.text();
                 
-                // Выполняем код компонента в глобальном контексте
                 eval(componentCode);
                 
-                // Проверяем, что компонент загружен
-                if (window[componentName]) {
-                    console.log(`✅ Компонент ${componentName} успешно загружен`);
-                } else {
-                    throw new Error(`Компонент ${componentName} не найден в window после загрузки`);
-                }
-                
             } catch (error) {
-                console.error(`❌ Ошибка загрузки компонента ${componentName}:`, error);
+                console.error(`❌ Component loading error ${componentName}:`, error);
                 throw error;
             }
         }
-
-        // Загружаем UI компоненты поэтапно
-        console.log('🚀 Начинаем загрузку UI компонентов...');
         
         await Promise.all([
             loadReactComponent('./src/components/ui/SessionTimer.jsx', 'SessionTimer'), 
@@ -3581,41 +3556,10 @@
             loadReactComponent('./src/components/ui/LightningPayment.jsx', 'LightningPayment'), 
             loadReactComponent('./src/components/ui/PaymentModal.jsx', 'PaymentModal') 
         ]);
-        console.log('🎉 UI компоненты успешно загружены!');
-        console.log('📋 Доступные компоненты:', {
-            EnhancedMinimalHeader: !!window.EnhancedMinimalHeader,
-            SessionTimer: !!window.SessionTimer
-        });
-if (typeof initializeApp === 'function') {
-    initializeApp();
-} else {
-    console.error('❌ Функция initializeApp не найдена');
-}
+
         
     } catch (error) {
-        console.error('❌ Ошибка загрузки модуля:', error);
-        console.error('📍 Стек:', error.stack);
-        
-        // Показываем подробную ошибку на странице
-        document.getElementById('root').innerHTML = `
-            <div style="padding: 20px; color: #ef4444; font-family: monospace; background: #1a1a1a; min-height: 100vh;">
-                <h2>❌ Ошибка загрузки модуля</h2>
-                <p><strong>Ошибка:</strong> ${error.message}</p>
-                
-                <div style="margin-top: 20px; padding: 15px; background: rgba(245, 158, 11, 0.1); border-radius: 8px;">
-                    <h3 style="color: #f59e0b;">🔧 Возможные решения:</h3>
-                    <ol style="color: #f59e0b;">
-                        <li>Убедитесь, что файлы находятся в src/components/ui/</li>
-                        <li>Проверьте SessionTimer.jsx и Header.jsx</li>
-                        <li>Убедитесь, что файлы используют window.React</li>
-                        <li>Перезагрузите страницу (Ctrl+F5)</li>
-                        <li>Откройте Developer Tools и проверьте Network tab</li>
-                    </ol>
-                </div>
-                
-                <pre style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 5px; margin-top: 15px; overflow: auto;">${error.stack}</pre>
-            </div>
-        `;
+        console.error('❌ Module loading error:', error);
     }
 </script>
 </body>
