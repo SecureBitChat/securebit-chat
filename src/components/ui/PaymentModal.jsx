@@ -340,7 +340,7 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                     React.createElement('div', { 
                         key: 'timer-text', 
                         className: 'text-yellow-400 font-medium' 
-                    }, `⏱️ Время на оплату: ${formatTime(timeLeft)}`)
+                    }, `⏱️ Time to pay: ${formatTime(timeLeft)}`)
                 ]),
 
                 paymentStatus === 'free' && React.createElement('div', { 
