@@ -5,9 +5,9 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
     const [step, setStep] = useState('select');
     const [selectedType, setSelectedType] = useState(null);
     const [invoice, setInvoice] = useState(null);
-    const [paymentStatus, setPaymentStatus] = useState('pending'); // pending, creating, created, paying, paid, failed, expired
+    const [paymentStatus, setPaymentStatus] = useState('pending');
     const [error, setError] = useState('');
-    const [paymentMethod, setPaymentMethod] = useState('webln'); // webln, manual, qr
+    const [paymentMethod, setPaymentMethod] = useState('webln'); 
     const [preimageInput, setPreimageInput] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [qrCodeUrl, setQrCodeUrl] = useState('');
@@ -15,7 +15,6 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
     const [timeLeft, setTimeLeft] = useState(0);
     const pollInterval = useRef(null);
 
-    // Cleanup на закрытие
     useEffect(() => {
         if (!isOpen) {
             resetModal();
@@ -46,7 +45,6 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
         setError('');
         
         if (type === 'free') {
-            // Для бесплатной сессии создаем фиктивный инвойс
             setInvoice({ 
                 sessionType: 'free',
                 amount: 1,
@@ -73,7 +71,6 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                 throw new Error('Session manager не инициализирован');
             }
 
-            // Создаем реальный Lightning инвойс через LNbits
             const createdInvoice = await sessionManager.createLightningInvoice(type);
             
             if (!createdInvoice || !createdInvoice.paymentRequest) {
@@ -83,12 +80,10 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
             setInvoice(createdInvoice);
             setPaymentStatus('created');
 
-            // Создаем QR код для инвойса
             const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(createdInvoice.paymentRequest)}`;
             setQrCodeUrl(qrUrl);
 
-            // Запускаем таймер на 15 минут
-            const expirationTime = 15 * 60 * 1000; // 15 минут
+            const expirationTime = 15 * 60 * 1000;
             setTimeLeft(expirationTime);
             
             const timer = setInterval(() => {
@@ -105,21 +100,19 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
             }, 1000);
             setPaymentTimer(timer);
 
-            // Запускаем автопроверку статуса платежа
             startPaymentPolling(createdInvoice.checkingId);
 
             console.log('✅ Lightning invoice created successfully:', createdInvoice);
 
         } catch (err) {
             console.error('❌ Invoice creation failed:', err);
-            setError(`Ошибка создания инвойса: ${err.message}`);
+            setError(`Invoice creation error: ${err.message}`);
             setPaymentStatus('failed');
         } finally {
             setIsProcessing(false);
         }
     };
 
-    // Автопроверка статуса платежа каждые 3 секунды
     const startPaymentPolling = (checkingId) => {
         if (pollInterval.current) {
             clearInterval(pollInterval.current);
@@ -130,26 +123,24 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                 const status = await sessionManager.checkPaymentStatus(checkingId);
                 
                 if (status.paid && status.preimage) {
-                    console.log('✅ Payment confirmed automatically!', status);
                     clearInterval(pollInterval.current);
                     setPaymentStatus('paid');
                     await handlePaymentSuccess(status.preimage);
                 }
             } catch (error) {
                 console.warn('Payment status check failed:', error);
-                // Продолжаем проверять, не останавливаем polling из-за одной ошибки
             }
-        }, 3000); // Проверяем каждые 3 секунды
+        }, 3000); 
     };
 
     const handleWebLNPayment = async () => {
         if (!window.webln) {
-            setError('WebLN не поддерживается. Установите кошелек Alby или Zeus');
+            setError('WebLN is not supported. Please install the Alby or Zeus wallet.');
             return;
         }
 
         if (!invoice || !invoice.paymentRequest) {
-            setError('Инвойс не готов для оплаты');
+            setError('Invoice is not ready for payment.');
             return;
         }
 
@@ -158,14 +149,11 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
         setPaymentStatus('paying');
 
         try {
-            console.log('🔌 Enabling WebLN...');
             await window.webln.enable();
             
-            console.log('💰 Sending WebLN payment...');
             const result = await window.webln.sendPayment(invoice.paymentRequest);
             
             if (result.preimage) {
-                console.log('✅ WebLN payment successful!', result);
                 setPaymentStatus('paid');
                 await handlePaymentSuccess(result.preimage);
             } else {
@@ -173,8 +161,8 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
             }
         } catch (err) {
             console.error('❌ WebLN payment failed:', err);
-            setError(`Ошибка WebLN платежа: ${err.message}`);
-            setPaymentStatus('created'); // Возвращаем к состоянию "создан"
+            setError(`WebLN payment error: ${err.message}`);
+            setPaymentStatus('created'); 
         } finally {
             setIsProcessing(false);
         }
@@ -184,24 +172,23 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
         const trimmedPreimage = preimageInput.trim();
         
         if (!trimmedPreimage) {
-            setError('Введите preimage платежа');
+            setError('Enter payment preimage');
             return;
         }
         
         if (trimmedPreimage.length !== 64) {
-            setError('Preimage должен содержать ровно 64 символа');
+            setError('The preimage must be exactly 64 characters long.');
             return;
         }
         
         if (!/^[0-9a-fA-F]{64}$/.test(trimmedPreimage)) {
-            setError('Preimage должен содержать только шестнадцатеричные символы (0-9, a-f, A-F)');
+            setError('The preimage must contain only hexadecimal characters (0-9, a-f, A-F).');
             return;
         }
         
-        // Проверяем на простые/тестовые preimage
         const dummyPreimages = ['1'.repeat(64), 'a'.repeat(64), 'f'.repeat(64), '0'.repeat(64)];
         if (dummyPreimages.includes(trimmedPreimage) && selectedType !== 'free') {
-            setError('Введенный preimage недействителен. Используйте настоящий preimage от платежа.');
+            setError('The entered preimage is invalid. Please use the actual preimage from the payment..');
             return;
         }
         
@@ -226,7 +213,7 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
         try {
             await handlePaymentSuccess('0'.repeat(64));
         } catch (err) {
-            setError(`Ошибка активации бесплатной сессии: ${err.message}`);
+            setError(`Free session activation error: ${err.message}`);
         } finally {
             setIsProcessing(false);
         }
@@ -240,22 +227,17 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
             if (selectedType === 'free') {
                 isValid = true;
             } else {
-                // Верифицируем реальный платеж
                 isValid = await sessionManager.verifyPayment(preimage, invoice.paymentHash);
             }
             
             if (isValid) {
-                console.log('✅ Payment verified successfully!');
-                
-                // Останавливаем polling и таймеры
                 if (pollInterval.current) {
                     clearInterval(pollInterval.current);
                 }
                 if (paymentTimer) {
                     clearInterval(paymentTimer);
                 }
-                
-                // Передаем данные о покупке
+
                 onSessionPurchased({ 
                     type: selectedType, 
                     preimage,
@@ -263,13 +245,12 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                     amount: invoice.amount
                 });
                 
-                // Закрываем модалку с задержкой для показа успеха
                 setTimeout(() => {
                     onClose();
                 }, 1500);
                 
             } else {
-                throw new Error('Платеж не прошел верификацию. Проверьте правильность preimage или попробуйте снова.');
+                throw new Error('Payment verification failed. Please check the preimage for correctness or try again.');
             }
         } catch (error) {
             console.error('❌ Payment verification failed:', error);
@@ -280,7 +261,6 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
     const copyToClipboard = async (text) => {
         try {
             await navigator.clipboard.writeText(text);
-            // Можно добавить visual feedback
         } catch (err) {
             console.error('Failed to copy:', err);
         }
@@ -308,7 +288,6 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
             key: 'modal', 
             className: 'card-minimal rounded-xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto custom-scrollbar' 
         }, [
-            // Header с кнопкой закрытия
             React.createElement('div', { 
                 key: 'header', 
                 className: 'flex items-center justify-between mb-6' 
@@ -324,19 +303,16 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                 }, React.createElement('i', { className: 'fas fa-times' }))
             ]),
 
-            // Step 1: Session Type Selection
             step === 'select' && window.SessionTypeSelector && React.createElement(window.SessionTypeSelector, { 
                 key: 'selector', 
                 onSelectType: handleSelectType, 
                 onCancel: onClose 
             }),
 
-            // Step 2: Payment Processing
             step === 'payment' && React.createElement('div', { 
                 key: 'payment-step', 
                 className: 'space-y-6' 
             }, [
-                // Session Info
                 React.createElement('div', { 
                     key: 'session-info', 
                     className: 'text-center p-4 bg-orange-500/10 border border-orange-500/20 rounded-lg' 
@@ -344,12 +320,12 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                     React.createElement('h3', { 
                         key: 'session-title', 
                         className: 'text-lg font-semibold text-orange-400 mb-2' 
-                    }, `${selectedType.charAt(0).toUpperCase() + selectedType.slice(1)} сессия`),
+                    }, `${selectedType.charAt(0).toUpperCase() + selectedType.slice(1)} session`),
                     React.createElement('div', { 
                         key: 'session-details', 
                         className: 'text-sm text-secondary' 
                     }, [
-                        React.createElement('div', { key: 'amount' }, `${pricing[selectedType].sats} сат за ${pricing[selectedType].hours}ч`),
+                        React.createElement('div', { key: 'amount' }, `${pricing[selectedType].sats} sat for ${pricing[selectedType].hours}ч`),
                         pricing[selectedType].usd > 0 && React.createElement('div', { 
                             key: 'usd', 
                             className: 'text-gray-400' 
@@ -357,7 +333,6 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                     ])
                 ]),
 
-                // Timer для платных сессий
                 timeLeft > 0 && paymentStatus === 'created' && React.createElement('div', { 
                     key: 'timer', 
                     className: 'text-center p-3 bg-yellow-500/10 border border-yellow-500/20 rounded' 
@@ -368,7 +343,6 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                     }, `⏱️ Время на оплату: ${formatTime(timeLeft)}`)
                 ]),
 
-                // Бесплатная сессия
                 paymentStatus === 'free' && React.createElement('div', { 
                     key: 'free-payment', 
                     className: 'space-y-4' 
@@ -376,7 +350,7 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                     React.createElement('div', { 
                         key: 'free-info', 
                         className: 'p-4 bg-blue-500/10 border border-blue-500/20 rounded text-blue-300 text-sm text-center' 
-                    }, '🎉 Бесплатная сессия на 1 минуту'),
+                    }, '🎉 Free 1-minute session'),
                     React.createElement('button', { 
                         key: 'free-btn',
                         onClick: handleFreeSession,
@@ -387,26 +361,23 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                             key: 'free-icon',
                             className: `fas ${isProcessing ? 'fa-spinner fa-spin' : 'fa-play'} mr-2` 
                         }),
-                        isProcessing ? 'Активация...' : 'Активировать бесплатную сессию'
+                        isProcessing ? 'Activation...' : 'Activate free session'
                     ])
                 ]),
 
-                // Создание инвойса
                 paymentStatus === 'creating' && React.createElement('div', { 
                     key: 'creating', 
                     className: 'text-center p-4' 
                 }, [
                     React.createElement('i', { className: 'fas fa-spinner fa-spin text-orange-400 text-2xl mb-2' }),
-                    React.createElement('div', { className: 'text-primary' }, 'Создание Lightning инвойса...'),
-                    React.createElement('div', { className: 'text-secondary text-sm mt-1' }, 'Подключение к Lightning Network...')
+                    React.createElement('div', { className: 'text-primary' }, 'Creating Lightning invoice...'),
+                    React.createElement('div', { className: 'text-secondary text-sm mt-1' }, 'Connecting to the Lightning Network...')
                 ]),
 
-                // Платная сессия с инвойсом
                 (paymentStatus === 'created' || paymentStatus === 'paying') && invoice && React.createElement('div', { 
                     key: 'payment-methods', 
                     className: 'space-y-6' 
                 }, [
-                    // QR Code
                     qrCodeUrl && React.createElement('div', { 
                         key: 'qr-section', 
                         className: 'text-center' 
@@ -425,10 +396,9 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                         React.createElement('div', { 
                             key: 'qr-hint', 
                             className: 'text-xs text-gray-400 mt-2' 
-                        }, 'Сканируйте любым Lightning кошельком')
+                        }, 'Scan with any Lightning wallet')
                     ]),
 
-                    // Payment Request для копирования
                     invoice.paymentRequest && React.createElement('div', { 
                         key: 'payment-request', 
                         className: 'space-y-2' 
@@ -441,7 +411,7 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                             key: 'pr-container',
                             className: 'p-3 bg-gray-800/50 rounded border border-gray-600 text-xs font-mono text-gray-300 cursor-pointer hover:bg-gray-700/50 transition-colors',
                             onClick: () => copyToClipboard(invoice.paymentRequest),
-                            title: 'Нажмите для копирования'
+                            title: 'Click to copy'
                         }, [
                             invoice.paymentRequest.substring(0, 60) + '...',
                             React.createElement('i', { key: 'copy-icon', className: 'fas fa-copy ml-2 text-orange-400' })
@@ -458,12 +428,12 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                             className: 'text-primary font-medium flex items-center' 
                         }, [
                             React.createElement('i', { key: 'bolt-icon', className: 'fas fa-bolt text-orange-400 mr-2' }),
-                            'WebLN кошелек (рекомендуется)'
+                            'WebLN wallet (recommended)'
                         ]),
                         React.createElement('div', { 
                             key: 'webln-info', 
                             className: 'text-xs text-gray-400 mb-2' 
-                        }, 'Alby, Zeus, или другие WebLN совместимые кошельки'),
+                        }, 'Alby, Zeus, or other WebLN-compatible wallets'),
                         React.createElement('button', { 
                             key: 'webln-btn',
                             onClick: handleWebLNPayment,
@@ -474,7 +444,7 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                                 key: 'webln-icon',
                                 className: `fas ${isProcessing ? 'fa-spinner fa-spin' : 'fa-bolt'} mr-2` 
                             }),
-                            paymentStatus === 'paying' ? 'Обработка платежа...' : 'Оплатить через WebLN'
+                            paymentStatus === 'paying' ? 'Processing payment...' : 'Pay via WebLN'
                         ])
                     ]),
 
@@ -482,7 +452,7 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                     React.createElement('div', { 
                         key: 'divider', 
                         className: 'text-center text-gray-400 text-sm' 
-                    }, '— или —'),
+                    }, '— or —'),
                     
                     // Manual Verification
                     React.createElement('div', { 
@@ -492,17 +462,17 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                         React.createElement('h4', { 
                             key: 'manual-title', 
                             className: 'text-primary font-medium' 
-                        }, 'Ручное подтверждение платежа'),
+                        }, 'Manual payment confirmation'),
                         React.createElement('div', { 
                             key: 'manual-info', 
                             className: 'text-xs text-gray-400' 
-                        }, 'Оплатите инвойс в любом кошельке и введите preimage:'),
+                        }, 'Pay the invoice in any wallet and enter the preimage.:'),
                         React.createElement('input', { 
                             key: 'preimage-input',
                             type: 'text',
                             value: preimageInput,
                             onChange: (e) => setPreimageInput(e.target.value),
-                            placeholder: 'Введите preimage (64 hex символа)...',
+                            placeholder: 'Enter the preimage (64 hex characters)...',
                             className: 'w-full p-3 bg-gray-800 border border-gray-600 rounded text-white placeholder-gray-400 text-sm font-mono',
                             maxLength: 64
                         }),
@@ -516,7 +486,7 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                                 key: 'verify-icon',
                                 className: `fas ${isProcessing ? 'fa-spinner fa-spin' : 'fa-check'} mr-2` 
                             }),
-                            isProcessing ? 'Проверка платежа...' : 'Подтвердить платеж'
+                            isProcessing ? 'Checking payment...' : 'Confirm payment'
                         ])
                     ])
                 ]),
@@ -527,8 +497,8 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                     className: 'text-center p-6 bg-green-500/10 border border-green-500/20 rounded-lg' 
                 }, [
                     React.createElement('i', { key: 'success-icon', className: 'fas fa-check-circle text-green-400 text-3xl mb-3' }),
-                    React.createElement('div', { key: 'success-title', className: 'text-green-300 font-semibold text-lg mb-1' }, '✅ Платеж подтвержден!'),
-                    React.createElement('div', { key: 'success-text', className: 'text-green-400 text-sm' }, 'Сессия будет активирована при подключении к чату')
+                    React.createElement('div', { key: 'success-title', className: 'text-green-300 font-semibold text-lg mb-1' }, '✅ Payment confirmed!'),
+                    React.createElement('div', { key: 'success-text', className: 'text-green-400 text-sm' }, 'The session will be activated upon connecting to the chat.')
                 ]),
 
                 // Error State
@@ -547,12 +517,11 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                                 key: 'retry-btn',
                                 onClick: () => createRealInvoice(selectedType),
                                 className: 'mt-2 text-orange-400 hover:text-orange-300 underline text-sm'
-                            }, 'Создать новый инвойс')
+                            }, 'Create a new invoice')
                         ])
                     ])
                 ]),
 
-                // Back button (кроме случая успешной оплаты)
                 paymentStatus !== 'paid' && React.createElement('div', { 
                     key: 'back-section', 
                     className: 'pt-4 border-t border-gray-600' 
@@ -563,7 +532,7 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                         className: 'w-full bg-gray-600 hover:bg-gray-500 text-white py-2 px-4 rounded transition-colors'
                     }, [
                         React.createElement('i', { key: 'back-icon', className: 'fas fa-arrow-left mr-2' }),
-                        'Выбрать другую сессию'
+                        'Choose another session'
                     ])
                 ])
             ])
