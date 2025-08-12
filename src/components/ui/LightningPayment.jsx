@@ -10,14 +10,12 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
     const [paymentStatus, setPaymentStatus] = useState('pending'); // pending, created, paid, expired
     const [qrCodeUrl, setQrCodeUrl] = useState('');
 
-    // Создаем инвойс при загрузке компонента
     useEffect(() => {
         createInvoice();
     }, [sessionType]);
 
     const createInvoice = async () => {
         if (sessionType === 'free') {
-            // Для бесплатной сессии не нужен инвойс
             setPaymentStatus('free');
             return;
         }
@@ -26,14 +24,11 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
         setError('');
 
         try {
-            console.log('Creating Lightning invoice for', sessionType);
-            console.log('Payment manager available:', !!paymentManager);
             
             if (!paymentManager) {
                 throw new Error('Payment manager not available. Please check sessionManager initialization.');
             }
 
-            // Создаем инвойс через paymentManager
             const createdInvoice = await paymentManager.createLightningInvoice(sessionType);
 
             if (!createdInvoice) {
@@ -43,13 +38,10 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
             setInvoice(createdInvoice);
             setPaymentStatus('created');
 
-            // Создаем QR код
             if (createdInvoice.paymentRequest) {
                 const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(createdInvoice.paymentRequest)}`;
                 setQrCodeUrl(qrUrl);
             }
-
-            console.log('Invoice created successfully:', createdInvoice);
 
         } catch (err) {
             console.error('Invoice creation failed:', err);
@@ -61,12 +53,12 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
 
     const handleWebLNPayment = async () => {
         if (!window.webln) {
-            setError('WebLN не поддерживается. Используйте кошелек Alby или Zeus');
+            setError('WebLN is not supported. Please use the Alby or Zeus wallet.');
             return;
         }
 
         if (!invoice || !invoice.paymentRequest) {
-            setError('Инвойс не готов для оплаты');
+            setError('Invoice is not ready for payment');
             return;
         }
 
@@ -74,17 +66,12 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
         setError('');
 
         try {
-            console.log('Enabling WebLN...');
             await window.webln.enable();
             
-            console.log('Sending WebLN payment...');
             const result = await window.webln.sendPayment(invoice.paymentRequest);
             
             if (result.preimage) {
-                console.log('WebLN payment successful, preimage:', result.preimage);
                 setPaymentStatus('paid');
-                
-                // Активируем сессию
                 await activateSession(result.preimage);
             } else {
                 setError('Платеж не содержит preimage');
@@ -101,24 +88,24 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
         const trimmedPreimage = preimage.trim();
         
         if (!trimmedPreimage) {
-            setError('Введите preimage платежа');
+            setError('Enter payment preimage');
             return;
         }
         
         if (trimmedPreimage.length !== 64) {
-            setError('Preimage должен содержать ровно 64 символа');
+            setError('The preimage must be exactly 64 characters long.');
             return;
         }
         
         if (!/^[0-9a-fA-F]{64}$/.test(trimmedPreimage)) {
-            setError('Preimage должен содержать только шестнадцатеричные символы (0-9, a-f, A-F)');
+            setError('The preimage must contain only hexadecimal characters (0-9, a-f, A-F).');
             return;
         }
         
         if (trimmedPreimage === '1'.repeat(64) || 
             trimmedPreimage === 'a'.repeat(64) || 
             trimmedPreimage === 'f'.repeat(64)) {
-            setError('Введенный preimage слишком простой. Проверьте правильность ключа.');
+            setError('The entered preimage is too weak. Please verify the key..');
             return;
         }
         
@@ -128,7 +115,7 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
         try {
             await activateSession(trimmedPreimage);
         } catch (err) {
-            setError(`Ошибка активации: ${err.message}`);
+            setError(`Activation error: ${err.message}`);
         } finally {
             setIsProcessing(false);
         }
@@ -136,14 +123,10 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
 
     const activateSession = async (preimageValue) => {
         try {
-            console.log('🚀 Activating session with preimage:', preimageValue);
-            console.log('Payment manager available:', !!paymentManager);
-            console.log('Invoice available:', !!invoice);
             
             let result;
             if (paymentManager) {
                 const paymentHash = invoice?.paymentHash || 'dummy_hash';
-                console.log('Using payment hash:', paymentHash);
                 result = await paymentManager.safeActivateSession(sessionType, preimageValue, paymentHash);
             } else {
                 console.warn('Payment manager not available, using fallback');
@@ -152,7 +135,6 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
             }
 
             if (result.success) {
-                console.log('✅ Session activated successfully:', result);
                 setPaymentStatus('paid');
                 onSuccess(preimageValue, invoice);
             } else {
@@ -179,7 +161,6 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
 
     const copyToClipboard = (text) => {
         navigator.clipboard.writeText(text).then(() => {
-            // Можно добавить уведомление о копировании
         });
     };
 
@@ -191,17 +172,16 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
     }[sessionType];
 
     return React.createElement('div', { className: 'space-y-4 max-w-md mx-auto' }, [
-        // Header
         React.createElement('div', { key: 'header', className: 'text-center' }, [
             React.createElement('h3', { 
                 key: 'title', 
                 className: 'text-xl font-semibold text-white mb-2' 
-            }, sessionType === 'free' ? 'Бесплатная сессия' : 'Оплата Lightning'),
+            }, sessionType === 'free' ? 'Free session' : 'Lightning payment'),
             React.createElement('div', { 
                 key: 'amount', 
                 className: 'text-2xl font-bold text-orange-400' 
             }, sessionType === 'free' 
-                ? '1 сат за 1 минуту' 
+                ? '0 sat per minute' 
                 : `${pricing.sats} сат за ${pricing.hours}ч`
             ),
             sessionType !== 'free' && React.createElement('div', { 
@@ -220,7 +200,7 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
                 className: 'text-orange-400' 
             }, [
                 React.createElement('i', { className: 'fas fa-spinner fa-spin mr-2' }),
-                'Создание инвойса...'
+                'Creating invoice...'
             ])
         ]),
 
@@ -232,7 +212,7 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
             React.createElement('div', { 
                 key: 'info', 
                 className: 'p-3 bg-blue-500/10 border border-blue-500/20 rounded text-blue-300 text-sm' 
-            }, 'Будет активирована бесплатная сессия на 1 минуту.'),
+            }, 'A free 1-minute session will be activated.'),
             React.createElement('button', { 
                 key: 'start-btn',
                 onClick: handleFreeSession,
@@ -243,7 +223,7 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
                     key: 'icon',
                     className: `fas ${isProcessing ? 'fa-spinner fa-spin' : 'fa-play'} mr-2` 
                 }),
-                isProcessing ? 'Активация...' : 'Начать бесплатную сессию'
+                isProcessing ? 'Activation...' : 'Start free session'
             ])
         ]),
 
@@ -271,7 +251,7 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
                 React.createElement('div', { 
                     key: 'qr-hint', 
                     className: 'text-xs text-gray-400 mt-2' 
-                }, 'Сканируйте QR код любым Lightning кошельком')
+                }, 'Scan the QR code with any Lightning wallet')
             ]),
 
             // Payment Request
@@ -303,7 +283,7 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
                     className: 'text-white font-medium flex items-center' 
                 }, [
                     React.createElement('i', { key: 'bolt-icon', className: 'fas fa-bolt text-orange-400 mr-2' }),
-                    'WebLN кошелек (Alby, Zeus)'
+                    'WebLN wallet (Alby, Zeus)'
                 ]),
                 React.createElement('button', { 
                     key: 'webln-btn',
@@ -315,7 +295,7 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
                         key: 'webln-icon',
                         className: `fas ${isProcessing ? 'fa-spinner fa-spin' : 'fa-bolt'} mr-2` 
                     }),
-                    isProcessing ? 'Обработка...' : 'Оплатить через WebLN'
+                    isProcessing ? 'Processing...' : 'Pay via WebLN'
                 ])
             ]),
 
@@ -323,7 +303,7 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
             React.createElement('div', { 
                 key: 'divider', 
                 className: 'text-center text-gray-400' 
-            }, 'или'),
+            }, 'or'),
             
             React.createElement('div', { 
                 key: 'manual-section', 
@@ -332,13 +312,13 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
                 React.createElement('h4', { 
                     key: 'manual-title', 
                     className: 'text-white font-medium' 
-                }, 'Ручная проверка платежа'),
+                }, 'Manual payment verification'),
                 React.createElement('input', { 
                     key: 'preimage-input',
                     type: 'text',
                     value: preimage,
                     onChange: (e) => setPreimage(e.target.value),
-                    placeholder: 'Введите preimage после оплаты...',
+                    placeholder: 'Enter the preimage after payment...',
                     className: 'w-full p-3 bg-gray-800 border border-gray-600 rounded text-white placeholder-gray-400 text-sm'
                 }),
                 React.createElement('button', { 
@@ -351,7 +331,7 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
                         key: 'verify-icon',
                         className: `fas ${isProcessing ? 'fa-spinner fa-spin' : 'fa-check'} mr-2` 
                     }),
-                    isProcessing ? 'Проверка...' : 'Подтвердить платеж'
+                    isProcessing ? 'Verification...' : 'Confirm payment'
                 ])
             ])
         ]),
@@ -362,8 +342,8 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
             className: 'text-center p-4 bg-green-500/10 border border-green-500/20 rounded' 
         }, [
             React.createElement('i', { key: 'success-icon', className: 'fas fa-check-circle text-green-400 text-2xl mb-2' }),
-            React.createElement('div', { key: 'success-text', className: 'text-green-300 font-medium' }, 'Платеж подтвержден!'),
-            React.createElement('div', { key: 'success-subtext', className: 'text-green-400 text-sm' }, 'Сессия активирована')
+            React.createElement('div', { key: 'success-text', className: 'text-green-300 font-medium' }, 'Payment confirmed!'),
+            React.createElement('div', { key: 'success-subtext', className: 'text-green-400 text-sm' }, 'Session activated')
         ]),
 
         // Error State
@@ -377,7 +357,7 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
                 key: 'retry-btn',
                 onClick: createInvoice,
                 className: 'ml-2 text-orange-400 hover:text-orange-300 underline'
-            }, 'Попробовать снова')
+            }, 'Try again')
         ]),
 
         // Cancel Button
@@ -385,7 +365,7 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
             key: 'cancel-btn',
             onClick: onCancel,
             className: 'w-full bg-gray-600 hover:bg-gray-500 text-white py-2 px-4 rounded'
-        }, 'Отмена')
+        }, 'Cancel')
     ]);
 };
 
