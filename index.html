@@ -3498,7 +3498,6 @@
         };
         function initializeApp() {
             if (window.EnhancedSecureCryptoUtils && window.EnhancedSecureWebRTCManager) {
-                console.log('🚀 Инициализируем React приложение...');
                 ReactDOM.render(React.createElement(EnhancedSecureP2PChat), document.getElementById('root'));
             } else {
                 console.error('❌ Модули не загружены:', {
@@ -3542,8 +3541,8 @@
                 
                 eval(componentCode);
                 
+                
             } catch (error) {
-                console.error(`❌ Component loading error ${componentName}:`, error);
                 throw error;
             }
         }
@@ -3557,6 +3556,11 @@
             loadReactComponent('./src/components/ui/PaymentModal.jsx', 'PaymentModal') 
         ]);
 
+if (typeof initializeApp === 'function') {
+    initializeApp();
+} else {
+    console.error('❌ Function initializeApp not found');
+}
         
     } catch (error) {
         console.error('❌ Module loading error:', error);
