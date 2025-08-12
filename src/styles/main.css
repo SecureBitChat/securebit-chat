@@ -1,0 +1,96 @@
+/* Основные шрифты и цвета */
+* {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body {
+    background: #2A2B2A;
+    overflow-x: hidden;
+}
+
+/* Базовые фоны */
+.bg-custom-bg {
+    background-color: rgb(37 38 37) !important;
+}
+
+.bg-header {
+    background-color: rgb(35 35 35) !important;
+}
+
+.minimal-bg {
+    background: linear-gradient(135deg, #1a1a1a 0%, #2A2B2A 100%);
+    position: relative;
+    min-height: 100vh;
+}
+
+/* Текстовые стили */
+.text-primary { color: #f1f5f9; }
+.text-secondary { color: #9ca3af; }
+.text-muted { color: #6b7280; }
+
+/* Акцентные цвета */
+.accent-orange { color: #fb923c; }
+.accent-green { color: #34d399; }
+.accent-red { color: #f87171; }
+.accent-yellow { color: #fbbf24; }
+.accent-purple { color: #a78bfa; }
+.accent-blue { color: #60a5fa; }
+.accent-gray { color: #9ca3af; }
+.accent-cyan { color: #22d3ee; }
+
+/* Кастомный скролл */
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(42, 43, 42, 0.3);
+    border-radius: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(75, 85, 99, 0.5);
+    border-radius: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(75, 85, 99, 0.7);
+}
+
+/* Плавная прокрутка */
+.scroll-smooth {
+    scroll-behavior: smooth;
+}
+
+/* Улучшенная прокрутка для сообщений */
+.messages-container {
+    scroll-behavior: smooth;
+    scroll-padding-bottom: 20px;
+}
+
+/* Медиа-запросы (мобильные/планшет) */
+@media (max-width: 640px) {
+    .header-minimal { padding: 0 8px; }
+
+    .icon-container {
+        min-width: 32px;
+        min-height: 32px;
+    }
+
+    .verification-code {
+        font-size: 0.875rem;
+        padding: 6px 8px;
+    }
+
+    .header-minimal .max-w-7xl {
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+
+    .header-minimal button {
+        min-width: 32px;
+        min-height: 32px;
+    }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+    .header-minimal .max-w-7xl {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+}
