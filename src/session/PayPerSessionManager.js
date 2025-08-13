@@ -11,15 +11,14 @@ class PayPerSessionManager {
         this.onSessionExpired = null;
         this.staticLightningAddress = "dullpastry62@walletofsatoshi.com";
         
-        // Конфигурация для LNbits (ваши реальные данные)
         this.verificationConfig = {
             method: config.method || 'lnbits',
             apiUrl: config.apiUrl || 'https://demo.lnbits.com',
-            apiKey: config.apiKey || '623515641d2e4ebcb1d5992d6d78419c', // Ваш Invoice/read ключ
+            apiKey: config.apiKey || '623515641d2e4ebcb1d5992d6d78419c', 
             walletId: config.walletId || 'bcd00f561c7b46b4a7b118f069e68997',
-            // Дополнительные настройки для демо
+
             isDemo: true,
-            demoTimeout: 30000, // 30 секунд для демо
+            demoTimeout: 30000, 
             retryAttempts: 3
         };
     }
@@ -44,7 +43,7 @@ class PayPerSessionManager {
         };
     }
 
-    // Создание реального Lightning инвойса через LNbits
+    // Create a real Lightning invoice via LNbits
     async createLightningInvoice(sessionType) {
         const pricing = this.sessionPrices[sessionType];
         if (!pricing) throw new Error('Invalid session type');
@@ -52,7 +51,7 @@ class PayPerSessionManager {
         try {
             console.log(`Creating ${sessionType} invoice for ${pricing.sats} sats...`);
 
-            // Проверяем доступность API
+            // Checking API availability
             const healthCheck = await fetch(`${this.verificationConfig.apiUrl}/api/v1/health`, {
                 method: 'GET',
                 headers: {
@@ -75,7 +74,7 @@ class PayPerSessionManager {
                     amount: pricing.sats,
                     memo: `LockBit.chat ${sessionType} session (${pricing.hours}h)`,
                     unit: 'sat',
-                    expiry: this.verificationConfig.isDemo ? 300 : 900 // 5 минут для демо, 15 для продакшена
+                    expiry: this.verificationConfig.isDemo ? 300 : 900 // 5 minutes for demo, 15 for production
                 })
             });
 
@@ -90,18 +89,18 @@ class PayPerSessionManager {
             console.log('✅ Lightning invoice created successfully!', data);
             
             return {
-                paymentRequest: data.bolt11 || data.payment_request, // BOLT11 invoice для QR кода
+                paymentRequest: data.bolt11 || data.payment_request, // BOLT11 invoice for QR code
                 paymentHash: data.payment_hash,
-                checkingId: data.checking_id || data.payment_hash, // Для проверки статуса
+                checkingId: data.checking_id || data.payment_hash, // To check the status
                 amount: data.amount || pricing.sats,
                 sessionType: sessionType,
                 createdAt: Date.now(),
-                expiresAt: Date.now() + (this.verificationConfig.isDemo ? 5 * 60 * 1000 : 15 * 60 * 1000), // 5 минут для демо
+                expiresAt: Date.now() + (this.verificationConfig.isDemo ? 5 * 60 * 1000 : 15 * 60 * 1000), // 5 minutes for demo
                 description: data.description || data.memo || `LockBit.chat ${sessionType} session`,
                 lnurl: data.lnurl || null,
                 memo: data.memo || `LockBit.chat ${sessionType} session`,
                 bolt11: data.bolt11 || data.payment_request,
-                // Дополнительные поля для совместимости
+                // Additional fields for compatibility
                 payment_request: data.bolt11 || data.payment_request,
                 checking_id: data.checking_id || data.payment_hash
             };
@@ -109,7 +108,7 @@ class PayPerSessionManager {
         } catch (error) {
             console.error('❌ Error creating Lightning invoice:', error);
             
-            // Для демо режима создаем фиктивный инвойс
+            // For demo mode, we create a dummy invoice
             if (this.verificationConfig.isDemo && error.message.includes('API')) {
                 console.log('🔄 Creating demo invoice for testing...');
                 return this.createDemoInvoice(sessionType);
@@ -119,26 +118,26 @@ class PayPerSessionManager {
         }
     }
 
-    // Создание демо инвойса для тестирования
+    // Create a demo invoice for testing
     createDemoInvoice(sessionType) {
         const pricing = this.sessionPrices[sessionType];
         const demoHash = Array.from(crypto.getRandomValues(new Uint8Array(32)))
             .map(b => b.toString(16).padStart(2, '0')).join('');
         
         return {
-            paymentRequest: `lntb${pricing.sats}1p${demoHash}...`, // Фиктивный BOLT11
+            paymentRequest: `lntb${pricing.sats}1p${demoHash}...`, // Fake BOLT11
             paymentHash: demoHash,
             checkingId: demoHash,
             amount: pricing.sats,
             sessionType: sessionType,
             createdAt: Date.now(),
-            expiresAt: Date.now() + (5 * 60 * 1000), // 5 минут
+            expiresAt: Date.now() + (5 * 60 * 1000), // 5 minutes
             description: `LockBit.chat ${sessionType} session (DEMO)`,
             isDemo: true
         };
     }
 
-    // Проверка статуса платежа через LNbits
+    // Checking payment status via LNbits
     async checkPaymentStatus(checkingId) {
         try {
             console.log(`🔍 Checking payment status for: ${checkingId}`);
@@ -173,7 +172,7 @@ class PayPerSessionManager {
         } catch (error) {
             console.error('❌ Error checking payment status:', error);
             
-            // Для демо режима возвращаем фиктивный статус
+            // For demo mode we return a dummy status
             if (this.verificationConfig.isDemo && error.message.includes('API')) {
                 console.log('🔄 Returning demo payment status...');
                 return {
@@ -190,7 +189,7 @@ class PayPerSessionManager {
         }
     }
 
-    // Метод 1: Верификация через LNbits API
+    // Method 1: Verification via LNbits API
     async verifyPaymentLNbits(preimage, paymentHash) {
         try {
             console.log(`🔐 Verifying payment via LNbits: ${paymentHash}`);
@@ -216,7 +215,7 @@ class PayPerSessionManager {
             const paymentData = await response.json();
             console.log('📋 Payment verification data:', paymentData);
             
-            // Проверяем статус платежа
+            // Checking the payment status
             if (paymentData.paid && paymentData.preimage === preimage) {
                 console.log('✅ Payment verified successfully via LNbits');
                 return {
@@ -238,7 +237,7 @@ class PayPerSessionManager {
         } catch (error) {
             console.error('❌ LNbits payment verification failed:', error);
             
-            // Для демо режима возвращаем успешную верификацию
+            // For demo mode, we return successful verification
             if (this.verificationConfig.isDemo && error.message.includes('API')) {
                 console.log('🔄 Demo payment verification successful');
                 return {
@@ -258,7 +257,7 @@ class PayPerSessionManager {
         }
     }
 
-    // Метод 2: Верификация через LND REST API
+    // Method 2: Verification via LND REST API
     async verifyPaymentLND(preimage, paymentHash) {
         try {
             if (!this.verificationConfig.nodeUrl || !this.verificationConfig.macaroon) {
@@ -279,7 +278,7 @@ class PayPerSessionManager {
 
             const invoiceData = await response.json();
             
-            // Проверяем, что инвойс оплачен и preimage совпадает
+            // We check that the invoice is paid and the preimage matches
             if (invoiceData.settled && invoiceData.r_preimage === preimage) {
                 return true;
             }
@@ -291,7 +290,7 @@ class PayPerSessionManager {
         }
     }
 
-    // Метод 3: Верификация через Core Lightning (CLN)
+    // Method 3: Verification via Core Lightning (CLN)
     async verifyPaymentCLN(preimage, paymentHash) {
         try {
             if (!this.verificationConfig.nodeUrl) {
@@ -328,11 +327,9 @@ class PayPerSessionManager {
         }
     }
 
-    // Метод 4: Верификация через Wallet of Satoshi API (если доступен)
+    // Method 4: Verification via Wallet of Satoshi API (if available)
     async verifyPaymentWOS(preimage, paymentHash) {
         try {
-            // Wallet of Satoshi обычно не предоставляет публичного API
-            // Этот метод для примера структуры
             console.warn('Wallet of Satoshi API verification not implemented');
             return false;
         } catch (error) {
@@ -341,7 +338,7 @@ class PayPerSessionManager {
         }
     }
 
-    // Метод 5: Верификация через BTCPay Server
+   // Method 5: Verification via BTCPay Server
     async verifyPaymentBTCPay(preimage, paymentHash) {
         try {
             if (!this.verificationConfig.apiUrl || !this.verificationConfig.apiKey) {
@@ -373,18 +370,18 @@ class PayPerSessionManager {
         }
     }
 
-    // Криптографическая верификация preimage
+    // Cryptographic preimage verification
     async verifyCryptographically(preimage, paymentHash) {
         try {
-            // Преобразуем preimage в байты
+            // Convert preimage to bytes
             const preimageBytes = new Uint8Array(preimage.match(/.{2}/g).map(byte => parseInt(byte, 16)));
             
-            // Вычисляем SHA256 от preimage
+            // Calculate SHA256 from preimage
             const hashBuffer = await crypto.subtle.digest('SHA-256', preimageBytes);
             const computedHash = Array.from(new Uint8Array(hashBuffer))
                 .map(b => b.toString(16).padStart(2, '0')).join('');
             
-            // Сравниваем с payment_hash
+            // Compare with payment_hash
             return computedHash === paymentHash;
         } catch (error) {
             console.error('Cryptographic verification failed:', error);
@@ -392,7 +389,7 @@ class PayPerSessionManager {
         }
     }
 
-    // Основной метод верификации платежа
+    // The main method of payment verification
     async verifyPayment(preimage, paymentHash) {
         console.log(`🔐 Verifying payment: preimage=${preimage}, hash=${paymentHash}`);
         
@@ -407,13 +404,13 @@ class PayPerSessionManager {
             return { verified: false, reason: 'Invalid preimage format' };
         }
         
-        // Для бесплатных сессий
+        // For free sessions
         if (preimage === '0'.repeat(64)) {
             console.log('✅ Free session preimage accepted');
             return { verified: true, method: 'free' };
         }
         
-        // Проверяем, что preimage не является заглушкой
+        // Check that preimage is not a stub
         const dummyPreimages = ['1'.repeat(64), 'a'.repeat(64), 'f'.repeat(64)];
         if (dummyPreimages.includes(preimage)) {
             console.log('❌ Dummy preimage detected');
@@ -421,7 +418,7 @@ class PayPerSessionManager {
         }
 
         try {
-            // Сначала проверяем криптографически
+            // First we check it cryptographically
             const cryptoValid = await this.verifyCryptographically(preimage, paymentHash);
             if (!cryptoValid) {
                 console.log('❌ Cryptographic verification failed');
@@ -430,7 +427,7 @@ class PayPerSessionManager {
 
             console.log('✅ Cryptographic verification passed');
 
-            // Затем проверяем через выбранный метод
+            // Then we check using the selected method
             switch (this.verificationConfig.method) {
                 case 'lnbits':
                     const lnbitsResult = await this.verifyPaymentLNbits(preimage, paymentHash);
@@ -462,9 +459,8 @@ class PayPerSessionManager {
         }
     }
 
-    // Остальные методы остаются без изменений...
     activateSession(sessionType, preimage) {
-        // Очистка предыдущей сессии
+        // Clearing the previous session
         this.cleanup();
 
         const pricing = this.sessionPrices[sessionType];
@@ -553,7 +549,7 @@ class PayPerSessionManager {
                 return { success: false, reason: 'Invalid session type' };
             }
             
-            // Верифицируем платеж
+            // We verify the payment
             const verificationResult = await this.verifyPayment(preimage, paymentHash);
             
             if (verificationResult.verified) {
