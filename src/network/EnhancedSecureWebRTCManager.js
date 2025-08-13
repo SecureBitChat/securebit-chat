@@ -2,7 +2,7 @@ class EnhancedSecureWebRTCManager {
     constructor(onMessage, onStatusChange, onKeyExchange, onVerificationRequired, onAnswerError = null) {
         // Проверяем доступность глобального объекта
         if (!window.EnhancedSecureCryptoUtils) {
-            throw new Error('EnhancedSecureCryptoUtils не загружен. Убедитесь, что модуль загружен первым.');
+            throw new Error('EnhancedSecureCryptoUtils is not loaded. Please ensure the module is loaded first.');
         }
         
         this.peerConnection = null;
@@ -109,7 +109,7 @@ class EnhancedSecureWebRTCManager {
                 return false;
             }
     
-            // Отправляем сигнал о ротации ключей партнеру
+            // Sending key rotation signal to partner.
             const rotationSignal = {
                 type: 'key_rotation_signal',
                 newVersion: this.currentKeyVersion + 1,
@@ -118,14 +118,14 @@ class EnhancedSecureWebRTCManager {
             
             this.dataChannel.send(JSON.stringify(rotationSignal));
             
-            // Ждем подтверждения от партнера перед ротацией
+            // Waiting for partner's confirmation before rotation.
             return new Promise((resolve) => {
                 this.pendingRotation = {
                     newVersion: this.currentKeyVersion + 1,
                     resolve: resolve
                 };
                 
-                // Таймаут на случай если партнер не ответит
+                // Timeout in case the partner doesn't respond.
                 setTimeout(() => {
                     if (this.pendingRotation) {
                         this.pendingRotation.resolve(false);
@@ -159,7 +159,7 @@ class EnhancedSecureWebRTCManager {
 
     // PFS: Get keys for specific version (for decryption)
     getKeysForVersion(version) {
-        // Сначала проверяем старые ключи (включая версию 0)
+        // First, we check the old keys (including version 0).
         const oldKeySet = this.oldKeys.get(version);
         if (oldKeySet && oldKeySet.encryptionKey && oldKeySet.macKey && oldKeySet.metadataKey) {
             return {
@@ -169,7 +169,7 @@ class EnhancedSecureWebRTCManager {
             };
         }
         
-        // Если это текущая версия, возвращаем текущие ключи
+        // If this is the current version, return the current keys.
         if (version === this.currentKeyVersion) {
             if (this.encryptionKey && this.macKey && this.metadataKey) {
                 return {
@@ -213,12 +213,12 @@ class EnhancedSecureWebRTCManager {
             } else if (state === 'connected' && this.isVerified) {
                 this.onStatusChange('connected');
             } else if (state === 'disconnected' || state === 'closed') {
-                // Если это намеренное отключение, сразу очищаем
+                // If this is an intentional disconnect, clear immediately.
                 if (this.intentionalDisconnect) {
                     this.onStatusChange('disconnected');
                     setTimeout(() => this.cleanupConnection(), 100);
                 } else {
-                    // Неожиданное отключение - пытаемся уведомить партнера
+                    // Unexpected disconnection — attempting to notify partner.
                     this.onStatusChange('reconnecting');
                     this.handleUnexpectedDisconnect();
                 }
@@ -261,11 +261,11 @@ class EnhancedSecureWebRTCManager {
             
             if (!this.intentionalDisconnect) {
                 this.onStatusChange('reconnecting');
-                this.onMessage('🔄 Канал данных закрыт. Попытка восстановления...', 'system');
+                this.onMessage('🔄 Data channel closed. Attempting recovery...', 'system');
                 this.handleUnexpectedDisconnect();
             } else {
                 this.onStatusChange('disconnected');
-                this.onMessage('🔌 Соединение закрыто', 'system');
+                this.onMessage('🔌 Connection closed', 'system');
             }
             
             this.stopHeartbeat();
@@ -334,22 +334,22 @@ class EnhancedSecureWebRTCManager {
                         throw new Error(`Invalid key types for version ${keyVersion}`);
                     }
                     
-                    // Используем более гибкую проверку sequence number
+                    // Using a more flexible sequence number check
                     const decryptedData = await window.EnhancedSecureCryptoUtils.decryptMessage(
                         payload.data,
                         keys.encryptionKey,
                         keys.macKey,
                         keys.metadataKey,
-                        null // Отключаем строгую проверку sequence number
+                        null // Disabling strict sequence number verification
                     );
                     
-                    // Проверяем replay attack по messageId
+                    // Checking for replay attack using messageId
                     if (this.processedMessageIds.has(decryptedData.messageId)) {
                         throw new Error('Duplicate message detected - possible replay attack');
                     }
                     this.processedMessageIds.add(decryptedData.messageId);
                     
-                    // Обновляем ожидаемый sequence number более гибко
+                    // Updating expected sequence number more flexibly
                     if (decryptedData.sequenceNumber >= this.expectedSequenceNumber) {
                         this.expectedSequenceNumber = decryptedData.sequenceNumber + 1;
                     }
@@ -411,13 +411,13 @@ class EnhancedSecureWebRTCManager {
                 window.EnhancedSecureCryptoUtils.secureLog.log('error', 'Message processing error', {
                     error: error.message
                 });
-                this.onMessage(`❌ Ошибка обработки: ${error.message}`, 'system');
+                this.onMessage(`❌ Processing error: ${error.message}`, 'system');
             }
         };
 
         this.dataChannel.onerror = (error) => {
             console.error('Data channel error:', error);
-            this.onMessage('❌ Ошибка канала данных', 'system');
+            this.onMessage('❌ Data channel error', 'system');
         };
     }
 
@@ -546,7 +546,7 @@ class EnhancedSecureWebRTCManager {
             });
             
             if (!this.validateEnhancedOfferData(offerData)) {
-                throw new Error('Неверный формат данных подключения');
+                throw new Error('Invalid connection data format');
             }
 
             // Check rate limiting
@@ -602,7 +602,7 @@ class EnhancedSecureWebRTCManager {
                     privateKeyType: typeof this.ecdhKeyPair?.privateKey,
                     privateKeyAlgorithm: this.ecdhKeyPair?.privateKey?.algorithm?.name
                 });
-                throw new Error('Локальный ECDH приватный ключ не является CryptoKey');
+                throw new Error('The local ECDH private key is not a valid CryptoKey.');
             }
             
             if (!(peerECDHPublicKey instanceof CryptoKey)) {
@@ -610,7 +610,7 @@ class EnhancedSecureWebRTCManager {
                     publicKeyType: typeof peerECDHPublicKey,
                     publicKeyAlgorithm: peerECDHPublicKey?.algorithm?.name
                 });
-                throw new Error('ECDH публичный ключ собеседника не является CryptoKey');
+                throw new Error('The peer"s ECDH public key is not a valid CryptoKey');
             }
             
             // Store peer's public key for PFS key rotation
@@ -745,22 +745,22 @@ class EnhancedSecureWebRTCManager {
     async handleSecureAnswer(answerData) {
         try {
             if (!answerData || answerData.type !== 'enhanced_secure_answer' || !answerData.sdp) {
-                throw new Error('Неверный формат ответа');
+                throw new Error('Invalid response format');
             }
 
             // Import peer's ECDH public key from the signed package
             if (!answerData.ecdhPublicKey || !answerData.ecdhPublicKey.keyData) {
-                throw new Error('Отсутствуют данные ECDH публичного ключа');
+                throw new Error('Missing ECDH public key data');
             }
 
             // First, import and verify the ECDSA public key for signature verification
             if (!answerData.ecdsaPublicKey || !answerData.ecdsaPublicKey.keyData) {
-                throw new Error('Отсутствуют данные ECDSA публичного ключа для верификации подписи');
+                throw new Error('Missing ECDSA public key data for signature verification');
             }
 
             // Additional MITM protection: Validate answer data structure
             if (!answerData.timestamp || !answerData.version) {
-                throw new Error('Отсутствуют обязательные поля в данных ответа - возможная MITM атака');
+                throw new Error('Missing required fields in response data – possible MITM attack');
             }
 
             // MITM Protection: Verify session ID if present (for enhanced security)
@@ -769,7 +769,7 @@ class EnhancedSecureWebRTCManager {
                     expectedSessionId: this.sessionId,
                     receivedSessionId: answerData.sessionId
                 });
-                throw new Error('Несоответствие идентификатора сессии - возможная MITM атака');
+                throw new Error('Session ID mismatch – possible MITM attack');
             }
 
             // Check for replay attacks (reject answers older than 1 hour)
@@ -782,10 +782,10 @@ class EnhancedSecureWebRTCManager {
                 
                 // Уведомляем основной код о ошибке replay attack
                 if (this.onAnswerError) {
-                    this.onAnswerError('replay_attack', 'Данные ответа слишком старые - возможная атака повтора');
+                    this.onAnswerError('replay_attack', 'Response data is too old – possible replay attack');
                 }
                 
-                throw new Error('Данные ответа слишком старые - возможная атака повтора');
+                throw new Error('Response data is too old – possible replay attack');
             }
 
             // Check protocol version compatibility
@@ -823,7 +823,7 @@ class EnhancedSecureWebRTCManager {
                     timestamp: answerData.timestamp,
                     version: answerData.version
                 });
-                throw new Error('Недействительная подпись ECDSA ключа - возможная MITM атака');
+                throw new Error('Invalid ECDSA key signature – possible MITM attack');
             }
 
             window.EnhancedSecureCryptoUtils.secureLog.log('info', 'ECDSA signature verification passed', {
@@ -842,7 +842,7 @@ class EnhancedSecureWebRTCManager {
                 window.EnhancedSecureCryptoUtils.secureLog.log('error', 'Invalid session salt detected - possible session hijacking', {
                     saltLength: this.sessionSalt ? this.sessionSalt.length : 0
                 });
-                throw new Error('Недействительная сессионная соль - возможная атака перехвата сессии');
+                throw new Error('Invalid session salt – possible session hijacking attempt');
             }
 
             // Verify that the session salt hasn't been tampered with
@@ -858,7 +858,7 @@ class EnhancedSecureWebRTCManager {
                     privateKeyType: typeof this.ecdhKeyPair?.privateKey,
                     privateKeyAlgorithm: this.ecdhKeyPair?.privateKey?.algorithm?.name
                 });
-                throw new Error('Локальный ECDH приватный ключ не является CryptoKey');
+                throw new Error('Local ECDH private key is not a CryptoKey');
             }
             
             if (!(peerPublicKey instanceof CryptoKey)) {
@@ -866,7 +866,7 @@ class EnhancedSecureWebRTCManager {
                     publicKeyType: typeof peerPublicKey,
                     publicKeyAlgorithm: peerPublicKey?.algorithm?.name
                 });
-                throw new Error('ECDH публичный ключ собеседника не является CryptoKey');
+                throw new Error('Peer ECDH public key is not a CryptoKey');
             }
 
             // Store peer's public key for PFS key rotation
@@ -898,7 +898,7 @@ class EnhancedSecureWebRTCManager {
                     macKeyAlgorithm: this.macKey?.algorithm?.name,
                     metadataKeyAlgorithm: this.metadataKey?.algorithm?.name
                 });
-                throw new Error('Недействительные типы ключей после вывода');
+                throw new Error('Invalid key types after export');
             }
             
             window.EnhancedSecureCryptoUtils.secureLog.log('info', 'Encryption keys set in handleSecureAnswer', {
@@ -938,8 +938,7 @@ class EnhancedSecureWebRTCManager {
         } catch (error) {
             console.error('Enhanced secure answer handling failed:', error);
             this.onStatusChange('failed');
-            
-            // Уведомляем основной код о критических ошибках
+
             if (this.onAnswerError) {
                 if (error.message.includes('слишком старые') || error.message.includes('too old')) {
                     this.onAnswerError('replay_attack', error.message);
@@ -957,7 +956,7 @@ class EnhancedSecureWebRTCManager {
     initiateVerification() {
         if (this.isInitiator) {
             // Initiator waits for verification confirmation
-            this.onMessage('🔐 Подтвердите код безопасности с собеседником для завершения подключения', 'system');
+            this.onMessage('🔐 Confirm the security code with your peer to complete the connection', 'system');
         } else {
             // Responder confirms verification automatically if codes match
             this.confirmVerification();
@@ -977,11 +976,11 @@ class EnhancedSecureWebRTCManager {
             this.dataChannel.send(JSON.stringify(verificationPayload));
             this.isVerified = true;
             this.onStatusChange('connected');
-            this.onMessage('✅ Верификация прошла успешно. Канал защищен!', 'system');
+            this.onMessage('✅ Verification successful. The channel is now secure!', 'system');
             this.processMessageQueue();
         } catch (error) {
             console.error('Verification failed:', error);
-            this.onMessage('❌ Ошибка верификации', 'system');
+            this.onMessage('❌ Verification failed', 'system');
         }
     }
 
@@ -997,10 +996,10 @@ class EnhancedSecureWebRTCManager {
             this.dataChannel.send(JSON.stringify(responsePayload));
             this.isVerified = true;
             this.onStatusChange('connected');
-            this.onMessage('✅ Верификация прошла успешно. Канал защищен!', 'system');
+            this.onMessage('✅ Verification successful. The channel is now secure!', 'system');
             this.processMessageQueue();
         } else {
-            this.onMessage('❌ Код верификации не совпадает! Возможна атака!', 'system');
+            this.onMessage('❌ Verification code mismatch!  Possible MITM attack detected. Connection aborted for safety!', 'system');
             this.disconnect();
         }
     }
@@ -1009,10 +1008,10 @@ class EnhancedSecureWebRTCManager {
         if (data.verified) {
             this.isVerified = true;
             this.onStatusChange('connected');
-            this.onMessage('✅ Верификация прошла успешно. Канал защищен!', 'system');
+            this.onMessage('✅ Verification successful. The channel is now secure.!', 'system');
             this.processMessageQueue();
         } else {
-            this.onMessage('❌ Верификация не прошла!', 'system');
+            this.onMessage('❌ Verification failed!', 'system');
             this.disconnect();
         }
     }
@@ -1137,7 +1136,7 @@ class EnhancedSecureWebRTCManager {
     async sendSecureMessage(message) {
         if (!this.isConnected() || !this.isVerified) {
             this.messageQueue.push(message);
-            throw new Error('Соединение не готово. Сообщение добавлено в очередь.');
+            throw new Error('Connection not ready. Message queued for sending.');
         }
 
         // Validate encryption keys
@@ -1149,7 +1148,7 @@ class EnhancedSecureWebRTCManager {
                 isConnected: this.isConnected(),
                 isVerified: this.isVerified
             });
-            throw new Error('Ключи шифрования не инициализированы. Проверьте соединение.');
+            throw new Error('Encryption keys not initialized. Please check the connection.');
         }
 
         try {
@@ -1273,17 +1272,14 @@ class EnhancedSecureWebRTCManager {
     }
 
     disconnect() {
-        // Устанавливаем флаг намеренного отключения
         this.intentionalDisconnect = true;
         
         window.EnhancedSecureCryptoUtils.secureLog.log('info', 'Starting intentional disconnect');
-        
-        // Отправляем уведомление несколько раз для надежности
+
         this.sendDisconnectNotification();
-        
-        // Ждем немного для доставки уведомления, затем очищаем
+
         setTimeout(() => {
-            this.sendDisconnectNotification(); // Еще одна попытка
+            this.sendDisconnectNotification(); 
         }, 100);
         
         setTimeout(() => {
@@ -1294,7 +1290,7 @@ class EnhancedSecureWebRTCManager {
     handleUnexpectedDisconnect() {
         this.sendDisconnectNotification();
         this.isVerified = false;
-        this.onMessage('🔌 Соединение потеряно. Попытка переподключения...', 'system');
+        this.onMessage('🔌 Connection lost. Attempting to reconnect...', 'system');
         
         setTimeout(() => {
             if (!this.intentionalDisconnect) {
@@ -1311,8 +1307,7 @@ class EnhancedSecureWebRTCManager {
                     timestamp: Date.now(),
                     reason: this.intentionalDisconnect ? 'user_disconnect' : 'connection_lost'
                 };
-                
-                // Пытаемся отправить уведомление несколько раз
+
                 for (let i = 0; i < 3; i++) {
                     try {
                         this.dataChannel.send(JSON.stringify(notification));
@@ -1322,7 +1317,7 @@ class EnhancedSecureWebRTCManager {
                         });
                         break;
                     } catch (sendError) {
-                        if (i === 2) { // Последняя попытка
+                        if (i === 2) { 
                             window.EnhancedSecureCryptoUtils.secureLog.log('error', 'Failed to send disconnect notification', {
                                 error: sendError.message
                             });
@@ -1338,27 +1333,24 @@ class EnhancedSecureWebRTCManager {
     }
     
     attemptReconnection() {
-        this.onMessage('❌ Не удается переподключиться. Требуется новое соединение.', 'system');
+        this.onMessage('❌ Unable to reconnect. A new connection is required.', 'system');
         this.cleanupConnection();
     }
     
     handlePeerDisconnectNotification(data) {
         const reason = data.reason || 'unknown';
-        const reasonText = reason === 'user_disconnect' ? 'намеренно отключился' : 'потерял соединение';
+        const reasonText = reason === 'user_disconnect' ? 'manually disconnected.' : 'connection lost.';
         
-        this.onMessage(`👋 Собеседник ${reasonText}`, 'system');
+        this.onMessage(`👋 Peer ${reasonText}`, 'system');
         this.onStatusChange('peer_disconnected');
-        
-        // Устанавливаем флаг что это не наше намеренное отключение
+ 
         this.intentionalDisconnect = false;
         this.isVerified = false;
         this.stopHeartbeat();
         
-        // Очищаем UI данные
-        this.onKeyExchange(''); // Очищаем отпечаток
-        this.onVerificationRequired(''); // Очищаем код верификации
-        
-        // Очищаем соединение через небольшую задержку
+        this.onKeyExchange(''); 
+        this.onVerificationRequired(''); 
+
         setTimeout(() => {
             this.cleanupConnection();
         }, 2000);
@@ -1373,8 +1365,7 @@ class EnhancedSecureWebRTCManager {
         this.isVerified = false;
         this.processedMessageIds.clear();
         this.messageCounter = 0;
-        
-        // Полная очистка всех криптографических данных
+
         this.encryptionKey = null;
         this.macKey = null;
         this.metadataKey = null;
@@ -1384,21 +1375,21 @@ class EnhancedSecureWebRTCManager {
         this.peerPublicKey = null;
         this.verificationCode = null;
         
-        // PFS: Очистка всех версий ключей
+        // PFS: Clearing all key versions
         this.keyVersions.clear();
         this.oldKeys.clear();
         this.currentKeyVersion = 0;
         this.lastKeyRotation = Date.now();
         
-        // Очистка пар ключей
+        // Clearing key pairs
         this.ecdhKeyPair = null;
         this.ecdsaKeyPair = null;
         
-        // Сброс счетчиков сообщений
+        // Resetting message counters
         this.sequenceNumber = 0;
         this.expectedSequenceNumber = 0;
         
-        // Сброс флагов безопасности
+        // Security flags reset completed
         this.securityFeatures = {
             hasEncryption: false,
             hasECDH: false,
@@ -1412,7 +1403,7 @@ class EnhancedSecureWebRTCManager {
             hasPFS: false
         };
         
-        // Закрытие соединений
+        // Closing connections
         if (this.dataChannel) {
             this.dataChannel.close();
             this.dataChannel = null;
@@ -1422,23 +1413,22 @@ class EnhancedSecureWebRTCManager {
             this.peerConnection = null;
         }
         
-        // Очистка очереди сообщений
+        // Clearing message queue
         this.messageQueue = [];
         
-        // ВАЖНО: Очистка логов безопасности
+        // IMPORTANT: Clearing security logs
         window.EnhancedSecureCryptoUtils.secureLog.clearLogs();
         
-        // Уведомляем UI о полной очистке
+        // Notifying the UI about complete cleanup
         this.onStatusChange('disconnected');
         this.onKeyExchange('');
         this.onVerificationRequired('');
         
         window.EnhancedSecureCryptoUtils.secureLog.log('info', 'Connection cleaned up completely');
         
-        // Сброс флага намеренного отключения
+        // Resetting the intentional disconnect flag
         this.intentionalDisconnect = false;
-        
-        // Принудительная сборка мусора
+
         if (window.gc) {
             window.gc();
         }
