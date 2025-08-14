@@ -105,7 +105,7 @@ const EnhancedMinimalHeader = ({
                         React.createElement('h1', {
                             key: 'title',
                             className: 'text-lg sm:text-xl font-semibold text-primary'
-                        }, 'LockBit.chat'),
+                        }, 'SecureBit.chat'),
                         React.createElement('p', {
                             key: 'subtitle',
                             className: 'text-xs sm:text-sm text-muted hidden sm:block'

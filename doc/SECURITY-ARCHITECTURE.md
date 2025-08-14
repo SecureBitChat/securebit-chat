@@ -1,8 +1,8 @@
-# LockBit.chat Security Architecture
+# SecureBit.chat Security Architecture
 
 ## 🛡️ Overview
 
-LockBit.chat implements a revolutionary **12-layer security architecture** that provides military-grade protection for peer-to-peer communications. This document details the technical implementation of our security system, which exceeds most government and enterprise communication standards.
+SecureBit.chat implements a revolutionary **12-layer security architecture** that provides military-grade protection for peer-to-peer communications. This document details the technical implementation of our security system, which exceeds most government and enterprise communication standards.
 
 **Current Implementation:** Stage 4 - Maximum Security  
 **Security Rating:** Military-Grade  
@@ -107,7 +107,7 @@ const keyPackage = {
 - **Curve:** NIST P-384 (secp384r1)
 - **Key Derivation:** HKDF with SHA-384
 - **Salt Size:** 64 bytes (enhanced from standard 32 bytes)
-- **Context Info:** "LockBit.chat v4.0 Enhanced Security Edition"
+- **Context Info:** "SecureBit.chat v4.0 Enhanced Security Edition"
 
 **Key Derivation Process:**
 ```javascript
@@ -706,9 +706,9 @@ webrtcManager.checkFakeTrafficStatus()
 
 For technical questions about the security architecture:
 
-- **Security Team:** security@lockbit.chat
-- **Technical Documentation:** docs@lockbit.chat
-- **GitHub Issues:** [Security Architecture Issues](https://github.com/lockbitchat/lockbit-chat/issues?q=label%3Asecurity-architecture)
+- **Security Team:** security@SecureBit.chat
+- **Technical Documentation:** docs@SecureBit.chat
+- **GitHub Issues:** [Security Architecture Issues](https://github.com/lockbitchat/securebit-chat/issues?q=label%3Asecurity-architecture)
 
 ---
 

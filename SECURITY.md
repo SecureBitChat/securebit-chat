@@ -2,7 +2,7 @@
 
 ## 🛡️ Security Overview
 
-LockBit.chat is built with security-first principles and implements **military-grade security** with 12-layer protection system. We take security vulnerabilities seriously and appreciate responsible disclosure from the security community.
+SecureBit.chat is built with security-first principles and implements **military-grade security** with 12-layer protection system. We take security vulnerabilities seriously and appreciate responsible disclosure from the security community.
 
 **Current Security Status:** 🔒 **MAXIMUM SECURITY (Stage 4)** - Exceeds government-grade communication standards
 
@@ -52,7 +52,7 @@ For **critical security issues** that could compromise user safety:
 **DO NOT** create a public GitHub issue.
 
 **Contact us privately:**
-- 📧 **Email:** security@lockbit.chat (PGP key below)
+- 📧 **Email:** security@SecureBit.chat (PGP key below)
 - 🔒 **Signal:** +[REDACTED] (ask for Signal number via email)
 - 🔐 **Keybase:** @lockbitchat
 
@@ -63,7 +63,7 @@ For general security improvements or non-critical findings:
 
 ## 📝 Vulnerability Disclosure Process
 
-1. **Report:** Send details to security@lockbit.chat
+1. **Report:** Send details to security@SecureBit.chat
 2. **Acknowledgment:** We'll respond within 24 hours
 3. **Investigation:** We'll investigate and keep you updated
 4. **Fix:** We'll develop and test a fix
@@ -77,10 +77,10 @@ For general security improvements or non-critical findings:
 
 ## 🏆 Security Hall of Fame
 
-We maintain a hall of fame for security researchers who help improve LockBit.chat:
+We maintain a hall of fame for security researchers who help improve SecureBit.chat:
 
 <!-- Security researchers will be listed here -->
-*Be the first to help secure LockBit.chat!*
+*Be the first to help secure SecureBit.chat!*
 
 ## 🔍 Security Audit History
 
@@ -123,7 +123,7 @@ We maintain a hall of fame for security researchers who help improve LockBit.cha
 
 ### For Maximum Security:
 1. **Verify Authenticity:** Always verify out-of-band codes (enhanced 6-digit format)
-2. **Use Official Source:** Only use https://lockbit.chat
+2. **Use Official Source:** Only use https://SecureBit.chat
 3. **Keep Updated:** Use version 4.0.x for maximum security
 4. **Secure Environment:** Use updated browsers on secure devices
 5. **Lightning Wallets:** Use reputable Lightning wallets (Alby, Zeus, etc.)
@@ -213,14 +213,14 @@ webrtcManager.getSecurityStatus()
 
 ## 📞 Contact Information
 
-- **Security Team:** security@lockbit.chat
+- **Security Team:** security@SecureBit.chat
 - **General Contact:** lockbitchat@tutanota.com
-- **GitHub Issues:** https://github.com/lockbitchat/lockbit-chat/issues
+- **GitHub Issues:** https://github.com/lockbitchat/securebit-chat/issues
 - **Security Announcements:** [@lockbitchat](https://twitter.com/lockbitchat)
 
 ## 🏅 Security Achievements
 
-LockBit.chat v4.0 provides:
+SecureBit.chat v4.0 provides:
 - **🥇 Military-Grade Security:** 12-layer protection system
 - **🥇 Government-Level Encryption:** Triple AES-256-GCM + P-384 ECDH/ECDSA
 - **🥇 Perfect Forward Secrecy:** Complete with automatic key rotation

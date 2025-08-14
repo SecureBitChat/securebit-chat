@@ -1,6 +1,6 @@
-# Contributing to LockBit.chat
+# Contributing to SecureBit.chat
 
-🎉 **Thank you for your interest in contributing to LockBit.chat!** 
+🎉 **Thank you for your interest in contributing to SecureBit.chat!** 
 
 We're building the most secure P2P messenger with Lightning Network integration, and we need your help to make it even better.
 
@@ -19,7 +19,7 @@ Help audit our cryptographic implementation
 Improve guides, tutorials, and technical docs
 
 ### 🌍 Translations
-Help make LockBit.chat accessible worldwide
+Help make SecureBit.chat accessible worldwide
 
 ### 💻 Code Contributions
 Submit pull requests for bug fixes and features
@@ -36,8 +36,8 @@ Submit pull requests for bug fixes and features
 ``bash
 # 1. Fork the repository on GitHub
 # 2. Clone your fork
-git clone https://github.com/yourusername/lockbit-chat.git
-cd lockbit-chat
+git clone https://github.com/yourusername/securebit-chat.git
+cd securebit-chat
 
 # 3. Create a development branch
 git checkout -b feature/your-feature-name
@@ -240,7 +240,7 @@ Submit PR - Follow contribution guidelines
 
 Translation Keys
 json{
-  "header.title": "LockBit.chat - Enhanced Security Edition",
+  "header.title": "SecureBit.chat - Enhanced Security Edition",
   "security.level.high": "HIGH",
   "crypto.algorithm.ecdh": "ECDH P-384",
   "error.connection.failed": "Connection failed"
@@ -267,7 +267,7 @@ Communication Channels
 GitHub Discussions - Technical discussions
 GitHub Issues - Bug reports and features
 Email - lockbitchat@tutanota.com
-Security - security@lockbit.chat
+Security - security@SecureBit.chat
 
 Code of Conduct
 We follow the Contributor Covenant:
@@ -311,11 +311,11 @@ Thank you for helping make the internet more private and secure! 🛡️
 # docs/API.md
 
 ``markdown
-# LockBit.chat API Documentation
+# SecureBit.chat API Documentation
 
 ## 🏗️ Architecture Overview
 
-LockBit.chat is built as a client-side application with no backend servers. The "API" consists of JavaScript classes and methods that handle cryptography, P2P connections, and Lightning Network integration.
+SecureBit.chat is built as a client-side application with no backend servers. The "API" consists of JavaScript classes and methods that handle cryptography, P2P connections, and Lightning Network integration.
 
 ## 📚 Core Classes
 
@@ -954,7 +954,7 @@ javascript// Service worker for offline capability
 // sw.js
 self.addEventListener('install', event => {
     event.waitUntil(
-        caches.open('lockbit-chat-v1').then(cache => {
+        caches.open('securebit-chat-v1').then(cache => {
             return cache.addAll([
                 '/',
                 '/index.html',
@@ -1203,7 +1203,7 @@ Getting Help
 Documentation: Full API docs at /docs/
 GitHub Issues: Bug reports and feature requests
 Community: Discussions and Q&A
-Security: security@lockbit.chat for vulnerabilities
+Security: security@SecureBit.chat for vulnerabilities
 
 Contributing
 

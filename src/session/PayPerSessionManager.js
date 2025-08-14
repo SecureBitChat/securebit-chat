@@ -445,7 +445,7 @@ class PayPerSessionManager {
                 body: JSON.stringify({
                     out: false, // incoming payment
                     amount: pricing.sats,
-                    memo: `LockBit.chat ${sessionType} session (${pricing.hours}h) - ${Date.now()}`,
+                    memo: `SecureBit.chat ${sessionType} session (${pricing.hours}h) - ${Date.now()}`,
                     unit: 'sat',
                     expiry: this.verificationConfig.invoiceExpiryMinutes * 60 // В секундах
                 }),
@@ -470,9 +470,9 @@ class PayPerSessionManager {
                 sessionType: sessionType,
                 createdAt: Date.now(),
                 expiresAt: Date.now() + (this.verificationConfig.invoiceExpiryMinutes * 60 * 1000),
-                description: data.description || data.memo || `LockBit.chat ${sessionType} session`,
+                description: data.description || data.memo || `SecureBit.chat ${sessionType} session`,
                 bolt11: data.bolt11 || data.payment_request,
-                memo: data.memo || `LockBit.chat ${sessionType} session`
+                memo: data.memo || `SecureBit.chat ${sessionType} session`
             };
 
         } catch (error) {
@@ -502,7 +502,7 @@ class PayPerSessionManager {
             sessionType: sessionType,
             createdAt: Date.now(),
             expiresAt: Date.now() + (5 * 60 * 1000), // 5 минут
-            description: `LockBit.chat ${sessionType} session (DEMO)`,
+            description: `SecureBit.chat ${sessionType} session (DEMO)`,
             isDemo: true
         };
     }
@@ -1242,7 +1242,7 @@ class PayPerSessionManager {
 
         return {
             amount: pricing.sats,
-            memo: `LockBit.chat ${sessionType} session (${pricing.hours}h) - ${timestamp}`,
+            memo: `SecureBit.chat ${sessionType} session (${pricing.hours}h) - ${timestamp}`,
             sessionType: sessionType,
             timestamp: timestamp,
             paymentHash: paymentHash,

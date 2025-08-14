@@ -1,8 +1,8 @@
-# LockBit.chat API Documentation
+# SecureBit.chat API Documentation
 
 ## 🏗️ Architecture Overview
 
-LockBit.chat is built as a client-side application with no backend servers. The "API" consists of JavaScript classes and methods that handle cryptography, P2P connections, and Lightning Network integration.
+SecureBit.chat is built as a client-side application with no backend servers. The "API" consists of JavaScript classes and methods that handle cryptography, P2P connections, and Lightning Network integration.
 
 ## 📚 Core Classes
 

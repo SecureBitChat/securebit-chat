@@ -1275,7 +1275,7 @@ class EnhancedSecureCryptoUtils {
             const encoder = new TextEncoder();
             
             // Enhanced context info with version and additional entropy
-            const contextInfo = encoder.encode('LockBit.chat v4.0 Enhanced Security Edition');
+            const contextInfo = encoder.encode('SecureBit.chat v4.0 Enhanced Security Edition');
             
             // Derive master shared secret with enhanced parameters
             // Try SHA-384 first, fallback to SHA-256

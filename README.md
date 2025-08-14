@@ -1,9 +1,9 @@
-# lockbit-chat
+# securebit-chat
 🔒 World's most secure P2P messenger with Lightning Network integration. End-to-end encryption, pay-per-session model, zero data collection. WebRTC direct connections, quantum-resistant roadmap. Privacy-first communication for the Bitcoin age ⚡
 
-🛡️ LockBit.chat - Enhanced Security Edition
+🛡️ SecureBit.chat - Enhanced Security Edition
 🎯 About the Project
-LockBit.chat is a revolutionary P2P messenger that combines:
+SecureBit.chat is a revolutionary P2P messenger that combines:
 
 Military-grade cryptography (ECDH P-384 + AES-GCM 256)
 Lightning Network payments for sessions
@@ -35,7 +35,7 @@ No metadata collection
 
 🚀 Quick Start
 
-Open: https://lockbit.chat
+Open: https://SecureBit.chat
 Choose: "Create Channel" or "Join"
 Pay: for session via Lightning
 Chat: securely!
@@ -71,8 +71,8 @@ P2P: WebRTC DataChannels
 Payments: Lightning Network / WebLN
 
 Local Development:
-bashgit clone https://github.com/lockbitchat/lockbit-chat.git
-cd lockbit-chat
+bashgit clone https://github.com/SecureBitChat/securebit-chat.git
+cd securebit-chat
 python -m http.server 8000
 # Open http://localhost:8000
 🤝 Contributing
@@ -88,8 +88,8 @@ How to help:
 📄 License
 MIT License with mandatory attribution
 ⚠️ Disclaimer
-LockBit.chat is provided "as is". Use at your own risk. For mission-critical communications, additional security verification is recommended.
+SecureBit.chat is provided "as is". Use at your own risk. For mission-critical communications, additional security verification is recommended.
 📞 Contacts
 
-🌐 Website: https://lockbit.chat
+🌐 Website: https://SecureBit.chat
 📧 Email: lockbitchat@tutanota.com
