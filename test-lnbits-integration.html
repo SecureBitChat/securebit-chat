@@ -67,6 +67,7 @@
              <button onclick="testPaymentStatus()">3. Проверка статуса</button>
              <button onclick="testVerification()">4. Верификация платежа</button>
              <button onclick="testRealPayment()">5. Тест реального платежа</button>
+             <button onclick="testDemoMode()">6. Тест Demo режима</button>
              <button onclick="copyBOLT11()">📋 Копировать BOLT11</button>
              <button onclick="runAllTests()">🚀 Запустить все тесты</button>
          </div>
@@ -295,6 +296,195 @@
              }
          }
 
+         async function testDemoMode() {
+             log('🎮 Тестирование Demo режима...', 'info');
+             
+             try {
+                 // Симулируем PayPerSessionManager для тестирования
+                 const mockSessionManager = {
+                     sessionPrices: {
+                         demo: { sats: 0, hours: 0.1, usd: 0.00 },
+                         basic: { sats: 500, hours: 1, usd: 0.20 },
+                         premium: { sats: 1000, hours: 4, usd: 0.40 },
+                         extended: { sats: 2000, hours: 24, usd: 0.80 }
+                     },
+                     demoSessions: new Map(),
+                     maxDemoSessionsPerUser: 3,
+                     demoCooldownPeriod: 60 * 60 * 1000,
+                     demoSessionCooldown: 5 * 60 * 1000,
+                     demoSessionMaxDuration: 6 * 60 * 1000,
+                     usedPreimages: new Set(),
+                     
+                     generateUserFingerprint() {
+                         const components = [
+                             navigator.userAgent || '',
+                             navigator.language || '',
+                             screen.width + 'x' + screen.height,
+                             Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+                             navigator.hardwareConcurrency || 0,
+                             navigator.deviceMemory || 0,
+                             navigator.platform || '',
+                             navigator.cookieEnabled ? '1' : '0'
+                         ];
+                         
+                         let hash = 0;
+                         const str = components.join('|');
+                         for (let i = 0; i < str.length; i++) {
+                             const char = str.charCodeAt(i);
+                             hash = ((hash << 5) - hash) + char;
+                             hash = hash & hash;
+                         }
+                         
+                         return Math.abs(hash).toString(36);
+                     },
+                     
+                     checkDemoSessionLimits(userFingerprint) {
+                         const userData = this.demoSessions.get(userFingerprint);
+                         const now = Date.now();
+                         
+                         if (!userData) {
+                             return { 
+                                 allowed: true, 
+                                 reason: 'first_demo_session',
+                                 remaining: this.maxDemoSessionsPerUser
+                             };
+                         }
+                         
+                         const activeSessions = userData.sessions.filter(session => 
+                             now - session.timestamp < this.demoCooldownPeriod
+                         );
+                         
+                         if (activeSessions.length >= this.maxDemoSessionsPerUser) {
+                             const oldestSession = Math.min(...activeSessions.map(s => s.timestamp));
+                             const timeUntilNext = this.demoCooldownPeriod - (now - oldestSession);
+                             
+                             return { 
+                                 allowed: false, 
+                                 reason: 'demo_limit_exceeded',
+                                 timeUntilNext: timeUntilNext,
+                                 message: `Demo limit reached (${this.maxDemoSessionsPerUser}/day). Try again in ${Math.ceil(timeUntilNext / (60 * 1000))} minutes.`,
+                                 remaining: 0
+                             };
+                         }
+                         
+                         if (userData.lastUsed && (now - userData.lastUsed) < this.demoSessionCooldown) {
+                             const timeUntilNext = this.demoSessionCooldown - (now - userData.lastUsed);
+                             return { 
+                                 allowed: false, 
+                                 reason: 'demo_cooldown',
+                                 timeUntilNext: timeUntilNext,
+                                 message: `Please wait ${Math.ceil(timeUntilNext / (60 * 1000))} minutes between demo sessions.`,
+                                 remaining: this.maxDemoSessionsPerUser - activeSessions.length
+                             };
+                         }
+                         
+                         return { 
+                             allowed: true, 
+                             reason: 'within_limits',
+                             remaining: this.maxDemoSessionsPerUser - activeSessions.length
+                         };
+                     },
+                     
+                     createDemoSession() {
+                         const userFingerprint = this.generateUserFingerprint();
+                         const demoCheck = this.checkDemoSessionLimits(userFingerprint);
+                         
+                         if (!demoCheck.allowed) {
+                             return {
+                                 success: false,
+                                 reason: demoCheck.message,
+                                 timeUntilNext: demoCheck.timeUntilNext,
+                                 remaining: demoCheck.remaining
+                             };
+                         }
+                         
+                         try {
+                             const demoPreimage = this.generateSecureDemoPreimage();
+                             const demoPaymentHash = 'demo_' + Array.from(crypto.getRandomValues(new Uint8Array(16)))
+                                 .map(b => b.toString(16).padStart(2, '0')).join('');
+                             
+                             return {
+                                 success: true,
+                                 sessionType: 'demo',
+                                 preimage: demoPreimage,
+                                 paymentHash: demoPaymentHash,
+                                 duration: this.sessionPrices.demo.hours,
+                                 durationMinutes: Math.round(this.demoSessionMaxDuration / (60 * 1000)),
+                                 warning: `Demo session - limited to ${Math.round(this.demoSessionMaxDuration / (60 * 1000))} minutes`,
+                                 remaining: demoCheck.remaining - 1
+                             };
+                         } catch (error) {
+                             return {
+                                 success: false,
+                                 reason: 'Failed to generate demo session. Please try again.',
+                                 remaining: demoCheck.remaining
+                             };
+                         }
+                     },
+                     
+                     generateSecureDemoPreimage() {
+                         const timestamp = Date.now();
+                         const randomBytes = crypto.getRandomValues(new Uint8Array(24));
+                         const timestampBytes = new Uint8Array(4);
+                         const versionBytes = new Uint8Array(4);
+                         
+                         const timestampSeconds = Math.floor(timestamp / 1000);
+                         timestampBytes[0] = (timestampSeconds >>> 24) & 0xFF;
+                         timestampBytes[1] = (timestampSeconds >>> 16) & 0xFF;
+                         timestampBytes[2] = (timestampSeconds >>> 8) & 0xFF;
+                         timestampBytes[3] = timestampSeconds & 0xFF;
+                         
+                         versionBytes[0] = 0xDE;
+                         versionBytes[1] = 0xE0;
+                         versionBytes[2] = 0x00;
+                         versionBytes[3] = 0x01;
+                         
+                         const combined = new Uint8Array(32);
+                         combined.set(versionBytes, 0);
+                         combined.set(timestampBytes, 4);
+                         combined.set(randomBytes, 8);
+                         
+                         return Array.from(combined).map(b => b.toString(16).padStart(2, '0')).join('');
+                     }
+                 };
+                 
+                 // Тестируем demo режим
+                 log('🔍 Тестирование лимитов demo сессий...', 'info');
+                 
+                 const userFingerprint = mockSessionManager.generateUserFingerprint();
+                 log(`👤 User fingerprint: ${userFingerprint.substring(0, 8)}...`, 'info');
+                 
+                 const demoCheck = mockSessionManager.checkDemoSessionLimits(userFingerprint);
+                 log(`📊 Demo check result: ${demoCheck.allowed ? 'Allowed' : 'Denied'}`, demoCheck.allowed ? 'success' : 'warning');
+                 
+                 if (demoCheck.allowed) {
+                     log(`✅ Demo session available. Remaining: ${demoCheck.remaining}`, 'success');
+                     
+                     // Создаем demo сессию
+                     const demoSession = mockSessionManager.createDemoSession();
+                     if (demoSession.success) {
+                         log('🎮 Demo session created successfully!', 'success');
+                         log(`⏱️ Duration: ${demoSession.durationMinutes} minutes`, 'info');
+                         log(`🔑 Preimage: ${demoSession.preimage.substring(0, 16)}...`, 'info');
+                         log(`⚠️ Warning: ${demoSession.warning}`, 'warning');
+                         log(`📊 Remaining: ${demoSession.remaining}`, 'info');
+                         
+                         addResult('Demo Mode Test', true, `Session created: ${demoSession.durationMinutes}min, Remaining: ${demoSession.remaining}`);
+                     } else {
+                         log(`❌ Demo session creation failed: ${demoSession.reason}`, 'error');
+                         addResult('Demo Mode Test', false, demoSession.reason);
+                     }
+                 } else {
+                     log(`⏳ Demo session not available: ${demoCheck.message}`, 'warning');
+                     addResult('Demo Mode Test', true, `Limits working: ${demoCheck.message}`);
+                 }
+                 
+             } catch (error) {
+                 log(`❌ Demo mode test failed: ${error.message}`, 'error');
+                 addResult('Demo Mode Test', false, error.message);
+             }
+         }
+
          function copyBOLT11() {
              if (!currentInvoice) {
                  log('⚠️ Сначала создайте инвойс', 'warning');
@@ -332,6 +522,9 @@
              await new Promise(resolve => setTimeout(resolve, 1000));
              
              await testRealPayment();
+             await new Promise(resolve => setTimeout(resolve, 1000));
+             
+             await testDemoMode();
              
              log('🎉 Все тесты завершены!', 'success');
          }
@@ -342,6 +535,7 @@
          window.testPaymentStatus = testPaymentStatus;
          window.testVerification = testVerification;
          window.testRealPayment = testRealPayment;
+         window.testDemoMode = testDemoMode;
          window.copyBOLT11 = copyBOLT11;
          window.runAllTests = runAllTests;
 

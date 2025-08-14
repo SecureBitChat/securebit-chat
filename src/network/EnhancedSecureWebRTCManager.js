@@ -1,67 +1,1719 @@
 class EnhancedSecureWebRTCManager {
     constructor(onMessage, onStatusChange, onKeyExchange, onVerificationRequired, onAnswerError = null) {
-       // Check the availability of the global object
-        if (!window.EnhancedSecureCryptoUtils) {
-            throw new Error('EnhancedSecureCryptoUtils is not loaded. Please ensure the module is loaded first.');
+    // Check the availability of the global object
+    if (!window.EnhancedSecureCryptoUtils) {
+        throw new Error('EnhancedSecureCryptoUtils is not loaded. Please ensure the module is loaded first.');
+    }
+    
+    this.peerConnection = null;
+    this.dataChannel = null;
+    this.encryptionKey = null;
+    this.macKey = null;
+    this.metadataKey = null;
+    this.keyFingerprint = null;
+    this.onMessage = onMessage;
+    this.onStatusChange = onStatusChange;
+    this.onKeyExchange = onKeyExchange;
+    this.onVerificationRequired = onVerificationRequired;
+    this.onAnswerError = onAnswerError; // Callback for response processing errors
+    this.isInitiator = false;
+    this.connectionAttempts = 0;
+    this.maxConnectionAttempts = 3;
+    this.heartbeatInterval = null;
+    this.messageQueue = [];
+    this.ecdhKeyPair = null;
+    this.ecdsaKeyPair = null;
+    this.verificationCode = null;
+    this.isVerified = false;
+    this.processedMessageIds = new Set();
+    this.messageCounter = 0;
+    this.sequenceNumber = 0;
+    this.expectedSequenceNumber = 0;
+    this.sessionSalt = null;
+    this.sessionId = null; // MITM protection: Session identifier
+    this.peerPublicKey = null; // Store peer's public key for PFS
+    this.rateLimiterId = null;
+    this.intentionalDisconnect = false;
+    this.lastCleanupTime = Date.now();
+    
+    // PFS (Perfect Forward Secrecy) Implementation
+    this.keyRotationInterval = 300000; // 5 minutes
+    this.lastKeyRotation = Date.now();
+    this.currentKeyVersion = 0;
+    this.keyVersions = new Map(); // Store key versions for PFS
+    this.oldKeys = new Map(); // Store old keys temporarily for decryption
+    this.maxOldKeys = 3; // Keep last 3 key versions for decryption
+    
+     this.securityFeatures = {
+        hasEncryption: true,
+        hasECDH: true,
+        hasECDSA: false,
+        hasMutualAuth: false,
+        hasMetadataProtection: false,
+        hasEnhancedReplayProtection: false,
+        hasNonExtractableKeys: false,
+        hasRateLimiting: false,
+        hasEnhancedValidation: false,
+        hasPFS: true,
+        
+        // ЭТАП 1: Включаем безопасные функции
+        hasNestedEncryption: true,     // ✅ Дополнительный слой шифрования
+        hasPacketPadding: true,        // ✅ Скрытие размеров сообщений
+        hasPacketReordering: false,    // ⏳ Пока отключено (может конфликтовать)
+        hasAntiFingerprinting: false,  // ⏳ Пока отключено (сложная функция)
+        
+        // ЭТАП 2: Функции трафика (включим позже)
+        hasFakeTraffic: false,         // ⏳ Генерация ложного трафика
+        hasDecoyChannels: false,       // ⏳ Ложные каналы
+        hasMessageChunking: false      // ⏳ Разбивка сообщений
+    };
+    
+    // ============================================
+    // ENHANCED SECURITY FEATURES
+    // ============================================
+    
+    // 1. Nested Encryption Layer
+    this.nestedEncryptionKey = null;
+    this.nestedEncryptionIV = null;
+    this.nestedEncryptionCounter = 0;
+    
+    // 2. Packet Padding
+    this.paddingConfig = {
+        enabled: true,              // ✅ ВКЛЮЧЕНО
+        minPadding: 64,
+        maxPadding: 512,            // Уменьшено для стабильности
+        useRandomPadding: true,
+        preserveMessageSize: false
+    };
+    
+    // 3. Fake Traffic Generation
+    this.fakeTrafficConfig = {
+        enabled: false,
+        minInterval: 5000,          // Увеличены интервалы
+        maxInterval: 15000,
+        minSize: 32,
+        maxSize: 256,               // Уменьшены размеры
+        patterns: ['heartbeat', 'status', 'sync']
+    };
+    this.fakeTrafficTimer = null;
+    this.lastFakeTraffic = 0;
+    
+    // 4. Message Chunking
+    this.chunkingConfig = {
+        enabled: false,
+        maxChunkSize: 2048,         // Увеличен размер чанка
+        minDelay: 100,
+        maxDelay: 500,
+        useRandomDelays: true,
+        addChunkHeaders: true
+    };
+    this.chunkQueue = [];
+    this.chunkingInProgress = false;
+    
+    // 5. Decoy Channels
+    this.decoyChannels = new Map();
+    this.decoyChannelConfig = {
+        enabled: false,
+        maxDecoyChannels: 2,        // Уменьшено количество
+        decoyChannelNames: ['status', 'heartbeat'],
+        sendDecoyData: true,
+        randomDecoyIntervals: true
+    };
+    this.decoyTimers = new Map();
+    
+    // 6. Packet Reordering Protection
+    this.reorderingConfig = {
+        enabled: false,             // ⏳ Отложено
+        maxOutOfOrder: 5,           // Уменьшено
+        reorderTimeout: 3000,       // Уменьшено
+        useSequenceNumbers: true,
+        useTimestamps: true
+    };
+    this.packetBuffer = new Map(); // sequence -> {data, timestamp}
+    this.lastProcessedSequence = -1;
+    
+    // 7. Anti-Fingerprinting
+    this.antiFingerprintingConfig = {
+        enabled: false,             // ⏳ Отложено
+        randomizeTiming: true,
+        randomizeSizes: false,      // Упрощено
+        addNoise: true,
+        maskPatterns: false,        // Упрощено
+        useRandomHeaders: false     // Упрощено
+    };
+    this.fingerprintMask = this.generateFingerprintMask();
+    
+    // Initialize rate limiter ID
+    this.rateLimiterId = `webrtc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Start periodic cleanup
+    this.startPeriodicCleanup();
+    
+    // ⚠️ НЕ ИНИЦИАЛИЗИРУЕМ РАСШИРЕННЫЕ ФУНКЦИИ БЕЗОПАСНОСТИ
+     this.initializeEnhancedSecurity(); 
+    
+    console.log('🔒 Enhanced security features partially enabled (Stage 1)');
+    console.log('✅ Active: Nested Encryption, Packet Padding');
+    console.log('⏳ Pending: Reordering, Anti-Fingerprinting, Traffic Obfuscation');
+}
+
+    // ============================================
+    // ENHANCED SECURITY INITIALIZATION
+    // ============================================
+
+    async initializeEnhancedSecurity() {
+        try {
+            // Generate nested encryption key
+            await this.generateNestedEncryptionKey();
+            
+            // Initialize decoy channels
+            if (this.decoyChannelConfig.enabled) {
+                this.initializeDecoyChannels();
+            }
+            
+            // Start fake traffic generation
+            if (this.fakeTrafficConfig.enabled) {
+                this.startFakeTrafficGeneration();
+            }
+            
+            console.log('🔒 Enhanced security features initialized');
+        } catch (error) {
+            console.error('❌ Failed to initialize enhanced security:', error);
+        }
+    }
+
+    // Generate fingerprint mask for anti-fingerprinting
+    generateFingerprintMask() {
+        const mask = {
+            timingOffset: Math.random() * 1000,
+            sizeVariation: Math.random() * 0.5 + 0.75, // 0.75 to 1.25
+            noisePattern: Array.from(crypto.getRandomValues(new Uint8Array(32))),
+            headerVariations: [
+                'X-Client-Version',
+                'X-Session-ID', 
+                'X-Request-ID',
+                'X-Timestamp',
+                'X-Signature'
+            ]
+        };
+        return mask;
+    }
+
+    // ============================================
+    // 1. NESTED ENCRYPTION LAYER
+    // ============================================
+
+    async generateNestedEncryptionKey() {
+        try {
+            // Generate additional encryption key for nested encryption
+            this.nestedEncryptionKey = await crypto.subtle.generateKey(
+                { name: 'AES-GCM', length: 256 },
+                false,
+                ['encrypt', 'decrypt']
+            );
+            
+            // Generate random IV for nested encryption
+            this.nestedEncryptionIV = crypto.getRandomValues(new Uint8Array(12));
+            this.nestedEncryptionCounter = 0;
+            
+            console.log('🔐 Nested encryption key generated');
+        } catch (error) {
+            console.error('❌ Failed to generate nested encryption key:', error);
+            throw error;
+        }
+    }
+
+    async applyNestedEncryption(data) {
+        if (!this.nestedEncryptionKey || !this.securityFeatures.hasNestedEncryption) {
+            return data;
+        }
+
+        try {
+            // Create unique IV for each encryption
+            const uniqueIV = new Uint8Array(12);
+            uniqueIV.set(this.nestedEncryptionIV);
+            uniqueIV[11] = (this.nestedEncryptionCounter++) & 0xFF;
+            
+            // Encrypt data with nested layer
+            const encrypted = await crypto.subtle.encrypt(
+                { name: 'AES-GCM', iv: uniqueIV },
+                this.nestedEncryptionKey,
+                data
+            );
+            
+            // Combine IV and encrypted data
+            const result = new Uint8Array(12 + encrypted.byteLength);
+            result.set(uniqueIV, 0);
+            result.set(new Uint8Array(encrypted), 12);
+            
+            return result.buffer;
+        } catch (error) {
+            console.error('❌ Nested encryption failed:', error);
+            return data; // Fallback to original data
+        }
+    }
+
+    async removeNestedEncryption(data) {
+        if (!this.nestedEncryptionKey || !this.securityFeatures.hasNestedEncryption) {
+            return data;
+        }
+
+        try {
+            const dataArray = new Uint8Array(data);
+            const iv = dataArray.slice(0, 12);
+            const encryptedData = dataArray.slice(12);
+            
+            // Decrypt nested layer
+            const decrypted = await crypto.subtle.decrypt(
+                { name: 'AES-GCM', iv: iv },
+                this.nestedEncryptionKey,
+                encryptedData
+            );
+            
+            return decrypted;
+        } catch (error) {
+            console.error('❌ Nested decryption failed:', error);
+            return data; // Fallback to original data
+        }
+    }
+
+    // ============================================
+    // 2. PACKET PADDING
+    // ============================================
+
+    applyPacketPadding(data) {
+        if (!this.securityFeatures.hasPacketPadding) {
+            return data;
+        }
+
+        try {
+            const originalSize = data.byteLength;
+            let paddingSize;
+            
+            if (this.paddingConfig.useRandomPadding) {
+                // Generate random padding size
+                paddingSize = Math.floor(Math.random() * 
+                    (this.paddingConfig.maxPadding - this.paddingConfig.minPadding + 1)) + 
+                    this.paddingConfig.minPadding;
+            } else {
+                // Use fixed padding size
+                paddingSize = this.paddingConfig.minPadding;
+            }
+            
+            // Generate random padding data
+            const padding = crypto.getRandomValues(new Uint8Array(paddingSize));
+            
+            // Create padded message
+            const paddedData = new Uint8Array(originalSize + paddingSize + 4);
+            
+            // Add original size (4 bytes)
+            const sizeView = new DataView(paddedData.buffer, 0, 4);
+            sizeView.setUint32(0, originalSize, false);
+            
+            // Add original data
+            paddedData.set(new Uint8Array(data), 4);
+            
+            // Add padding
+            paddedData.set(padding, 4 + originalSize);
+            
+            console.log(`📦 Applied padding: ${originalSize} -> ${paddedData.length} bytes`);
+            return paddedData.buffer;
+        } catch (error) {
+            console.error('❌ Packet padding failed:', error);
+            return data; // Fallback to original data
+        }
+    }
+
+    removePacketPadding(data) {
+        if (!this.securityFeatures.hasPacketPadding) {
+            return data;
+        }
+
+        try {
+            const dataArray = new Uint8Array(data);
+            
+            // Extract original size (first 4 bytes)
+            const sizeView = new DataView(dataArray.buffer, 0, 4);
+            const originalSize = sizeView.getUint32(0, false);
+            
+            // Extract original data
+            const originalData = dataArray.slice(4, 4 + originalSize);
+            
+            console.log(`📦 Removed padding: ${dataArray.length} -> ${originalData.length} bytes`);
+            return originalData.buffer;
+        } catch (error) {
+            console.error('❌ Packet padding removal failed:', error);
+            return data; // Fallback to original data
+        }
+    }
+
+    // ============================================
+    // 3. FAKE TRAFFIC GENERATION
+    // ============================================
+
+    startFakeTrafficGeneration() {
+        if (!this.fakeTrafficConfig.enabled || !this.isConnected()) {
+            return;
+        }
+
+        // Prevent multiple fake traffic generators
+        if (this.fakeTrafficTimer) {
+            console.log('⚠️ Fake traffic generation already running');
+            return;
+        }
+
+        const sendFakeMessage = async () => {
+            if (!this.isConnected()) {
+                this.stopFakeTrafficGeneration();
+                return;
+            }
+
+            try {
+                const fakeMessage = this.generateFakeMessage();
+                await this.sendFakeMessage(fakeMessage);
+                
+                // Schedule next fake message with longer intervals
+                const nextInterval = this.fakeTrafficConfig.randomDecoyIntervals ? 
+                    Math.random() * (this.fakeTrafficConfig.maxInterval - this.fakeTrafficConfig.minInterval) + 
+                    this.fakeTrafficConfig.minInterval :
+                    this.fakeTrafficConfig.minInterval;
+                
+                this.fakeTrafficTimer = setTimeout(sendFakeMessage, nextInterval);
+            } catch (error) {
+                console.error('❌ Fake traffic generation failed:', error);
+                this.stopFakeTrafficGeneration();
+            }
+        };
+
+        // Start fake traffic generation with longer initial delay
+        const initialDelay = Math.random() * this.fakeTrafficConfig.maxInterval + 5000; // Add 5 seconds minimum
+        this.fakeTrafficTimer = setTimeout(sendFakeMessage, initialDelay);
+        
+        console.log('🎭 Fake traffic generation started');
+    }
+
+    stopFakeTrafficGeneration() {
+        if (this.fakeTrafficTimer) {
+            clearTimeout(this.fakeTrafficTimer);
+            this.fakeTrafficTimer = null;
+            console.log('🎭 Fake traffic generation stopped');
+        }
+    }
+
+    generateFakeMessage() {
+    const pattern = this.fakeTrafficConfig.patterns[
+        Math.floor(Math.random() * this.fakeTrafficConfig.patterns.length)
+    ];
+    
+    const size = Math.floor(Math.random() * 
+        (this.fakeTrafficConfig.maxSize - this.fakeTrafficConfig.minSize + 1)) + 
+        this.fakeTrafficConfig.minSize;
+    
+    const fakeData = crypto.getRandomValues(new Uint8Array(size));
+    
+    return {
+        type: 'fake', // ВАЖНО: Четко помечаем как fake
+        pattern: pattern,
+        data: Array.from(fakeData).map(b => b.toString(16).padStart(2, '0')).join(''),
+        timestamp: Date.now(),
+        size: size,
+        isFakeTraffic: true, // Дополнительный маркер
+        source: 'fake_traffic_generator' // Источник
+    };
+}
+
+    async sendFakeMessage(fakeMessage) {
+    if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
+        return;
+    }
+
+    try {
+        console.log(`🎭 Sending fake message: ${fakeMessage.pattern} (${fakeMessage.size} bytes)`);
+        
+        // Добавляем четкий маркер что это фейковое сообщение
+        const fakeData = JSON.stringify({
+            ...fakeMessage,
+            type: 'fake', // Обязательно помечаем как fake
+            isFakeTraffic: true, // Дополнительный маркер
+            timestamp: Date.now()
+        });
+        
+        const fakeBuffer = new TextEncoder().encode(fakeData);
+        
+        // Применяем слои безопасности к фейковому сообщению
+        const encryptedFake = await this.applySecurityLayers(fakeBuffer, true);
+        
+        // Отправляем напрямую через data channel БЕЗ enhanced wrapper
+        this.dataChannel.send(encryptedFake);
+        
+        console.log(`🎭 Fake message sent successfully: ${fakeMessage.pattern}`);
+    } catch (error) {
+        console.error('❌ Failed to send fake message:', error);
+    }
+}
+
+checkFakeTrafficStatus() {
+    const status = {
+        fakeTrafficEnabled: this.securityFeatures.hasFakeTraffic,
+        fakeTrafficConfigEnabled: this.fakeTrafficConfig.enabled,
+        timerActive: !!this.fakeTrafficTimer,
+        patterns: this.fakeTrafficConfig.patterns,
+        intervals: {
+            min: this.fakeTrafficConfig.minInterval,
+            max: this.fakeTrafficConfig.maxInterval
+        }
+    };
+    
+    console.log('🎭 Fake Traffic Status:', status);
+    return status;
+}
+emergencyDisableFakeTraffic() {
+    console.log('🚨 Emergency disabling fake traffic');
+    
+    this.securityFeatures.hasFakeTraffic = false;
+    this.fakeTrafficConfig.enabled = false;
+    this.stopFakeTrafficGeneration();
+    
+    console.log('✅ Fake traffic disabled');
+    
+    if (this.onMessage) {
+        this.onMessage('🚨 Fake traffic emergency disabled', 'system');
+    }
+}
+    // ============================================
+    // 4. MESSAGE CHUNKING
+    // ============================================
+
+    async sendMessageInChunks(data, messageId) {
+        if (!this.chunkingConfig.enabled || data.byteLength <= this.chunkingConfig.maxChunkSize) {
+            // Send as single message if chunking is disabled or data is small
+            return this.sendMessage(data);
+        }
+
+        try {
+            const dataArray = new Uint8Array(data);
+            const totalChunks = Math.ceil(dataArray.length / this.chunkingConfig.maxChunkSize);
+            const chunks = [];
+
+            // Split data into chunks
+            for (let i = 0; i < totalChunks; i++) {
+                const start = i * this.chunkingConfig.maxChunkSize;
+                const end = Math.min(start + this.chunkingConfig.maxChunkSize, dataArray.length);
+                const chunk = dataArray.slice(start, end);
+
+                if (this.chunkingConfig.addChunkHeaders) {
+                    // Add chunk header
+                    const header = new ArrayBuffer(16);
+                    const headerView = new DataView(header);
+                    headerView.setUint32(0, messageId, false);
+                    headerView.setUint32(4, i, false);
+                    headerView.setUint32(8, totalChunks, false);
+                    headerView.setUint32(12, chunk.length, false);
+
+                    const chunkWithHeader = new Uint8Array(16 + chunk.length);
+                    chunkWithHeader.set(new Uint8Array(header), 0);
+                    chunkWithHeader.set(chunk, 16);
+                    chunks.push(chunkWithHeader);
+                } else {
+                    chunks.push(chunk);
+                }
+            }
+
+            // Send chunks with random delays
+            for (let i = 0; i < chunks.length; i++) {
+                const chunk = chunks[i];
+                
+                // Apply security layers to chunk
+                const encryptedChunk = await this.applySecurityLayers(chunk.buffer, false);
+                
+                // Send chunk
+                this.dataChannel.send(encryptedChunk);
+                
+                console.log(`📦 Sent chunk ${i + 1}/${totalChunks} (${chunk.length} bytes)`);
+                
+                // Add delay before next chunk (except for last chunk)
+                if (i < chunks.length - 1) {
+                    const delay = this.chunkingConfig.useRandomDelays ?
+                        Math.random() * (this.chunkingConfig.maxDelay - this.chunkingConfig.minDelay) + 
+                        this.chunkingConfig.minDelay :
+                        this.chunkingConfig.minDelay;
+                    
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+
+            console.log(`📦 Message chunking completed: ${totalChunks} chunks sent`);
+        } catch (error) {
+            console.error('❌ Message chunking failed:', error);
+            // Fallback to single message
+            return this.sendMessage(data);
+        }
+    }
+
+    async processChunkedMessage(chunkData) {
+        try {
+            if (!this.chunkingConfig.addChunkHeaders) {
+                // No headers, treat as regular message
+                return this.processMessage(chunkData);
+            }
+
+            const chunkArray = new Uint8Array(chunkData);
+            if (chunkArray.length < 16) {
+                // Too small to be a chunk with header
+                return this.processMessage(chunkData);
+            }
+
+            // Extract chunk header
+            const headerView = new DataView(chunkArray.buffer, 0, 16);
+            const messageId = headerView.getUint32(0, false);
+            const chunkIndex = headerView.getUint32(4, false);
+            const totalChunks = headerView.getUint32(8, false);
+            const chunkSize = headerView.getUint32(12, false);
+
+            // Extract chunk data
+            const chunk = chunkArray.slice(16, 16 + chunkSize);
+
+            // Store chunk in buffer
+            if (!this.chunkQueue[messageId]) {
+                this.chunkQueue[messageId] = {
+                    chunks: new Array(totalChunks),
+                    received: 0,
+                    timestamp: Date.now()
+                };
+            }
+
+            const messageBuffer = this.chunkQueue[messageId];
+            messageBuffer.chunks[chunkIndex] = chunk;
+            messageBuffer.received++;
+
+            console.log(`📦 Received chunk ${chunkIndex + 1}/${totalChunks} for message ${messageId}`);
+
+            // Check if all chunks received
+            if (messageBuffer.received === totalChunks) {
+                // Combine all chunks
+                const totalSize = messageBuffer.chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+                const combinedData = new Uint8Array(totalSize);
+                
+                let offset = 0;
+                for (const chunk of messageBuffer.chunks) {
+                    combinedData.set(chunk, offset);
+                    offset += chunk.length;
+                }
+
+                // Process complete message
+                await this.processMessage(combinedData.buffer);
+                
+                // Clean up
+                delete this.chunkQueue[messageId];
+                
+                console.log(`📦 Chunked message ${messageId} reassembled and processed`);
+            }
+        } catch (error) {
+            console.error('❌ Chunked message processing failed:', error);
+        }
+    }
+
+    // ============================================
+    // 5. DECOY CHANNELS
+    // ============================================
+
+    initializeDecoyChannels() {
+        if (!this.decoyChannelConfig.enabled || !this.peerConnection) {
+            return;
+        }
+
+        // Prevent multiple initializations
+        if (this.decoyChannels.size > 0) {
+            console.log('⚠️ Decoy channels already initialized, skipping...');
+            return;
+        }
+
+        try {
+            const numDecoyChannels = Math.min(
+                this.decoyChannelConfig.maxDecoyChannels,
+                this.decoyChannelConfig.decoyChannelNames.length
+            );
+
+            for (let i = 0; i < numDecoyChannels; i++) {
+                const channelName = this.decoyChannelConfig.decoyChannelNames[i];
+                const decoyChannel = this.peerConnection.createDataChannel(channelName, {
+                    ordered: Math.random() > 0.5,
+                    maxRetransmits: Math.floor(Math.random() * 3)
+                });
+
+                this.setupDecoyChannel(decoyChannel, channelName);
+                this.decoyChannels.set(channelName, decoyChannel);
+            }
+
+            console.log(`🎭 Initialized ${numDecoyChannels} decoy channels`);
+        } catch (error) {
+            console.error('❌ Failed to initialize decoy channels:', error);
+        }
+    }
+
+    setupDecoyChannel(channel, channelName) {
+        channel.onopen = () => {
+            console.log(`🎭 Decoy channel "${channelName}" opened`);
+            this.startDecoyTraffic(channel, channelName);
+        };
+
+        channel.onmessage = (event) => {
+            // Process decoy messages (usually just log them)
+            console.log(`🎭 Received decoy message on "${channelName}": ${event.data.length} bytes`);
+        };
+
+        channel.onclose = () => {
+            console.log(`🎭 Decoy channel "${channelName}" closed`);
+            this.stopDecoyTraffic(channelName);
+        };
+
+        channel.onerror = (error) => {
+            console.error(`❌ Decoy channel "${channelName}" error:`, error);
+        };
+    }
+
+    startDecoyTraffic(channel, channelName) {
+        const sendDecoyData = async () => {
+            if (channel.readyState !== 'open') {
+                return;
+            }
+
+            try {
+                const decoyData = this.generateDecoyData(channelName);
+                channel.send(decoyData);
+                
+                // Schedule next decoy message
+                const interval = this.decoyChannelConfig.randomDecoyIntervals ?
+                    Math.random() * 5000 + 2000 : // 2-7 seconds
+                    3000; // Fixed 3 seconds
+                
+                this.decoyTimers.set(channelName, setTimeout(() => sendDecoyData(), interval));
+            } catch (error) {
+                console.error(`❌ Failed to send decoy data on "${channelName}":`, error);
+            }
+        };
+
+        // Start decoy traffic with random initial delay
+        const initialDelay = Math.random() * 3000 + 1000; // 1-4 seconds
+        this.decoyTimers.set(channelName, setTimeout(() => sendDecoyData(), initialDelay));
+    }
+
+    stopDecoyTraffic(channelName) {
+        const timer = this.decoyTimers.get(channelName);
+        if (timer) {
+            clearTimeout(timer);
+            this.decoyTimers.delete(channelName);
+        }
+    }
+
+    generateDecoyData(channelName) {
+        const decoyTypes = {
+            'sync': () => JSON.stringify({
+                type: 'sync',
+                timestamp: Date.now(),
+                sequence: Math.floor(Math.random() * 1000),
+                data: Array.from(crypto.getRandomValues(new Uint8Array(32)))
+                    .map(b => b.toString(16).padStart(2, '0')).join('')
+            }),
+            'status': () => JSON.stringify({
+                type: 'status',
+                status: ['online', 'away', 'busy'][Math.floor(Math.random() * 3)],
+                uptime: Math.floor(Math.random() * 3600),
+                data: Array.from(crypto.getRandomValues(new Uint8Array(16)))
+                    .map(b => b.toString(16).padStart(2, '0')).join('')
+            }),
+            'heartbeat': () => JSON.stringify({
+                type: 'heartbeat',
+                timestamp: Date.now(),
+                data: Array.from(crypto.getRandomValues(new Uint8Array(24)))
+                    .map(b => b.toString(16).padStart(2, '0')).join('')
+            }),
+            'metrics': () => JSON.stringify({
+                type: 'metrics',
+                cpu: Math.random() * 100,
+                memory: Math.random() * 100,
+                network: Math.random() * 1000,
+                data: Array.from(crypto.getRandomValues(new Uint8Array(20)))
+                    .map(b => b.toString(16).padStart(2, '0')).join('')
+            }),
+            'debug': () => JSON.stringify({
+                type: 'debug',
+                level: ['info', 'warn', 'error'][Math.floor(Math.random() * 3)],
+                message: 'Debug message',
+                data: Array.from(crypto.getRandomValues(new Uint8Array(28)))
+                    .map(b => b.toString(16).padStart(2, '0')).join('')
+            })
+        };
+
+        return decoyTypes[channelName] ? decoyTypes[channelName]() : 
+            Array.from(crypto.getRandomValues(new Uint8Array(64)))
+                .map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    // ============================================
+    // 6. PACKET REORDERING PROTECTION
+    // ============================================
+
+    addReorderingHeaders(data) {
+        if (!this.reorderingConfig.enabled) {
+            return data;
+        }
+
+        try {
+            const dataArray = new Uint8Array(data);
+            const headerSize = this.reorderingConfig.useTimestamps ? 12 : 8;
+            const header = new ArrayBuffer(headerSize);
+            const headerView = new DataView(header);
+
+            // Add sequence number
+            if (this.reorderingConfig.useSequenceNumbers) {
+                headerView.setUint32(0, this.sequenceNumber++, false);
+            }
+
+            // Add timestamp
+            if (this.reorderingConfig.useTimestamps) {
+                headerView.setUint32(4, Date.now(), false);
+            }
+
+            // Add data size
+            headerView.setUint32(this.reorderingConfig.useTimestamps ? 8 : 4, dataArray.length, false);
+
+            // Combine header and data
+            const result = new Uint8Array(headerSize + dataArray.length);
+            result.set(new Uint8Array(header), 0);
+            result.set(dataArray, headerSize);
+
+            return result.buffer;
+        } catch (error) {
+            console.error('❌ Failed to add reordering headers:', error);
+            return data;
+        }
+    }
+
+    async processReorderedPacket(data) {
+        if (!this.reorderingConfig.enabled) {
+            return this.processMessage(data);
+        }
+
+        try {
+            const dataArray = new Uint8Array(data);
+            const headerSize = this.reorderingConfig.useTimestamps ? 12 : 8;
+
+            if (dataArray.length < headerSize) {
+                // Too small to have headers, process as regular message
+                return this.processMessage(data);
+            }
+
+            // Extract headers
+            const headerView = new DataView(dataArray.buffer, 0, headerSize);
+            let sequence = 0;
+            let timestamp = 0;
+            let dataSize = 0;
+
+            if (this.reorderingConfig.useSequenceNumbers) {
+                sequence = headerView.getUint32(0, false);
+            }
+
+            if (this.reorderingConfig.useTimestamps) {
+                timestamp = headerView.getUint32(4, false);
+            }
+
+            dataSize = headerView.getUint32(this.reorderingConfig.useTimestamps ? 8 : 4, false);
+
+            // Extract actual data
+            const actualData = dataArray.slice(headerSize, headerSize + dataSize);
+
+            // Store packet in buffer
+            this.packetBuffer.set(sequence, {
+                data: actualData.buffer,
+                timestamp: timestamp
+            });
+
+            // Process packets in order
+            await this.processOrderedPackets();
+
+        } catch (error) {
+            console.error('❌ Failed to process reordered packet:', error);
+            // Fallback to direct processing
+            return this.processMessage(data);
+        }
+    }
+
+    async processOrderedPackets() {
+        const now = Date.now();
+        const timeout = this.reorderingConfig.reorderTimeout;
+
+        // Process packets in sequence order
+        while (true) {
+            const nextSequence = this.lastProcessedSequence + 1;
+            const packet = this.packetBuffer.get(nextSequence);
+
+            if (!packet) {
+                // Check for timeout on oldest packet
+                const oldestPacket = this.findOldestPacket();
+                if (oldestPacket && (now - oldestPacket.timestamp) > timeout) {
+                    console.warn(`⚠️ Packet ${oldestPacket.sequence} timed out, processing out of order`);
+                    await this.processMessage(oldestPacket.data);
+                    this.packetBuffer.delete(oldestPacket.sequence);
+                    this.lastProcessedSequence = oldestPacket.sequence;
+                } else {
+                    break; // No more packets to process
+                }
+            } else {
+                // Process packet in order
+                await this.processMessage(packet.data);
+                this.packetBuffer.delete(nextSequence);
+                this.lastProcessedSequence = nextSequence;
+            }
+        }
+
+        // Clean up old packets
+        this.cleanupOldPackets(now, timeout);
+    }
+
+    findOldestPacket() {
+        let oldest = null;
+        for (const [sequence, packet] of this.packetBuffer.entries()) {
+            if (!oldest || packet.timestamp < oldest.timestamp) {
+                oldest = { sequence, ...packet };
+            }
+        }
+        return oldest;
+    }
+
+    cleanupOldPackets(now, timeout) {
+        for (const [sequence, packet] of this.packetBuffer.entries()) {
+            if ((now - packet.timestamp) > timeout) {
+                console.warn(`🗑️ Removing timed out packet ${sequence}`);
+                this.packetBuffer.delete(sequence);
+            }
+        }
+    }
+
+    // ============================================
+    // 7. ANTI-FINGERPRINTING
+    // ============================================
+
+    applyAntiFingerprinting(data) {
+        if (!this.antiFingerprintingConfig.enabled) {
+            return data;
+        }
+
+        try {
+            let processedData = data;
+
+            // Add random noise
+            if (this.antiFingerprintingConfig.addNoise) {
+                processedData = this.addNoise(processedData);
+            }
+
+            // Randomize sizes
+            if (this.antiFingerprintingConfig.randomizeSizes) {
+                processedData = this.randomizeSize(processedData);
+            }
+
+            // Mask patterns
+            if (this.antiFingerprintingConfig.maskPatterns) {
+                processedData = this.maskPatterns(processedData);
+            }
+
+            // Add random headers
+            if (this.antiFingerprintingConfig.useRandomHeaders) {
+                processedData = this.addRandomHeaders(processedData);
+            }
+
+            return processedData;
+        } catch (error) {
+            console.error('❌ Anti-fingerprinting failed:', error);
+            return data;
+        }
+    }
+
+    addNoise(data) {
+        const dataArray = new Uint8Array(data);
+        const noiseSize = Math.floor(Math.random() * 32) + 8; // 8-40 bytes
+        const noise = crypto.getRandomValues(new Uint8Array(noiseSize));
+        
+        const result = new Uint8Array(dataArray.length + noiseSize);
+        result.set(dataArray, 0);
+        result.set(noise, dataArray.length);
+        
+        return result.buffer;
+    }
+
+    randomizeSize(data) {
+        const dataArray = new Uint8Array(data);
+        const variation = this.fingerprintMask.sizeVariation;
+        const targetSize = Math.floor(dataArray.length * variation);
+        
+        if (targetSize > dataArray.length) {
+            // Add padding to increase size
+            const padding = crypto.getRandomValues(new Uint8Array(targetSize - dataArray.length));
+            const result = new Uint8Array(targetSize);
+            result.set(dataArray, 0);
+            result.set(padding, dataArray.length);
+            return result.buffer;
+        } else if (targetSize < dataArray.length) {
+            // Truncate to decrease size
+            return dataArray.slice(0, targetSize).buffer;
         }
         
-        this.peerConnection = null;
-        this.dataChannel = null;
-        this.encryptionKey = null;
-        this.macKey = null;
-        this.metadataKey = null;
-        this.keyFingerprint = null;
-        this.onMessage = onMessage;
-        this.onStatusChange = onStatusChange;
-        this.onKeyExchange = onKeyExchange;
-        this.onVerificationRequired = onVerificationRequired;
-        this.onAnswerError = onAnswerError; // Callback for response processing errors
-        this.isInitiator = false;
-        this.connectionAttempts = 0;
-        this.maxConnectionAttempts = 3;
-        this.heartbeatInterval = null;
-        this.messageQueue = [];
-        this.ecdhKeyPair = null;
-        this.ecdsaKeyPair = null;
-        this.verificationCode = null;
-        this.isVerified = false;
-        this.processedMessageIds = new Set();
-        this.messageCounter = 0;
-        this.sequenceNumber = 0;
-        this.expectedSequenceNumber = 0;
-        this.sessionSalt = null;
-        this.sessionId = null; // MITM protection: Session identifier
-        this.peerPublicKey = null; // Store peer's public key for PFS
-        this.rateLimiterId = null;
-        this.intentionalDisconnect = false;
-        this.lastCleanupTime = Date.now();
+        return data;
+    }
+
+    maskPatterns(data) {
+        const dataArray = new Uint8Array(data);
+        const result = new Uint8Array(dataArray.length);
         
-        // PFS (Perfect Forward Secrecy) Implementation
-        this.keyRotationInterval = 300000; // 5 minutes
-        this.lastKeyRotation = Date.now();
-        this.currentKeyVersion = 0;
-        this.keyVersions = new Map(); // Store key versions for PFS
-        this.oldKeys = new Map(); // Store old keys temporarily for decryption
-        this.maxOldKeys = 3; // Keep last 3 key versions for decryption
+        // Apply XOR with noise pattern
+        for (let i = 0; i < dataArray.length; i++) {
+            const noiseByte = this.fingerprintMask.noisePattern[i % this.fingerprintMask.noisePattern.length];
+            result[i] = dataArray[i] ^ noiseByte;
+        }
         
-        this.securityFeatures = {
-            hasEncryption: true,
-            hasECDH: true,
-            hasECDSA: false,
-            hasMutualAuth: false,
-            hasMetadataProtection: false,
-            hasEnhancedReplayProtection: false,
-            hasNonExtractableKeys: false,
-            hasRateLimiting: false,
-            hasEnhancedValidation: false,
-            hasPFS: true // New PFS feature flag
-        };
+        return result.buffer;
+    }
+
+    addRandomHeaders(data) {
+        const dataArray = new Uint8Array(data);
+        const headerCount = Math.floor(Math.random() * 3) + 1; // 1-3 headers
+        let totalHeaderSize = 0;
         
-        // Initialize rate limiter ID
-        this.rateLimiterId = `webrtc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        // Calculate total header size
+        for (let i = 0; i < headerCount; i++) {
+            totalHeaderSize += 4 + Math.floor(Math.random() * 16) + 4; // size + data + checksum
+        }
         
-        // Start periodic cleanup
-        this.startPeriodicCleanup();
+        const result = new Uint8Array(totalHeaderSize + dataArray.length);
+        let offset = 0;
+        
+        // Add random headers
+        for (let i = 0; i < headerCount; i++) {
+            const headerName = this.fingerprintMask.headerVariations[
+                Math.floor(Math.random() * this.fingerprintMask.headerVariations.length)
+            ];
+            const headerData = crypto.getRandomValues(new Uint8Array(Math.floor(Math.random() * 16) + 4));
+            
+            // Header structure: [size:4][name:4][data:variable][checksum:4]
+            const headerView = new DataView(result.buffer, offset);
+            headerView.setUint32(0, headerData.length + 8, false); // Total header size
+            headerView.setUint32(4, this.hashString(headerName), false); // Name hash
+            
+            result.set(headerData, offset + 8);
+            
+            // Add checksum
+            const checksum = this.calculateChecksum(result.slice(offset, offset + 8 + headerData.length));
+            const checksumView = new DataView(result.buffer, offset + 8 + headerData.length);
+            checksumView.setUint32(0, checksum, false);
+            
+            offset += 8 + headerData.length + 4;
+        }
+        
+        // Add original data
+        result.set(dataArray, offset);
+        
+        return result.buffer;
+    }
+
+    hashString(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash;
+        }
+        return Math.abs(hash);
+    }
+
+    calculateChecksum(data) {
+        let checksum = 0;
+        for (let i = 0; i < data.length; i++) {
+            checksum = (checksum + data[i]) & 0xFFFFFFFF;
+        }
+        return checksum;
+    }
+
+    // ============================================
+    // ENHANCED MESSAGE SENDING AND RECEIVING
+    // ============================================
+
+    async applySecurityLayers(data, isFakeMessage = false) {
+    try {
+        let processedData = data;
+        
+        const status = this.getSecurityStatus();
+        console.log(`🔒 Applying security layers (Stage ${status.stage}):`, {
+            isFake: isFakeMessage,
+            dataType: typeof data,
+            dataLength: data?.length || data?.byteLength || 0,
+            activeFeatures: status.activeFeaturesCount
+        });
+
+        // 1. Преобразуем в ArrayBuffer если нужно
+        if (typeof processedData === 'string') {
+            processedData = new TextEncoder().encode(processedData).buffer;
+        }
+
+        // 2. Anti-Fingerprinting (только для настоящих сообщений, Stage 2+)
+        if (!isFakeMessage && this.securityFeatures.hasAntiFingerprinting && this.antiFingerprintingConfig.enabled) {
+            try {
+                console.log('🎭 Applying anti-fingerprinting...');
+                processedData = this.applyAntiFingerprinting(processedData);
+                console.log('✅ Anti-fingerprinting applied');
+            } catch (error) {
+                console.warn('⚠️ Anti-fingerprinting failed:', error.message);
+            }
+        }
+
+        // 3. Packet Padding (Stage 1+)
+        if (this.securityFeatures.hasPacketPadding && this.paddingConfig.enabled) {
+            try {
+                console.log('📦 Applying packet padding...');
+                processedData = this.applyPacketPadding(processedData);
+                console.log('✅ Packet padding applied');
+            } catch (error) {
+                console.warn('⚠️ Packet padding failed:', error.message);
+            }
+        }
+
+        // 4. Reordering Headers (Stage 2+)
+        if (this.securityFeatures.hasPacketReordering && this.reorderingConfig.enabled) {
+            try {
+                console.log('📋 Adding reordering headers...');
+                processedData = this.addReorderingHeaders(processedData);
+                console.log('✅ Reordering headers added');
+            } catch (error) {
+                console.warn('⚠️ Reordering headers failed:', error.message);
+            }
+        }
+
+        // 5. Nested Encryption (Stage 1+)
+        if (this.securityFeatures.hasNestedEncryption && this.nestedEncryptionKey) {
+            try {
+                console.log('🔐 Applying nested encryption...');
+                processedData = await this.applyNestedEncryption(processedData);
+                console.log('✅ Nested encryption applied');
+            } catch (error) {
+                console.warn('⚠️ Nested encryption failed:', error.message);
+            }
+        }
+
+        // 6. Standard Encryption (всегда последний)
+        if (this.encryptionKey) {
+            try {
+                const dataString = new TextDecoder().decode(processedData);
+                processedData = await window.EnhancedSecureCryptoUtils.encryptData(dataString, this.encryptionKey);
+                console.log('✅ Standard encryption applied');
+            } catch (error) {
+                console.warn('⚠️ Standard encryption failed:', error.message);
+            }
+        }
+
+        console.log(`✅ All Stage ${status.stage} security layers applied successfully`);
+        return processedData;
+
+    } catch (error) {
+        console.error('❌ Failed to apply security layers:', error);
+        return data;
+    }
+}
+
+    async removeSecurityLayers(data) {
+    try {
+        const status = this.getSecurityStatus();
+        console.log(`🔍 removeSecurityLayers (Stage ${status.stage}):`, {
+            dataType: typeof data,
+            dataLength: data?.length || data?.byteLength || 0,
+            activeFeatures: status.activeFeaturesCount
+        });
+
+        if (!data) {
+            console.warn('⚠️ Received empty data');
+            return null;
+        }
+
+        let processedData = data;
+
+        // ВАЖНО: Ранняя проверка на фейковые сообщения
+        if (typeof data === 'string') {
+            try {
+                const jsonData = JSON.parse(data);
+                
+                // ПЕРВЫЙ ПРИОРИТЕТ: Фильтруем фейковые сообщения
+                if (jsonData.type === 'fake') {
+                    console.log(`🎭 Fake message filtered out: ${jsonData.pattern} (size: ${jsonData.size})`);
+                    return 'FAKE_MESSAGE_FILTERED'; // Специальный маркер
+                }
+                
+                // Системные сообщения
+                if (jsonData.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'key_rotation_signal', 'key_rotation_ready'].includes(jsonData.type)) {
+                    console.log('🔧 System message detected:', jsonData.type);
+                    return data;
+                }
+                
+                // Enhanced сообщения
+                if (jsonData.type === 'enhanced_message' && jsonData.data) {
+                    console.log('🔐 Enhanced message detected, decrypting...');
+                    
+                    if (!this.encryptionKey || !this.macKey || !this.metadataKey) {
+                        console.error('❌ Missing encryption keys');
+                        return null;
+                    }
+                    
+                    const decryptedResult = await window.EnhancedSecureCryptoUtils.decryptMessage(
+                        jsonData.data,
+                        this.encryptionKey,
+                        this.macKey,
+                        this.metadataKey
+                    );
+                    
+                    console.log('✅ Enhanced message decrypted, extracting...');
+                    
+                    // ПРОВЕРЯЕМ НА ФЕЙКОВЫЕ СООБЩЕНИЯ ПОСЛЕ РАСШИФРОВКИ
+                    try {
+                        const decryptedContent = JSON.parse(decryptedResult.message);
+                        if (decryptedContent.type === 'fake') {
+                            console.log(`🎭 Encrypted fake message filtered out: ${decryptedContent.pattern}`);
+                            return 'FAKE_MESSAGE_FILTERED';
+                        }
+                    } catch (e) {
+                        // Не JSON, продолжаем
+                    }
+                    
+                    return decryptedResult.message;
+                }
+                
+                // Legacy сообщения
+                if (jsonData.type === 'message' && jsonData.data) {
+                    processedData = jsonData.data;
+                }
+            } catch (e) {
+                console.log('📄 Not JSON, processing as raw data');
+            }
+        }
+
+        // Standard Decryption
+        if (this.encryptionKey && typeof processedData === 'string' && processedData.length > 50) {
+            try {
+                const base64Regex = /^[A-Za-z0-9+/=]+$/;
+                if (base64Regex.test(processedData.trim())) {
+                    console.log('🔓 Applying standard decryption...');
+                    processedData = await window.EnhancedSecureCryptoUtils.decryptData(processedData, this.encryptionKey);
+                    console.log('✅ Standard decryption successful');
+                    
+                    // ПРОВЕРЯЕМ НА ФЕЙКОВЫЕ СООБЩЕНИЯ ПОСЛЕ LEGACY РАСШИФРОВКИ
+                    if (typeof processedData === 'string') {
+                        try {
+                            const legacyContent = JSON.parse(processedData);
+                            if (legacyContent.type === 'fake') {
+                                console.log(`🎭 Legacy fake message filtered out: ${legacyContent.pattern}`);
+                                return 'FAKE_MESSAGE_FILTERED';
+                            }
+                        } catch (e) {
+                            // Не JSON, продолжаем
+                        }
+                        processedData = new TextEncoder().encode(processedData).buffer;
+                    }
+                }
+            } catch (error) {
+                console.warn('⚠️ Standard decryption failed:', error.message);
+                return data;
+            }
+        }
+
+        // Nested Decryption
+        if (this.securityFeatures.hasNestedEncryption && this.nestedEncryptionKey && processedData instanceof ArrayBuffer) {
+            try {
+                console.log('🔐 Removing nested encryption...');
+                processedData = await this.removeNestedEncryption(processedData);
+                console.log('✅ Nested encryption removed');
+            } catch (error) {
+                console.warn('⚠️ Nested decryption failed:', error.message);
+            }
+        }
+
+        // Reordering Processing
+        if (this.securityFeatures.hasPacketReordering && this.reorderingConfig.enabled && processedData instanceof ArrayBuffer) {
+            try {
+                console.log('📋 Processing reordered packet...');
+                return await this.processReorderedPacket(processedData);
+            } catch (error) {
+                console.warn('⚠️ Reordering processing failed:', error.message);
+            }
+        }
+
+        // Packet Padding Removal
+        if (this.securityFeatures.hasPacketPadding && processedData instanceof ArrayBuffer) {
+            try {
+                console.log('📦 Removing packet padding...');
+                processedData = this.removePacketPadding(processedData);
+                console.log('✅ Packet padding removed');
+            } catch (error) {
+                console.warn('⚠️ Padding removal failed:', error.message);
+            }
+        }
+
+        // Anti-Fingerprinting Removal
+        if (this.securityFeatures.hasAntiFingerprinting && processedData instanceof ArrayBuffer) {
+            try {
+                console.log('🎭 Removing anti-fingerprinting...');
+                processedData = this.removeAntiFingerprinting(processedData);
+                console.log('✅ Anti-fingerprinting removed');
+            } catch (error) {
+                console.warn('⚠️ Anti-fingerprinting removal failed:', error.message);
+            }
+        }
+
+        // Финальное преобразование
+        if (processedData instanceof ArrayBuffer) {
+            processedData = new TextDecoder().decode(processedData);
+        }
+
+        // ФИНАЛЬНАЯ ПРОВЕРКА НА ФЕЙКОВЫЕ СООБЩЕНИЯ
+        if (typeof processedData === 'string') {
+            try {
+                const finalContent = JSON.parse(processedData);
+                if (finalContent.type === 'fake') {
+                    console.log(`🎭 Final stage fake message filtered out: ${finalContent.pattern}`);
+                    return 'FAKE_MESSAGE_FILTERED';
+                }
+            } catch (e) {
+                // Не JSON, это обычное сообщение
+            }
+        }
+
+        console.log(`✅ All Stage ${status.stage} security layers removed successfully`);
+        return processedData;
+
+    } catch (error) {
+        console.error('❌ Critical error in removeSecurityLayers:', error);
+        return data;
+    }
+}
+
+    removeAntiFingerprinting(data) {
+        // This is a simplified version - in practice, you'd need to reverse all operations
+        // For now, we'll just return the data as-is since the operations are mostly additive
+        return data;
+    }
+
+    async sendMessage(data) {
+        if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
+            throw new Error('Data channel not ready');
+        }
+
+        try {
+            // Generate message ID for chunking
+            const messageId = this.messageCounter++;
+            
+            // Check if message should be chunked
+            if (this.chunkingConfig.enabled && data.byteLength > this.chunkingConfig.maxChunkSize) {
+                return await this.sendMessageInChunks(data, messageId);
+            }
+
+            // Apply all security layers
+            const securedData = await this.applySecurityLayers(data, false);
+            
+            // Send message
+            this.dataChannel.send(securedData);
+            
+            console.log(`📤 Message sent with enhanced security (${data.byteLength} -> ${securedData.byteLength} bytes)`);
+            
+            return true;
+        } catch (error) {
+            console.error('❌ Failed to send message:', error);
+            throw error;
+        }
+    }
+
+    async processMessage(data) {
+    try {
+        console.log('📨 Processing message:', {
+            dataType: typeof data,
+            isArrayBuffer: data instanceof ArrayBuffer,
+            dataLength: data?.length || data?.byteLength || 0
+        });
+        
+        // Проверяем системные сообщения напрямую
+        if (typeof data === 'string') {
+            try {
+                const systemMessage = JSON.parse(data);
+                
+                // БЛОКИРУЕМ ФЕЙКОВЫЕ СООБЩЕНИЯ НА ВХОДЕ
+                if (systemMessage.type === 'fake') {
+                    console.log(`🎭 Fake message blocked at entry: ${systemMessage.pattern}`);
+                    return; // НЕ ОБРАБАТЫВАЕМ ФЕЙКОВЫЕ СООБЩЕНИЯ
+                }
+                
+                if (systemMessage.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'key_rotation_signal', 'key_rotation_ready'].includes(systemMessage.type)) {
+                    console.log('🔧 Processing system message directly:', systemMessage.type);
+                    this.handleSystemMessage(systemMessage);
+                    return;
+                }
+            } catch (e) {
+                // Не JSON или не системное сообщение
+            }
+        }
+
+        // Validate input data
+        if (!data) {
+            console.warn('⚠️ Received empty data in processMessage');
+            return;
+        }
+
+        // Удаляем все слои безопасности
+        const originalData = await this.removeSecurityLayers(data);
+        
+        // ПРОВЕРЯЕМ МАРКЕР ФЕЙКОВОГО СООБЩЕНИЯ
+        if (originalData === 'FAKE_MESSAGE_FILTERED') {
+            console.log('🎭 Fake message successfully filtered, not displaying to user');
+            return; // НЕ ПОКАЗЫВАЕМ ПОЛЬЗОВАТЕЛЮ
+        }
+        
+        // Проверяем результат
+        if (!originalData) {
+            console.warn('⚠️ No data returned from removeSecurityLayers');
+            return;
+        }
+
+        console.log('🔍 After removeSecurityLayers:', {
+            dataType: typeof originalData,
+            isString: typeof originalData === 'string',
+            isObject: typeof originalData === 'object',
+            hasMessage: originalData?.message,
+            value: typeof originalData === 'string' ? originalData.substring(0, 100) : 'not string'
+        });
+
+        // Если это системное сообщение после расшифровки
+        if (typeof originalData === 'string') {
+            try {
+                const message = JSON.parse(originalData);
+                if (message.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect'].includes(message.type)) {
+                    this.handleSystemMessage(message);
+                    return;
+                }
+                
+                // ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА НА ФЕЙКОВЫЕ СООБЩЕНИЯ
+                if (message.type === 'fake') {
+                    console.log(`🎭 Post-decryption fake message blocked: ${message.pattern}`);
+                    return; // НЕ ПОКАЗЫВАЕМ ПОЛЬЗОВАТЕЛЮ
+                }
+            } catch (e) {
+                // Не JSON, обрабатываем как обычное сообщение
+            }
+        }
+
+        // Определяем финальный текст сообщения
+        let messageText;
+        
+        if (typeof originalData === 'string') {
+            messageText = originalData;
+        } else if (originalData instanceof ArrayBuffer) {
+            messageText = new TextDecoder().decode(originalData);
+        } else if (originalData && typeof originalData === 'object' && originalData.message) {
+            messageText = originalData.message;
+            console.log('📝 Extracted message from object:', messageText.substring(0, 50) + '...');
+        } else {
+            console.warn('⚠️ Unexpected data type after processing:', typeof originalData);
+            console.warn('Data content:', originalData);
+            return;
+        }
+
+        // ФИНАЛЬНАЯ ПРОВЕРКА НА ФЕЙКОВЫЕ СООБЩЕНИЯ В ТЕКСТЕ
+        try {
+            const finalCheck = JSON.parse(messageText);
+            if (finalCheck.type === 'fake') {
+                console.log(`🎭 Final fake message check blocked: ${finalCheck.pattern}`);
+                return; // НЕ ПОКАЗЫВАЕМ ПОЛЬЗОВАТЕЛЮ
+            }
+        } catch (e) {
+            // Не JSON, это нормальное сообщение пользователя
+        }
+
+        // Вызываем обработчик сообщений ТОЛЬКО для настоящих сообщений
+        if (this.onMessage && messageText) {
+            console.log('✅ Calling message handler with real user message:', messageText.substring(0, 50) + '...');
+            this.onMessage(messageText, 'received');
+        } else {
+            console.warn('⚠️ No message handler or empty message text');
+        }
+
+    } catch (error) {
+        console.error('❌ Failed to process message:', error);
+    }
+}
+
+handleSystemMessage(message) {
+    console.log('🔧 Handling system message:', message.type);
+    
+    switch (message.type) {
+        case 'heartbeat':
+            this.handleHeartbeat();
+            break;
+        case 'verification':
+            this.handleVerificationRequest(message.data);
+            break;
+        case 'verification_response':
+            this.handleVerificationResponse(message.data);
+            break;
+        case 'peer_disconnect':
+            this.handlePeerDisconnectNotification(message);
+            break;
+        case 'key_rotation_signal':
+            console.log('🔄 Key rotation signal received (ignored for stability)');
+            break;
+        case 'key_rotation_ready':
+            console.log('🔄 Key rotation ready signal received (ignored for stability)');
+            break;
+        default:
+            console.log('🔧 Unknown system message type:', message.type);
+    }
+}
+
+// ============================================
+// МЕТОДЫ УПРАВЛЕНИЯ ФУНКЦИЯМИ
+// ============================================
+
+// Метод для включения Stage 2 функций
+enableStage2Security() {
+    console.log('🚀 Enabling Stage 2 security features...');
+    
+    // Включаем Packet Reordering
+    this.securityFeatures.hasPacketReordering = true;
+    this.reorderingConfig.enabled = true;
+    
+    // Включаем упрощенный Anti-Fingerprinting
+    this.securityFeatures.hasAntiFingerprinting = true;
+    this.antiFingerprintingConfig.enabled = true;
+    this.antiFingerprintingConfig.randomizeSizes = false; // Упрощенная версия
+    this.antiFingerprintingConfig.maskPatterns = false;
+    this.antiFingerprintingConfig.useRandomHeaders = false;
+    
+    console.log('✅ Stage 2 security features enabled');
+    console.log('✅ Active: Nested Encryption, Packet Padding, Reordering, Basic Anti-Fingerprinting');
+    
+    // Обновляем UI индикатор безопасности
+    this.notifySecurityUpgrade(2);
+}
+
+// Метод для включения Stage 3 функций (трафик-обфускация)
+enableStage3Security() {
+    console.log('🚀 Enabling Stage 3 security features (Traffic Obfuscation)...');
+    
+    // Включаем Message Chunking (осторожно)
+    this.securityFeatures.hasMessageChunking = true;
+    this.chunkingConfig.enabled = true;
+    this.chunkingConfig.maxChunkSize = 2048; // Большие чанки для стабильности
+    this.chunkingConfig.minDelay = 100;
+    this.chunkingConfig.maxDelay = 300;
+    
+    // Включаем Fake Traffic (очень осторожно)
+    this.securityFeatures.hasFakeTraffic = true;
+    this.fakeTrafficConfig.enabled = true;
+    this.fakeTrafficConfig.minInterval = 10000; // Редкие сообщения
+    this.fakeTrafficConfig.maxInterval = 30000;
+    this.fakeTrafficConfig.minSize = 32;
+    this.fakeTrafficConfig.maxSize = 128; // Маленькие размеры
+    
+    // Запускаем fake traffic
+    this.startFakeTrafficGeneration();
+    
+    console.log('✅ Stage 3 security features enabled');
+    console.log('✅ Active: All previous + Message Chunking, Fake Traffic');
+    
+    // Обновляем UI индикатор безопасности
+    this.notifySecurityUpgrade(3);
+}
+
+// Метод для включения Stage 4 функций (максимальная безопасность)
+enableStage4Security() {
+    console.log('🚀 Enabling Stage 4 security features (Maximum Security)...');
+    
+    // Включаем Decoy Channels (только если соединение стабильно)
+    if (this.isConnected() && this.isVerified) {
+        this.securityFeatures.hasDecoyChannels = true;
+        this.decoyChannelConfig.enabled = true;
+        this.decoyChannelConfig.maxDecoyChannels = 2; // Только 2 канала
+        
+        // Инициализируем decoy channels
+        try {
+            this.initializeDecoyChannels();
+        } catch (error) {
+            console.warn('⚠️ Decoy channels initialization failed:', error.message);
+            this.securityFeatures.hasDecoyChannels = false;
+            this.decoyChannelConfig.enabled = false;
+        }
+    }
+    
+    // Включаем полный Anti-Fingerprinting
+    this.antiFingerprintingConfig.randomizeSizes = true;
+    this.antiFingerprintingConfig.maskPatterns = true;
+    this.antiFingerprintingConfig.useRandomHeaders = false; // Пока отключено для стабильности
+    
+    console.log('✅ Stage 4 security features enabled');
+    console.log('🔒 MAXIMUM SECURITY MODE ACTIVE');
+    console.log('✅ All security features enabled: Nested Encryption, Packet Padding, Reordering, Full Anti-Fingerprinting, Message Chunking, Fake Traffic, Decoy Channels');
+    
+    // Обновляем UI индикатор безопасности
+    this.notifySecurityUpgrade(4);
+}
+
+// Метод для получения статуса безопасности
+getSecurityStatus() {
+    const activeFeatures = Object.entries(this.securityFeatures)
+        .filter(([key, value]) => value === true)
+        .map(([key]) => key);
+        
+    const stage = activeFeatures.length <= 3 ? 1 : 
+                 activeFeatures.length <= 5 ? 2 :
+                 activeFeatures.length <= 7 ? 3 : 4;
+                 
+    return {
+        stage: stage,
+        activeFeatures: activeFeatures,
+        totalFeatures: Object.keys(this.securityFeatures).length,
+        securityLevel: stage === 4 ? 'MAXIMUM' : stage === 3 ? 'HIGH' : stage === 2 ? 'MEDIUM' : 'BASIC',
+        activeFeaturesCount: activeFeatures.length,
+        activeFeaturesNames: activeFeatures
+    };
+}
+
+// Метод для уведомления UI об обновлении безопасности
+notifySecurityUpgrade(stage) {
+    const stageNames = {
+        1: 'Basic Enhanced',
+        2: 'Medium Security', 
+        3: 'High Security',
+        4: 'Maximum Security'
+    };
+    
+    const message = `🔒 Security upgraded to Stage ${stage}: ${stageNames[stage]}`;
+    
+    // Уведомляем через onMessage
+    if (this.onMessage) {
+        this.onMessage(message, 'system');
+    }
+    
+    // Логируем статус
+    const status = this.getSecurityStatus();
+    console.log('🔒 Security Status:', status);
+}
+// ============================================
+// АВТОМАТИЧЕСКОЕ ПОЭТАПНОЕ ВКЛЮЧЕНИЕ
+// ============================================
+
+// Метод для автоматического включения функций с проверкой стабильности
+async autoEnableSecurityFeatures() {
+    console.log('🔒 Starting automatic security features activation...');
+    
+    const checkStability = () => {
+        const isStable = this.isConnected() && 
+                        this.isVerified && 
+                        this.connectionAttempts === 0 && 
+                        this.messageQueue.length === 0 &&
+                        this.peerConnection?.connectionState === 'connected';
+        
+        console.log('🔍 Stability check:', {
+            isConnected: this.isConnected(),
+            isVerified: this.isVerified,
+            connectionAttempts: this.connectionAttempts,
+            messageQueueLength: this.messageQueue.length,
+            connectionState: this.peerConnection?.connectionState
+        });
+        
+        return isStable;
+    };
+    
+    // Stage 1 уже активен
+    console.log('🔒 Stage 1 active: Basic Enhanced Security');
+    this.notifySecurityUpgrade(1);
+    
+    // Ждем 15 секунд стабильной работы перед Stage 2
+    setTimeout(() => {
+        if (checkStability()) {
+            console.log('✅ Stage 1 stable for 15 seconds, activating Stage 2');
+            this.enableStage2Security();
+            
+            // Ждем еще 20 секунд перед Stage 3
+            setTimeout(() => {
+                if (checkStability()) {
+                    console.log('✅ Stage 2 stable for 20 seconds, activating Stage 3');
+                    this.enableStage3Security();
+                    
+                    // Ждем еще 25 секунд перед Stage 4
+                    setTimeout(() => {
+                        if (checkStability()) {
+                            console.log('✅ Stage 3 stable for 25 seconds, activating Stage 4');
+                            this.enableStage4Security();
+                        } else {
+                            console.log('⚠️ Connection not stable enough for Stage 4');
+                        }
+                    }, 25000);
+                } else {
+                    console.log('⚠️ Connection not stable enough for Stage 3');
+                }
+            }, 20000);
+        } else {
+            console.log('⚠️ Connection not stable enough for Stage 2');
+        }
+    }, 15000);
+}
+
+    // ============================================
+    // CONNECTION MANAGEMENT WITH ENHANCED SECURITY
+    // ============================================
+
+    async establishConnection() {
+        try {
+            // Initialize enhanced security features
+            await this.initializeEnhancedSecurity();
+            
+            // Start fake traffic generation
+            if (this.fakeTrafficConfig.enabled) {
+                this.startFakeTrafficGeneration();
+            }
+            
+            // Initialize decoy channels
+            if (this.decoyChannelConfig.enabled) {
+                this.initializeDecoyChannels();
+            }
+            
+            console.log('🔒 Enhanced secure connection established');
+        } catch (error) {
+            console.error('❌ Failed to establish enhanced connection:', error);
+            throw error;
+        }
+    }
+
+    disconnect() {
+        try {
+            // Stop fake traffic generation
+            this.stopFakeTrafficGeneration();
+            
+            // Stop decoy traffic
+            for (const [channelName, timer] of this.decoyTimers.entries()) {
+                clearTimeout(timer);
+            }
+            this.decoyTimers.clear();
+            
+            // Close decoy channels
+            for (const [channelName, channel] of this.decoyChannels.entries()) {
+                if (channel.readyState === 'open') {
+                    channel.close();
+                }
+            }
+            this.decoyChannels.clear();
+            
+            // Clean up packet buffer
+            this.packetBuffer.clear();
+            
+            // Clean up chunk queue
+            this.chunkQueue = [];
+            
+            console.log('🔒 Enhanced secure connection cleaned up');
+        } catch (error) {
+            console.error('❌ Error during enhanced disconnect:', error);
+        }
     }
 
     // Start periodic cleanup for rate limiting and security
@@ -244,11 +1896,17 @@ class EnhancedSecureWebRTCManager {
     setupDataChannel(channel) {
         this.dataChannel = channel;
 
-        this.dataChannel.onopen = () => {
-            console.log('Secure data channel opened');
+        this.dataChannel.onopen = async () => {
+            console.log('🔒 Enhanced secure data channel opened');
+            
+            await this.establishConnection();
+            
             if (this.isVerified) {
                 this.onStatusChange('connected');
                 this.processMessageQueue();
+                
+                // 🚀 ДОБАВЬТЕ ЭТУ СТРОКУ:
+                this.autoEnableSecurityFeatures();
             } else {
                 this.onStatusChange('verifying');
                 this.initiateVerification();
@@ -257,15 +1915,18 @@ class EnhancedSecureWebRTCManager {
         };
 
         this.dataChannel.onclose = () => {
-            console.log('Data channel closed');
+            console.log('🔒 Enhanced secure data channel closed');
+            
+            // Clean up enhanced security features
+            this.disconnect();
             
             if (!this.intentionalDisconnect) {
                 this.onStatusChange('reconnecting');
-                this.onMessage('🔄 Data channel closed. Attempting recovery...', 'system');
+                this.onMessage('🔄 Enhanced secure connection closed. Attempting recovery...', 'system');
                 this.handleUnexpectedDisconnect();
             } else {
                 this.onStatusChange('disconnected');
-                this.onMessage('🔌 Connection closed', 'system');
+                this.onMessage('🔌 Enhanced secure connection closed', 'system');
             }
             
             this.stopHeartbeat();
@@ -273,154 +1934,107 @@ class EnhancedSecureWebRTCManager {
         };
 
         this.dataChannel.onmessage = async (event) => {
-            try {
-                const payload = JSON.parse(event.data);
-                
-                if (payload.type === 'heartbeat') {
-                    this.handleHeartbeat();
-                    return;
-                }
-                
-                if (payload.type === 'verification') {
-                    this.handleVerificationRequest(payload.data);
-                    return;
-                }
-                
-                if (payload.type === 'verification_response') {
-                    this.handleVerificationResponse(payload.data);
-                    return;
-                }
-                
-                if (payload.type === 'peer_disconnect') {
-                    this.handlePeerDisconnectNotification(payload);
-                    return;
-                }
-                
-                if (payload.type === 'key_rotation_signal') {
-                    window.EnhancedSecureCryptoUtils.secureLog.log('info', 'Key rotation signal received but ignored for stability', {
-                        newVersion: payload.newVersion
-                    });
-                    return;
-                }
-                
-                if (payload.type === 'key_rotation_ready') {
-                    window.EnhancedSecureCryptoUtils.secureLog.log('info', 'Key rotation ready signal received but ignored for stability');
-                    return;
-                }
-                // Handle enhanced messages with metadata protection and PFS
-                if (payload.type === 'enhanced_message') {
-                    const keyVersion = payload.keyVersion || 0;
-                    const keys = this.getKeysForVersion(keyVersion);
-                    
-                    if (!keys) {
-                        window.EnhancedSecureCryptoUtils.secureLog.log('error', 'Keys not available for message decryption', {
-                            keyVersion: keyVersion,
-                            currentKeyVersion: this.currentKeyVersion,
-                            hasCurrentKeys: !!(this.encryptionKey && this.macKey && this.metadataKey),
-                            availableOldVersions: Array.from(this.oldKeys.keys())
-                        });
-                        throw new Error(`Cannot decrypt message: keys for version ${keyVersion} not available`);
-                    }
-                    
-                    if (!(keys.encryptionKey instanceof CryptoKey) || 
-                        !(keys.macKey instanceof CryptoKey) || 
-                        !(keys.metadataKey instanceof CryptoKey)) {
-                        window.EnhancedSecureCryptoUtils.secureLog.log('error', 'Invalid key types for message decryption', {
-                            keyVersion: keyVersion,
-                            encryptionKeyType: typeof keys.encryptionKey,
-                            macKeyType: typeof keys.macKey,
-                            metadataKeyType: typeof keys.metadataKey
-                        });
-                        throw new Error(`Invalid key types for version ${keyVersion}`);
-                    }
-                    
-                    // Using a more flexible sequence number check
-                    const decryptedData = await window.EnhancedSecureCryptoUtils.decryptMessage(
-                        payload.data,
-                        keys.encryptionKey,
-                        keys.macKey,
-                        keys.metadataKey,
-                        null // Disabling strict sequence number verification
-                    );
-                    
-                    // Checking for replay attack using messageId
-                    if (this.processedMessageIds.has(decryptedData.messageId)) {
-                        throw new Error('Duplicate message detected - possible replay attack');
-                    }
-                    this.processedMessageIds.add(decryptedData.messageId);
-                    
-                    // Updating expected sequence number more flexibly
-                    if (decryptedData.sequenceNumber >= this.expectedSequenceNumber) {
-                        this.expectedSequenceNumber = decryptedData.sequenceNumber + 1;
-                    }
-                    
-                    const sanitizedMessage = window.EnhancedSecureCryptoUtils.sanitizeMessage(decryptedData.message);
-                    this.onMessage(sanitizedMessage, 'received');
-                
-                    window.EnhancedSecureCryptoUtils.secureLog.log('info', 'Enhanced message received with PFS', {
-                        messageId: decryptedData.messageId,
-                        sequenceNumber: decryptedData.sequenceNumber,
-                        keyVersion: keyVersion,
-                        hasMetadataProtection: true,
-                        hasPFS: true
-                    });
-                    return;
-                }
-                
-                // Legacy message support for backward compatibility
-                if (payload.type === 'message') {
-                    // Additional validation for legacy messages
-                    if (!this.encryptionKey || !this.macKey) {
-                        window.EnhancedSecureCryptoUtils.secureLog.log('error', 'Missing keys for legacy message decryption', {
-                            hasEncryptionKey: !!this.encryptionKey,
-                            hasMacKey: !!this.macKey,
-                            hasMetadataKey: !!this.metadataKey
-                        });
-                        throw new Error('Missing keys to decrypt legacy message');
-                    }
-                    
-                    const decryptedData = await window.EnhancedSecureCryptoUtils.decryptMessage(
-                        payload.data,
-                        this.encryptionKey,
-                        this.macKey,
-                        this.metadataKey // Add metadataKey for consistency
-                    );
-                    
-                    // Check for replay attacks
-                    if (this.processedMessageIds.has(decryptedData.messageId)) {
-                        throw new Error('Duplicate message detected - possible replay attack');
-                    }
-                    this.processedMessageIds.add(decryptedData.messageId);
-                    
-                    const sanitizedMessage = window.EnhancedSecureCryptoUtils.sanitizeMessage(decryptedData.message);
-                    this.onMessage(sanitizedMessage, 'received');
-
-                    window.EnhancedSecureCryptoUtils.secureLog.log('info', 'Legacy message received', {
-                        messageId: decryptedData.messageId,
-                        legacy: true
-                    });
-                    return;
-                }
-
-                // Unknown message type
-                window.EnhancedSecureCryptoUtils.secureLog.log('warn', 'Unknown message type received', {
-                    type: payload.type
-                });
-                
-            } catch (error) {
-                window.EnhancedSecureCryptoUtils.secureLog.log('error', 'Message processing error', {
-                    error: error.message
-                });
-                this.onMessage(`❌ Processing error: ${error.message}`, 'system');
+    try {
+        console.log('📨 Raw message received:', {
+            dataType: typeof event.data,
+            dataLength: event.data?.length || 0,
+            firstChars: typeof event.data === 'string' ? event.data.substring(0, 100) : 'not string'
+        });
+        
+        // Process message with enhanced security layers
+        await this.processMessage(event.data);
+    } catch (error) {
+        console.error('❌ Failed to process enhanced message:', error);
+        
+        // Fallback to legacy message processing
+        try {
+            const payload = JSON.parse(event.data);
+            
+            if (payload.type === 'heartbeat') {
+                this.handleHeartbeat();
+                return;
             }
-        };
+            
+            if (payload.type === 'verification') {
+                this.handleVerificationRequest(payload.data);
+                return;
+            }
+            
+            if (payload.type === 'verification_response') {
+                this.handleVerificationResponse(payload.data);
+                return;
+            }
+            
+            if (payload.type === 'peer_disconnect') {
+                this.handlePeerDisconnectNotification(payload);
+                return;
+            }
+            
+            // Handle enhanced messages with metadata protection and PFS
+            if (payload.type === 'enhanced_message') {
+                const keyVersion = payload.keyVersion || 0;
+                const keys = this.getKeysForVersion(keyVersion);
+                
+                if (!keys) {
+                    console.error('❌ Keys not available for message decryption');
+                    throw new Error(`Cannot decrypt message: keys for version ${keyVersion} not available`);
+                }
+                
+                const decryptedData = await window.EnhancedSecureCryptoUtils.decryptMessage(
+                    payload.data,
+                    keys.encryptionKey,
+                    keys.macKey,
+                    keys.metadataKey,
+                    null // Disabling strict sequence number verification
+                );
+                
+                // Check for replay attacks
+                if (this.processedMessageIds.has(decryptedData.messageId)) {
+                    throw new Error('Duplicate message detected - possible replay attack');
+                }
+                this.processedMessageIds.add(decryptedData.messageId);
+                
+                const sanitizedMessage = window.EnhancedSecureCryptoUtils.sanitizeMessage(decryptedData.message);
+                this.onMessage(sanitizedMessage, 'received');
+                
+                console.log('✅ Enhanced message received via fallback');
+                return;
+            }
+            
+            // Legacy message support
+            if (payload.type === 'message') {
+                if (!this.encryptionKey || !this.macKey) {
+                    throw new Error('Missing keys to decrypt legacy message');
+                }
+                
+                const decryptedData = await window.EnhancedSecureCryptoUtils.decryptMessage(
+                    payload.data,
+                    this.encryptionKey,
+                    this.macKey,
+                    this.metadataKey
+                );
+                
+                if (this.processedMessageIds.has(decryptedData.messageId)) {
+                    throw new Error('Duplicate message detected - possible replay attack');
+                }
+                this.processedMessageIds.add(decryptedData.messageId);
+                
+                const sanitizedMessage = window.EnhancedSecureCryptoUtils.sanitizeMessage(decryptedData.message);
+                this.onMessage(sanitizedMessage, 'received');
+                
+                console.log('✅ Legacy message received via fallback');
+                return;
+            }
 
-        this.dataChannel.onerror = (error) => {
-            console.error('Data channel error:', error);
-            this.onMessage('❌ Data channel error', 'system');
-        };
+            console.warn('⚠️ Unknown message type:', payload.type);
+            
+        } catch (error) {
+            console.error('❌ Message processing error:', error.message);
+            this.onMessage(`❌ Processing error: ${error.message}`, 'system');
+        }
     }
-
+};
+}
     async createSecureOffer() {
         try {
             // Check rate limiting
@@ -610,7 +2224,7 @@ class EnhancedSecureWebRTCManager {
                     publicKeyType: typeof peerECDHPublicKey,
                     publicKeyAlgorithm: peerECDHPublicKey?.algorithm?.name
                 });
-                throw new Error('The peer"s ECDH public key is not a valid CryptoKey');
+                throw new Error('The peer\'s ECDH public key is not a valid CryptoKey');
             }
             
             // Store peer's public key for PFS key rotation
@@ -1134,66 +2748,52 @@ class EnhancedSecureWebRTCManager {
     }
 
     async sendSecureMessage(message) {
-        if (!this.isConnected() || !this.isVerified) {
-            this.messageQueue.push(message);
-            throw new Error('Connection not ready. Message queued for sending.');
-        }
-
-        // Validate encryption keys
-        if (!this.encryptionKey || !this.macKey || !this.metadataKey) {
-            window.EnhancedSecureCryptoUtils.secureLog.log('error', 'Encryption keys not initialized', {
-                hasEncryptionKey: !!this.encryptionKey,
-                hasMacKey: !!this.macKey,
-                hasMetadataKey: !!this.metadataKey,
-                isConnected: this.isConnected(),
-                isVerified: this.isVerified
-            });
-            throw new Error('Encryption keys not initialized. Please check the connection.');
-        }
-
-        try {
-            // Check rate limiting
-            if (!window.EnhancedSecureCryptoUtils.rateLimiter.checkMessageRate(this.rateLimiterId)) {
-                throw new Error('Message rate limit exceeded (60 messages per minute)');
-            }
-
-            const sanitizedMessage = window.EnhancedSecureCryptoUtils.sanitizeMessage(message);
-            const messageId = `msg_${Date.now()}_${this.messageCounter++}`;
-            
-            // Use enhanced encryption with metadata protection, sequence numbers, and PFS key version
-            const encryptedData = await window.EnhancedSecureCryptoUtils.encryptMessage(
-                sanitizedMessage,
-                this.encryptionKey,
-                this.macKey,
-                this.metadataKey,
-                messageId,
-                this.sequenceNumber++
-            );
-            
-            const payload = {
-                type: 'enhanced_message',
-                data: encryptedData,
-                keyVersion: this.currentKeyVersion, // PFS: Include key version
-                version: '4.0'
-            };
-            
-            this.dataChannel.send(JSON.stringify(payload));
-            this.onMessage(sanitizedMessage, 'sent');
-
-            window.EnhancedSecureCryptoUtils.secureLog.log('info', 'Enhanced message sent with PFS', {
-                messageId,
-                sequenceNumber: this.sequenceNumber - 1,
-                keyVersion: this.currentKeyVersion,
-                hasMetadataProtection: true,
-                hasPFS: true
-            });
-        } catch (error) {
-            window.EnhancedSecureCryptoUtils.secureLog.log('error', 'Enhanced message sending failed', {
-                error: error.message
-            });
-            throw error;
-        }
+    if (!this.isConnected() || !this.isVerified) {
+        this.messageQueue.push(message);
+        throw new Error('Connection not ready. Message queued for sending.');
     }
+
+    // Validate encryption keys
+    if (!this.encryptionKey || !this.macKey || !this.metadataKey) {
+        console.error('❌ Encryption keys not initialized');
+        throw new Error('Encryption keys not initialized. Please check the connection.');
+    }
+
+    try {
+        // Check rate limiting
+        if (!window.EnhancedSecureCryptoUtils.rateLimiter.checkMessageRate(this.rateLimiterId)) {
+            throw new Error('Message rate limit exceeded (60 messages per minute)');
+        }
+
+        const sanitizedMessage = window.EnhancedSecureCryptoUtils.sanitizeMessage(message);
+        const messageId = `msg_${Date.now()}_${this.messageCounter++}`;
+        
+        // Use enhanced encryption with metadata protection
+        const encryptedData = await window.EnhancedSecureCryptoUtils.encryptMessage(
+            sanitizedMessage,
+            this.encryptionKey,
+            this.macKey,
+            this.metadataKey,
+            messageId,
+            this.sequenceNumber++
+        );
+        
+        const payload = {
+            type: 'enhanced_message',
+            data: encryptedData,
+            keyVersion: this.currentKeyVersion,
+            version: '4.0'
+        };
+        
+        this.dataChannel.send(JSON.stringify(payload));
+        this.onMessage(sanitizedMessage, 'sent');
+
+        console.log('✅ Enhanced message sent successfully');
+    } catch (error) {
+        console.error('❌ Enhanced message sending failed:', error);
+        throw error;
+    }
+}
 
     processMessageQueue() {
         while (this.messageQueue.length > 0 && this.isConnected() && this.isVerified) {

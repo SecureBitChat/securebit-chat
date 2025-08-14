@@ -44,15 +44,33 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
         setSelectedType(type);
         setError('');
         
-        if (type === 'free') {
-            setInvoice({ 
-                sessionType: 'free',
-                amount: 1,
-                paymentHash: '0'.repeat(64),
-                memo: 'Free session (1 minute)',
-                createdAt: Date.now()
-            });
-            setPaymentStatus('free');
+        if (type === 'demo') {
+            // Создаем demo сессию
+            try {
+                if (!sessionManager || !sessionManager.createDemoSession) {
+                    throw new Error('Demo session manager not available');
+                }
+                
+                const demoSession = sessionManager.createDemoSession();
+                if (!demoSession.success) {
+                    throw new Error(demoSession.reason);
+                }
+                
+                setInvoice({ 
+                    sessionType: 'demo',
+                    amount: 0,
+                    paymentHash: demoSession.paymentHash,
+                    memo: `Demo session (${demoSession.durationMinutes} minutes)`,
+                    createdAt: Date.now(),
+                    isDemo: true,
+                    preimage: demoSession.preimage,
+                    warning: demoSession.warning
+                });
+                setPaymentStatus('demo');
+            } catch (error) {
+                setError(`Demo session creation failed: ${error.message}`);
+                return;
+            }
         } else {
             await createRealInvoice(type);
         }
@@ -206,14 +224,36 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
         }
     };
 
-    const handleFreeSession = async () => {
+    const handleDemoSession = async () => {
         setIsProcessing(true);
         setError('');
         
         try {
-            await handlePaymentSuccess('0'.repeat(64));
+            if (!invoice?.preimage) {
+                throw new Error('Demo preimage not available');
+            }
+            
+            // Для demo сессий используем специальную логику верификации
+            const isValid = await sessionManager.verifyPayment(invoice.preimage, invoice.paymentHash);
+            
+            if (isValid && isValid.verified) {
+                onSessionPurchased({ 
+                    type: 'demo', 
+                    preimage: invoice.preimage,
+                    paymentHash: invoice.paymentHash,
+                    amount: 0,
+                    isDemo: true,
+                    warning: invoice.warning
+                });
+                
+                setTimeout(() => {
+                    onClose();
+                }, 1500);
+            } else {
+                throw new Error(isValid?.reason || 'Demo session verification failed');
+            }
         } catch (err) {
-            setError(`Free session activation error: ${err.message}`);
+            setError(`Demo session activation error: ${err.message}`);
         } finally {
             setIsProcessing(false);
         }
@@ -224,8 +264,9 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
             console.log('🔍 Verifying payment...', { selectedType, preimage });
             
             let isValid;
-            if (selectedType === 'free') {
-                isValid = true;
+            if (selectedType === 'demo') {
+                // Demo сессии уже обработаны в handleDemoSession
+                return;
             } else {
                 isValid = await sessionManager.verifyPayment(preimage, invoice.paymentHash);
             }
@@ -273,7 +314,7 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
     };
 
     const pricing = sessionManager?.sessionPrices || {
-        free: { sats: 1, hours: 1/60, usd: 0.00 },
+        demo: { sats: 0, hours: 0.1, usd: 0.00 },
         basic: { sats: 500, hours: 1, usd: 0.20 },
         premium: { sats: 1000, hours: 4, usd: 0.40 },
         extended: { sats: 2000, hours: 24, usd: 0.80 }
@@ -343,25 +384,41 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                     }, `⏱️ Time to pay: ${formatTime(timeLeft)}`)
                 ]),
 
-                paymentStatus === 'free' && React.createElement('div', { 
-                    key: 'free-payment', 
+                paymentStatus === 'demo' && React.createElement('div', { 
+                    key: 'demo-payment', 
                     className: 'space-y-4' 
                 }, [
                     React.createElement('div', { 
-                        key: 'free-info', 
-                        className: 'p-4 bg-blue-500/10 border border-blue-500/20 rounded text-blue-300 text-sm text-center' 
-                    }, '🎉 Free 1-minute session'),
+                        key: 'demo-info', 
+                        className: 'p-4 bg-green-500/10 border border-green-500/20 rounded text-green-300 text-sm text-center' 
+                    }, [
+                        React.createElement('div', { key: 'demo-title', className: 'font-medium mb-1' }, '🎮 Demo Session Available'),
+                        React.createElement('div', { key: 'demo-details', className: 'text-xs' }, 
+                            `Limited to ${invoice?.durationMinutes || 6} minutes for testing`)
+                    ]),
+                    invoice?.warning && React.createElement('div', {
+                        key: 'demo-warning',
+                        className: 'p-3 bg-yellow-500/10 border border-yellow-500/20 rounded text-yellow-300 text-xs text-center'
+                    }, invoice.warning),
+                    React.createElement('div', {
+                        key: 'demo-preimage',
+                        className: 'p-3 bg-gray-800/50 rounded border border-gray-600 text-xs font-mono text-gray-300'
+                    }, [
+                        React.createElement('div', { key: 'preimage-label', className: 'text-gray-400 mb-1' }, 'Demo Preimage:'),
+                        React.createElement('div', { key: 'preimage-value', className: 'break-all' }, 
+                            invoice?.preimage || 'Generating...')
+                    ]),
                     React.createElement('button', { 
-                        key: 'free-btn',
-                        onClick: handleFreeSession,
+                        key: 'demo-btn',
+                        onClick: handleDemoSession,
                         disabled: isProcessing,
-                        className: 'w-full bg-blue-600 hover:bg-blue-500 text-white py-3 px-4 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed'
+                        className: 'w-full bg-green-600 hover:bg-green-500 text-white py-3 px-4 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed'
                     }, [
                         React.createElement('i', { 
-                            key: 'free-icon',
+                            key: 'demo-icon',
                             className: `fas ${isProcessing ? 'fa-spinner fa-spin' : 'fa-play'} mr-2` 
                         }),
-                        isProcessing ? 'Activation...' : 'Activate free session'
+                        isProcessing ? 'Activating...' : 'Activate Demo Session'
                     ])
                 ]),
 

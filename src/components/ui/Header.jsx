@@ -121,12 +121,6 @@ const EnhancedMinimalHeader = ({
                     (() => {
                         const hasActive = sessionManager?.hasActiveSession();
                         const hasTimer = !!window.SessionTimer;
-                        console.log('Header SessionTimer check:', { 
-                            hasActive, 
-                            hasTimer, 
-                            sessionTimeLeft, 
-                            sessionType: sessionManager?.currentSession?.type 
-                        });
                         
                         return hasActive && hasTimer && React.createElement(window.SessionTimer, {
                             key: 'session-timer',

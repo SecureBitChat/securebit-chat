@@ -1,10 +1,7 @@
 const React = window.React;
 
 const SessionTimer = ({ timeLeft, sessionType }) => {
-    console.log('SessionTimer render:', { timeLeft, sessionType });
-    
     if (!timeLeft || timeLeft <= 0) {
-        console.log('SessionTimer: no time left, not rendering');
         return null;
     }
 

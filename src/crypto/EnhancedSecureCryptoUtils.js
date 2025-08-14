@@ -44,13 +44,34 @@ class EnhancedSecureCryptoUtils {
 
     // Helper function to convert Base64 to ArrayBuffer
     static base64ToArrayBuffer(base64) {
-        const binaryString = atob(base64);
-        const len = binaryString.length;
-        const bytes = new Uint8Array(len);
-        for (let i = 0; i < len; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
+        try {
+            // Validate input
+            if (typeof base64 !== 'string' || !base64) {
+                throw new Error('Invalid base64 input: must be a non-empty string');
+            }
+
+            // Remove any whitespace and validate base64 format
+            const cleanBase64 = base64.trim();
+            if (!/^[A-Za-z0-9+/]*={0,2}$/.test(cleanBase64)) {
+                throw new Error('Invalid base64 format');
+            }
+
+            // Handle empty string case
+            if (cleanBase64 === '') {
+                return new ArrayBuffer(0);
+            }
+
+            const binaryString = atob(cleanBase64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        } catch (error) {
+            console.error('Base64 to ArrayBuffer conversion failed:', error);
+            throw new Error(`Base64 conversion error: ${error.message}`);
         }
-        return bytes.buffer;
     }
 
     static async encryptData(data, password) {

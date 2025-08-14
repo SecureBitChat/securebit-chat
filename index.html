@@ -2372,7 +2372,7 @@
                             ])
                         ]),
 
-                        // Step 2
+                        // Step 2 - Session Type Selection
                         showOfferStep && React.createElement('div', {
                             key: 'step2',
                             className: "card-minimal rounded-xl p-6"
@@ -2385,6 +2385,44 @@
                                     key: 'number',
                                     className: "w-8 h-8 bg-green-500 text-white rounded-lg flex items-center justify-center font-semibold text-sm mr-3"
                                 }, '2'),
+                                React.createElement('h3', {
+                                    key: 'title',
+                                    className: "text-lg font-medium text-primary"
+                                }, "Select session type")
+                            ]),
+                            React.createElement('p', {
+                                key: 'description',
+                                className: "text-secondary text-sm mb-4"
+                            }, "Choose a session plan or use limited demo mode for testing."),
+                            React.createElement(SessionTypeSelector, {
+                                key: 'session-selector',
+                                onSelectType: (sessionType) => {
+                                    // Открываем модальное окно оплаты
+                                    if (typeof window.showPaymentModal === 'function') {
+                                        window.showPaymentModal(sessionType);
+                                    } else {
+                                        // Fallback - показываем информацию о сессии
+                                        console.log('Selected session type:', sessionType);
+                                    }
+                                },
+                                onCancel: resetToSelect,
+                                sessionManager: window.sessionManager
+                            })
+                        ]),
+
+                        // Step 3 - Waiting for response
+                        showOfferStep && React.createElement('div', {
+                            key: 'step3',
+                            className: "card-minimal rounded-xl p-6"
+                        }, [
+                            React.createElement('div', {
+                                key: 'step-header',
+                                className: "flex items-center mb-4"
+                            }, [
+                                React.createElement('div', {
+                                    key: 'number',
+                                    className: "w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center font-semibold text-sm mr-3"
+                                }, '3'),
                                 React.createElement('h3', {
                                     key: 'title',
                                     className: "text-lg font-medium text-primary"
@@ -2816,6 +2854,24 @@
             const [showPaymentModal, setShowPaymentModal] = React.useState(false);
             const [sessionTimeLeft, setSessionTimeLeft] = React.useState(0);
             const [pendingSession, setPendingSession] = React.useState(null); // { type, preimage }
+            
+            // Глобальные функции для доступа к модальным окнам
+            React.useEffect(() => {
+                window.showPaymentModal = (sessionType) => {
+                    setShowPaymentModal(true);
+                    // Передаем выбранный тип сессии в модальное окно
+                    if (sessionType) {
+                        // Здесь можно добавить логику для предварительной настройки модального окна
+                        console.log('Opening payment modal for session type:', sessionType);
+                    }
+                };
+                window.sessionManager = sessionManager;
+                
+                return () => {
+                    delete window.showPaymentModal;
+                    delete window.sessionManager;
+                };
+            }, [sessionManager]);
 
             const webrtcManagerRef = React.useRef(null);
 
@@ -2897,6 +2953,12 @@
             };
 
             React.useEffect(() => {
+                // Prevent multiple initializations
+                if (webrtcManagerRef.current) {
+                    console.log('⚠️ WebRTC Manager already initialized, skipping...');
+                    return;
+                }
+
                 const handleMessage = (message, type) => {
                     setMessages(prev => [...prev, { 
                         message, 
@@ -2938,8 +3000,6 @@
                         }, 2000);
                     }
                 };
-
-
 
                 const handleKeyExchange = (fingerprint) => {
                     if (fingerprint === '') {
@@ -2992,6 +3052,8 @@
                     }
                 };
 
+                // Create WebRTC Manager only once
+                console.log('🔧 Initializing WebRTC Manager...');
                 webrtcManagerRef.current = new EnhancedSecureWebRTCManager(
                     handleMessage, 
                     handleStatusChange, 
@@ -3000,7 +3062,7 @@
                     handleAnswerError
                 );
 
-                                    handleMessage('🚀 LockBit.chat Enhanced Edition initialized. Ready to establish a secure connection with ECDH, encrypted exchange, and verification.', 'system');
+                handleMessage('🚀 LockBit.chat Enhanced Edition initialized. Ready to establish a secure connection with ECDH, encrypted exchange, and verification.', 'system');
 
                 // Cleanup on page unload
                 const handleBeforeUnload = () => {
@@ -3014,10 +3076,12 @@
                 return () => {
                     window.removeEventListener('beforeunload', handleBeforeUnload);
                     if (webrtcManagerRef.current) {
+                        console.log('🧹 Cleaning up WebRTC Manager...');
                         webrtcManagerRef.current.disconnect();
+                        webrtcManagerRef.current = null;
                     }
                 };
-            }, []);
+            }, []); // Empty dependency array to run only once
 
             const ensureActiveSessionOrPurchase = async () => {
                 if (sessionManager.hasActiveSession()) return true;
@@ -3377,8 +3441,16 @@
             };
 
             const handleSessionActivated = (session) => {
+                let message;
+                if (session.type === 'demo') {
+                    message = `🎮 Demo session activated for 6 minutes. You can create invitations!`;
+                } else {
+                    const hours = sessionManager.sessionPrices[session.type]?.hours || 0;
+                    message = `💰 Session activated for ${hours}h. You can create invitations!`;
+                }
+                
                 setMessages(prev => [...prev, {
-                    message: `💰 Session activated for \${sessionManager.sessionPrices\[session.type].hours}h. You can create invitations!`,
+                    message: message,
                     type: 'system',
                     id: Date.now(),
                     timestamp: Date.now()
@@ -3406,8 +3478,16 @@
                     if (result.success) {
                         setPendingSession(null);
                         setSessionTimeLeft(sessionManager.getTimeLeft()); 
+                        let message;
+                        if (pendingSession.type === 'demo') {
+                            message = `🎮 Demo session activated for 6 minutes (${result.method})`;
+                        } else {
+                            const hours = sessionManager.sessionPrices[pendingSession.type]?.hours || 0;
+                            message = `💰 Session activated for ${hours}h (${result.method})`;
+                        }
+                        
                         setMessages(prev => [...prev, { 
-                            message: `💰 Session activated for \${sessionManager.sessionPrices\[pendingSession.type].hours}h (\${result.method})`, 
+                            message: message, 
                             type: 'system',
                             id: Date.now(),
                             timestamp: Date.now()
