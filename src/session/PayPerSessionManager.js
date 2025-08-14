@@ -60,7 +60,7 @@ class PayPerSessionManager {
             });
 
             if (!healthCheck.ok) {
-                throw new Error(`LNbits API недоступен: ${healthCheck.status}`);
+                throw new Error(`LNbits API is not available: ${healthCheck.status}`);
             }
 
             const response = await fetch(`${this.verificationConfig.apiUrl}/api/v1/payments`, {

@@ -1,6 +1,6 @@
 class EnhancedSecureWebRTCManager {
     constructor(onMessage, onStatusChange, onKeyExchange, onVerificationRequired, onAnswerError = null) {
-        // Проверяем доступность глобального объекта
+       // Check the availability of the global object
         if (!window.EnhancedSecureCryptoUtils) {
             throw new Error('EnhancedSecureCryptoUtils is not loaded. Please ensure the module is loaded first.');
         }
@@ -15,7 +15,7 @@ class EnhancedSecureWebRTCManager {
         this.onStatusChange = onStatusChange;
         this.onKeyExchange = onKeyExchange;
         this.onVerificationRequired = onVerificationRequired;
-        this.onAnswerError = onAnswerError; // Callback для ошибок обработки ответа
+        this.onAnswerError = onAnswerError; // Callback for response processing errors
         this.isInitiator = false;
         this.connectionAttempts = 0;
         this.maxConnectionAttempts = 3;
@@ -376,7 +376,7 @@ class EnhancedSecureWebRTCManager {
                             hasMacKey: !!this.macKey,
                             hasMetadataKey: !!this.metadataKey
                         });
-                        throw new Error('Отсутствуют ключи для расшифровки legacy сообщения');
+                        throw new Error('Missing keys to decrypt legacy message');
                     }
                     
                     const decryptedData = await window.EnhancedSecureCryptoUtils.decryptMessage(
@@ -645,7 +645,7 @@ class EnhancedSecureWebRTCManager {
                     macKeyAlgorithm: this.macKey?.algorithm?.name,
                     metadataKeyAlgorithm: this.metadataKey?.algorithm?.name
                 });
-                throw new Error('Недействительные типы ключей после вывода');
+                throw new Error('Invalid key types after output');
             }
             
             // PFS: Initialize key version tracking
