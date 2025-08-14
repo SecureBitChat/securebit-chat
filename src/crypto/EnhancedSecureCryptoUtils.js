@@ -674,7 +674,7 @@ class EnhancedSecureCryptoUtils {
             }
         } catch (error) {
             EnhancedSecureCryptoUtils.secureLog.log('error', 'ECDH key generation failed', { error: error.message });
-            throw new Error('Не удалось создать ключи для безопасного обмена');
+            throw new Error('Failed to create keys for secure exchange');
         }
     }
 
@@ -827,7 +827,7 @@ class EnhancedSecureCryptoUtils {
                     throw new Error('Invalid DER structure - missing SEQUENCE tag');
                 }
 
-                if (keyBytes.length > 2000) { // более жёсткая граница
+                if (keyBytes.length > 2000) { 
                     throw new Error('Key data too long - possible attack');
                 }
 
