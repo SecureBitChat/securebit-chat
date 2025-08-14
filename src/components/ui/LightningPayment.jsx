@@ -45,7 +45,7 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
 
         } catch (err) {
             console.error('Invoice creation failed:', err);
-            setError(`Ошибка создания инвойса: ${err.message}`);
+            setError(`Error creating invoice: ${err.message}`);
         } finally {
             setIsProcessing(false);
         }
@@ -74,11 +74,11 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
                 setPaymentStatus('paid');
                 await activateSession(result.preimage);
             } else {
-                setError('Платеж не содержит preimage');
+                setError('Payment does not contain preimage');
             }
         } catch (err) {
             console.error('WebLN payment failed:', err);
-            setError(`Ошибка WebLN: ${err.message}`);
+            setError(`WebLN Error: ${err.message}`);
         } finally {
             setIsProcessing(false);
         }
@@ -130,7 +130,7 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
                 result = await paymentManager.safeActivateSession(sessionType, preimageValue, paymentHash);
             } else {
                 console.warn('Payment manager not available, using fallback');
-                // Fallback если paymentManager недоступен
+                // Fallback if paymentManager is unavailable
                 result = { success: true, method: 'fallback' };
             }
 
@@ -153,7 +153,7 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
         try {
             await activateSession('0'.repeat(64));
         } catch (err) {
-            setError(`Ошибка активации бесплатной сессии: ${err.message}`);
+            setError(`Free session activation error: ${err.message}`);
         } finally {
             setIsProcessing(false);
         }
@@ -353,7 +353,7 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
         }, [
             React.createElement('i', { key: 'error-icon', className: 'fas fa-exclamation-triangle mr-2' }),
             error,
-            error.includes('инвойса') && React.createElement('button', { 
+            error.includes('invoice') && React.createElement('button', { 
                 key: 'retry-btn',
                 onClick: createInvoice,
                 className: 'ml-2 text-orange-400 hover:text-orange-300 underline'
