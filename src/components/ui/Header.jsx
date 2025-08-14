@@ -140,7 +140,7 @@ const EnhancedMinimalHeader = ({
                         key: 'security-level',
                         className: 'hidden md:flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity duration-200',
                         onClick: handleSecurityClick,
-                        title: 'Нажмите для просмотра деталей безопасности'
+                        title: 'Click to view security details'
                     }, [
                         React.createElement('div', {
                             key: 'security-icon',
