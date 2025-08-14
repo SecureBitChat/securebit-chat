@@ -1,4 +1,4 @@
-/* Основные стили для полноэкранного чата */
+
 .minimal-bg {
     min-height: 100vh;
     display: flex;
@@ -10,7 +10,7 @@
     backdrop-filter: blur(5px);
     -webkit-backdrop-filter: blur(5px);
     flex-shrink: 0;
-    height: 64px; /* Фиксированная высота хедера */
+    height: 64px; 
 }
 
 .header-minimal .cursor-pointer:hover {
@@ -21,11 +21,11 @@
     transform: scale(0.95);
 }
 
-/* Основной контейнер чата занимает всю оставшуюся высоту */
+/* The main chat container takes up the rest of the height. */
 .chat-container {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 64px); /* 64px - высота хедера */
+    height: calc(100vh - 64px); /* 64px - header height */
     min-height: 0;
     flex: 1;
 }
@@ -47,7 +47,7 @@
     border-top: 1px solid rgba(75, 85, 99, 0.2);
 }
 
-/* Контейнер сообщений должен занимать всю доступную высоту */
+/* The message container must occupy the entire available height. */
 .chat-messages-area > div:first-child {
     height: 100%;
     overflow-y: auto;
@@ -55,15 +55,15 @@
     scroll-behavior: smooth;
 }
 
-/* Для мобильных устройств учитываем высоту виртуальной клавиатуры */
+/* For mobile devices, take into account the height of the virtual keyboard */
 @media (max-width: 768px) {
     .chat-container {
         height: calc(100vh - 64px);
-        height: calc(100dvh - 64px); /* dvh для поддержки динамической высоты на мобильных */
+        height: calc(100dvh - 64px); /* dvh to support dynamic height on mobile */
     }
 }
 
-/* Исправление для основного контейнера приложения */
+/* Fix for main application container */
 main {
     flex: 1;
     display: flex;
@@ -366,7 +366,7 @@ button i {
     animation: messageSlideIn 0.3s ease-out;
 }
 
-/* Анимации */
+/* Animations */
 @keyframes iconPulse {
     0%, 100% { opacity: 0.7; }
     50% { opacity: 1; }
@@ -393,7 +393,7 @@ button i {
     50% { opacity: 0.7; }
 }
 
-/* Кастомный скроллбар */
+/* Custom scrollbar */
 .custom-scrollbar {
     scrollbar-width: thin;
     scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
