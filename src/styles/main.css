@@ -1,4 +1,4 @@
-/* Основные шрифты и цвета */
+/* Basic fonts and colors */
 * {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
@@ -8,7 +8,7 @@ body {
     overflow-x: hidden;
 }
 
-/* Базовые фоны */
+/* Basic backgrounds */
 .bg-custom-bg {
     background-color: rgb(37 38 37) !important;
 }
@@ -23,12 +23,12 @@ body {
     min-height: 100vh;
 }
 
-/* Текстовые стили */
+/* Text styles */
 .text-primary { color: #f1f5f9; }
 .text-secondary { color: #9ca3af; }
 .text-muted { color: #6b7280; }
 
-/* Акцентные цвета */
+/* Accent colors */
 .accent-orange { color: #fb923c; }
 .accent-green { color: #34d399; }
 .accent-red { color: #f87171; }
@@ -38,7 +38,7 @@ body {
 .accent-gray { color: #9ca3af; }
 .accent-cyan { color: #22d3ee; }
 
-/* Кастомный скролл */
+/* Custom scroll */
 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
 .custom-scrollbar::-webkit-scrollbar-track {
     background: rgba(42, 43, 42, 0.3);
@@ -52,18 +52,18 @@ body {
     background: rgba(75, 85, 99, 0.7);
 }
 
-/* Плавная прокрутка */
+/* Smooth scrolling */
 .scroll-smooth {
     scroll-behavior: smooth;
 }
 
-/* Улучшенная прокрутка для сообщений */
+/* Improved scrolling for messages */
 .messages-container {
     scroll-behavior: smooth;
     scroll-padding-bottom: 20px;
 }
 
-/* Медиа-запросы (мобильные/планшет) */
+/* Media Queries (Mobile/Tablet) */
 @media (max-width: 640px) {
     .header-minimal { padding: 0 8px; }
 
