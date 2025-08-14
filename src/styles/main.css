@@ -13,6 +13,10 @@ body {
     background-color: rgb(37 38 37) !important;
 }
 
+.bg-my{
+    background-color: rgb(26 26 26);
+}
+
 .bg-header {
     background-color: rgb(35 35 35) !important;
 }
