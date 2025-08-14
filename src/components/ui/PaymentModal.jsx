@@ -68,13 +68,13 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
             console.log(`Creating real Lightning invoice for ${type} session...`);
             
             if (!sessionManager) {
-                throw new Error('Session manager не инициализирован');
+                throw new Error('Session manager not initialized');
             }
 
             const createdInvoice = await sessionManager.createLightningInvoice(type);
             
             if (!createdInvoice || !createdInvoice.paymentRequest) {
-                throw new Error('Не удалось создать Lightning инвойс');
+                throw new Error('Failed to create Lightning invoice');
             }
 
             setInvoice(createdInvoice);
@@ -92,7 +92,7 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                     if (newTime <= 0) {
                         clearInterval(timer);
                         setPaymentStatus('expired');
-                        setError('Время для оплаты истекло. Создайте новый инвойс.');
+                        setError('Payment time has expired. Create a new invoice.');
                         return 0;
                     }
                     return newTime;
@@ -157,7 +157,7 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                 setPaymentStatus('paid');
                 await handlePaymentSuccess(result.preimage);
             } else {
-                throw new Error('Платеж не содержит preimage');
+                throw new Error('Payment does not contain preimage');
             }
         } catch (err) {
             console.error('❌ WebLN payment failed:', err);
