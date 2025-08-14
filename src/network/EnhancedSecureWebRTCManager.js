@@ -56,16 +56,15 @@ class EnhancedSecureWebRTCManager {
         hasEnhancedValidation: false,
         hasPFS: true,
         
-        // ЭТАП 1: Включаем безопасные функции
-        hasNestedEncryption: true,     // ✅ Дополнительный слой шифрования
-        hasPacketPadding: true,        // ✅ Скрытие размеров сообщений
-        hasPacketReordering: false,    // ⏳ Пока отключено (может конфликтовать)
-        hasAntiFingerprinting: false,  // ⏳ Пока отключено (сложная функция)
+        hasNestedEncryption: true,     
+        hasPacketPadding: true,        
+        hasPacketReordering: false,    
+        hasAntiFingerprinting: false,  
         
-        // ЭТАП 2: Функции трафика (включим позже)
-        hasFakeTraffic: false,         // ⏳ Генерация ложного трафика
-        hasDecoyChannels: false,       // ⏳ Ложные каналы
-        hasMessageChunking: false      // ⏳ Разбивка сообщений
+
+        hasFakeTraffic: false,         
+        hasDecoyChannels: false,       
+        hasMessageChunking: false      
     };
     
     // ============================================
@@ -79,9 +78,9 @@ class EnhancedSecureWebRTCManager {
     
     // 2. Packet Padding
     this.paddingConfig = {
-        enabled: true,              // ✅ ВКЛЮЧЕНО
+        enabled: true,              
         minPadding: 64,
-        maxPadding: 512,            // Уменьшено для стабильности
+        maxPadding: 512,            
         useRandomPadding: true,
         preserveMessageSize: false
     };
@@ -89,10 +88,10 @@ class EnhancedSecureWebRTCManager {
     // 3. Fake Traffic Generation
     this.fakeTrafficConfig = {
         enabled: false,
-        minInterval: 5000,          // Увеличены интервалы
+        minInterval: 5000,          
         maxInterval: 15000,
         minSize: 32,
-        maxSize: 256,               // Уменьшены размеры
+        maxSize: 256,               
         patterns: ['heartbeat', 'status', 'sync']
     };
     this.fakeTrafficTimer = null;
@@ -101,7 +100,7 @@ class EnhancedSecureWebRTCManager {
     // 4. Message Chunking
     this.chunkingConfig = {
         enabled: false,
-        maxChunkSize: 2048,         // Увеличен размер чанка
+        maxChunkSize: 2048,        
         minDelay: 100,
         maxDelay: 500,
         useRandomDelays: true,
@@ -114,7 +113,7 @@ class EnhancedSecureWebRTCManager {
     this.decoyChannels = new Map();
     this.decoyChannelConfig = {
         enabled: false,
-        maxDecoyChannels: 2,        // Уменьшено количество
+        maxDecoyChannels: 2,       
         decoyChannelNames: ['status', 'heartbeat'],
         sendDecoyData: true,
         randomDecoyIntervals: true
@@ -123,9 +122,9 @@ class EnhancedSecureWebRTCManager {
     
     // 6. Packet Reordering Protection
     this.reorderingConfig = {
-        enabled: false,             // ⏳ Отложено
-        maxOutOfOrder: 5,           // Уменьшено
-        reorderTimeout: 3000,       // Уменьшено
+        enabled: false,             
+        maxOutOfOrder: 5,           
+        reorderTimeout: 3000,       
         useSequenceNumbers: true,
         useTimestamps: true
     };
@@ -134,12 +133,12 @@ class EnhancedSecureWebRTCManager {
     
     // 7. Anti-Fingerprinting
     this.antiFingerprintingConfig = {
-        enabled: false,             // ⏳ Отложено
+        enabled: false,             
         randomizeTiming: true,
-        randomizeSizes: false,      // Упрощено
+        randomizeSizes: false,      
         addNoise: true,
-        maskPatterns: false,        // Упрощено
-        useRandomHeaders: false     // Упрощено
+        maskPatterns: false,        
+        useRandomHeaders: false     
     };
     this.fingerprintMask = this.generateFingerprintMask();
     
@@ -149,12 +148,7 @@ class EnhancedSecureWebRTCManager {
     // Start periodic cleanup
     this.startPeriodicCleanup();
     
-    // ⚠️ НЕ ИНИЦИАЛИЗИРУЕМ РАСШИРЕННЫЕ ФУНКЦИИ БЕЗОПАСНОСТИ
      this.initializeEnhancedSecurity(); 
-    
-    console.log('🔒 Enhanced security features partially enabled (Stage 1)');
-    console.log('✅ Active: Nested Encryption, Packet Padding');
-    console.log('⏳ Pending: Reordering, Anti-Fingerprinting, Traffic Obfuscation');
 }
 
     // ============================================
@@ -175,8 +169,7 @@ class EnhancedSecureWebRTCManager {
             if (this.fakeTrafficConfig.enabled) {
                 this.startFakeTrafficGeneration();
             }
-            
-            console.log('🔒 Enhanced security features initialized');
+
         } catch (error) {
             console.error('❌ Failed to initialize enhanced security:', error);
         }
@@ -216,7 +209,6 @@ class EnhancedSecureWebRTCManager {
             this.nestedEncryptionIV = crypto.getRandomValues(new Uint8Array(12));
             this.nestedEncryptionCounter = 0;
             
-            console.log('🔐 Nested encryption key generated');
         } catch (error) {
             console.error('❌ Failed to generate nested encryption key:', error);
             throw error;
@@ -316,7 +308,6 @@ class EnhancedSecureWebRTCManager {
             // Add padding
             paddedData.set(padding, 4 + originalSize);
             
-            console.log(`📦 Applied padding: ${originalSize} -> ${paddedData.length} bytes`);
             return paddedData.buffer;
         } catch (error) {
             console.error('❌ Packet padding failed:', error);
@@ -339,7 +330,6 @@ class EnhancedSecureWebRTCManager {
             // Extract original data
             const originalData = dataArray.slice(4, 4 + originalSize);
             
-            console.log(`📦 Removed padding: ${dataArray.length} -> ${originalData.length} bytes`);
             return originalData.buffer;
         } catch (error) {
             console.error('❌ Packet padding removal failed:', error);
@@ -389,14 +379,12 @@ class EnhancedSecureWebRTCManager {
         const initialDelay = Math.random() * this.fakeTrafficConfig.maxInterval + 5000; // Add 5 seconds minimum
         this.fakeTrafficTimer = setTimeout(sendFakeMessage, initialDelay);
         
-        console.log('🎭 Fake traffic generation started');
     }
 
     stopFakeTrafficGeneration() {
         if (this.fakeTrafficTimer) {
             clearTimeout(this.fakeTrafficTimer);
             this.fakeTrafficTimer = null;
-            console.log('🎭 Fake traffic generation stopped');
         }
     }
 
@@ -412,13 +400,13 @@ class EnhancedSecureWebRTCManager {
     const fakeData = crypto.getRandomValues(new Uint8Array(size));
     
     return {
-        type: 'fake', // ВАЖНО: Четко помечаем как fake
+        type: 'fake', 
         pattern: pattern,
         data: Array.from(fakeData).map(b => b.toString(16).padStart(2, '0')).join(''),
         timestamp: Date.now(),
         size: size,
-        isFakeTraffic: true, // Дополнительный маркер
-        source: 'fake_traffic_generator' // Источник
+        isFakeTraffic: true, 
+        source: 'fake_traffic_generator' 
     };
 }
 
@@ -430,20 +418,17 @@ class EnhancedSecureWebRTCManager {
     try {
         console.log(`🎭 Sending fake message: ${fakeMessage.pattern} (${fakeMessage.size} bytes)`);
         
-        // Добавляем четкий маркер что это фейковое сообщение
         const fakeData = JSON.stringify({
             ...fakeMessage,
-            type: 'fake', // Обязательно помечаем как fake
-            isFakeTraffic: true, // Дополнительный маркер
+            type: 'fake', 
+            isFakeTraffic: true, 
             timestamp: Date.now()
         });
         
         const fakeBuffer = new TextEncoder().encode(fakeData);
         
-        // Применяем слои безопасности к фейковому сообщению
         const encryptedFake = await this.applySecurityLayers(fakeBuffer, true);
         
-        // Отправляем напрямую через data channel БЕЗ enhanced wrapper
         this.dataChannel.send(encryptedFake);
         
         console.log(`🎭 Fake message sent successfully: ${fakeMessage.pattern}`);
@@ -1057,9 +1042,7 @@ emergencyDisableFakeTraffic() {
         // 2. Anti-Fingerprinting (только для настоящих сообщений, Stage 2+)
         if (!isFakeMessage && this.securityFeatures.hasAntiFingerprinting && this.antiFingerprintingConfig.enabled) {
             try {
-                console.log('🎭 Applying anti-fingerprinting...');
                 processedData = this.applyAntiFingerprinting(processedData);
-                console.log('✅ Anti-fingerprinting applied');
             } catch (error) {
                 console.warn('⚠️ Anti-fingerprinting failed:', error.message);
             }
@@ -1068,9 +1051,7 @@ emergencyDisableFakeTraffic() {
         // 3. Packet Padding (Stage 1+)
         if (this.securityFeatures.hasPacketPadding && this.paddingConfig.enabled) {
             try {
-                console.log('📦 Applying packet padding...');
                 processedData = this.applyPacketPadding(processedData);
-                console.log('✅ Packet padding applied');
             } catch (error) {
                 console.warn('⚠️ Packet padding failed:', error.message);
             }
@@ -1079,9 +1060,7 @@ emergencyDisableFakeTraffic() {
         // 4. Reordering Headers (Stage 2+)
         if (this.securityFeatures.hasPacketReordering && this.reorderingConfig.enabled) {
             try {
-                console.log('📋 Adding reordering headers...');
                 processedData = this.addReorderingHeaders(processedData);
-                console.log('✅ Reordering headers added');
             } catch (error) {
                 console.warn('⚠️ Reordering headers failed:', error.message);
             }
@@ -1090,9 +1069,7 @@ emergencyDisableFakeTraffic() {
         // 5. Nested Encryption (Stage 1+)
         if (this.securityFeatures.hasNestedEncryption && this.nestedEncryptionKey) {
             try {
-                console.log('🔐 Applying nested encryption...');
                 processedData = await this.applyNestedEncryption(processedData);
-                console.log('✅ Nested encryption applied');
             } catch (error) {
                 console.warn('⚠️ Nested encryption failed:', error.message);
             }
@@ -1103,13 +1080,11 @@ emergencyDisableFakeTraffic() {
             try {
                 const dataString = new TextDecoder().decode(processedData);
                 processedData = await window.EnhancedSecureCryptoUtils.encryptData(dataString, this.encryptionKey);
-                console.log('✅ Standard encryption applied');
             } catch (error) {
                 console.warn('⚠️ Standard encryption failed:', error.message);
             }
         }
 
-        console.log(`✅ All Stage ${status.stage} security layers applied successfully`);
         return processedData;
 
     } catch (error) {
@@ -1134,24 +1109,24 @@ emergencyDisableFakeTraffic() {
 
         let processedData = data;
 
-        // ВАЖНО: Ранняя проверка на фейковые сообщения
+        // IMPORTANT: Early check for fake messages
         if (typeof data === 'string') {
             try {
                 const jsonData = JSON.parse(data);
                 
-                // ПЕРВЫЙ ПРИОРИТЕТ: Фильтруем фейковые сообщения
+                // PRIORITY ONE: Filtering out fake messages
                 if (jsonData.type === 'fake') {
                     console.log(`🎭 Fake message filtered out: ${jsonData.pattern} (size: ${jsonData.size})`);
-                    return 'FAKE_MESSAGE_FILTERED'; // Специальный маркер
+                    return 'FAKE_MESSAGE_FILTERED'; 
                 }
                 
-                // Системные сообщения
+                // System messages
                 if (jsonData.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'key_rotation_signal', 'key_rotation_ready'].includes(jsonData.type)) {
                     console.log('🔧 System message detected:', jsonData.type);
                     return data;
                 }
                 
-                // Enhanced сообщения
+                // Enhanced messages
                 if (jsonData.type === 'enhanced_message' && jsonData.data) {
                     console.log('🔐 Enhanced message detected, decrypting...');
                     
@@ -1169,7 +1144,7 @@ emergencyDisableFakeTraffic() {
                     
                     console.log('✅ Enhanced message decrypted, extracting...');
                     
-                    // ПРОВЕРЯЕМ НА ФЕЙКОВЫЕ СООБЩЕНИЯ ПОСЛЕ РАСШИФРОВКИ
+                    // CHECKING FOR FAKE MESSAGES AFTER DECRYPTION
                     try {
                         const decryptedContent = JSON.parse(decryptedResult.message);
                         if (decryptedContent.type === 'fake') {
@@ -1177,13 +1152,12 @@ emergencyDisableFakeTraffic() {
                             return 'FAKE_MESSAGE_FILTERED';
                         }
                     } catch (e) {
-                        // Не JSON, продолжаем
                     }
                     
                     return decryptedResult.message;
                 }
                 
-                // Legacy сообщения
+                // Legacy messages
                 if (jsonData.type === 'message' && jsonData.data) {
                     processedData = jsonData.data;
                 }
@@ -1201,7 +1175,7 @@ emergencyDisableFakeTraffic() {
                     processedData = await window.EnhancedSecureCryptoUtils.decryptData(processedData, this.encryptionKey);
                     console.log('✅ Standard decryption successful');
                     
-                    // ПРОВЕРЯЕМ НА ФЕЙКОВЫЕ СООБЩЕНИЯ ПОСЛЕ LEGACY РАСШИФРОВКИ
+                    // CHECKING FOR FAKE MESSAGES AFTER LEGACY DECRYPTION
                     if (typeof processedData === 'string') {
                         try {
                             const legacyContent = JSON.parse(processedData);
@@ -1210,7 +1184,6 @@ emergencyDisableFakeTraffic() {
                                 return 'FAKE_MESSAGE_FILTERED';
                             }
                         } catch (e) {
-                            // Не JSON, продолжаем
                         }
                         processedData = new TextEncoder().encode(processedData).buffer;
                     }
@@ -1224,9 +1197,7 @@ emergencyDisableFakeTraffic() {
         // Nested Decryption
         if (this.securityFeatures.hasNestedEncryption && this.nestedEncryptionKey && processedData instanceof ArrayBuffer) {
             try {
-                console.log('🔐 Removing nested encryption...');
                 processedData = await this.removeNestedEncryption(processedData);
-                console.log('✅ Nested encryption removed');
             } catch (error) {
                 console.warn('⚠️ Nested decryption failed:', error.message);
             }
@@ -1235,7 +1206,6 @@ emergencyDisableFakeTraffic() {
         // Reordering Processing
         if (this.securityFeatures.hasPacketReordering && this.reorderingConfig.enabled && processedData instanceof ArrayBuffer) {
             try {
-                console.log('📋 Processing reordered packet...');
                 return await this.processReorderedPacket(processedData);
             } catch (error) {
                 console.warn('⚠️ Reordering processing failed:', error.message);
@@ -1245,9 +1215,7 @@ emergencyDisableFakeTraffic() {
         // Packet Padding Removal
         if (this.securityFeatures.hasPacketPadding && processedData instanceof ArrayBuffer) {
             try {
-                console.log('📦 Removing packet padding...');
                 processedData = this.removePacketPadding(processedData);
-                console.log('✅ Packet padding removed');
             } catch (error) {
                 console.warn('⚠️ Padding removal failed:', error.message);
             }
@@ -1256,33 +1224,29 @@ emergencyDisableFakeTraffic() {
         // Anti-Fingerprinting Removal
         if (this.securityFeatures.hasAntiFingerprinting && processedData instanceof ArrayBuffer) {
             try {
-                console.log('🎭 Removing anti-fingerprinting...');
                 processedData = this.removeAntiFingerprinting(processedData);
-                console.log('✅ Anti-fingerprinting removed');
             } catch (error) {
                 console.warn('⚠️ Anti-fingerprinting removal failed:', error.message);
             }
         }
 
-        // Финальное преобразование
+        // Final transformation
         if (processedData instanceof ArrayBuffer) {
             processedData = new TextDecoder().decode(processedData);
         }
 
-        // ФИНАЛЬНАЯ ПРОВЕРКА НА ФЕЙКОВЫЕ СООБЩЕНИЯ
+        // FINAL CHECK FOR FAKE MESSAGES
         if (typeof processedData === 'string') {
             try {
                 const finalContent = JSON.parse(processedData);
                 if (finalContent.type === 'fake') {
-                    console.log(`🎭 Final stage fake message filtered out: ${finalContent.pattern}`);
                     return 'FAKE_MESSAGE_FILTERED';
                 }
             } catch (e) {
-                // Не JSON, это обычное сообщение
+
             }
         }
 
-        console.log(`✅ All Stage ${status.stage} security layers removed successfully`);
         return processedData;
 
     } catch (error) {
@@ -1317,7 +1281,6 @@ emergencyDisableFakeTraffic() {
             // Send message
             this.dataChannel.send(securedData);
             
-            console.log(`📤 Message sent with enhanced security (${data.byteLength} -> ${securedData.byteLength} bytes)`);
             
             return true;
         } catch (error) {
@@ -1334,7 +1297,7 @@ emergencyDisableFakeTraffic() {
             dataLength: data?.length || data?.byteLength || 0
         });
         
-        // Проверяем системные сообщения напрямую
+        // Check system messages directly
         if (typeof data === 'string') {
             try {
                 const systemMessage = JSON.parse(data);
@@ -1361,16 +1324,13 @@ emergencyDisableFakeTraffic() {
             return;
         }
 
-        // Удаляем все слои безопасности
         const originalData = await this.removeSecurityLayers(data);
         
-        // ПРОВЕРЯЕМ МАРКЕР ФЕЙКОВОГО СООБЩЕНИЯ
         if (originalData === 'FAKE_MESSAGE_FILTERED') {
             console.log('🎭 Fake message successfully filtered, not displaying to user');
-            return; // НЕ ПОКАЗЫВАЕМ ПОЛЬЗОВАТЕЛЮ
+            return; 
         }
         
-        // Проверяем результат
         if (!originalData) {
             console.warn('⚠️ No data returned from removeSecurityLayers');
             return;
@@ -1384,7 +1344,6 @@ emergencyDisableFakeTraffic() {
             value: typeof originalData === 'string' ? originalData.substring(0, 100) : 'not string'
         });
 
-        // Если это системное сообщение после расшифровки
         if (typeof originalData === 'string') {
             try {
                 const message = JSON.parse(originalData);
@@ -1393,13 +1352,11 @@ emergencyDisableFakeTraffic() {
                     return;
                 }
                 
-                // ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА НА ФЕЙКОВЫЕ СООБЩЕНИЯ
                 if (message.type === 'fake') {
                     console.log(`🎭 Post-decryption fake message blocked: ${message.pattern}`);
-                    return; // НЕ ПОКАЗЫВАЕМ ПОЛЬЗОВАТЕЛЮ
+                    return; 
                 }
             } catch (e) {
-                // Не JSON, обрабатываем как обычное сообщение
             }
         }
 
@@ -1412,25 +1369,23 @@ emergencyDisableFakeTraffic() {
             messageText = new TextDecoder().decode(originalData);
         } else if (originalData && typeof originalData === 'object' && originalData.message) {
             messageText = originalData.message;
-            console.log('📝 Extracted message from object:', messageText.substring(0, 50) + '...');
         } else {
             console.warn('⚠️ Unexpected data type after processing:', typeof originalData);
             console.warn('Data content:', originalData);
             return;
         }
 
-        // ФИНАЛЬНАЯ ПРОВЕРКА НА ФЕЙКОВЫЕ СООБЩЕНИЯ В ТЕКСТЕ
+        // FINAL CHECK FOR FAKE MESSAGES IN TEXT
         try {
             const finalCheck = JSON.parse(messageText);
             if (finalCheck.type === 'fake') {
                 console.log(`🎭 Final fake message check blocked: ${finalCheck.pattern}`);
-                return; // НЕ ПОКАЗЫВАЕМ ПОЛЬЗОВАТЕЛЮ
+                return; 
             }
         } catch (e) {
-            // Не JSON, это нормальное сообщение пользователя
         }
 
-        // Вызываем обработчик сообщений ТОЛЬКО для настоящих сообщений
+        // Call the message handler ONLY for real messages
         if (this.onMessage && messageText) {
             console.log('✅ Calling message handler with real user message:', messageText.substring(0, 50) + '...');
             this.onMessage(messageText, 'received');
@@ -1471,71 +1426,64 @@ handleSystemMessage(message) {
 }
 
 // ============================================
-// МЕТОДЫ УПРАВЛЕНИЯ ФУНКЦИЯМИ
+// FUNCTION MANAGEMENT METHODS
 // ============================================
 
-// Метод для включения Stage 2 функций
+// Method to enable Stage 2 functions
 enableStage2Security() {
-    console.log('🚀 Enabling Stage 2 security features...');
     
-    // Включаем Packet Reordering
+    // Enable Packet Reordering
     this.securityFeatures.hasPacketReordering = true;
     this.reorderingConfig.enabled = true;
     
-    // Включаем упрощенный Anti-Fingerprinting
+    // Enable Simplified Anti-Fingerprinting
     this.securityFeatures.hasAntiFingerprinting = true;
     this.antiFingerprintingConfig.enabled = true;
-    this.antiFingerprintingConfig.randomizeSizes = false; // Упрощенная версия
+    this.antiFingerprintingConfig.randomizeSizes = false; 
     this.antiFingerprintingConfig.maskPatterns = false;
     this.antiFingerprintingConfig.useRandomHeaders = false;
     
-    console.log('✅ Stage 2 security features enabled');
-    console.log('✅ Active: Nested Encryption, Packet Padding, Reordering, Basic Anti-Fingerprinting');
     
-    // Обновляем UI индикатор безопасности
+    // Updating the UI security indicator
     this.notifySecurityUpgrade(2);
 }
 
-// Метод для включения Stage 3 функций (трафик-обфускация)
+// Method to enable Stage 3 features (traffic obfuscation)
 enableStage3Security() {
-    console.log('🚀 Enabling Stage 3 security features (Traffic Obfuscation)...');
     
-    // Включаем Message Chunking (осторожно)
+    // Enable Message Chunking 
     this.securityFeatures.hasMessageChunking = true;
     this.chunkingConfig.enabled = true;
-    this.chunkingConfig.maxChunkSize = 2048; // Большие чанки для стабильности
+    this.chunkingConfig.maxChunkSize = 2048; // Large chunks for stability
     this.chunkingConfig.minDelay = 100;
     this.chunkingConfig.maxDelay = 300;
     
-    // Включаем Fake Traffic (очень осторожно)
+    // Enable Fake Traffic
     this.securityFeatures.hasFakeTraffic = true;
     this.fakeTrafficConfig.enabled = true;
-    this.fakeTrafficConfig.minInterval = 10000; // Редкие сообщения
+    this.fakeTrafficConfig.minInterval = 10000; // Rare messages
     this.fakeTrafficConfig.maxInterval = 30000;
     this.fakeTrafficConfig.minSize = 32;
-    this.fakeTrafficConfig.maxSize = 128; // Маленькие размеры
+    this.fakeTrafficConfig.maxSize = 128; // Small sizes
     
-    // Запускаем fake traffic
+    // Launching fake traffic
     this.startFakeTrafficGeneration();
     
-    console.log('✅ Stage 3 security features enabled');
-    console.log('✅ Active: All previous + Message Chunking, Fake Traffic');
-    
-    // Обновляем UI индикатор безопасности
+    // Updating the UI security indicator
     this.notifySecurityUpgrade(3);
 }
 
-// Метод для включения Stage 4 функций (максимальная безопасность)
+// Method for enabling Stage 4 functions (maximum safety)
 enableStage4Security() {
     console.log('🚀 Enabling Stage 4 security features (Maximum Security)...');
     
-    // Включаем Decoy Channels (только если соединение стабильно)
+    // Enable Decoy Channels (only if the connection is stable)
     if (this.isConnected() && this.isVerified) {
         this.securityFeatures.hasDecoyChannels = true;
         this.decoyChannelConfig.enabled = true;
-        this.decoyChannelConfig.maxDecoyChannels = 2; // Только 2 канала
+        this.decoyChannelConfig.maxDecoyChannels = 2; // Only 2 channels
         
-        // Инициализируем decoy channels
+        // Initialize decoy channels
         try {
             this.initializeDecoyChannels();
         } catch (error) {
@@ -1545,20 +1493,16 @@ enableStage4Security() {
         }
     }
     
-    // Включаем полный Anti-Fingerprinting
+    // Enable full Anti-Fingerprinting
     this.antiFingerprintingConfig.randomizeSizes = true;
     this.antiFingerprintingConfig.maskPatterns = true;
-    this.antiFingerprintingConfig.useRandomHeaders = false; // Пока отключено для стабильности
+    this.antiFingerprintingConfig.useRandomHeaders = false; 
     
-    console.log('✅ Stage 4 security features enabled');
-    console.log('🔒 MAXIMUM SECURITY MODE ACTIVE');
-    console.log('✅ All security features enabled: Nested Encryption, Packet Padding, Reordering, Full Anti-Fingerprinting, Message Chunking, Fake Traffic, Decoy Channels');
-    
-    // Обновляем UI индикатор безопасности
+    // Updating the UI security indicator
     this.notifySecurityUpgrade(4);
 }
 
-// Метод для получения статуса безопасности
+// Method for getting security status
 getSecurityStatus() {
     const activeFeatures = Object.entries(this.securityFeatures)
         .filter(([key, value]) => value === true)
@@ -1578,7 +1522,7 @@ getSecurityStatus() {
     };
 }
 
-// Метод для уведомления UI об обновлении безопасности
+// Method to notify UI about security update
 notifySecurityUpgrade(stage) {
     const stageNames = {
         1: 'Basic Enhanced',
@@ -1589,22 +1533,19 @@ notifySecurityUpgrade(stage) {
     
     const message = `🔒 Security upgraded to Stage ${stage}: ${stageNames[stage]}`;
     
-    // Уведомляем через onMessage
+    // Notify via onMessage
     if (this.onMessage) {
         this.onMessage(message, 'system');
     }
-    
-    // Логируем статус
+
     const status = this.getSecurityStatus();
-    console.log('🔒 Security Status:', status);
 }
 // ============================================
-// АВТОМАТИЧЕСКОЕ ПОЭТАПНОЕ ВКЛЮЧЕНИЕ
+// AUTOMATIC STEP-BY-STEP SWITCHING ON
 // ============================================
 
-// Метод для автоматического включения функций с проверкой стабильности
+// Method for automatic feature enablement with stability check
 async autoEnableSecurityFeatures() {
-    console.log('🔒 Starting automatic security features activation...');
     
     const checkStability = () => {
         const isStable = this.isConnected() && 
@@ -1624,23 +1565,23 @@ async autoEnableSecurityFeatures() {
         return isStable;
     };
     
-    // Stage 1 уже активен
+    // Stage 1 is already active
     console.log('🔒 Stage 1 active: Basic Enhanced Security');
     this.notifySecurityUpgrade(1);
     
-    // Ждем 15 секунд стабильной работы перед Stage 2
+    // Wait 15 seconds of stable operation before Stage 2
     setTimeout(() => {
         if (checkStability()) {
             console.log('✅ Stage 1 stable for 15 seconds, activating Stage 2');
             this.enableStage2Security();
             
-            // Ждем еще 20 секунд перед Stage 3
+            // Wait another 20 seconds before Stage 3
             setTimeout(() => {
                 if (checkStability()) {
                     console.log('✅ Stage 2 stable for 20 seconds, activating Stage 3');
                     this.enableStage3Security();
                     
-                    // Ждем еще 25 секунд перед Stage 4
+                    // Wait another 25 seconds before Stage 4
                     setTimeout(() => {
                         if (checkStability()) {
                             console.log('✅ Stage 3 stable for 25 seconds, activating Stage 4');
@@ -1678,7 +1619,6 @@ async autoEnableSecurityFeatures() {
                 this.initializeDecoyChannels();
             }
             
-            console.log('🔒 Enhanced secure connection established');
         } catch (error) {
             console.error('❌ Failed to establish enhanced connection:', error);
             throw error;
@@ -1709,8 +1649,7 @@ async autoEnableSecurityFeatures() {
             
             // Clean up chunk queue
             this.chunkQueue = [];
-            
-            console.log('🔒 Enhanced secure connection cleaned up');
+
         } catch (error) {
             console.error('❌ Error during enhanced disconnect:', error);
         }
@@ -1897,7 +1836,6 @@ async autoEnableSecurityFeatures() {
         this.dataChannel = channel;
 
         this.dataChannel.onopen = async () => {
-            console.log('🔒 Enhanced secure data channel opened');
             
             await this.establishConnection();
             
@@ -1905,7 +1843,6 @@ async autoEnableSecurityFeatures() {
                 this.onStatusChange('connected');
                 this.processMessageQueue();
                 
-                // 🚀 ДОБАВЬТЕ ЭТУ СТРОКУ:
                 this.autoEnableSecurityFeatures();
             } else {
                 this.onStatusChange('verifying');
@@ -1915,7 +1852,6 @@ async autoEnableSecurityFeatures() {
         };
 
         this.dataChannel.onclose = () => {
-            console.log('🔒 Enhanced secure data channel closed');
             
             // Clean up enhanced security features
             this.disconnect();
@@ -2788,7 +2724,6 @@ async autoEnableSecurityFeatures() {
         this.dataChannel.send(JSON.stringify(payload));
         this.onMessage(sanitizedMessage, 'sent');
 
-        console.log('✅ Enhanced message sent successfully');
     } catch (error) {
         console.error('❌ Enhanced message sending failed:', error);
         throw error;
