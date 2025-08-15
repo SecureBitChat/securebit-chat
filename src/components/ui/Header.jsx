@@ -1,5 +1,3 @@
-const React = window.React;
-
 const EnhancedMinimalHeader = ({ 
     status, 
     fingerprint, 
@@ -10,14 +8,80 @@ const EnhancedMinimalHeader = ({
     sessionManager, 
     sessionTimeLeft 
 }) => {
+    const [currentTimeLeft, setCurrentTimeLeft] = React.useState(sessionTimeLeft || 0);
+    const [hasActiveSession, setHasActiveSession] = React.useState(false);
+    const [sessionType, setSessionType] = React.useState('unknown');
+
+    React.useEffect(() => {
+        const updateSessionInfo = () => {
+            if (sessionManager) {
+                const isActive = sessionManager.hasActiveSession();
+                const timeLeft = sessionManager.getTimeLeft();
+                const currentSession = sessionManager.currentSession;
+                
+                setHasActiveSession(isActive);
+                setCurrentTimeLeft(timeLeft);
+                setSessionType(currentSession?.type || 'unknown');
+                
+            }
+        };
+
+        updateSessionInfo();
+
+        const interval = setInterval(updateSessionInfo, 1000);
+
+        return () => clearInterval(interval);
+    }, [sessionManager]);
+
+    React.useEffect(() => {
+        if (sessionManager?.hasActiveSession()) {
+            setCurrentTimeLeft(sessionManager.getTimeLeft());
+            setHasActiveSession(true);
+        } else {
+            setHasActiveSession(false);
+        }
+    }, [sessionManager, sessionTimeLeft]);
+
+    const handleSecurityClick = () => {
+        if (securityLevel?.verificationResults) {
+            alert('Security check details:\n\n' + 
+                Object.entries(securityLevel.verificationResults)
+                    .map(([key, result]) => `${key}: ${result.passed ? '✅' : '❌'} ${result.details}`)
+                    .join('\n')
+            );
+        } else if (securityLevel) {
+            alert(`Security Level: ${securityLevel.level}\nScore: ${securityLevel.score}%\nDetails: ${securityLevel.details || 'No additional details available'}`);
+        }
+    };
+
+    const shouldShowTimer = hasActiveSession && currentTimeLeft > 0 && window.SessionTimer;
+
+    React.useEffect(() => {
+        const handleForceUpdate = (event) => {
+
+            if (sessionManager) {
+                const isActive = sessionManager.hasActiveSession();
+                const timeLeft = sessionManager.getTimeLeft();
+                const currentSession = sessionManager.currentSession;
+                
+                setHasActiveSession(isActive);
+                setCurrentTimeLeft(timeLeft);
+                setSessionType(currentSession?.type || 'unknown');
+            }
+        };
+
+        document.addEventListener('force-header-update', handleForceUpdate);
+        return () => document.removeEventListener('force-header-update', handleForceUpdate);
+    }, [sessionManager]);
+
     const getStatusConfig = () => {
         switch (status) {
             case 'connected':
                 return {
-                text: 'Connected',
-                className: 'status-connected',
-                badgeClass: 'bg-green-500/10 text-green-400 border-green-500/20'
-            };
+                    text: 'Connected',
+                    className: 'status-connected',
+                    badgeClass: 'bg-green-500/10 text-green-400 border-green-500/20'
+                };
             case 'verifying':
                 return {
                     text: 'Verifying...',
@@ -60,21 +124,10 @@ const EnhancedMinimalHeader = ({
                     className: 'status-disconnected',
                     badgeClass: 'bg-gray-500/10 text-gray-400 border-gray-500/20'
                 };
-
         }
     };
 
     const config = getStatusConfig();
-
-    const handleSecurityClick = () => {
-        if (securityLevel?.verificationResults) {
-            alert('Security check details:\n\n' + 
-                Object.entries(securityLevel.verificationResults)
-                    .map(([key, result]) => `${key}: ${result.passed ? '✅' : '❌'} ${result.details}`)
-                    .join('\n')
-            );
-        }
-    };
 
     return React.createElement('header', {
         className: 'header-minimal sticky top-0 z-50'
@@ -87,6 +140,7 @@ const EnhancedMinimalHeader = ({
                 key: 'content',
                 className: 'flex items-center justify-between h-16'
             }, [
+                // Logo and Title
                 React.createElement('div', {
                     key: 'logo-section',
                     className: 'flex items-center space-x-2 sm:space-x-3'
@@ -109,32 +163,29 @@ const EnhancedMinimalHeader = ({
                         React.createElement('p', {
                             key: 'subtitle',
                             className: 'text-xs sm:text-sm text-muted hidden sm:block'
-                        }, 'End-to-end freedom. v4.0.02.12')
+                        }, 'End-to-end freedom. v4.0.02.88')
                     ])
                 ]),
 
-                // Status and Controls - Mobile Responsive
+                // Status and Controls - Responsive
                 React.createElement('div', {
                     key: 'status-section',
                     className: 'flex items-center space-x-2 sm:space-x-3'
                 }, [
-                    (() => {
-                        const hasActive = sessionManager?.hasActiveSession();
-                        const hasTimer = !!window.SessionTimer;
-                        
-                        return hasActive && hasTimer && React.createElement(window.SessionTimer, {
-                            key: 'session-timer',
-                            timeLeft: sessionTimeLeft,
-                            sessionType: sessionManager.currentSession?.type || 'unknown'
-                        });
-                    })(),
+                    // Session Timer
+                    shouldShowTimer && React.createElement(window.SessionTimer, {
+                        key: 'session-timer',
+                        timeLeft: currentTimeLeft,
+                        sessionType: sessionType,
+                        sessionManager: sessionManager
+                    }),
 
-                    // Security Level Indicator - Hidden on mobile, shown on tablet+ (Clickable)
+                    // Security Level Indicator
                     securityLevel && React.createElement('div', {
                         key: 'security-level',
                         className: 'hidden md:flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity duration-200',
                         onClick: handleSecurityClick,
-                        title: 'Click to view security details'
+                        title: `${securityLevel.level} (${securityLevel.score}%) - Click for details`
                     }, [
                         React.createElement('div', {
                             key: 'security-icon',
@@ -178,7 +229,7 @@ const EnhancedMinimalHeader = ({
                         ])
                     ]),
 
-                    // Mobile Security Indicator - Only icon on mobile (Clickable)
+                    // Mobile Security Indicator
                     securityLevel && React.createElement('div', {
                         key: 'mobile-security',
                         className: 'md:hidden flex items-center'
@@ -195,13 +246,13 @@ const EnhancedMinimalHeader = ({
                             React.createElement('i', {
                                 className: `fas fa-shield-alt text-sm ${
                                     securityLevel.color === 'green' ? 'text-green-400' :
-                                    securityLevel.color === 'yellow' ? 'text-yellow-400' : 'text-red-400'
+                                    securityLevel.color === 'yellow' ? 'text-yellow-400' : 'bg-red-400'
                                 }`
                             })
                         ])
                     ]),
 
-                    // Status Badge - Compact on mobile
+                    // Status Badge
                     React.createElement('div', {
                         key: 'status-badge',
                         className: `px-2 sm:px-3 py-1.5 rounded-lg border ${config.badgeClass} flex items-center space-x-1 sm:space-x-2`
@@ -216,18 +267,16 @@ const EnhancedMinimalHeader = ({
                         }, config.text)
                     ]),
 
-                    // Disconnect Button - Icon only on mobile
+                    // Disconnect Button
                     isConnected && React.createElement('button', {
                         key: 'disconnect-btn',
                         onClick: onDisconnect,
                         className: 'p-1.5 sm:px-3 sm:py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg transition-all duration-200 text-sm'
                     }, [
                         React.createElement('i', {
-                            key: 'disconnect-icon',
                             className: 'fas fa-power-off sm:mr-2'
                         }),
                         React.createElement('span', {
-                            key: 'disconnect-text',
                             className: 'hidden sm:inline'
                         }, 'Disconnect')
                     ])
@@ -238,3 +287,5 @@ const EnhancedMinimalHeader = ({
 };
 
 window.EnhancedMinimalHeader = EnhancedMinimalHeader;
+
+console.log('✅ EnhancedMinimalHeader loaded with timer fixes');

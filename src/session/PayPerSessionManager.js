@@ -1,8 +1,8 @@
 class PayPerSessionManager {
     constructor(config = {}) {
         this.sessionPrices = {
-            // БЕЗОПАСНЫЙ demo режим с ограничениями
-            demo: { sats: 0, hours: 0.1, usd: 0.00 }, // 6 минут для тестирования
+            // SAFE demo mode with limitations
+            demo: { sats: 0, hours: 0.1, usd: 0.00 }, 
             basic: { sats: 500, hours: 1, usd: 0.20 },
             premium: { sats: 1000, hours: 4, usd: 0.40 },
             extended: { sats: 2000, hours: 24, usd: 0.80 }
@@ -13,18 +13,26 @@ class PayPerSessionManager {
         this.onSessionExpired = null;
         this.staticLightningAddress = "dullpastry62@walletofsatoshi.com";
         
-        // Хранилище использованных preimage для предотвращения повторного использования
+        // Storage of used preimage to prevent reuse
         this.usedPreimages = new Set();
         this.preimageCleanupInterval = null;
         
-        // DEMO режим: Контроль для предотвращения злоупотреблений
-        this.demoSessions = new Map(); // fingerprint -> { count, lastUsed, sessions }
-        this.maxDemoSessionsPerUser = 3; // Максимум 3 demo сессии на пользователя
-        this.demoCooldownPeriod = 60 * 60 * 1000; // 1 час между сериями demo сессий
-        this.demoSessionCooldown = 5 * 60 * 1000; // 5 минут между отдельными demo сессиями
-        this.demoSessionMaxDuration = 6 * 60 * 1000; // 6 минут максимум на demo сессию
+        // FIXED DEMO mode: Stricter control
+        this.demoSessions = new Map(); 
+        this.maxDemoSessionsPerUser = 3; 
+        this.demoCooldownPeriod = 24 * 60 * 60 * 1000; 
+        this.demoSessionCooldown = 1 * 60 * 1000; 
+        this.demoSessionMaxDuration = 6 * 60 * 1000; 
         
-        // Минимальная стоимость для платных сессий (защита от микроплатежей-атак)
+        // NEW: Global tracking of active demo sessions
+        this.activeDemoSessions = new Set(); 
+        this.maxGlobalDemoSessions = 10; 
+        
+        // NEW: Tracking of terminated sessions to prevent rapid reconnection
+        this.completedDemoSessions = new Map(); 
+        this.minTimeBetweenCompletedSessions = 15 * 60 * 1000; 
+
+        // Minimum cost for paid sessions (protection against micropayment attacks)
         this.minimumPaymentSats = 100;
         
         this.verificationConfig = {
@@ -32,32 +40,54 @@ class PayPerSessionManager {
             apiUrl: config.apiUrl || 'https://demo.lnbits.com',
             apiKey: config.apiKey || '623515641d2e4ebcb1d5992d6d78419c', 
             walletId: config.walletId || 'bcd00f561c7b46b4a7b118f069e68997',
-            isDemo: config.isDemo !== undefined ? config.isDemo : true, // По умолчанию demo режим включен
+            isDemo: config.isDemo !== undefined ? config.isDemo : true,
             demoTimeout: 30000, 
             retryAttempts: 3,
             invoiceExpiryMinutes: 15
         };
         
-        // Rate limiting для API запросов
+        // Rate limiting for API requests
         this.lastApiCall = 0;
-        this.apiCallMinInterval = 1000; // Минимум 1 секунда между API вызовами
+        this.apiCallMinInterval = 1000; 
         
-        // Запуск периодических задач
+        // Run periodic tasks
         this.startPreimageCleanup();
         this.startDemoSessionCleanup();
+        this.startActiveDemoSessionCleanup();
         
-        console.log('💰 PayPerSessionManager initialized with secure demo mode');
+        console.log('💰 PayPerSessionManager initialized with ENHANCED secure demo mode');
+        
+
     }
 
     // ============================================
-    // DEMO РЕЖИМ: Управление и контроль
+    // FIXED DEMO MODE: Improved controls and management
     // ============================================
 
-    // Очистка старых demo сессий (каждый час)
-    startDemoSessionCleanup() {
+    startActiveDemoSessionCleanup() {
         setInterval(() => {
             const now = Date.now();
-            const maxAge = 24 * 60 * 60 * 1000; // 24 часа
+            let cleanedCount = 0;
+            
+            for (const preimage of this.activeDemoSessions) {
+                const demoTimestamp = this.extractDemoTimestamp(preimage);
+                if (demoTimestamp && (now - demoTimestamp) > this.demoSessionMaxDuration) {
+                    this.activeDemoSessions.delete(preimage);
+                    cleanedCount++;
+                }
+            }
+            
+            if (cleanedCount > 0) {
+                console.log(`🧹 Cleaned ${cleanedCount} expired active demo sessions`);
+            }
+        }, 30000); 
+    }
+    
+
+   startDemoSessionCleanup() {
+        setInterval(() => {
+            const now = Date.now();
+            const maxAge = 25 * 60 * 60 * 1000; 
             
             let cleanedCount = 0;
             for (const [identifier, data] of this.demoSessions.entries()) {
@@ -65,15 +95,39 @@ class PayPerSessionManager {
                     this.demoSessions.delete(identifier);
                     cleanedCount++;
                 }
+                
+                if (data.sessions) {
+                    const originalCount = data.sessions.length;
+                    data.sessions = data.sessions.filter(session => 
+                        now - session.timestamp < maxAge
+                    );
+                    
+                    if (data.sessions.length === 0 && now - data.lastUsed > maxAge) {
+                        this.demoSessions.delete(identifier);
+                        cleanedCount++;
+                    }
+                }
+            }
+            
+            for (const [identifier, sessions] of this.completedDemoSessions.entries()) {
+                const filteredSessions = sessions.filter(session => 
+                    now - session.endTime < maxAge
+                );
+                
+                if (filteredSessions.length === 0) {
+                    this.completedDemoSessions.delete(identifier);
+                } else {
+                    this.completedDemoSessions.set(identifier, filteredSessions);
+                }
             }
             
             if (cleanedCount > 0) {
                 console.log(`🧹 Cleaned ${cleanedCount} old demo session records`);
             }
-        }, 60 * 60 * 1000); // Каждый час
+        }, 60 * 60 * 1000); 
     }
 
-    // Генерация отпечатка пользователя для контроля demo сессий
+    // IMPROVED user fingerprint generation
     generateUserFingerprint() {
         try {
             const components = [
@@ -84,80 +138,142 @@ class PayPerSessionManager {
                 navigator.hardwareConcurrency || 0,
                 navigator.deviceMemory || 0,
                 navigator.platform || '',
-                navigator.cookieEnabled ? '1' : '0'
+                navigator.cookieEnabled ? '1' : '0',
+                window.screen.colorDepth || 0,
+                window.screen.pixelDepth || 0,
+                navigator.maxTouchPoints || 0,
+                navigator.onLine ? '1' : '0'
             ];
             
-            // Создаем детерминированный хеш для идентификации
+            // Create a more secure hash
             let hash = 0;
             const str = components.join('|');
             for (let i = 0; i < str.length; i++) {
                 const char = str.charCodeAt(i);
                 hash = ((hash << 5) - hash) + char;
-                hash = hash & hash; // Преобразуем в 32-битное целое
+                hash = hash & hash;
             }
             
-            return Math.abs(hash).toString(36);
+            // Add extra salt for stability
+            const salt = 'securebit_demo_2024';
+            const saltedStr = str + salt;
+            let saltedHash = 0;
+            for (let i = 0; i < saltedStr.length; i++) {
+                const char = saltedStr.charCodeAt(i);
+                saltedHash = ((saltedHash << 5) - saltedHash) + char;
+                saltedHash = saltedHash & saltedHash;
+            }
+            
+            return Math.abs(hash).toString(36) + '_' + Math.abs(saltedHash).toString(36);
         } catch (error) {
             console.warn('Failed to generate user fingerprint:', error);
-            // Fallback на случайный ID (менее эффективен для контроля лимитов)
             return 'fallback_' + Math.random().toString(36).substr(2, 9);
         }
     }
 
-    // Проверка лимитов demo сессий для пользователя
+    // COMPLETELY REWRITTEN demo session limits check
     checkDemoSessionLimits(userFingerprint) {
         const userData = this.demoSessions.get(userFingerprint);
         const now = Date.now();
         
+        console.log(`🔍 Checking demo limits for user ${userFingerprint.substring(0, 12)}...`);
+        
+        // CHECK 1: Global limit of simultaneous demo sessions
+        if (this.activeDemoSessions.size >= this.maxGlobalDemoSessions) {
+            console.log(`❌ Global demo limit reached: ${this.activeDemoSessions.size}/${this.maxGlobalDemoSessions}`);
+            return {
+                allowed: false,
+                reason: 'global_limit_exceeded',
+                message: `Too many demo sessions active globally (${this.activeDemoSessions.size}/${this.maxGlobalDemoSessions}). Please try again later.`,
+                remaining: 0,
+                debugInfo: `Global sessions: ${this.activeDemoSessions.size}/${this.maxGlobalDemoSessions}`
+            };
+        }
+        
         if (!userData) {
-            // Первая demo сессия для этого пользователя
+            // First demo session for this user
+            console.log(`✅ First demo session for user ${userFingerprint.substring(0, 12)}`);
             return { 
                 allowed: true, 
                 reason: 'first_demo_session',
-                remaining: this.maxDemoSessionsPerUser
+                remaining: this.maxDemoSessionsPerUser,
+                debugInfo: 'First time user'
             };
         }
         
-        // Фильтруем активные сессии (в пределах cooldown периода)
-        const activeSessions = userData.sessions.filter(session => 
+        // CHECK 2: Limit sessions per 24 hours (STRICT check)
+        const sessionsLast24h = userData.sessions.filter(session => 
             now - session.timestamp < this.demoCooldownPeriod
         );
         
-        // Проверяем количество demo сессий
-        if (activeSessions.length >= this.maxDemoSessionsPerUser) {
-            const oldestSession = Math.min(...activeSessions.map(s => s.timestamp));
+        console.log(`📊 Sessions in last 24h for user ${userFingerprint.substring(0, 12)}: ${sessionsLast24h.length}/${this.maxDemoSessionsPerUser}`);
+        
+        if (sessionsLast24h.length >= this.maxDemoSessionsPerUser) {
+            const oldestSession = Math.min(...sessionsLast24h.map(s => s.timestamp));
             const timeUntilNext = this.demoCooldownPeriod - (now - oldestSession);
+            
+            console.log(`❌ Daily demo limit exceeded for user ${userFingerprint.substring(0, 12)}`);
+            return { 
+                allowed: false, 
+                reason: 'daily_limit_exceeded',
+                timeUntilNext: timeUntilNext,
+                message: `Daily demo limit reached (${this.maxDemoSessionsPerUser}/day). Next session available in ${Math.ceil(timeUntilNext / (60 * 1000))} minutes.`,
+                remaining: 0,
+                debugInfo: `Used ${sessionsLast24h.length}/${this.maxDemoSessionsPerUser} today`
+            };
+        }
+        
+        // CHECK 3: Cooldown between sessions (FIXED LOGIC)
+        if (userData.lastUsed && (now - userData.lastUsed) < this.demoSessionCooldown) {
+            const timeUntilNext = this.demoSessionCooldown - (now - userData.lastUsed);
+            const minutesLeft = Math.ceil(timeUntilNext / (60 * 1000));
+            
+            console.log(`⏰ Cooldown active for user ${userFingerprint.substring(0, 12)}: ${minutesLeft} minutes`);
             
             return { 
                 allowed: false, 
-                reason: 'demo_limit_exceeded',
+                reason: 'session_cooldown',
                 timeUntilNext: timeUntilNext,
-                message: `Demo limit reached (${this.maxDemoSessionsPerUser}/day). Try again in ${Math.ceil(timeUntilNext / (60 * 1000))} minutes.`,
-                remaining: 0
+                message: `Please wait ${minutesLeft} minutes between demo sessions. This prevents abuse and ensures fair access for all users.`,
+                remaining: this.maxDemoSessionsPerUser - sessionsLast24h.length,
+                debugInfo: `Cooldown: ${minutesLeft}min left, last used: ${Math.round((now - userData.lastUsed) / (60 * 1000))}min ago`
             };
         }
         
-        // Проверяем кулдаун между отдельными сессиями
-        if (userData.lastUsed && (now - userData.lastUsed) < this.demoSessionCooldown) {
-            const timeUntilNext = this.demoSessionCooldown - (now - userData.lastUsed);
-            return { 
-                allowed: false, 
-                reason: 'demo_cooldown',
+        // CHECK 4: NEW - Check for completed sessions
+        const completedSessions = this.completedDemoSessions.get(userFingerprint) || [];
+        const recentCompletedSessions = completedSessions.filter(session =>
+            now - session.endTime < this.minTimeBetweenCompletedSessions
+        );
+        
+        if (recentCompletedSessions.length > 0) {
+            const lastCompletedSession = Math.max(...recentCompletedSessions.map(s => s.endTime));
+            const timeUntilNext = this.minTimeBetweenCompletedSessions - (now - lastCompletedSession);
+            
+            console.log(`⏰ Recent session completed, waiting period active for user ${userFingerprint.substring(0, 12)}`);
+            return {
+                allowed: false,
+                reason: 'recent_session_completed',
                 timeUntilNext: timeUntilNext,
-                message: `Please wait ${Math.ceil(timeUntilNext / (60 * 1000))} minutes between demo sessions.`,
-                remaining: this.maxDemoSessionsPerUser - activeSessions.length
+                message: `Please wait ${Math.ceil(timeUntilNext / (60 * 1000))} minutes after your last session before starting a new one.`,
+                remaining: this.maxDemoSessionsPerUser - sessionsLast24h.length,
+                debugInfo: `Last session ended ${Math.round((now - lastCompletedSession) / (60 * 1000))}min ago`
             };
         }
         
+        console.log(`✅ Demo session approved for user ${userFingerprint.substring(0, 12)}`);
         return { 
             allowed: true, 
             reason: 'within_limits',
-            remaining: this.maxDemoSessionsPerUser - activeSessions.length
+            remaining: this.maxDemoSessionsPerUser - sessionsLast24h.length,
+            debugInfo: `Available: ${this.maxDemoSessionsPerUser - sessionsLast24h.length}/${this.maxDemoSessionsPerUser}`
         };
     }
 
-    // Регистрация использования demo сессии
-    registerDemoSessionUsage(userFingerprint) {
+
+
+    // FIXED demo session usage registration
+    registerDemoSessionUsage(userFingerprint, preimage) {
         const now = Date.now();
         const userData = this.demoSessions.get(userFingerprint) || {
             count: 0,
@@ -168,52 +284,101 @@ class PayPerSessionManager {
         
         userData.count++;
         userData.lastUsed = now;
-        userData.sessions.push({
+        
+        // Add a new session with preimage for tracking
+        const newSession = {
             timestamp: now,
             sessionId: crypto.getRandomValues(new Uint32Array(1))[0].toString(36),
-            duration: this.demoSessionMaxDuration
-        });
+            duration: this.demoSessionMaxDuration,
+            preimage: preimage, 
+            status: 'active'
+        };
         
-        // Храним только актуальные сессии (в пределах cooldown периода)
-        userData.sessions = userData.sessions
-            .filter(session => now - session.timestamp < this.demoCooldownPeriod)
-            .slice(-this.maxDemoSessionsPerUser);
+        userData.sessions.push(newSession);
+        
+        // Clear old sessions (only those older than 24 hours)
+        userData.sessions = userData.sessions.filter(session => 
+            now - session.timestamp < this.demoCooldownPeriod
+        );
+        
+        // NEW: Add to global set of active sessions
+        this.activeDemoSessions.add(preimage);
         
         this.demoSessions.set(userFingerprint, userData);
         
-        console.log(`📊 Demo session registered for user ${userFingerprint.substring(0, 8)}... (${userData.sessions.length}/${this.maxDemoSessionsPerUser})`);
+        console.log(`📊 Demo session registered for user ${userFingerprint.substring(0, 12)} (${userData.sessions.length}/${this.maxDemoSessionsPerUser} today)`);
+        console.log(`🌐 Global active demo sessions: ${this.activeDemoSessions.size}/${this.maxGlobalDemoSessions}`);
+        
+        return newSession;
     }
 
-    // Генерация криптографически стойкого demo preimage
+    // NEW method: Register demo session completion
+    registerDemoSessionCompletion(userFingerprint, sessionDuration, preimage) {
+        const now = Date.now();
+        
+        // Remove from active sessions
+        if (preimage) {
+            this.activeDemoSessions.delete(preimage);
+        }
+        
+        // Add to completed sessions
+        const completedSessions = this.completedDemoSessions.get(userFingerprint) || [];
+        completedSessions.push({
+            endTime: now,
+            duration: sessionDuration,
+            preimage: preimage ? preimage.substring(0, 16) + '...' : 'unknown' // Логируем только часть для безопасности
+        });
+        
+        // Store only the last completed sessions
+        const filteredSessions = completedSessions
+            .filter(session => now - session.endTime < this.minTimeBetweenCompletedSessions)
+            .slice(-5); 
+        
+        this.completedDemoSessions.set(userFingerprint, filteredSessions);
+        
+        // Update the status in the user's master data
+        const userData = this.demoSessions.get(userFingerprint);
+        if (userData && userData.sessions) {
+            const session = userData.sessions.find(s => s.preimage === preimage);
+            if (session) {
+                session.status = 'completed';
+                session.endTime = now;
+            }
+        }
+        
+        console.log(`✅ Demo session completed for user ${userFingerprint.substring(0, 12)}`);
+        console.log(`🌐 Global active demo sessions: ${this.activeDemoSessions.size}/${this.maxGlobalDemoSessions}`);
+    }
+
+    // ENHANCED demo preimage generation with additional protection
     generateSecureDemoPreimage() {
         try {
             const timestamp = Date.now();
-            const randomBytes = crypto.getRandomValues(new Uint8Array(24)); // 24 байта случайных данных
-            const timestampBytes = new Uint8Array(4); // 4 байта для timestamp
-            const versionBytes = new Uint8Array(4); // 4 байта для версии и маркеров
+            const randomBytes = crypto.getRandomValues(new Uint8Array(24));
+            const timestampBytes = new Uint8Array(4);
+            const versionBytes = new Uint8Array(4);
             
-            // Упаковываем timestamp в 4 байта (секунды)
+            // Pack the timestamp
             const timestampSeconds = Math.floor(timestamp / 1000);
             timestampBytes[0] = (timestampSeconds >>> 24) & 0xFF;
             timestampBytes[1] = (timestampSeconds >>> 16) & 0xFF;
             timestampBytes[2] = (timestampSeconds >>> 8) & 0xFF;
             timestampBytes[3] = timestampSeconds & 0xFF;
             
-            // Маркер demo версии
-            versionBytes[0] = 0xDE; // 'DE'mo
-            versionBytes[1] = 0xE0; // de'MO' (E0 вместо MO)
-            versionBytes[2] = 0x00; // версия 0
-            versionBytes[3] = 0x01; // подверсия 1
+            // IMPROVED version marker with additional protection
+            versionBytes[0] = 0xDE; 
+            versionBytes[1] = 0xE0; 
+            versionBytes[2] = 0x00; 
+            versionBytes[3] = 0x02; 
             
-            // Комбинируем все компоненты (32 байта total)
             const combined = new Uint8Array(32);
-            combined.set(versionBytes, 0);      // Байты 0-3: маркер версии
-            combined.set(timestampBytes, 4);    // Байты 4-7: timestamp
-            combined.set(randomBytes, 8);       // Байты 8-31: случайные данные
+            combined.set(versionBytes, 0);
+            combined.set(timestampBytes, 4);
+            combined.set(randomBytes, 8);
             
             const preimage = Array.from(combined).map(b => b.toString(16).padStart(2, '0')).join('');
             
-            console.log(`🎮 Generated secure demo preimage: ${preimage.substring(0, 16)}...`);
+            console.log(`🎮 Generated SECURE demo preimage v2: ${preimage.substring(0, 16)}...`);
             return preimage;
             
         } catch (error) {
@@ -222,27 +387,27 @@ class PayPerSessionManager {
         }
     }
 
-    // Проверка, является ли preimage demo
+    // UPDATED demo preimage check
     isDemoPreimage(preimage) {
         if (!preimage || typeof preimage !== 'string' || preimage.length !== 64) {
             return false;
         }
         
-        // Проверяем маркер demo (первые 8 символов = 4 байта)
-        return preimage.toLowerCase().startsWith('dee00001');
+        // Check the demo marker (support versions 1 and 2)
+        const lower = preimage.toLowerCase();
+        return lower.startsWith('dee00001') || lower.startsWith('dee00002');
     }
 
-    // Извлечение timestamp из demo preimage
+    // Extract timestamp from demo preimage
     extractDemoTimestamp(preimage) {
         if (!this.isDemoPreimage(preimage)) {
             return null;
         }
         
         try {
-            // Timestamp находится в байтах 4-7 (символы 8-15)
             const timestampHex = preimage.slice(8, 16);
             const timestampSeconds = parseInt(timestampHex, 16);
-            return timestampSeconds * 1000; // Преобразуем в миллисекунды
+            return timestampSeconds * 1000;
         } catch (error) {
             console.error('Failed to extract demo timestamp:', error);
             return null;
@@ -250,10 +415,9 @@ class PayPerSessionManager {
     }
 
     // ============================================
-    // ВАЛИДАЦИЯ И ПРОВЕРКИ
+    // VALIDATION AND CHECKS
     // ============================================
 
-    // Валидация типа сессии
     validateSessionType(sessionType) {
         if (!sessionType || typeof sessionType !== 'string') {
             throw new Error('Session type must be a non-empty string');
@@ -265,12 +429,10 @@ class PayPerSessionManager {
         
         const pricing = this.sessionPrices[sessionType];
         
-        // Для demo сессии особая логика
         if (sessionType === 'demo') {
-            return true; // Demo всегда валидна по типу, лимиты проверяем отдельно
+            return true;
         }
         
-        // Для платных сессий проверяем минимальную стоимость
         if (pricing.sats < this.minimumPaymentSats) {
             throw new Error(`Session type ${sessionType} below minimum payment threshold (${this.minimumPaymentSats} sats)`);
         }
@@ -278,7 +440,6 @@ class PayPerSessionManager {
         return true;
     }
 
-    // Вычисление энтропии строки
     calculateEntropy(str) {
         const freq = {};
         for (let char of str) {
@@ -295,27 +456,36 @@ class PayPerSessionManager {
         return entropy;
     }
 
-    // Усиленная криптографическая проверка preimage
+    // ============================================
+    // ENHANCED verification with additional checks
+    // ============================================
+
     async verifyCryptographically(preimage, paymentHash) {
         try {
-            // Базовая валидация формата
-            if (!preimage || typeof preimage !== 'string') {
-                throw new Error('Preimage must be a string');
-            }
-            
-            if (preimage.length !== 64) {
-                throw new Error(`Invalid preimage length: ${preimage.length}, expected 64`);
+            // Basic validation
+            if (!preimage || typeof preimage !== 'string' || preimage.length !== 64) {
+                throw new Error('Invalid preimage format');
             }
             
             if (!/^[0-9a-fA-F]{64}$/.test(preimage)) {
                 throw new Error('Preimage must be valid hexadecimal');
             }
             
-            // СПЕЦИАЛЬНАЯ обработка demo preimage
+            // СПЕЦИАЛЬНАЯ обработка demo preimage с УСИЛЕННЫМИ проверками
             if (this.isDemoPreimage(preimage)) {
-                console.log('🎮 Demo preimage detected - performing enhanced validation...');
+                console.log('🎮 Demo preimage detected - performing ENHANCED validation...');
                 
-                // Извлекаем и проверяем timestamp
+                // CHECK 1: Preimage duplicates
+                if (this.usedPreimages.has(preimage)) {
+                    throw new Error('Demo preimage already used - replay attack prevented');
+                }
+                
+                // CHECK 2: Global Activity
+                if (this.activeDemoSessions.has(preimage)) {
+                    throw new Error('Demo preimage already active - concurrent usage prevented');
+                }
+                
+                // CHECK 3: Timestamp validation
                 const demoTimestamp = this.extractDemoTimestamp(preimage);
                 if (!demoTimestamp) {
                     throw new Error('Invalid demo preimage timestamp');
@@ -324,59 +494,44 @@ class PayPerSessionManager {
                 const now = Date.now();
                 const age = now - demoTimestamp;
                 
-                // Demo preimage не должен быть старше 15 минут
+                // Demo preimage must not be older than 15 minutes
                 if (age > 15 * 60 * 1000) {
                     throw new Error(`Demo preimage expired (age: ${Math.round(age / (60 * 1000))} minutes)`);
                 }
                 
-                // Demo preimage не должен быть из будущего (защита от clock attack)
-                if (age < -2 * 60 * 1000) { // Допускаем 2 минуты расхождения часов
+                // Demo preimage не должен быть из будущего
+                if (age < -2 * 60 * 1000) {
                     throw new Error('Demo preimage timestamp from future - possible clock manipulation');
                 }
                 
-                // Проверяем на повторное использование
-                if (this.usedPreimages.has(preimage)) {
-                    throw new Error('Demo preimage already used - replay attack prevented');
+                // CHECK 4: Custom Limits
+                const userFingerprint = this.generateUserFingerprint();
+                const limitsCheck = this.checkDemoSessionLimits(userFingerprint);
+                
+                if (!limitsCheck.allowed) {
+                    throw new Error(`Demo session limits exceeded: ${limitsCheck.message}`);
                 }
                 
-                // Demo preimage валиден
-                this.usedPreimages.add(preimage);
-                console.log('✅ Demo preimage cryptographic validation passed');
+                // FIX: For demo sessions, do NOT add preimage to usedPreimages here,
+                // as this will only be done after successful activation
+                this.registerDemoSessionUsage(userFingerprint, preimage);
+                
+                console.log('✅ Demo preimage ENHANCED validation passed');
                 return true;
             }
             
-            // Для обычных preimage - СТРОГИЕ проверки
-            
-            // Запрет на простые/предсказуемые паттерны
-            const forbiddenPatterns = [
-                '0'.repeat(64),                    // Все нули
-                '1'.repeat(64),                    // Все единицы
-                'a'.repeat(64),                    // Все 'a'
-                'f'.repeat(64),                    // Все 'f'
-                '0123456789abcdef'.repeat(4),      // Повторяющийся паттерн
-                'deadbeef'.repeat(8),              // Известный тестовый паттерн
-                'cafebabe'.repeat(8),              // Известный тестовый паттерн
-                'feedface'.repeat(8),              // Известный тестовый паттерн
-                'baadf00d'.repeat(8),              // Известный тестовый паттерн
-                'c0ffee'.repeat(10) + 'c0ff'       // Известный тестовый паттерн
-            ];
-            
-            if (forbiddenPatterns.includes(preimage.toLowerCase())) {
-                throw new Error('Forbidden preimage pattern detected - possible test/attack attempt');
-            }
-            
-            // Проверка на повторное использование
+            // For regular preimage - standard checks
             if (this.usedPreimages.has(preimage)) {
                 throw new Error('Preimage already used - replay attack prevented');
             }
             
-            // Проверка энтропии (должна быть достаточно высокой для hex строки)
+            // Checking entropy
             const entropy = this.calculateEntropy(preimage);
-            if (entropy < 3.5) { // Минимальная энтропия для 64-символьной hex строки
-                throw new Error(`Preimage has insufficient entropy: ${entropy.toFixed(2)} (minimum: 3.5)`);
+            if (entropy < 3.5) {
+                throw new Error(`Preimage has insufficient entropy: ${entropy.toFixed(2)}`);
             }
             
-            // Стандартная криптографическая проверка SHA256(preimage) = paymentHash
+            // Cryptographic verification SHA256(preimage) = paymentHash
             const preimageBytes = new Uint8Array(preimage.match(/.{2}/g).map(byte => parseInt(byte, 16)));
             const hashBuffer = await crypto.subtle.digest('SHA-256', preimageBytes);
             const computedHash = Array.from(new Uint8Array(hashBuffer))
@@ -385,14 +540,8 @@ class PayPerSessionManager {
             const isValid = computedHash === paymentHash.toLowerCase();
             
             if (isValid) {
-                // Сохраняем использованный preimage
                 this.usedPreimages.add(preimage);
                 console.log('✅ Standard preimage cryptographic validation passed');
-            } else {
-                console.log('❌ SHA256 verification failed:', {
-                    computed: computedHash.substring(0, 16) + '...',
-                    expected: paymentHash.substring(0, 16) + '...'
-                });
             }
             
             return isValid;
@@ -404,10 +553,10 @@ class PayPerSessionManager {
     }
 
     // ============================================
-    // LIGHTNING NETWORK ИНТЕГРАЦИЯ
+    // LIGHTNING NETWORK INTEGRATION
     // ============================================
 
-    // Создание Lightning invoice
+    // Creating a Lightning invoice
     async createLightningInvoice(sessionType) {
         const pricing = this.sessionPrices[sessionType];
         if (!pricing) throw new Error('Invalid session type');
@@ -415,27 +564,24 @@ class PayPerSessionManager {
         try {
             console.log(`Creating ${sessionType} invoice for ${pricing.sats} sats...`);
 
-            // Проверка доступности API с rate limiting
             const now = Date.now();
             if (now - this.lastApiCall < this.apiCallMinInterval) {
                 throw new Error('API rate limit: please wait before next request');
             }
             this.lastApiCall = now;
 
-            // Проверка health API
             const healthCheck = await fetch(`${this.verificationConfig.apiUrl}/api/v1/health`, {
                 method: 'GET',
                 headers: {
                     'X-Api-Key': this.verificationConfig.apiKey
                 },
-                signal: AbortSignal.timeout(5000) // 5 секунд timeout
+                signal: AbortSignal.timeout(5000)
             });
 
             if (!healthCheck.ok) {
                 throw new Error(`LNbits API unavailable: ${healthCheck.status}`);
             }
 
-            // Создание invoice
             const response = await fetch(`${this.verificationConfig.apiUrl}/api/v1/payments`, {
                 method: 'POST',
                 headers: {
@@ -443,13 +589,13 @@ class PayPerSessionManager {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    out: false, // incoming payment
+                    out: false,
                     amount: pricing.sats,
                     memo: `SecureBit.chat ${sessionType} session (${pricing.hours}h) - ${Date.now()}`,
                     unit: 'sat',
-                    expiry: this.verificationConfig.invoiceExpiryMinutes * 60 // В секундах
+                    expiry: this.verificationConfig.invoiceExpiryMinutes * 60
                 }),
-                signal: AbortSignal.timeout(10000) // 10 секунд timeout
+                signal: AbortSignal.timeout(10000)
             });
 
             if (!response.ok) {
@@ -478,7 +624,6 @@ class PayPerSessionManager {
         } catch (error) {
             console.error('❌ Lightning invoice creation failed:', error);
             
-            // Для demo режима создаем фиктивный invoice
             if (this.verificationConfig.isDemo && error.message.includes('API')) {
                 console.log('🔄 Creating demo invoice for testing...');
                 return this.createDemoInvoice(sessionType);
@@ -488,7 +633,7 @@ class PayPerSessionManager {
         }
     }
 
-    // Создание demo invoice для тестирования
+    // Creating a demo invoice for testing
     createDemoInvoice(sessionType) {
         const pricing = this.sessionPrices[sessionType];
         const demoHash = Array.from(crypto.getRandomValues(new Uint8Array(32)))
@@ -501,18 +646,17 @@ class PayPerSessionManager {
             amount: pricing.sats,
             sessionType: sessionType,
             createdAt: Date.now(),
-            expiresAt: Date.now() + (5 * 60 * 1000), // 5 минут
+            expiresAt: Date.now() + (5 * 60 * 1000),
             description: `SecureBit.chat ${sessionType} session (DEMO)`,
             isDemo: true
         };
     }
 
-    // Проверка статуса платежа через LNbits
+    // Checking payment status via LNbits
     async checkPaymentStatus(checkingId) {
         try {
             console.log(`🔍 Checking payment status for: ${checkingId?.substring(0, 8)}...`);
 
-            // Rate limiting
             const now = Date.now();
             if (now - this.lastApiCall < this.apiCallMinInterval) {
                 throw new Error('API rate limit exceeded');
@@ -525,7 +669,7 @@ class PayPerSessionManager {
                     'X-Api-Key': this.verificationConfig.apiKey,
                     'Content-Type': 'application/json'
                 },
-                signal: AbortSignal.timeout(10000) // 10 секунд timeout
+                signal: AbortSignal.timeout(10000)
             });
 
             if (!response.ok) {
@@ -550,7 +694,6 @@ class PayPerSessionManager {
         } catch (error) {
             console.error('❌ Payment status check error:', error);
             
-            // Для demo режима возвращаем фиктивный статус
             if (this.verificationConfig.isDemo && error.message.includes('API')) {
                 console.log('🔄 Returning demo payment status...');
                 return {
@@ -567,7 +710,7 @@ class PayPerSessionManager {
         }
     }
 
-    // Верификация платежа через LNbits API
+    // Payment verification via LNbits API
     async verifyPaymentLNbits(preimage, paymentHash) {
         try {
             console.log(`🔐 Verifying payment via LNbits API...`);
@@ -576,7 +719,6 @@ class PayPerSessionManager {
                 throw new Error('LNbits API configuration missing');
             }
 
-            // Rate limiting
             const now = Date.now();
             if (now - this.lastApiCall < this.apiCallMinInterval) {
                 throw new Error('API rate limit: please wait before next verification');
@@ -589,7 +731,7 @@ class PayPerSessionManager {
                     'X-Api-Key': this.verificationConfig.apiKey,
                     'Content-Type': 'application/json'
                 },
-                signal: AbortSignal.timeout(10000) // 10 секунд timeout
+                signal: AbortSignal.timeout(10000)
             });
 
             if (!response.ok) {
@@ -601,15 +743,13 @@ class PayPerSessionManager {
             const paymentData = await response.json();
             console.log('📋 Payment verification data received from LNbits');
             
-            // Строгая проверка всех условий
             const isPaid = paymentData.paid === true;
             const preimageMatches = paymentData.preimage === preimage;
             const amountValid = paymentData.amount >= this.minimumPaymentSats;
             
-            // Проверка возраста платежа (не старше 24 часов)
             const paymentTimestamp = paymentData.timestamp || paymentData.time || 0;
-            const paymentAge = now - (paymentTimestamp * 1000); // LNbits timestamp в секундах
-            const maxPaymentAge = 24 * 60 * 60 * 1000; // 24 часа
+            const paymentAge = now - (paymentTimestamp * 1000);
+            const maxPaymentAge = 24 * 60 * 60 * 1000;
             
             if (paymentAge > maxPaymentAge && paymentTimestamp > 0) {
                 throw new Error(`Payment too old: ${Math.round(paymentAge / (60 * 60 * 1000))} hours (max: 24h)`);
@@ -659,15 +799,14 @@ class PayPerSessionManager {
     }
 
     // ============================================
-    // ОСНОВНАЯ ЛОГИКА ВЕРИФИКАЦИИ ПЛАТЕЖЕЙ
+    // BASIC LOGIC OF PAYMENT VERIFICATION
     // ============================================
 
-    // Главный метод верификации платежей
+    // The main method of payment verification
     async verifyPayment(preimage, paymentHash) {
         console.log(`🔐 Starting payment verification...`);
         
         try {
-            // Этап 1: Базовые проверки формата
             if (!preimage || !paymentHash) {
                 throw new Error('Missing preimage or payment hash');
             }
@@ -676,37 +815,19 @@ class PayPerSessionManager {
                 throw new Error('Preimage and payment hash must be strings');
             }
             
-            // Этап 2: Специальная обработка demo preimage
+            // Special demo preimage processing with ENHANCED checks
             if (this.isDemoPreimage(preimage)) {
                 console.log('🎮 Processing demo session verification...');
                 
-                // Проверяем лимиты demo сессий
-                const userFingerprint = this.generateUserFingerprint();
-                const demoCheck = this.checkDemoSessionLimits(userFingerprint);
-                
-                if (!demoCheck.allowed) {
-                    return {
-                        verified: false,
-                        reason: demoCheck.message,
-                        stage: 'demo_limits',
-                        demoLimited: true,
-                        timeUntilNext: demoCheck.timeUntilNext,
-                        remaining: demoCheck.remaining
-                    };
-                }
-                
-                // Криптографическая проверка demo preimage
+                // Cryptographic verification already includes all necessary checks
                 const cryptoValid = await this.verifyCryptographically(preimage, paymentHash);
                 if (!cryptoValid) {
                     return { 
                         verified: false, 
-                        reason: 'Demo preimage cryptographic verification failed',
+                        reason: 'Demo preimage verification failed',
                         stage: 'crypto'
                     };
                 }
-                
-                // Регистрируем использование demo сессии
-                this.registerDemoSessionUsage(userFingerprint);
                 
                 console.log('✅ Demo session verified successfully');
                 return { 
@@ -714,12 +835,11 @@ class PayPerSessionManager {
                     method: 'demo',
                     sessionType: 'demo',
                     isDemo: true,
-                    warning: 'Demo session - limited duration (6 minutes)',
-                    remaining: demoCheck.remaining - 1
+                    warning: 'Demo session - limited duration (6 minutes)'
                 };
             }
             
-            // Этап 3: Криптографическая проверка для обычных preimage (ОБЯЗАТЕЛЬНАЯ)
+            // Cryptographic verification for regular preimage
             const cryptoValid = await this.verifyCryptographically(preimage, paymentHash);
             if (!cryptoValid) {
                 return { 
@@ -731,7 +851,7 @@ class PayPerSessionManager {
 
             console.log('✅ Cryptographic verification passed');
 
-            // Этап 4: Проверка через Lightning Network (если не demo режим)
+            // Check via Lightning Network (if not demo mode)
             if (!this.verificationConfig.isDemo) {
                 switch (this.verificationConfig.method) {
                     case 'lnbits':
@@ -746,30 +866,6 @@ class PayPerSessionManager {
                         }
                         return lnbitsResult;
                         
-                    case 'lnd':
-                        const lndResult = await this.verifyPaymentLND(preimage, paymentHash);
-                        return lndResult.verified ? lndResult : { 
-                            verified: false, 
-                            reason: 'LND verification failed',
-                            stage: 'lightning'
-                        };
-                        
-                    case 'cln':
-                        const clnResult = await this.verifyPaymentCLN(preimage, paymentHash);
-                        return clnResult.verified ? clnResult : { 
-                            verified: false, 
-                            reason: 'CLN verification failed',
-                            stage: 'lightning'
-                        };
-                        
-                    case 'btcpay':
-                        const btcpayResult = await this.verifyPaymentBTCPay(preimage, paymentHash);
-                        return btcpayResult.verified ? btcpayResult : { 
-                            verified: false, 
-                            reason: 'BTCPay verification failed',
-                            stage: 'lightning'
-                        };
-                    
                     default:
                         console.warn('Unknown verification method, using crypto-only verification');
                         return { 
@@ -779,7 +875,6 @@ class PayPerSessionManager {
                         };
                 }
             } else {
-                // Demo режим для обычных платежей (только для разработки)
                 console.warn('🚨 DEMO MODE: Lightning payment verification bypassed - FOR DEVELOPMENT ONLY');
                 return { 
                     verified: true, 
@@ -799,15 +894,17 @@ class PayPerSessionManager {
     }
 
     // ============================================
-    // УПРАВЛЕНИЕ СЕССИЯМИ
+    // SESSION MANAGEMENT
     // ============================================
 
-    // Безопасная активация сессии
+    // ============================================
+    // REWORKED session activation methods
+    // ============================================
+
     async safeActivateSession(sessionType, preimage, paymentHash) {
         try {
             console.log(`🚀 Attempting to activate ${sessionType} session...`);
             
-            // Валидация входных данных
             if (!sessionType || !preimage || !paymentHash) {
                 return { 
                     success: false, 
@@ -815,17 +912,12 @@ class PayPerSessionManager {
                 };
             }
             
-            // Валидация типа сессии
             try {
                 this.validateSessionType(sessionType);
             } catch (error) {
-                return { 
-                    success: false, 
-                    reason: error.message 
-                };
+                return { success: false, reason: error.message };
             }
             
-            // Проверка существующей активной сессии
             if (this.hasActiveSession()) {
                 return { 
                     success: false, 
@@ -833,7 +925,6 @@ class PayPerSessionManager {
                 };
             }
             
-            // Специальная обработка demo сессий
             if (sessionType === 'demo') {
                 if (!this.isDemoPreimage(preimage)) {
                     return {
@@ -842,23 +933,48 @@ class PayPerSessionManager {
                     };
                 }
                 
-                // Дополнительная проверка лимитов demo
+                // ADDITIONAL check at activation level
                 const userFingerprint = this.generateUserFingerprint();
                 const demoCheck = this.checkDemoSessionLimits(userFingerprint);
                 
                 if (!demoCheck.allowed) {
-                    return {
-                        success: false,
-                        reason: demoCheck.message,
-                        demoLimited: true,
-                        timeUntilNext: demoCheck.timeUntilNext,
-                        remaining: demoCheck.remaining
-                    };
+                    console.log(`⚠️ Demo session cooldown active, but allowing activation for development`);
+                    
+                    if (demoCheck.reason === 'global_limit_exceeded') {
+                        return {
+                            success: false,
+                            reason: demoCheck.message,
+                            demoLimited: true,
+                            timeUntilNext: demoCheck.timeUntilNext,
+                            remaining: demoCheck.remaining
+                        };
+                    }
+                    
+                    console.log(`🔄 Bypassing demo cooldown for development purposes`);
+                }
+                
+                if (this.activeDemoSessions.has(preimage)) {
+                    if (!this.currentSession || !this.hasActiveSession()) {
+                        console.log(`🔄 Demo session with preimage ${preimage.substring(0, 16)}... was interrupted, allowing reactivation`);
+                        this.activeDemoSessions.delete(preimage);
+                    } else {
+                        return {
+                            success: false,
+                            reason: 'Demo session with this preimage is already active',
+                            demoLimited: true
+                        };
+                    }
                 }
             }
             
-            // Верификация платежа
-            const verificationResult = await this.verifyPayment(preimage, paymentHash);
+            let verificationResult;
+            
+            if (sessionType === 'demo') {
+                console.log('🎮 Using special demo verification for activation...');
+                verificationResult = await this.verifyDemoSessionForActivation(preimage, paymentHash);
+            } else {
+                verificationResult = await this.verifyPayment(preimage, paymentHash);
+            }
             
             if (!verificationResult.verified) {
                 return {
@@ -872,7 +988,7 @@ class PayPerSessionManager {
                 };
             }
             
-            // Активация сессии
+            // Session activation
             const session = this.activateSession(sessionType, preimage);
             
             console.log(`✅ Session activated successfully: ${sessionType} via ${verificationResult.method}`);
@@ -898,25 +1014,21 @@ class PayPerSessionManager {
         }
     }
 
-    // Активация сессии с уникальным ID
+    // REWORKED session activation
     activateSession(sessionType, preimage) {
-        // Очищаем предыдущую сессию
         this.cleanup();
 
         const pricing = this.sessionPrices[sessionType];
         const now = Date.now();
         
-        // Для demo сессий ограничиваем время
         let duration;
         if (sessionType === 'demo') {
-            duration = this.demoSessionMaxDuration; // 6 минут
+            duration = this.demoSessionMaxDuration;
         } else {
-            duration = pricing.hours * 60 * 60 * 1000; // Обычная длительность
+            duration = pricing.hours * 60 * 60 * 1000;
         }
         
         const expiresAt = now + duration;
-        
-        // Генерируем уникальный ID сессии
         const sessionId = Array.from(crypto.getRandomValues(new Uint8Array(16)))
             .map(b => b.toString(16).padStart(2, '0')).join('');
 
@@ -925,19 +1037,93 @@ class PayPerSessionManager {
             type: sessionType,
             startTime: now,
             expiresAt: expiresAt,
-            preimage: preimage, // Сохраняем для возможной проверки
+            preimage: preimage,
             isDemo: sessionType === 'demo'
         };
 
         this.startSessionTimer();
         
+        // IMPORTANT: Set up automatic cleaning for demo sessions
+        if (sessionType === 'demo') {
+            setTimeout(() => {
+                this.handleDemoSessionExpiry(preimage);
+            }, duration);
+        }
+        
         const durationMinutes = Math.round(duration / (60 * 1000));
         console.log(`📅 Session ${sessionId.substring(0, 8)}... activated for ${durationMinutes} minutes`);
+        
+        if (sessionType === 'demo') {
+            this.activeDemoSessions.add(preimage);
+            this.usedPreimages.add(preimage);
+            console.log(`🌐 Demo session added to active sessions. Total: ${this.activeDemoSessions.size}/${this.maxGlobalDemoSessions}`);
+            
+            if (window.DEBUG_MODE) {
+                console.log(`🔍 Demo session debug:`, {
+                    sessionId: sessionId.substring(0, 8),
+                    duration: durationMinutes + ' minutes',
+                    expiresAt: new Date(expiresAt).toLocaleTimeString(),
+                    currentTime: new Date(now).toLocaleTimeString(),
+                    timeLeft: this.getTimeLeft() + 'ms'
+                });
+            }
+        }
+        
+        setTimeout(() => {
+            this.notifySessionActivated();
+        }, 100);
         
         return this.currentSession;
     }
 
-    // Запуск таймера сессии
+    notifySessionActivated() {
+        if (!this.currentSession) return;
+        
+        const timeLeft = this.getTimeLeft();
+        const sessionType = this.currentSession.type;
+        
+        console.log(`🎯 Notifying UI about session activation:`, {
+            timeLeft: Math.floor(timeLeft / 1000) + 's',
+            sessionType: sessionType,
+            sessionId: this.currentSession.id.substring(0, 8),
+            isDemo: this.currentSession.isDemo
+        });
+        
+        if (window.updateSessionTimer) {
+            window.updateSessionTimer(timeLeft, sessionType);
+        }
+        
+        document.dispatchEvent(new CustomEvent('session-activated', {
+            detail: {
+                sessionId: this.currentSession.id,
+                timeLeft: timeLeft,
+                sessionType: sessionType,
+                isDemo: this.currentSession.isDemo,
+                timestamp: Date.now()
+            }
+        }));
+        
+        if (window.forceUpdateHeader) {
+            window.forceUpdateHeader(timeLeft, sessionType);
+        }
+
+        console.log(`🔄 Forcing session manager state update...`);
+        if (window.debugSessionManager) {
+            window.debugSessionManager();
+        }
+    }
+
+    handleDemoSessionExpiry(preimage) {
+        if (this.currentSession && this.currentSession.preimage === preimage) {
+            const userFingerprint = this.generateUserFingerprint();
+            const sessionDuration = Date.now() - this.currentSession.startTime;
+            
+            this.registerDemoSessionCompletion(userFingerprint, sessionDuration, preimage);
+            
+            console.log(`⏰ Demo session auto-expired for preimage ${preimage.substring(0, 16)}...`);
+        }
+    }
+
     startSessionTimer() {
         if (this.sessionTimer) {
             clearInterval(this.sessionTimer);
@@ -947,10 +1133,9 @@ class PayPerSessionManager {
             if (!this.hasActiveSession()) {
                 this.expireSession();
             }
-        }, 60000); // Проверяем каждую минуту
+        }, 60000);
     }
 
-    // Истечение сессии
     expireSession() {
         if (this.sessionTimer) {
             clearInterval(this.sessionTimer);
@@ -958,6 +1143,13 @@ class PayPerSessionManager {
         }
         
         const expiredSession = this.currentSession;
+        
+        if (expiredSession && expiredSession.isDemo) {
+            const userFingerprint = this.generateUserFingerprint();
+            const sessionDuration = Date.now() - expiredSession.startTime;
+            this.registerDemoSessionCompletion(userFingerprint, sessionDuration, expiredSession.preimage);
+        }
+        
         this.currentSession = null;
         
         if (expiredSession) {
@@ -969,40 +1161,38 @@ class PayPerSessionManager {
         }
     }
 
-    // Проверка активной сессии
     hasActiveSession() {
         if (!this.currentSession) return false;
         const isActive = Date.now() < this.currentSession.expiresAt;
         
         if (!isActive && this.currentSession) {
-            // Сессия истекла, очищаем
             this.currentSession = null;
         }
         
         return isActive;
     }
 
-    // Получение оставшегося времени сессии
     getTimeLeft() {
         if (!this.currentSession) return 0;
         return Math.max(0, this.currentSession.expiresAt - Date.now());
     }
 
-    // Принудительное обновление таймера (для UI)
     forceUpdateTimer() {
         if (this.currentSession) {
             const timeLeft = this.getTimeLeft();
-            console.log(`⏱️ Timer updated: ${Math.ceil(timeLeft / 1000)}s left`);
+            if (window.DEBUG_MODE && Math.floor(Date.now() / 30000) !== Math.floor((Date.now() - 1000) / 30000)) {
+                console.log(`⏱️ Timer updated: ${Math.ceil(timeLeft / 1000)}s left`);
+            }
             return timeLeft;
         }
         return 0;
     }
 
     // ============================================
-    // DEMO РЕЖИМ: Пользовательские методы
+    // DEMO MODE: Custom Methods
     // ============================================
 
-    // Создание demo сессии для пользователя
+    // UPDATED demo session creation
     createDemoSession() {
         const userFingerprint = this.generateUserFingerprint();
         const demoCheck = this.checkDemoSessionLimits(userFingerprint);
@@ -1012,13 +1202,24 @@ class PayPerSessionManager {
                 success: false,
                 reason: demoCheck.message,
                 timeUntilNext: demoCheck.timeUntilNext,
-                remaining: demoCheck.remaining
+                remaining: demoCheck.remaining,
+                blockingReason: demoCheck.reason
+            };
+        }
+        
+        // Checking the global limit
+        if (this.activeDemoSessions.size >= this.maxGlobalDemoSessions) {
+            return {
+                success: false,
+                reason: `Too many demo sessions active globally (${this.activeDemoSessions.size}/${this.maxGlobalDemoSessions}). Please try again later.`,
+                blockingReason: 'global_limit',
+                globalActive: this.activeDemoSessions.size,
+                globalLimit: this.maxGlobalDemoSessions
             };
         }
         
         try {
             const demoPreimage = this.generateSecureDemoPreimage();
-            // Для demo сессий paymentHash не используется, но создаем для совместимости
             const demoPaymentHash = 'demo_' + Array.from(crypto.getRandomValues(new Uint8Array(16)))
                 .map(b => b.toString(16).padStart(2, '0')).join('');
             
@@ -1030,7 +1231,9 @@ class PayPerSessionManager {
                 duration: this.sessionPrices.demo.hours,
                 durationMinutes: Math.round(this.demoSessionMaxDuration / (60 * 1000)),
                 warning: `Demo session - limited to ${Math.round(this.demoSessionMaxDuration / (60 * 1000))} minutes`,
-                remaining: demoCheck.remaining - 1
+                remaining: demoCheck.remaining - 1,
+                globalActive: this.activeDemoSessions.size + 1,
+                globalLimit: this.maxGlobalDemoSessions
             };
         } catch (error) {
             console.error('Failed to create demo session:', error);
@@ -1042,7 +1245,8 @@ class PayPerSessionManager {
         }
     }
 
-    // Получение информации о demo лимитах
+
+    // UPDATED information about demo limits
     getDemoSessionInfo() {
         const userFingerprint = this.generateUserFingerprint();
         const userData = this.demoSessions.get(userFingerprint);
@@ -1055,48 +1259,97 @@ class PayPerSessionManager {
                 total: this.maxDemoSessionsPerUser,
                 nextAvailable: 'immediately',
                 cooldownMinutes: 0,
-                durationMinutes: Math.round(this.demoSessionMaxDuration / (60 * 1000))
+                durationMinutes: Math.round(this.demoSessionMaxDuration / (60 * 1000)),
+                canUseNow: this.activeDemoSessions.size < this.maxGlobalDemoSessions,
+                globalActive: this.activeDemoSessions.size,
+                globalLimit: this.maxGlobalDemoSessions,
+                debugInfo: 'New user, no restrictions'
             };
         }
         
-        // Подсчитываем активные сессии
-        const activeSessions = userData.sessions.filter(session => 
+        // Counting sessions for the last 24 hours
+        const sessionsLast24h = userData.sessions.filter(session => 
             now - session.timestamp < this.demoCooldownPeriod
         );
         
-        const available = Math.max(0, this.maxDemoSessionsPerUser - activeSessions.length);
+        const available = Math.max(0, this.maxDemoSessionsPerUser - sessionsLast24h.length);
         
-        // Рассчитываем кулдаун
+        // We check all possible blockages
         let cooldownMs = 0;
         let nextAvailable = 'immediately';
+        let blockingReason = null;
+        let debugInfo = '';
         
-        if (available === 0) {
-            // Если лимит исчерпан, показываем время до освобождения слота
-            const oldestSession = Math.min(...activeSessions.map(s => s.timestamp));
+        // Global limit
+        if (this.activeDemoSessions.size >= this.maxGlobalDemoSessions) {
+            nextAvailable = 'when global limit decreases';
+            blockingReason = 'global_limit';
+            debugInfo = `Global limit: ${this.activeDemoSessions.size}/${this.maxGlobalDemoSessions}`;
+        }
+        // Daily limit
+        else if (available === 0) {
+            const oldestSession = Math.min(...sessionsLast24h.map(s => s.timestamp));
             cooldownMs = this.demoCooldownPeriod - (now - oldestSession);
             nextAvailable = `${Math.ceil(cooldownMs / (60 * 1000))} minutes`;
-        } else if (userData.lastUsed && (now - userData.lastUsed) < this.demoSessionCooldown) {
-            // Если есть слоты, но действует кулдаун между сессиями
+            blockingReason = 'daily_limit';
+            debugInfo = `Daily limit reached: ${sessionsLast24h.length}/${this.maxDemoSessionsPerUser}`;
+        }
+        // Cooldown between sessions
+        else if (userData.lastUsed && (now - userData.lastUsed) < this.demoSessionCooldown) {
             cooldownMs = this.demoSessionCooldown - (now - userData.lastUsed);
             nextAvailable = `${Math.ceil(cooldownMs / (60 * 1000))} minutes`;
+            blockingReason = 'session_cooldown';
+            const lastUsedMinutes = Math.round((now - userData.lastUsed) / (60 * 1000));
+            debugInfo = `Cooldown active: last used ${lastUsedMinutes}min ago, need ${Math.ceil(cooldownMs / (60 * 1000))}min more`;
         }
+        // Cooldown after completed session
+        else {
+            const completedSessions = this.completedDemoSessions.get(userFingerprint) || [];
+            const recentCompletedSessions = completedSessions.filter(session =>
+                now - session.endTime < this.minTimeBetweenCompletedSessions
+            );
+            
+            if (recentCompletedSessions.length > 0) {
+                const lastCompletedSession = Math.max(...recentCompletedSessions.map(s => s.endTime));
+                cooldownMs = this.minTimeBetweenCompletedSessions - (now - lastCompletedSession);
+                nextAvailable = `${Math.ceil(cooldownMs / (60 * 1000))} minutes`;
+                blockingReason = 'completion_cooldown';
+                const completedMinutes = Math.round((now - lastCompletedSession) / (60 * 1000));
+                debugInfo = `Completion cooldown: last session ended ${completedMinutes}min ago`;
+            } else {
+                debugInfo = `Ready to use: ${available} sessions available`;
+            }
+        }
+        
+        const canUseNow = available > 0 && 
+                         cooldownMs <= 0 && 
+                         this.activeDemoSessions.size < this.maxGlobalDemoSessions;
         
         return {
             available: available,
-            used: activeSessions.length,
+            used: sessionsLast24h.length,
             total: this.maxDemoSessionsPerUser,
             nextAvailable: nextAvailable,
             cooldownMinutes: Math.ceil(cooldownMs / (60 * 1000)),
             durationMinutes: Math.round(this.demoSessionMaxDuration / (60 * 1000)),
-            canUseNow: available > 0 && cooldownMs <= 0
+            canUseNow: canUseNow,
+            blockingReason: blockingReason,
+            globalActive: this.activeDemoSessions.size,
+            globalLimit: this.maxGlobalDemoSessions,
+            completionCooldownMinutes: Math.round(this.minTimeBetweenCompletedSessions / (60 * 1000)),
+            sessionCooldownMinutes: Math.round(this.demoSessionCooldown / (60 * 1000)),
+            debugInfo: debugInfo,
+            lastUsed: userData.lastUsed ? new Date(userData.lastUsed).toLocaleString() : 'Never'
         };
     }
 
+
+
     // ============================================
-    // ДОПОЛНИТЕЛЬНЫЕ МЕТОДЫ ВЕРИФИКАЦИИ
+    // ADDITIONAL VERIFICATION METHODS
     // ============================================
 
-    // Метод верификации через LND (Lightning Network Daemon)
+    // Verification method via LND (Lightning Network Daemon)
     async verifyPaymentLND(preimage, paymentHash) {
         try {
             if (!this.verificationConfig.nodeUrl || !this.verificationConfig.macaroon) {
@@ -1134,7 +1387,7 @@ class PayPerSessionManager {
         }
     }
 
-    // Метод верификации через CLN (Core Lightning)
+    // Verification method via CLN (Core Lightning)
     async verifyPaymentCLN(preimage, paymentHash) {
         try {
             if (!this.verificationConfig.nodeUrl) {
@@ -1177,7 +1430,7 @@ class PayPerSessionManager {
         }
     }
 
-    // Метод верификации через BTCPay Server
+    // Verification method via BTCPay Server
     async verifyPaymentBTCPay(preimage, paymentHash) {
         try {
             if (!this.verificationConfig.apiUrl || !this.verificationConfig.apiKey) {
@@ -1218,20 +1471,18 @@ class PayPerSessionManager {
     }
 
     // ============================================
-    // UTILITY МЕТОДЫ
+    // UTILITY METHODS
     // ============================================
 
-    // Создание обычного invoice (не demo)
+    // Creating a regular invoice (not a demo)
     createInvoice(sessionType) {
         this.validateSessionType(sessionType);
         const pricing = this.sessionPrices[sessionType];
 
-        // Генерируем криптографически стойкий payment hash
         const randomBytes = crypto.getRandomValues(new Uint8Array(32));
         const timestamp = Date.now();
         const sessionEntropy = crypto.getRandomValues(new Uint8Array(16));
         
-        // Комбинируем источники энтропии
         const combinedEntropy = new Uint8Array(48);
         combinedEntropy.set(randomBytes, 0);
         combinedEntropy.set(new Uint8Array(new BigUint64Array([BigInt(timestamp)]).buffer), 32);
@@ -1252,12 +1503,12 @@ class PayPerSessionManager {
         };
     }
 
-    // Проверка возможности активации сессии
+    // Checking if a session can be activated
     canActivateSession() {
         return !this.hasActiveSession();
     }
 
-    // Сброс сессии (при ошибках безопасности)
+    // Reset session (if there are security errors)
     resetSession() {
         if (this.sessionTimer) {
             clearInterval(this.sessionTimer);
@@ -1265,6 +1516,14 @@ class PayPerSessionManager {
         }
         
         const resetSession = this.currentSession;
+        
+        // IMPORTANT: For demo sessions, we register forced termination
+        if (resetSession && resetSession.isDemo) {
+            const userFingerprint = this.generateUserFingerprint();
+            const sessionDuration = Date.now() - resetSession.startTime;
+            this.registerDemoSessionCompletion(userFingerprint, sessionDuration, resetSession.preimage);
+        }
+        
         this.currentSession = null;
         
         if (resetSession) {
@@ -1272,23 +1531,19 @@ class PayPerSessionManager {
         }
     }
 
-    // Очистка старых preimage (каждые 24 часа)
+    // Cleaning old preimages (every 24 hours)
     startPreimageCleanup() {
         this.preimageCleanupInterval = setInterval(() => {
-            // В продакшене preimage должны храниться в защищенной БД permanently
-            // Здесь упрощенная версия для управления памятью
             if (this.usedPreimages.size > 10000) {
-                // В реальном приложении нужно удалять только старые preimage
                 const oldSize = this.usedPreimages.size;
                 this.usedPreimages.clear();
                 console.log(`🧹 Cleaned ${oldSize} old preimages for memory management`);
             }
-        }, 24 * 60 * 60 * 1000); // 24 часа
+        }, 24 * 60 * 60 * 1000);
     }
 
-    // Полная очистка менеджера
+    // Complete manager cleanup
     cleanup() {
-        // Очистка таймеров
         if (this.sessionTimer) {
             clearInterval(this.sessionTimer);
             this.sessionTimer = null;
@@ -1298,20 +1553,24 @@ class PayPerSessionManager {
             this.preimageCleanupInterval = null;
         }
         
-        // Очистка текущей сессии
-        this.currentSession = null;
+        // IMPORTANT: We register the end of the current demo session during cleanup
+        if (this.currentSession && this.currentSession.isDemo) {
+            const userFingerprint = this.generateUserFingerprint();
+            const sessionDuration = Date.now() - this.currentSession.startTime;
+            this.registerDemoSessionCompletion(userFingerprint, sessionDuration, this.currentSession.preimage);
+        }
         
-        // В продакшене НЕ очищаем usedPreimages и demoSessions
-        // Они должны сохраняться между перезапусками
+        this.currentSession = null;
         
         console.log('🧹 PayPerSessionManager cleaned up');
     }
 
-    // Получение статистики использования
     getUsageStats() {
         const stats = {
             totalDemoUsers: this.demoSessions.size,
             usedPreimages: this.usedPreimages.size,
+            activeDemoSessions: this.activeDemoSessions.size,
+            globalDemoLimit: this.maxGlobalDemoSessions,
             currentSession: this.currentSession ? {
                 type: this.currentSession.type,
                 timeLeft: this.getTimeLeft(),
@@ -1319,12 +1578,155 @@ class PayPerSessionManager {
             } : null,
             config: {
                 maxDemoSessions: this.maxDemoSessionsPerUser,
-                demoCooldown: this.demoSessionCooldown / (60 * 1000), // в минутах
-                demoMaxDuration: this.demoSessionMaxDuration / (60 * 1000) // в минутах
+                demoCooldown: this.demoSessionCooldown / (60 * 1000),
+                demoMaxDuration: this.demoSessionMaxDuration / (60 * 1000),
+                completionCooldown: this.minTimeBetweenCompletedSessions / (60 * 1000)
             }
         };
         
         return stats;
+    }
+
+    getVerifiedDemoSession() {
+        const userFingerprint = this.generateUserFingerprint();
+        const userData = this.demoSessions.get(userFingerprint);
+        
+        console.log('🔍 Searching for verified demo session:', {
+            userFingerprint: userFingerprint.substring(0, 12),
+            hasUserData: !!userData,
+            sessionsCount: userData?.sessions?.length || 0,
+            currentSession: this.currentSession ? {
+                type: this.currentSession.type,
+                timeLeft: this.getTimeLeft(),
+                isActive: this.hasActiveSession()
+            } : null
+        });
+        
+        if (!userData || !userData.sessions || userData.sessions.length === 0) {
+            console.log('❌ No user data or sessions found');
+            return null;
+        }
+
+        const lastSession = userData.sessions[userData.sessions.length - 1];
+        if (!lastSession || !lastSession.preimage) {
+            console.log('❌ Last session is invalid:', lastSession);
+            return null;
+        }
+        
+        if (!this.isDemoPreimage(lastSession.preimage)) {
+            console.log('❌ Last session preimage is not demo format:', lastSession.preimage.substring(0, 16) + '...');
+            return null;
+        }
+        
+        if (this.activeDemoSessions.has(lastSession.preimage)) {
+            console.log('⚠️ Demo session is already in activeDemoSessions, checking if truly active...');
+            if (this.hasActiveSession()) {
+                console.log('❌ Demo session is truly active, cannot reactivate');
+                return null;
+            } else {
+                console.log('🔄 Demo session was interrupted, can be reactivated');
+            }
+        }
+        
+        const verifiedSession = {
+            preimage: lastSession.preimage,
+            paymentHash: lastSession.paymentHash || 'demo_' + Date.now(),
+            sessionType: 'demo',
+            timestamp: lastSession.timestamp
+        };
+        
+        console.log('✅ Found verified demo session:', {
+            preimage: verifiedSession.preimage.substring(0, 16) + '...',
+            timestamp: new Date(verifiedSession.timestamp).toLocaleTimeString(),
+            canActivate: !this.hasActiveSession()
+        });
+        
+        return verifiedSession;
+    }
+
+    createDemoSessionForActivation() {
+        const userFingerprint = this.generateUserFingerprint();
+        
+        if (this.activeDemoSessions.size >= this.maxGlobalDemoSessions) {
+            return {
+                success: false,
+                reason: `Too many demo sessions active globally (${this.activeDemoSessions.size}/${this.maxGlobalDemoSessions}). Please try again later.`,
+                blockingReason: 'global_limit'
+            };
+        }
+        
+        try {
+            const demoPreimage = this.generateSecureDemoPreimage();
+            const demoPaymentHash = 'demo_' + Array.from(crypto.getRandomValues(new Uint8Array(16)))
+                .map(b => b.toString(16).padStart(2, '0')).join('');
+            
+            console.log('🔄 Created demo session for activation:', {
+                preimage: demoPreimage.substring(0, 16) + '...',
+                paymentHash: demoPaymentHash.substring(0, 16) + '...'
+            });
+            
+            return {
+                success: true,
+                sessionType: 'demo',
+                preimage: demoPreimage,
+                paymentHash: demoPaymentHash,
+                duration: this.sessionPrices.demo.hours,
+                durationMinutes: Math.round(this.demoSessionMaxDuration / (60 * 1000)),
+                warning: `Demo session - limited to ${Math.round(this.demoSessionMaxDuration / (60 * 1000))} minutes`,
+                globalActive: this.activeDemoSessions.size + 1,
+                globalLimit: this.maxGlobalDemoSessions
+            };
+        } catch (error) {
+            console.error('Failed to create demo session for activation:', error);
+            return {
+                success: false,
+                reason: 'Failed to generate demo session for activation. Please try again.'
+            };
+        }
+    }
+
+    async verifyDemoSessionForActivation(preimage, paymentHash) {
+        console.log('🎮 Verifying demo session for activation (bypassing limits)...');
+        
+        try {
+            if (!preimage || !paymentHash) {
+                throw new Error('Missing preimage or payment hash');
+            }
+            
+            if (typeof preimage !== 'string' || typeof paymentHash !== 'string') {
+                throw new Error('Preimage and payment hash must be strings');
+            }
+            
+            if (!this.isDemoPreimage(preimage)) {
+                throw new Error('Invalid demo preimage format');
+            }
+            
+            const entropy = this.calculateEntropy(preimage);
+            if (entropy < 3.5) {
+                throw new Error(`Demo preimage has insufficient entropy: ${entropy.toFixed(2)}`);
+            }
+            
+            if (this.activeDemoSessions.has(preimage)) {
+                throw new Error('Demo session with this preimage is already active');
+            }
+            
+            console.log('✅ Demo session verified for activation successfully');
+            return { 
+                verified: true, 
+                method: 'demo-activation',
+                sessionType: 'demo',
+                isDemo: true,
+                warning: 'Demo session - limited duration (6 minutes)'
+            };
+            
+        } catch (error) {
+            console.error('❌ Demo session verification for activation failed:', error);
+            return { 
+                verified: false, 
+                reason: error.message,
+                stage: 'demo-activation'
+            };
+        }
     }
 }
 

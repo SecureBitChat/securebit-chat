@@ -219,11 +219,8 @@ button i {
     margin-right: 0.5rem;
 }
 
-/* Pay-per-session UI */
+/* Pay-per-session UI - Обновленный трехцветный таймер */
 .session-timer {
-    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
-    border: 1px solid rgba(249, 115, 22, 0.3);
-    color: white;
     padding: 8px 16px;
     border-radius: 8px;
     font-weight: 600;
@@ -231,16 +228,24 @@ button i {
     display: flex;
     align-items: center;
     gap: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    transition: all 0.5s ease;
 }
 
-.session-timer.warning {
-    background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%);
-    animation: pulse 2s ease-in-out infinite;
+.session-timer:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.session-timer.critical {
-    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-    animation: pulse 1s ease-in-out infinite;
+/* Анимация пульсации для красной зоны */
+@keyframes timer-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.session-timer.animate-pulse {
+    animation: timer-pulse 2s ease-in-out infinite;
 }
 
 /* Lightning button */

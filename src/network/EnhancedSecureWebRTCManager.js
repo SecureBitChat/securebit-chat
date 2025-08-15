@@ -87,11 +87,11 @@ class EnhancedSecureWebRTCManager {
     
     // 3. Fake Traffic Generation
     this.fakeTrafficConfig = {
-        enabled: false,
-        minInterval: 5000,          
-        maxInterval: 15000,
+        enabled: !window.DISABLE_FAKE_TRAFFIC, 
+        minInterval: 15000,        
+        maxInterval: 30000,       
         minSize: 32,
-        maxSize: 256,               
+        maxSize: 128,               
         patterns: ['heartbeat', 'status', 'sync']
     };
     this.fakeTrafficTimer = null;
@@ -112,9 +112,9 @@ class EnhancedSecureWebRTCManager {
     // 5. Decoy Channels
     this.decoyChannels = new Map();
     this.decoyChannelConfig = {
-        enabled: false,
-        maxDecoyChannels: 2,       
-        decoyChannelNames: ['status', 'heartbeat'],
+        enabled: !window.DISABLE_DECOY_CHANNELS, 
+        maxDecoyChannels: 1,       
+        decoyChannelNames: ['heartbeat'], 
         sendDecoyData: true,
         randomDecoyIntervals: true
     };
@@ -250,10 +250,26 @@ class EnhancedSecureWebRTCManager {
             return data;
         }
 
+            // FIX: Check that the data is actually encrypted
+        if (!(data instanceof ArrayBuffer) || data.byteLength < 20) {
+            if (window.DEBUG_MODE) {
+                console.log('📝 Data not encrypted or too short for nested decryption');
+            }
+            return data;
+        }
+
         try {
             const dataArray = new Uint8Array(data);
             const iv = dataArray.slice(0, 12);
             const encryptedData = dataArray.slice(12);
+            
+            // Check that there is data to decrypt
+            if (encryptedData.length === 0) {
+                if (window.DEBUG_MODE) {
+                    console.log('📝 No encrypted data found');
+                }
+                return data;
+            }
             
             // Decrypt nested layer
             const decrypted = await crypto.subtle.decrypt(
@@ -264,7 +280,16 @@ class EnhancedSecureWebRTCManager {
             
             return decrypted;
         } catch (error) {
-            console.error('❌ Nested decryption failed:', error);
+            // FIX: Better error handling
+            if (error.name === 'OperationError') {
+                if (window.DEBUG_MODE) {
+                    console.log('📝 Data not encrypted with nested encryption, skipping...');
+                }
+            } else {
+                if (window.DEBUG_MODE) {
+                    console.warn('⚠️ Nested decryption failed:', error.message);
+                }
+            }
             return data; // Fallback to original data
         }
     }
@@ -323,16 +348,34 @@ class EnhancedSecureWebRTCManager {
         try {
             const dataArray = new Uint8Array(data);
             
+            // Check for minimum data length (4 bytes for size + minimum 1 byte of data)
+            if (dataArray.length < 5) {
+                if (window.DEBUG_MODE) {
+                    console.warn('⚠️ Data too short for packet padding removal, skipping');
+                }
+                return data;
+            }
+            
             // Extract original size (first 4 bytes)
             const sizeView = new DataView(dataArray.buffer, 0, 4);
             const originalSize = sizeView.getUint32(0, false);
+            
+            // Checking the reasonableness of the size
+            if (originalSize <= 0 || originalSize > dataArray.length - 4) {
+                if (window.DEBUG_MODE) {
+                    console.warn('⚠️ Invalid packet padding size, skipping removal');
+                }
+                return data;
+            }
             
             // Extract original data
             const originalData = dataArray.slice(4, 4 + originalSize);
             
             return originalData.buffer;
         } catch (error) {
-            console.error('❌ Packet padding removal failed:', error);
+            if (window.DEBUG_MODE) {
+                console.error('❌ Packet padding removal failed:', error);
+            }
             return data; // Fallback to original data
         }
     }
@@ -362,15 +405,20 @@ class EnhancedSecureWebRTCManager {
                 const fakeMessage = this.generateFakeMessage();
                 await this.sendFakeMessage(fakeMessage);
                 
-                // Schedule next fake message with longer intervals
+                // FIX: Increase intervals to reduce load
                 const nextInterval = this.fakeTrafficConfig.randomDecoyIntervals ? 
                     Math.random() * (this.fakeTrafficConfig.maxInterval - this.fakeTrafficConfig.minInterval) + 
                     this.fakeTrafficConfig.minInterval :
                     this.fakeTrafficConfig.minInterval;
                 
-                this.fakeTrafficTimer = setTimeout(sendFakeMessage, nextInterval);
+                // Minimum interval 15 seconds for stability
+                const safeInterval = Math.max(nextInterval, 15000);
+                
+                this.fakeTrafficTimer = setTimeout(sendFakeMessage, safeInterval);
             } catch (error) {
-                console.error('❌ Fake traffic generation failed:', error);
+                if (window.DEBUG_MODE) {
+                    console.error('❌ Fake traffic generation failed:', error);
+                }
                 this.stopFakeTrafficGeneration();
             }
         };
@@ -406,8 +454,38 @@ class EnhancedSecureWebRTCManager {
         timestamp: Date.now(),
         size: size,
         isFakeTraffic: true, 
-        source: 'fake_traffic_generator' 
+        source: 'fake_traffic_generator',
+        fakeId: crypto.getRandomValues(new Uint32Array(1))[0].toString(36) // Уникальный ID
     };
+}
+
+// ============================================
+// EMERGENCY SHUT-OFF OF ADVANCED FUNCTIONS
+// ============================================
+
+emergencyDisableAdvancedFeatures() {
+    console.log('🚨 Emergency disabling advanced security features due to errors');
+    
+    // Disable problematic functions
+    this.securityFeatures.hasNestedEncryption = false;
+    this.securityFeatures.hasPacketReordering = false;
+    this.securityFeatures.hasAntiFingerprinting = false;
+    
+    // Disable configurations
+    this.reorderingConfig.enabled = false;
+    this.antiFingerprintingConfig.enabled = false;
+    
+    // Clear the buffers
+    this.packetBuffer.clear();
+    
+    // Stopping fake traffic
+    this.emergencyDisableFakeTraffic();
+    
+    console.log('✅ Advanced features disabled, keeping basic encryption');
+    
+    if (this.onMessage) {
+        this.onMessage('🚨 Advanced security features temporarily disabled due to compatibility issues', 'system');
+    }
 }
 
     async sendFakeMessage(fakeMessage) {
@@ -416,7 +494,10 @@ class EnhancedSecureWebRTCManager {
     }
 
     try {
-        console.log(`🎭 Sending fake message: ${fakeMessage.pattern} (${fakeMessage.size} bytes)`);
+
+        if (window.DEBUG_MODE) {
+            console.log(`🎭 Sending fake message: ${fakeMessage.pattern} (${fakeMessage.size} bytes)`);
+        }
         
         const fakeData = JSON.stringify({
             ...fakeMessage,
@@ -431,9 +512,13 @@ class EnhancedSecureWebRTCManager {
         
         this.dataChannel.send(encryptedFake);
         
-        console.log(`🎭 Fake message sent successfully: ${fakeMessage.pattern}`);
+        if (window.DEBUG_MODE) {
+            console.log(`🎭 Fake message sent successfully: ${fakeMessage.pattern}`);
+        }
     } catch (error) {
-        console.error('❌ Failed to send fake message:', error);
+        if (window.DEBUG_MODE) {
+            console.error('❌ Failed to send fake message:', error);
+        }
     }
 }
 
@@ -449,17 +534,23 @@ checkFakeTrafficStatus() {
         }
     };
     
-    console.log('🎭 Fake Traffic Status:', status);
+    if (window.DEBUG_MODE) {
+        console.log('🎭 Fake Traffic Status:', status);
+    }
     return status;
 }
 emergencyDisableFakeTraffic() {
-    console.log('🚨 Emergency disabling fake traffic');
+    if (window.DEBUG_MODE) {
+        console.log('🚨 Emergency disabling fake traffic');
+    }
     
     this.securityFeatures.hasFakeTraffic = false;
     this.fakeTrafficConfig.enabled = false;
     this.stopFakeTrafficGeneration();
     
-    console.log('✅ Fake traffic disabled');
+    if (window.DEBUG_MODE) {
+        console.log('✅ Fake traffic disabled');
+    }
     
     if (this.onMessage) {
         this.onMessage('🚨 Fake traffic emergency disabled', 'system');
@@ -630,30 +721,41 @@ emergencyDisableFakeTraffic() {
                 this.decoyChannels.set(channelName, decoyChannel);
             }
 
-            console.log(`🎭 Initialized ${numDecoyChannels} decoy channels`);
+            if (window.DEBUG_MODE) {
+                console.log(`🎭 Initialized ${numDecoyChannels} decoy channels`);
+            }
         } catch (error) {
-            console.error('❌ Failed to initialize decoy channels:', error);
+            if (window.DEBUG_MODE) {
+                console.error('❌ Failed to initialize decoy channels:', error);
+            }
         }
     }
 
     setupDecoyChannel(channel, channelName) {
         channel.onopen = () => {
-            console.log(`🎭 Decoy channel "${channelName}" opened`);
+            if (window.DEBUG_MODE) {
+                console.log(`🎭 Decoy channel "${channelName}" opened`);
+            }
             this.startDecoyTraffic(channel, channelName);
         };
 
         channel.onmessage = (event) => {
-            // Process decoy messages (usually just log them)
-            console.log(`🎭 Received decoy message on "${channelName}": ${event.data.length} bytes`);
+            if (window.DEBUG_MODE) {
+                console.log(`🎭 Received decoy message on "${channelName}": ${event.data?.length || 'undefined'} bytes`);
+            }
         };
 
         channel.onclose = () => {
-            console.log(`🎭 Decoy channel "${channelName}" closed`);
+            if (window.DEBUG_MODE) {
+                console.log(`🎭 Decoy channel "${channelName}" closed`);
+            }
             this.stopDecoyTraffic(channelName);
         };
 
         channel.onerror = (error) => {
-            console.error(`❌ Decoy channel "${channelName}" error:`, error);
+            if (window.DEBUG_MODE) {
+                console.error(`❌ Decoy channel "${channelName}" error:`, error);
+            }
         };
     }
 
@@ -667,19 +769,19 @@ emergencyDisableFakeTraffic() {
                 const decoyData = this.generateDecoyData(channelName);
                 channel.send(decoyData);
                 
-                // Schedule next decoy message
                 const interval = this.decoyChannelConfig.randomDecoyIntervals ?
-                    Math.random() * 5000 + 2000 : // 2-7 seconds
-                    3000; // Fixed 3 seconds
+                    Math.random() * 15000 + 10000 : 
+                    20000; 
                 
                 this.decoyTimers.set(channelName, setTimeout(() => sendDecoyData(), interval));
             } catch (error) {
-                console.error(`❌ Failed to send decoy data on "${channelName}":`, error);
+                if (window.DEBUG_MODE) {
+                    console.error(`❌ Failed to send decoy data on "${channelName}":`, error);
+                }
             }
         };
 
-        // Start decoy traffic with random initial delay
-        const initialDelay = Math.random() * 3000 + 1000; // 1-4 seconds
+        const initialDelay = Math.random() * 10000 + 5000; 
         this.decoyTimers.set(channelName, setTimeout(() => sendDecoyData(), initialDelay));
     }
 
@@ -776,85 +878,128 @@ emergencyDisableFakeTraffic() {
     }
 
     async processReorderedPacket(data) {
-        if (!this.reorderingConfig.enabled) {
+    if (!this.reorderingConfig.enabled) {
+        return this.processMessage(data);
+    }
+
+    try {
+        const dataArray = new Uint8Array(data);
+        const headerSize = this.reorderingConfig.useTimestamps ? 12 : 8;
+
+        if (dataArray.length < headerSize) {
+            if (window.DEBUG_MODE) {
+                console.warn('⚠️ Data too short for reordering headers, processing directly');
+            }
             return this.processMessage(data);
         }
+
+        const headerView = new DataView(dataArray.buffer, 0, headerSize);
+        let sequence = 0;
+        let timestamp = 0;
+        let dataSize = 0;
+
+        if (this.reorderingConfig.useSequenceNumbers) {
+            sequence = headerView.getUint32(0, false);
+        }
+
+        if (this.reorderingConfig.useTimestamps) {
+            timestamp = headerView.getUint32(4, false);
+        }
+
+        dataSize = headerView.getUint32(this.reorderingConfig.useTimestamps ? 8 : 4, false);
+
+        if (dataSize > dataArray.length - headerSize || dataSize <= 0) {
+            if (window.DEBUG_MODE) {
+                console.warn('⚠️ Invalid reordered packet data size, processing directly');
+            }
+            return this.processMessage(data);
+        }
+
+        const actualData = dataArray.slice(headerSize, headerSize + dataSize);
 
         try {
-            const dataArray = new Uint8Array(data);
-            const headerSize = this.reorderingConfig.useTimestamps ? 12 : 8;
-
-            if (dataArray.length < headerSize) {
-                // Too small to have headers, process as regular message
-                return this.processMessage(data);
-            }
-
-            // Extract headers
-            const headerView = new DataView(dataArray.buffer, 0, headerSize);
-            let sequence = 0;
-            let timestamp = 0;
-            let dataSize = 0;
-
-            if (this.reorderingConfig.useSequenceNumbers) {
-                sequence = headerView.getUint32(0, false);
-            }
-
-            if (this.reorderingConfig.useTimestamps) {
-                timestamp = headerView.getUint32(4, false);
-            }
-
-            dataSize = headerView.getUint32(this.reorderingConfig.useTimestamps ? 8 : 4, false);
-
-            // Extract actual data
-            const actualData = dataArray.slice(headerSize, headerSize + dataSize);
-
-            // Store packet in buffer
-            this.packetBuffer.set(sequence, {
-                data: actualData.buffer,
-                timestamp: timestamp
-            });
-
-            // Process packets in order
-            await this.processOrderedPackets();
-
-        } catch (error) {
-            console.error('❌ Failed to process reordered packet:', error);
-            // Fallback to direct processing
-            return this.processMessage(data);
-        }
-    }
-
-    async processOrderedPackets() {
-        const now = Date.now();
-        const timeout = this.reorderingConfig.reorderTimeout;
-
-        // Process packets in sequence order
-        while (true) {
-            const nextSequence = this.lastProcessedSequence + 1;
-            const packet = this.packetBuffer.get(nextSequence);
-
-            if (!packet) {
-                // Check for timeout on oldest packet
-                const oldestPacket = this.findOldestPacket();
-                if (oldestPacket && (now - oldestPacket.timestamp) > timeout) {
-                    console.warn(`⚠️ Packet ${oldestPacket.sequence} timed out, processing out of order`);
-                    await this.processMessage(oldestPacket.data);
-                    this.packetBuffer.delete(oldestPacket.sequence);
-                    this.lastProcessedSequence = oldestPacket.sequence;
-                } else {
-                    break; // No more packets to process
+            const textData = new TextDecoder().decode(actualData);
+            const content = JSON.parse(textData);
+            if (content.type === 'fake' || content.isFakeTraffic === true) {
+                if (window.DEBUG_MODE) {
+                    console.log(`🎭 BLOCKED: Reordered fake message: ${content.pattern || 'unknown'}`);
                 }
-            } else {
-                // Process packet in order
-                await this.processMessage(packet.data);
-                this.packetBuffer.delete(nextSequence);
-                this.lastProcessedSequence = nextSequence;
+                return; 
             }
+        } catch (e) {
+
         }
 
-        // Clean up old packets
-        this.cleanupOldPackets(now, timeout);
+        this.packetBuffer.set(sequence, {
+            data: actualData.buffer,
+            timestamp: timestamp || Date.now()
+        });
+
+        await this.processOrderedPackets();
+
+    } catch (error) {
+        console.error('❌ Failed to process reordered packet:', error);
+        return this.processMessage(data);
     }
+}
+
+// ============================================
+// IMPROVED PROCESSORDEREDPACKETS with filtering
+// ============================================
+
+async processOrderedPackets() {
+    const now = Date.now();
+    const timeout = this.reorderingConfig.reorderTimeout;
+
+    while (true) {
+        const nextSequence = this.lastProcessedSequence + 1;
+        const packet = this.packetBuffer.get(nextSequence);
+
+        if (!packet) {
+            const oldestPacket = this.findOldestPacket();
+            if (oldestPacket && (now - oldestPacket.timestamp) > timeout) {
+                console.warn(`⚠️ Packet ${oldestPacket.sequence} timed out, processing out of order`);
+                
+                try {
+                    const textData = new TextDecoder().decode(oldestPacket.data);
+                    const content = JSON.parse(textData);
+                    if (content.type === 'fake' || content.isFakeTraffic === true) {
+                        console.log(`🎭 BLOCKED: Timed out fake message: ${content.pattern || 'unknown'}`);
+                        this.packetBuffer.delete(oldestPacket.sequence);
+                        this.lastProcessedSequence = oldestPacket.sequence;
+                        continue; 
+                    }
+                } catch (e) {
+                }
+                
+                await this.processMessage(oldestPacket.data);
+                this.packetBuffer.delete(oldestPacket.sequence);
+                this.lastProcessedSequence = oldestPacket.sequence;
+            } else {
+                break; 
+            }
+        } else {
+            try {
+                const textData = new TextDecoder().decode(packet.data);
+                const content = JSON.parse(textData);
+                if (content.type === 'fake' || content.isFakeTraffic === true) {
+                    console.log(`🎭 BLOCKED: Ordered fake message: ${content.pattern || 'unknown'}`);
+                    this.packetBuffer.delete(nextSequence);
+                    this.lastProcessedSequence = nextSequence;
+                    continue; 
+                }
+            } catch (e) {
+            }
+            
+            await this.processMessage(packet.data);
+            this.packetBuffer.delete(nextSequence);
+            this.lastProcessedSequence = nextSequence;
+        }
+    }
+
+    this.cleanupOldPackets(now, timeout);
+}
+
 
     findOldestPacket() {
         let oldest = null;
@@ -1022,85 +1167,16 @@ emergencyDisableFakeTraffic() {
     // ENHANCED MESSAGE SENDING AND RECEIVING
     // ============================================
 
-    async applySecurityLayers(data, isFakeMessage = false) {
-    try {
-        let processedData = data;
-        
-        const status = this.getSecurityStatus();
-        console.log(`🔒 Applying security layers (Stage ${status.stage}):`, {
-            isFake: isFakeMessage,
-            dataType: typeof data,
-            dataLength: data?.length || data?.byteLength || 0,
-            activeFeatures: status.activeFeaturesCount
-        });
-
-        // 1. Преобразуем в ArrayBuffer если нужно
-        if (typeof processedData === 'string') {
-            processedData = new TextEncoder().encode(processedData).buffer;
-        }
-
-        // 2. Anti-Fingerprinting (только для настоящих сообщений, Stage 2+)
-        if (!isFakeMessage && this.securityFeatures.hasAntiFingerprinting && this.antiFingerprintingConfig.enabled) {
-            try {
-                processedData = this.applyAntiFingerprinting(processedData);
-            } catch (error) {
-                console.warn('⚠️ Anti-fingerprinting failed:', error.message);
-            }
-        }
-
-        // 3. Packet Padding (Stage 1+)
-        if (this.securityFeatures.hasPacketPadding && this.paddingConfig.enabled) {
-            try {
-                processedData = this.applyPacketPadding(processedData);
-            } catch (error) {
-                console.warn('⚠️ Packet padding failed:', error.message);
-            }
-        }
-
-        // 4. Reordering Headers (Stage 2+)
-        if (this.securityFeatures.hasPacketReordering && this.reorderingConfig.enabled) {
-            try {
-                processedData = this.addReorderingHeaders(processedData);
-            } catch (error) {
-                console.warn('⚠️ Reordering headers failed:', error.message);
-            }
-        }
-
-        // 5. Nested Encryption (Stage 1+)
-        if (this.securityFeatures.hasNestedEncryption && this.nestedEncryptionKey) {
-            try {
-                processedData = await this.applyNestedEncryption(processedData);
-            } catch (error) {
-                console.warn('⚠️ Nested encryption failed:', error.message);
-            }
-        }
-
-        // 6. Standard Encryption (всегда последний)
-        if (this.encryptionKey) {
-            try {
-                const dataString = new TextDecoder().decode(processedData);
-                processedData = await window.EnhancedSecureCryptoUtils.encryptData(dataString, this.encryptionKey);
-            } catch (error) {
-                console.warn('⚠️ Standard encryption failed:', error.message);
-            }
-        }
-
-        return processedData;
-
-    } catch (error) {
-        console.error('❌ Failed to apply security layers:', error);
-        return data;
-    }
-}
-
     async removeSecurityLayers(data) {
     try {
         const status = this.getSecurityStatus();
-        console.log(`🔍 removeSecurityLayers (Stage ${status.stage}):`, {
-            dataType: typeof data,
-            dataLength: data?.length || data?.byteLength || 0,
-            activeFeatures: status.activeFeaturesCount
-        });
+        if (window.DEBUG_MODE) {
+            console.log(`🔍 removeSecurityLayers (Stage ${status.stage}):`, {
+                dataType: typeof data,
+                dataLength: data?.length || data?.byteLength || 0,
+                activeFeatures: status.activeFeaturesCount
+            });
+        }
 
         if (!data) {
             console.warn('⚠️ Received empty data');
@@ -1116,19 +1192,33 @@ emergencyDisableFakeTraffic() {
                 
                 // PRIORITY ONE: Filtering out fake messages
                 if (jsonData.type === 'fake') {
-                    console.log(`🎭 Fake message filtered out: ${jsonData.pattern} (size: ${jsonData.size})`);
+                    if (window.DEBUG_MODE) {
+                        console.log(`🎭 Fake message filtered out: ${jsonData.pattern} (size: ${jsonData.size})`);
+                    }
                     return 'FAKE_MESSAGE_FILTERED'; 
                 }
                 
                 // System messages
-                if (jsonData.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'key_rotation_signal', 'key_rotation_ready'].includes(jsonData.type)) {
-                    console.log('🔧 System message detected:', jsonData.type);
+                if (jsonData.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'key_rotation_signal', 'key_rotation_ready', 'security_upgrade'].includes(jsonData.type)) {
+                    if (window.DEBUG_MODE) {
+                        console.log('🔧 System message detected:', jsonData.type);
+                    }
                     return data;
+                }
+                
+                // Regular text messages - extract the actual message text
+                if (jsonData.type === 'message') {
+                    if (window.DEBUG_MODE) {
+                        console.log('📝 Regular message detected, extracting text:', jsonData.data);
+                    }
+                    return jsonData.data; // Return the actual message text, not the JSON
                 }
                 
                 // Enhanced messages
                 if (jsonData.type === 'enhanced_message' && jsonData.data) {
-                    console.log('🔐 Enhanced message detected, decrypting...');
+                    if (window.DEBUG_MODE) {
+                        console.log('🔐 Enhanced message detected, decrypting...');
+                    }
                     
                     if (!this.encryptionKey || !this.macKey || !this.metadataKey) {
                         console.error('❌ Missing encryption keys');
@@ -1142,27 +1232,68 @@ emergencyDisableFakeTraffic() {
                         this.metadataKey
                     );
                     
-                    console.log('✅ Enhanced message decrypted, extracting...');
+                    if (window.DEBUG_MODE) {
+                        console.log('✅ Enhanced message decrypted, extracting...');
+                        console.log('🔍 decryptedResult:', {
+                            type: typeof decryptedResult,
+                            hasMessage: !!decryptedResult?.message,
+                            messageType: typeof decryptedResult?.message,
+                            messageLength: decryptedResult?.message?.length || 0,
+                            messageSample: decryptedResult?.message?.substring(0, 50) || 'no message'
+                        });
+                    }
                     
                     // CHECKING FOR FAKE MESSAGES AFTER DECRYPTION
                     try {
                         const decryptedContent = JSON.parse(decryptedResult.message);
-                        if (decryptedContent.type === 'fake') {
-                            console.log(`🎭 Encrypted fake message filtered out: ${decryptedContent.pattern}`);
+                        if (decryptedContent.type === 'fake' || decryptedContent.isFakeTraffic === true) {
+                            if (window.DEBUG_MODE) {
+                                console.log(`🎭 BLOCKED: Encrypted fake message: ${decryptedContent.pattern || 'unknown'}`);
+                            }
                             return 'FAKE_MESSAGE_FILTERED';
                         }
                     } catch (e) {
+                        // Не JSON - это нормально для обычных сообщений
+                        if (window.DEBUG_MODE) {
+                            console.log('📝 Decrypted content is not JSON, treating as plain text message');
+                        }
                     }
                     
+                    if (window.DEBUG_MODE) {
+                        console.log('📤 Returning decrypted message:', decryptedResult.message?.substring(0, 50));
+                    }
                     return decryptedResult.message;
                 }
                 
-                // Legacy messages
+                // Regular messages
                 if (jsonData.type === 'message' && jsonData.data) {
-                    processedData = jsonData.data;
+                    if (window.DEBUG_MODE) {
+                        console.log('📝 Regular message detected, extracting data');
+                    }
+                    return jsonData.data; // Return the actual message text
+                }
+                
+                // If it's a regular message with type 'message', let it continue processing
+                if (jsonData.type === 'message') {
+                    if (window.DEBUG_MODE) {
+                        console.log('📝 Regular message detected, returning for display');
+                    }
+                    return data; // Return the original JSON string for processing
+                }
+                
+                // If it's not a special type, return the original data for display
+                if (!jsonData.type || (jsonData.type !== 'fake' && !['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'key_rotation_signal', 'key_rotation_ready', 'enhanced_message', 'security_upgrade'].includes(jsonData.type))) {
+                    if (window.DEBUG_MODE) {
+                        console.log('📝 Regular message detected, returning for display');
+                    }
+                    return data;
                 }
             } catch (e) {
-                console.log('📄 Not JSON, processing as raw data');
+                if (window.DEBUG_MODE) {
+                    console.log('📄 Not JSON, processing as raw data');
+                }
+                // If it's not JSON, it might be a plain text message - return as-is
+                return data;
             }
         }
 
@@ -1171,44 +1302,79 @@ emergencyDisableFakeTraffic() {
             try {
                 const base64Regex = /^[A-Za-z0-9+/=]+$/;
                 if (base64Regex.test(processedData.trim())) {
-                    console.log('🔓 Applying standard decryption...');
+                    if (window.DEBUG_MODE) {
+                        console.log('🔓 Applying standard decryption...');
+                    }
                     processedData = await window.EnhancedSecureCryptoUtils.decryptData(processedData, this.encryptionKey);
-                    console.log('✅ Standard decryption successful');
+                    if (window.DEBUG_MODE) {
+                        console.log('✅ Standard decryption successful');
+                    }
                     
                     // CHECKING FOR FAKE MESSAGES AFTER LEGACY DECRYPTION
                     if (typeof processedData === 'string') {
                         try {
                             const legacyContent = JSON.parse(processedData);
-                            if (legacyContent.type === 'fake') {
-                                console.log(`🎭 Legacy fake message filtered out: ${legacyContent.pattern}`);
+                            if (legacyContent.type === 'fake' || legacyContent.isFakeTraffic === true) {
+                                if (window.DEBUG_MODE) {
+                                    console.log(`🎭 BLOCKED: Legacy fake message: ${legacyContent.pattern || 'unknown'}`);
+                                }
                                 return 'FAKE_MESSAGE_FILTERED';
                             }
                         } catch (e) {
+                            
                         }
                         processedData = new TextEncoder().encode(processedData).buffer;
                     }
                 }
             } catch (error) {
-                console.warn('⚠️ Standard decryption failed:', error.message);
-                return data;
+                if (window.DEBUG_MODE) {
+                    console.warn('⚠️ Standard decryption failed:', error.message);
+                }
+                return data; 
             }
         }
 
-        // Nested Decryption
-        if (this.securityFeatures.hasNestedEncryption && this.nestedEncryptionKey && processedData instanceof ArrayBuffer) {
+        if (this.securityFeatures.hasNestedEncryption && 
+            this.nestedEncryptionKey && 
+            processedData instanceof ArrayBuffer &&
+            processedData.byteLength > 12) { 
+            
             try {
                 processedData = await this.removeNestedEncryption(processedData);
+                
+                if (processedData instanceof ArrayBuffer) {
+                    try {
+                        const textData = new TextDecoder().decode(processedData);
+                        const nestedContent = JSON.parse(textData);
+                        if (nestedContent.type === 'fake' || nestedContent.isFakeTraffic === true) {
+                            if (window.DEBUG_MODE) {
+                                console.log(`🎭 BLOCKED: Nested fake message: ${nestedContent.pattern || 'unknown'}`);
+                            }
+                            return 'FAKE_MESSAGE_FILTERED';
+                        }
+                    } catch (e) {
+                        
+                    }
+                }
             } catch (error) {
-                console.warn('⚠️ Nested decryption failed:', error.message);
+                if (window.DEBUG_MODE) {
+                    console.warn('⚠️ Nested decryption failed - skipping this layer:', error.message);
+                }
             }
         }
 
-        // Reordering Processing
-        if (this.securityFeatures.hasPacketReordering && this.reorderingConfig.enabled && processedData instanceof ArrayBuffer) {
+        if (this.securityFeatures.hasPacketReordering && 
+            this.reorderingConfig.enabled && 
+            processedData instanceof ArrayBuffer) {
             try {
-                return await this.processReorderedPacket(processedData);
+                const headerSize = this.reorderingConfig.useTimestamps ? 12 : 8;
+                if (processedData.byteLength > headerSize) {
+                    return await this.processReorderedPacket(processedData);
+                }
             } catch (error) {
-                console.warn('⚠️ Reordering processing failed:', error.message);
+                if (window.DEBUG_MODE) {
+                    console.warn('⚠️ Reordering processing failed - using direct processing:', error.message);
+                }
             }
         }
 
@@ -1217,7 +1383,9 @@ emergencyDisableFakeTraffic() {
             try {
                 processedData = this.removePacketPadding(processedData);
             } catch (error) {
-                console.warn('⚠️ Padding removal failed:', error.message);
+                if (window.DEBUG_MODE) {
+                    console.warn('⚠️ Padding removal failed:', error.message);
+                }
             }
         }
 
@@ -1226,7 +1394,9 @@ emergencyDisableFakeTraffic() {
             try {
                 processedData = this.removeAntiFingerprinting(processedData);
             } catch (error) {
-                console.warn('⚠️ Anti-fingerprinting removal failed:', error.message);
+                if (window.DEBUG_MODE) {
+                    console.warn('⚠️ Anti-fingerprinting removal failed:', error.message);
+                }
             }
         }
 
@@ -1235,15 +1405,16 @@ emergencyDisableFakeTraffic() {
             processedData = new TextDecoder().decode(processedData);
         }
 
-        // FINAL CHECK FOR FAKE MESSAGES
         if (typeof processedData === 'string') {
             try {
                 const finalContent = JSON.parse(processedData);
-                if (finalContent.type === 'fake') {
+                if (finalContent.type === 'fake' || finalContent.isFakeTraffic === true) {
+                    if (window.DEBUG_MODE) {
+                        console.log(`🎭 BLOCKED: Final check fake message: ${finalContent.pattern || 'unknown'}`);
+                    }
                     return 'FAKE_MESSAGE_FILTERED';
                 }
             } catch (e) {
-
             }
         }
 
@@ -1261,31 +1432,125 @@ emergencyDisableFakeTraffic() {
         return data;
     }
 
+    async applySecurityLayers(data, isFakeMessage = false) {
+        try {
+            let processedData = data;
+            
+            if (isFakeMessage) {
+                if (this.encryptionKey && typeof processedData === 'string') {
+                    processedData = await window.EnhancedSecureCryptoUtils.encryptData(processedData, this.encryptionKey);
+                }
+                return processedData;
+            }
+            
+            if (this.securityFeatures.hasNestedEncryption && this.nestedEncryptionKey && processedData instanceof ArrayBuffer) {
+                processedData = await this.applyNestedEncryption(processedData);
+            }
+            
+            if (this.securityFeatures.hasPacketReordering && this.reorderingConfig?.enabled && processedData instanceof ArrayBuffer) {
+                processedData = this.applyPacketReordering(processedData);
+            }
+            
+            if (this.securityFeatures.hasPacketPadding && processedData instanceof ArrayBuffer) {
+                processedData = this.applyPacketPadding(processedData);
+            }
+            
+            if (this.securityFeatures.hasAntiFingerprinting && processedData instanceof ArrayBuffer) {
+                processedData = this.applyAntiFingerprinting(processedData);
+            }
+            
+            if (this.encryptionKey && typeof processedData === 'string') {
+                processedData = await window.EnhancedSecureCryptoUtils.encryptData(processedData, this.encryptionKey);
+            }
+            
+            return processedData;
+            
+        } catch (error) {
+            console.error('❌ Error in applySecurityLayers:', error);
+            return data;
+        }
+    }
+
     async sendMessage(data) {
         if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
             throw new Error('Data channel not ready');
         }
 
         try {
-            // Generate message ID for chunking
-            const messageId = this.messageCounter++;
-            
-            // Check if message should be chunked
-            if (this.chunkingConfig.enabled && data.byteLength > this.chunkingConfig.maxChunkSize) {
-                return await this.sendMessageInChunks(data, messageId);
+            console.log('📤 sendMessage called:', {
+                hasDataChannel: !!this.dataChannel,
+                dataChannelState: this.dataChannel?.readyState,
+                isInitiator: this.isInitiator,
+                isVerified: this.isVerified,
+                connectionState: this.peerConnection?.connectionState
+            });
+
+            console.log('🔍 sendMessage DEBUG:', {
+                dataType: typeof data,
+                isString: typeof data === 'string',
+                isArrayBuffer: data instanceof ArrayBuffer,
+                dataLength: data?.length || data?.byteLength || 0,
+                dataConstructor: data?.constructor?.name,
+                dataSample: typeof data === 'string' ? data.substring(0, 50) : 'not string'
+            });
+
+            // For regular text messages, send in simple format without encryption
+            if (typeof data === 'string') {
+                const message = {
+                    type: 'message',
+                    data: data,
+                    timestamp: Date.now()
+                };
+                
+                if (window.DEBUG_MODE) {
+                    console.log('📤 Sending regular message:', message.data.substring(0, 100));
+                }
+                
+                const messageString = JSON.stringify(message);
+                console.log('📤 ACTUALLY SENDING:', {
+                    messageString: messageString,
+                    messageLength: messageString.length,
+                    dataChannelState: this.dataChannel.readyState,
+                    isInitiator: this.isInitiator,
+                    isVerified: this.isVerified,
+                    connectionState: this.peerConnection?.connectionState
+                });
+                
+                this.dataChannel.send(messageString);
+                return true;
             }
 
-            // Apply all security layers
+            // For binary data, apply security layers
+            console.log('🔐 Applying security layers to non-string data');
             const securedData = await this.applySecurityLayers(data, false);
-            
-            // Send message
             this.dataChannel.send(securedData);
-            
             
             return true;
         } catch (error) {
             console.error('❌ Failed to send message:', error);
             throw error;
+        }
+    }
+
+    async sendSystemMessage(messageData) {
+        if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
+            console.warn('⚠️ Cannot send system message - data channel not ready');
+            return false;
+        }
+
+        try {
+            const systemMessage = JSON.stringify({
+                type: messageData.type,
+                data: messageData,
+                timestamp: Date.now()
+            });
+
+            console.log('🔧 Sending system message:', messageData.type);
+            this.dataChannel.send(systemMessage);
+            return true;
+        } catch (error) {
+            console.error('❌ Failed to send system message:', error);
+            return false;
         }
     }
 
@@ -1297,24 +1562,54 @@ emergencyDisableFakeTraffic() {
             dataLength: data?.length || data?.byteLength || 0
         });
         
-        // Check system messages directly
+        // DEBUG: Check if this is a user message at the start
+        if (typeof data === 'string') {
+            try {
+                const parsed = JSON.parse(data);
+                if (parsed.type === 'message') {
+                    console.log('🎯 USER MESSAGE IN PROCESSMESSAGE:', {
+                        type: parsed.type,
+                        data: parsed.data,
+                        timestamp: parsed.timestamp
+                    });
+                }
+            } catch (e) {
+                // Not JSON
+            }
+        }
+        
+        // Check system messages and regular messages directly
         if (typeof data === 'string') {
             try {
                 const systemMessage = JSON.parse(data);
                 
-                // БЛОКИРУЕМ ФЕЙКОВЫЕ СООБЩЕНИЯ НА ВХОДЕ
                 if (systemMessage.type === 'fake') {
                     console.log(`🎭 Fake message blocked at entry: ${systemMessage.pattern}`);
-                    return; // НЕ ОБРАБАТЫВАЕМ ФЕЙКОВЫЕ СООБЩЕНИЯ
+                    return; 
                 }
                 
-                if (systemMessage.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'key_rotation_signal', 'key_rotation_ready'].includes(systemMessage.type)) {
+                if (systemMessage.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'key_rotation_signal', 'key_rotation_ready', 'security_upgrade'].includes(systemMessage.type)) {
                     console.log('🔧 Processing system message directly:', systemMessage.type);
                     this.handleSystemMessage(systemMessage);
                     return;
                 }
+                
+                if (systemMessage.type === 'message') {
+                    if (window.DEBUG_MODE) {
+                        console.log('📝 Regular message detected, extracting for display:', systemMessage.data);
+                    }
+                    
+                    // Call the message handler directly for regular messages
+                    if (this.onMessage && systemMessage.data) {
+                        console.log('📤 Calling message handler with regular message:', systemMessage.data.substring(0, 100));
+                        this.onMessage(systemMessage.data, 'received');
+                    }
+                    return; // Don't continue processing
+                }
+                console.log('📨 Unknown message type, continuing to processing:', systemMessage.type);
+                
             } catch (e) {
-                // Не JSON или не системное сообщение
+                console.log('📄 Not JSON, continuing to processing as raw data');
             }
         }
 
@@ -1341,13 +1636,16 @@ emergencyDisableFakeTraffic() {
             isString: typeof originalData === 'string',
             isObject: typeof originalData === 'object',
             hasMessage: originalData?.message,
-            value: typeof originalData === 'string' ? originalData.substring(0, 100) : 'not string'
+            value: typeof originalData === 'string' ? originalData.substring(0, 100) : 'not string',
+            constructor: originalData?.constructor?.name
         });
 
+        let messageText;
+        
         if (typeof originalData === 'string') {
             try {
                 const message = JSON.parse(originalData);
-                if (message.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect'].includes(message.type)) {
+                if (message.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'security_upgrade'].includes(message.type)) {
                     this.handleSystemMessage(message);
                     return;
                 }
@@ -1356,15 +1654,21 @@ emergencyDisableFakeTraffic() {
                     console.log(`🎭 Post-decryption fake message blocked: ${message.pattern}`);
                     return; 
                 }
+                
+                // Handle regular messages with type 'message'
+                if (message.type === 'message' && message.data) {
+                    if (window.DEBUG_MODE) {
+                        console.log('📝 Regular message detected, extracting data for display');
+                    }
+                    messageText = message.data;
+                } else {
+                    // Not a recognized message type, treat as plain text
+                    messageText = originalData;
+                }
             } catch (e) {
+                // Not JSON - treat as plain text
+                messageText = originalData;
             }
-        }
-
-        // Определяем финальный текст сообщения
-        let messageText;
-        
-        if (typeof originalData === 'string') {
-            messageText = originalData;
         } else if (originalData instanceof ArrayBuffer) {
             messageText = new TextDecoder().decode(originalData);
         } else if (originalData && typeof originalData === 'object' && originalData.message) {
@@ -1375,19 +1679,24 @@ emergencyDisableFakeTraffic() {
             return;
         }
 
-        // FINAL CHECK FOR FAKE MESSAGES IN TEXT
-        try {
-            const finalCheck = JSON.parse(messageText);
-            if (finalCheck.type === 'fake') {
-                console.log(`🎭 Final fake message check blocked: ${finalCheck.pattern}`);
-                return; 
+        // FINAL CHECK FOR FAKE MESSAGES IN TEXT (only if it's JSON)
+        if (messageText && messageText.trim().startsWith('{')) {
+            try {
+                const finalCheck = JSON.parse(messageText);
+                if (finalCheck.type === 'fake') {
+                    console.log(`🎭 Final fake message check blocked: ${finalCheck.pattern}`);
+                    return; 
+                }
+            } catch (e) {
+                // Not JSON - this is fine for regular text messages
             }
-        } catch (e) {
         }
 
         // Call the message handler ONLY for real messages
         if (this.onMessage && messageText) {
-            console.log('✅ Calling message handler with real user message:', messageText.substring(0, 50) + '...');
+            if (window.DEBUG_MODE) {
+                console.log('📤 Calling message handler with:', messageText.substring(0, 100));
+            }
             this.onMessage(messageText, 'received');
         } else {
             console.warn('⚠️ No message handler or empty message text');
@@ -1419,6 +1728,13 @@ handleSystemMessage(message) {
             break;
         case 'key_rotation_ready':
             console.log('🔄 Key rotation ready signal received (ignored for stability)');
+            break;
+        case 'security_upgrade':
+            console.log('🔒 Security upgrade notification received:', message);
+            // Display security upgrade message to user
+            if (this.onMessage && message.message) {
+                this.onMessage(message.message, 'system');
+            }
             break;
         default:
             console.log('🔧 Unknown system message type:', message.type);
@@ -1533,9 +1849,27 @@ notifySecurityUpgrade(stage) {
     
     const message = `🔒 Security upgraded to Stage ${stage}: ${stageNames[stage]}`;
     
-    // Notify via onMessage
+    // Notify local UI via onMessage
     if (this.onMessage) {
         this.onMessage(message, 'system');
+    }
+
+    // Send security upgrade notification to peer via WebRTC
+    if (this.dataChannel && this.dataChannel.readyState === 'open') {
+        try {
+            const securityNotification = {
+                type: 'security_upgrade',
+                stage: stage,
+                stageName: stageNames[stage],
+                message: message,
+                timestamp: Date.now()
+            };
+            
+            console.log('🔒 Sending security upgrade notification to peer:', securityNotification);
+            this.dataChannel.send(JSON.stringify(securityNotification));
+        } catch (error) {
+            console.warn('⚠️ Failed to send security upgrade notification to peer:', error.message);
+        }
     }
 
     const status = this.getSecurityStatus();
@@ -1827,15 +2161,46 @@ async autoEnableSecurityFeatures() {
         };
 
         this.peerConnection.ondatachannel = (event) => {
-            console.log('Data channel received');
-            this.setupDataChannel(event.channel);
+            console.log('🔗 Data channel received:', {
+                channelLabel: event.channel.label,
+                channelState: event.channel.readyState,
+                isInitiator: this.isInitiator,
+                channelId: event.channel.id,
+                protocol: event.channel.protocol
+            });
+            
+            // CRITICAL: Store the received data channel
+            if (event.channel.label === 'securechat') {
+                console.log('🔗 MAIN DATA CHANNEL RECEIVED (answerer side)');
+                this.dataChannel = event.channel;
+                this.setupDataChannel(event.channel);
+            } else {
+                console.log('🔗 ADDITIONAL DATA CHANNEL RECEIVED:', event.channel.label);
+                // Handle additional channels (heartbeat, etc.)
+                if (event.channel.label === 'heartbeat') {
+                    this.heartbeatChannel = event.channel;
+                }
+            }
         };
     }
 
     setupDataChannel(channel) {
+        console.log('🔗 setupDataChannel called:', {
+            channelLabel: channel.label,
+            channelState: channel.readyState,
+            isInitiator: this.isInitiator,
+            isVerified: this.isVerified
+        });
+
         this.dataChannel = channel;
 
         this.dataChannel.onopen = async () => {
+            console.log('🔗 Data channel opened:', {
+                isInitiator: this.isInitiator,
+                isVerified: this.isVerified,
+                dataChannelState: this.dataChannel.readyState,
+                dataChannelLabel: this.dataChannel.label
+            });
             
             await this.establishConnection();
             
@@ -1876,6 +2241,71 @@ async autoEnableSecurityFeatures() {
             dataLength: event.data?.length || 0,
             firstChars: typeof event.data === 'string' ? event.data.substring(0, 100) : 'not string'
         });
+        
+        // DEBUG: Additional logging for message processing
+        console.log('🔍 dataChannel.onmessage DEBUG:', {
+            eventDataType: typeof event.data,
+            eventDataConstructor: event.data?.constructor?.name,
+            isString: typeof event.data === 'string',
+            isArrayBuffer: event.data instanceof ArrayBuffer,
+            dataSample: typeof event.data === 'string' ? event.data.substring(0, 50) : 'not string'
+        });
+        
+        // DEBUG: Check if this is a user message
+        if (typeof event.data === 'string') {
+            try {
+                const parsed = JSON.parse(event.data);
+                if (parsed.type === 'message') {
+                    console.log('🎯 USER MESSAGE DETECTED:', {
+                        type: parsed.type,
+                        data: parsed.data,
+                        timestamp: parsed.timestamp,
+                        isInitiator: this.isInitiator
+                    });
+                } else {
+                    console.log('📨 OTHER MESSAGE DETECTED:', {
+                        type: parsed.type,
+                        isInitiator: this.isInitiator
+                    });
+                }
+            } catch (e) {
+                console.log('📨 NON-JSON MESSAGE:', {
+                    data: event.data.substring(0, 50),
+                    isInitiator: this.isInitiator
+                });
+            }
+        }
+        
+        // ADDITIONAL DEBUG: Log all incoming messages
+        console.log('📨 INCOMING MESSAGE DEBUG:', {
+            dataType: typeof event.data,
+            isString: typeof event.data === 'string',
+            isArrayBuffer: event.data instanceof ArrayBuffer,
+            dataLength: event.data?.length || event.data?.byteLength || 0,
+            dataSample: typeof event.data === 'string' ? event.data.substring(0, 100) : 'not string',
+            isInitiator: this.isInitiator,
+            isVerified: this.isVerified,
+            channelLabel: this.dataChannel?.label || 'unknown',
+            channelState: this.dataChannel?.readyState || 'unknown'
+        });
+        
+        // CRITICAL DEBUG: Check if this is a user message that should be displayed
+        if (typeof event.data === 'string') {
+            try {
+                const parsed = JSON.parse(event.data);
+                if (parsed.type === 'message') {
+                    console.log('🎯 CRITICAL: USER MESSAGE RECEIVED FOR DISPLAY:', {
+                        type: parsed.type,
+                        data: parsed.data,
+                        timestamp: parsed.timestamp,
+                        isInitiator: this.isInitiator,
+                        channelLabel: this.dataChannel?.label || 'unknown'
+                    });
+                }
+            } catch (e) {
+                // Not JSON
+            }
+        }
         
         // Process message with enhanced security layers
         await this.processMessage(event.data);
@@ -2330,7 +2760,7 @@ async autoEnableSecurityFeatures() {
                     timestamp: answerData.timestamp
                 });
                 
-                // Уведомляем основной код о ошибке replay attack
+                // Notify the main code about the replay attack error
                 if (this.onAnswerError) {
                     this.onAnswerError('replay_attack', 'Response data is too old – possible replay attack');
                 }
@@ -2792,7 +3222,13 @@ async autoEnableSecurityFeatures() {
     }
 
     isConnected() {
-        return this.dataChannel && this.dataChannel.readyState === 'open';
+        const hasDataChannel = !!this.dataChannel;
+        const dataChannelState = this.dataChannel?.readyState;
+        const isDataChannelOpen = dataChannelState === 'open';
+        const isVerified = this.isVerified;
+        const connectionState = this.peerConnection?.connectionState;
+        
+        return this.dataChannel && this.dataChannel.readyState === 'open' && this.isVerified;
     }
 
     getConnectionInfo() {
