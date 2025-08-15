@@ -1,0 +1,104 @@
+#!/bin/bash
+echo "🧪 Running tests..."
+
+# Сборка тестовой версии
+wasm-pack build --target web --out-dir pkg --dev
+
+# Создание тестового HTML
+cat > test.html << 'EOF'
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Crypto Module Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .test-section { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .success { background-color: #d4edda; }
+        .error { background-color: #f8d7da; }
+        button { background-color: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🔐 Enhanced Secure Crypto Module Test</h1>
+    
+    <div id="status" class="test-section">
+        <h3>Status</h3>
+        <p id="init-status">Initializing...</p>
+    </div>
+
+    <div class="test-section">
+        <button onclick="runEncryptionTest()">Test Encryption</button>
+        <button onclick="runKeyTest()">Test Key Generation</button>
+    </div>
+
+    <div id="results" class="test-section">
+        <h3>Results</h3>
+        <div id="test-output">No tests run yet.</div>
+    </div>
+
+    <script type="module">
+        import init, { EnhancedSecureCryptoUtils } from './pkg/enhanced_secure_crypto.js';
+
+        let crypto = null;
+
+        async function initializeCrypto() {
+            try {
+                await init();
+                crypto = new EnhancedSecureCryptoUtils();
+                document.getElementById('init-status').textContent = '✅ Module initialized successfully';
+                document.getElementById('status').className = 'test-section success';
+                
+                window.runEncryptionTest = runEncryptionTest;
+                window.runKeyTest = runKeyTest;
+                
+            } catch (error) {
+                document.getElementById('init-status').textContent = `❌ Failed: ${error.message}`;
+                document.getElementById('status').className = 'test-section error';
+            }
+        }
+
+        function addResult(test, success, details) {
+            const output = document.getElementById('test-output');
+            output.innerHTML += `
+                <div class="test-section ${success ? 'success' : 'error'}">
+                    <strong>${success ? '✅' : '❌'} ${test}</strong>
+                    <pre>${details}</pre>
+                </div>
+            `;
+        }
+
+        async function runEncryptionTest() {
+            try {
+                const testData = "Hello, secure world!";
+                const password = crypto.generate_secure_password();
+                
+                const encrypted = crypto.encrypt_data(testData, password);
+                const decrypted = crypto.decrypt_data(encrypted, password);
+                
+                const success = decrypted === testData;
+                addResult('Encryption/Decryption', success, 
+                    `Original: "${testData}"\nPassword: ${password}\nDecrypted: "${decrypted}"`);
+            } catch (error) {
+                addResult('Encryption/Decryption', false, error.message);
+            }
+        }
+
+        async function runKeyTest() {
+            try {
+                const keyPair = crypto.generate_ecdsa_keypair();
+                const success = keyPair && keyPair.private_key && keyPair.public_key;
+                addResult('Key Generation', success, 
+                    `Algorithm: ${keyPair.algorithm}\nCurve: ${keyPair.curve}`);
+            } catch (error) {
+                addResult('Key Generation', false, error.message);
+            }
+        }
+
+        initializeCrypto();
+    </script>
+</body>
+</html>
+EOF
+
+echo "✅ Test file created. Run: basic-http-server . and open http://localhost:8000/test.html"
