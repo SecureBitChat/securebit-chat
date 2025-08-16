@@ -1,3 +1,0 @@
-*.rs linguist-detectable=true
-*.rs linguist-language=Rust
-pkg/* linguist-vendored
