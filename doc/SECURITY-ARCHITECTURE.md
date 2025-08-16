@@ -708,7 +708,7 @@ For technical questions about the security architecture:
 
 - **Security Team:** security@SecureBit.chat
 - **Technical Documentation:** docs@SecureBit.chat
-- **GitHub Issues:** [Security Architecture Issues](https://github.com/lockbitchat/securebit-chat/issues?q=label%3Asecurity-architecture)
+- **GitHub Issues:** [Security Architecture Issues](https://github.com/SecureBitChat/securebit-chat/issues?q=label%3Asecurity-architecture)
 
 ---
 

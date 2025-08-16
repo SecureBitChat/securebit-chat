@@ -1304,7 +1304,7 @@ class CryptographicErrorHandler {
 For cryptographic implementation questions:
 - **Security Team:** security@SecureBit.chat
 - **Cryptographic Specialists:** crypto@SecureBit.chat
-- **GitHub Issues:** [Cryptography Issues](https://github.com/lockbitchat/securebit-chat/issues?q=label%3Acryptography)
+- **GitHub Issues:** [Cryptography Issues](https://github.com/SecureBitChat/securebit-chat/issues?q=label%3Acryptography)
 
 ### Additional Resources
 

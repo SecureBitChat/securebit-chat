@@ -1089,7 +1089,7 @@ const customConfig = {
 };
 
 // Apply custom configuration
-LockBitChat.configure(customConfig);
+SecureBitChat.configure(customConfig);
 📈 Analytics & Monitoring
 Security Metrics
 javascript// Security monitoring dashboard

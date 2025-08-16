@@ -54,7 +54,7 @@ For **critical security issues** that could compromise user safety:
 **Contact us privately:**
 - 📧 **Email:** security@SecureBit.chat (PGP key below)
 - 🔒 **Signal:** +[REDACTED] (ask for Signal number via email)
-- 🔐 **Keybase:** @lockbitchat
+- 🔐 **Keybase:** @SecureBitChat
 
 ### 🟡 Non-Critical Issues
 For general security improvements or non-critical findings:
@@ -215,8 +215,7 @@ webrtcManager.getSecurityStatus()
 
 - **Security Team:** security@SecureBit.chat
 - **General Contact:** lockbitchat@tutanota.com
-- **GitHub Issues:** https://github.com/lockbitchat/securebit-chat/issues
-- **Security Announcements:** [@lockbitchat](https://twitter.com/lockbitchat)
+- **GitHub Issues:** https://github.com/SecureBitChat/securebit-chat/issues
 
 ## 🏅 Security Achievements
 
