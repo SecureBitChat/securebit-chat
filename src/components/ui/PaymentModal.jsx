@@ -2,20 +2,20 @@ const React = window.React;
 const { useState, useEffect, useRef } = React;
 
 const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) => {
-    const [step, setStep] = useState('select');
-    const [selectedType, setSelectedType] = useState(null);
-    const [invoice, setInvoice] = useState(null);
-    const [paymentStatus, setPaymentStatus] = useState('pending');
-    const [error, setError] = useState('');
-    const [paymentMethod, setPaymentMethod] = useState('webln'); 
-    const [preimageInput, setPreimageInput] = useState('');
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [qrCodeUrl, setQrCodeUrl] = useState('');
-    const [paymentTimer, setPaymentTimer] = useState(null);
-    const [timeLeft, setTimeLeft] = useState(0);
-    const pollInterval = useRef(null);
+    const [step, setStep] = React.useState('select');
+    const [selectedType, setSelectedType] = React.useState(null);
+    const [invoice, setInvoice] = React.useState(null);
+    const [paymentStatus, setPaymentStatus] = React.useState('pending');
+    const [error, setError] = React.useState('');
+    const [paymentMethod, setPaymentMethod] = React.useState('webln'); 
+    const [preimageInput, setPreimageInput] = React.useState('');
+    const [isProcessing, setIsProcessing] = React.useState(false);
+    const [qrCodeUrl, setQrCodeUrl] = React.useState('');
+    const [paymentTimer, setPaymentTimer] = React.useState(null);
+    const [timeLeft, setTimeLeft] = React.useState(0);
+    const pollInterval = React.useRef(null);
 
-    useEffect(() => {
+    React.useEffect(() => {
         if (!isOpen) {
             resetModal();
             if (pollInterval.current) {
@@ -45,7 +45,6 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
         setError('');
         
         if (type === 'demo') {
-            // Создаем demo сессию
             try {
                 if (!sessionManager || !sessionManager.createDemoSession) {
                     throw new Error('Demo session manager not available');
@@ -64,7 +63,8 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                     createdAt: Date.now(),
                     isDemo: true,
                     preimage: demoSession.preimage,
-                    warning: demoSession.warning
+                    warning: demoSession.warning,
+                    securityLevel: 'Basic'
                 });
                 setPaymentStatus('demo');
             } catch (error) {
@@ -83,7 +83,7 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
         setError('');
 
         try {
-            console.log(`Creating real Lightning invoice for ${type} session...`);
+            console.log(`Creating Lightning invoice for ${type} session...`);
             
             if (!sessionManager) {
                 throw new Error('Session manager not initialized');
@@ -94,6 +94,8 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
             if (!createdInvoice || !createdInvoice.paymentRequest) {
                 throw new Error('Failed to create Lightning invoice');
             }
+
+            createdInvoice.securityLevel = sessionManager.getSecurityLevelForSession(type);
 
             setInvoice(createdInvoice);
             setPaymentStatus('created');
@@ -205,8 +207,8 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
         }
         
         const dummyPreimages = ['1'.repeat(64), 'a'.repeat(64), 'f'.repeat(64), '0'.repeat(64)];
-        if (dummyPreimages.includes(trimmedPreimage) && selectedType !== 'free') {
-            setError('The entered preimage is invalid. Please use the actual preimage from the payment..');
+        if (dummyPreimages.includes(trimmedPreimage) && selectedType !== 'demo') {
+            setError('The entered preimage is invalid. Please use the actual preimage from the payment.');
             return;
         }
         
@@ -233,7 +235,6 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                 throw new Error('Demo preimage not available');
             }
             
-            // Для demo сессий используем специальную логику верификации
             const isValid = await sessionManager.verifyPayment(invoice.preimage, invoice.paymentHash);
             
             if (isValid && isValid.verified) {
@@ -243,7 +244,8 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                     paymentHash: invoice.paymentHash,
                     amount: 0,
                     isDemo: true,
-                    warning: invoice.warning
+                    warning: invoice.warning,
+                    securityLevel: 'basic'
                 });
                 
                 setTimeout(() => {
@@ -265,7 +267,6 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
             
             let isValid;
             if (selectedType === 'demo') {
-                // Demo сессии уже обработаны в handleDemoSession
                 return;
             } else {
                 isValid = await sessionManager.verifyPayment(preimage, invoice.paymentHash);
@@ -283,7 +284,8 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                     type: selectedType, 
                     preimage,
                     paymentHash: invoice.paymentHash,
-                    amount: invoice.amount
+                    amount: invoice.amount,
+                    securityLevel: invoice.securityLevel || (selectedType === 'basic' ? 'enhanced' : 'maximum')
                 });
                 
                 setTimeout(() => {
@@ -313,11 +315,19 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
         return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     };
 
+    const getSecurityBadgeColor = (level) => {
+        switch (level?.toLowerCase()) {
+            case 'basic': return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+            case 'enhanced': return 'bg-orange-500/20 text-orange-300 border-orange-500/30';
+            case 'maximum': return 'bg-green-500/20 text-green-300 border-green-500/30';
+            default: return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
+        }
+    };
+
     const pricing = sessionManager?.sessionPrices || {
         demo: { sats: 0, hours: 0.1, usd: 0.00 },
-        basic: { sats: 500, hours: 1, usd: 0.20 },
-        premium: { sats: 1000, hours: 4, usd: 0.40 },
-        extended: { sats: 2000, hours: 24, usd: 0.80 }
+        basic: { sats: 5000, hours: 1, usd: 2.00 },
+        premium: { sats: 20000, hours: 6, usd: 8.00 }
     };
 
     if (!isOpen) return null;
@@ -347,7 +357,8 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
             step === 'select' && window.SessionTypeSelector && React.createElement(window.SessionTypeSelector, { 
                 key: 'selector', 
                 onSelectType: handleSelectType, 
-                onCancel: onClose 
+                onCancel: onClose,
+                sessionManager: sessionManager
             }),
 
             step === 'payment' && React.createElement('div', { 
@@ -361,16 +372,22 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                     React.createElement('h3', { 
                         key: 'session-title', 
                         className: 'text-lg font-semibold text-orange-400 mb-2' 
-                    }, `${selectedType.charAt(0).toUpperCase() + selectedType.slice(1)} session`),
+                    }, [
+                        `${selectedType.charAt(0).toUpperCase() + selectedType.slice(1)} session`,
+                        invoice?.securityLevel && React.createElement('span', {
+                            key: 'security-badge',
+                            className: `text-xs px-2 py-1 rounded-full border ${getSecurityBadgeColor(invoice.securityLevel)}`
+                        }, invoice.securityLevel.toUpperCase())
+                    ]),
                     React.createElement('div', { 
                         key: 'session-details', 
                         className: 'text-sm text-secondary' 
                     }, [
-                        React.createElement('div', { key: 'amount' }, `${pricing[selectedType].sats} sat for ${pricing[selectedType].hours}ч`),
+                        React.createElement('div', { key: 'amount' }, `${pricing[selectedType].sats} sat for ${pricing[selectedType].hours}h`),
                         pricing[selectedType].usd > 0 && React.createElement('div', { 
                             key: 'usd', 
                             className: 'text-gray-400' 
-                        }, `≈ $${pricing[selectedType].usd} USD`)
+                        }, `≈ ${pricing[selectedType].usd} USD`)
                     ])
                 ]),
 

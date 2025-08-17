@@ -5,6 +5,9 @@ class EnhancedSecureWebRTCManager {
         throw new Error('EnhancedSecureCryptoUtils is not loaded. Please ensure the module is loaded first.');
     }
     
+    this.currentSessionType = null;
+    this.currentSecurityLevel = 'basic';
+    this.sessionConstraints = null;
     this.peerConnection = null;
     this.dataChannel = null;
     this.encryptionKey = null;
@@ -43,30 +46,30 @@ class EnhancedSecureWebRTCManager {
     this.keyVersions = new Map(); // Store key versions for PFS
     this.oldKeys = new Map(); // Store old keys temporarily for decryption
     this.maxOldKeys = 3; // Keep last 3 key versions for decryption
-    
+    this.peerConnection = null;
+    this.dataChannel = null;
      this.securityFeatures = {
-        hasEncryption: true,
-        hasECDH: true,
-        hasECDSA: false,
-        hasMutualAuth: false,
-        hasMetadataProtection: false,
-        hasEnhancedReplayProtection: false,
-        hasNonExtractableKeys: false,
-        hasRateLimiting: false,
-        hasEnhancedValidation: false,
-        hasPFS: true,
-        
-        hasNestedEncryption: true,     
-        hasPacketPadding: true,        
-        hasPacketReordering: false,    
-        hasAntiFingerprinting: false,  
-        
-
-        hasFakeTraffic: false,         
-        hasDecoyChannels: false,       
-        hasMessageChunking: false      
-    };
-    
+            hasEncryption: true,
+            hasECDH: true,
+            hasECDSA: false,
+            hasMutualAuth: false,
+            hasMetadataProtection: false,
+            hasEnhancedReplayProtection: false,
+            hasNonExtractableKeys: false,
+            hasRateLimiting: true,
+            hasEnhancedValidation: false,
+            hasPFS: false,
+            
+            // Advanced Features (Session Managed)
+            hasNestedEncryption: false,     
+            hasPacketPadding: false,        
+            hasPacketReordering: false,    
+            hasAntiFingerprinting: false,  
+            hasFakeTraffic: false,         
+            hasDecoyChannels: false,       
+            hasMessageChunking: false      
+        };
+    console.log('🔒 Enhanced WebRTC Manager initialized with tiered security');
     // ============================================
     // ENHANCED SECURITY FEATURES
     // ============================================
@@ -190,6 +193,142 @@ class EnhancedSecureWebRTCManager {
             ]
         };
         return mask;
+    }
+
+    // Security configuration for session type
+    configureSecurityForSession(sessionType, securityLevel) {
+        console.log(`🔧 Configuring security for ${sessionType} session (${securityLevel} level)`);
+        
+        this.currentSessionType = sessionType;
+        this.currentSecurityLevel = securityLevel;
+        
+        // We get restrictions for this session type
+        if (window.sessionManager && window.sessionManager.isFeatureAllowedForSession) {
+            this.sessionConstraints = {};
+            
+            Object.keys(this.securityFeatures).forEach(feature => {
+                this.sessionConstraints[feature] = window.sessionManager.isFeatureAllowedForSession(sessionType, feature);
+            });
+            
+            // Applying restrictions
+            this.applySessionConstraints();
+            
+            console.log(`✅ Security configured for ${sessionType}:`, this.sessionConstraints);
+            
+            // Notifying the user about the security level
+            this.notifySecurityLevel();
+        } else {
+            console.warn('⚠️ Session manager not available, using default security');
+        }
+    }
+
+    // Applying session restrictions
+    applySessionConstraints() {
+        if (!this.sessionConstraints) return;
+
+        // Applying restrictions to security features
+        Object.keys(this.sessionConstraints).forEach(feature => {
+            const allowed = this.sessionConstraints[feature];
+            
+            if (!allowed && this.securityFeatures[feature]) {
+                console.log(`🔒 Disabling ${feature} for ${this.currentSessionType} session`);
+                this.securityFeatures[feature] = false;
+                
+                // Disabling linked configurations
+                switch (feature) {
+                    case 'hasFakeTraffic':
+                        this.fakeTrafficConfig.enabled = false;
+                        this.stopFakeTrafficGeneration();
+                        break;
+                    case 'hasDecoyChannels':
+                        this.decoyChannelConfig.enabled = false;
+                        this.cleanupDecoyChannels();
+                        break;
+                    case 'hasPacketReordering':
+                        this.reorderingConfig.enabled = false;
+                        this.packetBuffer.clear();
+                        break;
+                    case 'hasAntiFingerprinting':
+                        this.antiFingerprintingConfig.enabled = false;
+                        break;
+                    case 'hasMessageChunking':
+                        this.chunkingConfig.enabled = false;
+                        break;
+                }
+            } else if (allowed && !this.securityFeatures[feature]) {
+                console.log(`🔓 Enabling ${feature} for ${this.currentSessionType} session`);
+                this.securityFeatures[feature] = true;
+                
+                // Enable linked configurations
+                switch (feature) {
+                    case 'hasFakeTraffic':
+                        this.fakeTrafficConfig.enabled = true;
+                        if (this.isConnected()) {
+                            this.startFakeTrafficGeneration();
+                        }
+                        break;
+                    case 'hasDecoyChannels':
+                        this.decoyChannelConfig.enabled = true;
+                        if (this.isConnected()) {
+                            this.initializeDecoyChannels();
+                        }
+                        break;
+                    case 'hasPacketReordering':
+                        this.reorderingConfig.enabled = true;
+                        break;
+                    case 'hasAntiFingerprinting':
+                        this.antiFingerprintingConfig.enabled = true;
+                        break;
+                    case 'hasMessageChunking':
+                        this.chunkingConfig.enabled = true;
+                        break;
+                }
+            }
+        });
+    }
+
+    // Security Level Notification
+    notifySecurityLevel() {
+        const levelMessages = {
+            'basic': '🔒 Basic Security Active - Demo session with essential protection',
+            'enhanced': '🔐 Enhanced Security Active - Paid session with advanced protection',
+            'maximum': '🛡️ Maximum Security Active - Premium session with complete protection'
+        };
+
+        const message = levelMessages[this.currentSecurityLevel] || levelMessages['basic'];
+        
+        if (this.onMessage) {
+            this.onMessage(message, 'system');
+        }
+
+        // Showing details of functions for paid sessions
+        if (this.currentSecurityLevel !== 'basic' && this.onMessage) {
+            const activeFeatures = Object.entries(this.securityFeatures)
+                .filter(([key, value]) => value === true)
+                .map(([key]) => key.replace('has', '').replace(/([A-Z])/g, ' $1').trim().toLowerCase())
+                .slice(0, 5); 
+
+            this.onMessage(`🔧 Active: ${activeFeatures.join(', ')}...`, 'system');
+        }
+    }
+
+    // Cleaning decoy channels
+    cleanupDecoyChannels() {
+        // Stopping decoy traffic
+        for (const [channelName, timer] of this.decoyTimers.entries()) {
+            clearTimeout(timer);
+        }
+        this.decoyTimers.clear();
+        
+        // Closing decoy channels
+        for (const [channelName, channel] of this.decoyChannels.entries()) {
+            if (channel.readyState === 'open') {
+                channel.close();
+            }
+        }
+        this.decoyChannels.clear();
+        
+        console.log('🧹 Decoy channels cleaned up');
     }
 
     // ============================================
@@ -1740,198 +1879,192 @@ handleSystemMessage(message) {
     }
 }
 
-// ============================================
-// FUNCTION MANAGEMENT METHODS
-// ============================================
+        // ============================================
+        // FUNCTION MANAGEMENT METHODS
+        // ============================================
 
-// Method to enable Stage 2 functions
-enableStage2Security() {
-    
-    // Enable Packet Reordering
-    this.securityFeatures.hasPacketReordering = true;
-    this.reorderingConfig.enabled = true;
-    
-    // Enable Simplified Anti-Fingerprinting
-    this.securityFeatures.hasAntiFingerprinting = true;
-    this.antiFingerprintingConfig.enabled = true;
-    this.antiFingerprintingConfig.randomizeSizes = false; 
-    this.antiFingerprintingConfig.maskPatterns = false;
-    this.antiFingerprintingConfig.useRandomHeaders = false;
-    
-    
-    // Updating the UI security indicator
-    this.notifySecurityUpgrade(2);
-}
-
-// Method to enable Stage 3 features (traffic obfuscation)
-enableStage3Security() {
-    
-    // Enable Message Chunking 
-    this.securityFeatures.hasMessageChunking = true;
-    this.chunkingConfig.enabled = true;
-    this.chunkingConfig.maxChunkSize = 2048; // Large chunks for stability
-    this.chunkingConfig.minDelay = 100;
-    this.chunkingConfig.maxDelay = 300;
-    
-    // Enable Fake Traffic
-    this.securityFeatures.hasFakeTraffic = true;
-    this.fakeTrafficConfig.enabled = true;
-    this.fakeTrafficConfig.minInterval = 10000; // Rare messages
-    this.fakeTrafficConfig.maxInterval = 30000;
-    this.fakeTrafficConfig.minSize = 32;
-    this.fakeTrafficConfig.maxSize = 128; // Small sizes
-    
-    // Launching fake traffic
-    this.startFakeTrafficGeneration();
-    
-    // Updating the UI security indicator
-    this.notifySecurityUpgrade(3);
-}
-
-// Method for enabling Stage 4 functions (maximum safety)
-enableStage4Security() {
-    console.log('🚀 Enabling Stage 4 security features (Maximum Security)...');
-    
-    // Enable Decoy Channels (only if the connection is stable)
-    if (this.isConnected() && this.isVerified) {
-        this.securityFeatures.hasDecoyChannels = true;
-        this.decoyChannelConfig.enabled = true;
-        this.decoyChannelConfig.maxDecoyChannels = 2; // Only 2 channels
-        
-        // Initialize decoy channels
-        try {
-            this.initializeDecoyChannels();
-        } catch (error) {
-            console.warn('⚠️ Decoy channels initialization failed:', error.message);
-            this.securityFeatures.hasDecoyChannels = false;
-            this.decoyChannelConfig.enabled = false;
+        // Method to enable Stage 2 functions
+        enableStage2Security() {
+        if (this.sessionConstraints?.hasPacketReordering) {
+            this.securityFeatures.hasPacketReordering = true;
+            this.reorderingConfig.enabled = true;
         }
-    }
-    
-    // Enable full Anti-Fingerprinting
-    this.antiFingerprintingConfig.randomizeSizes = true;
-    this.antiFingerprintingConfig.maskPatterns = true;
-    this.antiFingerprintingConfig.useRandomHeaders = false; 
-    
-    // Updating the UI security indicator
-    this.notifySecurityUpgrade(4);
-}
-
-// Method for getting security status
-getSecurityStatus() {
-    const activeFeatures = Object.entries(this.securityFeatures)
-        .filter(([key, value]) => value === true)
-        .map(([key]) => key);
         
-    const stage = activeFeatures.length <= 3 ? 1 : 
-                 activeFeatures.length <= 5 ? 2 :
-                 activeFeatures.length <= 7 ? 3 : 4;
-                 
-    return {
-        stage: stage,
-        activeFeatures: activeFeatures,
-        totalFeatures: Object.keys(this.securityFeatures).length,
-        securityLevel: stage === 4 ? 'MAXIMUM' : stage === 3 ? 'HIGH' : stage === 2 ? 'MEDIUM' : 'BASIC',
-        activeFeaturesCount: activeFeatures.length,
-        activeFeaturesNames: activeFeatures
-    };
-}
-
-// Method to notify UI about security update
-notifySecurityUpgrade(stage) {
-    const stageNames = {
-        1: 'Basic Enhanced',
-        2: 'Medium Security', 
-        3: 'High Security',
-        4: 'Maximum Security'
-    };
-    
-    const message = `🔒 Security upgraded to Stage ${stage}: ${stageNames[stage]}`;
-    
-    // Notify local UI via onMessage
-    if (this.onMessage) {
-        this.onMessage(message, 'system');
+        if (this.sessionConstraints?.hasAntiFingerprinting) {
+            this.securityFeatures.hasAntiFingerprinting = true;
+            this.antiFingerprintingConfig.enabled = true;
+            if (this.currentSecurityLevel === 'enhanced') {
+                this.antiFingerprintingConfig.randomizeSizes = false;
+                this.antiFingerprintingConfig.maskPatterns = false;
+                this.antiFingerprintingConfig.useRandomHeaders = false;
+            }
+        }
+        
+        this.notifySecurityUpgrade(2);
     }
 
-    // Send security upgrade notification to peer via WebRTC
-    if (this.dataChannel && this.dataChannel.readyState === 'open') {
-        try {
-            const securityNotification = {
-                type: 'security_upgrade',
+        // Method to enable Stage 3 features (traffic obfuscation)
+        enableStage3Security() {
+            if (this.currentSecurityLevel !== 'maximum') {
+                console.log('🔒 Stage 3 features only available for premium sessions');
+                return;
+            }
+            
+            if (this.sessionConstraints?.hasMessageChunking) {
+                this.securityFeatures.hasMessageChunking = true;
+                this.chunkingConfig.enabled = true;
+            }
+            
+            if (this.sessionConstraints?.hasFakeTraffic) {
+                this.securityFeatures.hasFakeTraffic = true;
+                this.fakeTrafficConfig.enabled = true;
+                this.startFakeTrafficGeneration();
+            }
+            
+            this.notifySecurityUpgrade(3);
+        }
+
+        // Method for enabling Stage 4 functions (maximum safety)
+        enableStage4Security() {
+            if (this.currentSecurityLevel !== 'maximum') {
+                console.log('🔒 Stage 4 features only available for premium sessions');
+                return;
+            }
+            
+            if (this.sessionConstraints?.hasDecoyChannels && this.isConnected() && this.isVerified) {
+                this.securityFeatures.hasDecoyChannels = true;
+                this.decoyChannelConfig.enabled = true;
+                
+                try {
+                    this.initializeDecoyChannels();
+                } catch (error) {
+                    console.warn('⚠️ Decoy channels initialization failed:', error.message);
+                    this.securityFeatures.hasDecoyChannels = false;
+                    this.decoyChannelConfig.enabled = false;
+                }
+            }
+            
+            // Full anti-fingerprinting for maximum sessions
+            if (this.sessionConstraints?.hasAntiFingerprinting) {
+                this.antiFingerprintingConfig.randomizeSizes = true;
+                this.antiFingerprintingConfig.maskPatterns = true;
+                this.antiFingerprintingConfig.useRandomHeaders = false; 
+            }
+            
+            this.notifySecurityUpgrade(4);
+        }
+
+        // Method for getting security status
+        getSecurityStatus() {
+            const activeFeatures = Object.entries(this.securityFeatures)
+                .filter(([key, value]) => value === true)
+                .map(([key]) => key);
+                
+            const stage = this.currentSecurityLevel === 'basic' ? 1 : 
+                     this.currentSecurityLevel === 'enhanced' ? 2 :
+                     this.currentSecurityLevel === 'maximum' ? 4 : 1;
+                        
+            return {
                 stage: stage,
-                stageName: stageNames[stage],
-                message: message,
-                timestamp: Date.now()
+                sessionType: this.currentSessionType,
+                securityLevel: this.currentSecurityLevel,
+                activeFeatures: activeFeatures,
+                totalFeatures: Object.keys(this.securityFeatures).length,
+                activeFeaturesCount: activeFeatures.length,
+                activeFeaturesNames: activeFeatures,
+                sessionConstraints: this.sessionConstraints
+            };
+        }
+
+        // Method to notify UI about security update
+        notifySecurityUpgrade(stage) {
+            const stageNames = {
+                1: 'Basic Enhanced',
+                2: 'Medium Security', 
+                3: 'High Security',
+                4: 'Maximum Security'
             };
             
-            console.log('🔒 Sending security upgrade notification to peer:', securityNotification);
-            this.dataChannel.send(JSON.stringify(securityNotification));
-        } catch (error) {
-            console.warn('⚠️ Failed to send security upgrade notification to peer:', error.message);
-        }
-    }
-
-    const status = this.getSecurityStatus();
-}
-// ============================================
-// AUTOMATIC STEP-BY-STEP SWITCHING ON
-// ============================================
-
-// Method for automatic feature enablement with stability check
-async autoEnableSecurityFeatures() {
-    
-    const checkStability = () => {
-        const isStable = this.isConnected() && 
-                        this.isVerified && 
-                        this.connectionAttempts === 0 && 
-                        this.messageQueue.length === 0 &&
-                        this.peerConnection?.connectionState === 'connected';
-        
-        console.log('🔍 Stability check:', {
-            isConnected: this.isConnected(),
-            isVerified: this.isVerified,
-            connectionAttempts: this.connectionAttempts,
-            messageQueueLength: this.messageQueue.length,
-            connectionState: this.peerConnection?.connectionState
-        });
-        
-        return isStable;
-    };
-    
-    // Stage 1 is already active
-    console.log('🔒 Stage 1 active: Basic Enhanced Security');
-    this.notifySecurityUpgrade(1);
-    
-    // Wait 15 seconds of stable operation before Stage 2
-    setTimeout(() => {
-        if (checkStability()) {
-            console.log('✅ Stage 1 stable for 15 seconds, activating Stage 2');
-            this.enableStage2Security();
+            const message = `🔒 Security upgraded to Stage ${stage}: ${stageNames[stage]}`;
             
-            // Wait another 20 seconds before Stage 3
+            // Notify local UI via onMessage
+            if (this.onMessage) {
+                this.onMessage(message, 'system');
+            }
+
+            // Send security upgrade notification to peer via WebRTC
+            if (this.dataChannel && this.dataChannel.readyState === 'open') {
+                try {
+                    const securityNotification = {
+                        type: 'security_upgrade',
+                        stage: stage,
+                        stageName: stageNames[stage],
+                        message: message,
+                        timestamp: Date.now()
+                    };
+                    
+                    console.log('🔒 Sending security upgrade notification to peer:', securityNotification);
+                    this.dataChannel.send(JSON.stringify(securityNotification));
+                } catch (error) {
+                    console.warn('⚠️ Failed to send security upgrade notification to peer:', error.message);
+                }
+            }
+
+            const status = this.getSecurityStatus();
+        }
+        // ============================================
+        // AUTOMATIC STEP-BY-STEP SWITCHING ON
+        // ============================================
+
+        // Method for automatic feature enablement with stability check
+        async autoEnableSecurityFeatures() {
+
+        if (this.currentSessionType === 'demo') {
+            console.log('🔒 Demo session - keeping basic security only');
+            this.notifySecurityUpgrade(1);
+            return;
+        }
+
+        // For paid sessions, we enable functions gradually
+        const checkStability = () => {
+            const isStable = this.isConnected() && 
+                            this.isVerified && 
+                            this.connectionAttempts === 0 && 
+                            this.messageQueue.length === 0 &&
+                            this.peerConnection?.connectionState === 'connected';
+            return isStable;
+        };
+        
+        console.log(`🔒 ${this.currentSessionType} session - starting graduated security activation`);
+        this.notifySecurityUpgrade(1);
+        
+        // For enhanced and maximum sessions, turn on Stage 2 after 10 seconds
+        if (this.currentSecurityLevel === 'enhanced' || this.currentSecurityLevel === 'maximum') {
             setTimeout(() => {
                 if (checkStability()) {
-                    console.log('✅ Stage 2 stable for 20 seconds, activating Stage 3');
-                    this.enableStage3Security();
+                    console.log('✅ Activating Stage 2 for paid session');
+                    this.enableStage2Security();
                     
-                    // Wait another 25 seconds before Stage 4
-                    setTimeout(() => {
-                        if (checkStability()) {
-                            console.log('✅ Stage 3 stable for 25 seconds, activating Stage 4');
-                            this.enableStage4Security();
-                        } else {
-                            console.log('⚠️ Connection not stable enough for Stage 4');
-                        }
-                    }, 25000);
-                } else {
-                    console.log('⚠️ Connection not stable enough for Stage 3');
+                    // For maximum sessions, turn on Stage 3 and 4
+                    if (this.currentSecurityLevel === 'maximum') {
+                        setTimeout(() => {
+                            if (checkStability()) {
+                                console.log('✅ Activating Stage 3 for premium session');
+                                this.enableStage3Security();
+                                
+                                setTimeout(() => {
+                                    if (checkStability()) {
+                                        console.log('✅ Activating Stage 4 for premium session');
+                                        this.enableStage4Security();
+                                    }
+                                }, 20000);
+                            }
+                        }, 15000);
+                    }
                 }
-            }, 20000);
-        } else {
-            console.log('⚠️ Connection not stable enough for Stage 2');
+            }, 10000);
         }
-    }, 15000);
-}
+    }
 
     // ============================================
     // CONNECTION MANAGEMENT WITH ENHANCED SECURITY

@@ -10,8 +10,8 @@ const SessionTypeSelector = ({ onSelectType, onCancel, sessionManager }) => {
             try {
                 const info = sessionManager.getDemoSessionInfo();
                 if (window.DEBUG_MODE) {
-            console.log('🔄 Demo info updated:', info);
-        }
+                    console.log('🔄 Demo info updated:', info);
+                }
                 setDemoInfo(info);
                 setLastRefresh(Date.now());
             } catch (error) {
@@ -23,10 +23,8 @@ const SessionTypeSelector = ({ onSelectType, onCancel, sessionManager }) => {
     // Update information on load and every 10 seconds
     React.useEffect(() => {
         updateDemoInfo();
-        
         const interval = setInterval(updateDemoInfo, 10000); 
         setRefreshTimer(interval);
-        
         return () => {
             if (interval) clearInterval(interval);
         };
@@ -49,33 +47,66 @@ const SessionTypeSelector = ({ onSelectType, onCancel, sessionManager }) => {
             price: '0 sat', 
             usd: '$0.00', 
             popular: false,
-            description: 'Limited testing session',
-            features: ['End-to-end encryption', 'Basic features', 'No payment required']
+            securityLevel: 'Basic',
+            securityBadge: 'BASIC',
+            securityColor: 'bg-blue-500/20 text-blue-300',
+            description: 'Limited testing session with basic security',
+            features: [
+                'Basic end-to-end encryption', 
+                'Simple key exchange', 
+                'Message integrity',
+                'Rate limiting'
+            ],
+            limitations: [
+                'No advanced security features',
+                'No traffic obfuscation',
+                'No metadata protection'
+            ]
         },
         { 
             id: 'basic', 
             name: 'Basic', 
             duration: '1 hour', 
-            price: '500 sat', 
-            usd: '$0.20',
-            features: ['End-to-end encryption', 'Full features', '1 hour duration']
+            price: '5,000 sat', 
+            usd: '$2.00',
+            securityLevel: 'Enhanced',
+            securityBadge: 'ENHANCED',
+            securityColor: 'bg-orange-500/20 text-orange-300',
+            popular: true,
+            description: 'Full featured session with enhanced security',
+            features: [
+                'All basic features',
+                'ECDSA digital signatures', 
+                'Metadata protection', 
+                'Perfect forward secrecy',
+                'Nested encryption',
+                'Packet padding'
+            ],
+            limitations: [
+                'Limited traffic obfuscation',
+                'No fake traffic generation'
+            ]
         },
         { 
             id: 'premium', 
             name: 'Premium', 
-            duration: '4 hours', 
-            price: '1000 sat', 
-            usd: '$0.40', 
-            popular: true,
-            features: ['End-to-end encryption', 'Full features', '4 hours duration', 'Priority support']
-        },
-        { 
-            id: 'extended', 
-            name: 'Extended', 
-            duration: '24 hours', 
-            price: '2000 sat', 
-            usd: '$0.80',
-            features: ['End-to-end encryption', 'Full features', '24 hours duration', 'Priority support']
+            duration: '6 hours', 
+            price: '20,000 sat', 
+            usd: '$8.00',
+            securityLevel: 'Maximum',
+            securityBadge: 'MAXIMUM',
+            securityColor: 'bg-green-500/20 text-green-300',
+            description: 'Extended session with maximum security protection',
+            features: [
+                'All enhanced features',
+                'Traffic obfuscation', 
+                'Fake traffic generation',
+                'Decoy channels',
+                'Anti-fingerprinting',
+                'Message chunking',
+                'Advanced replay protection'
+            ],
+            limitations: []
         }
     ];
 
@@ -127,10 +158,10 @@ const SessionTypeSelector = ({ onSelectType, onCancel, sessionManager }) => {
             React.createElement('p', { 
                 key: 'subtitle', 
                 className: 'text-gray-300 text-sm' 
-            }, 'Pay via Lightning Network or try our demo session')
+            }, 'Different security levels for different needs')
         ]),
         
-        React.createElement('div', { key: 'types', className: 'space-y-3' }, 
+        React.createElement('div', { key: 'types', className: 'space-y-4' }, 
             sessionTypes.map(type => {
                 const isDemo = type.id === 'demo';
                 const isDisabled = isDemo && demoInfo && !demoInfo.canUseNow;
@@ -138,82 +169,137 @@ const SessionTypeSelector = ({ onSelectType, onCancel, sessionManager }) => {
                 return React.createElement('div', {
                     key: type.id,
                     onClick: () => !isDisabled && handleTypeSelect(type.id),
-                    className: `card-minimal rounded-lg p-4 border-2 transition-all ${
+                    className: `relative card-minimal rounded-lg p-5 border-2 transition-all ${
                         selectedType === type.id ? 'border-orange-500 bg-orange-500/10' : 'border-gray-600 hover:border-orange-400'
-                    } ${type.popular ? 'relative' : ''} ${
+                    } ${type.popular ? 'ring-2 ring-orange-500/30' : ''} ${
                         isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                     }`
                 }, [
+                    // Popular badge
                     type.popular && React.createElement('div', { 
-                        key: 'badge', 
-                        className: 'absolute -top-2 right-3 bg-orange-500 text-white text-xs px-2 py-1 rounded-full' 
-                    }, 'Popular'),
+                        key: 'popular-badge', 
+                        className: 'absolute -top-2 right-3 bg-orange-500 text-white text-xs px-3 py-1 rounded-full font-medium' 
+                    }, 'Most Popular'),
                     
-                    React.createElement('div', { key: 'content', className: 'flex items-start justify-between' }, [
-                        React.createElement('div', { key: 'info', className: 'flex-1' }, [
-                            React.createElement('div', { key: 'header', className: 'flex items-center gap-2 mb-2' }, [
-                                React.createElement('h4', { 
-                                    key: 'name', 
-                                    className: 'text-lg font-semibold text-white' 
-                                }, type.name),
-                                isDemo && React.createElement('span', {
-                                    key: 'demo-badge',
-                                    className: 'text-xs bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full'
-                                }, 'FREE')
+                    React.createElement('div', { key: 'content', className: 'space-y-4' }, [
+                        // Header with name and security level
+                        React.createElement('div', { key: 'header', className: 'flex items-start justify-between' }, [
+                            React.createElement('div', { key: 'title-section' }, [
+                                React.createElement('div', { key: 'name-row', className: 'flex items-center gap-3 mb-2' }, [
+                                    React.createElement('h4', { 
+                                        key: 'name', 
+                                        className: 'text-xl font-bold text-white' 
+                                    }, type.name),
+                                    isDemo && React.createElement('span', {
+                                        key: 'free-badge',
+                                        className: 'text-xs bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full font-medium'
+                                    }, 'FREE'),
+                                    React.createElement('span', {
+                                        key: 'security-badge',
+                                        className: `text-xs px-2 py-1 rounded-full font-medium ${type.securityColor}`
+                                    }, type.securityBadge)
+                                ]),
+                                React.createElement('p', { 
+                                    key: 'duration', 
+                                    className: 'text-gray-300 font-medium mb-1' 
+                                }, `Duration: ${type.duration}`),
+                                React.createElement('p', {
+                                    key: 'description',
+                                    className: 'text-sm text-gray-400'
+                                }, type.description)
                             ]),
-                            React.createElement('p', { 
-                                key: 'duration', 
-                                className: 'text-gray-300 text-sm mb-1' 
-                            }, `Duration: ${type.duration}`),
-                            type.description && React.createElement('p', {
-                                key: 'description',
-                                className: 'text-xs text-gray-400 mb-2'
-                            }, type.description),
-                            
-                            isDemo && demoInfo && React.createElement('div', {
-                                key: 'demo-status',
-                                className: 'text-xs mb-2'
-                            }, [
-                                React.createElement('div', {
-                                    key: 'availability',
-                                    className: demoInfo.canUseNow ? 'text-green-400' : 'text-yellow-400'
-                                }, demoInfo.canUseNow ? 
-                                    `✅ Available (${demoInfo.available}/${demoInfo.total} today)` : 
-                                    `⏰ Next: ${demoInfo.nextAvailable}`
-                                ),
-                                demoInfo.globalActive > 0 && React.createElement('div', {
-                                    key: 'global-status',
-                                    className: 'text-blue-300 mt-1'
-                                }, `🌐 Global: ${demoInfo.globalActive}/${demoInfo.globalLimit} active`)
-                            ]),
-                            
-                            type.features && React.createElement('div', {
-                                key: 'features',
-                                className: 'text-xs text-gray-400 space-y-1'
-                            }, type.features.map((feature, index) => 
-                                React.createElement('div', {
-                                    key: index,
-                                    className: 'flex items-center gap-1'
+                            React.createElement('div', { key: 'pricing', className: 'text-right' }, [
+                                React.createElement('div', { 
+                                    key: 'sats', 
+                                    className: `text-xl font-bold ${isDemo ? 'text-green-400' : 'text-orange-400'}` 
+                                }, type.price),
+                                React.createElement('div', { 
+                                    key: 'usd', 
+                                    className: 'text-sm text-gray-400' 
+                                }, type.usd)
+                            ])
+                        ]),
+
+                        // Demo status info
+                        isDemo && demoInfo && React.createElement('div', {
+                            key: 'demo-status',
+                            className: 'p-3 bg-blue-900/20 border border-blue-700/30 rounded-lg'
+                        }, [
+                            React.createElement('div', {
+                                key: 'availability',
+                                className: `text-sm font-medium ${demoInfo.canUseNow ? 'text-green-400' : 'text-yellow-400'}`
+                            }, demoInfo.canUseNow ? 
+                                `✅ Available (${demoInfo.available}/${demoInfo.total} today)` : 
+                                `⏰ Next: ${demoInfo.nextAvailable}`
+                            ),
+                            demoInfo.globalActive > 0 && React.createElement('div', {
+                                key: 'global-status',
+                                className: 'text-blue-300 text-xs mt-1'
+                            }, `🌐 Global: ${demoInfo.globalActive}/${demoInfo.globalLimit} active`)
+                        ]),
+
+                        // Security features
+                        React.createElement('div', { key: 'features-section', className: 'space-y-3' }, [
+                            React.createElement('div', { key: 'features' }, [
+                                React.createElement('h5', {
+                                    key: 'features-title',
+                                    className: 'text-sm font-medium text-green-300 mb-2 flex items-center'
                                 }, [
                                     React.createElement('i', {
-                                        key: 'check',
-                                        className: 'fas fa-check text-green-400 w-3'
+                                        key: 'shield-icon',
+                                        className: 'fas fa-shield-alt mr-2'
                                     }),
-                                    React.createElement('span', {
-                                        key: 'text'
-                                    }, feature)
-                                ])
-                            ))
-                        ]),
-                        React.createElement('div', { key: 'pricing', className: 'text-right' }, [
-                            React.createElement('div', { 
-                                key: 'sats', 
-                                className: `text-lg font-bold ${isDemo ? 'text-green-400' : 'text-orange-400'}` 
-                            }, type.price),
-                            React.createElement('div', { 
-                                key: 'usd', 
-                                className: 'text-xs text-gray-400' 
-                            }, type.usd)
+                                    'Security Features'
+                                ]),
+                                React.createElement('div', {
+                                    key: 'features-list',
+                                    className: 'grid grid-cols-1 gap-1'
+                                }, type.features.map((feature, index) => 
+                                    React.createElement('div', {
+                                        key: index,
+                                        className: 'flex items-center gap-2 text-xs text-gray-300'
+                                    }, [
+                                        React.createElement('i', {
+                                            key: 'check',
+                                            className: 'fas fa-check text-green-400 w-3'
+                                        }),
+                                        React.createElement('span', {
+                                            key: 'text'
+                                        }, feature)
+                                    ])
+                                ))
+                            ]),
+
+                            // Limitations (if any)
+                            type.limitations && type.limitations.length > 0 && React.createElement('div', { key: 'limitations' }, [
+                                React.createElement('h5', {
+                                    key: 'limitations-title',
+                                    className: 'text-sm font-medium text-yellow-300 mb-2 flex items-center'
+                                }, [
+                                    React.createElement('i', {
+                                        key: 'info-icon',
+                                        className: 'fas fa-info-circle mr-2'
+                                    }),
+                                    'Limitations'
+                                ]),
+                                React.createElement('div', {
+                                    key: 'limitations-list',
+                                    className: 'grid grid-cols-1 gap-1'
+                                }, type.limitations.map((limitation, index) => 
+                                    React.createElement('div', {
+                                        key: index,
+                                        className: 'flex items-center gap-2 text-xs text-gray-400'
+                                    }, [
+                                        React.createElement('i', {
+                                            key: 'minus',
+                                            className: 'fas fa-minus text-yellow-400 w-3'
+                                        }),
+                                        React.createElement('span', {
+                                            key: 'text'
+                                        }, limitation)
+                                    ])
+                                ))
+                            ])
                         ])
                     ])
                 ])
@@ -255,11 +341,16 @@ const SessionTypeSelector = ({ onSelectType, onCancel, sessionManager }) => {
                 ])
             ]),
             React.createElement('div', {
+                key: 'security-note',
+                className: 'mt-3 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded text-yellow-200 text-xs'
+            }, '⚠️ Demo sessions use basic security only. Upgrade to paid sessions for enhanced protection.'),
+            React.createElement('div', {
                 key: 'last-updated',
-                className: 'text-xs text-gray-400 mt-3 text-center'
+                className: 'text-xs text-gray-400 mt-2 text-center'
             }, `Last updated: ${new Date(lastRefresh).toLocaleTimeString()}`)
         ]),
-        
+
+        // Action buttons
         React.createElement('div', { key: 'buttons', className: 'flex space-x-3' }, [
             React.createElement('button', { 
                 key: 'continue', 
@@ -289,9 +380,7 @@ const SessionTypeSelector = ({ onSelectType, onCancel, sessionManager }) => {
                 className: 'px-3 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-all', 
                 title: 'Refresh demo status'
             }, React.createElement('i', { className: 'fas fa-sync-alt' }))
-        ]),
-
-
+        ])
     ]);
 };
 

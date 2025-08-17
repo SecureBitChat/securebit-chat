@@ -6,11 +6,13 @@ const EnhancedMinimalHeader = ({
     isConnected, 
     securityLevel, 
     sessionManager, 
-    sessionTimeLeft 
+    sessionTimeLeft,
+    webrtcManager 
 }) => {
     const [currentTimeLeft, setCurrentTimeLeft] = React.useState(sessionTimeLeft || 0);
     const [hasActiveSession, setHasActiveSession] = React.useState(false);
     const [sessionType, setSessionType] = React.useState('unknown');
+    const [realSecurityLevel, setRealSecurityLevel] = React.useState(null);
 
     React.useEffect(() => {
         const updateSessionInfo = () => {
@@ -22,16 +24,121 @@ const EnhancedMinimalHeader = ({
                 setHasActiveSession(isActive);
                 setCurrentTimeLeft(timeLeft);
                 setSessionType(currentSession?.type || 'unknown');
-                
             }
         };
 
         updateSessionInfo();
-
         const interval = setInterval(updateSessionInfo, 1000);
-
         return () => clearInterval(interval);
     }, [sessionManager]);
+
+    React.useEffect(() => {
+        const updateSecurityStatus = () => {
+            try {
+                const activeWebrtcManager = webrtcManager || window.webrtcManager;
+                const activeSessionManager = sessionManager || window.sessionManager;
+                
+                if (activeWebrtcManager && activeWebrtcManager.getSecurityStatus) {
+                    const securityStatus = activeWebrtcManager.getSecurityStatus();
+                    const sessionInfo = activeSessionManager ? activeSessionManager.getSessionInfo() : null;
+
+                    if (window.DEBUG_MODE) {
+                        console.log('🔍 Header security update:', {
+                            hasWebrtcManager: !!activeWebrtcManager,
+                            hasSessionManager: !!activeSessionManager,
+                            securityStatus: securityStatus,
+                            sessionInfo: sessionInfo
+                        });
+                    }
+
+                    const realLevel = calculateRealSecurityLevel(securityStatus, sessionInfo);
+                    setRealSecurityLevel(realLevel);
+                    
+                    if (window.DEBUG_MODE) {
+                        console.log('🔍 Calculated real security level:', realLevel);
+                    }
+                }
+            } catch (error) {
+                console.warn('⚠️ Error updating security status:', error);
+            }
+        };
+
+        updateSecurityStatus();
+        const interval = setInterval(updateSecurityStatus, 3000); 
+        return () => clearInterval(interval);
+    }, [webrtcManager, sessionManager]);
+
+    const calculateRealSecurityLevel = (securityStatus, sessionInfo) => {
+        if (!securityStatus) {
+            return {
+                level: 'Unknown',
+                score: 0,
+                color: 'red',
+                details: 'Security status not available'
+            };
+        }
+
+        const activeFeatures = securityStatus.activeFeaturesNames || [];
+        const totalFeatures = securityStatus.totalFeatures || 12;
+        const sessionType = sessionInfo?.type || securityStatus.sessionType || 'unknown';
+        const securityLevel = securityStatus.securityLevel || 'basic';
+        const stage = securityStatus.stage || 1;
+
+        let finalScore = securityStatus.score || 0;
+        let level = 'Basic';
+        let color = 'red';
+
+        // score от crypto utils
+        if (finalScore > 0) {
+            if (finalScore >= 90) {
+                level = 'Maximum';
+                color = 'green';
+            } else if (finalScore >= 60) {
+                level = 'Enhanced';
+                color = sessionType === 'demo' ? 'yellow' : 'green';
+            } else if (finalScore >= 30) {
+                level = 'Basic';
+                color = 'yellow';
+            } else {
+                level = 'Low';
+                color = 'red';
+            }
+        } else {
+            const baseScores = {
+                'basic': 30,    
+                'enhanced': 65, 
+                'maximum': 90   
+            };
+
+            const featureScore = totalFeatures > 0 ? Math.min(40, (activeFeatures.length / totalFeatures) * 40) : 0;
+            finalScore = Math.min(100, (baseScores[securityLevel] || 30) + featureScore);
+
+            if (sessionType === 'demo') {
+                level = 'Basic';
+                color = finalScore >= 40 ? 'yellow' : 'red';
+            } else if (securityLevel === 'enhanced') {
+                level = 'Enhanced';
+                color = finalScore >= 70 ? 'green' : 'yellow';
+            } else if (securityLevel === 'maximum') {
+                level = 'Maximum';
+                color = 'green';
+            } else {
+                level = 'Basic';
+                color = finalScore >= 50 ? 'yellow' : 'red';
+            }
+        }
+
+        return {
+            level: level,
+            score: Math.round(finalScore),
+            color: color,
+            details: `${activeFeatures.length}/${totalFeatures} security features active`,
+            activeFeatures: activeFeatures,
+            sessionType: sessionType,
+            stage: stage,
+            securityLevel: securityLevel
+        };
+    };
 
     React.useEffect(() => {
         if (sessionManager?.hasActiveSession()) {
@@ -43,14 +150,33 @@ const EnhancedMinimalHeader = ({
     }, [sessionManager, sessionTimeLeft]);
 
     const handleSecurityClick = () => {
-        if (securityLevel?.verificationResults) {
+        const currentSecurity = realSecurityLevel || securityLevel;
+        
+        if (!currentSecurity) {
+            alert('Security information not available');
+            return;
+        }
+
+        if (currentSecurity.activeFeatures) {
+            const activeList = currentSecurity.activeFeatures.map(feature => 
+                `✅ ${feature.replace('has', '').replace(/([A-Z])/g, ' $1').trim()}`
+            ).join('\n');
+            
+            const message = `Security Level: ${currentSecurity.level} (${currentSecurity.score}%)\n` +
+                          `Session Type: ${currentSecurity.sessionType}\n` +
+                          `Stage: ${currentSecurity.stage}\n\n` +
+                          `Active Security Features:\n${activeList || 'No features detected'}\n\n` +
+                          `${currentSecurity.details || 'No additional details'}`;
+            
+            alert(message);
+        } else if (currentSecurity.verificationResults) {
             alert('Security check details:\n\n' + 
-                Object.entries(securityLevel.verificationResults)
+                Object.entries(currentSecurity.verificationResults)
                     .map(([key, result]) => `${key}: ${result.passed ? '✅' : '❌'} ${result.details}`)
                     .join('\n')
             );
-        } else if (securityLevel) {
-            alert(`Security Level: ${securityLevel.level}\nScore: ${securityLevel.score}%\nDetails: ${securityLevel.details || 'No additional details available'}`);
+        } else {
+            alert(`Security Level: ${currentSecurity.level}\nScore: ${currentSecurity.score}%\nDetails: ${currentSecurity.details || 'No additional details available'}`);
         }
     };
 
@@ -58,7 +184,6 @@ const EnhancedMinimalHeader = ({
 
     React.useEffect(() => {
         const handleForceUpdate = (event) => {
-
             if (sessionManager) {
                 const isActive = sessionManager.hasActiveSession();
                 const timeLeft = sessionManager.getTimeLeft();
@@ -128,6 +253,7 @@ const EnhancedMinimalHeader = ({
     };
 
     const config = getStatusConfig();
+    const displaySecurityLevel = realSecurityLevel || securityLevel;
 
     return React.createElement('header', {
         className: 'header-minimal sticky top-0 z-50'
@@ -163,7 +289,7 @@ const EnhancedMinimalHeader = ({
                         React.createElement('p', {
                             key: 'subtitle',
                             className: 'text-xs sm:text-sm text-muted hidden sm:block'
-                        }, 'End-to-end freedom. v4.0.03.00')
+                        }, 'End-to-end freedom. v4.1.1')
                     ])
                 ]),
 
@@ -180,24 +306,24 @@ const EnhancedMinimalHeader = ({
                         sessionManager: sessionManager
                     }),
 
-                    // Security Level Indicator
-                    securityLevel && React.createElement('div', {
+                    // Security Level Indicator 
+                    displaySecurityLevel && React.createElement('div', {
                         key: 'security-level',
                         className: 'hidden md:flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity duration-200',
                         onClick: handleSecurityClick,
-                        title: `${securityLevel.level} (${securityLevel.score}%) - Click for details`
+                        title: `${displaySecurityLevel.level} (${displaySecurityLevel.score}%) - ${displaySecurityLevel.details || 'Click for details'}`
                     }, [
                         React.createElement('div', {
                             key: 'security-icon',
                             className: `w-6 h-6 rounded-full flex items-center justify-center ${
-                                securityLevel.color === 'green' ? 'bg-green-500/20' :
-                                securityLevel.color === 'yellow' ? 'bg-yellow-500/20' : 'bg-red-500/20'
+                                displaySecurityLevel.color === 'green' ? 'bg-green-500/20' :
+                                displaySecurityLevel.color === 'yellow' ? 'bg-yellow-500/20' : 'bg-red-500/20'
                             }`
                         }, [
                             React.createElement('i', {
                                 className: `fas fa-shield-alt text-xs ${
-                                    securityLevel.color === 'green' ? 'text-green-400' :
-                                    securityLevel.color === 'yellow' ? 'text-yellow-400' : 'text-red-400'
+                                    displaySecurityLevel.color === 'green' ? 'text-green-400' :
+                                    displaySecurityLevel.color === 'yellow' ? 'text-yellow-400' : 'text-red-400'
                                 }`
                             })
                         ]),
@@ -208,11 +334,11 @@ const EnhancedMinimalHeader = ({
                             React.createElement('div', {
                                 key: 'security-level-text',
                                 className: 'text-xs font-medium text-primary'
-                            }, `${securityLevel.level} (${securityLevel.score}%)`),
-                            securityLevel.details && React.createElement('div', {
+                            }, `${displaySecurityLevel.level} (${displaySecurityLevel.score}%)`),
+                            React.createElement('div', {
                                 key: 'security-details',
                                 className: 'text-xs text-muted mt-1 hidden lg:block'
-                            }, securityLevel.details),
+                            }, displaySecurityLevel.details || `Stage ${displaySecurityLevel.stage || 1}`),
                             React.createElement('div', {
                                 key: 'security-progress',
                                 className: 'w-16 h-1 bg-gray-600 rounded-full overflow-hidden'
@@ -220,33 +346,33 @@ const EnhancedMinimalHeader = ({
                                 React.createElement('div', {
                                     key: 'progress-bar',
                                     className: `h-full transition-all duration-500 ${
-                                        securityLevel.color === 'green' ? 'bg-green-400' :
-                                        securityLevel.color === 'yellow' ? 'bg-yellow-400' : 'bg-red-400'
+                                        displaySecurityLevel.color === 'green' ? 'bg-green-400' :
+                                        displaySecurityLevel.color === 'yellow' ? 'bg-yellow-400' : 'bg-red-400'
                                     }`,
-                                    style: { width: `${securityLevel.score}%` }
+                                    style: { width: `${displaySecurityLevel.score}%` }
                                 })
                             ])
                         ])
                     ]),
 
                     // Mobile Security Indicator
-                    securityLevel && React.createElement('div', {
+                    displaySecurityLevel && React.createElement('div', {
                         key: 'mobile-security',
                         className: 'md:hidden flex items-center'
                     }, [
                         React.createElement('div', {
                             key: 'mobile-security-icon',
                             className: `w-8 h-8 rounded-full flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity duration-200 ${
-                                securityLevel.color === 'green' ? 'bg-green-500/20' :
-                                securityLevel.color === 'yellow' ? 'bg-yellow-500/20' : 'bg-red-500/20'
+                                displaySecurityLevel.color === 'green' ? 'bg-green-500/20' :
+                                displaySecurityLevel.color === 'yellow' ? 'bg-yellow-500/20' : 'bg-red-500/20'
                             }`,
-                            title: `${securityLevel.level} (${securityLevel.score}%) - Click for details`,
+                            title: `${displaySecurityLevel.level} (${displaySecurityLevel.score}%) - Click for details`,
                             onClick: handleSecurityClick
                         }, [
                             React.createElement('i', {
                                 className: `fas fa-shield-alt text-sm ${
-                                    securityLevel.color === 'green' ? 'text-green-400' :
-                                    securityLevel.color === 'yellow' ? 'text-yellow-400' : 'bg-red-400'
+                                    displaySecurityLevel.color === 'green' ? 'text-green-400' :
+                                    displaySecurityLevel.color === 'yellow' ? 'text-yellow-400' : 'text-red-400'
                                 }`
                             })
                         ])
@@ -288,4 +414,4 @@ const EnhancedMinimalHeader = ({
 
 window.EnhancedMinimalHeader = EnhancedMinimalHeader;
 
-console.log('✅ EnhancedMinimalHeader loaded with timer fixes');
+console.log('✅ EnhancedMinimalHeader v4.1.1 loaded with real security status integration');

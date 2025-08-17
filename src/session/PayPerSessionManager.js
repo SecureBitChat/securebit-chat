@@ -1,11 +1,9 @@
 class PayPerSessionManager {
     constructor(config = {}) {
         this.sessionPrices = {
-            // SAFE demo mode with limitations
-            demo: { sats: 0, hours: 0.1, usd: 0.00 }, 
-            basic: { sats: 500, hours: 1, usd: 0.20 },
-            premium: { sats: 1000, hours: 4, usd: 0.40 },
-            extended: { sats: 2000, hours: 24, usd: 0.80 }
+            demo: { sats: 0, hours: 0.1, usd: 0.00, securityLevel: 'basic' }, 
+            basic: { sats: 5000, hours: 1, usd: 2.00, securityLevel: 'enhanced' },
+            premium: { sats: 20000, hours: 6, usd: 8.00, securityLevel: 'maximum' }
         };
         
         this.currentSession = null;
@@ -33,7 +31,7 @@ class PayPerSessionManager {
         this.minTimeBetweenCompletedSessions = 15 * 60 * 1000; 
 
         // Minimum cost for paid sessions (protection against micropayment attacks)
-        this.minimumPaymentSats = 100;
+        this.minimumPaymentSats = 1000;
         
         this.verificationConfig = {
             method: config.method || 'lnbits',
@@ -66,13 +64,96 @@ class PayPerSessionManager {
             console.warn('❌ Multi-tab protection triggered:', multiTabCheck.message);
         }
         
-        console.log('💰 PayPerSessionManager initialized with ENHANCED secure demo mode');
+        console.log('💰 PayPerSessionManager initialized with TIERED security levels');
         
         setInterval(() => {
             this.savePersistentData();
         }, 30000);
 
         console.log('💰 PayPerSessionManager initialized with ENHANCED secure demo mode and auto-save');
+    }
+
+    getSecurityLevelForSession(sessionType) {
+        const pricing = this.sessionPrices[sessionType];
+        if (!pricing) return 'basic';
+        
+        return pricing.securityLevel || 'basic';
+    }
+
+    // Check if the function is allowed for the given session type
+    isFeatureAllowedForSession(sessionType, feature) {
+        const securityLevel = this.getSecurityLevelForSession(sessionType);
+        
+        const featureMatrix = {
+            'basic': {
+                // DEMO сессии - только базовые функции
+                hasEncryption: true,
+                hasECDH: true,
+                hasECDSA: false,
+                hasMutualAuth: false,
+                hasMetadataProtection: false,
+                hasEnhancedReplayProtection: false,
+                hasNonExtractableKeys: false,
+                hasRateLimiting: true,
+                hasEnhancedValidation: false,
+                hasPFS: false,
+                
+                // Advanced features are DISABLED for demo
+                hasNestedEncryption: false,
+                hasPacketPadding: false,
+                hasPacketReordering: false,
+                hasAntiFingerprinting: false,
+                hasFakeTraffic: false,
+                hasDecoyChannels: false,
+                hasMessageChunking: false
+            },
+            'enhanced': {
+                // BASIC paid sessions - improved security
+                hasEncryption: true,
+                hasECDH: true,
+                hasECDSA: true,
+                hasMutualAuth: true,
+                hasMetadataProtection: true,
+                hasEnhancedReplayProtection: true,
+                hasNonExtractableKeys: true,
+                hasRateLimiting: true,
+                hasEnhancedValidation: true,
+                hasPFS: true,
+                
+                // Partially enabled advanced features
+                hasNestedEncryption: true,
+                hasPacketPadding: true,
+                hasPacketReordering: false, 
+                hasAntiFingerprinting: false,
+                hasFakeTraffic: false, 
+                hasDecoyChannels: false,
+                hasMessageChunking: false
+            },
+            'maximum': {
+                // PREMIUM sessions - all functions included
+                hasEncryption: true,
+                hasECDH: true,
+                hasECDSA: true,
+                hasMutualAuth: true,
+                hasMetadataProtection: true,
+                hasEnhancedReplayProtection: true,
+                hasNonExtractableKeys: true,
+                hasRateLimiting: true,
+                hasEnhancedValidation: true,
+                hasPFS: true,
+                
+                // ALL advanced features
+                hasNestedEncryption: true,
+                hasPacketPadding: true,
+                hasPacketReordering: true,
+                hasAntiFingerprinting: true,
+                hasFakeTraffic: true,
+                hasDecoyChannels: true,
+                hasMessageChunking: true
+            }
+        };
+
+        return featureMatrix[securityLevel]?.[feature] || false;
     }
 
     // ============================================
@@ -1410,12 +1491,12 @@ class PayPerSessionManager {
             startTime: now,
             expiresAt: expiresAt,
             preimage: preimage,
-            isDemo: sessionType === 'demo'
+            isDemo: sessionType === 'demo',
+            securityLevel: this.getSecurityLevelForSession(sessionType) // НОВОЕ ПОЛЕ
         };
 
         this.startSessionTimer();
         
-        // IMPORTANT: Set up automatic cleaning for demo sessions
         if (sessionType === 'demo') {
             setTimeout(() => {
                 this.handleDemoSessionExpiry(preimage);
@@ -1423,29 +1504,92 @@ class PayPerSessionManager {
         }
         
         const durationMinutes = Math.round(duration / (60 * 1000));
-        console.log(`📅 Session ${sessionId.substring(0, 8)}... activated for ${durationMinutes} minutes`);
+        console.log(`📅 Session ${sessionId.substring(0, 8)}... activated for ${durationMinutes} minutes with ${this.currentSession.securityLevel} security`);
         
         if (sessionType === 'demo') {
             this.activeDemoSessions.add(preimage);
             this.usedPreimages.add(preimage);
             console.log(`🌐 Demo session added to active sessions. Total: ${this.activeDemoSessions.size}/${this.maxGlobalDemoSessions}`);
-            
-            if (window.DEBUG_MODE) {
-                console.log(`🔍 Demo session debug:`, {
-                    sessionId: sessionId.substring(0, 8),
-                    duration: durationMinutes + ' minutes',
-                    expiresAt: new Date(expiresAt).toLocaleTimeString(),
-                    currentTime: new Date(now).toLocaleTimeString(),
-                    timeLeft: this.getTimeLeft() + 'ms'
-                });
-            }
         }
         
+        // SENDING SECURITY LEVEL INFORMATION TO WebRTC
         setTimeout(() => {
             this.notifySessionActivated();
+            // Notify WebRTC manager about session type
+            if (window.webrtcManager && window.webrtcManager.configureSecurityForSession) {
+                window.webrtcManager.configureSecurityForSession(sessionType, this.currentSession.securityLevel);
+            }
         }, 100);
         
         return this.currentSession;
+    }
+
+    // UPDATED method for getting session information
+    getSessionInfo() {
+        if (!this.currentSession) {
+            return null;
+        }
+
+        const securityLevel = this.getSecurityLevelForSession(this.currentSession.type);
+        const pricing = this.sessionPrices[this.currentSession.type];
+
+        return {
+            ...this.currentSession,
+            securityLevel: securityLevel,
+            securityDescription: this.getSecurityDescription(securityLevel),
+            pricing: pricing,
+            timeLeft: this.getTimeLeft(),
+            isConnected: this.hasActiveSession()
+        };
+    }
+
+    getSecurityDescription(level) {
+        const descriptions = {
+            'basic': {
+                title: 'Basic Security',
+                features: [
+                    'End-to-end encryption',
+                    'Basic key exchange',
+                    'Rate limiting',
+                    'Message integrity'
+                ],
+                limitations: [
+                    'No advanced obfuscation',
+                    'No traffic padding',
+                    'No decoy channels'
+                ]
+            },
+            'enhanced': {
+                title: 'Enhanced Security',
+                features: [
+                    'All basic features',
+                    'ECDSA signatures',
+                    'Metadata protection',
+                    'Perfect forward secrecy',
+                    'Nested encryption',
+                    'Packet padding'
+                ],
+                limitations: [
+                    'Limited traffic obfuscation',
+                    'No fake traffic generation'
+                ]
+            },
+            'maximum': {
+                title: 'Maximum Security',
+                features: [
+                    'All enhanced features',
+                    'Traffic obfuscation',
+                    'Fake traffic generation',
+                    'Decoy channels',
+                    'Anti-fingerprinting',
+                    'Message chunking',
+                    'Packet reordering protection'
+                ],
+                limitations: []
+            }
+        };
+
+        return descriptions[level] || descriptions['basic'];
     }
 
     notifySessionActivated() {
