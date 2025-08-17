@@ -1530,6 +1530,7 @@
                                 React.createElement('p', { key: 'desc', className: "text-xs text-muted leading-tight" }, "Pay-per-session via WebLN")
                             ])
                         ]),
+
                         // Wallet Logos Section
                         React.createElement('div', {
                             key: 'wallet-logos-section',
@@ -1866,6 +1867,8 @@
                             ])
                         ]),
                         React.createElement(UniqueFeatureSlider, { key: 'unique-features-slider' }),
+
+                        React.createElement(DownloadApps, { key: 'download-apps' }),
 
                         React.createElement(ComparisonTable, { key: 'comparison-table' }),    
                         
@@ -3519,7 +3522,8 @@
             loadReactComponent('./src/components/ui/PasswordModal.jsx', 'PasswordModal'), 
             loadReactComponent('./src/components/ui/SessionTypeSelector.jsx', 'SessionTypeSelector'), 
             loadReactComponent('./src/components/ui/LightningPayment.jsx', 'LightningPayment'), 
-            loadReactComponent('./src/components/ui/PaymentModal.jsx', 'PaymentModal') 
+            loadReactComponent('./src/components/ui/PaymentModal.jsx', 'PaymentModal'), 
+            loadReactComponent('./src/components/ui/DownloadApps.jsx', 'DownloadApps') 
         ]);
 
 if (typeof initializeApp === 'function') {
