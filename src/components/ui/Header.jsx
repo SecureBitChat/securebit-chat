@@ -289,7 +289,7 @@ const EnhancedMinimalHeader = ({
                         React.createElement('p', {
                             key: 'subtitle',
                             className: 'text-xs sm:text-sm text-muted hidden sm:block'
-                        }, 'End-to-end freedom. v4.1.1')
+                        }, 'End-to-end freedom. v4.01.212')
                     ])
                 ]),
 
@@ -414,4 +414,4 @@ const EnhancedMinimalHeader = ({
 
 window.EnhancedMinimalHeader = EnhancedMinimalHeader;
 
-console.log('✅ EnhancedMinimalHeader v4.1.1 loaded with real security status integration');
+console.log('✅ EnhancedMinimalHeader v4.01.212 loaded with real security status integration');

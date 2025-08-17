@@ -13,9 +13,60 @@
            media-src 'none';
            object-src 'none';
            frame-src 'none';">
-<meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta http-equiv="X-XSS-Protection" content="1; mode=block">
     <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+
+    <!-- PWA Manifest -->
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" type="image/x-icon" href="/logo/favicon.ico">
+
+<!-- PWA Meta Tags -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SecureBit">
+<meta name="application-name" content="SecureBit">
+<meta name="msapplication-TileColor" content="#ff6b35">
+<meta name="msapplication-config" content="/browserconfig.xml">
+
+<!-- iOS Splash Screens -->
+<link rel="apple-touch-startup-image" href="/splash/launch-640x1136.png" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="/splash/launch-750x1334.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="/splash/launch-1242x2208.png" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="/splash/launch-1125x2436.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="/splash/launch-1536x2048.png" media="(min-device-width: 768px) and (max-device-width: 1024px) and (-webkit-min-device-pixel-ratio: 2) and (orientation: portrait)">
+
+<!-- Apple Touch Icons -->
+<link rel="apple-touch-icon" href="/logo/pwa/ios/57.png" sizes="57x57">
+<link rel="apple-touch-icon" href="/logo/pwa/ios/60.png" sizes="60x60">
+<link rel="apple-touch-icon" href="/logo/pwa/ios/72.png" sizes="72x72">
+<link rel="apple-touch-icon" href="/logo/pwa/ios/76.png" sizes="76x76">
+<link rel="apple-touch-icon" href="/logo/pwa/ios/114.png" sizes="114x114">
+<link rel="apple-touch-icon" href="/logo/pwa/ios/120.png" sizes="120x120">
+<link rel="apple-touch-icon" href="/logo/pwa/ios/144.png" sizes="144x144">
+<link rel="apple-touch-icon" href="/logo/pwa/ios/152.png" sizes="152x152">
+<link rel="apple-touch-icon" href="/logo/pwa/ios/180.png" sizes="180x180">
+
+<!-- Microsoft Tiles -->
+<meta name="msapplication-TileImage" content="/logo/pwa/windows11/Square150x150Logo.scale-100.png">
+<meta name="msapplication-square70x70logo" content="/logo/pwa/windows11/SmallTile.scale-100.png">
+<meta name="msapplication-square150x150logo" content="/logo/pwa/windows11/Square150x150Logo.scale-100.png">
+<meta name="msapplication-wide310x150logo" content="/logo/pwa/windows11/Wide310x150Logo.scale-100.png">
+<meta name="msapplication-square310x310logo" content="/logo/pwa/windows11/LargeTile.scale-100.png">
+
+
+<!-- PWA Theme Colors -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SecureBit">
+<meta name="application-name" content="SecureBit">
+<meta name="theme-color" content="#ff6b35">
+
+<!-- Security Headers for PWA -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; connect-src 'self' https: wss: ws:; img-src 'self' data: https:; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'self';">
+
 
     <!-- GitHub Pages SEO -->
     <meta name="description" content="SecureBit.chat — P2P messenger with military-grade cryptography and Lightning Network payments">
@@ -112,7 +163,7 @@
             icon: "fas fa-shield-halved",
             color: "orange",
             title: "12-Layer Military Security",
-            description: "Revolutionary defense system with ECDH P-384 + AES-GCM 256 + ECDSA. Enhanced Security Edition v4.0 provides military-grade protection exceeding government standards."
+            description: "Revolutionary defense system with ECDH P-384 + AES-GCM 256 + ECDSA. Enhanced Security Edition v4.01.212 provides military-grade protection exceeding government standards."
         },
         {
             icon: "fas fa-bolt",
@@ -462,7 +513,7 @@
                 Enhanced Security Edition Comparison
                 </h3>
                 <p className="text-secondary max-w-2xl mx-auto mb-4">
-                SecureBit.chat v4.0 Enhanced Security Edition vs leading secure messengers
+                SecureBit.chat v4.01.212 Enhanced Security Edition vs leading secure messengers
                 </p>
                 <div className="inline-flex items-center px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                 <span className="text-yellow-400 mr-2">🏆</span>
@@ -608,7 +659,7 @@
                 <div className="p-6 bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border border-orange-500/20 rounded-xl">
                     <h4 className="text-xl font-bold text-orange-400 mb-4 flex items-center">
                     <i className="fas fa-trophy mr-3" />
-                    SecureBit.chat v4.0 Enhanced Security Edition Summary
+                    SecureBit.chat v4.01.212 Enhanced Security Edition Summary
                     </h4>
                     <p className="text-secondary leading-relaxed text-lg mb-4">
                     SecureBit.chat dominates in 11 out of 15 security categories, establishing itself as the most secure P2P messenger available.
@@ -3580,6 +3631,42 @@ document.addEventListener('session-activated', (event) => {
 if (window.DEBUG_MODE) {
 console.log('✅ Global timer management functions loaded');
 }
+</script>
+<script src="/src/pwa/install-prompt.js"></script>
+<script src="/src/pwa/pwa-manager.js"></script>
+<script src="/src/pwa/offline-manager.js"></script>
+<link rel="stylesheet" href="/src/styles/pwa.css">
+<script>
+// PWA Registration Script
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', async () => {
+        try {
+            const registration = await navigator.serviceWorker.register('/sw.js');
+            console.log('✅ PWA: Service Worker registered');
+        } catch (error) {
+            console.error('❌ PWA: Service Worker registration failed:', error);
+        }
+    });
+}
+
+// Handle PWA install prompt
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    showInstallButton();
+});
+
+function showInstallButton() {
+    // Show install button in your UI
+    console.log('💿 PWA: Install prompt available');
+}
+
+// Handle app installation
+window.addEventListener('appinstalled', () => {
+    console.log('✅ PWA: App installed successfully');
+    deferredPrompt = null;
+});
 </script>
 </body>
 </html>
