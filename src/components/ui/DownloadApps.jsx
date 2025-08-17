@@ -15,8 +15,7 @@ const DownloadApps = () => {
     const desktopApps = apps.filter(a => a.platform !== 'Mobile');
     const mobileApps = apps.filter(a => a.platform === 'Mobile');
 
-    // Размер карточки
-    const cardSize = "w-28 h-28"; // квадратные
+    const cardSize = "w-28 h-28"; 
 
     return React.createElement('div', { className: "mt-20 px-6" }, [
         // Header
@@ -25,7 +24,6 @@ const DownloadApps = () => {
             React.createElement('p', { key: 'subtitle', className: "text-secondary text-lg mb-5" }, 'Stay secure on every device. Choose your platform and start chatting privately.')
         ]),
 
-        // Верхний ряд: Desktop + Web (скрыт на мобильных)
         React.createElement('div', { key: 'desktop-row', className: "hidden sm:flex justify-center flex-wrap gap-6 mb-6" },
             desktopApps.map(app =>
                 React.createElement('div', {
@@ -55,7 +53,6 @@ const DownloadApps = () => {
             )
         ),
 
-        // Нижний ряд: Mobile (всегда центрированы)
         React.createElement('div', { key: 'mobile-row', className: "flex justify-center gap-6" },
             mobileApps.map(app =>
                 React.createElement('div', {
