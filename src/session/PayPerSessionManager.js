@@ -145,7 +145,6 @@ class PayPerSessionManager {
     // IMPROVED user fingerprint generation
     generateAdvancedUserFingerprint() {
         try {
-            // Базовые компоненты (как было)
             const basicComponents = [
                 navigator.userAgent || '',
                 navigator.language || '',
@@ -161,10 +160,9 @@ class PayPerSessionManager {
                 navigator.onLine ? '1' : '0'
             ];
 
-            // НОВЫЕ КОМПОНЕНТЫ ДЛЯ HARDWARE BINDING
             const hardwareComponents = [];
             
-            // WebGL отпечаток (очень сложно подделать)
+            // WebGL fingerprint 
             try {
                 const canvas = document.createElement('canvas');
                 const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
@@ -181,7 +179,7 @@ class PayPerSessionManager {
                 hardwareComponents.push('webgl_error');
             }
 
-            // Canvas отпечаток (уникален для каждого устройства)
+            // Canvas print 
             try {
                 const canvas = document.createElement('canvas');
                 canvas.width = 200;
@@ -197,7 +195,7 @@ class PayPerSessionManager {
                 hardwareComponents.push('canvas_error');
             }
 
-            // Аудио отпечаток (очень стабилен)
+            // Audio fingerprint 
             try {
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 const oscillator = audioContext.createOscillator();
@@ -220,14 +218,12 @@ class PayPerSessionManager {
                 hardwareComponents.push('audio_error');
             }
 
-            // Производительность CPU (стабильна для устройства)
+            // CPU Performance 
             const cpuBenchmark = this.performCPUBenchmark();
             hardwareComponents.push(cpuBenchmark);
 
-            // Объединяем все компоненты
             const allComponents = [...basicComponents, ...hardwareComponents];
-            
-            // Создаем несколько уровней хеширования
+
             let primaryHash = 0;
             let secondaryHash = 0;
             let tertiaryHash = 0;
@@ -236,28 +232,24 @@ class PayPerSessionManager {
             const secondaryStr = allComponents.slice(8, 16).join('|');
             const tertiaryStr = allComponents.slice(16).join('|');
             
-            // Первичный хеш
             for (let i = 0; i < primaryStr.length; i++) {
                 const char = primaryStr.charCodeAt(i);
                 primaryHash = ((primaryHash << 7) - primaryHash) + char;
                 primaryHash = primaryHash & primaryHash;
             }
-            
-            // Вторичный хеш
+
             for (let i = 0; i < secondaryStr.length; i++) {
                 const char = secondaryStr.charCodeAt(i);
                 secondaryHash = ((secondaryHash << 11) - secondaryHash) + char;
                 secondaryHash = secondaryHash & secondaryHash;
             }
             
-            // Третичный хеш
             for (let i = 0; i < tertiaryStr.length; i++) {
                 const char = tertiaryStr.charCodeAt(i);
                 tertiaryHash = ((tertiaryHash << 13) - tertiaryHash) + char;
                 tertiaryHash = tertiaryHash & tertiaryHash;
             }
             
-            // Комбинированный отпечаток
             const combined = `${Math.abs(primaryHash).toString(36)}_${Math.abs(secondaryHash).toString(36)}_${Math.abs(tertiaryHash).toString(36)}`;
             
             console.log('🔒 Enhanced fingerprint generated:', {
@@ -272,7 +264,6 @@ class PayPerSessionManager {
             
         } catch (error) {
             console.warn('Failed to generate enhanced fingerprint:', error);
-            // Fallback к более простому отпечатку
             return 'fallback_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
         }
     }
@@ -440,8 +431,7 @@ class PayPerSessionManager {
 
     getHardwareFingerprint() {
         const components = [];
-        
-        // CPU информация
+
         components.push(navigator.hardwareConcurrency || 0);
         components.push(navigator.deviceMemory || 0);
         
@@ -477,10 +467,8 @@ class PayPerSessionManager {
     }
 
     registerEnhancedDemoSessionUsage(userFingerprint, preimage) {
-        // Вызываем оригинальный метод
         const session = this.registerDemoSessionUsage(userFingerprint, preimage);
         
-        // Дополнительно сохраняем в persistent storage
         this.savePersistentData();
 
         console.log('📊 Enhanced demo session registered:', {
@@ -524,11 +512,11 @@ class PayPerSessionManager {
     getAntiResetMessage(antiResetCheck) {
         switch (antiResetCheck.reason) {
             case 'hardware_mismatch':
-                return 'Обнаружена попытка сброса ограничений. Доступ к демо-режиму временно ограничен.';
+                return 'An attempt to reset restrictions was detected. Access to demo mode is temporarily restricted.';
             case 'global_limit_exceeded':
-                return `Глобальный лимит демо-сессий превышен (${antiResetCheck.globalCount}/10). Для продолжения требуется оплаченная сессия.`;
+                return `Global demo session limit exceeded (${antiResetCheck.globalCount}/10). A paid session is required to continue.`;
             default:
-                return 'Доступ к демо-режиму ограничен по соображениям безопасности.';
+                return 'Access to demo mode is restricted for security reasons.';
         }
     }
 
@@ -638,7 +626,7 @@ class PayPerSessionManager {
                 return {
                     allowed: false,
                     reason: 'multiple_tabs',
-                    message: 'Демо-режим доступен только в одной вкладке одновременно.'
+                    message: 'Demo mode is only available in one tab at a time..'
                 };
             }
 
@@ -681,7 +669,6 @@ class PayPerSessionManager {
             const activeTabsStr = this.getFromStorage(activeTabsKey);
             const activeTabs = activeTabsStr ? JSON.parse(activeTabsStr) : [];
             
-            // Обновляем timestamp для текущей вкладки
             const updatedTabs = activeTabs.map(tab => {
                 if (tab.tabId === this.currentTabId) {
                     return {
@@ -858,7 +845,6 @@ class PayPerSessionManager {
                 throw new Error('Preimage must be valid hexadecimal');
             }
             
-            // СПЕЦИАЛЬНАЯ обработка demo preimage с УСИЛЕННЫМИ проверками
             if (this.isDemoPreimage(preimage)) {
                 console.log('🎮 Demo preimage detected - performing ENHANCED validation...');
                 
@@ -885,15 +871,14 @@ class PayPerSessionManager {
                 if (age > 15 * 60 * 1000) {
                     throw new Error(`Demo preimage expired (age: ${Math.round(age / (60 * 1000))} minutes)`);
                 }
-                
-                // Demo preimage не должен быть из будущего
+
                 if (age < -2 * 60 * 1000) {
                     throw new Error('Demo preimage timestamp from future - possible clock manipulation');
                 }
                 
-                // CHECK 4: ИСПРАВЛЕННЫЙ вызов лимитов - используем ПРАВИЛЬНЫЙ метод
-                const userFingerprint = this.generateAdvancedUserFingerprint(); // ИСПРАВЛЕНО!
-                const limitsCheck = this.checkEnhancedDemoSessionLimits(userFingerprint); // ИСПРАВЛЕНО!
+                // CHECK 4: FIXED calling limits - use the CORRECT method
+                const userFingerprint = this.generateAdvancedUserFingerprint(); 
+                const limitsCheck = this.checkEnhancedDemoSessionLimits(userFingerprint); 
                 
                 if (!limitsCheck.allowed) {
                     throw new Error(`Demo session limits exceeded: ${limitsCheck.message}`);
@@ -901,7 +886,7 @@ class PayPerSessionManager {
                 
                 // FIX: For demo sessions, do NOT add preimage to usedPreimages here,
                 // as this will only be done after successful activation
-                this.registerEnhancedDemoSessionUsage(userFingerprint, preimage); // ИСПРАВЛЕНО!
+                this.registerEnhancedDemoSessionUsage(userFingerprint, preimage); 
                 
                 console.log('✅ Demo preimage ENHANCED validation passed');
                 return true;
@@ -1321,7 +1306,6 @@ class PayPerSessionManager {
                     };
                 }
                 
-                // ИСПРАВЛЕННЫЙ вызов - используем правильные методы
                 const userFingerprint = this.generateAdvancedUserFingerprint();
                 const demoCheck = this.checkEnhancedDemoSessionLimits(userFingerprint);
                 
@@ -1503,7 +1487,7 @@ class PayPerSessionManager {
 
     handleDemoSessionExpiry(preimage) {
         if (this.currentSession && this.currentSession.preimage === preimage) {
-            const userFingerprint = this.generateAdvancedUserFingerprint(); // ИСПРАВЛЕНО!
+            const userFingerprint = this.generateAdvancedUserFingerprint(); 
             const sessionDuration = Date.now() - this.currentSession.startTime;
             
             this.registerDemoSessionCompletion(userFingerprint, sessionDuration, preimage);
@@ -1533,7 +1517,7 @@ class PayPerSessionManager {
         const expiredSession = this.currentSession;
         
         if (expiredSession && expiredSession.isDemo) {
-            const userFingerprint = this.generateAdvancedUserFingerprint(); // ИСПРАВЛЕНО!
+            const userFingerprint = this.generateAdvancedUserFingerprint(); 
             const sessionDuration = Date.now() - expiredSession.startTime;
             this.registerDemoSessionCompletion(userFingerprint, sessionDuration, expiredSession.preimage);
         }
@@ -1582,8 +1566,8 @@ class PayPerSessionManager {
 
     // UPDATED demo session creation
     createDemoSession() {
-        const userFingerprint = this.generateAdvancedUserFingerprint(); // ИСПРАВЛЕНО!
-        const demoCheck = this.checkEnhancedDemoSessionLimits(userFingerprint); // ИСПРАВЛЕНО!
+        const userFingerprint = this.generateAdvancedUserFingerprint(); 
+        const demoCheck = this.checkEnhancedDemoSessionLimits(userFingerprint); 
         
         if (!demoCheck.allowed) {
             return {
@@ -1943,7 +1927,7 @@ class PayPerSessionManager {
         
         // IMPORTANT: We register the end of the current demo session during cleanup
         if (this.currentSession && this.currentSession.isDemo) {
-            const userFingerprint = this.generateAdvancedUserFingerprint(); // ИСПРАВЛЕНО!
+            const userFingerprint = this.generateAdvancedUserFingerprint(); 
             const sessionDuration = Date.now() - this.currentSession.startTime;
             this.registerDemoSessionCompletion(userFingerprint, sessionDuration, this.currentSession.preimage);
         }

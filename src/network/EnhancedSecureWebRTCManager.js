@@ -455,7 +455,7 @@ class EnhancedSecureWebRTCManager {
         size: size,
         isFakeTraffic: true, 
         source: 'fake_traffic_generator',
-        fakeId: crypto.getRandomValues(new Uint32Array(1))[0].toString(36) // Уникальный ID
+        fakeId: crypto.getRandomValues(new Uint32Array(1))[0].toString(36) 
     };
 }
 
@@ -1253,7 +1253,6 @@ async processOrderedPackets() {
                             return 'FAKE_MESSAGE_FILTERED';
                         }
                     } catch (e) {
-                        // Не JSON - это нормально для обычных сообщений
                         if (window.DEBUG_MODE) {
                             console.log('📝 Decrypted content is not JSON, treating as plain text message');
                         }
