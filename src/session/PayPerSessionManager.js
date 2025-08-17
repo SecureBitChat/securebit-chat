@@ -55,9 +55,24 @@ class PayPerSessionManager {
         this.startDemoSessionCleanup();
         this.startActiveDemoSessionCleanup();
         
+        this.globalDemoCounter = 0;
+        this.memoryStorage = new Map();
+        this.currentTabId = null;
+        this.tabHeartbeatInterval = null;
+        this.initializePersistentStorage();
+        this.performEnhancedCleanup();
+        const multiTabCheck = this.checkMultiTabProtection();
+        if (!multiTabCheck.allowed) {
+            console.warn('❌ Multi-tab protection triggered:', multiTabCheck.message);
+        }
+        
         console.log('💰 PayPerSessionManager initialized with ENHANCED secure demo mode');
         
+        setInterval(() => {
+            this.savePersistentData();
+        }, 30000);
 
+        console.log('💰 PayPerSessionManager initialized with ENHANCED secure demo mode and auto-save');
     }
 
     // ============================================
@@ -128,9 +143,10 @@ class PayPerSessionManager {
     }
 
     // IMPROVED user fingerprint generation
-    generateUserFingerprint() {
+    generateAdvancedUserFingerprint() {
         try {
-            const components = [
+            // Базовые компоненты (как было)
+            const basicComponents = [
                 navigator.userAgent || '',
                 navigator.language || '',
                 screen.width + 'x' + screen.height,
@@ -144,136 +160,382 @@ class PayPerSessionManager {
                 navigator.maxTouchPoints || 0,
                 navigator.onLine ? '1' : '0'
             ];
+
+            // НОВЫЕ КОМПОНЕНТЫ ДЛЯ HARDWARE BINDING
+            const hardwareComponents = [];
             
-            // Create a more secure hash
-            let hash = 0;
-            const str = components.join('|');
-            for (let i = 0; i < str.length; i++) {
-                const char = str.charCodeAt(i);
-                hash = ((hash << 5) - hash) + char;
-                hash = hash & hash;
+            // WebGL отпечаток (очень сложно подделать)
+            try {
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                if (gl) {
+                    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                    if (debugInfo) {
+                        hardwareComponents.push(gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) || '');
+                        hardwareComponents.push(gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || '');
+                    }
+                    hardwareComponents.push(gl.getParameter(gl.VERSION) || '');
+                    hardwareComponents.push(gl.getParameter(gl.SHADING_LANGUAGE_VERSION) || '');
+                }
+            } catch (e) {
+                hardwareComponents.push('webgl_error');
+            }
+
+            // Canvas отпечаток (уникален для каждого устройства)
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = 200;
+                canvas.height = 50;
+                const ctx = canvas.getContext('2d');
+                ctx.textBaseline = 'top';
+                ctx.font = '14px Arial';
+                ctx.fillText('SecureBit Demo Fingerprint 🔒', 2, 2);
+                ctx.fillStyle = 'rgba(255,0,0,0.5)';
+                ctx.fillRect(50, 10, 20, 20);
+                hardwareComponents.push(canvas.toDataURL());
+            } catch (e) {
+                hardwareComponents.push('canvas_error');
+            }
+
+            // Аудио отпечаток (очень стабилен)
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const analyser = audioContext.createAnalyser();
+                const gain = audioContext.createGain();
+                
+                oscillator.connect(analyser);
+                analyser.connect(gain);
+                gain.connect(audioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(1000, audioContext.currentTime);
+                gain.gain.setValueAtTime(0, audioContext.currentTime);
+                
+                hardwareComponents.push(audioContext.sampleRate.toString());
+                hardwareComponents.push(audioContext.state);
+                hardwareComponents.push(analyser.frequencyBinCount.toString());
+                
+                audioContext.close();
+            } catch (e) {
+                hardwareComponents.push('audio_error');
+            }
+
+            // Производительность CPU (стабильна для устройства)
+            const cpuBenchmark = this.performCPUBenchmark();
+            hardwareComponents.push(cpuBenchmark);
+
+            // Объединяем все компоненты
+            const allComponents = [...basicComponents, ...hardwareComponents];
+            
+            // Создаем несколько уровней хеширования
+            let primaryHash = 0;
+            let secondaryHash = 0;
+            let tertiaryHash = 0;
+            
+            const primaryStr = allComponents.slice(0, 8).join('|');
+            const secondaryStr = allComponents.slice(8, 16).join('|');
+            const tertiaryStr = allComponents.slice(16).join('|');
+            
+            // Первичный хеш
+            for (let i = 0; i < primaryStr.length; i++) {
+                const char = primaryStr.charCodeAt(i);
+                primaryHash = ((primaryHash << 7) - primaryHash) + char;
+                primaryHash = primaryHash & primaryHash;
             }
             
-            // Add extra salt for stability
-            const salt = 'securebit_demo_2024';
-            const saltedStr = str + salt;
-            let saltedHash = 0;
-            for (let i = 0; i < saltedStr.length; i++) {
-                const char = saltedStr.charCodeAt(i);
-                saltedHash = ((saltedHash << 5) - saltedHash) + char;
-                saltedHash = saltedHash & saltedHash;
+            // Вторичный хеш
+            for (let i = 0; i < secondaryStr.length; i++) {
+                const char = secondaryStr.charCodeAt(i);
+                secondaryHash = ((secondaryHash << 11) - secondaryHash) + char;
+                secondaryHash = secondaryHash & secondaryHash;
             }
             
-            return Math.abs(hash).toString(36) + '_' + Math.abs(saltedHash).toString(36);
+            // Третичный хеш
+            for (let i = 0; i < tertiaryStr.length; i++) {
+                const char = tertiaryStr.charCodeAt(i);
+                tertiaryHash = ((tertiaryHash << 13) - tertiaryHash) + char;
+                tertiaryHash = tertiaryHash & tertiaryHash;
+            }
+            
+            // Комбинированный отпечаток
+            const combined = `${Math.abs(primaryHash).toString(36)}_${Math.abs(secondaryHash).toString(36)}_${Math.abs(tertiaryHash).toString(36)}`;
+            
+            console.log('🔒 Enhanced fingerprint generated:', {
+                components: allComponents.length,
+                primaryLength: primaryStr.length,
+                secondaryLength: secondaryStr.length,
+                tertiaryLength: tertiaryStr.length,
+                fingerprintLength: combined.length
+            });
+            
+            return combined;
+            
         } catch (error) {
-            console.warn('Failed to generate user fingerprint:', error);
-            return 'fallback_' + Math.random().toString(36).substr(2, 9);
+            console.warn('Failed to generate enhanced fingerprint:', error);
+            // Fallback к более простому отпечатку
+            return 'fallback_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
         }
     }
 
-    // COMPLETELY REWRITTEN demo session limits check
-    checkDemoSessionLimits(userFingerprint) {
-        const userData = this.demoSessions.get(userFingerprint);
-        const now = Date.now();
+    performCPUBenchmark() {
+        const start = performance.now();
+        let result = 0;
         
-        console.log(`🔍 Checking demo limits for user ${userFingerprint.substring(0, 12)}...`);
+        for (let i = 0; i < 100000; i++) {
+            result += Math.sin(i) * Math.cos(i);
+        }
         
-        // CHECK 1: Global limit of simultaneous demo sessions
-        if (this.activeDemoSessions.size >= this.maxGlobalDemoSessions) {
-            console.log(`❌ Global demo limit reached: ${this.activeDemoSessions.size}/${this.maxGlobalDemoSessions}`);
+        const end = performance.now();
+        const duration = Math.round(end - start);
+        
+        if (duration < 5) return 'fast_cpu';
+        if (duration < 15) return 'medium_cpu';
+        if (duration < 30) return 'slow_cpu';
+        return 'very_slow_cpu';
+    }
+
+    initializePersistentStorage() {
+        this.storageKeys = {
+            demoSessions: 'sb_demo_sessions_v2',
+            completedSessions: 'sb_completed_sessions_v2',
+            globalCounter: 'sb_global_demo_counter_v2',
+            lastCleanup: 'sb_last_cleanup_v2',
+            hardwareFingerprint: 'sb_hw_fingerprint_v2'
+        };
+        
+        this.loadPersistentData();
+    }
+
+    loadPersistentData() {
+        try {
+            const savedDemoSessions = this.getFromStorage(this.storageKeys.demoSessions);
+            if (savedDemoSessions) {
+                const parsed = JSON.parse(savedDemoSessions);
+                for (const [key, value] of Object.entries(parsed)) {
+                    this.demoSessions.set(key, value);
+                }
+            }
+            
+            const savedCompletedSessions = this.getFromStorage(this.storageKeys.completedSessions);
+            if (savedCompletedSessions) {
+                const parsed = JSON.parse(savedCompletedSessions);
+                for (const [key, value] of Object.entries(parsed)) {
+                    this.completedDemoSessions.set(key, value);
+                }
+            }
+            
+            const savedGlobalCounter = this.getFromStorage(this.storageKeys.globalCounter);
+            if (savedGlobalCounter) {
+                this.globalDemoCounter = parseInt(savedGlobalCounter) || 0;
+            } else {
+                this.globalDemoCounter = 0;
+            }
+            
+            console.log('📊 Persistent data loaded:', {
+                demoSessions: this.demoSessions.size,
+                completedSessions: this.completedDemoSessions.size,
+                globalCounter: this.globalDemoCounter
+            });
+            
+        } catch (error) {
+            console.warn('Failed to load persistent data:', error);
+            this.globalDemoCounter = 0;
+        }
+    }
+
+    savePersistentData() {
+        try {
+            const demoSessionsObj = Object.fromEntries(this.demoSessions);
+            this.setToStorage(this.storageKeys.demoSessions, JSON.stringify(demoSessionsObj));
+            
+            const completedSessionsObj = Object.fromEntries(this.completedDemoSessions);
+            this.setToStorage(this.storageKeys.completedSessions, JSON.stringify(completedSessionsObj));
+            
+            this.setToStorage(this.storageKeys.globalCounter, this.globalDemoCounter.toString());
+            
+            this.setToStorage(this.storageKeys.lastCleanup, Date.now().toString());
+            
+        } catch (error) {
+            console.warn('Failed to save persistent data:', error);
+        }
+    }
+
+    getFromStorage(key) {
+        try {
+            if (typeof localStorage !== 'undefined') {
+                const value = localStorage.getItem(key);
+                if (value) return value;
+            }
+        } catch (e) {}
+        
+        try {
+            if (typeof sessionStorage !== 'undefined') {
+                const value = sessionStorage.getItem(key);
+                if (value) return value;
+            }
+        } catch (e) {}
+        
+        try {
+            if ('caches' in window) {
+            }
+        } catch (e) {}
+        
+        return null;
+    }
+
+    setToStorage(key, value) {
+        try {
+            if (typeof localStorage !== 'undefined') {
+                localStorage.setItem(key, value);
+            }
+        } catch (e) {}
+        
+        try {
+            if (typeof sessionStorage !== 'undefined') {
+                sessionStorage.setItem(key, value);
+            }
+        } catch (e) {}
+        
+        if (!this.memoryStorage) this.memoryStorage = new Map();
+        this.memoryStorage.set(key, value);
+    }
+
+    checkAntiResetProtection(userFingerprint) {
+        if (!this.globalDemoCounter) {
+            this.globalDemoCounter = 0;
+        }
+        
+        const hardwareFingerprint = this.getHardwareFingerprint();
+        
+        const savedHardwareFingerprint = this.getFromStorage(this.storageKeys.hardwareFingerprint);
+        
+        if (savedHardwareFingerprint && savedHardwareFingerprint !== hardwareFingerprint) {
+            console.warn('🚨 Hardware fingerprint mismatch detected - possible reset attempt');
+            
+            this.globalDemoCounter += 5;
+            this.savePersistentData();
+            
             return {
-                allowed: false,
+                isValid: false,
+                reason: 'hardware_mismatch',
+                penalty: 5
+            };
+        }
+        
+        this.setToStorage(this.storageKeys.hardwareFingerprint, hardwareFingerprint);
+        
+        if (this.globalDemoCounter >= 10) {
+            return {
+                isValid: false,
                 reason: 'global_limit_exceeded',
-                message: `Too many demo sessions active globally (${this.activeDemoSessions.size}/${this.maxGlobalDemoSessions}). Please try again later.`,
-                remaining: 0,
-                debugInfo: `Global sessions: ${this.activeDemoSessions.size}/${this.maxGlobalDemoSessions}`
+                globalCount: this.globalDemoCounter
             };
         }
         
-        if (!userData) {
-            // First demo session for this user
-            console.log(`✅ First demo session for user ${userFingerprint.substring(0, 12)}`);
-            return { 
-                allowed: true, 
-                reason: 'first_demo_session',
-                remaining: this.maxDemoSessionsPerUser,
-                debugInfo: 'First time user'
-            };
+        return {
+            isValid: true,
+            globalCount: this.globalDemoCounter
+        };
+    }
+
+    getHardwareFingerprint() {
+        const components = [];
+        
+        // CPU информация
+        components.push(navigator.hardwareConcurrency || 0);
+        components.push(navigator.deviceMemory || 0);
+        
+        try {
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl');
+            if (gl) {
+                const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                if (debugInfo) {
+                    components.push(gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) || '');
+                    components.push(gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || '');
+                }
+            }
+        } catch (e) {
+            components.push('webgl_unavailable');
         }
         
-        // CHECK 2: Limit sessions per 24 hours (STRICT check)
-        const sessionsLast24h = userData.sessions.filter(session => 
-            now - session.timestamp < this.demoCooldownPeriod
-        );
+        components.push(screen.width);
+        components.push(screen.height);
+        components.push(screen.colorDepth);
+
+        components.push(Intl.DateTimeFormat().resolvedOptions().timeZone);
         
-        console.log(`📊 Sessions in last 24h for user ${userFingerprint.substring(0, 12)}: ${sessionsLast24h.length}/${this.maxDemoSessionsPerUser}`);
-        
-        if (sessionsLast24h.length >= this.maxDemoSessionsPerUser) {
-            const oldestSession = Math.min(...sessionsLast24h.map(s => s.timestamp));
-            const timeUntilNext = this.demoCooldownPeriod - (now - oldestSession);
-            
-            console.log(`❌ Daily demo limit exceeded for user ${userFingerprint.substring(0, 12)}`);
-            return { 
-                allowed: false, 
-                reason: 'daily_limit_exceeded',
-                timeUntilNext: timeUntilNext,
-                message: `Daily demo limit reached (${this.maxDemoSessionsPerUser}/day). Next session available in ${Math.ceil(timeUntilNext / (60 * 1000))} minutes.`,
-                remaining: 0,
-                debugInfo: `Used ${sessionsLast24h.length}/${this.maxDemoSessionsPerUser} today`
-            };
+        let hash = 0;
+        const str = components.join('|');
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash;
         }
         
-        // CHECK 3: Cooldown between sessions (FIXED LOGIC)
-        if (userData.lastUsed && (now - userData.lastUsed) < this.demoSessionCooldown) {
-            const timeUntilNext = this.demoSessionCooldown - (now - userData.lastUsed);
-            const minutesLeft = Math.ceil(timeUntilNext / (60 * 1000));
-            
-            console.log(`⏰ Cooldown active for user ${userFingerprint.substring(0, 12)}: ${minutesLeft} minutes`);
-            
-            return { 
-                allowed: false, 
-                reason: 'session_cooldown',
-                timeUntilNext: timeUntilNext,
-                message: `Please wait ${minutesLeft} minutes between demo sessions. This prevents abuse and ensures fair access for all users.`,
-                remaining: this.maxDemoSessionsPerUser - sessionsLast24h.length,
-                debugInfo: `Cooldown: ${minutesLeft}min left, last used: ${Math.round((now - userData.lastUsed) / (60 * 1000))}min ago`
-            };
-        }
+        return Math.abs(hash).toString(36);
+    }
+
+    registerEnhancedDemoSessionUsage(userFingerprint, preimage) {
+        // Вызываем оригинальный метод
+        const session = this.registerDemoSessionUsage(userFingerprint, preimage);
         
-        // CHECK 4: NEW - Check for completed sessions
-        const completedSessions = this.completedDemoSessions.get(userFingerprint) || [];
-        const recentCompletedSessions = completedSessions.filter(session =>
-            now - session.endTime < this.minTimeBetweenCompletedSessions
-        );
+        // Дополнительно сохраняем в persistent storage
+        this.savePersistentData();
+
+        console.log('📊 Enhanced demo session registered:', {
+            userFingerprint: userFingerprint.substring(0, 12),
+            globalCount: this.globalDemoCounter,
+            sessionId: session.sessionId,
+            timestamp: new Date().toISOString()
+        });
         
-        if (recentCompletedSessions.length > 0) {
-            const lastCompletedSession = Math.max(...recentCompletedSessions.map(s => s.endTime));
-            const timeUntilNext = this.minTimeBetweenCompletedSessions - (now - lastCompletedSession);
-            
-            console.log(`⏰ Recent session completed, waiting period active for user ${userFingerprint.substring(0, 12)}`);
+        return session;
+    }
+
+    // COMPLETELY REWRITTEN demo session limits check
+    checkEnhancedDemoSessionLimits(userFingerprint) {
+        const antiResetCheck = this.checkAntiResetProtection(userFingerprint);
+        if (!antiResetCheck.isValid) {
             return {
                 allowed: false,
-                reason: 'recent_session_completed',
-                timeUntilNext: timeUntilNext,
-                message: `Please wait ${Math.ceil(timeUntilNext / (60 * 1000))} minutes after your last session before starting a new one.`,
-                remaining: this.maxDemoSessionsPerUser - sessionsLast24h.length,
-                debugInfo: `Last session ended ${Math.round((now - lastCompletedSession) / (60 * 1000))}min ago`
+                reason: antiResetCheck.reason,
+                message: this.getAntiResetMessage(antiResetCheck),
+                globalCount: antiResetCheck.globalCount,
+                penalty: antiResetCheck.penalty
             };
         }
         
-        console.log(`✅ Demo session approved for user ${userFingerprint.substring(0, 12)}`);
-        return { 
-            allowed: true, 
-            reason: 'within_limits',
-            remaining: this.maxDemoSessionsPerUser - sessionsLast24h.length,
-            debugInfo: `Available: ${this.maxDemoSessionsPerUser - sessionsLast24h.length}/${this.maxDemoSessionsPerUser}`
+        const regularCheck = this.checkDemoSessionLimits(userFingerprint);
+        
+        if (regularCheck.allowed) {
+            this.globalDemoCounter++;
+            this.savePersistentData();
+        }
+        
+        return {
+            ...regularCheck,
+            globalCount: this.globalDemoCounter
         };
     }
 
 
 
+    getAntiResetMessage(antiResetCheck) {
+        switch (antiResetCheck.reason) {
+            case 'hardware_mismatch':
+                return 'Обнаружена попытка сброса ограничений. Доступ к демо-режиму временно ограничен.';
+            case 'global_limit_exceeded':
+                return `Глобальный лимит демо-сессий превышен (${antiResetCheck.globalCount}/10). Для продолжения требуется оплаченная сессия.`;
+            default:
+                return 'Доступ к демо-режиму ограничен по соображениям безопасности.';
+        }
+    }
+
+
+
     // FIXED demo session usage registration
-    registerDemoSessionUsage(userFingerprint, preimage) {
+        registerDemoSessionUsage(userFingerprint, preimage) {
         const now = Date.now();
         const userData = this.demoSessions.get(userFingerprint) || {
             count: 0,
@@ -310,6 +572,131 @@ class PayPerSessionManager {
         console.log(`🌐 Global active demo sessions: ${this.activeDemoSessions.size}/${this.maxGlobalDemoSessions}`);
         
         return newSession;
+    }
+
+    performEnhancedCleanup() {
+        const now = Date.now();
+        const lastCleanup = parseInt(this.getFromStorage(this.storageKeys.lastCleanup)) || 0;
+        
+        if (now - lastCleanup < 6 * 60 * 60 * 1000) {
+            return;
+        }
+        
+        console.log('🧹 Performing enhanced cleanup...');
+        
+        const maxAge = 25 * 60 * 60 * 1000;
+        let cleanedSessions = 0;
+        
+        for (const [identifier, data] of this.demoSessions.entries()) {
+            if (now - data.lastUsed > maxAge) {
+                this.demoSessions.delete(identifier);
+                cleanedSessions++;
+            }
+        }
+        
+        let cleanedCompleted = 0;
+        for (const [identifier, sessions] of this.completedDemoSessions.entries()) {
+            const filteredSessions = sessions.filter(session => 
+                now - session.endTime < maxAge
+            );
+            
+            if (filteredSessions.length === 0) {
+                this.completedDemoSessions.delete(identifier);
+                cleanedCompleted++;
+            } else {
+                this.completedDemoSessions.set(identifier, filteredSessions);
+            }
+        }
+        
+        const weekAgo = 7 * 24 * 60 * 60 * 1000;
+        if (now - lastCleanup > weekAgo) {
+            this.globalDemoCounter = Math.max(0, this.globalDemoCounter - 3);
+            console.log('🔄 Global demo counter reset (weekly):', this.globalDemoCounter);
+        }
+        
+        this.savePersistentData();
+        
+        console.log('✅ Enhanced cleanup completed:', {
+            cleanedSessions,
+            cleanedCompleted,
+            globalCounter: this.globalDemoCounter
+        });
+    }
+
+    checkMultiTabProtection() {
+        const tabId = 'tab_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        const activeTabsKey = 'sb_active_tabs';
+        
+        try {
+            const activeTabsStr = this.getFromStorage(activeTabsKey);
+            const activeTabs = activeTabsStr ? JSON.parse(activeTabsStr) : [];
+            
+            const now = Date.now();
+            const validTabs = activeTabs.filter(tab => now - tab.timestamp < 30000);
+            
+            if (validTabs.length >= 2) {
+                return {
+                    allowed: false,
+                    reason: 'multiple_tabs',
+                    message: 'Демо-режим доступен только в одной вкладке одновременно.'
+                };
+            }
+
+            validTabs.push({
+                tabId: tabId,
+                timestamp: now
+            });
+            
+            this.setToStorage(activeTabsKey, JSON.stringify(validTabs));
+            this.currentTabId = tabId;
+
+            this.startTabHeartbeat();
+            
+            return {
+                allowed: true,
+                tabId: tabId
+            };
+            
+        } catch (error) {
+            console.warn('Multi-tab protection error:', error);
+            return { allowed: true }; 
+        }
+    }
+
+    startTabHeartbeat() {
+        if (this.tabHeartbeatInterval) {
+            clearInterval(this.tabHeartbeatInterval);
+        }
+        
+        this.tabHeartbeatInterval = setInterval(() => {
+            this.updateTabHeartbeat();
+        }, 10000); 
+    }
+
+    updateTabHeartbeat() {
+        if (!this.currentTabId) return;
+        
+        try {
+            const activeTabsKey = 'sb_active_tabs';
+            const activeTabsStr = this.getFromStorage(activeTabsKey);
+            const activeTabs = activeTabsStr ? JSON.parse(activeTabsStr) : [];
+            
+            // Обновляем timestamp для текущей вкладки
+            const updatedTabs = activeTabs.map(tab => {
+                if (tab.tabId === this.currentTabId) {
+                    return {
+                        ...tab,
+                        timestamp: Date.now()
+                    };
+                }
+                return tab;
+            });
+            
+            this.setToStorage(activeTabsKey, JSON.stringify(updatedTabs));
+            
+        } catch (error) {
+            console.warn('Tab heartbeat update failed:', error);
+        }
     }
 
     // NEW method: Register demo session completion
@@ -504,9 +891,9 @@ class PayPerSessionManager {
                     throw new Error('Demo preimage timestamp from future - possible clock manipulation');
                 }
                 
-                // CHECK 4: Custom Limits
-                const userFingerprint = this.generateUserFingerprint();
-                const limitsCheck = this.checkDemoSessionLimits(userFingerprint);
+                // CHECK 4: ИСПРАВЛЕННЫЙ вызов лимитов - используем ПРАВИЛЬНЫЙ метод
+                const userFingerprint = this.generateAdvancedUserFingerprint(); // ИСПРАВЛЕНО!
+                const limitsCheck = this.checkEnhancedDemoSessionLimits(userFingerprint); // ИСПРАВЛЕНО!
                 
                 if (!limitsCheck.allowed) {
                     throw new Error(`Demo session limits exceeded: ${limitsCheck.message}`);
@@ -514,7 +901,7 @@ class PayPerSessionManager {
                 
                 // FIX: For demo sessions, do NOT add preimage to usedPreimages here,
                 // as this will only be done after successful activation
-                this.registerDemoSessionUsage(userFingerprint, preimage);
+                this.registerEnhancedDemoSessionUsage(userFingerprint, preimage); // ИСПРАВЛЕНО!
                 
                 console.log('✅ Demo preimage ENHANCED validation passed');
                 return true;
@@ -551,6 +938,7 @@ class PayPerSessionManager {
             return false;
         }
     }
+
 
     // ============================================
     // LIGHTNING NETWORK INTEGRATION
@@ -933,9 +1321,9 @@ class PayPerSessionManager {
                     };
                 }
                 
-                // ADDITIONAL check at activation level
-                const userFingerprint = this.generateUserFingerprint();
-                const demoCheck = this.checkDemoSessionLimits(userFingerprint);
+                // ИСПРАВЛЕННЫЙ вызов - используем правильные методы
+                const userFingerprint = this.generateAdvancedUserFingerprint();
+                const demoCheck = this.checkEnhancedDemoSessionLimits(userFingerprint);
                 
                 if (!demoCheck.allowed) {
                     console.log(`⚠️ Demo session cooldown active, but allowing activation for development`);
@@ -1115,7 +1503,7 @@ class PayPerSessionManager {
 
     handleDemoSessionExpiry(preimage) {
         if (this.currentSession && this.currentSession.preimage === preimage) {
-            const userFingerprint = this.generateUserFingerprint();
+            const userFingerprint = this.generateAdvancedUserFingerprint(); // ИСПРАВЛЕНО!
             const sessionDuration = Date.now() - this.currentSession.startTime;
             
             this.registerDemoSessionCompletion(userFingerprint, sessionDuration, preimage);
@@ -1145,7 +1533,7 @@ class PayPerSessionManager {
         const expiredSession = this.currentSession;
         
         if (expiredSession && expiredSession.isDemo) {
-            const userFingerprint = this.generateUserFingerprint();
+            const userFingerprint = this.generateAdvancedUserFingerprint(); // ИСПРАВЛЕНО!
             const sessionDuration = Date.now() - expiredSession.startTime;
             this.registerDemoSessionCompletion(userFingerprint, sessionDuration, expiredSession.preimage);
         }
@@ -1194,8 +1582,8 @@ class PayPerSessionManager {
 
     // UPDATED demo session creation
     createDemoSession() {
-        const userFingerprint = this.generateUserFingerprint();
-        const demoCheck = this.checkDemoSessionLimits(userFingerprint);
+        const userFingerprint = this.generateAdvancedUserFingerprint(); // ИСПРАВЛЕНО!
+        const demoCheck = this.checkEnhancedDemoSessionLimits(userFingerprint); // ИСПРАВЛЕНО!
         
         if (!demoCheck.allowed) {
             return {
@@ -1248,7 +1636,7 @@ class PayPerSessionManager {
 
     // UPDATED information about demo limits
     getDemoSessionInfo() {
-        const userFingerprint = this.generateUserFingerprint();
+        const userFingerprint = this.generateAdvancedUserFingerprint(); 
         const userData = this.demoSessions.get(userFingerprint);
         const now = Date.now();
         
@@ -1519,7 +1907,7 @@ class PayPerSessionManager {
         
         // IMPORTANT: For demo sessions, we register forced termination
         if (resetSession && resetSession.isDemo) {
-            const userFingerprint = this.generateUserFingerprint();
+            const userFingerprint = this.generateAdvancedUserFingerprint(); 
             const sessionDuration = Date.now() - resetSession.startTime;
             this.registerDemoSessionCompletion(userFingerprint, sessionDuration, resetSession.preimage);
         }
@@ -1555,7 +1943,7 @@ class PayPerSessionManager {
         
         // IMPORTANT: We register the end of the current demo session during cleanup
         if (this.currentSession && this.currentSession.isDemo) {
-            const userFingerprint = this.generateUserFingerprint();
+            const userFingerprint = this.generateAdvancedUserFingerprint(); // ИСПРАВЛЕНО!
             const sessionDuration = Date.now() - this.currentSession.startTime;
             this.registerDemoSessionCompletion(userFingerprint, sessionDuration, this.currentSession.preimage);
         }
@@ -1588,7 +1976,7 @@ class PayPerSessionManager {
     }
 
     getVerifiedDemoSession() {
-        const userFingerprint = this.generateUserFingerprint();
+        const userFingerprint = this.generateAdvancedUserFingerprint(); 
         const userData = this.demoSessions.get(userFingerprint);
         
         console.log('🔍 Searching for verified demo session:', {
@@ -1644,8 +2032,106 @@ class PayPerSessionManager {
         return verifiedSession;
     }
 
+    checkDemoSessionLimits(userFingerprint) {
+        const userData = this.demoSessions.get(userFingerprint);
+        const now = Date.now();
+        
+        console.log(`🔍 Checking demo limits for user ${userFingerprint.substring(0, 12)}...`);
+        
+        // CHECK 1: Global limit of simultaneous demo sessions
+        if (this.activeDemoSessions.size >= this.maxGlobalDemoSessions) {
+            console.log(`❌ Global demo limit reached: ${this.activeDemoSessions.size}/${this.maxGlobalDemoSessions}`);
+            return {
+                allowed: false,
+                reason: 'global_limit_exceeded',
+                message: `Too many demo sessions active globally (${this.activeDemoSessions.size}/${this.maxGlobalDemoSessions}). Please try again later.`,
+                remaining: 0,
+                debugInfo: `Global sessions: ${this.activeDemoSessions.size}/${this.maxGlobalDemoSessions}`
+            };
+        }
+        
+        if (!userData) {
+            // First demo session for this user
+            console.log(`✅ First demo session for user ${userFingerprint.substring(0, 12)}`);
+            return { 
+                allowed: true, 
+                reason: 'first_demo_session',
+                remaining: this.maxDemoSessionsPerUser,
+                debugInfo: 'First time user'
+            };
+        }
+        
+        // CHECK 2: Limit sessions per 24 hours (STRICT check)
+        const sessionsLast24h = userData.sessions.filter(session => 
+            now - session.timestamp < this.demoCooldownPeriod
+        );
+        
+        console.log(`📊 Sessions in last 24h for user ${userFingerprint.substring(0, 12)}: ${sessionsLast24h.length}/${this.maxDemoSessionsPerUser}`);
+        
+        if (sessionsLast24h.length >= this.maxDemoSessionsPerUser) {
+            const oldestSession = Math.min(...sessionsLast24h.map(s => s.timestamp));
+            const timeUntilNext = this.demoCooldownPeriod - (now - oldestSession);
+            
+            console.log(`❌ Daily demo limit exceeded for user ${userFingerprint.substring(0, 12)}`);
+            return { 
+                allowed: false, 
+                reason: 'daily_limit_exceeded',
+                timeUntilNext: timeUntilNext,
+                message: `Daily demo limit reached (${this.maxDemoSessionsPerUser}/day). Next session available in ${Math.ceil(timeUntilNext / (60 * 1000))} minutes.`,
+                remaining: 0,
+                debugInfo: `Used ${sessionsLast24h.length}/${this.maxDemoSessionsPerUser} today`
+            };
+        }
+        
+        // CHECK 3: Cooldown between sessions (FIXED LOGIC)
+        if (userData.lastUsed && (now - userData.lastUsed) < this.demoSessionCooldown) {
+            const timeUntilNext = this.demoSessionCooldown - (now - userData.lastUsed);
+            const minutesLeft = Math.ceil(timeUntilNext / (60 * 1000));
+            
+            console.log(`⏰ Cooldown active for user ${userFingerprint.substring(0, 12)}: ${minutesLeft} minutes`);
+            
+            return { 
+                allowed: false, 
+                reason: 'session_cooldown',
+                timeUntilNext: timeUntilNext,
+                message: `Please wait ${minutesLeft} minutes between demo sessions. This prevents abuse and ensures fair access for all users.`,
+                remaining: this.maxDemoSessionsPerUser - sessionsLast24h.length,
+                debugInfo: `Cooldown: ${minutesLeft}min left, last used: ${Math.round((now - userData.lastUsed) / (60 * 1000))}min ago`
+            };
+        }
+        
+        // CHECK 4: NEW - Check for completed sessions
+        const completedSessions = this.completedDemoSessions.get(userFingerprint) || [];
+        const recentCompletedSessions = completedSessions.filter(session =>
+            now - session.endTime < this.minTimeBetweenCompletedSessions
+        );
+        
+        if (recentCompletedSessions.length > 0) {
+            const lastCompletedSession = Math.max(...recentCompletedSessions.map(s => s.endTime));
+            const timeUntilNext = this.minTimeBetweenCompletedSessions - (now - lastCompletedSession);
+            
+            console.log(`⏰ Recent session completed, waiting period active for user ${userFingerprint.substring(0, 12)}`);
+            return {
+                allowed: false,
+                reason: 'recent_session_completed',
+                timeUntilNext: timeUntilNext,
+                message: `Please wait ${Math.ceil(timeUntilNext / (60 * 1000))} minutes after your last session before starting a new one.`,
+                remaining: this.maxDemoSessionsPerUser - sessionsLast24h.length,
+                debugInfo: `Last session ended ${Math.round((now - lastCompletedSession) / (60 * 1000))}min ago`
+            };
+        }
+        
+        console.log(`✅ Demo session approved for user ${userFingerprint.substring(0, 12)}`);
+        return { 
+            allowed: true, 
+            reason: 'within_limits',
+            remaining: this.maxDemoSessionsPerUser - sessionsLast24h.length,
+            debugInfo: `Available: ${this.maxDemoSessionsPerUser - sessionsLast24h.length}/${this.maxDemoSessionsPerUser}`
+        };
+    }
+
     createDemoSessionForActivation() {
-        const userFingerprint = this.generateUserFingerprint();
+        const userFingerprint = this.generateAdvancedUserFingerprint(); // ИСПРАВЛЕНО!
         
         if (this.activeDemoSessions.size >= this.maxGlobalDemoSessions) {
             return {

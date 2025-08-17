@@ -2,12 +2,17 @@ const SessionTimer = ({ timeLeft, sessionType, sessionManager }) => {
     const [currentTime, setCurrentTime] = React.useState(timeLeft || 0);
     const [showExpiredMessage, setShowExpiredMessage] = React.useState(false);
     const [initialized, setInitialized] = React.useState(false);
-    const [connectionBroken, setConnectionBroken] = React.useState(false); 
+    const [connectionBroken, setConnectionBroken] = React.useState(false);
+    
 
+    const [loggedHidden, setLoggedHidden] = React.useState(false);
 
     React.useEffect(() => {
         if (connectionBroken) {
-            console.log('⏱️ SessionTimer initialization skipped - connection broken');
+            if (!loggedHidden) {
+                console.log('⏱️ SessionTimer initialization skipped - connection broken');
+                setLoggedHidden(true);
+            }
             return;
         }
         
@@ -23,17 +28,22 @@ const SessionTimer = ({ timeLeft, sessionType, sessionManager }) => {
         
         setCurrentTime(initialTime);
         setInitialized(true);
-    }, [sessionManager, connectionBroken]); 
+        setLoggedHidden(false); 
+    }, [sessionManager, connectionBroken]);
 
     React.useEffect(() => {
         if (connectionBroken) {
-            console.log('⏱️ SessionTimer props update skipped - connection broken');
+            if (!loggedHidden) {
+                console.log('⏱️ SessionTimer props update skipped - connection broken');
+                setLoggedHidden(true);
+            }
             return;
         }
         
         if (timeLeft && timeLeft > 0) {
             setCurrentTime(timeLeft);
         }
+        setLoggedHidden(false);
     }, [timeLeft, connectionBroken]);
 
     React.useEffect(() => {
@@ -42,14 +52,16 @@ const SessionTimer = ({ timeLeft, sessionType, sessionManager }) => {
         }
 
         if (connectionBroken) {
-            console.log('⏱️ Timer interval skipped - connection broken');
+            if (!loggedHidden) {
+                console.log('⏱️ Timer interval skipped - connection broken');
+                setLoggedHidden(true);
+            }
             return;
         }
 
         if (!currentTime || currentTime <= 0 || !sessionManager) {
             return;
         }
-
 
         const interval = setInterval(() => {
             if (connectionBroken) {
@@ -81,22 +93,18 @@ const SessionTimer = ({ timeLeft, sessionType, sessionManager }) => {
         }, 1000);
 
         return () => {
-
             clearInterval(interval);
         };
-    }, [initialized, currentTime, sessionManager, connectionBroken]); 
-
+    }, [initialized, currentTime, sessionManager, connectionBroken]);
 
     React.useEffect(() => {
         const handleSessionTimerUpdate = (event) => {
-
             if (event.detail.timeLeft && event.detail.timeLeft > 0) {
                 setCurrentTime(event.detail.timeLeft);
             }
         };
 
         const handleForceHeaderUpdate = (event) => {
-
             if (sessionManager && sessionManager.hasActiveSession()) {
                 const newTime = sessionManager.getTimeLeft();
                 setCurrentTime(newTime);
@@ -105,28 +113,41 @@ const SessionTimer = ({ timeLeft, sessionType, sessionManager }) => {
 
         const handlePeerDisconnect = (event) => {
             console.log('🔌 Peer disconnect detected in SessionTimer - stopping timer permanently');
-            setConnectionBroken(true); 
+            setConnectionBroken(true);
             setCurrentTime(0);
             setShowExpiredMessage(false);
+            setLoggedHidden(false);
         };
 
         const handleNewConnection = (event) => {
             console.log('🔌 New connection detected in SessionTimer - resetting connection state');
-            setConnectionBroken(false); 
+            setConnectionBroken(false);
+            setLoggedHidden(false); 
+        };
+
+        const handleConnectionCleaned = (event) => {
+            console.log('🧹 Connection cleaned - resetting SessionTimer state');
+            setConnectionBroken(false);
+            setCurrentTime(0);
+            setShowExpiredMessage(false);
+            setInitialized(false);
+            setLoggedHidden(false);
         };
 
         document.addEventListener('session-timer-update', handleSessionTimerUpdate);
         document.addEventListener('force-header-update', handleForceHeaderUpdate);
         document.addEventListener('peer-disconnect', handlePeerDisconnect);
         document.addEventListener('new-connection', handleNewConnection);
+        document.addEventListener('connection-cleaned', handleConnectionCleaned);
 
         return () => {
             document.removeEventListener('session-timer-update', handleSessionTimerUpdate);
             document.removeEventListener('force-header-update', handleForceHeaderUpdate);
             document.removeEventListener('peer-disconnect', handlePeerDisconnect);
             document.removeEventListener('new-connection', handleNewConnection);
+            document.removeEventListener('connection-cleaned', handleConnectionCleaned);
         };
-    }, [sessionManager]); 
+    }, [sessionManager]);
 
     if (showExpiredMessage) {
         return React.createElement('div', {
@@ -145,18 +166,31 @@ const SessionTimer = ({ timeLeft, sessionType, sessionManager }) => {
     }
 
     if (!sessionManager) {
-        console.log('⏱️ SessionTimer hidden - no sessionManager');
+        if (!loggedHidden) {
+            console.log('⏱️ SessionTimer hidden - no sessionManager');
+            setLoggedHidden(true);
+        }
         return null;
     }
 
     if (connectionBroken) {
-        console.log('⏱️ SessionTimer hidden - connection broken');
+        if (!loggedHidden) {
+            console.log('⏱️ SessionTimer hidden - connection broken');
+            setLoggedHidden(true);
+        }
         return null;
     }
 
     if (!currentTime || currentTime <= 0) {
-        console.log('⏱️ SessionTimer hidden - no time left');
+        if (!loggedHidden) {
+            console.log('⏱️ SessionTimer hidden - no time left');
+            setLoggedHidden(true);
+        }
         return null;
+    }
+
+    if (loggedHidden) {
+        setLoggedHidden(false);
     }
 
     const totalMinutes = Math.floor(currentTime / (60 * 1000));
@@ -179,8 +213,8 @@ const SessionTimer = ({ timeLeft, sessionType, sessionManager }) => {
     };
 
     const getTimerStyle = () => {
-        const totalDuration = sessionType === 'demo' ? 6 * 60 * 1000 : 60 * 60 * 1000; 
-        const timeProgress = (totalDuration - currentTime) / totalDuration; 
+        const totalDuration = sessionType === 'demo' ? 6 * 60 * 1000 : 60 * 60 * 1000;
+        const timeProgress = (totalDuration - currentTime) / totalDuration;
         
         let backgroundColor, textColor, iconColor, iconClass, shouldPulse;
         
@@ -247,4 +281,4 @@ window.updateSessionTimer = (newTimeLeft, newSessionType) => {
     }));
 };
 
-console.log('✅ SessionTimer loaded with fixes and improvements');
+console.log('✅ SessionTimer loaded with anti-spam logging fixes');

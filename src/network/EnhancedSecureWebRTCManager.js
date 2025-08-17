@@ -2505,6 +2505,13 @@ async autoEnableSecurityFeatures() {
                 securityLevel: offerPackage.securityLevel.level
             });
 
+            document.dispatchEvent(new CustomEvent('new-connection', {
+                detail: { 
+                    type: 'offer',
+                    timestamp: Date.now()
+                }
+            }));
+
             return offerPackage;
         } catch (error) {
             window.EnhancedSecureCryptoUtils.secureLog.log('error', 'Enhanced secure offer creation failed', {
@@ -2711,6 +2718,13 @@ async autoEnableSecurityFeatures() {
                 hasMutualAuth: true,
                 securityLevel: answerPackage.securityLevel.level
             });
+
+            document.dispatchEvent(new CustomEvent('new-connection', {
+                detail: { 
+                    type: 'answer',
+                    timestamp: Date.now()
+                }
+            }));
 
             return answerPackage;
         } catch (error) {
@@ -3252,6 +3266,13 @@ async autoEnableSecurityFeatures() {
         setTimeout(() => {
             this.sendDisconnectNotification(); 
         }, 100);
+
+        document.dispatchEvent(new CustomEvent('peer-disconnect', {
+            detail: { 
+                reason: 'user_disconnect',
+                timestamp: Date.now()
+            }
+        }));
         
         setTimeout(() => {
             this.cleanupConnection();
@@ -3263,6 +3284,13 @@ async autoEnableSecurityFeatures() {
         this.isVerified = false;
         this.onMessage('🔌 Connection lost. Attempting to reconnect...', 'system');
         
+        document.dispatchEvent(new CustomEvent('peer-disconnect', {
+            detail: { 
+                reason: 'connection_lost',
+                timestamp: Date.now()
+            }
+        }));
+
         setTimeout(() => {
             if (!this.intentionalDisconnect) {
                 this.attemptReconnection();
@@ -3321,6 +3349,13 @@ async autoEnableSecurityFeatures() {
         
         this.onKeyExchange(''); 
         this.onVerificationRequired(''); 
+
+        document.dispatchEvent(new CustomEvent('peer-disconnect', {
+            detail: { 
+                reason: reason,
+                timestamp: Date.now()
+            }
+        }));
 
         setTimeout(() => {
             this.cleanupConnection();
@@ -3390,6 +3425,13 @@ async autoEnableSecurityFeatures() {
         // IMPORTANT: Clearing security logs
         window.EnhancedSecureCryptoUtils.secureLog.clearLogs();
         
+        document.dispatchEvent(new CustomEvent('connection-cleaned', {
+            detail: { 
+                timestamp: Date.now(),
+                reason: this.intentionalDisconnect ? 'user_cleanup' : 'automatic_cleanup'
+            }
+        }));
+
         // Notifying the UI about complete cleanup
         this.onStatusChange('disconnected');
         this.onKeyExchange('');
