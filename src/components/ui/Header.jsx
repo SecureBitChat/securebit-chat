@@ -13,6 +13,169 @@ const EnhancedMinimalHeader = ({
     const [hasActiveSession, setHasActiveSession] = React.useState(false);
     const [sessionType, setSessionType] = React.useState('unknown');
     const [realSecurityLevel, setRealSecurityLevel] = React.useState(null);
+    const [lastSecurityUpdate, setLastSecurityUpdate] = React.useState(0);
+
+    // ============================================
+    // FIXED SECURITY UPDATE LOGIC
+    // ============================================
+    
+    React.useEffect(() => {
+        let isUpdating = false; 
+        let lastUpdateAttempt = 0; 
+        
+        const updateRealSecurityStatus = async () => {
+            const now = Date.now();
+            if (now - lastUpdateAttempt < 10000) { 
+                return;
+            }
+
+            if (isUpdating) {
+                return;
+            }
+            
+            isUpdating = true;
+            lastUpdateAttempt = now;
+            
+            try {
+                if (!webrtcManager || !isConnected) {
+                    return;
+                }
+                
+                const activeWebrtcManager = webrtcManager;
+                
+                let realSecurityData = null;
+                
+                if (typeof activeWebrtcManager.getRealSecurityLevel === 'function') {
+                    realSecurityData = await activeWebrtcManager.getRealSecurityLevel();
+                } else if (typeof activeWebrtcManager.calculateAndReportSecurityLevel === 'function') {
+                    realSecurityData = await activeWebrtcManager.calculateAndReportSecurityLevel();
+                } else {
+                    realSecurityData = await window.EnhancedSecureCryptoUtils.calculateSecurityLevel(activeWebrtcManager);
+                }
+                
+                if (window.DEBUG_MODE) {
+                    console.log('🔐 REAL security level calculated:', {
+                        level: realSecurityData?.level,
+                        score: realSecurityData?.score,
+                        passedChecks: realSecurityData?.passedChecks,
+                        totalChecks: realSecurityData?.totalChecks,
+                        isRealData: realSecurityData?.isRealData,
+                        sessionType: realSecurityData?.sessionType,
+                        maxPossibleScore: realSecurityData?.maxPossibleScore,
+                        verificationResults: realSecurityData?.verificationResults ? Object.keys(realSecurityData.verificationResults) : []
+                    });
+                }
+                
+                if (realSecurityData && realSecurityData.isRealData !== false) {
+                    const currentScore = realSecurityLevel?.score || 0;
+                    const newScore = realSecurityData.score || 0;
+
+                    if (currentScore !== newScore || !realSecurityLevel) {
+                        setRealSecurityLevel(realSecurityData);
+                        setLastSecurityUpdate(now);
+                        
+                        if (window.DEBUG_MODE) {
+                            console.log('✅ Security level updated in header component:', {
+                                oldScore: currentScore,
+                                newScore: newScore,
+                                sessionType: realSecurityData.sessionType
+                            });
+                        }
+                    } else if (window.DEBUG_MODE) {
+                        console.log('ℹ️ Security level unchanged, skipping update');
+                    }
+                } else {
+                    console.warn('⚠️ Security calculation returned invalid data');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error in real security calculation:', error);
+            } finally {
+                isUpdating = false;
+            }
+        };
+
+        if (isConnected) {
+            updateRealSecurityStatus();
+            
+            if (!realSecurityLevel || realSecurityLevel.score < 50) {
+                const retryInterval = setInterval(() => {
+                    if (!realSecurityLevel || realSecurityLevel.score < 50) {
+                        updateRealSecurityStatus();
+                    } else {
+                        clearInterval(retryInterval);
+                    }
+                }, 5000); 
+                
+                setTimeout(() => clearInterval(retryInterval), 30000);
+            }
+        }
+
+        const interval = setInterval(updateRealSecurityStatus, 30000);
+        
+        return () => clearInterval(interval);
+    }, [webrtcManager, isConnected, lastSecurityUpdate, realSecurityLevel]);
+
+    // ============================================
+    // FIXED EVENT HANDLERS
+    // ============================================
+
+    React.useEffect(() => {
+        const handleSecurityUpdate = (event) => {
+            if (window.DEBUG_MODE) {
+                console.log('🔒 Security level update event received:', event.detail);
+            }
+
+            setTimeout(() => {
+                setLastSecurityUpdate(0);
+            }, 100);
+        };
+
+        const handleRealSecurityCalculated = (event) => {
+            if (window.DEBUG_MODE) {
+                console.log('🔐 Real security calculated event:', event.detail);
+            }
+            
+            if (event.detail && event.detail.securityData) {
+                setRealSecurityLevel(event.detail.securityData);
+                setLastSecurityUpdate(Date.now());
+            }
+        };
+
+        document.addEventListener('security-level-updated', handleSecurityUpdate);
+        document.addEventListener('real-security-calculated', handleRealSecurityCalculated);
+        
+        window.forceHeaderSecurityUpdate = (webrtcManager) => {
+            if (window.DEBUG_MODE) {
+                console.log('🔄 Force header security update called');
+            }
+            
+            if (webrtcManager && window.EnhancedSecureCryptoUtils) {
+                window.EnhancedSecureCryptoUtils.calculateSecurityLevel(webrtcManager)
+                    .then(securityData => {
+                        if (securityData && securityData.isRealData !== false) {
+                            setRealSecurityLevel(securityData);
+                            setLastSecurityUpdate(Date.now());
+                            console.log('✅ Header security level force-updated');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('❌ Force update failed:', error);
+                    });
+            } else {
+                setLastSecurityUpdate(0); 
+            }
+        };
+
+        return () => {
+            document.removeEventListener('security-level-updated', handleSecurityUpdate);
+            document.removeEventListener('real-security-calculated', handleRealSecurityCalculated);
+        };
+    }, []);
+
+    // ============================================
+    // REST of the component logic
+    // ============================================
 
     React.useEffect(() => {
         const updateSessionInfo = () => {
@@ -33,154 +196,16 @@ const EnhancedMinimalHeader = ({
     }, [sessionManager]);
 
     React.useEffect(() => {
-        const updateSecurityStatus = () => {
-            try {
-                const activeWebrtcManager = webrtcManager || window.webrtcManager;
-                const activeSessionManager = sessionManager || window.sessionManager;
-                
-                if (activeWebrtcManager && activeWebrtcManager.getSecurityStatus) {
-                    const securityStatus = activeWebrtcManager.getSecurityStatus();
-                    const sessionInfo = activeSessionManager ? activeSessionManager.getSessionInfo() : null;
-
-                    if (window.DEBUG_MODE) {
-                        console.log('🔍 Header security update:', {
-                            hasWebrtcManager: !!activeWebrtcManager,
-                            hasSessionManager: !!activeSessionManager,
-                            securityStatus: securityStatus,
-                            sessionInfo: sessionInfo
-                        });
-                    }
-
-                    const realLevel = calculateRealSecurityLevel(securityStatus, sessionInfo);
-                    setRealSecurityLevel(realLevel);
-                    
-                    if (window.DEBUG_MODE) {
-                        console.log('🔍 Calculated real security level:', realLevel);
-                    }
-                }
-            } catch (error) {
-                console.warn('⚠️ Error updating security status:', error);
-            }
-        };
-
-        updateSecurityStatus();
-        const interval = setInterval(updateSecurityStatus, 3000); 
-        return () => clearInterval(interval);
-    }, [webrtcManager, sessionManager]);
-
-    const calculateRealSecurityLevel = (securityStatus, sessionInfo) => {
-        if (!securityStatus) {
-            return {
-                level: 'Unknown',
-                score: 0,
-                color: 'red',
-                details: 'Security status not available'
-            };
-        }
-
-        const activeFeatures = securityStatus.activeFeaturesNames || [];
-        const totalFeatures = securityStatus.totalFeatures || 12;
-        const sessionType = sessionInfo?.type || securityStatus.sessionType || 'unknown';
-        const securityLevel = securityStatus.securityLevel || 'basic';
-        const stage = securityStatus.stage || 1;
-
-        let finalScore = securityStatus.score || 0;
-        let level = 'Basic';
-        let color = 'red';
-
-        // score от crypto utils
-        if (finalScore > 0) {
-            if (finalScore >= 90) {
-                level = 'Maximum';
-                color = 'green';
-            } else if (finalScore >= 60) {
-                level = 'Enhanced';
-                color = sessionType === 'demo' ? 'yellow' : 'green';
-            } else if (finalScore >= 30) {
-                level = 'Basic';
-                color = 'yellow';
-            } else {
-                level = 'Low';
-                color = 'red';
-            }
-        } else {
-            const baseScores = {
-                'basic': 30,    
-                'enhanced': 65, 
-                'maximum': 90   
-            };
-
-            const featureScore = totalFeatures > 0 ? Math.min(40, (activeFeatures.length / totalFeatures) * 40) : 0;
-            finalScore = Math.min(100, (baseScores[securityLevel] || 30) + featureScore);
-
-            if (sessionType === 'demo') {
-                level = 'Basic';
-                color = finalScore >= 40 ? 'yellow' : 'red';
-            } else if (securityLevel === 'enhanced') {
-                level = 'Enhanced';
-                color = finalScore >= 70 ? 'green' : 'yellow';
-            } else if (securityLevel === 'maximum') {
-                level = 'Maximum';
-                color = 'green';
-            } else {
-                level = 'Basic';
-                color = finalScore >= 50 ? 'yellow' : 'red';
-            }
-        }
-
-        return {
-            level: level,
-            score: Math.round(finalScore),
-            color: color,
-            details: `${activeFeatures.length}/${totalFeatures} security features active`,
-            activeFeatures: activeFeatures,
-            sessionType: sessionType,
-            stage: stage,
-            securityLevel: securityLevel
-        };
-    };
-
-    React.useEffect(() => {
         if (sessionManager?.hasActiveSession()) {
             setCurrentTimeLeft(sessionManager.getTimeLeft());
             setHasActiveSession(true);
         } else {
             setHasActiveSession(false);
+            setRealSecurityLevel(null);
+            setLastSecurityUpdate(0);
+            setSessionType('unknown');
         }
     }, [sessionManager, sessionTimeLeft]);
-
-    const handleSecurityClick = () => {
-        const currentSecurity = realSecurityLevel || securityLevel;
-        
-        if (!currentSecurity) {
-            alert('Security information not available');
-            return;
-        }
-
-        if (currentSecurity.activeFeatures) {
-            const activeList = currentSecurity.activeFeatures.map(feature => 
-                `✅ ${feature.replace('has', '').replace(/([A-Z])/g, ' $1').trim()}`
-            ).join('\n');
-            
-            const message = `Security Level: ${currentSecurity.level} (${currentSecurity.score}%)\n` +
-                          `Session Type: ${currentSecurity.sessionType}\n` +
-                          `Stage: ${currentSecurity.stage}\n\n` +
-                          `Active Security Features:\n${activeList || 'No features detected'}\n\n` +
-                          `${currentSecurity.details || 'No additional details'}`;
-            
-            alert(message);
-        } else if (currentSecurity.verificationResults) {
-            alert('Security check details:\n\n' + 
-                Object.entries(currentSecurity.verificationResults)
-                    .map(([key, result]) => `${key}: ${result.passed ? '✅' : '❌'} ${result.details}`)
-                    .join('\n')
-            );
-        } else {
-            alert(`Security Level: ${currentSecurity.level}\nScore: ${currentSecurity.score}%\nDetails: ${currentSecurity.details || 'No additional details available'}`);
-        }
-    };
-
-    const shouldShowTimer = hasActiveSession && currentTimeLeft > 0 && window.SessionTimer;
 
     React.useEffect(() => {
         const handleForceUpdate = (event) => {
@@ -195,9 +220,130 @@ const EnhancedMinimalHeader = ({
             }
         };
 
+        // Connection cleanup handler (use existing event from module)
+        const handleConnectionCleaned = () => {
+            if (window.DEBUG_MODE) {
+                console.log('🧹 Connection cleaned - clearing security data in header');
+            }
+
+            setRealSecurityLevel(null);
+            setLastSecurityUpdate(0);
+
+            setHasActiveSession(false);
+            setCurrentTimeLeft(0);
+            setSessionType('unknown');
+        };
+
+        const handlePeerDisconnect = () => {
+            if (window.DEBUG_MODE) {
+                console.log('👋 Peer disconnect detected - clearing security data in header');
+            }
+
+            setRealSecurityLevel(null);
+            setLastSecurityUpdate(0);
+        };
+
         document.addEventListener('force-header-update', handleForceUpdate);
-        return () => document.removeEventListener('force-header-update', handleForceUpdate);
+        document.addEventListener('peer-disconnect', handlePeerDisconnect);
+        document.addEventListener('connection-cleaned', handleConnectionCleaned);
+        
+        return () => {
+            document.removeEventListener('force-header-update', handleForceUpdate);
+            document.removeEventListener('peer-disconnect', handlePeerDisconnect);
+            document.removeEventListener('connection-cleaned', handleConnectionCleaned);
+        };
     }, [sessionManager]);
+
+    // ============================================
+    // SECURITY INDICATOR CLICK HANDLER
+    // ============================================
+
+    const handleSecurityClick = () => {
+        if (!realSecurityLevel) {
+            alert('Security verification in progress...\nPlease wait for real-time cryptographic verification to complete.');
+            return;
+        }
+
+        // Detailed information about the REAL security check
+        let message = `🔒 REAL-TIME SECURITY VERIFICATION\n\n`;
+        message += `Security Level: ${realSecurityLevel.level} (${realSecurityLevel.score}%)\n`;
+        message += `Session Type: ${realSecurityLevel.sessionType || 'demo'}\n`;
+        message += `Verification Time: ${new Date(realSecurityLevel.timestamp).toLocaleTimeString()}\n`;
+        message += `Data Source: ${realSecurityLevel.isRealData ? 'Real Cryptographic Tests' : 'Simulated Data'}\n\n`;
+        
+        if (realSecurityLevel.verificationResults) {
+            message += 'DETAILED CRYPTOGRAPHIC TESTS:\n';
+            message += '=' + '='.repeat(40) + '\n';
+            
+            const passedTests = Object.entries(realSecurityLevel.verificationResults).filter(([key, result]) => result.passed);
+            const failedTests = Object.entries(realSecurityLevel.verificationResults).filter(([key, result]) => !result.passed);
+            
+            if (passedTests.length > 0) {
+                message += '✅ PASSED TESTS:\n';
+                passedTests.forEach(([key, result]) => {
+                    const testName = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+                    message += `   ${testName}: ${result.details}\n`;
+                });
+                message += '\n';
+            }
+            
+            if (failedTests.length > 0) {
+                message += '❌ UNAVAILABLE/Failed TESTS:\n';
+                failedTests.forEach(([key, result]) => {
+                    const testName = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+                    message += `   ${testName}: ${result.details}\n`;
+                });
+                message += '\n';
+            }
+            
+            message += `SUMMARY:\n`;
+            message += `Passed: ${realSecurityLevel.passedChecks}/${realSecurityLevel.totalChecks} tests\n`;
+        }
+        
+        // Add information about what is available in other sessions
+        message += `\n📋 WHAT'S AVAILABLE IN OTHER SESSIONS:\n`;
+        message += '=' + '='.repeat(40) + '\n';
+        
+        if (realSecurityLevel.sessionType === 'demo') {
+            message += `🔒 BASIC SESSION (5,000 sat - $2.00):\n`;
+            message += `   • ECDSA Digital Signatures\n`;
+            message += `   • Metadata Protection\n`;
+            message += `   • Perfect Forward Secrecy\n`;
+            message += `   • Nested Encryption\n`;
+            message += `   • Packet Padding\n\n`;
+            
+            message += `🚀 PREMIUM SESSION (20,000 sat - $8.00):\n`;
+            message += `   • All Basic + Enhanced features\n`;
+            message += `   • Traffic Obfuscation\n`;
+            message += `   • Fake Traffic Generation\n`;
+            message += `   • Decoy Channels\n`;
+            message += `   • Anti-Fingerprinting\n`;
+            message += `   • Message Chunking\n`;
+            message += `   • Advanced Replay Protection\n`;
+        } else if (realSecurityLevel.sessionType === 'basic') {
+            message += `🚀 PREMIUM SESSION (20,000 sat - $8.00):\n`;
+            message += `   • Traffic Obfuscation\n`;
+            message += `   • Fake Traffic Generation\n`;
+            message += `   • Decoy Channels\n`;
+            message += `   • Anti-Fingerprinting\n`;
+            message += `   • Message Chunking\n`;
+            message += `   • Advanced Replay Protection\n`;
+        }
+        
+        message += `\n${realSecurityLevel.details || 'Real cryptographic verification completed'}`;
+        
+        if (realSecurityLevel.isRealData) {
+            message += '\n\n✅ This is REAL-TIME verification using actual cryptographic functions.';
+        } else {
+            message += '\n\n⚠️ Warning: This data may be simulated. Connection may not be fully established.';
+        }
+        
+        alert(message);
+    };
+
+    // ============================================
+    // DISPLAY UTILITIES
+    // ============================================
 
     const getStatusConfig = () => {
         switch (status) {
@@ -254,6 +400,68 @@ const EnhancedMinimalHeader = ({
 
     const config = getStatusConfig();
     const displaySecurityLevel = realSecurityLevel || securityLevel;
+    
+    const shouldShowTimer = hasActiveSession && currentTimeLeft > 0 && window.SessionTimer;
+
+    // ============================================
+    // DATA RELIABILITY INDICATOR
+    // ============================================
+
+    const getSecurityIndicatorDetails = () => {
+        if (!displaySecurityLevel) {
+            return {
+                tooltip: 'Security verification in progress...',
+                isVerified: false,
+                dataSource: 'loading'
+            };
+        }
+        
+        const isRealData = displaySecurityLevel.isRealData !== false;
+        const baseTooltip = `${displaySecurityLevel.level} (${displaySecurityLevel.score}%)`;
+        
+        if (isRealData) {
+            return {
+                tooltip: `${baseTooltip} - Real-time verification ✅`,
+                isVerified: true,
+                dataSource: 'real'
+            };
+        } else {
+            return {
+                tooltip: `${baseTooltip} - Estimated (connection establishing...)`,
+                isVerified: false,
+                dataSource: 'estimated'
+            };
+        }
+    };
+
+    const securityDetails = getSecurityIndicatorDetails();
+
+    // ============================================
+    // ADDING global methods for debugging
+    // ============================================
+
+    React.useEffect(() => {
+        window.debugHeaderSecurity = () => {
+            console.log('🔍 Header Security Debug:', {
+                realSecurityLevel,
+                lastSecurityUpdate,
+                isConnected,
+                webrtcManagerProp: !!webrtcManager,
+                windowWebrtcManager: !!window.webrtcManager,
+                cryptoUtils: !!window.EnhancedSecureCryptoUtils,
+                displaySecurityLevel: displaySecurityLevel,
+                securityDetails: securityDetails
+            });
+        };
+        
+        return () => {
+            delete window.debugHeaderSecurity;
+        };
+    }, [realSecurityLevel, lastSecurityUpdate, isConnected, webrtcManager, displaySecurityLevel, securityDetails]);
+
+    // ============================================
+    // RENDER
+    // ============================================
 
     return React.createElement('header', {
         className: 'header-minimal sticky top-0 z-50'
@@ -306,23 +514,24 @@ const EnhancedMinimalHeader = ({
                         sessionManager: sessionManager
                     }),
 
-                    // Security Level Indicator 
                     displaySecurityLevel && React.createElement('div', {
                         key: 'security-level',
                         className: 'hidden md:flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity duration-200',
                         onClick: handleSecurityClick,
-                        title: `${displaySecurityLevel.level} (${displaySecurityLevel.score}%) - ${displaySecurityLevel.details || 'Click for details'}`
+                        title: securityDetails.tooltip
                     }, [
                         React.createElement('div', {
                             key: 'security-icon',
-                            className: `w-6 h-6 rounded-full flex items-center justify-center ${
+                            className: `w-6 h-6 rounded-full flex items-center justify-center relative ${
                                 displaySecurityLevel.color === 'green' ? 'bg-green-500/20' :
+                                displaySecurityLevel.color === 'orange' ? 'bg-orange-500/20' :
                                 displaySecurityLevel.color === 'yellow' ? 'bg-yellow-500/20' : 'bg-red-500/20'
-                            }`
+                            } ${securityDetails.isVerified ? '' : 'animate-pulse'}`
                         }, [
                             React.createElement('i', {
                                 className: `fas fa-shield-alt text-xs ${
                                     displaySecurityLevel.color === 'green' ? 'text-green-400' :
+                                    displaySecurityLevel.color === 'orange' ? 'text-orange-400' :
                                     displaySecurityLevel.color === 'yellow' ? 'text-yellow-400' : 'text-red-400'
                                 }`
                             })
@@ -333,12 +542,17 @@ const EnhancedMinimalHeader = ({
                         }, [
                             React.createElement('div', {
                                 key: 'security-level-text',
-                                className: 'text-xs font-medium text-primary'
-                            }, `${displaySecurityLevel.level} (${displaySecurityLevel.score}%)`),
+                                className: 'text-xs font-medium text-primary flex items-center space-x-1'
+                            }, [
+                                React.createElement('span', {}, `${displaySecurityLevel.level} (${displaySecurityLevel.score}%)`)
+                            ]),
                             React.createElement('div', {
                                 key: 'security-details',
                                 className: 'text-xs text-muted mt-1 hidden lg:block'
-                            }, displaySecurityLevel.details || `Stage ${displaySecurityLevel.stage || 1}`),
+                            }, securityDetails.dataSource === 'real' ? 
+                                `${displaySecurityLevel.passedChecks || 0}/${displaySecurityLevel.totalChecks || 0} tests` :
+                                (displaySecurityLevel.details || `Stage ${displaySecurityLevel.stage || 1}`)
+                            ),
                             React.createElement('div', {
                                 key: 'security-progress',
                                 className: 'w-16 h-1 bg-gray-600 rounded-full overflow-hidden'
@@ -347,6 +561,7 @@ const EnhancedMinimalHeader = ({
                                     key: 'progress-bar',
                                     className: `h-full transition-all duration-500 ${
                                         displaySecurityLevel.color === 'green' ? 'bg-green-400' :
+                                        displaySecurityLevel.color === 'orange' ? 'bg-orange-400' :
                                         displaySecurityLevel.color === 'yellow' ? 'bg-yellow-400' : 'bg-red-400'
                                     }`,
                                     style: { width: `${displaySecurityLevel.score}%` }
@@ -362,16 +577,18 @@ const EnhancedMinimalHeader = ({
                     }, [
                         React.createElement('div', {
                             key: 'mobile-security-icon',
-                            className: `w-8 h-8 rounded-full flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity duration-200 ${
+                            className: `w-8 h-8 rounded-full flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity duration-200 relative ${
                                 displaySecurityLevel.color === 'green' ? 'bg-green-500/20' :
+                                displaySecurityLevel.color === 'orange' ? 'bg-orange-500/20' :
                                 displaySecurityLevel.color === 'yellow' ? 'bg-yellow-500/20' : 'bg-red-500/20'
-                            }`,
-                            title: `${displaySecurityLevel.level} (${displaySecurityLevel.score}%) - Click for details`,
+                            } ${securityDetails.isVerified ? '' : 'animate-pulse'}`,
+                            title: securityDetails.tooltip,
                             onClick: handleSecurityClick
                         }, [
                             React.createElement('i', {
                                 className: `fas fa-shield-alt text-sm ${
                                     displaySecurityLevel.color === 'green' ? 'text-green-400' :
+                                    displaySecurityLevel.color === 'orange' ? 'text-orange-400' :
                                     displaySecurityLevel.color === 'yellow' ? 'text-yellow-400' : 'text-red-400'
                                 }`
                             })
@@ -413,5 +630,3 @@ const EnhancedMinimalHeader = ({
 };
 
 window.EnhancedMinimalHeader = EnhancedMinimalHeader;
-
-console.log('✅ EnhancedMinimalHeader v4.01.212 loaded with real security status integration');

@@ -2326,12 +2326,24 @@
             const [showScrollButton, setShowScrollButton] = React.useState(false);
 
             React.useEffect(() => {
+                if (chatMessagesRef.current && messages.length > 0) {
+                    const { scrollTop, scrollHeight, clientHeight } = chatMessagesRef.current;
+                    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+                    
+                    if (isNearBottom) {
+                        const scrollToBottom = () => {
                 if (chatMessagesRef.current) {
-                    // Smooth scroll down
                     chatMessagesRef.current.scrollTo({
                         top: chatMessagesRef.current.scrollHeight,
                         behavior: 'smooth'
                     });
+                            }
+                        };
+                        
+                        scrollToBottom();
+                        setTimeout(scrollToBottom, 50);
+                        setTimeout(scrollToBottom, 150);
+                    }
                 }
             }, [messages]);
             
@@ -2520,6 +2532,23 @@
         const EnhancedSecureP2PChat = () => {
             const [messages, setMessages] = React.useState([]);
             const [connectionStatus, setConnectionStatus] = React.useState('disconnected');
+            
+            React.useEffect(() => {
+                if (messages.length > 0 && chatMessagesRef.current) {
+                    const scrollToBottom = () => {
+                        if (chatMessagesRef.current) {
+                            chatMessagesRef.current.scrollTo({
+                                top: chatMessagesRef.current.scrollHeight,
+                                behavior: 'smooth'
+                            });
+                        }
+                    };
+                    
+                    scrollToBottom();
+                    setTimeout(scrollToBottom, 50);
+                    setTimeout(scrollToBottom, 150);
+                }
+            }, [messages]);
             const [messageInput, setMessageInput] = React.useState('');
             const [offerData, setOfferData] = React.useState('');
             const [answerData, setAnswerData] = React.useState('');
@@ -2561,18 +2590,7 @@
                 }
             }, [sessionManager]);
 
-            // Additional diagnostics for debugging
-            React.useEffect(() => {
-                if (sessionManager) {
-                    console.log('🔍 SessionManager state changed:', {
-                        hasActiveSession: sessionManager.hasActiveSession(),
-                        timeLeft: sessionManager.getTimeLeft(),
-                        currentSession: sessionManager.currentSession
-                    });
-                    
 
-                }
-            }, [sessionManager]);
             
             // Global functions for accessing modal windows
             React.useEffect(() => {
@@ -2586,30 +2604,104 @@
                     }
                 };
                 window.sessionManager = sessionManager;
+                window.forceCleanup = () => {
+                    handleClearData();
+                    if (webrtcManagerRef.current) {
+                        webrtcManagerRef.current.disconnect();
+                    }
+                    if (sessionManager) {
+                        sessionManager.cleanup();
+                    }
+                };
+                
+                window.forceSessionReset = () => {
+                    if (sessionManager) {
+                        sessionManager.resetSession();
+                    }
+                    setSessionTimeLeft(0);
+                };
+
+                window.forceSessionCleanup = () => {
+                    if (sessionManager) {
+                        sessionManager.cleanup();
+                    }
+                    setSessionTimeLeft(0);
+                    setSessionManager(null);
+                };
+
+                window.clearLogs = () => {
+                    if (typeof console.clear === 'function') {
+                        console.clear();
+                    }
+                };
                 
                 return () => {
                     delete window.showPaymentModal;
                     delete window.sessionManager;
+                    delete window.forceCleanup;
+                    delete window.forceSessionReset;
+                    delete window.forceSessionCleanup;
+                    delete window.clearLogs;
                 };
             }, [sessionManager]);
 
             const webrtcManagerRef = React.useRef(null);
 
-            // Update security level based on real verification
-            const updateSecurityLevel = React.useCallback(async () => {
-                if (webrtcManagerRef.current) {
-                    try {
-                        const level = await webrtcManagerRef.current.calculateSecurityLevel();
-                        setSecurityLevel(level);
-                    } catch (error) {
-                        console.error('Failed to update security level:', error);
-                        setSecurityLevel({
-                            level: 'ERROR',
-                            score: 0,
-                            color: 'red',
-                            details: 'Verification failed'
+            const addMessageWithAutoScroll = (message, type) => {
+                const newMessage = {
+                    message,
+                    type,
+                    id: Date.now() + Math.random(),
+                    timestamp: Date.now()
+                };
+                
+                setMessages(prev => [...prev, newMessage]);
+
+                setTimeout(() => {
+                    if (chatMessagesRef.current) {
+                        chatMessagesRef.current.scrollTo({
+                            top: chatMessagesRef.current.scrollHeight,
+                            behavior: 'smooth'
                         });
                     }
+                }, 100);
+            };
+
+            // Update security level based on real verification
+            const updateSecurityLevel = React.useCallback(async () => {
+                if (window.isUpdatingSecurity) {
+                    return;
+                }
+                
+                window.isUpdatingSecurity = true;
+                
+                try {
+                    if (webrtcManagerRef.current) {
+                        const level = await webrtcManagerRef.current.calculateSecurityLevel();
+                        setSecurityLevel(level);
+                        
+                        if (window.DEBUG_MODE) {
+                            console.log('🔒 Security level updated:', {
+                                level: level.level,
+                                score: level.score,
+                                sessionType: level.sessionType,
+                                passedChecks: level.passedChecks,
+                                totalChecks: level.totalChecks
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to update security level:', error);
+                    setSecurityLevel({
+                        level: 'ERROR',
+                        score: 0,
+                        color: 'red',
+                        details: 'Verification failed'
+                    });
+                } finally {
+                    setTimeout(() => {
+                        window.isUpdatingSecurity = false;
+                    }, 2000);
                 }
             }, []);
 
@@ -2662,31 +2754,17 @@
                             currentSession: sessionManager.currentSession
                         });
                         
-                        console.log('⏳ Demo session verified, waiting for full connection before activation...');
-                        
                         window.pendingDemoActivation = true;
                         
                         setTimeout(async () => {
                             if (window.pendingDemoActivation && sessionManager) {
-                                console.log('🚀 Attempting to activate demo session automatically...');
-                                
                                 let result = null;
                                 
-                                console.log('🔄 Creating new demo session for activation...');
-                                
                                 const demoSession = sessionManager.createDemoSessionForActivation();
-                                console.log('🔍 Demo session creation result:', demoSession);
                                 
                                 if (!demoSession.success) {
-                                    console.log('❌ Failed to create demo session:', demoSession.reason);
                                     return;
                                 }
-                                
-                                console.log('✅ Demo session created successfully:', {
-                                    preimage: demoSession.preimage.substring(0, 16) + '...',
-                                    paymentHash: demoSession.paymentHash.substring(0, 16) + '...',
-                                    duration: demoSession.durationMinutes + ' minutes'
-                                });
 
                                 result = await sessionManager.safeActivateSession(
                                     'demo', 
@@ -2695,7 +2773,6 @@
                                 );
                                 
                                 if (result && result.success) {
-                                    console.log('✅ Demo session activated automatically:', result);
                                     setSessionTimeLeft(sessionManager.getTimeLeft());
                                     
                                     setMessages(prev => [...prev, {
@@ -2704,23 +2781,9 @@
                                         id: Date.now(),
                                         timestamp: Date.now()
                                     }]);
-                                    
-                                    console.log('🔍 SessionManager state after activation:', {
-                                        hasActiveSession: sessionManager.hasActiveSession(),
-                                        timeLeft: sessionManager.getTimeLeft(),
-                                        currentSession: sessionManager.currentSession
-                                    });
 
                                     window.pendingDemoActivation = false;
                                 } else {
-                                    console.log('❌ Failed to activate demo session automatically:', result?.reason || 'Unknown error');
-                                    
-                                    console.log('🔍 SessionManager state after failed activation:', {
-                                        hasActiveSession: sessionManager.hasActiveSession(),
-                                        timeLeft: sessionManager.getTimeLeft(),
-                                        currentSession: sessionManager.currentSession
-                                    });
-                                    
                                     window.pendingDemoActivation = false;
                                 }
                             }
@@ -2735,7 +2798,6 @@
                 }
                 
                 if (selectedSessionType === 'demo' && connectionStatus === 'connected' && isVerified) {
-                    console.log('🎯 Demo session created, triggering automatic activation...');
                     setTimeout(handleDemoVerification, 1000);
                 }
                 
@@ -2745,12 +2807,23 @@
             // Scroll down function
             const scrollToBottom = () => {
                 if (chatMessagesRef.current) {
-                    setTimeout(() => {
-                        chatMessagesRef.current.scrollTo({
-                            top: chatMessagesRef.current.scrollHeight,
-                            behavior: 'smooth'
-                        });
-                    }, 100);
+                    const scrollAttempt = () => {
+                        if (chatMessagesRef.current) {
+                            chatMessagesRef.current.scrollTo({
+                                top: chatMessagesRef.current.scrollHeight,
+                                behavior: 'smooth'
+                            });
+                        }
+                    };
+                    scrollAttempt();
+
+                    setTimeout(scrollAttempt, 50);
+                    setTimeout(scrollAttempt, 150);
+                    setTimeout(scrollAttempt, 300);
+
+                    requestAnimationFrame(() => {
+                        setTimeout(scrollAttempt, 100);
+                    });
                 }
             };
             
@@ -2783,14 +2856,7 @@
                 }
 
                 const handleMessage = (message, type) => {
-                    setMessages(prev => [...prev, { 
-                        message, 
-                        type, 
-                        id: Date.now() + Math.random(),
-                        timestamp: Date.now()
-                    }]);
-                    // Scroll on receiving a new message
-                    setTimeout(scrollToBottom, 100);
+                    addMessageWithAutoScroll(message, type);
                 };
 
                 const handleStatusChange = (status) => {
@@ -2801,22 +2867,25 @@
                         
                         setIsVerified(true);
                         setShowVerification(false);
-                        updateSecurityLevel().catch(console.error);
+                        if (!window.isUpdatingSecurity) {
+                            updateSecurityLevel().catch(console.error);
+                        }
                     } else if (status === 'verifying') {
                         setShowVerification(true);
-                        updateSecurityLevel().catch(console.error);
+                        if (!window.isUpdatingSecurity) {
+                            updateSecurityLevel().catch(console.error);
+                        }
                     } else if (status === 'connecting') {
-                        updateSecurityLevel().catch(console.error);
+                        if (!window.isUpdatingSecurity) {
+                            updateSecurityLevel().catch(console.error);
+                        }
                     } else if (status === 'disconnected') {
-                        console.log('🔌 Connection disconnected - stopping session timer');
-                        
-                        document.dispatchEvent(new CustomEvent('peer-disconnect'));
-                        
                         if (sessionManager && sessionManager.hasActiveSession()) {
                             sessionManager.resetSession();
                             setSessionTimeLeft(0);
                             setHasActiveSession(false);
                         }
+                        document.dispatchEvent(new CustomEvent('peer-disconnect'));
                         
                         // Complete UI reset on disconnect
                         setKeyFingerprint('');
@@ -2824,16 +2893,25 @@
                         setSecurityLevel(null);
                         setIsVerified(false);
                         setShowVerification(false);
+                        setConnectionStatus('disconnected');
+                        
+                        setMessages([]);
+
+                        if (typeof console.clear === 'function') {
+                            console.clear();
+                        }
+
+                        setTimeout(() => {
+                            setSessionManager(null);
+                        }, 1000);
                     } else if (status === 'peer_disconnected') {
-                        console.log('🔌 Peer disconnected - stopping session timer');
-                        
-                        document.dispatchEvent(new CustomEvent('peer-disconnect'));
-                        
                         if (sessionManager && sessionManager.hasActiveSession()) {
                             sessionManager.resetSession();
                             setSessionTimeLeft(0);
                             setHasActiveSession(false);
                         }
+
+                        document.dispatchEvent(new CustomEvent('peer-disconnect'));
                         
                         // A short delay before clearing to display the status
                         setTimeout(() => {
@@ -2842,6 +2920,15 @@
                             setSecurityLevel(null);
                             setIsVerified(false);
                             setShowVerification(false);
+                            setConnectionStatus('disconnected');
+
+                            setMessages([]);
+
+                            if (typeof console.clear === 'function') {
+                                console.clear();
+                            }
+
+                            setSessionManager(null);
                         }, 2000);
                     }
                 };
@@ -2864,8 +2951,6 @@
 
                 // Callback for handling response errors
                 const handleAnswerError = (errorType, errorMessage) => {
-                    console.log('Answer error callback:', errorType, errorMessage);
-                    
                     if (errorType === 'replay_attack') {
                         // Reset the session upon replay attack
                         if (sessionManager.hasActiveSession()) {
@@ -2874,12 +2959,11 @@
                         }
                         setPendingSession(null);
                         
-                        setMessages(prev => [...prev, { 
-                            message: '💡 Data is outdated. Please create a new invitation or use a current response code.', 
-                            type: 'system',
-                            id: Date.now(),
-                            timestamp: Date.now()
-                        }]);
+                        addMessageWithAutoScroll('💡 Data is outdated. Please create a new invitation or use a current response code.', 'system');
+
+                        if (typeof console.clear === 'function') {
+                            console.clear();
+                        }
                     } else if (errorType === 'security_violation') {
                         // Reset the session upon security breach
                         if (sessionManager.hasActiveSession()) {
@@ -2888,17 +2972,21 @@
                         }
                         setPendingSession(null);
                         
-                        setMessages(prev => [...prev, { 
-                            message: `🔒 Security breach: ${errorMessage}`, 
-                            type: 'system',
-                            id: Date.now(),
-                            timestamp: Date.now()
-                        }]);
+                        addMessageWithAutoScroll(`🔒 Security breach: ${errorMessage}`, 'system');
+
+                        if (typeof console.clear === 'function') {
+                            console.clear();
+                        }
                     }
                 };
 
                 // Create WebRTC Manager only once
                 console.log('🔧 Initializing WebRTC Manager...');
+
+                if (typeof console.clear === 'function') {
+                    console.clear();
+                }
+                
                 webrtcManagerRef.current = new EnhancedSecureWebRTCManager(
                     handleMessage, 
                     handleStatusChange, 
@@ -3013,30 +3101,40 @@
                     setOfferData(encryptedOffer);
                     setOfferPassword(password);
                     setShowOfferStep(true);
+
+                    const existingMessages = messages.filter(m => 
+                        m.type === 'system' && 
+                        (m.message.includes('Secure invitation created') || m.message.includes('Send the encrypted code'))
+                    );
                     
-                    setMessages(prev => [...prev, { 
-                        message: '🔐 Secure invitation created and encrypted!', 
-                        type: 'system',
-                        id: Date.now(),
-                        timestamp: Date.now()
-                    }]);
-                    
-                    setMessages(prev => [...prev, { 
-                        message: '📤 Send the encrypted code and password to your interlocutor via a secure channel (voice call, SMS, etc.)..', 
-                        type: 'system',
-                        id: Date.now(),
-                        timestamp: Date.now()
-                    }]);
-                    
-                    updateSecurityLevel().catch(console.error);
-                } catch (error) {
-                    setMessages(prev => [...prev, { 
-                        message: `❌ Error creating invitation: ${error.message}`, 
-                        type: 'system',
-                        id: Date.now(),
-                        timestamp: Date.now()
-                    }]);
-                }
+                    if (existingMessages.length === 0) {
+                        setMessages(prev => [...prev, { 
+                            message: '🔐 Secure invitation created and encrypted!', 
+                            type: 'system',
+                            id: Date.now(),
+                            timestamp: Date.now()
+                        }]);
+                        
+                        setMessages(prev => [...prev, { 
+                            message: '📤 Send the encrypted code and password to your interlocutor via a secure channel (voice call, SMS, etc.)..', 
+                            type: 'system',
+                            id: Date.now(),
+                            timestamp: Date.now()
+                        }]);
+
+                    }
+
+                    if (!window.isUpdatingSecurity) {
+                        updateSecurityLevel().catch(console.error);
+                    }
+                                        } catch (error) {
+                            setMessages(prev => [...prev, { 
+                                message: `❌ Error creating invitation: ${error.message}`, 
+                                type: 'system',
+                                id: Date.now(),
+                                timestamp: Date.now()
+                            }]);
+                        }
             };
 
             const handleCreateAnswer = async () => {
@@ -3103,7 +3201,13 @@
                             setAnswerData(encryptedAnswer);
                             setAnswerPassword(answerPassword); // Store the password
                             setShowAnswerStep(true);
-                            
+
+                        const existingResponseMessages = messages.filter(m => 
+                            m.type === 'system' && 
+                            (m.message.includes('Secure response created') || m.message.includes('Send the encrypted response'))
+                        );
+                        
+                        if (existingResponseMessages.length === 0) {
                             setMessages(prev => [...prev, { 
                                 message: '✅ Secure response created and encrypted!', 
                                 type: 'system',
@@ -3117,9 +3221,13 @@
                                 id: Date.now(),
                                 timestamp: Date.now()
                             }]);
+
+                        }
                             
                             // Update security level after creating answer
-                            updateSecurityLevel().catch(console.error);
+                            if (!window.isUpdatingSecurity) {
+                                updateSecurityLevel().catch(console.error);
+                            }
                         } catch (error) {
                             console.error('Error in handleCreateAnswer:', error);
                             setMessages(prev => [...prev, { 
@@ -3222,7 +3330,9 @@
                             }]);
                             
                             // Update security level after handling answer
-                            updateSecurityLevel().catch(console.error);
+                            if (!window.isUpdatingSecurity) {
+                                updateSecurityLevel().catch(console.error);
+                            }
                         } catch (error) {
                             setMessages(prev => [...prev, { 
                                 message: `❌ Connection setup error: ${error.message}`, 
@@ -3272,62 +3382,33 @@
             };
 
             const handleSendMessage = async () => {
-                console.log('🔍 handleSendMessage called:', {
-                    messageInput: messageInput,
-                    messageInputTrimmed: messageInput.trim(),
-                    hasMessageInput: !!messageInput.trim(),
-                    hasWebRTCManager: !!webrtcManagerRef.current,
-                    isConnected: webrtcManagerRef.current?.isConnected(),
-                    connectionStatus: connectionStatus,
-                    isVerified: isVerified
-                });
-
                 if (!messageInput.trim()) {
-                    console.log('❌ No message input to send');
                     return;
                 }
 
                 if (!webrtcManagerRef.current) {
-                    console.log('❌ WebRTC Manager not available');
                     return;
                 }
 
                 if (!webrtcManagerRef.current.isConnected()) {
-                    console.log('❌ WebRTC Manager not connected');
                     return;
                 }
 
                 try {
                     
                     // Add the message to local messages immediately (sent message)
-                    const sentMessage = {
-                        message: messageInput.trim(),
-                        type: 'sent',
-                        id: Date.now() + Math.random(),
-                        timestamp: Date.now()
-                    };
-                    
-                    setMessages(prev => [...prev, sentMessage]);
+                    addMessageWithAutoScroll(messageInput.trim(), 'sent');
                     
                     // Use sendMessage for simple text messages instead of sendSecureMessage
                     await webrtcManagerRef.current.sendMessage(messageInput);
-                    console.log('✅ Message sent successfully');
                     setMessageInput('');
-                    setTimeout(scrollToBottom, 50);
                 } catch (error) {
-                    console.error('❌ Error sending message:', error);
-                    setMessages(prev => [...prev, { 
-                        message: `❌ Sending error: ${error.message}`, 
-                        type: 'system',
-                        id: Date.now(),
-                        timestamp: Date.now()
-                    }]);
-
-                    setTimeout(scrollToBottom, 50);
+                    addMessageWithAutoScroll(`❌ Sending error: ${error.message}`, 'system');
                 }
             };
 
             const handleClearData = () => {
+                // Очищаем все состояния соединения
                 setOfferData('');
                 setAnswerData('');
                 setOfferInput('');
@@ -3350,33 +3431,67 @@
                 }
                 
                 // Cleanup pay-per-session state
+                if (sessionManager) {
                 sessionManager.cleanup();
                 setSessionTimeLeft(0);
+                }
                 setShowPaymentModal(false);
+
+                setPendingSession(null);
+                document.dispatchEvent(new CustomEvent('peer-disconnect'));
+                setSessionManager(null);
             };
 
             const handleDisconnect = () => {
+                if (sessionManager && sessionManager.hasActiveSession()) {
+                    sessionManager.resetSession();
+                    setSessionTimeLeft(0);
+                }
+                
                 // Cleanup pay-per-session state
+                if (sessionManager) {
                 sessionManager.cleanup();
-                setSessionTimeLeft(0);
+                }
                 setShowPaymentModal(false);
 
+                if (webrtcManagerRef.current) {
                 webrtcManagerRef.current.disconnect();
-                
+                }
+
                 setKeyFingerprint('');
                 setVerificationCode('');
                 setSecurityLevel(null);
                 setIsVerified(false);
                 setShowVerification(false);
-                
-                setMessages(prev => [...prev, { 
-                    message: '🔌 Secure connection terminated', 
-                    type: 'system',
-                    id: Date.now(),
-                    timestamp: Date.now()
-                }]);
-                
+                setConnectionStatus('disconnected');
+
+                setMessages([]);
+
+                if (typeof console.clear === 'function') {
+                    console.clear();
+                }
+
+                document.dispatchEvent(new CustomEvent('peer-disconnect'));
+
+                document.dispatchEvent(new CustomEvent('session-cleanup', {
+                    detail: { 
+                        timestamp: Date.now(),
+                        reason: 'manual_disconnect'
+                    }
+                }));
+
+                setTimeout(() => {
+                    if (sessionManager && sessionManager.hasActiveSession()) {
+                        sessionManager.resetSession();
+                        setSessionTimeLeft(0);
+                    }
+                }, 500);
+
                 handleClearData();
+
+                setTimeout(() => {
+                    setSessionManager(null);
+                }, 1000);
             };
 
             const handleSessionActivated = (session) => {
@@ -3388,24 +3503,14 @@
                     message = `💰 Session activated for ${hours}h. You can create invitations!`;
                 }
                 
-                setMessages(prev => [...prev, {
-                    message: message,
-                    type: 'system',
-                    id: Date.now(),
-                    timestamp: Date.now()
-                }]);
+                addMessageWithAutoScroll(message, 'system');
+
             };
 
             React.useEffect(() => {
                 if (connectionStatus === 'connected' && isVerified) {
-                    setMessages(prev => [...prev, { 
-                        message: '🎉 Secure connection successfully established and verified! You can now communicate safely with full protection against MITM attacks and Perfect Forward Secrecy..', 
-                        type: 'system',
-                        id: Date.now(),
-                        timestamp: Date.now()
-                    }]);
+                    addMessageWithAutoScroll('🎉 Secure connection successfully established and verified! You can now communicate safely with full protection against MITM attacks and Perfect Forward Secrecy..', 'system');
 
-                    setTimeout(scrollToBottom, 200);
                 }
             }, [connectionStatus, isVerified]);
 
@@ -3425,19 +3530,9 @@
                             message = `💰 Session activated for ${hours}h (${result.method})`;
                         }
                         
-                        setMessages(prev => [...prev, { 
-                            message: message, 
-                            type: 'system',
-                            id: Date.now(),
-                            timestamp: Date.now()
-                        }]);
+                        addMessageWithAutoScroll(message, 'system');
                     } else {
-                        setMessages(prev => [...prev, { 
-                            message: `❌ Session activation error: ${result.reason}`, 
-                            type: 'error',
-                            id: Date.now(),
-                            timestamp: Date.now()
-                        }]);
+                        addMessageWithAutoScroll(`❌ Session activation error: ${result.reason}`, 'error');
                     }
                 }
             }, [isConnectedAndVerified, sessionManager, pendingSession, connectionStatus]);
@@ -3590,13 +3685,11 @@ if (typeof initializeApp === 'function') {
 <script>
 
 window.forceUpdateHeader = (timeLeft, sessionType) => {
-    if (window.DEBUG_MODE) {
-    console.log('🎯 forceUpdateHeader called:', { timeLeft, sessionType });
-    }
-
-    document.dispatchEvent(new CustomEvent('force-header-update', {
-        detail: { timeLeft, sessionType }
-    }));
+    const event = new CustomEvent('force-header-update', {
+        detail: { timeLeft, sessionType, timestamp: Date.now() }
+    });
+    
+    document.dispatchEvent(event);
 
     if (window.sessionManager && window.sessionManager.forceUpdateTimer) {
         window.sessionManager.forceUpdateTimer();
@@ -3604,10 +3697,6 @@ window.forceUpdateHeader = (timeLeft, sessionType) => {
 };
 
 window.updateSessionTimer = (timeLeft, sessionType) => {
-    if (window.DEBUG_MODE) {
-    console.log('🎯 updateSessionTimer called:', { timeLeft, sessionType });
-    }
-    
     document.dispatchEvent(new CustomEvent('session-timer-update', {
         detail: { timeLeft, sessionType }
     }));
@@ -3615,10 +3704,6 @@ window.updateSessionTimer = (timeLeft, sessionType) => {
 
 
 document.addEventListener('session-activated', (event) => {
-    if (window.DEBUG_MODE) {
-    console.log('🎯 Session activation event received:', event.detail);
-    }
-    
     if (window.updateSessionTimer) {
         window.updateSessionTimer(event.detail.timeLeft, event.detail.sessionType);
     }

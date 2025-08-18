@@ -13,6 +13,7 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
     const [qrCodeUrl, setQrCodeUrl] = React.useState('');
     const [paymentTimer, setPaymentTimer] = React.useState(null);
     const [timeLeft, setTimeLeft] = React.useState(0);
+    const [showSecurityDetails, setShowSecurityDetails] = React.useState(false);
     const pollInterval = React.useRef(null);
 
     React.useEffect(() => {
@@ -38,6 +39,107 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
         setIsProcessing(false);
         setQrCodeUrl('');
         setTimeLeft(0);
+        setShowSecurityDetails(false);
+    };
+
+    const getSecurityFeaturesInfo = (sessionType) => {
+        const features = {
+            demo: {
+                title: 'Demo Session - Basic Security',
+                description: 'Limited testing session with basic security features',
+                available: [
+                    '🔐 Basic end-to-end encryption (AES-GCM 256)',
+                    '🔑 Simple key exchange (ECDH P-384)',
+                    '✅ Message integrity verification',
+                    '⚡ Rate limiting protection'
+                ],
+                unavailable: [
+                    '🔐 ECDSA Digital Signatures',
+                    '🛡️ Metadata Protection',
+                    '🔄 Perfect Forward Secrecy',
+                    '🔐 Nested Encryption',
+                    '📦 Packet Padding',
+                    '🎭 Traffic Obfuscation',
+                    '🎪 Fake Traffic Generation',
+                    '🕵️ Decoy Channels',
+                    '🚫 Anti-Fingerprinting',
+                    '📝 Message Chunking',
+                    '🔄 Advanced Replay Protection'
+                ],
+                upgrade: {
+                    next: 'Basic Session (5,000 sat - $2.00)',
+                    features: [
+                        '🔐 ECDSA Digital Signatures',
+                        '🛡️ Metadata Protection',
+                        '🔄 Perfect Forward Secrecy',
+                        '🔐 Nested Encryption',
+                        '📦 Packet Padding'
+                    ]
+                }
+            },
+            basic: {
+                title: 'Basic Session - Enhanced Security',
+                description: 'Full featured session with enhanced security features',
+                available: [
+                    '🔐 Basic end-to-end encryption (AES-GCM 256)',
+                    '🔑 Simple key exchange (ECDH P-384)',
+                    '✅ Message integrity verification',
+                    '⚡ Rate limiting protection',
+                    '🔐 ECDSA Digital Signatures',
+                    '🛡️ Metadata Protection',
+                    '🔄 Perfect Forward Secrecy',
+                    '🔐 Nested Encryption',
+                    '📦 Packet Padding'
+                ],
+                unavailable: [
+                    '🎭 Traffic Obfuscation',
+                    '🎪 Fake Traffic Generation',
+                    '🕵️ Decoy Channels',
+                    '🚫 Anti-Fingerprinting',
+                    '📝 Message Chunking',
+                    '🔄 Advanced Replay Protection'
+                ],
+                upgrade: {
+                    next: 'Premium Session (20,000 sat - $8.00)',
+                    features: [
+                        '🎭 Traffic Obfuscation',
+                        '🎪 Fake Traffic Generation',
+                        '🕵️ Decoy Channels',
+                        '🚫 Anti-Fingerprinting',
+                        '📝 Message Chunking',
+                        '🔄 Advanced Replay Protection'
+                    ]
+                }
+            },
+            premium: {
+                title: 'Premium Session - Maximum Security',
+                description: 'Extended session with maximum security protection',
+                available: [
+                    '🔐 Basic end-to-end encryption (AES-GCM 256)',
+                    '🔑 Simple key exchange (ECDH P-384)',
+                    '✅ Message integrity verification',
+                    '⚡ Rate limiting protection',
+                    '🔐 ECDSA Digital Signatures',
+                    '🛡️ Metadata Protection',
+                    '🔄 Perfect Forward Secrecy',
+                    '🔐 Nested Encryption',
+                    '📦 Packet Padding',
+                    '🎭 Traffic Obfuscation',
+                    '🎪 Fake Traffic Generation',
+                    '🕵️ Decoy Channels',
+                    '🚫 Anti-Fingerprinting',
+                    '📝 Message Chunking',
+                    '🔄 Advanced Replay Protection'
+                ],
+                unavailable: [],
+                upgrade: {
+                    next: 'Maximum security achieved!',
+                    features: ['🎉 All security features unlocked!']
+                }
+            }
+        };
+        
+        return features[sessionType] || features.demo;
     };
 
     const handleSelectType = async (type) => {
@@ -346,7 +448,8 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                 React.createElement('h2', { 
                     key: 'title', 
                     className: 'text-xl font-semibold text-primary' 
-                }, step === 'select' ? 'Select session type' : 'Session payment'),
+                }, step === 'select' ? 'Select session type' : 
+                   step === 'details' ? 'Security Features Details' : 'Session payment'),
                 React.createElement('button', { 
                     key: 'close',
                     onClick: onClose, 
@@ -387,7 +490,12 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                         pricing[selectedType].usd > 0 && React.createElement('div', { 
                             key: 'usd', 
                             className: 'text-gray-400' 
-                        }, `≈ ${pricing[selectedType].usd} USD`)
+                        }, `≈ ${pricing[selectedType].usd} USD`),
+                        React.createElement('button', {
+                            key: 'details-btn',
+                            onClick: () => setStep('details'),
+                            className: 'mt-2 text-xs text-blue-400 hover:text-blue-300 underline cursor-pointer'
+                        }, '📋 View Security Details')
                     ])
                 ]),
 
@@ -607,6 +715,143 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                     }, [
                         React.createElement('i', { key: 'back-icon', className: 'fas fa-arrow-left mr-2' }),
                         'Choose another session'
+                    ])
+                ])
+            ]),
+
+            // Security Details Step
+            step === 'details' && React.createElement('div', { 
+                key: 'details-step', 
+                className: 'space-y-6' 
+            }, [
+                React.createElement('div', { 
+                    key: 'details-header', 
+                    className: 'text-center p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg' 
+                }, [
+                    React.createElement('h3', { 
+                        key: 'details-title', 
+                        className: 'text-lg font-semibold text-blue-400 mb-2' 
+                    }, getSecurityFeaturesInfo(selectedType).title),
+                    React.createElement('p', { 
+                        key: 'details-description', 
+                        className: 'text-sm text-blue-300' 
+                    }, getSecurityFeaturesInfo(selectedType).description)
+                ]),
+
+                // Available Features
+                React.createElement('div', { key: 'available-features' }, [
+                    React.createElement('h4', {
+                        key: 'available-title',
+                        className: 'text-sm font-medium text-green-300 mb-3 flex items-center'
+                    }, [
+                        React.createElement('i', {
+                            key: 'check-icon',
+                            className: 'fas fa-check-circle mr-2'
+                        }),
+                        'Available Security Features'
+                    ]),
+                    React.createElement('div', {
+                        key: 'available-list',
+                        className: 'grid grid-cols-1 gap-2'
+                    }, getSecurityFeaturesInfo(selectedType).available.map((feature, index) => 
+                        React.createElement('div', {
+                            key: index,
+                            className: 'flex items-center gap-2 text-sm text-green-300'
+                        }, [
+                            React.createElement('i', {
+                                key: 'check',
+                                className: 'fas fa-check text-green-400 w-4'
+                            }),
+                            React.createElement('span', {
+                                key: 'text'
+                            }, feature)
+                        ])
+                    ))
+                ]),
+
+                // Unavailable Features (if any)
+                getSecurityFeaturesInfo(selectedType).unavailable.length > 0 && React.createElement('div', { key: 'unavailable-features' }, [
+                    React.createElement('h4', {
+                        key: 'unavailable-title',
+                        className: 'text-sm font-medium text-red-300 mb-3 flex items-center'
+                    }, [
+                        React.createElement('i', {
+                            key: 'minus-icon',
+                            className: 'fas fa-minus-circle mr-2'
+                        }),
+                        'Not Available in This Session'
+                    ]),
+                    React.createElement('div', {
+                        key: 'unavailable-list',
+                        className: 'grid grid-cols-1 gap-2'
+                    }, getSecurityFeaturesInfo(selectedType).unavailable.map((feature, index) => 
+                        React.createElement('div', {
+                            key: index,
+                            className: 'flex items-center gap-2 text-sm text-red-300'
+                        }, [
+                            React.createElement('i', {
+                                key: 'minus',
+                                className: 'fas fa-minus text-red-400 w-4'
+                            }),
+                            React.createElement('span', {
+                                key: 'text'
+                            }, feature)
+                        ])
+                    ))
+                ]),
+
+                // Upgrade Information
+                React.createElement('div', { key: 'upgrade-info' }, [
+                    React.createElement('h4', {
+                        key: 'upgrade-title',
+                        className: 'text-sm font-medium text-blue-300 mb-3 flex items-center'
+                    }, [
+                        React.createElement('i', {
+                            key: 'upgrade-icon',
+                            className: 'fas fa-arrow-up mr-2'
+                        }),
+                        'Upgrade for More Security'
+                    ]),
+                    React.createElement('div', {
+                        key: 'upgrade-content',
+                        className: 'p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg'
+                    }, [
+                        React.createElement('div', {
+                            key: 'upgrade-next',
+                            className: 'text-sm font-medium text-blue-300 mb-2'
+                        }, getSecurityFeaturesInfo(selectedType).upgrade.next),
+                        React.createElement('div', {
+                            key: 'upgrade-features',
+                            className: 'grid grid-cols-1 gap-1'
+                        }, getSecurityFeaturesInfo(selectedType).upgrade.features.map((feature, index) => 
+                            React.createElement('div', {
+                                key: index,
+                                className: 'flex items-center gap-2 text-xs text-blue-300'
+                            }, [
+                                React.createElement('i', {
+                                    key: 'arrow',
+                                    className: 'fas fa-arrow-right text-blue-400 w-3'
+                                }),
+                                React.createElement('span', {
+                                    key: 'text'
+                                }, feature)
+                            ])
+                        ))
+                    ])
+                ]),
+
+                // Back Button
+                React.createElement('div', { 
+                    key: 'details-back-section', 
+                    className: 'pt-4 border-t border-gray-600' 
+                }, [
+                    React.createElement('button', { 
+                        key: 'details-back-btn',
+                        onClick: () => setStep('payment'),
+                        className: 'w-full bg-gray-600 hover:bg-gray-500 text-white py-2 px-4 rounded transition-colors'
+                    }, [
+                        React.createElement('i', { key: 'back-icon', className: 'fas fa-arrow-left mr-2' }),
+                        'Back to Payment'
                     ])
                 ])
             ])

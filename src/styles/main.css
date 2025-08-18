@@ -67,6 +67,22 @@ body {
     scroll-padding-bottom: 20px;
 }
 
+/* Enhanced autoscroll for chat */
+.chat-messages-area {
+    scroll-behavior: smooth;
+    scroll-padding-bottom: 20px;
+}
+
+.chat-messages-area > div:first-child {
+    scroll-behavior: smooth;
+    scroll-padding-bottom: 20px;
+}
+
+/* Smooth scrolling for all message containers */
+[class*="chat"] {
+    scroll-behavior: smooth;
+}
+
 /* Media Queries (Mobile/Tablet) */
 @media (max-width: 640px) {
     .header-minimal { padding: 0 8px; }

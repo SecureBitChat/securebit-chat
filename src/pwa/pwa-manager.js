@@ -1079,12 +1079,12 @@ const PWAOfflineManager = {
 // Export for module use
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = PWAOfflineManager;
-} else {
+} else if (typeof window !== 'undefined' && !window.PWAOfflineManager) {
     window.PWAOfflineManager = PWAOfflineManager;
 }
 
 // Auto-initialize when DOM is ready
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && !window.pwaOfflineManager) {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
             if (!window.pwaOfflineManager) {

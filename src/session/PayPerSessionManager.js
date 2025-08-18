@@ -69,7 +69,11 @@ class PayPerSessionManager {
         setInterval(() => {
             this.savePersistentData();
         }, 30000);
-
+        this.notifySecurityUpdate = () => {
+            document.dispatchEvent(new CustomEvent('security-level-updated', {
+                detail: { timestamp: Date.now(), manager: 'webrtc' }
+            }));
+        };
         console.log('💰 PayPerSessionManager initialized with ENHANCED secure demo mode and auto-save');
     }
 
@@ -1469,7 +1473,13 @@ class PayPerSessionManager {
 
     // REWORKED session activation
     activateSession(sessionType, preimage) {
-        this.cleanup();
+        if (this.hasActiveSession()) {
+            return this.currentSession;
+        }
+        if (this.sessionTimer) {
+            clearInterval(this.sessionTimer);
+            this.sessionTimer = null;
+        }
 
         const pricing = this.sessionPrices[sessionType];
         const now = Date.now();
@@ -1492,7 +1502,7 @@ class PayPerSessionManager {
             expiresAt: expiresAt,
             preimage: preimage,
             isDemo: sessionType === 'demo',
-            securityLevel: this.getSecurityLevelForSession(sessionType) // НОВОЕ ПОЛЕ
+            securityLevel: this.getSecurityLevelForSession(sessionType)
         };
 
         this.startSessionTimer();
@@ -1504,7 +1514,8 @@ class PayPerSessionManager {
         }
         
         const durationMinutes = Math.round(duration / (60 * 1000));
-        console.log(`📅 Session ${sessionId.substring(0, 8)}... activated for ${durationMinutes} minutes with ${this.currentSession.securityLevel} security`);
+        const securityLevel = this.currentSession ? this.currentSession.securityLevel : 'unknown';
+        console.log(`📅 Session ${sessionId.substring(0, 8)}... activated for ${durationMinutes} minutes with ${securityLevel} security`);
         
         if (sessionType === 'demo') {
             this.activeDemoSessions.add(preimage);
@@ -1513,11 +1524,15 @@ class PayPerSessionManager {
         }
         
         // SENDING SECURITY LEVEL INFORMATION TO WebRTC
+        const activatedSession = this.currentSession; 
         setTimeout(() => {
-            this.notifySessionActivated();
+                    if (activatedSession) {
+            this.notifySessionActivated(activatedSession);
+        }
             // Notify WebRTC manager about session type
-            if (window.webrtcManager && window.webrtcManager.configureSecurityForSession) {
-                window.webrtcManager.configureSecurityForSession(sessionType, this.currentSession.securityLevel);
+            if (window.webrtcManager && window.webrtcManager.configureSecurityForSession && activatedSession) {
+                const securityLevel = activatedSession.securityLevel || this.getSecurityLevelForSession(sessionType);
+                window.webrtcManager.configureSecurityForSession(sessionType, securityLevel);
             }
         }, 100);
         
@@ -1592,18 +1607,18 @@ class PayPerSessionManager {
         return descriptions[level] || descriptions['basic'];
     }
 
-    notifySessionActivated() {
-        if (!this.currentSession) return;
+    notifySessionActivated(session = null) {
+        const targetSession = session || this.currentSession;
+
+        if (!targetSession) return;
+        if (targetSession.notified) {
+            return;
+        }
         
-        const timeLeft = this.getTimeLeft();
-        const sessionType = this.currentSession.type;
+        const timeLeft = Math.max(0, targetSession.expiresAt - Date.now());
+        const sessionType = targetSession.type;
         
-        console.log(`🎯 Notifying UI about session activation:`, {
-            timeLeft: Math.floor(timeLeft / 1000) + 's',
-            sessionType: sessionType,
-            sessionId: this.currentSession.id.substring(0, 8),
-            isDemo: this.currentSession.isDemo
-        });
+
         
         if (window.updateSessionTimer) {
             window.updateSessionTimer(timeLeft, sessionType);
@@ -1611,10 +1626,10 @@ class PayPerSessionManager {
         
         document.dispatchEvent(new CustomEvent('session-activated', {
             detail: {
-                sessionId: this.currentSession.id,
+                sessionId: targetSession.id,
                 timeLeft: timeLeft,
                 sessionType: sessionType,
-                isDemo: this.currentSession.isDemo,
+                isDemo: targetSession.isDemo,
                 timestamp: Date.now()
             }
         }));
@@ -1623,10 +1638,10 @@ class PayPerSessionManager {
             window.forceUpdateHeader(timeLeft, sessionType);
         }
 
-        console.log(`🔄 Forcing session manager state update...`);
         if (window.debugSessionManager) {
             window.debugSessionManager();
         }
+        targetSession.notified = true;
     }
 
     handleDemoSessionExpiry(preimage) {
@@ -1678,12 +1693,11 @@ class PayPerSessionManager {
     }
 
     hasActiveSession() {
-        if (!this.currentSession) return false;
-        const isActive = Date.now() < this.currentSession.expiresAt;
-        
-        if (!isActive && this.currentSession) {
-            this.currentSession = null;
+        if (!this.currentSession) {
+            return false;
         }
+        
+        const isActive = Date.now() < this.currentSession.expiresAt;
         
         return isActive;
     }
@@ -2041,10 +2055,25 @@ class PayPerSessionManager {
         }
         
         this.currentSession = null;
+        this.sessionStartTime = null;
+        this.sessionEndTime = null;
         
-        if (resetSession) {
-            console.log(`🔄 Session ${resetSession.id.substring(0, 8)}... reset due to security issue`);
+        if (resetSession && resetSession.preimage) {
+            this.activeDemoSessions.delete(resetSession.preimage);
         }
+        
+        document.dispatchEvent(new CustomEvent('session-reset', {
+            detail: { 
+                timestamp: Date.now(),
+                reason: 'security_reset'
+            }
+        }));
+        
+        setTimeout(() => {
+            if (this.currentSession) {
+                this.currentSession = null;
+            }
+        }, 100);
     }
 
     // Cleaning old preimages (every 24 hours)
@@ -2077,8 +2106,25 @@ class PayPerSessionManager {
         }
         
         this.currentSession = null;
+        this.sessionStartTime = null;
+        this.sessionEndTime = null;
         
-        console.log('🧹 PayPerSessionManager cleaned up');
+        if (this.currentSession && this.currentSession.preimage) {
+            this.activeDemoSessions.delete(this.currentSession.preimage);
+        }
+        
+        document.dispatchEvent(new CustomEvent('session-cleanup', {
+            detail: { 
+                timestamp: Date.now(),
+                reason: 'complete_cleanup'
+            }
+        }));
+        
+        setTimeout(() => {
+            if (this.currentSession) {
+                this.currentSession = null;
+            }
+        }, 100);
     }
 
     getUsageStats() {

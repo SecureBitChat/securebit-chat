@@ -53,6 +53,8 @@
     overflow-y: auto;
     padding: 1rem;
     scroll-behavior: smooth;
+    scroll-padding-bottom: 20px;
+    scroll-margin-bottom: 20px;
 }
 
 /* For mobile devices, take into account the height of the virtual keyboard */
@@ -369,6 +371,15 @@ button i {
 
 .message-slide {
     animation: messageSlideIn 0.3s ease-out;
+}
+
+.chat-messages-area .message:last-child {
+    scroll-margin-bottom: 20px;
+}
+
+.chat-messages-area {
+    scroll-behavior: smooth;
+    scroll-padding-bottom: 20px;
 }
 
 /* Animations */

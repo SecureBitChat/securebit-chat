@@ -1,10 +1,14 @@
 class EnhancedSecureWebRTCManager {
     constructor(onMessage, onStatusChange, onKeyExchange, onVerificationRequired, onAnswerError = null) {
     // Check the availability of the global object
+    window.webrtcManager = this;
+    window.globalWebRTCManager = this;
     if (!window.EnhancedSecureCryptoUtils) {
         throw new Error('EnhancedSecureCryptoUtils is not loaded. Please ensure the module is loaded first.');
     }
+    this.getSecurityData = () => this.lastSecurityCalculation;
     
+    console.log('🔒 Enhanced WebRTC Manager initialized and registered globally');
     this.currentSessionType = null;
     this.currentSecurityLevel = 'basic';
     this.sessionConstraints = null;
@@ -177,7 +181,7 @@ class EnhancedSecureWebRTCManager {
             console.error('❌ Failed to initialize enhanced security:', error);
         }
     }
-
+    
     // Generate fingerprint mask for anti-fingerprinting
     generateFingerprintMask() {
         const mask = {
@@ -202,7 +206,6 @@ class EnhancedSecureWebRTCManager {
         this.currentSessionType = sessionType;
         this.currentSecurityLevel = securityLevel;
         
-        // We get restrictions for this session type
         if (window.sessionManager && window.sessionManager.isFeatureAllowedForSession) {
             this.sessionConstraints = {};
             
@@ -210,13 +213,16 @@ class EnhancedSecureWebRTCManager {
                 this.sessionConstraints[feature] = window.sessionManager.isFeatureAllowedForSession(sessionType, feature);
             });
             
-            // Applying restrictions
             this.applySessionConstraints();
             
             console.log(`✅ Security configured for ${sessionType}:`, this.sessionConstraints);
             
-            // Notifying the user about the security level
             this.notifySecurityLevel();
+            
+            setTimeout(() => {
+                this.calculateAndReportSecurityLevel();
+            }, 1000);
+            
         } else {
             console.warn('⚠️ Session manager not available, using default security');
         }
@@ -1845,6 +1851,53 @@ async processOrderedPackets() {
     }
 }
 
+notifySecurityUpdate() {
+    try {
+        if (window.DEBUG_MODE) {
+            console.log('🔒 Notifying about security level update...', {
+                isConnected: this.isConnected(),
+                isVerified: this.isVerified,
+                hasKeys: !!(this.encryptionKey && this.macKey && this.metadataKey),
+                hasLastCalculation: !!this.lastSecurityCalculation
+            });
+        }
+        
+        // Send an event about security level update
+        document.dispatchEvent(new CustomEvent('security-level-updated', {
+            detail: { 
+                timestamp: Date.now(), 
+                manager: 'webrtc',
+                webrtcManager: this,
+                isConnected: this.isConnected(),
+                isVerified: this.isVerified,
+                hasKeys: !!(this.encryptionKey && this.macKey && this.metadataKey),
+                lastCalculation: this.lastSecurityCalculation
+            }
+        }));
+        
+        // FIX: Force header refresh with correct manager
+        setTimeout(() => {
+            if (window.forceHeaderSecurityUpdate) {
+                window.forceHeaderSecurityUpdate(this);
+            }
+        }, 100);
+        
+        // FIX: Direct update if there is a calculation
+        if (this.lastSecurityCalculation) {
+            document.dispatchEvent(new CustomEvent('real-security-calculated', {
+                detail: {
+                    securityData: this.lastSecurityCalculation,
+                    webrtcManager: this,
+                    timestamp: Date.now()
+                }
+            }));
+        }
+        
+    } catch (error) {
+        console.error('❌ Error in notifySecurityUpdate:', error);
+    }
+}
+
 handleSystemMessage(message) {
     console.log('🔧 Handling system message:', message.type);
     
@@ -1901,6 +1954,9 @@ handleSystemMessage(message) {
         }
         
         this.notifySecurityUpgrade(2);
+        setTimeout(() => {
+            this.calculateAndReportSecurityLevel();
+        }, 500);
     }
 
         // Method to enable Stage 3 features (traffic obfuscation)
@@ -1922,6 +1978,9 @@ handleSystemMessage(message) {
             }
             
             this.notifySecurityUpgrade(3);
+            setTimeout(() => {
+                this.calculateAndReportSecurityLevel();
+            }, 500);
         }
 
         // Method for enabling Stage 4 functions (maximum safety)
@@ -1952,6 +2011,16 @@ handleSystemMessage(message) {
             }
             
             this.notifySecurityUpgrade(4);
+            setTimeout(() => {
+                this.calculateAndReportSecurityLevel();
+            }, 500);
+        }
+
+        forceSecurityUpdate() {
+            setTimeout(() => {
+                this.calculateAndReportSecurityLevel();
+                this.notifySecurityUpdate();
+            }, 100);
         }
 
         // Method for getting security status
@@ -2012,20 +2081,84 @@ handleSystemMessage(message) {
 
             const status = this.getSecurityStatus();
         }
+
+        async calculateAndReportSecurityLevel() {
+            try {
+                if (!window.EnhancedSecureCryptoUtils) {
+                    console.warn('⚠️ EnhancedSecureCryptoUtils not available for security calculation');
+                    return null;
+                }
+
+                if (!this.isConnected() || !this.isVerified || !this.encryptionKey || !this.macKey) {
+                    if (window.DEBUG_MODE) {
+                        console.log('⚠️ WebRTC not ready for security calculation:', {
+                            connected: this.isConnected(),
+                            verified: this.isVerified,
+                            hasEncryptionKey: !!this.encryptionKey,
+                            hasMacKey: !!this.macKey
+                        });
+                    }
+                    return null;
+                }
+
+                if (window.DEBUG_MODE) {
+                    console.log('🔍 Calculating real security level...', {
+                        managerState: 'ready',
+                        encryptionKey: !!this.encryptionKey,
+                        macKey: !!this.macKey,
+                        metadataKey: !!this.metadataKey
+                    });
+                }
+                
+                const securityData = await window.EnhancedSecureCryptoUtils.calculateSecurityLevel(this);
+                
+                if (window.DEBUG_MODE) {
+                    console.log('🔐 Real security level calculated:', {
+                        level: securityData.level,
+                        score: securityData.score,
+                        passedChecks: securityData.passedChecks,
+                        totalChecks: securityData.totalChecks,
+                        isRealData: securityData.isRealData
+                    });
+                }
+
+                this.lastSecurityCalculation = securityData;
+
+                document.dispatchEvent(new CustomEvent('real-security-calculated', {
+                    detail: {
+                        securityData: securityData,
+                        webrtcManager: this,
+                        timestamp: Date.now(),
+                        source: 'calculateAndReportSecurityLevel'
+                    }
+                }));
+
+                if (securityData.isRealData && this.onMessage) {
+                    const message = `🔒 Security Level: ${securityData.level} (${securityData.score}%) - ${securityData.passedChecks}/${securityData.totalChecks} checks passed`;
+                    this.onMessage(message, 'system');
+                }
+                
+                return securityData;
+                
+            } catch (error) {
+                console.error('❌ Failed to calculate real security level:', error);
+                return null;
+            }
+        }
+
         // ============================================
         // AUTOMATIC STEP-BY-STEP SWITCHING ON
         // ============================================
 
         // Method for automatic feature enablement with stability check
         async autoEnableSecurityFeatures() {
-
         if (this.currentSessionType === 'demo') {
             console.log('🔒 Demo session - keeping basic security only');
+            await this.calculateAndReportSecurityLevel();
             this.notifySecurityUpgrade(1);
             return;
         }
 
-        // For paid sessions, we enable functions gradually
         const checkStability = () => {
             const isStable = this.isConnected() && 
                             this.isVerified && 
@@ -2036,26 +2169,29 @@ handleSystemMessage(message) {
         };
         
         console.log(`🔒 ${this.currentSessionType} session - starting graduated security activation`);
+        await this.calculateAndReportSecurityLevel();
         this.notifySecurityUpgrade(1);
         
-        // For enhanced and maximum sessions, turn on Stage 2 after 10 seconds
         if (this.currentSecurityLevel === 'enhanced' || this.currentSecurityLevel === 'maximum') {
-            setTimeout(() => {
+            setTimeout(async () => {
                 if (checkStability()) {
                     console.log('✅ Activating Stage 2 for paid session');
                     this.enableStage2Security();
+                    await this.calculateAndReportSecurityLevel(); 
                     
                     // For maximum sessions, turn on Stage 3 and 4
                     if (this.currentSecurityLevel === 'maximum') {
-                        setTimeout(() => {
+                        setTimeout(async () => {
                             if (checkStability()) {
                                 console.log('✅ Activating Stage 3 for premium session');
                                 this.enableStage3Security();
+                                await this.calculateAndReportSecurityLevel();
                                 
-                                setTimeout(() => {
+                                setTimeout(async () => {
                                     if (checkStability()) {
                                         console.log('✅ Activating Stage 4 for premium session');
                                         this.enableStage4Security();
+                                        await this.calculateAndReportSecurityLevel();
                                     }
                                 }, 20000);
                             }
@@ -2336,11 +2472,15 @@ handleSystemMessage(message) {
             
             await this.establishConnection();
             
-            if (this.isVerified) {
+             if (this.isVerified) {
                 this.onStatusChange('connected');
                 this.processMessageQueue();
                 
-                this.autoEnableSecurityFeatures();
+                setTimeout(async () => {
+                    await this.calculateAndReportSecurityLevel();
+                    this.autoEnableSecurityFeatures();
+                    this.notifySecurityUpdate();
+                }, 500);
             } else {
                 this.onStatusChange('verifying');
                 this.initiateVerification();
@@ -2858,6 +2998,18 @@ handleSystemMessage(message) {
                 }
             }));
 
+            document.dispatchEvent(new CustomEvent('new-connection', {
+                detail: { 
+                    type: 'answer',
+                    timestamp: Date.now()
+                }
+            }));
+
+            setTimeout(async () => {
+                await this.calculateAndReportSecurityLevel();
+                this.notifySecurityUpdate();
+            }, 1000);
+
             return answerPackage;
         } catch (error) {
             window.EnhancedSecureCryptoUtils.secureLog.log('error', 'Enhanced secure answer creation failed', {
@@ -3061,6 +3213,26 @@ handleSystemMessage(message) {
             });
             
             console.log('Enhanced secure connection established');
+
+            setTimeout(async () => {
+                try {
+                    const securityData = await this.calculateAndReportSecurityLevel();
+                    if (securityData) {
+                        console.log('✅ Security level calculated after connection:', securityData.level);
+                        this.notifySecurityUpdate();
+                    }
+                } catch (error) {
+                    console.error('❌ Error calculating security after connection:', error);
+                }
+            }, 1000);
+            setTimeout(async () => {
+                if (!this.lastSecurityCalculation || this.lastSecurityCalculation.score < 50) {
+                    console.log('🔄 Retrying security calculation...');
+                    await this.calculateAndReportSecurityLevel();
+                    this.notifySecurityUpdate();
+                }
+            }, 3000);
+            this.notifySecurityUpdate();
         } catch (error) {
             console.error('Enhanced secure answer handling failed:', error);
             this.onStatusChange('failed');
@@ -3077,6 +3249,21 @@ handleSystemMessage(message) {
             
             throw error;
         }
+    }
+
+    forceSecurityUpdate() {
+        console.log('🔄 Force security update requested');
+        setTimeout(async () => {
+            try {
+                const securityData = await this.calculateAndReportSecurityLevel();
+                if (securityData) {
+                    this.notifySecurityUpdate();
+                    console.log('✅ Force security update completed');
+                }
+            } catch (error) {
+                console.error('❌ Force security update failed:', error);
+            }
+        }, 100);
     }
 
     initiateVerification() {
