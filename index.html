@@ -2321,10 +2321,11 @@
             keyFingerprint,
             isVerified,
             chatMessagesRef,
-            scrollToBottom
+            scrollToBottom,
+            webrtcManager
         }) => {
             const [showScrollButton, setShowScrollButton] = React.useState(false);
-
+            const [showFileTransfer, setShowFileTransfer] = React.useState(false);
             React.useEffect(() => {
                 if (chatMessagesRef.current && messages.length > 0) {
                     const { scrollTop, scrollHeight, clientHeight } = chatMessagesRef.current;
@@ -2472,7 +2473,28 @@
                         className: 'fas fa-chevron-down'
                     })
                 ]),
+                React.createElement('div', {
+                    key: 'file-section',
+                    className: "file-transfer-section max-w-4xl mx-auto p-4 border-t border-gray-500/10"
+                }, [
+                    React.createElement('button', {
+                        key: 'toggle-files',
+                        onClick: () => setShowFileTransfer(!showFileTransfer),
+                        className: `flex items-center text-sm text-secondary hover:text-primary transition-colors ${showFileTransfer ? 'mb-4' : ''}`
+                    }, [
+                        React.createElement('i', {
+                            key: 'icon',
+                            className: `fas fa-${showFileTransfer ? 'chevron-up' : 'paperclip'} mr-2`
+                        }),
+                        showFileTransfer ? 'Hide file transfer' : 'Send files'
+                    ]),
 
+                    showFileTransfer && React.createElement(FileTransferComponent, {
+                        key: 'file-transfer',
+                        webrtcManager: webrtcManager,
+                        isConnected: isVerified
+                    })
+                ]),    
                 // Enhanced Chat Input Area
                 React.createElement('div', {
                     key: 'chat-input',
@@ -2646,6 +2668,9 @@
             }, [sessionManager]);
 
             const webrtcManagerRef = React.useRef(null);
+            // Expose for modules/UI that run outside this closure (e.g., inline handlers)
+            // Safe because it's a ref object and we maintain it centrally here
+            window.webrtcManagerRef = webrtcManagerRef;
 
             const addMessageWithAutoScroll = (message, type) => {
                 const newMessage = {
@@ -2880,30 +2905,17 @@
                             updateSecurityLevel().catch(console.error);
                         }
                     } else if (status === 'disconnected') {
-                        if (sessionManager && sessionManager.hasActiveSession()) {
-                            sessionManager.resetSession();
-                            setSessionTimeLeft(0);
-                            setHasActiveSession(false);
-                        }
-                        document.dispatchEvent(new CustomEvent('peer-disconnect'));
-                        
-                        // Complete UI reset on disconnect
-                        setKeyFingerprint('');
-                        setVerificationCode('');
-                        setSecurityLevel(null);
+                        // При ошибках соединения не сбрасываем сессию полностью
+                        // только обновляем статус соединения
+                        setConnectionStatus('disconnected');
                         setIsVerified(false);
                         setShowVerification(false);
-                        setConnectionStatus('disconnected');
                         
-                        setMessages([]);
-
-                        if (typeof console.clear === 'function') {
-                            console.clear();
-                        }
-
-                        setTimeout(() => {
-                            setSessionManager(null);
-                        }, 1000);
+                        // Не очищаем консоль и не сбрасываем сообщения
+                        // чтобы пользователь мог видеть ошибки
+                        
+                        // Не сбрасываем сессию при ошибках соединения
+                        // только при намеренном отключении
                     } else if (status === 'peer_disconnected') {
                         if (sessionManager && sessionManager.hasActiveSession()) {
                             sessionManager.resetSession();
@@ -2922,11 +2934,12 @@
                             setShowVerification(false);
                             setConnectionStatus('disconnected');
 
-                            setMessages([]);
-
-                            if (typeof console.clear === 'function') {
-                                console.clear();
-                            }
+                            // Не очищаем сообщения и консоль при отключении пира
+                            // чтобы сохранить историю соединения
+                            // setMessages([]);
+                            // if (typeof console.clear === 'function') {
+                            //     console.clear();
+                            // }
 
                             setSessionManager(null);
                         }, 2000);
@@ -3057,22 +3070,59 @@
                 };
                 
                 document.addEventListener('visibilitychange', handleVisibilityChange);
+
+            // Setup file transfer callbacks
+            if (webrtcManagerRef.current) {
+                webrtcManagerRef.current.setFileTransferCallbacks(
+                    // Progress callback
+                    (progress) => {
+                        console.log('File progress:', progress);
+                    },
+                    
+                    // File received callback
+                    (fileData) => {
+                        // Auto-download received file
+                        const url = URL.createObjectURL(fileData.fileBlob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = fileData.fileName;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        
+                        addMessageWithAutoScroll(`📥 Файл загружен: ${fileData.fileName}`, 'system');
+                    },
+                    
+                    // Error callback
+                    (error) => {
+                        // Более мягкая обработка ошибок файлового трансфера - не закрываем сессию
+                        console.error('File transfer error:', error);
+                        
+                        if (error.includes('Connection not ready')) {
+                            addMessageWithAutoScroll(`⚠️ Ошибка передачи файла: соединение не готово. Попробуйте позже.`, 'system');
+                        } else if (error.includes('File too large')) {
+                            addMessageWithAutoScroll(`⚠️ Файл слишком большой. Максимальный размер: 100 МБ`, 'system');
+                        } else {
+                            addMessageWithAutoScroll(`❌ Ошибка передачи файла: ${error}`, 'system');
+                        }
+                    }
+                );
+            }
+
+            return () => {
+                window.removeEventListener('beforeunload', handleBeforeUnload);
+                document.removeEventListener('visibilitychange', handleVisibilityChange);
                 
-                return () => {
-                    window.removeEventListener('beforeunload', handleBeforeUnload);
-                    document.removeEventListener('visibilitychange', handleVisibilityChange);
-                    
-                    if (tabSwitchTimeout) {
-                        clearTimeout(tabSwitchTimeout);
-                        tabSwitchTimeout = null;
-                    }
-                    
-                    if (webrtcManagerRef.current) {
-                        console.log('🧹 Cleaning up WebRTC Manager...');
-                        webrtcManagerRef.current.disconnect();
-                        webrtcManagerRef.current = null;
-                    }
-                };
+                if (tabSwitchTimeout) {
+                    clearTimeout(tabSwitchTimeout);
+                    tabSwitchTimeout = null;
+                }
+                
+                if (webrtcManagerRef.current) {
+                    console.log('🧹 Cleaning up WebRTC Manager...');
+                    webrtcManagerRef.current.disconnect();
+                    webrtcManagerRef.current = null;
+                }
+            };
             }, []); // Empty dependency array to run only once
 
             const ensureActiveSessionOrPurchase = async () => {
@@ -3426,9 +3476,11 @@
                 setOfferPassword(''); 
                 setAnswerPassword(''); 
                 
-                if (typeof console.clear === 'function') {
-                    console.clear();
-                }
+                // Не очищаем консоль при очистке данных
+                // чтобы пользователь мог видеть ошибки
+                // if (typeof console.clear === 'function') {
+                //     console.clear();
+                // }
                 
                 // Cleanup pay-per-session state
                 if (sessionManager) {
@@ -3467,9 +3519,11 @@
 
                 setMessages([]);
 
-                if (typeof console.clear === 'function') {
-                    console.clear();
-                }
+                // Не очищаем консоль при отключении
+                // чтобы пользователь мог видеть ошибки
+                // if (typeof console.clear === 'function') {
+                //     console.clear();
+                // }
 
                 document.dispatchEvent(new CustomEvent('peer-disconnect'));
 
@@ -3565,7 +3619,8 @@
                             keyFingerprint: keyFingerprint,
                             isVerified: isVerified,
                             chatMessagesRef: chatMessagesRef,
-                            scrollToBottom: scrollToBottom
+                            scrollToBottom: scrollToBottom,
+                            webrtcManager: webrtcManagerRef.current
                         })
                         : React.createElement(EnhancedConnectionSetup, {
                             onCreateOffer: handleCreateOffer,
@@ -3629,10 +3684,11 @@
     try {
         const timestamp = Date.now();
 
-        const [cryptoModule, webrtcModule, paymentModule] = await Promise.all([
+        const [cryptoModule, webrtcModule, paymentModule, fileTransferModule] = await Promise.all([
             import(`./src/crypto/EnhancedSecureCryptoUtils.js?v=${timestamp}`),
             import(`./src/network/EnhancedSecureWebRTCManager.js?v=${timestamp}`),
-            import(`./src/session/PayPerSessionManager.js?v=${timestamp}`)
+            import(`./src/session/PayPerSessionManager.js?v=${timestamp}`),
+            import(`./src/transfer/EnhancedSecureFileTransfer.js?v=${timestamp}`)
         ]);
 
         const { EnhancedSecureCryptoUtils } = cryptoModule;
@@ -3643,6 +3699,9 @@
 
         const { PayPerSessionManager } = paymentModule;
         window.PayPerSessionManager = PayPerSessionManager;
+
+        const { EnhancedSecureFileTransfer } = fileTransferModule;
+        window.EnhancedSecureFileTransfer = EnhancedSecureFileTransfer;
 
         async function loadReactComponent(path, componentName) {
             try {
@@ -3669,7 +3728,8 @@
             loadReactComponent('./src/components/ui/SessionTypeSelector.jsx', 'SessionTypeSelector'), 
             loadReactComponent('./src/components/ui/LightningPayment.jsx', 'LightningPayment'), 
             loadReactComponent('./src/components/ui/PaymentModal.jsx', 'PaymentModal'), 
-            loadReactComponent('./src/components/ui/DownloadApps.jsx', 'DownloadApps') 
+            loadReactComponent('./src/components/ui/DownloadApps.jsx', 'DownloadApps'),
+            loadReactComponent('./src/components/ui/FileTransfer.jsx', 'FileTransferComponent') 
         ]);
 
 if (typeof initializeApp === 'function') {
@@ -3710,6 +3770,18 @@ document.addEventListener('session-activated', (event) => {
     
     if (window.forceUpdateHeader) {
         window.forceUpdateHeader(event.detail.timeLeft, event.detail.sessionType);
+    }
+    
+    // Notify WebRTC Manager about session activation
+    if (window.webrtcManager && window.webrtcManager.handleSessionActivation) {
+        console.log('🔐 Notifying WebRTC Manager about session activation');
+        window.webrtcManager.handleSessionActivation({
+            sessionId: event.detail.sessionId,
+            sessionType: event.detail.sessionType,
+            timeLeft: event.detail.timeLeft,
+            isDemo: event.detail.isDemo,
+            sessionManager: window.sessionManager
+        });
     }
 });
 

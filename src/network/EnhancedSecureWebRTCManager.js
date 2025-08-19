@@ -1,3 +1,6 @@
+// Import EnhancedSecureFileTransfer
+import { EnhancedSecureFileTransfer } from '../transfer/EnhancedSecureFileTransfer.js';
+
 class EnhancedSecureWebRTCManager {
     constructor(onMessage, onStatusChange, onKeyExchange, onVerificationRequired, onAnswerError = null) {
     // Check the availability of the global object
@@ -30,6 +33,10 @@ class EnhancedSecureWebRTCManager {
     this.messageQueue = [];
     this.ecdhKeyPair = null;
     this.ecdsaKeyPair = null;
+    if (this.fileTransferSystem) {
+        this.fileTransferSystem.cleanup();
+        this.fileTransferSystem = null;
+    }
     this.verificationCode = null;
     this.isVerified = false;
     this.processedMessageIds = new Set();
@@ -42,6 +49,11 @@ class EnhancedSecureWebRTCManager {
     this.rateLimiterId = null;
     this.intentionalDisconnect = false;
     this.lastCleanupTime = Date.now();
+    // File transfer integration
+    this.fileTransferSystem = null;
+    this.onFileProgress = null;
+    this.onFileReceived = null;
+    this.onFileError = null;
     
     // PFS (Perfect Forward Secrecy) Implementation
     this.keyRotationInterval = 300000; // 5 minutes
@@ -79,83 +91,169 @@ class EnhancedSecureWebRTCManager {
     // ============================================
     
     // 1. Nested Encryption Layer
-    this.nestedEncryptionKey = null;
-    this.nestedEncryptionIV = null;
-    this.nestedEncryptionCounter = 0;
-    
-    // 2. Packet Padding
-    this.paddingConfig = {
-        enabled: true,              
-        minPadding: 64,
-        maxPadding: 512,            
-        useRandomPadding: true,
-        preserveMessageSize: false
-    };
-    
-    // 3. Fake Traffic Generation
-    this.fakeTrafficConfig = {
-        enabled: !window.DISABLE_FAKE_TRAFFIC, 
-        minInterval: 15000,        
-        maxInterval: 30000,       
-        minSize: 32,
-        maxSize: 128,               
-        patterns: ['heartbeat', 'status', 'sync']
-    };
-    this.fakeTrafficTimer = null;
-    this.lastFakeTraffic = 0;
-    
-    // 4. Message Chunking
-    this.chunkingConfig = {
-        enabled: false,
-        maxChunkSize: 2048,        
-        minDelay: 100,
-        maxDelay: 500,
-        useRandomDelays: true,
-        addChunkHeaders: true
-    };
-    this.chunkQueue = [];
-    this.chunkingInProgress = false;
-    
-    // 5. Decoy Channels
-    this.decoyChannels = new Map();
-    this.decoyChannelConfig = {
-        enabled: !window.DISABLE_DECOY_CHANNELS, 
-        maxDecoyChannels: 1,       
-        decoyChannelNames: ['heartbeat'], 
-        sendDecoyData: true,
-        randomDecoyIntervals: true
-    };
-    this.decoyTimers = new Map();
-    
-    // 6. Packet Reordering Protection
-    this.reorderingConfig = {
-        enabled: false,             
-        maxOutOfOrder: 5,           
-        reorderTimeout: 3000,       
-        useSequenceNumbers: true,
-        useTimestamps: true
-    };
-    this.packetBuffer = new Map(); // sequence -> {data, timestamp}
-    this.lastProcessedSequence = -1;
-    
-    // 7. Anti-Fingerprinting
-    this.antiFingerprintingConfig = {
-        enabled: false,             
-        randomizeTiming: true,
-        randomizeSizes: false,      
-        addNoise: true,
-        maskPatterns: false,        
-        useRandomHeaders: false     
-    };
-    this.fingerprintMask = this.generateFingerprintMask();
-    
-    // Initialize rate limiter ID
-    this.rateLimiterId = `webrtc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    // Start periodic cleanup
-    this.startPeriodicCleanup();
-    
-     this.initializeEnhancedSecurity(); 
+            this.nestedEncryptionKey = null;
+            this.nestedEncryptionIV = null;
+            this.nestedEncryptionCounter = 0;
+            
+            // 2. Packet Padding
+            this.paddingConfig = {
+                enabled: true,              
+                minPadding: 64,
+                maxPadding: 512,            
+                useRandomPadding: true,
+                preserveMessageSize: false
+            };
+            
+            // 3. Fake Traffic Generation
+            this.fakeTrafficConfig = {
+                enabled: !window.DISABLE_FAKE_TRAFFIC, 
+                minInterval: 15000,        
+                maxInterval: 30000,       
+                minSize: 32,
+                maxSize: 128,               
+                patterns: ['heartbeat', 'status', 'sync']
+            };
+            this.fakeTrafficTimer = null;
+            this.lastFakeTraffic = 0;
+            
+            // 4. Message Chunking
+            this.chunkingConfig = {
+                enabled: false,
+                maxChunkSize: 2048,        
+                minDelay: 100,
+                maxDelay: 500,
+                useRandomDelays: true,
+                addChunkHeaders: true
+            };
+            this.chunkQueue = [];
+            this.chunkingInProgress = false;
+            
+            // 5. Decoy Channels
+            this.decoyChannels = new Map();
+            this.decoyChannelConfig = {
+                enabled: !window.DISABLE_DECOY_CHANNELS, 
+                maxDecoyChannels: 1,       
+                decoyChannelNames: ['heartbeat'], 
+                sendDecoyData: true,
+                randomDecoyIntervals: true
+            };
+            this.decoyTimers = new Map();
+            
+            // 6. Packet Reordering Protection
+            this.reorderingConfig = {
+                enabled: false,             
+                maxOutOfOrder: 5,           
+                reorderTimeout: 3000,       
+                useSequenceNumbers: true,
+                useTimestamps: true
+            };
+            this.packetBuffer = new Map(); // sequence -> {data, timestamp}
+            this.lastProcessedSequence = -1;
+            
+            // 7. Anti-Fingerprinting
+            this.antiFingerprintingConfig = {
+                enabled: false,             
+                randomizeTiming: true,
+                randomizeSizes: false,      
+                addNoise: true,
+                maskPatterns: false,        
+                useRandomHeaders: false     
+            };
+            this.fingerprintMask = this.generateFingerprintMask();
+            
+            // Initialize rate limiter ID
+            this.rateLimiterId = `webrtc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            
+            // Start periodic cleanup
+            this.startPeriodicCleanup();
+            
+            this.initializeEnhancedSecurity(); 
+        }
+    initializeFileTransfer() {
+    try {
+        console.log('🔧 Initializing Enhanced Secure File Transfer system...');
+        
+        // ИСПРАВЛЕНИЕ: Более мягкая проверка готовности
+        if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
+            console.warn('⚠️ Data channel not open, deferring file transfer initialization');
+            // Попробуем позже, не бросаем ошибку
+            setTimeout(() => {
+                if (this.dataChannel && this.dataChannel.readyState === 'open') {
+                    this.initializeFileTransfer();
+                }
+            }, 1000);
+            return;
+        }
+        
+        // ИСПРАВЛЕНИЕ: Очищаем предыдущую систему если есть
+        if (this.fileTransferSystem) {
+            console.log('🧹 Cleaning up existing file transfer system');
+            this.fileTransferSystem.cleanup();
+            this.fileTransferSystem = null;
+        }
+        
+        this.fileTransferSystem = new EnhancedSecureFileTransfer(
+            this, // Pass WebRTC manager reference
+            
+            // Progress callback
+            (progress) => {
+                if (this.onFileProgress) {
+                    this.onFileProgress(progress);
+                }
+                
+                const progressMsg = `📁 ${progress.fileName || 'Unknown file'}: ${progress.progress.toFixed(1)}% (${progress.status})`;
+                if (this.onMessage) {
+                    this.onMessage(progressMsg, 'system');
+                }
+            },
+            
+            // Completion callback
+            (result) => {
+                const completionMsg = `✅ File sent: ${result.fileName} (${(result.transferTime / 1000).toFixed(1)}s)`;
+                if (this.onMessage) {
+                    this.onMessage(completionMsg, 'system');
+                }
+            },
+            
+            // Error callback
+            (error) => {
+                if (this.onFileError) {
+                    this.onFileError(error);
+                }
+                
+                if (this.onMessage) {
+                    this.onMessage(`❌ File transfer error: ${error}`, 'system');
+                }
+            },
+            
+            // File received callback
+            (fileData) => {
+                if (this.onFileReceived) {
+                    this.onFileReceived(fileData);
+                }
+                
+                const receivedMsg = `📥 File received: ${fileData.fileName} (${(fileData.fileSize / 1024 / 1024).toFixed(2)} MB)`;
+                if (this.onMessage) {
+                    this.onMessage(receivedMsg, 'system');
+                }
+            }
+        );
+        
+        console.log('✅ Enhanced Secure File Transfer system initialized successfully');
+        
+        // КРИТИЧЕСКОЕ ДОБАВЛЕНИЕ: Проверяем что система готова
+        const status = this.fileTransferSystem.getSystemStatus();
+        console.log('🔍 File transfer system status after init:', status);
+        
+    } catch (error) {
+        console.error('❌ Failed to initialize file transfer system:', error);
+        this.fileTransferSystem = null;
+        
+        // Не выбрасываем ошибку, чтобы не нарушить основное соединение
+        if (this.onMessage) {
+            this.onMessage('⚠️ File transfer system initialization failed. File transfers may not work.', 'system');
+        }
+    }
 }
 
     // ============================================
@@ -1638,7 +1736,23 @@ async processOrderedPackets() {
                 dataSample: typeof data === 'string' ? data.substring(0, 50) : 'not string'
             });
 
-            // For regular text messages, send in simple format without encryption
+            // ИСПРАВЛЕНИЕ: Проверяем, не является ли это файловым сообщением
+            if (typeof data === 'string') {
+                try {
+                    const parsed = JSON.parse(data);
+                    
+                    // Файловые сообщения отправляем напрямую без дополнительного шифрования
+                    if (parsed.type && parsed.type.startsWith('file_')) {
+                        console.log('📁 Sending file message directly:', parsed.type);
+                        this.dataChannel.send(data);
+                        return true;
+                    }
+                } catch (jsonError) {
+                    // Не JSON - продолжаем обычную обработку
+                }
+            }
+
+            // Для обычных текстовых сообщений используем простой формат
             if (typeof data === 'string') {
                 const message = {
                     type: 'message',
@@ -1646,13 +1760,11 @@ async processOrderedPackets() {
                     timestamp: Date.now()
                 };
                 
-                if (window.DEBUG_MODE) {
-                    console.log('📤 Sending regular message:', message.data.substring(0, 100));
-                }
+                console.log('📤 Sending regular message:', message.data.substring(0, 100));
                 
                 const messageString = JSON.stringify(message);
                 console.log('📤 ACTUALLY SENDING:', {
-                    messageString: messageString,
+                    messageString: messageString.substring(0, 100),
                     messageLength: messageString.length,
                     dataChannelState: this.dataChannel.readyState,
                     isInitiator: this.isInitiator,
@@ -1664,7 +1776,7 @@ async processOrderedPackets() {
                 return true;
             }
 
-            // For binary data, apply security layers
+            // Для бинарных данных применяем security layers
             console.log('🔐 Applying security layers to non-string data');
             const securedData = await this.applySecurityLayers(data, false);
             this.dataChannel.send(securedData);
@@ -1699,157 +1811,158 @@ async processOrderedPackets() {
     }
 
     async processMessage(data) {
-    try {
-        console.log('📨 Processing message:', {
-            dataType: typeof data,
-            isArrayBuffer: data instanceof ArrayBuffer,
-            dataLength: data?.length || data?.byteLength || 0
-        });
-        
-        // DEBUG: Check if this is a user message at the start
-        if (typeof data === 'string') {
-            try {
-                const parsed = JSON.parse(data);
-                if (parsed.type === 'message') {
-                    console.log('🎯 USER MESSAGE IN PROCESSMESSAGE:', {
-                        type: parsed.type,
-                        data: parsed.data,
-                        timestamp: parsed.timestamp
-                    });
-                }
-            } catch (e) {
-                // Not JSON
-            }
-        }
-        
-        // Check system messages and regular messages directly
-        if (typeof data === 'string') {
-            try {
-                const systemMessage = JSON.parse(data);
-                
-                if (systemMessage.type === 'fake') {
-                    console.log(`🎭 Fake message blocked at entry: ${systemMessage.pattern}`);
-                    return; 
-                }
-                
-                if (systemMessage.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'key_rotation_signal', 'key_rotation_ready', 'security_upgrade'].includes(systemMessage.type)) {
-                    console.log('🔧 Processing system message directly:', systemMessage.type);
-                    this.handleSystemMessage(systemMessage);
-                    return;
-                }
-                
-                if (systemMessage.type === 'message') {
-                    if (window.DEBUG_MODE) {
-                        console.log('📝 Regular message detected, extracting for display:', systemMessage.data);
+        try {
+            console.log('📨 Processing message:', {
+                dataType: typeof data,
+                isArrayBuffer: data instanceof ArrayBuffer,
+                dataLength: data?.length || data?.byteLength || 0
+            });
+            
+            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Ранняя проверка на файловые сообщения
+            if (typeof data === 'string') {
+                try {
+                    const parsed = JSON.parse(data);
+                    
+                    // ИСПРАВЛЕНИЕ: Обработка файловых сообщений
+                    if (parsed.type && parsed.type.startsWith('file_')) {
+                        console.log('📁 File message detected in processMessage:', parsed.type);
+                        
+                        // КРИТИЧЕСКИ ВАЖНО: Передаем напрямую в файловую систему
+                        if (this.fileTransferSystem) {
+                            console.log('📁 Forwarding file message to file transfer system');
+                            
+                            // Вызываем обработчики файловой системы напрямую
+                            switch (parsed.type) {
+                                case 'file_transfer_start':
+                                    await this.fileTransferSystem.handleFileTransferStart(parsed);
+                                    break;
+                                case 'file_chunk':
+                                    await this.fileTransferSystem.handleFileChunk(parsed);
+                                    break;
+                                case 'file_transfer_response':
+                                    this.fileTransferSystem.handleTransferResponse(parsed);
+                                    break;
+                                case 'chunk_confirmation':
+                                    this.fileTransferSystem.handleChunkConfirmation(parsed);
+                                    break;
+                                case 'file_transfer_complete':
+                                    this.fileTransferSystem.handleTransferComplete(parsed);
+                                    break;
+                                case 'file_transfer_error':
+                                    this.fileTransferSystem.handleTransferError(parsed);
+                                    break;
+                                default:
+                                    console.warn('⚠️ Unknown file message type:', parsed.type);
+                            }
+                            return; // ВАЖНО: Выходим после обработки файлового сообщения
+                        } else {
+                            console.error('❌ File transfer system not initialized for file message:', parsed.type);
+                            return;
+                        }
                     }
                     
-                    // Call the message handler directly for regular messages
-                    if (this.onMessage && systemMessage.data) {
-                        console.log('📤 Calling message handler with regular message:', systemMessage.data.substring(0, 100));
-                        this.onMessage(systemMessage.data, 'received');
+                    // Обработка обычных пользовательских сообщений
+                    if (parsed.type === 'message') {
+                        console.log('📝 Regular user message detected in processMessage');
+                        if (this.onMessage && parsed.data) {
+                            this.onMessage(parsed.data, 'received');
+                        }
+                        return;
                     }
-                    return; // Don't continue processing
-                }
-                console.log('📨 Unknown message type, continuing to processing:', systemMessage.type);
-                
-            } catch (e) {
-                console.log('📄 Not JSON, continuing to processing as raw data');
-            }
-        }
-
-        // Validate input data
-        if (!data) {
-            console.warn('⚠️ Received empty data in processMessage');
-            return;
-        }
-
-        const originalData = await this.removeSecurityLayers(data);
-        
-        if (originalData === 'FAKE_MESSAGE_FILTERED') {
-            console.log('🎭 Fake message successfully filtered, not displaying to user');
-            return; 
-        }
-        
-        if (!originalData) {
-            console.warn('⚠️ No data returned from removeSecurityLayers');
-            return;
-        }
-
-        console.log('🔍 After removeSecurityLayers:', {
-            dataType: typeof originalData,
-            isString: typeof originalData === 'string',
-            isObject: typeof originalData === 'object',
-            hasMessage: originalData?.message,
-            value: typeof originalData === 'string' ? originalData.substring(0, 100) : 'not string',
-            constructor: originalData?.constructor?.name
-        });
-
-        let messageText;
-        
-        if (typeof originalData === 'string') {
-            try {
-                const message = JSON.parse(originalData);
-                if (message.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'security_upgrade'].includes(message.type)) {
-                    this.handleSystemMessage(message);
+                    
+                    // Системные сообщения
+                    if (parsed.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'security_upgrade'].includes(parsed.type)) {
+                        console.log('🔧 System message in processMessage:', parsed.type);
+                        this.handleSystemMessage(parsed);
+                        return;
+                    }
+                    
+                    // Fake messages
+                    if (parsed.type === 'fake') {
+                        console.log('🎭 Fake message blocked in processMessage:', parsed.pattern);
+                        return;
+                    }
+                    
+                } catch (jsonError) {
+                    // Не JSON - обрабатываем как текст
+                    console.log('📄 Non-JSON string message in processMessage');
+                    if (this.onMessage) {
+                        this.onMessage(data, 'received');
+                    }
                     return;
                 }
-                
-                if (message.type === 'fake') {
-                    console.log(`🎭 Post-decryption fake message blocked: ${message.pattern}`);
-                    return; 
-                }
-                
-                // Handle regular messages with type 'message'
-                if (message.type === 'message' && message.data) {
-                    if (window.DEBUG_MODE) {
-                        console.log('📝 Regular message detected, extracting data for display');
+            }
+
+            // Если дошли сюда - применяем security layers
+            const originalData = await this.removeSecurityLayers(data);
+            
+            if (originalData === 'FAKE_MESSAGE_FILTERED') {
+                console.log('🎭 Fake message successfully filtered in processMessage');
+                return;
+            }
+            
+            if (!originalData) {
+                console.warn('⚠️ No data returned from removeSecurityLayers');
+                return;
+            }
+
+            // Обработка результата после removeSecurityLayers
+            let messageText;
+            
+            if (typeof originalData === 'string') {
+                try {
+                    const message = JSON.parse(originalData);
+                    if (message.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'security_upgrade'].includes(message.type)) {
+                        this.handleSystemMessage(message);
+                        return;
                     }
-                    messageText = message.data;
-                } else {
-                    // Not a recognized message type, treat as plain text
+                    
+                    if (message.type === 'fake') {
+                        console.log(`🎭 Post-decryption fake message blocked: ${message.pattern}`);
+                        return;
+                    }
+                    
+                    // Обычные сообщения
+                    if (message.type === 'message' && message.data) {
+                        messageText = message.data;
+                    } else {
+                        messageText = originalData;
+                    }
+                } catch (e) {
                     messageText = originalData;
                 }
-            } catch (e) {
-                // Not JSON - treat as plain text
-                messageText = originalData;
+            } else if (originalData instanceof ArrayBuffer) {
+                messageText = new TextDecoder().decode(originalData);
+            } else if (originalData && typeof originalData === 'object' && originalData.message) {
+                messageText = originalData.message;
+            } else {
+                console.warn('⚠️ Unexpected data type after processing:', typeof originalData);
+                return;
             }
-        } else if (originalData instanceof ArrayBuffer) {
-            messageText = new TextDecoder().decode(originalData);
-        } else if (originalData && typeof originalData === 'object' && originalData.message) {
-            messageText = originalData.message;
-        } else {
-            console.warn('⚠️ Unexpected data type after processing:', typeof originalData);
-            console.warn('Data content:', originalData);
-            return;
-        }
 
-        // FINAL CHECK FOR FAKE MESSAGES IN TEXT (only if it's JSON)
-        if (messageText && messageText.trim().startsWith('{')) {
-            try {
-                const finalCheck = JSON.parse(messageText);
-                if (finalCheck.type === 'fake') {
-                    console.log(`🎭 Final fake message check blocked: ${finalCheck.pattern}`);
-                    return; 
+            // Финальная проверка на fake сообщения
+            if (messageText && messageText.trim().startsWith('{')) {
+                try {
+                    const finalCheck = JSON.parse(messageText);
+                    if (finalCheck.type === 'fake') {
+                        console.log(`🎭 Final fake message check blocked: ${finalCheck.pattern}`);
+                        return;
+                    }
+                } catch (e) {
+                    // Не JSON - это нормально для обычных текстовых сообщений
                 }
-            } catch (e) {
-                // Not JSON - this is fine for regular text messages
             }
-        }
 
-        // Call the message handler ONLY for real messages
-        if (this.onMessage && messageText) {
-            if (window.DEBUG_MODE) {
+            // Отправляем сообщение пользователю
+            if (this.onMessage && messageText) {
                 console.log('📤 Calling message handler with:', messageText.substring(0, 100));
+                this.onMessage(messageText, 'received');
             }
-            this.onMessage(messageText, 'received');
-        } else {
-            console.warn('⚠️ No message handler or empty message text');
-        }
 
-    } catch (error) {
-        console.error('❌ Failed to process message:', error);
+        } catch (error) {
+            console.error('❌ Failed to process message:', error);
+        }
     }
-}
 
 notifySecurityUpdate() {
     try {
@@ -2223,12 +2336,24 @@ handleSystemMessage(message) {
             
         } catch (error) {
             console.error('❌ Failed to establish enhanced connection:', error);
+            // Не закрываем соединение при ошибках установки
+            // просто логируем ошибку и продолжаем
+            this.onStatusChange('disconnected');
             throw error;
         }
     }
 
     disconnect() {
         try {
+            console.log('🔌 Disconnecting WebRTC Manager...');
+            
+            // Cleanup file transfer system
+            if (this.fileTransferSystem) {
+                console.log('🧹 Cleaning up file transfer system during disconnect...');
+                this.fileTransferSystem.cleanup();
+                this.fileTransferSystem = null;
+            }
+            
             // Stop fake traffic generation
             this.stopFakeTrafficGeneration();
             
@@ -2411,18 +2536,23 @@ handleSystemMessage(message) {
                     this.onStatusChange('disconnected');
                     setTimeout(() => this.cleanupConnection(), 100);
                 } else {
-                    // Unexpected disconnection — attempting to notify partner.
-                    this.onStatusChange('reconnecting');
-                    this.handleUnexpectedDisconnect();
+                    // Unexpected disconnection — не пытаемся переподключиться автоматически
+                    this.onStatusChange('disconnected');
+                    // Не вызываем cleanupConnection автоматически
+                    // чтобы не закрывать сессию при ошибках соединения
                 }
             } else if (state === 'failed') {
-                if (!this.intentionalDisconnect && this.connectionAttempts < this.maxConnectionAttempts) {
-                    this.connectionAttempts++;
-                    setTimeout(() => this.retryConnection(), 2000);
-                } else {
-                    this.onStatusChange('failed');
-                    setTimeout(() => this.cleanupConnection(), 1000);
-                }
+                // Не пытаемся переподключиться автоматически
+                // чтобы не закрывать сессию при ошибках соединения
+                this.onStatusChange('disconnected');
+                // if (!this.intentionalDisconnect && this.connectionAttempts < this.maxConnectionAttempts) {
+                //     this.connectionAttempts++;
+                //     setTimeout(() => this.retryConnection(), 2000);
+                // } else {
+                //     this.onStatusChange('disconnected');
+                //     // Не вызываем cleanupConnection автоматически для состояния 'failed'
+                //     // чтобы не закрывать сессию при ошибках соединения
+                // }
             } else {
                 this.onStatusChange(state);
             }
@@ -2470,9 +2600,18 @@ handleSystemMessage(message) {
                 dataChannelLabel: this.dataChannel.label
             });
             
+            try {
             await this.establishConnection();
             
-             if (this.isVerified) {
+                // КРИТИЧЕСКИ ВАЖНО: Инициализируем file transfer сразу
+                this.initializeFileTransfer();
+                
+            } catch (error) {
+                console.error('❌ Error in establishConnection:', error);
+                // Продолжаем несмотря на ошибки
+            }
+                
+            if (this.isVerified) {
                 this.onStatusChange('connected');
                 this.processMessageQueue();
                 
@@ -2489,14 +2628,9 @@ handleSystemMessage(message) {
         };
 
         this.dataChannel.onclose = () => {
-            
-            // Clean up enhanced security features
-            this.disconnect();
-            
             if (!this.intentionalDisconnect) {
-                this.onStatusChange('reconnecting');
-                this.onMessage('🔄 Enhanced secure connection closed. Attempting recovery...', 'system');
-                this.handleUnexpectedDisconnect();
+                this.onStatusChange('disconnected');
+                this.onMessage('🔌 Enhanced secure connection closed. Check connection status.', 'system');
             } else {
                 this.onStatusChange('disconnected');
                 this.onMessage('🔌 Enhanced secure connection closed', 'system');
@@ -2506,173 +2640,98 @@ handleSystemMessage(message) {
             this.isVerified = false;
         };
 
+        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ ОБРАБОТКИ СООБЩЕНИЙ
         this.dataChannel.onmessage = async (event) => {
-    try {
-        console.log('📨 Raw message received:', {
-            dataType: typeof event.data,
-            dataLength: event.data?.length || 0,
-            firstChars: typeof event.data === 'string' ? event.data.substring(0, 100) : 'not string'
-        });
-        
-        // DEBUG: Additional logging for message processing
-        console.log('🔍 dataChannel.onmessage DEBUG:', {
-            eventDataType: typeof event.data,
-            eventDataConstructor: event.data?.constructor?.name,
-            isString: typeof event.data === 'string',
-            isArrayBuffer: event.data instanceof ArrayBuffer,
-            dataSample: typeof event.data === 'string' ? event.data.substring(0, 50) : 'not string'
-        });
-        
-        // DEBUG: Check if this is a user message
-        if (typeof event.data === 'string') {
             try {
-                const parsed = JSON.parse(event.data);
-                if (parsed.type === 'message') {
-                    console.log('🎯 USER MESSAGE DETECTED:', {
-                        type: parsed.type,
-                        data: parsed.data,
-                        timestamp: parsed.timestamp,
-                        isInitiator: this.isInitiator
-                    });
-                } else {
-                    console.log('📨 OTHER MESSAGE DETECTED:', {
-                        type: parsed.type,
-                        isInitiator: this.isInitiator
-                    });
-                }
-            } catch (e) {
-                console.log('📨 NON-JSON MESSAGE:', {
-                    data: event.data.substring(0, 50),
-                    isInitiator: this.isInitiator
+                console.log('📨 Raw message received:', {
+                    dataType: typeof event.data,
+                    dataLength: event.data?.length || 0,
+                    firstChars: typeof event.data === 'string' ? event.data.substring(0, 100) : 'not string'
                 });
-            }
-        }
-        
-        // ADDITIONAL DEBUG: Log all incoming messages
-        console.log('📨 INCOMING MESSAGE DEBUG:', {
-            dataType: typeof event.data,
-            isString: typeof event.data === 'string',
-            isArrayBuffer: event.data instanceof ArrayBuffer,
-            dataLength: event.data?.length || event.data?.byteLength || 0,
-            dataSample: typeof event.data === 'string' ? event.data.substring(0, 100) : 'not string',
-            isInitiator: this.isInitiator,
-            isVerified: this.isVerified,
-            channelLabel: this.dataChannel?.label || 'unknown',
-            channelState: this.dataChannel?.readyState || 'unknown'
-        });
-        
-        // CRITICAL DEBUG: Check if this is a user message that should be displayed
-        if (typeof event.data === 'string') {
-            try {
-                const parsed = JSON.parse(event.data);
-                if (parsed.type === 'message') {
-                    console.log('🎯 CRITICAL: USER MESSAGE RECEIVED FOR DISPLAY:', {
-                        type: parsed.type,
-                        data: parsed.data,
-                        timestamp: parsed.timestamp,
-                        isInitiator: this.isInitiator,
-                        channelLabel: this.dataChannel?.label || 'unknown'
-                    });
-                }
-            } catch (e) {
-                // Not JSON
-            }
-        }
-        
-        // Process message with enhanced security layers
-        await this.processMessage(event.data);
-    } catch (error) {
-        console.error('❌ Failed to process enhanced message:', error);
-        
-        // Fallback to legacy message processing
-        try {
-            const payload = JSON.parse(event.data);
-            
-            if (payload.type === 'heartbeat') {
-                this.handleHeartbeat();
-                return;
-            }
-            
-            if (payload.type === 'verification') {
-                this.handleVerificationRequest(payload.data);
-                return;
-            }
-            
-            if (payload.type === 'verification_response') {
-                this.handleVerificationResponse(payload.data);
-                return;
-            }
-            
-            if (payload.type === 'peer_disconnect') {
-                this.handlePeerDisconnectNotification(payload);
-                return;
-            }
-            
-            // Handle enhanced messages with metadata protection and PFS
-            if (payload.type === 'enhanced_message') {
-                const keyVersion = payload.keyVersion || 0;
-                const keys = this.getKeysForVersion(keyVersion);
                 
-                if (!keys) {
-                    console.error('❌ Keys not available for message decryption');
-                    throw new Error(`Cannot decrypt message: keys for version ${keyVersion} not available`);
-                }
-                
-                const decryptedData = await window.EnhancedSecureCryptoUtils.decryptMessage(
-                    payload.data,
-                    keys.encryptionKey,
-                    keys.macKey,
-                    keys.metadataKey,
-                    null // Disabling strict sequence number verification
-                );
-                
-                // Check for replay attacks
-                if (this.processedMessageIds.has(decryptedData.messageId)) {
-                    throw new Error('Duplicate message detected - possible replay attack');
-                }
-                this.processedMessageIds.add(decryptedData.messageId);
-                
-                const sanitizedMessage = window.EnhancedSecureCryptoUtils.sanitizeMessage(decryptedData.message);
-                this.onMessage(sanitizedMessage, 'received');
-                
-                console.log('✅ Enhanced message received via fallback');
-                return;
-            }
-            
-            // Legacy message support
-            if (payload.type === 'message') {
-                if (!this.encryptionKey || !this.macKey) {
-                    throw new Error('Missing keys to decrypt legacy message');
-                }
-                
-                const decryptedData = await window.EnhancedSecureCryptoUtils.decryptMessage(
-                    payload.data,
-                    this.encryptionKey,
-                    this.macKey,
-                    this.metadataKey
-                );
-                
-                if (this.processedMessageIds.has(decryptedData.messageId)) {
-                    throw new Error('Duplicate message detected - possible replay attack');
-                }
-                this.processedMessageIds.add(decryptedData.messageId);
-                
-                const sanitizedMessage = window.EnhancedSecureCryptoUtils.sanitizeMessage(decryptedData.message);
-                this.onMessage(sanitizedMessage, 'received');
-                
-                console.log('✅ Legacy message received via fallback');
-                return;
-            }
+                // ИСПРАВЛЕНИЕ: Улучшенная проверка на JSON
+                if (typeof event.data === 'string') {
+                    let parsed;
+                    try {
+                        parsed = JSON.parse(event.data);
+                    } catch (jsonError) {
+                        console.warn('⚠️ Received non-JSON string message:', event.data.substring(0, 50));
+                        // Обрабатываем как обычное текстовое сообщение
+                        if (this.onMessage) {
+                            this.onMessage(event.data, 'received');
+                        }
+                        return;
+                    }
 
-            console.warn('⚠️ Unknown message type:', payload.type);
-            
-        } catch (error) {
-            console.error('❌ Message processing error:', error.message);
-            this.onMessage(`❌ Processing error: ${error.message}`, 'system');
-        }
+                    if (parsed.type && parsed.type.startsWith('file_')) {
+                        console.log('📁 FILE MESSAGE DETECTED:', parsed.type);
+                        // НЕМЕДЛЕННО передаем в processMessage для обработки
+                        await this.processMessage(event.data);
+                        return;
+                    }
+                    
+                    // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Проверяем тип сообщения
+                    if (parsed.type === 'message') {
+                        console.log('🎯 USER MESSAGE DETECTED:', {
+                            type: parsed.type,
+                            data: parsed.data?.substring(0, 50) || 'no data',
+                            timestamp: parsed.timestamp,
+                            isInitiator: this.isInitiator
+                        });
+                        
+                        // Обрабатываем пользовательское сообщение напрямую
+                        if (this.onMessage && parsed.data) {
+                            this.onMessage(parsed.data, 'received');
+                        }
+                        return;
+                    }
+                    
+                    
+                    // Системные сообщения
+                    if (parsed.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'security_upgrade'].includes(parsed.type)) {
+                        console.log('🔧 SYSTEM MESSAGE DETECTED:', parsed.type);
+                        await this.processMessage(event.data);
+                        return;
+                    }
+                }
+                
+                // Обрабатываем все остальные сообщения через общий процессор
+                await this.processMessage(event.data);
+                
+            } catch (error) {
+                console.error('❌ Failed to process message in onmessage:', error);
+                
+                // ИСПРАВЛЕНИЕ: Fallback обработка
+                try {
+                    if (typeof event.data === 'string') {
+                        const fallbackParsed = JSON.parse(event.data);
+                        
+                        // Обработка основных типов сообщений как fallback
+                        if (fallbackParsed.type === 'message' && fallbackParsed.data) {
+                            console.log('🔄 Fallback: Processing user message');
+                            if (this.onMessage) {
+                                this.onMessage(fallbackParsed.data, 'received');
+                            }
+                            return;
+                        }
+                        
+                        if (fallbackParsed.type === 'heartbeat') {
+                            console.log('🔄 Fallback: Processing heartbeat');
+                            this.handleHeartbeat();
+                            return;
+                        }
+                    }
+                } catch (fallbackError) {
+                    console.error('❌ Fallback message processing also failed:', fallbackError);
+                    
+                    // Последний fallback - обработка как текст если это строка
+                    if (typeof event.data === 'string' && this.onMessage) {
+                        this.onMessage(`[Received]: ${event.data}`, 'received');
+                    }
+                }
+            }
+        };
     }
-};
-}
     async createSecureOffer() {
         try {
             // Check rate limiting
@@ -2789,7 +2848,9 @@ handleSystemMessage(message) {
             window.EnhancedSecureCryptoUtils.secureLog.log('error', 'Enhanced secure offer creation failed', {
                 error: error.message
             });
-            this.onStatusChange('failed');
+            this.onStatusChange('disconnected');
+            // Не вызываем cleanupConnection для ошибок создания offer
+            // чтобы не закрывать сессию полностью
             throw error;
         }
     }
@@ -3015,7 +3076,9 @@ handleSystemMessage(message) {
             window.EnhancedSecureCryptoUtils.secureLog.log('error', 'Enhanced secure answer creation failed', {
                 error: error.message
             });
-            this.onStatusChange('failed');
+            this.onStatusChange('disconnected');
+            // Не вызываем cleanupConnection для ошибок создания answer
+            // чтобы не закрывать сессию полностью
             throw error;
         }
     }
@@ -3448,6 +3511,12 @@ handleSystemMessage(message) {
 
     async sendSecureMessage(message) {
     if (!this.isConnected() || !this.isVerified) {
+        // Для файловых сообщений не добавляем в очередь, а выбрасываем ошибку
+        if (message && typeof message === 'object' && message.type && message.type.startsWith('file_')) {
+            throw new Error('Connection not ready for file transfer. Please ensure the connection is established and verified.');
+        }
+        
+        // Для обычных сообщений добавляем в очередь
         this.messageQueue.push(message);
         throw new Error('Connection not ready. Message queued for sending.');
     }
@@ -3576,6 +3645,9 @@ handleSystemMessage(message) {
     }
 
     disconnect() {
+        if (this.fileTransferSystem) {
+            this.fileTransferSystem.cleanup();
+        }
         this.intentionalDisconnect = true;
         
         window.EnhancedSecureCryptoUtils.secureLog.log('info', 'Starting intentional disconnect');
@@ -3593,15 +3665,24 @@ handleSystemMessage(message) {
             }
         }));
         
-        setTimeout(() => {
-            this.cleanupConnection();
-        }, 500);
+        // Не вызываем cleanupConnection автоматически
+        // чтобы не закрывать сессию при ошибках
+        // setTimeout(() => {
+        //     this.cleanupConnection();
+        // }, 500);
     }
     
     handleUnexpectedDisconnect() {
         this.sendDisconnectNotification();
         this.isVerified = false;
         this.onMessage('🔌 Connection lost. Attempting to reconnect...', 'system');
+        
+        // Cleanup file transfer system on unexpected disconnect
+        if (this.fileTransferSystem) {
+            console.log('🧹 Cleaning up file transfer system on unexpected disconnect...');
+            this.fileTransferSystem.cleanup();
+            this.fileTransferSystem = null;
+        }
         
         document.dispatchEvent(new CustomEvent('peer-disconnect', {
             detail: { 
@@ -3610,11 +3691,13 @@ handleSystemMessage(message) {
             }
         }));
 
-        setTimeout(() => {
-            if (!this.intentionalDisconnect) {
-                this.attemptReconnection();
-            }
-        }, 3000);
+        // Не пытаемся переподключиться автоматически
+        // чтобы не закрывать сессию при ошибках
+        // setTimeout(() => {
+        //     if (!this.intentionalDisconnect) {
+        //         this.attemptReconnection();
+        //     }
+        // }, 3000);
     }
     
     sendDisconnectNotification() {
@@ -3652,7 +3735,9 @@ handleSystemMessage(message) {
     
     attemptReconnection() {
         this.onMessage('❌ Unable to reconnect. A new connection is required.', 'system');
-        this.cleanupConnection();
+        // Не вызываем cleanupConnection автоматически
+        // чтобы не закрывать сессию при ошибках
+        // this.cleanupConnection();
     }
     
     handlePeerDisconnectNotification(data) {
@@ -3741,8 +3826,9 @@ handleSystemMessage(message) {
         // Clearing message queue
         this.messageQueue = [];
         
-        // IMPORTANT: Clearing security logs
-        window.EnhancedSecureCryptoUtils.secureLog.clearLogs();
+        // Не очищаем логи безопасности автоматически
+        // чтобы сохранить информацию об ошибках
+        // window.EnhancedSecureCryptoUtils.secureLog.clearLogs();
         
         document.dispatchEvent(new CustomEvent('connection-cleaned', {
             detail: { 
@@ -3764,6 +3850,283 @@ handleSystemMessage(message) {
         if (window.gc) {
             window.gc();
         }
+    }
+    // Public method to send files
+    async sendFile(file) {
+        if (!this.isConnected() || !this.isVerified) {
+            throw new Error('Connection not ready for file transfer. Please ensure the connection is established and verified.');
+        }
+
+        if (!this.fileTransferSystem) {
+            console.log('🔄 File transfer system not initialized, attempting to initialize...');
+            this.initializeFileTransfer();
+            
+            // Дать время на инициализацию
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            if (!this.fileTransferSystem) {
+                throw new Error('File transfer system could not be initialized. Please try reconnecting.');
+            }
+        }
+
+        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Проверяем готовность ключей
+        if (!this.encryptionKey || !this.macKey) {
+            throw new Error('Encryption keys not ready. Please wait for connection to be fully established.');
+        }
+
+        // Debug logging for file transfer system
+        console.log('🔍 Debug: File transfer system in sendFile:', {
+            hasFileTransferSystem: !!this.fileTransferSystem,
+            fileTransferSystemType: this.fileTransferSystem.constructor?.name,
+            hasWebrtcManager: !!this.fileTransferSystem.webrtcManager,
+            webrtcManagerType: this.fileTransferSystem.webrtcManager?.constructor?.name
+        });
+
+        try {
+            console.log('🚀 Starting file transfer for:', file.name, `(${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+            const fileId = await this.fileTransferSystem.sendFile(file);
+            console.log('✅ File transfer initiated successfully with ID:', fileId);
+            return fileId;
+        } catch (error) {
+            console.error('❌ File transfer error:', error);
+            
+            // Перебрасываем ошибку с более понятным сообщением
+            if (error.message.includes('Connection not ready')) {
+                throw new Error('Connection not ready for file transfer. Check connection status.');
+            } else if (error.message.includes('Encryption keys not initialized')) {
+                throw new Error('Encryption keys not initialized. Try reconnecting.');
+            } else if (error.message.includes('Transfer timeout')) {
+                throw new Error('File transfer timeout. Check connection and try again.');
+            } else {
+                throw error;
+            }
+        }
+    }
+
+    // Get active file transfers
+    getFileTransfers() {
+        if (!this.fileTransferSystem) {
+            return { sending: [], receiving: [] };
+        }
+        
+        try {
+            // Проверяем наличие методов в файловой системе
+            let sending = [];
+            let receiving = [];
+            
+            if (typeof this.fileTransferSystem.getActiveTransfers === 'function') {
+                sending = this.fileTransferSystem.getActiveTransfers();
+            } else {
+                console.warn('⚠️ getActiveTransfers method not available in file transfer system');
+            }
+            
+            if (typeof this.fileTransferSystem.getReceivingTransfers === 'function') {
+                receiving = this.fileTransferSystem.getReceivingTransfers();
+            } else {
+                console.warn('⚠️ getReceivingTransfers method not available in file transfer system');
+            }
+            
+            return {
+                sending: sending || [],
+                receiving: receiving || []
+            };
+        } catch (error) {
+            console.error('❌ Error getting file transfers:', error);
+            return { sending: [], receiving: [] };
+        }
+    }
+
+    // Get file transfer system status
+    getFileTransferStatus() {
+        if (!this.fileTransferSystem) {
+            return {
+                initialized: false,
+                status: 'not_initialized',
+                message: 'File transfer system not initialized'
+            };
+        }
+        
+        const activeTransfers = this.fileTransferSystem.getActiveTransfers();
+        const receivingTransfers = this.fileTransferSystem.getReceivingTransfers();
+        
+        return {
+            initialized: true,
+            status: 'ready',
+            activeTransfers: activeTransfers.length,
+            receivingTransfers: receivingTransfers.length,
+            totalTransfers: activeTransfers.length + receivingTransfers.length
+        };
+    }
+
+    // Cancel file transfer
+    cancelFileTransfer(fileId) {
+        if (!this.fileTransferSystem) return false;
+        return this.fileTransferSystem.cancelTransfer(fileId);
+    }
+
+    // Force cleanup of file transfer system
+    cleanupFileTransferSystem() {
+        if (this.fileTransferSystem) {
+            console.log('🧹 Force cleaning up file transfer system...');
+            this.fileTransferSystem.cleanup();
+            this.fileTransferSystem = null;
+            return true;
+        }
+        return false;
+    }
+
+    // Reinitialize file transfer system
+    reinitializeFileTransfer() {
+        try {
+            console.log('🔄 Reinitializing file transfer system...');
+            if (this.fileTransferSystem) {
+                this.fileTransferSystem.cleanup();
+            }
+            this.initializeFileTransfer();
+            return true;
+        } catch (error) {
+            console.error('❌ Failed to reinitialize file transfer system:', error);
+            return false;
+        }
+    }
+
+    // Set file transfer callbacks
+    setFileTransferCallbacks(onProgress, onReceived, onError) {
+        this.onFileProgress = onProgress;
+        this.onFileReceived = onReceived;
+        this.onFileError = onError;
+        
+        console.log('🔧 File transfer callbacks set:', {
+            hasProgress: !!onProgress,
+            hasReceived: !!onReceived,
+            hasError: !!onError
+        });
+        
+        // Reinitialize file transfer system if it exists to update callbacks
+        if (this.fileTransferSystem) {
+            console.log('🔄 Reinitializing file transfer system with new callbacks...');
+            this.initializeFileTransfer();
+        }
+    }
+
+    // ============================================
+    // SESSION ACTIVATION HANDLING
+    // ============================================
+
+    async handleSessionActivation(sessionData) {
+        try {
+            console.log('🔐 Handling session activation:', sessionData);
+            
+            // Update session state
+            this.currentSession = sessionData;
+            this.sessionManager = sessionData.sessionManager;
+            
+            // ИСПРАВЛЕНИЕ: Более мягкие проверки для активации
+            const hasKeys = !!(this.encryptionKey && this.macKey);
+            const hasSession = !!(this.sessionManager && (this.sessionManager.hasActiveSession?.() || sessionData.sessionId));
+            
+            console.log('🔍 Session activation status:', {
+                hasKeys: hasKeys,
+                hasSession: hasSession,
+                sessionType: sessionData.sessionType,
+                isDemo: sessionData.isDemo
+            });
+            
+            // Force connection status если у нас есть сессия
+            if (hasSession) {
+                console.log('🔓 Session activated - forcing connection status to connected');
+                this.onStatusChange('connected');
+                
+                // Устанавливаем isVerified для активных сессий
+                this.isVerified = true;
+                console.log('✅ Session verified - setting isVerified to true');
+            }
+            
+            // Инициализируем file transfer систему с задержкой
+            setTimeout(() => {
+                try {
+                    this.initializeFileTransfer();
+                } catch (error) {
+                    console.warn('⚠️ File transfer initialization failed during session activation:', error.message);
+                }
+            }, 1000);
+            
+            console.log('✅ Session activation handled successfully');
+            
+        } catch (error) {
+            console.error('❌ Failed to handle session activation:', error);
+        }
+    }
+    // Метод для проверки готовности файловых трансферов
+checkFileTransferReadiness() {
+        const status = {
+            hasFileTransferSystem: !!this.fileTransferSystem,
+            hasDataChannel: !!this.dataChannel,
+            dataChannelState: this.dataChannel?.readyState,
+            isConnected: this.isConnected(),
+            isVerified: this.isVerified,
+            hasEncryptionKey: !!this.encryptionKey,
+            hasMacKey: !!this.macKey,
+            ready: false
+        };
+        
+        status.ready = status.hasFileTransferSystem && 
+                    status.hasDataChannel && 
+                    status.dataChannelState === 'open' && 
+                    status.isConnected && 
+                    status.isVerified;
+        
+        console.log('🔍 File transfer readiness check:', status);
+        return status;
+    }
+
+    // Метод для принудительной переинициализации файловой системы
+    forceReinitializeFileTransfer() {
+        try {
+            console.log('🔄 Force reinitializing file transfer system...');
+            
+            if (this.fileTransferSystem) {
+                this.fileTransferSystem.cleanup();
+                this.fileTransferSystem = null;
+            }
+            
+            // Небольшая задержка перед переинициализацией
+            setTimeout(() => {
+                this.initializeFileTransfer();
+            }, 500);
+            
+            return true;
+        } catch (error) {
+            console.error('❌ Failed to force reinitialize file transfer:', error);
+            return false;
+        }
+    }
+
+    // Метод для получения диагностической информации
+    getFileTransferDiagnostics() {
+        const diagnostics = {
+            timestamp: new Date().toISOString(),
+            webrtcManager: {
+                hasDataChannel: !!this.dataChannel,
+                dataChannelState: this.dataChannel?.readyState,
+                isConnected: this.isConnected(),
+                isVerified: this.isVerified,
+                hasEncryptionKey: !!this.encryptionKey,
+                hasMacKey: !!this.macKey,
+                hasMetadataKey: !!this.metadataKey
+            },
+            fileTransferSystem: null
+        };
+        
+        if (this.fileTransferSystem) {
+            try {
+                diagnostics.fileTransferSystem = this.fileTransferSystem.getSystemStatus();
+            } catch (error) {
+                diagnostics.fileTransferSystem = { error: error.message };
+            }
+        }
+        
+        return diagnostics;
     }
 }
 
