@@ -32,9 +32,8 @@ class EnhancedSecureFileTransfer {
         this.transferQueue = []; // Queue for pending transfers
         this.pendingChunks = new Map();
         
-        // Session key derivation - КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ
+        // Session key derivation
         this.sessionKeys = new Map(); // fileId -> derived session key
-        this.sharedSecretCache = new Map(); // Кэш для shared secret чтобы sender и receiver использовали одинаковый
         
         // Security
         this.processedChunks = new Set(); // Prevent replay attacks
@@ -47,138 +46,67 @@ class EnhancedSecureFileTransfer {
     }
 
     // ============================================
-    // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: ДЕТЕРМИНИСТИЧЕСКОЕ СОЗДАНИЕ КЛЮЧЕЙ
+    // SIMPLIFIED KEY DERIVATION - USE SHARED DATA
     // ============================================
 
-    async createDeterministicSharedSecret(fileId, fileSize, salt = null) {
-        try {
-            console.log('🔑 Creating deterministic shared secret for:', fileId);
-            
-            // Создаем уникальную строку-идентификатор для файла
-            const fileIdentifier = `${fileId}-${fileSize}`;
-            
-            // Проверяем кэш
-            if (this.sharedSecretCache.has(fileIdentifier)) {
-                console.log('✅ Using cached shared secret for:', fileIdentifier);
-                return this.sharedSecretCache.get(fileIdentifier);
-            }
-            
-            const encoder = new TextEncoder();
-            let seedComponents = [];
-            
-            // 1. Добавляем fileId и размер файла (одинаково у отправителя и получателя)
-            seedComponents.push(encoder.encode(fileIdentifier));
-            
-            // 2. Пытаемся использовать существующие ключи сессии
-            if (this.webrtcManager.encryptionKey) {
-                try {
-                    // Создаем детерминистическую производную из существующего ключа шифрования
-                    const keyMaterial = encoder.encode(`FileTransfer-Session-${fileIdentifier}`);
-                    const derivedKeyMaterial = await crypto.subtle.sign(
-                        'HMAC',
-                        this.webrtcManager.macKey, // Используем MAC ключ для HMAC
-                        keyMaterial
-                    );
-                    seedComponents.push(new Uint8Array(derivedKeyMaterial));
-                    console.log('✅ Used session MAC key for deterministic seed');
-                } catch (error) {
-                    console.warn('⚠️ Could not use MAC key, using alternative approach:', error.message);
-                }
-            }
-            
-            // 3. Добавляем соль если есть (от sender к receiver)
-            if (salt && Array.isArray(salt)) {
-                seedComponents.push(new Uint8Array(salt));
-                console.log('✅ Added salt to deterministic seed');
-            }
-            
-            // 4. Если нет других источников, используем fingerprint сессии
-            if (this.webrtcManager.keyFingerprint) {
-                seedComponents.push(encoder.encode(this.webrtcManager.keyFingerprint));
-                console.log('✅ Added session fingerprint to seed');
-            }
-            
-            // Объединяем все компоненты
-            const totalLength = seedComponents.reduce((sum, comp) => sum + comp.length, 0);
-            const combinedSeed = new Uint8Array(totalLength);
-            let offset = 0;
-            
-            for (const component of seedComponents) {
-                combinedSeed.set(component, offset);
-                offset += component.length;
-            }
-            
-            // Хешируем для получения консистентной длины
-            const sharedSecret = await crypto.subtle.digest('SHA-384', combinedSeed);
-            
-            // Кэшируем результат
-            this.sharedSecretCache.set(fileIdentifier, sharedSecret);
-            
-            console.log('🔑 Created deterministic shared secret, length:', sharedSecret.byteLength);
-            return sharedSecret;
-            
-        } catch (error) {
-            console.error('❌ Failed to create deterministic shared secret:', error);
-            throw error;
-        }
-    }
-
-    // ============================================
-    // ИСПРАВЛЕННЫЙ МЕТОД СОЗДАНИЯ КЛЮЧА СЕССИИ
-    // ============================================
-
-    async deriveFileSessionKey(fileId, fileSize, providedSalt = null) {
+    async deriveFileSessionKey(fileId) {
         try {
             console.log('🔑 Deriving file session key for:', fileId);
             
-            // Получаем детерминистический shared secret
-            const sharedSecret = await this.createDeterministicSharedSecret(fileId, fileSize, providedSalt);
+            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Используем keyFingerprint и sessionSalt
+            // которые уже согласованы между пирами
             
-            // Создаем или используем предоставленную соль
-            let salt;
-            if (providedSalt && Array.isArray(providedSalt)) {
-                salt = new Uint8Array(providedSalt);
-                console.log('🔑 Using provided salt from metadata');
-            } else {
-                salt = crypto.getRandomValues(new Uint8Array(32));
-                console.log('🔑 Generated new salt for file transfer');
+            if (!this.webrtcManager.keyFingerprint || !this.webrtcManager.sessionSalt) {
+                throw new Error('WebRTC session data not available');
             }
             
-            // Импортируем shared secret как PBKDF2 ключ
-            const keyForDerivation = await crypto.subtle.importKey(
-                'raw',
-                sharedSecret,
-                { name: 'PBKDF2' },
-                false,
-                ['deriveKey']
+            // Генерируем соль для этого конкретного файла
+            const fileSalt = crypto.getRandomValues(new Uint8Array(32));
+            
+            // Создаем seed из согласованных данных
+            const encoder = new TextEncoder();
+            const fingerprintData = encoder.encode(this.webrtcManager.keyFingerprint);
+            const fileIdData = encoder.encode(fileId);
+            
+            // Объединяем все компоненты для создания уникального seed
+            const sessionSaltArray = new Uint8Array(this.webrtcManager.sessionSalt);
+            const combinedSeed = new Uint8Array(
+                fingerprintData.length + 
+                sessionSaltArray.length + 
+                fileSalt.length + 
+                fileIdData.length
             );
             
-            // Создаем файловый ключ сессии с PBKDF2
-            const fileSessionKey = await crypto.subtle.deriveKey(
-                {
-                    name: 'PBKDF2',
-                    salt: salt,
-                    iterations: 100000,
-                    hash: 'SHA-384'
-                },
-                keyForDerivation,
-                {
-                    name: 'AES-GCM',
-                    length: 256
-                },
+            let offset = 0;
+            combinedSeed.set(fingerprintData, offset);
+            offset += fingerprintData.length;
+            combinedSeed.set(sessionSaltArray, offset);
+            offset += sessionSaltArray.length;
+            combinedSeed.set(fileSalt, offset);
+            offset += fileSalt.length;
+            combinedSeed.set(fileIdData, offset);
+            
+            // Хешируем для получения ключевого материала
+            const keyMaterial = await crypto.subtle.digest('SHA-256', combinedSeed);
+            
+            // Импортируем как AES ключ напрямую
+            const fileSessionKey = await crypto.subtle.importKey(
+                'raw',
+                keyMaterial,
+                { name: 'AES-GCM' },
                 false,
                 ['encrypt', 'decrypt']
             );
 
-            // Сохраняем ключ сессии
+            // Сохраняем ключ и соль
             this.sessionKeys.set(fileId, {
                 key: fileSessionKey,
-                salt: Array.from(salt),
+                salt: Array.from(fileSalt),
                 created: Date.now()
             });
 
             console.log('✅ File session key derived successfully for:', fileId);
-            return { key: fileSessionKey, salt: Array.from(salt) };
+            return { key: fileSessionKey, salt: Array.from(fileSalt) };
 
         } catch (error) {
             console.error('❌ Failed to derive file session key:', error);
@@ -186,45 +114,53 @@ class EnhancedSecureFileTransfer {
         }
     }
 
-    // ============================================
-    // ИСПРАВЛЕННЫЙ МЕТОД ДЛЯ ПОЛУЧАТЕЛЯ
-    // ============================================
-
-    async deriveFileSessionKeyFromSalt(fileId, fileSize, saltArray) {
+    async deriveFileSessionKeyFromSalt(fileId, saltArray) {
         try {
             console.log('🔑 Deriving session key from salt for receiver:', fileId);
             
-            if (!saltArray || !Array.isArray(saltArray)) {
-                throw new Error('Invalid salt provided for key derivation');
+            // Проверка соли
+            if (!saltArray || !Array.isArray(saltArray) || saltArray.length !== 32) {
+                throw new Error(`Invalid salt: ${saltArray?.length || 0} bytes`);
             }
             
-            // Получаем тот же детерминистический shared secret что и отправитель
-            const sharedSecret = await this.createDeterministicSharedSecret(fileId, fileSize, saltArray);
+            if (!this.webrtcManager.keyFingerprint || !this.webrtcManager.sessionSalt) {
+                throw new Error('WebRTC session data not available');
+            }
             
-            const salt = new Uint8Array(saltArray);
+            // Используем тот же процесс что и отправитель
+            const encoder = new TextEncoder();
+            const fingerprintData = encoder.encode(this.webrtcManager.keyFingerprint);
+            const fileIdData = encoder.encode(fileId);
             
-            // Импортируем shared secret как PBKDF2 ключ
-            const keyForDerivation = await crypto.subtle.importKey(
-                'raw',
-                sharedSecret,
-                { name: 'PBKDF2' },
-                false,
-                ['deriveKey']
+            // Используем полученную соль файла
+            const fileSalt = new Uint8Array(saltArray);
+            const sessionSaltArray = new Uint8Array(this.webrtcManager.sessionSalt);
+            
+            // Объединяем компоненты в том же порядке
+            const combinedSeed = new Uint8Array(
+                fingerprintData.length + 
+                sessionSaltArray.length + 
+                fileSalt.length + 
+                fileIdData.length
             );
             
-            // Создаем точно такой же ключ как у отправителя
-            const fileSessionKey = await crypto.subtle.deriveKey(
-                {
-                    name: 'PBKDF2',
-                    salt: salt,
-                    iterations: 100000, // Те же параметры что у отправителя
-                    hash: 'SHA-384'
-                },
-                keyForDerivation,
-                {
-                    name: 'AES-GCM',
-                    length: 256
-                },
+            let offset = 0;
+            combinedSeed.set(fingerprintData, offset);
+            offset += fingerprintData.length;
+            combinedSeed.set(sessionSaltArray, offset);
+            offset += sessionSaltArray.length;
+            combinedSeed.set(fileSalt, offset);
+            offset += fileSalt.length;
+            combinedSeed.set(fileIdData, offset);
+            
+            // Хешируем для получения того же ключевого материала
+            const keyMaterial = await crypto.subtle.digest('SHA-256', combinedSeed);
+            
+            // Импортируем как AES ключ
+            const fileSessionKey = await crypto.subtle.importKey(
+                'raw',
+                keyMaterial,
+                { name: 'AES-GCM' },
                 false,
                 ['encrypt', 'decrypt']
             );
@@ -260,7 +196,6 @@ class EnhancedSecureFileTransfer {
                 webrtcManagerType: this.webrtcManager.constructor?.name,
                 hasEncryptionKey: !!this.webrtcManager.encryptionKey,
                 hasMacKey: !!this.webrtcManager.macKey,
-                hasEcdhKeyPair: !!this.webrtcManager.ecdhKeyPair,
                 isConnected: this.webrtcManager.isConnected?.(),
                 isVerified: this.webrtcManager.isVerified
             });
@@ -284,8 +219,8 @@ class EnhancedSecureFileTransfer {
             // Calculate file hash for integrity verification
             const fileHash = await this.calculateFileHash(file);
             
-            // Derive session key for this file - ИСПРАВЛЕНИЕ
-            const keyResult = await this.deriveFileSessionKey(fileId, file.size);
+            // Derive session key for this file
+            const keyResult = await this.deriveFileSessionKey(fileId);
             const sessionKey = keyResult.key;
             const salt = keyResult.salt;
             
@@ -323,7 +258,6 @@ class EnhancedSecureFileTransfer {
         }
     }
 
-    // ИСПРАВЛЕННЫЙ метод отправки метаданных
     async sendFileMetadata(transferState) {
         try {
             const metadata = {
@@ -337,7 +271,7 @@ class EnhancedSecureFileTransfer {
                 chunkSize: this.CHUNK_SIZE,
                 salt: transferState.salt, // Отправляем соль получателю
                 timestamp: Date.now(),
-                version: '1.0'
+                version: '2.0'
             };
 
             console.log('📁 Sending file metadata for:', transferState.file.name);
@@ -366,7 +300,6 @@ class EnhancedSecureFileTransfer {
         }
     }
 
-    // Start chunk transmission
     async startChunkTransmission(transferState) {
         try {
             transferState.status = 'transmitting';
@@ -426,7 +359,6 @@ class EnhancedSecureFileTransfer {
         }
     }
 
-    // Read file chunk
     async readFileChunk(file, start, end) {
         try {
             const blob = file.slice(start, end);
@@ -437,7 +369,6 @@ class EnhancedSecureFileTransfer {
         }
     }
 
-    // Send file chunk
     async sendFileChunk(transferState, chunkIndex, chunkData) {
         try {
             const sessionKey = transferState.sessionKey;
@@ -473,10 +404,9 @@ class EnhancedSecureFileTransfer {
         }
     }
 
-    // Send secure message through WebRTC
     async sendSecureMessage(message) {
         try {
-            // Send through existing Double Ratchet channel
+            // Send through existing WebRTC channel
             const messageString = JSON.stringify(message);
             
             // Use the WebRTC manager's sendMessage method
@@ -491,11 +421,10 @@ class EnhancedSecureFileTransfer {
         }
     }
 
-    // Calculate file hash for integrity verification
     async calculateFileHash(file) {
         try {
             const arrayBuffer = await file.arrayBuffer();
-            const hashBuffer = await crypto.subtle.digest('SHA-384', arrayBuffer);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
             const hashArray = Array.from(new Uint8Array(hashBuffer));
             return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         } catch (error) {
@@ -509,49 +438,10 @@ class EnhancedSecureFileTransfer {
     // ============================================
 
     setupFileMessageHandlers() {
-        // Store original message handler
-        const originalHandler = this.webrtcManager.onMessage;
-        
-        // Wrap message handler to intercept file transfer messages
-        this.webrtcManager.onMessage = (message, type) => {
-            try {
-                // Try to parse as JSON for file transfer messages
-                if (typeof message === 'string' && message.startsWith('{')) {
-                    const parsed = JSON.parse(message);
-                    
-                    switch (parsed.type) {
-                        case 'file_transfer_start':
-                            this.handleFileTransferStart(parsed);
-                            return;
-                        case 'file_chunk':
-                            this.handleFileChunk(parsed);
-                            return;
-                        case 'file_transfer_response':
-                            this.handleTransferResponse(parsed);
-                            return;
-                        case 'chunk_confirmation':
-                            this.handleChunkConfirmation(parsed);
-                            return;
-                        case 'file_transfer_complete':
-                            this.handleTransferComplete(parsed);
-                            return;
-                        case 'file_transfer_error':
-                            this.handleTransferError(parsed);
-                            return;
-                    }
-                }
-            } catch (e) {
-                // Not a file transfer message, continue with normal handling
-            }
-            
-            // Pass to original handler for regular messages
-            if (originalHandler) {
-                originalHandler(message, type);
-            }
-        };
+        // This is now handled by WebRTC manager's processMessage method
+        // No need to override onMessage here
     }
 
-    // ИСПРАВЛЕННЫЙ Handle incoming file transfer start
     async handleFileTransferStart(metadata) {
         try {
             console.log('📥 Receiving file transfer:', metadata.fileName);
@@ -567,10 +457,9 @@ class EnhancedSecureFileTransfer {
                 return;
             }
             
-            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Используем соль из метаданных
+            // Derive session key from salt
             const sessionKey = await this.deriveFileSessionKeyFromSalt(
-                metadata.fileId, 
-                metadata.fileSize, 
+                metadata.fileId,
                 metadata.salt
             );
             
@@ -584,6 +473,7 @@ class EnhancedSecureFileTransfer {
                 totalChunks: metadata.totalChunks,
                 chunkSize: metadata.chunkSize || this.CHUNK_SIZE,
                 sessionKey: sessionKey,
+                salt: metadata.salt,
                 receivedChunks: new Map(),
                 receivedCount: 0,
                 startTime: Date.now(),
@@ -632,22 +522,17 @@ class EnhancedSecureFileTransfer {
             console.error('❌ Failed to handle file transfer start:', error);
             
             // Send error response
-            try {
-                const errorResponse = {
-                    type: 'file_transfer_response',
-                    fileId: metadata.fileId,
-                    accepted: false,
-                    error: error.message,
-                    timestamp: Date.now()
-                };
-                await this.sendSecureMessage(errorResponse);
-            } catch (responseError) {
-                console.error('❌ Failed to send error response:', responseError);
-            }
+            const errorResponse = {
+                type: 'file_transfer_response',
+                fileId: metadata.fileId,
+                accepted: false,
+                error: error.message,
+                timestamp: Date.now()
+            };
+            await this.sendSecureMessage(errorResponse);
         }
     }
 
-    // ИСПРАВЛЕННЫЙ Handle incoming file chunk
     async handleFileChunk(chunkMessage) {
         try {
             let receivingState = this.receivingTransfers.get(chunkMessage.fileId);
@@ -678,49 +563,20 @@ class EnhancedSecureFileTransfer {
                 throw new Error(`Invalid chunk index: ${chunkMessage.chunkIndex}`);
             }
             
-            // ИСПРАВЛЕНИЕ: Улучшенное декодирование чанка
+            // Decrypt chunk
             const nonce = new Uint8Array(chunkMessage.nonce);
             const encryptedData = new Uint8Array(chunkMessage.encryptedData);
             
-            console.log('🔓 Decrypting chunk:', chunkMessage.chunkIndex, {
-                nonceLength: nonce.length,
-                encryptedDataLength: encryptedData.length,
-                expectedSize: chunkMessage.chunkSize
-            });
+            console.log('🔓 Decrypting chunk:', chunkMessage.chunkIndex);
             
-            // Decrypt chunk with better error handling
-            let decryptedChunk;
-            try {
-                decryptedChunk = await crypto.subtle.decrypt(
-                    {
-                        name: 'AES-GCM',
-                        iv: nonce
-                    },
-                    receivingState.sessionKey,
-                    encryptedData
-                );
-            } catch (decryptError) {
-                console.error('❌ Chunk decryption failed:', decryptError);
-                console.error('Decryption details:', {
-                    chunkIndex: chunkMessage.chunkIndex,
-                    fileId: chunkMessage.fileId,
-                    nonceLength: nonce.length,
-                    encryptedDataLength: encryptedData.length,
-                    sessionKeyType: receivingState.sessionKey?.constructor?.name,
-                    sessionKeyAlgorithm: receivingState.sessionKey?.algorithm?.name
-                });
-                
-                // Send specific error message
-                const errorMessage = {
-                    type: 'file_transfer_error',
-                    fileId: chunkMessage.fileId,
-                    error: `Chunk ${chunkMessage.chunkIndex} decryption failed: ${decryptError.message}`,
-                    chunkIndex: chunkMessage.chunkIndex,
-                    timestamp: Date.now()
-                };
-                await this.sendSecureMessage(errorMessage);
-                return;
-            }
+            const decryptedChunk = await crypto.subtle.decrypt(
+                {
+                    name: 'AES-GCM',
+                    iv: nonce
+                },
+                receivingState.sessionKey,
+                encryptedData
+            );
             
             // Verify chunk size
             if (decryptedChunk.byteLength !== chunkMessage.chunkSize) {
@@ -766,21 +622,27 @@ class EnhancedSecureFileTransfer {
             console.error('❌ Failed to handle file chunk:', error);
             
             // Send error notification
-            try {
-                const errorMessage = {
-                    type: 'file_transfer_error',
-                    fileId: chunkMessage.fileId,
-                    error: error.message,
-                    timestamp: Date.now()
-                };
-                await this.sendSecureMessage(errorMessage);
-            } catch (errorSendError) {
-                console.error('❌ Failed to send chunk error:', errorSendError);
+            const errorMessage = {
+                type: 'file_transfer_error',
+                fileId: chunkMessage.fileId,
+                error: error.message,
+                chunkIndex: chunkMessage.chunkIndex,
+                timestamp: Date.now()
+            };
+            await this.sendSecureMessage(errorMessage);
+            
+            // Mark transfer as failed
+            const receivingState = this.receivingTransfers.get(chunkMessage.fileId);
+            if (receivingState) {
+                receivingState.status = 'failed';
+            }
+            
+            if (this.onError) {
+                this.onError(`Chunk processing failed: ${error.message}`);
             }
         }
     }
 
-    // Assemble received file
     async assembleFile(receivingState) {
         try {
             console.log('🔄 Assembling file:', receivingState.fileName);
@@ -863,28 +725,23 @@ class EnhancedSecureFileTransfer {
             }
             
             // Send error notification
-            try {
-                const errorMessage = {
-                    type: 'file_transfer_complete',
-                    fileId: receivingState.fileId,
-                    success: false,
-                    error: error.message,
-                    timestamp: Date.now()
-                };
-                await this.sendSecureMessage(errorMessage);
-            } catch (errorSendError) {
-                console.error('❌ Failed to send assembly error:', errorSendError);
-            }
+            const errorMessage = {
+                type: 'file_transfer_complete',
+                fileId: receivingState.fileId,
+                success: false,
+                error: error.message,
+                timestamp: Date.now()
+            };
+            await this.sendSecureMessage(errorMessage);
             
             // Cleanup failed transfer
             this.cleanupReceivingTransfer(receivingState.fileId);
         }
     }
 
-    // Calculate hash from data
     async calculateFileHashFromData(data) {
         try {
-            const hashBuffer = await crypto.subtle.digest('SHA-384', data);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
             const hashArray = Array.from(new Uint8Array(hashBuffer));
             return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         } catch (error) {
@@ -893,7 +750,6 @@ class EnhancedSecureFileTransfer {
         }
     }
 
-    // Handle transfer response
     handleTransferResponse(response) {
         try {
             console.log('📨 File transfer response:', response);
@@ -923,7 +779,6 @@ class EnhancedSecureFileTransfer {
         }
     }
 
-    // Handle chunk confirmation
     handleChunkConfirmation(confirmation) {
         try {
             const transferState = this.activeTransfers.get(confirmation.fileId);
@@ -940,7 +795,6 @@ class EnhancedSecureFileTransfer {
         }
     }
 
-    // Handle transfer completion
     handleTransferComplete(completion) {
         try {
             console.log('🏁 Transfer completion:', completion);
@@ -980,7 +834,6 @@ class EnhancedSecureFileTransfer {
         }
     }
 
-    // Handle transfer error
     handleTransferError(errorMessage) {
         try {
             console.error('❌ Transfer error received:', errorMessage);
@@ -1010,7 +863,6 @@ class EnhancedSecureFileTransfer {
     // UTILITY METHODS
     // ============================================
 
-    // Get active transfers
     getActiveTransfers() {
         return Array.from(this.activeTransfers.values()).map(transfer => ({
             fileId: transfer.fileId,
@@ -1022,7 +874,6 @@ class EnhancedSecureFileTransfer {
         }));
     }
 
-    // Get receiving transfers
     getReceivingTransfers() {
         return Array.from(this.receivingTransfers.values()).map(transfer => ({
             fileId: transfer.fileId,
@@ -1034,7 +885,6 @@ class EnhancedSecureFileTransfer {
         }));
     }
 
-    // Cancel transfer
     cancelTransfer(fileId) {
         try {
             if (this.activeTransfers.has(fileId)) {
@@ -1052,18 +902,10 @@ class EnhancedSecureFileTransfer {
         }
     }
 
-    // Cleanup transfer
     cleanupTransfer(fileId) {
         this.activeTransfers.delete(fileId);
         this.sessionKeys.delete(fileId);
         this.transferNonces.delete(fileId);
-        
-        // Remove from shared secret cache
-        const transfers = this.activeTransfers.get(fileId) || this.receivingTransfers.get(fileId);
-        if (transfers && transfers.file) {
-            const fileIdentifier = `${fileId}-${transfers.file.size}`;
-            this.sharedSecretCache.delete(fileIdentifier);
-        }
         
         // Remove processed chunk IDs for this transfer
         for (const chunkId of this.processedChunks) {
@@ -1073,17 +915,12 @@ class EnhancedSecureFileTransfer {
         }
     }
 
-    // Cleanup receiving transfer
     cleanupReceivingTransfer(fileId) {
         this.pendingChunks.delete(fileId);
         const receivingState = this.receivingTransfers.get(fileId);
         if (receivingState) {
             // Clear chunk data from memory
             receivingState.receivedChunks.clear();
-            
-            // Remove from shared secret cache
-            const fileIdentifier = `${fileId}-${receivingState.fileSize}`;
-            this.sharedSecretCache.delete(fileIdentifier);
         }
         
         this.receivingTransfers.delete(fileId);
@@ -1097,7 +934,6 @@ class EnhancedSecureFileTransfer {
         }
     }
 
-    // Get transfer status
     getTransferStatus(fileId) {
         if (this.activeTransfers.has(fileId)) {
             const transfer = this.activeTransfers.get(fileId);
@@ -1126,7 +962,6 @@ class EnhancedSecureFileTransfer {
         return null;
     }
 
-    // Get system status
     getSystemStatus() {
         return {
             initialized: true,
@@ -1137,12 +972,10 @@ class EnhancedSecureFileTransfer {
             maxFileSize: this.MAX_FILE_SIZE,
             chunkSize: this.CHUNK_SIZE,
             hasWebrtcManager: !!this.webrtcManager,
-            isConnected: this.webrtcManager?.isConnected?.() || false,
-            sharedSecretCacheSize: this.sharedSecretCache.size
+            isConnected: this.webrtcManager?.isConnected?.() || false
         };
     }
 
-    // Cleanup all transfers (called on disconnect)
     cleanup() {
         console.log('🧹 Cleaning up file transfer system');
         
@@ -1163,123 +996,75 @@ class EnhancedSecureFileTransfer {
         this.sessionKeys.clear();
         this.transferNonces.clear();
         this.processedChunks.clear();
-        this.sharedSecretCache.clear(); // Очищаем кэш shared secret
+    }
+
+    // ============================================
+    // SESSION UPDATE HANDLER - FIXED
+    // ============================================
+    
+    onSessionUpdate(sessionData) {
+        console.log('🔄 File transfer system: session updated', sessionData);
+        
+        // Clear session keys cache for resync
+        this.sessionKeys.clear();
+        
+        console.log('✅ File transfer keys cache cleared for resync');
+        
+        // If there are active transfers, log warning
+        if (this.activeTransfers.size > 0 || this.receivingTransfers.size > 0) {
+            console.warn('⚠️ Session updated during active file transfers - may cause issues');
+        }
     }
 
     // ============================================
     // DEBUGGING AND DIAGNOSTICS
     // ============================================
 
-    // Debug method to check key derivation
-    async debugKeyDerivation(fileId, fileSize, salt = null) {
+    async debugKeyDerivation(fileId) {
         try {
             console.log('🔍 Debug: Testing key derivation for:', fileId);
             
-            const sharedSecret = await this.createDeterministicSharedSecret(fileId, fileSize, salt);
-            console.log('🔍 Shared secret created, length:', sharedSecret.byteLength);
+            if (!this.webrtcManager.macKey) {
+                throw new Error('MAC key not available');
+            }
             
-            const testSalt = salt ? new Uint8Array(salt) : crypto.getRandomValues(new Uint8Array(32));
-            console.log('🔍 Using salt, length:', testSalt.length);
+            const salt = crypto.getRandomValues(new Uint8Array(32));
             
-            const keyForDerivation = await crypto.subtle.importKey(
-                'raw',
-                sharedSecret,
-                { name: 'PBKDF2' },
-                false,
-                ['deriveKey']
-            );
+            // Test sender derivation
+            const senderResult = await this.deriveFileSessionKey(fileId);
+            console.log('✅ Sender key derived successfully');
             
-            const derivedKey = await crypto.subtle.deriveKey(
-                {
-                    name: 'PBKDF2',
-                    salt: testSalt,
-                    iterations: 100000,
-                    hash: 'SHA-384'
-                },
-                keyForDerivation,
-                {
-                    name: 'AES-GCM',
-                    length: 256
-                },
-                false,
-                ['encrypt', 'decrypt']
-            );
+            // Test receiver derivation with same salt
+            const receiverKey = await this.deriveFileSessionKeyFromSalt(fileId, senderResult.salt);
+            console.log('✅ Receiver key derived successfully');
             
-            console.log('✅ Key derivation test successful');
-            console.log('🔍 Derived key:', derivedKey.algorithm);
-            
-            return {
-                success: true,
-                sharedSecretLength: sharedSecret.byteLength,
-                saltLength: testSalt.length,
-                keyAlgorithm: derivedKey.algorithm
-            };
-            
-        } catch (error) {
-            console.error('❌ Key derivation test failed:', error);
-            return {
-                success: false,
-                error: error.message
-            };
-        }
-    }
-
-    // Debug method to verify encryption/decryption
-    async debugEncryptionDecryption(fileId, fileSize, testData = 'test data') {
-        try {
-            console.log('🔍 Debug: Testing encryption/decryption for:', fileId);
-            
-            const keyResult = await this.deriveFileSessionKey(fileId, fileSize);
-            const sessionKey = keyResult.key;
-            const salt = keyResult.salt;
-            
-            // Test encryption
+            // Test encryption/decryption
+            const testData = new TextEncoder().encode('test data');
             const nonce = crypto.getRandomValues(new Uint8Array(12));
-            const testDataBuffer = new TextEncoder().encode(testData);
             
             const encrypted = await crypto.subtle.encrypt(
                 { name: 'AES-GCM', iv: nonce },
-                sessionKey,
-                testDataBuffer
+                senderResult.key,
+                testData
             );
             
-            console.log('✅ Encryption test successful');
-            
-            // Test decryption with same key
             const decrypted = await crypto.subtle.decrypt(
                 { name: 'AES-GCM', iv: nonce },
-                sessionKey,
+                receiverKey,
                 encrypted
             );
             
             const decryptedText = new TextDecoder().decode(decrypted);
             
-            if (decryptedText === testData) {
-                console.log('✅ Decryption test successful');
-                
-                // Test with receiver key derivation
-                const receiverKey = await this.deriveFileSessionKeyFromSalt(fileId, fileSize, salt);
-                
-                const decryptedByReceiver = await crypto.subtle.decrypt(
-                    { name: 'AES-GCM', iv: nonce },
-                    receiverKey,
-                    encrypted
-                );
-                
-                const receiverDecryptedText = new TextDecoder().decode(decryptedByReceiver);
-                
-                if (receiverDecryptedText === testData) {
-                    console.log('✅ Receiver key derivation test successful');
-                    return { success: true, message: 'All tests passed' };
-                } else {
-                    throw new Error('Receiver decryption failed');
-                }
+            if (decryptedText === 'test data') {
+                console.log('✅ Cross-key encryption/decryption test successful');
+                return { success: true, message: 'All tests passed' };
             } else {
                 throw new Error('Decryption verification failed');
             }
             
         } catch (error) {
-            console.error('❌ Encryption/decryption test failed:', error);
+            console.error('❌ Key derivation test failed:', error);
             return { success: false, error: error.message };
         }
     }

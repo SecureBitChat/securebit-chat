@@ -4053,6 +4053,18 @@ handleSystemMessage(message) {
             
             console.log('✅ Session activation handled successfully');
             
+            if (this.fileTransferSystem && this.isConnected()) {
+                console.log('🔄 Synchronizing file transfer keys after session activation...');
+                
+                if (typeof this.fileTransferSystem.onSessionUpdate === 'function') {
+                    this.fileTransferSystem.onSessionUpdate({
+                        keyFingerprint: this.keyFingerprint,
+                        sessionSalt: this.sessionSalt,
+                        hasMacKey: !!this.macKey
+                    });
+                }
+            }
+            
         } catch (error) {
             console.error('❌ Failed to handle session activation:', error);
         }
