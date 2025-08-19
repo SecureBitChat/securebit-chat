@@ -36,8 +36,8 @@ class PayPerSessionManager {
         this.verificationConfig = {
             method: config.method || 'lnbits',
             apiUrl: config.apiUrl || 'https://demo.lnbits.com',
-            apiKey: config.apiKey || '623515641d2e4ebcb1d5992d6d78419c', 
-            walletId: config.walletId || 'bcd00f561c7b46b4a7b118f069e68997',
+            apiKey: config.apiKey || 'a7226682253f4dd7bdb2d9487a9a59f8', 
+            walletId: config.walletId || '649903697b03457d8b12c4eae7b2fab9',
             isDemo: config.isDemo !== undefined ? config.isDemo : true,
             demoTimeout: 30000, 
             retryAttempts: 3,
