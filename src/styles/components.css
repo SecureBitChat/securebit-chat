@@ -164,11 +164,11 @@ main {
     border: 1px solid rgba(75, 85, 99, 0.2);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
-.card-minimal:hover {
+/* .card-minimal:hover {
     border-color: rgba(249, 115, 22, 0.3);
     transform: translateY(-1px);
     transition: all 0.2s ease;
-}
+} */
 
 .status-dot {
     width: 8px;

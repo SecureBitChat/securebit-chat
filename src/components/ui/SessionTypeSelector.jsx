@@ -374,12 +374,7 @@ const SessionTypeSelector = ({ onSelectType, onCancel, sessionManager }) => {
                 onClick: onCancel, 
                 className: 'px-6 py-3 bg-gray-600 hover:bg-gray-500 text-white rounded-lg transition-all' 
             }, 'Cancel'),
-            React.createElement('button', { 
-                key: 'refresh', 
-                onClick: updateDemoInfo, 
-                className: 'px-3 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-all', 
-                title: 'Refresh demo status'
-            }, React.createElement('i', { className: 'fas fa-sync-alt' }))
+            
         ])
     ]);
 };

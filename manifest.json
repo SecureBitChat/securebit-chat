@@ -2,65 +2,88 @@
   "name": "SecureBit.chat - Enhanced Security Edition",
   "short_name": "SecureBit",
   "description": "P2P messenger with military-grade cryptography and Lightning Network payments",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#1a1a1a",
   "theme_color": "#ff6b35",
   "orientation": "portrait-primary",
-  "scope": "/",
+  "scope": "./",
   "lang": "en",
   "dir": "ltr",
   "categories": ["communication", "security", "productivity"],
-  "iarc_rating_id": "",
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "logo/icon-72x72.png",
+      "src": "./logo/icon-72x72.png",
       "sizes": "72x72",
       "type": "image/png",
-      "purpose": "maskable any"
+      "purpose": "any"
     },
     {
-      "src": "logo/icon-96x96.png",
+      "src": "./logo/icon-96x96.png",
       "sizes": "96x96",
       "type": "image/png",
-      "purpose": "maskable any"
+      "purpose": "any"
     },
     {
-      "src": "logo/icon-128x128.png",
+      "src": "./logo/icon-128x128.png",
       "sizes": "128x128",
       "type": "image/png",
-      "purpose": "maskable any"
+      "purpose": "any"
     },
     {
-      "src": "logo/icon-144x144.png",
+      "src": "./logo/icon-144x144.png",
       "sizes": "144x144",
       "type": "image/png",
-      "purpose": "maskable any"
+      "purpose": "any"
     },
     {
-      "src": "logo/icon-152x152.png",
+      "src": "./logo/icon-152x152.png",
       "sizes": "152x152",
       "type": "image/png",
-      "purpose": "maskable any"
+      "purpose": "any"
     },
     {
-      "src": "logo/icon-192x192.png",
+      "src": "./logo/icon-180x180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./logo/icon-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "maskable any"
+      "purpose": "any"
     },
     {
-      "src": "logo/icon-384x384.png",
+      "src": "./logo/icon-256x256.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./logo/icon-384x384.png",
       "sizes": "384x384",
       "type": "image/png",
-      "purpose": "maskable any"
+      "purpose": "any"
     },
     {
-      "src": "logo/icon-512x512.png",
+      "src": "./logo/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "maskable any"
+      "purpose": "any"
+    },
+    {
+      "src": "./logo/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./logo/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "shortcuts": [
@@ -68,57 +91,27 @@
       "name": "Create Channel",
       "short_name": "Create",
       "description": "Create a new secure channel",
-      "url": "/?action=create",
+      "url": "./?action=create",
       "icons": [
         {
-          "src": "logo/icon-96x96.png",
-          "sizes": "96x96"
+          "src": "./logo/icon-96x96.png",
+          "sizes": "96x96",
+          "type": "image/png"
         }
       ]
     },
     {
       "name": "Join Channel",
-      "short_name": "Join",
+      "short_name": "Join", 
       "description": "Join an existing secure channel",
-      "url": "/?action=join",
+      "url": "./?action=join",
       "icons": [
         {
-          "src": "logo/icon-96x96.png",
-          "sizes": "96x96"
+          "src": "./logo/icon-96x96.png",
+          "sizes": "96x96",
+          "type": "image/png"
         }
       ]
     }
-  ],
-  "screenshots": [
-    {
-      "src": "screenshots/desktop-1.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "SecureBit.chat main interface"
-    },
-    {
-      "src": "screenshots/mobile-1.png",
-      "sizes": "414x896",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "SecureBit.chat mobile interface"
-    }
-  ],
-  "related_applications": [],
-  "protocol_handlers": [
-    {
-      "protocol": "web+securebit",
-      "url": "/?invite=%s"
-    }
-  ],
-  "share_target": {
-    "action": "/share",
-    "method": "GET",
-    "params": {
-      "title": "title",
-      "text": "text",
-      "url": "url"
-    }
-  }
+  ]
 }

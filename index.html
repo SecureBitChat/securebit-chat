@@ -24,45 +24,43 @@
 <!-- PWA Meta Tags -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="format-detection" content="telephone=no">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SecureBit">
 <meta name="application-name" content="SecureBit">
 <meta name="msapplication-TileColor" content="#ff6b35">
 <meta name="msapplication-config" content="/browserconfig.xml">
 
-<!-- iOS Splash Screens -->
-<link rel="apple-touch-startup-image" href="./splash/launch-640x1136.png" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
-<link rel="apple-touch-startup-image" href="./splash/launch-750x1334.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
-<link rel="apple-touch-startup-image" href="./splash/launch-1242x2208.png" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
-<link rel="apple-touch-startup-image" href="./splash/launch-1125x2436.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
-<link rel="apple-touch-startup-image" href="./splash/launch-1536x2048.png" media="(min-device-width: 768px) and (max-device-width: 1024px) and (-webkit-min-device-pixel-ratio: 2) and (orientation: portrait)">
-
+<!-- iOS Splash Screens - МИНИМАЛЬНЫЙ НАБОР -->
+    <link rel="apple-touch-startup-image" href="./splash/launch-640x1136.png" 
+          media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
+    <link rel="apple-touch-startup-image" href="./splash/launch-750x1334.png" 
+          media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
+    <link rel="apple-touch-startup-image" href="./splash/launch-1125x2436.png" 
+          media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+    <link rel="apple-touch-startup-image" href="./splash/launch-1242x2688.png" 
+          media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+    
 <!-- Apple Touch Icons -->
-<link rel="apple-touch-icon" href="./logo/pwa/ios/57.png" sizes="57x57">
-<link rel="apple-touch-icon" href="./logo/pwa/ios/60.png" sizes="60x60">
-<link rel="apple-touch-icon" href="./logo/pwa/ios/72.png" sizes="72x72">
-<link rel="apple-touch-icon" href="./logo/pwa/ios/76.png" sizes="76x76">
-<link rel="apple-touch-icon" href="./logo/pwa/ios/114.png" sizes="114x114">
-<link rel="apple-touch-icon" href="./logo/pwa/ios/120.png" sizes="120x120">
-<link rel="apple-touch-icon" href="./logo/pwa/ios/144.png" sizes="144x144">
-<link rel="apple-touch-icon" href="./logo/pwa/ios/152.png" sizes="152x152">
-<link rel="apple-touch-icon" href="./logo/pwa/ios/180.png" sizes="180x180">
+<link rel="apple-touch-icon" href="./logo/icon-180x180.png">
+<link rel="apple-touch-icon" sizes="57x57" href="./logo/icon-57x57.png">
+<link rel="apple-touch-icon" sizes="60x60" href="./logo/icon-60x60.png">
+<link rel="apple-touch-icon" sizes="72x72" href="./logo/icon-72x72.png">
+<link rel="apple-touch-icon" sizes="76x76" href="./logo/icon-76x76.png">
+<link rel="apple-touch-icon" sizes="114x114" href="./logo/icon-114x114.png">
+<link rel="apple-touch-icon" sizes="120x120" href="./logo/icon-120x120.png">
+<link rel="apple-touch-icon" sizes="144x144" href="./logo/icon-144x144.png">
+<link rel="apple-touch-icon" sizes="152x152" href="./logo/icon-152x152.png">
+<link rel="apple-touch-icon" sizes="180x180" href="./logo/icon-180x180.png">
 
 <!-- Microsoft Tiles -->
-<meta name="msapplication-TileImage" content="./logo/pwa/windows11/Square150x150Logo.scale-100.png">
-<meta name="msapplication-square70x70logo" content="./logo/pwa/windows11/SmallTile.scale-100.png">
-<meta name="msapplication-square150x150logo" content="./logo/pwa/windows11/Square150x150Logo.scale-100.png">
-<meta name="msapplication-wide310x150logo" content="./logo/pwa/windows11/Wide310x150Logo.scale-100.png">
-<meta name="msapplication-square310x310logo" content="./logo/pwa/windows11/LargeTile.scale-100.png">
-
-
-<!-- PWA Theme Colors -->
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="SecureBit">
-<meta name="application-name" content="SecureBit">
+<meta name="msapplication-TileColor" content="#ff6b35">
+<meta name="msapplication-TileImage" content="./logo/icon-144x144.png">
+<meta name="msapplication-config" content="./browserconfig.xml">
+    
+<!-- Theme colors -->
 <meta name="theme-color" content="#ff6b35">
+<meta name="msapplication-navbutton-color" content="#ff6b35">
 
 <!-- Security Headers for PWA -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; connect-src 'self' https: wss: ws:; img-src 'self' data: https:; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'self';">
@@ -163,7 +161,7 @@
             icon: "fas fa-shield-halved",
             color: "orange",
             title: "12-Layer Military Security",
-            description: "Revolutionary defense system with ECDH P-384 + AES-GCM 256 + ECDSA. Enhanced Security Edition v4.01.212 provides military-grade protection exceeding government standards."
+            description: "Revolutionary defense system with ECDH P-384 + AES-GCM 256 + ECDSA. Enhanced Security Edition v4.01.222 provides military-grade protection exceeding government standards."
         },
         {
             icon: "fas fa-bolt",
@@ -513,7 +511,7 @@
                 Enhanced Security Edition Comparison
                 </h3>
                 <p className="text-secondary max-w-2xl mx-auto mb-4">
-                SecureBit.chat v4.01.212 Enhanced Security Edition vs leading secure messengers
+                SecureBit.chat v4.01.222 Enhanced Security Edition vs leading secure messengers
                 </p>
                 <div className="inline-flex items-center px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                 <span className="text-yellow-400 mr-2">🏆</span>
@@ -659,7 +657,7 @@
                 <div className="p-6 bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border border-orange-500/20 rounded-xl">
                     <h4 className="text-xl font-bold text-orange-400 mb-4 flex items-center">
                     <i className="fas fa-trophy mr-3" />
-                    SecureBit.chat v4.01.212 Enhanced Security Edition Summary
+                    SecureBit.chat v4.01.222 Enhanced Security Edition Summary
                     </h4>
                     <p className="text-secondary leading-relaxed text-lg mb-4">
                     SecureBit.chat dominates in 11 out of 15 security categories, establishing itself as the most secure P2P messenger available.
@@ -2004,7 +2002,7 @@
                                         React.createElement('i', {
                                             className: 'fas fa-check-circle mr-2'
                                         }),
-                                        'Encrypted invitation created! Send the code and password to your contact.:'
+                                        'Encrypted invitation created! Send the code and password to your contact:'
                                     ]),
                                     offerPassword && React.createElement('div', {
                                         key: 'password-display',
@@ -2051,6 +2049,60 @@
                         ]),
 
                         // Step 2 - Session Type Selection
+                        // showOfferStep && React.createElement('div', {
+                        //     key: 'step2',
+                        //     className: "card-minimal rounded-xl p-6"
+                        // }, [
+                        //     React.createElement('div', {
+                        //         key: 'step-header',
+                        //         className: "flex items-center mb-4"
+                        //     }, [
+                        //         React.createElement('div', {
+                        //             key: 'number',
+                        //             className: "w-8 h-8 bg-green-500 text-white rounded-lg flex items-center justify-center font-semibold text-sm mr-3"
+                        //         }, '2'),
+                        //         React.createElement('h3', {
+                        //             key: 'title',
+                        //             className: "text-lg font-medium text-primary"
+                        //         }, "Select session type")
+                        //     ]),
+                        //     React.createElement('p', {
+                        //         key: 'description',
+                        //         className: "text-secondary text-sm mb-4"
+                        //     }, "Choose a session plan or use limited demo mode for testing."),
+                        //     React.createElement(SessionTypeSelector, {
+                        //         key: 'session-selector',
+                        //         onSelectType: (sessionType) => {
+                        //             // Save the selected session type
+                        //             setSelectedSessionType(sessionType);
+                        //             console.log('🎯 Session type selected:', sessionType);
+                                    
+                        //             // FIX: For demo sessions, we immediately call automatic activation
+                        //             if (sessionType === 'demo') {
+                        //                 console.log('🎮 Demo session selected, scheduling automatic activation...');
+                        //                 // Delay activation for 2 seconds to stabilize
+                        //                 setTimeout(() => {
+                        //                     if (sessionManager) {
+                        //                         console.log('🚀 Triggering demo session activation from selection...');
+                        //                         handleDemoVerification();
+                        //                     }
+                        //                 }, 2000);
+                        //             }
+                                    
+                        //             // Open a modal payment window
+                        //             if (typeof window.showPaymentModal === 'function') {
+                        //                 window.showPaymentModal(sessionType);
+                        //             } else {
+                        //                 // Fallback - show session information
+                        //                 console.log('Selected session type:', sessionType);
+                        //             }
+                        //         },
+                        //         onCancel: resetToSelect,
+                        //         sessionManager: window.sessionManager
+                        //     })
+                        // ]),
+
+                        // Step 3 - Waiting for response
                         showOfferStep && React.createElement('div', {
                             key: 'step2',
                             className: "card-minimal rounded-xl p-6"
@@ -2061,62 +2113,8 @@
                             }, [
                                 React.createElement('div', {
                                     key: 'number',
-                                    className: "w-8 h-8 bg-green-500 text-white rounded-lg flex items-center justify-center font-semibold text-sm mr-3"
-                                }, '2'),
-                                React.createElement('h3', {
-                                    key: 'title',
-                                    className: "text-lg font-medium text-primary"
-                                }, "Select session type")
-                            ]),
-                            React.createElement('p', {
-                                key: 'description',
-                                className: "text-secondary text-sm mb-4"
-                            }, "Choose a session plan or use limited demo mode for testing."),
-                            React.createElement(SessionTypeSelector, {
-                                key: 'session-selector',
-                                onSelectType: (sessionType) => {
-                                    // Save the selected session type
-                                    setSelectedSessionType(sessionType);
-                                    console.log('🎯 Session type selected:', sessionType);
-                                    
-                                    // FIX: For demo sessions, we immediately call automatic activation
-                                    if (sessionType === 'demo') {
-                                        console.log('🎮 Demo session selected, scheduling automatic activation...');
-                                        // Delay activation for 2 seconds to stabilize
-                                        setTimeout(() => {
-                                            if (sessionManager) {
-                                                console.log('🚀 Triggering demo session activation from selection...');
-                                                handleDemoVerification();
-                                            }
-                                        }, 2000);
-                                    }
-                                    
-                                    // Open a modal payment window
-                                    if (typeof window.showPaymentModal === 'function') {
-                                        window.showPaymentModal(sessionType);
-                                    } else {
-                                        // Fallback - show session information
-                                        console.log('Selected session type:', sessionType);
-                                    }
-                                },
-                                onCancel: resetToSelect,
-                                sessionManager: window.sessionManager
-                            })
-                        ]),
-
-                        // Step 3 - Waiting for response
-                        showOfferStep && React.createElement('div', {
-                            key: 'step3',
-                            className: "card-minimal rounded-xl p-6"
-                        }, [
-                            React.createElement('div', {
-                                key: 'step-header',
-                                className: "flex items-center mb-4"
-                            }, [
-                                React.createElement('div', {
-                                    key: 'number',
                                     className: "w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center font-semibold text-sm mr-3"
-                                }, '3'),
+                                }, '2'),
                                 React.createElement('h3', {
                                     key: 'title',
                                     className: "text-lg font-medium text-primary"
@@ -3794,36 +3792,175 @@ console.log('✅ Global timer management functions loaded');
 <script src="./src/pwa/offline-manager.js"></script>
 <link rel="stylesheet" href="./src/styles/pwa.css">
 <script>
-// PWA Registration Script
+// PWA Service Worker Registration
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
         try {
-            const registration = await navigator.serviceWorker.register('./sw.js');
-            console.log('✅ PWA: Service Worker registered');
+            const registration = await navigator.serviceWorker.register('./sw.js', {
+                scope: './'
+            });
+            
+            console.log('✅ PWA: Service Worker registered successfully');
+            console.log('📡 SW Scope:', registration.scope);
+            
+            // Store registration for use in other modules
+            window.swRegistration = registration;
+            
+            // Listen for updates
+            registration.addEventListener('updatefound', () => {
+                console.log('🔄 PWA: Service Worker update found');
+                const newWorker = registration.installing;
+                
+                newWorker.addEventListener('statechange', () => {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                        console.log('🆕 PWA: New version available');
+                        showUpdateNotification();
+                    }
+                });
+            });
+            
         } catch (error) {
             console.error('❌ PWA: Service Worker registration failed:', error);
+            
+            // Show fallback notification
+            if (window.DEBUG_MODE) {
+                setTimeout(() => {
+                    showServiceWorkerError(error);
+                }, 2000);
+            }
         }
     });
 }
 
-// Handle PWA install prompt
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    showInstallButton();
-});
-
-function showInstallButton() {
-    // Show install button in your UI
-    console.log('💿 PWA: Install prompt available');
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready.then(registration => {
+        console.log('🎯 PWA: Service Worker ready');
+        
+        if (window.pwaInstallPrompt && window.pwaInstallPrompt.setServiceWorkerRegistration) {
+            window.pwaInstallPrompt.setServiceWorkerRegistration(registration);
+        }
+        
+        if (window.pwaOfflineManager && window.pwaOfflineManager.setServiceWorkerRegistration) {
+            window.pwaOfflineManager.setServiceWorkerRegistration(registration);
+        }
+    });
 }
 
-// Handle app installation
-window.addEventListener('appinstalled', () => {
-    console.log('✅ PWA: App installed successfully');
-    deferredPrompt = null;
+function showUpdateNotification() {
+    const notification = document.createElement('div');
+    notification.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm';
+    notification.innerHTML = `
+        <div class="flex items-center space-x-3">
+            <i class="fas fa-download text-lg"></i>
+            <div class="flex-1">
+                <div class="font-medium">Update Available</div>
+                <div class="text-sm opacity-90">A new version of SecureBit.chat is ready</div>
+            </div>
+            <button onclick="window.location.reload()" 
+                    class="bg-white/20 hover:bg-white/30 px-3 py-1 rounded text-sm font-medium transition-colors">
+                Update
+            </button>
+        </div>
+    `;
+    
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 30000);
+}
+
+function showServiceWorkerError(error) {
+    const errorNotification = document.createElement('div');
+    errorNotification.className = 'fixed bottom-4 right-4 bg-red-500/90 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm backdrop-blur-sm';
+    errorNotification.innerHTML = `
+        <div class="flex items-start space-x-3">
+            <i class="fas fa-exclamation-triangle text-lg mt-0.5"></i>
+            <div class="flex-1">
+                <div class="font-medium">PWA Setup Issue</div>
+                <div class="text-sm opacity-90 mt-1">
+                    Service Worker registration failed. Some offline features may not work.
+                </div>
+                <details class="mt-2">
+                    <summary class="text-xs cursor-pointer opacity-75">Technical details</summary>
+                    <code class="text-xs opacity-60 block mt-1 break-all">${error.message}</code>
+                </details>
+            </div>
+            <button onclick="this.parentElement.remove()" 
+                    class="text-white/70 hover:text-white transition-colors">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+    
+    document.body.appendChild(errorNotification);
+
+    setTimeout(() => {
+        if (errorNotification.parentElement) {
+            errorNotification.remove();
+        }
+    }, 15000);
+}
+
+function checkPWASupport() {
+    const support = {
+        serviceWorker: 'serviceWorker' in navigator,
+        installPrompt: 'BeforeInstallPromptEvent' in window,
+        standalone: 'standalone' in navigator,
+        manifest: document.querySelector('link[rel="manifest"]') !== null
+    };
+    
+    console.log('🔍 PWA Support Check:', support);
+    
+    if (window.DEBUG_MODE) {
+        if (!support.serviceWorker) {
+            console.warn('⚠️ Service Workers not supported');
+        }
+        if (!support.manifest) {
+            console.warn('⚠️ Manifest not found');
+        }
+    }
+    
+    return support;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    checkPWASupport();
 });
+
+window.PWAUtils = {
+    forceUpdate: () => {
+        if (window.swRegistration) {
+            window.swRegistration.update();
+        }
+    },
+    
+    checkForUpdates: async () => {
+        if (window.swRegistration) {
+            await window.swRegistration.update();
+            console.log('🔄 Checked for PWA updates');
+        }
+    },
+    
+    getInstallStatus: () => {
+        if (window.pwaInstallPrompt) {
+            return window.pwaInstallPrompt.getInstallStatus();
+        }
+        return { isInstalled: false, canPrompt: false };
+    },
+    
+    showInstallPrompt: () => {
+        if (window.pwaInstallPrompt) {
+            window.pwaInstallPrompt.showInstallPrompt();
+        } else {
+            console.warn('⚠️ PWA Install Prompt not initialized');
+        }
+    }
+};
+
+console.log('✅ PWA Registration and utilities loaded');
 </script>
 </body>
 </html>
