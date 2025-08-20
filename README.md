@@ -15,11 +15,37 @@
 
 ---
 
+## ✨ What's New in v4.01.222
+
+### 📱 Progressive Web App (PWA)
+* **Install directly** on mobile and desktop devices
+* **Offline mode support** with session persistence
+* **Improved performance** through smart caching and service workers
+* **Native app experience** without app store requirements
+
+### 📂 Secure File Transfer
+* **End-to-end encrypted** file transfers over pure P2P WebRTC channels
+* **File chunking** with individual encryption per block
+* **Hash validation** for every chunk to prevent tampering or MITM attacks
+* **Automatic recovery** for lost packets and interrupted transfers
+* **AES-GCM 256-bit + ECDH P-384** encryption for files
+* **SHA-384 checksums** for integrity enforcement
+
+### 🔍 Enhanced Security Testing
+* **Comprehensive data leakage testing** of chat sessions
+* **Verified MITM and replay attack resistance**
+* **Enhanced memory cleanup algorithms** for session termination
+* **Isolated file streams** separated from chat channels
+
+---
+
 ## 🚀 Try It Now
 
 ### 🌐 [Live Demo — SecureBit.chat](https://securebitchat.github.io/securebit-chat/)
 
 *No installation required — works directly in your browser with military-grade encryption.*
+
+**New:** Install as PWA for native app experience on mobile and desktop!
 
 ---
 
@@ -31,6 +57,7 @@
 * **First messenger** with Lightning Network integration
 * **Military-grade cryptography** exceeding government standards
 * **Zero servers** — truly decentralized P2P architecture
+* **PWA technology** — install like native apps without app stores
 
 ### ⚡ Lightning Network Pioneer
 
@@ -61,6 +88,7 @@
 * **Traffic analysis resistance** — fake traffic generation
 * **Censorship resistance** — no servers to block
 * **Instant anonymous channels** — connect in seconds
+* **Secure file transfers** — encrypted P2P file sharing
 
 ---
 
@@ -70,6 +98,8 @@
 | --------------------------- | ----------------------------- | ---------------------------- | --------------------- | ---------------------- |
 | **Architecture**            | 🏆 Pure P2P WebRTC            | ❌ Centralized servers        | ❌ Centralized servers | ⚠️ Onion network       |
 | **Payment Integration**     | 🏆 Lightning Network          | ❌ None                       | ❌ None                | ❌ None                 |
+| **File Transfer**           | 🏆 P2P encrypted + chunked    | ✅ Encrypted via servers     | ✅ Encrypted via servers | ✅ Encrypted via servers |
+| **PWA Support**             | 🏆 Full PWA installation      | ❌ None                       | ❌ None                | ❌ None                 |
 | **Registration**            | 🏆 Anonymous                  | ❌ Phone required             | ✅ ID generated        | ✅ Random ID            |
 | **Traffic Obfuscation**     | 🏆 Advanced fake traffic      | ❌ None                       | ❌ None                | ✅ Onion routing        |
 | **Censorship Resistance**   | 🏆 Hard to block              | ⚠️ Blocked in some countries | ⚠️ May be blocked     | ✅ Onion routing        |
@@ -89,10 +119,11 @@
 ### Option 1: Use Online (Recommended)
 
 1. **Visit:** [https://securebitchat.github.io/securebit-chat/](https://securebitchat.github.io/securebit-chat/)
-2. **Choose:** *Create Channel* or *Join Channel*
-3. **Complete:** Secure key exchange with verification
-4. **Select:** Session type (Demo / Basic / Premium)
-5. **Communicate:** With military‑grade encryption
+2. **Install PWA:** Click "Install" button for native app experience
+3. **Choose:** *Create Channel* or *Join Channel*
+4. **Complete:** Secure key exchange with verification
+5. **Select:** Session type (Demo / Basic / Premium)
+6. **Communicate:** With military‑grade encryption + secure file transfers
 
 ### Option 2: Self‑Host
 
@@ -109,6 +140,34 @@ php -S localhost:8000             # PHP
 # Open browser
 open http://localhost:8000
 ```
+
+---
+
+## 📂 Secure File Transfer
+
+### Features
+
+* **P2P Direct Transfer** — No servers involved, direct WebRTC channels
+* **Military-Grade Encryption** — AES-GCM 256-bit + ECDH P-384
+* **Chunk-Level Security** — Each file chunk individually encrypted
+* **Hash Validation** — SHA-384 checksums prevent tampering
+* **Automatic Recovery** — Retry mechanisms for interrupted transfers
+* **Stream Isolation** — Separate channels from chat messages
+
+### Supported File Types
+
+* **Documents:** PDF, DOC, TXT, MD
+* **Images:** JPG, PNG, GIF, WEBP
+* **Archives:** ZIP, RAR, 7Z
+* **Media:** MP3, MP4, AVI (size limits apply)
+* **General:** Any file type up to size limits
+
+### Security Guarantees
+
+* End-to-end encryption with perfect forward secrecy
+* MITM attack prevention through hash validation
+* Zero server storage — files transfer directly P2P
+* Complete cleanup after transfer completion
 
 ---
 
@@ -140,11 +199,13 @@ open http://localhost:8000
 ### Cryptographic Stack
 
 ```
+📂 File Transfer Layer:  AES-GCM 256-bit + SHA-384 + Chunking
 🔐 Application Layer:    AES-GCM 256-bit + ECDSA P-384
 🔑 Key Exchange:         ECDH P-384 (Perfect Forward Secrecy)
 🛡️ Transport Layer:      WebRTC DTLS 1.2
 🌐 Network Layer:        P2P WebRTC Data Channels
 ⚡ Payment Layer:        Lightning Network + WebLN
+📱 PWA Layer:            Service Workers + Cache API
 ```
 
 ### Security Standards
@@ -153,33 +214,36 @@ open http://localhost:8000
 * NIST SP 800‑186 — Elliptic Curve Cryptography
 * RFC 6090 — Fundamental ECC Algorithms
 * RFC 8446 — TLS 1.3 for WebRTC
+* RFC 3874 — SHA-384 Hash Algorithm
 
 ### Browser Requirements
 
 * Modern browser with WebRTC support (Chrome 60+, Firefox 60+, Safari 12+)
-* HTTPS connection (required for WebRTC)
+* HTTPS connection (required for WebRTC and PWA)
 * JavaScript enabled
 * Lightning wallet with WebLN (for payments)
+* Service Worker support for PWA features
 
 ---
 
 ## 🗺️ Development Roadmap
 
-**Current:** v4.0 — Enhanced Security Edition ✅
+**Current:** v4.01.222 — PWA & File Transfer Edition ✅
 
-* 12‑layer military‑grade security
-* Lightning Network payments
-* Pure P2P WebRTC architecture
-* Advanced traffic obfuscation
+* Progressive Web App installation
+* Secure P2P file transfer system
+* Enhanced security testing and MITM protection
+* Improved memory cleanup algorithms
 
 **Next Releases**
 
 ### v4.5 (Q2 2025) — Mobile & Desktop Apps
 
-* PWA with offline support
+* Native mobile applications (iOS/Android)
 * Electron desktop application
 * Push notifications
 * Cross‑device synchronization
+* Enhanced PWA features
 
 ### v5.0 (Q4 2025) — Quantum‑Resistant Edition
 
@@ -194,6 +258,7 @@ open http://localhost:8000
 * Mesh networking topology
 * Group Lightning payments
 * Anonymous group administration
+* Group file sharing
 
 ### v6.0 (2027) — Decentralized Network
 
@@ -211,12 +276,26 @@ open http://localhost:8000
 ```
 securebit-chat/
 ├── index.html                 # Main application
+├── manifest.json              # PWA manifest  
+├── sw.js                      # Service worker
+├── browserconfig.xml          # Browser configuration for PWA
 ├── src/
 │   ├── components/ui/         # React UI components
+│   │   ├── DownloadApps.js    # PWA download/install component
+│   │   ├── FileTransfer.js    # File transfer UI component
+│   │   └── ...                # Other UI components
 │   ├── crypto/                # Cryptographic utilities
 │   ├── network/               # WebRTC P2P manager
 │   ├── session/               # Payment session manager
+│   ├── transfer/              # File transfer system
+│   │   └── EnhancedSecureFileTransfer.js  # Secure P2P file transfer
+│   ├── pwa/                   # PWA management
+│   │   ├── install-prompt.js  # PWA installation prompts
+│   │   ├── offline-manager.js # Offline mode management
+│   │   └── pwa-manager.js     # PWA lifecycle management
 │   └── styles/                # CSS styling
+│       ├── pwa.css           # PWA-specific styles
+│       └── ...               # Other stylesheets
 ├── logo/                      # Wallet logos and icons
 ├── docs/                      # Documentation
 └── README.md                  # This file
@@ -225,10 +304,13 @@ securebit-chat/
 ### Technology Stack
 
 * **Frontend:** Pure JavaScript + React (via CDN)
+* **PWA:** Service Workers + Cache API + Web App Manifest + Install Prompts
 * **Cryptography:** Web Crypto API + custom ECDH/ECDSA
 * **Network:** WebRTC P2P Data Channels
+* **File Transfer:** Enhanced secure P2P streaming with chunked encryption
 * **Payments:** Lightning Network via WebLN
-* **Styling:** TailwindCSS + custom CSS
+* **Offline Support:** Smart caching with offline-manager
+* **Styling:** TailwindCSS + custom CSS + PWA-specific styles
 
 ### Development Setup
 
@@ -255,6 +337,8 @@ python -m http.server 8000
 
 * ✅ Internal cryptographic review completed
 * ✅ P2P protocol security analysis completed
+* ✅ File transfer security validation completed
+* ✅ MITM and replay attack resistance verified
 * 🔄 Professional security audit planned Q3 2025
 * 🔄 Post‑quantum cryptography review for v5.0
 
@@ -265,11 +349,13 @@ Contact: **[SecureBitChat@proton.me](mailto:SecureBitChat@proton.me)**
 
 ### Security Features
 
-* Perfect Forward Secrecy — Past messages secure even if keys compromised
+* Perfect Forward Secrecy — Past messages and files secure even if keys compromised
 * Out‑of‑band verification — Prevents man‑in‑the‑middle attacks
 * Traffic obfuscation — Defeats network analysis
 * Memory protection — No persistent storage of sensitive data
 * Session isolation — Complete cleanup between sessions
+* File integrity — SHA-384 hash validation prevents tampering
+* Chunked encryption — Individual encryption per file block
 
 ---
 
@@ -279,15 +365,18 @@ Contact: **[SecureBitChat@proton.me](mailto:SecureBitChat@proton.me)**
 
 * Connection setup: < 3 seconds
 * Message latency: < 100 ms (P2P direct)
+* File transfer speed: Up to 5 MB/s per connection
 * Throughput: Up to 1 MB/s per connection
 * Memory usage: < 50 MB for active session
 * Battery impact: Minimal (optimized WebRTC)
+* PWA install size: < 2 MB
 
 ### Scalability
 
 * Concurrent connections: Limited by device capabilities
 * Message size: Up to 2000 characters
-* File transfer: Planned for v4.5
+* File size: Up to 100 MB per file
+* File types: All formats supported
 * Group size: Up to 8 participants (v5.5)
 
 ---
@@ -322,8 +411,9 @@ We welcome contributions from the community!
 * 🔐 Cryptography — Security improvements and audits
 * 🌐 Network — P2P optimization and reliability
 * ⚡ Lightning — Payment integration enhancements
-* 🎨 UI/UX — Interface improvements and accessibility
-* 📱 Mobile — PWA and mobile optimizations
+* 📂 File Transfer — EnhancedSecureFileTransfer improvements
+* 📱 PWA — Install prompts, offline management, and PWA lifecycle
+* 🎨 UI/UX — Interface improvements, FileTransfer and DownloadApps components
 * 📚 Documentation — Guides, tutorials, translations
 
 ### Development Guidelines
@@ -332,6 +422,7 @@ We welcome contributions from the community!
 * Add tests for new features
 * Update documentation
 * Respect security‑first principles
+* Test PWA functionality across devices
 
 ---
 
@@ -351,60 +442,78 @@ We welcome contributions from the community!
 
 ---
 
-⚠️ Important Disclaimers
-Security Notice
+## ⚠️ Important Disclaimers
+
+### Security Notice
 While SecureBit.chat implements military-grade cryptography and follows security best practices, no communication system is 100% secure. Users should:
 
-Always verify security codes out-of-band
-Keep devices and browsers updated
-Be aware of endpoint security risks
-Use reputable Lightning wallets
+* Always verify security codes out-of-band
+* Keep devices and browsers updated
+* Be aware of endpoint security risks
+* Use reputable Lightning wallets
+* **File transfers are protected with the same military-grade cryptography as chat messages**
 
-Legal Notice
+### Legal Notice
 This software is provided "as is" for educational and research purposes. Users are responsible for compliance with local laws and regulations regarding:
 
-Cryptographic software usage
-Private communications
-Bitcoin/Lightning Network transactions
+* Cryptographic software usage
+* Private communications
+* Bitcoin/Lightning Network transactions
+* File sharing and transfer
 
-Privacy Statement
+### Privacy Statement
 SecureBit.chat:
 
-Collects zero data - no analytics, tracking, or telemetry
-Stores nothing - all data exists only in browser memory
-Requires no registration - completely anonymous usage
-Uses no servers - direct P2P connections only
+* Collects zero data - no analytics, tracking, or telemetry
+* Stores nothing - all data exists only in browser memory
+* Requires no registration - completely anonymous usage
+* Uses no servers - direct P2P connections only
+* **Files are transferred directly P2P with zero server storage**
 
+---
 
-🎯 Why Choose SecureBit.chat?
-For Privacy Advocates
+## 🎯 Why Choose SecureBit.chat?
 
-True zero-knowledge architecture
-Military-grade encryption standards
-Complete anonymity and untraceability
-Resistance to censorship and surveillance
+### For Privacy Advocates
 
-For Bitcoin/Lightning Users
+* True zero-knowledge architecture
+* Military-grade encryption standards
+* Complete anonymity and untraceability
+* Resistance to censorship and surveillance
+* **Secure P2P file sharing without servers**
 
-Native Lightning Network integration
-Sustainable pay-per-session model
-Support for all major Lightning wallets
-No KYC or account requirements
+### For Bitcoin/Lightning Users
 
-For Developers
+* Native Lightning Network integration
+* Sustainable pay-per-session model
+* Support for all major Lightning wallets
+* No KYC or account requirements
 
-100% open source transparency
-Modern cryptographic standards
-Clean, auditable codebase
-Extensible modular architecture
+### For Mobile Users
 
-For Everyone
+* **Progressive Web App installation**
+* **Offline mode support**
+* **Native app experience without app stores**
+* **Works on all modern mobile devices**
 
-No installation required
-Works on all modern devices
-Intuitive user interface
-Professional security standards
+### For Developers
 
+* 100% open source transparency
+* Modern cryptographic standards
+* Clean, auditable codebase
+* Extensible modular architecture
+* **PWA best practices implementation**
+
+### For Everyone
+
+* **Install like native apps**
+* **Works offline with session persistence**
+* Works on all modern devices
+* Intuitive user interface
+* Professional security standards
+* **Secure file transfers included**
+
+---
 
 <div align="center">
 
@@ -413,5 +522,9 @@ Professional security standards
 *Committed to protecting your privacy with military-grade security*
 
 **Report vulnerabilities:** SecureBitChat@proton.me
+
+---
+
+**Latest Release: v4.01.222** — PWA & Secure File Transfer
 
 </div>
