@@ -261,7 +261,7 @@ python -m http.server 8000
 ### Vulnerability Reporting
 
 See **SECURITY.md** for detailed security policy and reporting instructions.
-Contact: **[security@securebit.chat](mailto:SecureBitChat@proton.me)**
+Contact: **[SecureBitChat@proton.me](mailto:SecureBitChat@proton.me)**
 
 ### Security Features
 
@@ -339,9 +339,9 @@ We welcome contributions from the community!
 
 ### Official Channels
 
-* Email: **[lockbitchat@tutanota.com](mailto:SecureBitChat@proton.me)**
+* Email: **[SecureBitChat@proton.me](mailto:SecureBitChat@proton.me)**
 * GitHub: **Issues & Discussions**
-* Security: **[security@securebit.chat](mailto:SecureBitChat@proton.me)**
+* Security: **[SecureBitChat@proton.me](mailto:SecureBitChat@proton.me)**
 
 ### Community
 
@@ -412,6 +412,6 @@ Professional security standards
 
 *Committed to protecting your privacy with military-grade security*
 
-**Report vulnerabilities:** security@securebit.chat
+**Report vulnerabilities:** SecureBitChat@proton.me
 
 </div>
