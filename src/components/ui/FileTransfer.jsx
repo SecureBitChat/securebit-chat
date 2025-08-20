@@ -1,4 +1,4 @@
-// File Transfer Component for Chat Interface
+// File Transfer Component for Chat Interface - Fixed Version
 const FileTransferComponent = ({ webrtcManager, isConnected }) => {
     const [dragOver, setDragOver] = React.useState(false);
     const [transfers, setTransfers] = React.useState({ sending: [], receiving: [] });
@@ -17,19 +17,26 @@ const FileTransferComponent = ({ webrtcManager, isConnected }) => {
         return () => clearInterval(interval);
     }, [isConnected, webrtcManager]);
 
-    // Setup file transfer callbacks
+    // Setup file transfer callbacks - ИСПРАВЛЕНИЕ: НЕ отправляем промежуточные сообщения в чат
     React.useEffect(() => {
         if (!webrtcManager) return;
 
         webrtcManager.setFileTransferCallbacks(
-            // Progress callback
+            // Progress callback - ТОЛЬКО обновляем UI, НЕ отправляем в чат
             (progress) => {
+                console.log(`📁 UI Progress: ${progress.fileName}: ${progress.progress.toFixed(1)}% (${progress.status})`);
+                
+                // Обновляем только локальное состояние
                 const currentTransfers = webrtcManager.getFileTransfers();
                 setTransfers(currentTransfers);
+                
+                // НЕ отправляем сообщения в чат!
             },
             
-            // File received callback
+            // File received callback - показываем только финальное уведомление
             (fileData) => {
+                console.log(`📥 File received in UI: ${fileData.fileName}`);
+                
                 // Auto-download received file
                 const url = URL.createObjectURL(fileData.fileBlob);
                 const a = document.createElement('a');
@@ -41,13 +48,19 @@ const FileTransferComponent = ({ webrtcManager, isConnected }) => {
                 // Update transfer list
                 const currentTransfers = webrtcManager.getFileTransfers();
                 setTransfers(currentTransfers);
+                
+                // ИСПРАВЛЕНИЕ: НЕ дублируем системные сообщения
+                // Финальное уведомление уже отправляется в WebRTC менеджере
             },
             
             // Error callback
             (error) => {
-                console.error('File transfer error:', error);
+                console.error('File transfer error in UI:', error);
                 const currentTransfers = webrtcManager.getFileTransfers();
                 setTransfers(currentTransfers);
+                
+                // ИСПРАВЛЕНИЕ: НЕ дублируем сообщения об ошибках
+                // Уведомления об ошибках уже отправляются в WebRTC менеджере
             }
         );
     }, [webrtcManager]);
@@ -66,6 +79,7 @@ const FileTransferComponent = ({ webrtcManager, isConnected }) => {
 
         for (const file of files) {
             try {
+                console.log(`🚀 Starting file upload from UI: ${file.name}`);
                 await webrtcManager.sendFile(file);
             } catch (error) {
                 // Более мягкая обработка ошибок - не закрываем сессию
@@ -115,6 +129,44 @@ const FileTransferComponent = ({ webrtcManager, isConnected }) => {
         const sizes = ['B', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+
+    const getStatusIcon = (status) => {
+        switch (status) {
+            case 'metadata_sent':
+            case 'preparing':
+                return 'fas fa-cog fa-spin';
+            case 'transmitting':
+            case 'receiving':
+                return 'fas fa-exchange-alt fa-pulse';
+            case 'assembling':
+                return 'fas fa-puzzle-piece fa-pulse';
+            case 'completed':
+                return 'fas fa-check text-green-400';
+            case 'failed':
+                return 'fas fa-times text-red-400';
+            default:
+                return 'fas fa-circle';
+        }
+    };
+
+    const getStatusText = (status) => {
+        switch (status) {
+            case 'metadata_sent':
+                return 'Подготовка...';
+            case 'transmitting':
+                return 'Отправка...';
+            case 'receiving':
+                return 'Получение...';
+            case 'assembling':
+                return 'Сборка файла...';
+            case 'completed':
+                return 'Завершено';
+            case 'failed':
+                return 'Ошибка';
+            default:
+                return status;
+        }
     };
 
     if (!isConnected) {
@@ -241,10 +293,24 @@ const FileTransferComponent = ({ webrtcManager, isConnected }) => {
                             className: "progress-fill bg-blue-400",
                             style: { width: `${transfer.progress}%` }
                         }),
-                        React.createElement('span', {
+                        React.createElement('div', {
                             key: 'text',
-                            className: "progress-text text-xs"
-                        }, `${transfer.progress.toFixed(1)}% • ${transfer.status}`)
+                            className: "progress-text text-xs flex items-center justify-between"
+                        }, [
+                            React.createElement('span', {
+                                key: 'status',
+                                className: "flex items-center"
+                            }, [
+                                React.createElement('i', {
+                                    key: 'icon',
+                                    className: `${getStatusIcon(transfer.status)} mr-1`
+                                }),
+                                getStatusText(transfer.status)
+                            ]),
+                            React.createElement('span', {
+                                key: 'percent'
+                            }, `${transfer.progress.toFixed(1)}%`)
+                        ])
                     ])
                 ])
             ),
@@ -295,10 +361,24 @@ const FileTransferComponent = ({ webrtcManager, isConnected }) => {
                             className: "progress-fill bg-green-400",
                             style: { width: `${transfer.progress}%` }
                         }),
-                        React.createElement('span', {
+                        React.createElement('div', {
                             key: 'text',
-                            className: "progress-text text-xs"
-                        }, `${transfer.progress.toFixed(1)}% • ${transfer.status}`)
+                            className: "progress-text text-xs flex items-center justify-between"
+                        }, [
+                            React.createElement('span', {
+                                key: 'status',
+                                className: "flex items-center"
+                            }, [
+                                React.createElement('i', {
+                                    key: 'icon',
+                                    className: `${getStatusIcon(transfer.status)} mr-1`
+                                }),
+                                getStatusText(transfer.status)
+                            ]),
+                            React.createElement('span', {
+                                key: 'percent'
+                            }, `${transfer.progress.toFixed(1)}%`)
+                        ])
                     ])
                 ])
             )

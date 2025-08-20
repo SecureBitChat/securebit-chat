@@ -11,6 +11,10 @@ class EnhancedSecureFileTransfer {
             throw new Error('webrtcManager is required for EnhancedSecureFileTransfer');
         }
         
+        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Устанавливаем глобальный флаг
+        window.FILE_TRANSFER_ACTIVE = true;
+        window.fileTransferSystem = this;
+        
         console.log('🔍 Debug: webrtcManager in constructor:', {
             hasWebrtcManager: !!webrtcManager,
             webrtcManagerType: webrtcManager.constructor?.name,
@@ -39,10 +43,174 @@ class EnhancedSecureFileTransfer {
         this.processedChunks = new Set(); // Prevent replay attacks
         this.transferNonces = new Map(); // fileId -> current nonce counter
         
-        // Initialize message handlers
+        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Регистрируем обработчик сообщений
         this.setupFileMessageHandlers();
         
         console.log('🔒 Enhanced Secure File Transfer initialized');
+    }
+
+    // ============================================
+    // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ - ОБРАБОТКА СООБЩЕНИЙ
+    // ============================================
+
+    setupFileMessageHandlers() {
+        console.log('🔧 Setting up file message handlers');
+        
+        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Ждем готовности dataChannel
+        if (!this.webrtcManager.dataChannel) {
+            console.log('⏰ DataChannel not ready, deferring setup...');
+            // Попытаемся настроить через небольшой интервал
+            const setupRetry = setInterval(() => {
+                if (this.webrtcManager.dataChannel) {
+                    clearInterval(setupRetry);
+                    console.log('🔄 DataChannel ready, setting up handlers...');
+                    this.setupMessageInterception();
+                }
+            }, 100);
+            
+            // Timeout для предотвращения бесконечного ожидания
+            setTimeout(() => {
+                clearInterval(setupRetry);
+                console.warn('⚠️ DataChannel setup timeout');
+            }, 5000);
+            
+            return;
+        }
+        
+        // Если dataChannel уже готов, сразу настраиваем
+        this.setupMessageInterception();
+        
+        console.log('✅ File message handlers configured');
+    }
+
+    // В методе setupMessageInterception(), замените весь метод на:
+    setupMessageInterception() {
+        try {
+            if (!this.webrtcManager.dataChannel) {
+                console.warn('⚠️ WebRTC manager data channel not available yet');
+                return;
+            }
+
+            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Глобальный флаг для блокировки файловых сообщений
+            window.FILE_TRANSFER_ACTIVE = true;
+            window.fileTransferSystem = this;
+
+            // 1. ПЕРЕХВАТ НА УРОВНЕ dataChannel.onmessage
+            if (this.webrtcManager.dataChannel.onmessage) {
+                this.originalOnMessage = this.webrtcManager.dataChannel.onmessage;
+                console.log('💾 Original onmessage handler saved');
+            }
+
+            this.webrtcManager.dataChannel.onmessage = async (event) => {
+                try {
+                    // Проверяем файловые сообщения ПЕРВЫМИ
+                    if (typeof event.data === 'string') {
+                        try {
+                            const parsed = JSON.parse(event.data);
+                            
+                            if (this.isFileTransferMessage(parsed)) {
+                                console.log('🛑 FILE MESSAGE BLOCKED FROM CHAT:', parsed.type);
+                                await this.handleFileMessage(parsed);
+                                return; // КРИТИЧЕСКИ ВАЖНО: НЕ передаем дальше
+                            }
+                        } catch (parseError) {
+                            // Не JSON - передаем оригинальному обработчику
+                        }
+                    }
+
+                    // Передаем обычные сообщения оригинальному обработчику
+                    if (this.originalOnMessage) {
+                        return this.originalOnMessage.call(this.webrtcManager.dataChannel, event);
+                    }
+                } catch (error) {
+                    console.error('❌ Error in file system message interception:', error);
+                    if (this.originalOnMessage) {
+                        return this.originalOnMessage.call(this.webrtcManager.dataChannel, event);
+                    }
+                }
+            };
+
+            console.log('✅ Message interception set up successfully');
+        } catch (error) {
+            console.error('❌ Failed to set up message interception:', error);
+        }
+    }
+
+    // Проверяем, является ли сообщение файловым
+    isFileTransferMessage(message) {
+        if (!message || typeof message !== 'object' || !message.type) {
+            return false;
+        }
+        
+        const fileMessageTypes = [
+            'file_transfer_start',
+            'file_transfer_response', 
+            'file_chunk',
+            'chunk_confirmation',
+            'file_transfer_complete',
+            'file_transfer_error'
+        ];
+        
+        const isFileMessage = fileMessageTypes.includes(message.type);
+        
+        if (isFileMessage) {
+            console.log(`🎯 CONFIRMED FILE MESSAGE: ${message.type} - WILL BE BLOCKED FROM CHAT`);
+        }
+        
+        return isFileMessage;
+    }
+
+    // Обрабатываем файловые сообщения
+    async handleFileMessage(message) {
+        try {
+            console.log(`🔄 Handling file message: ${message.type}`, {
+                fileId: message.fileId,
+                type: message.type
+            });
+            
+            switch (message.type) {
+                case 'file_transfer_start':
+                    await this.handleFileTransferStart(message);
+                    break;
+                    
+                case 'file_transfer_response':
+                    this.handleTransferResponse(message);
+                    break;
+                    
+                case 'file_chunk':
+                    await this.handleFileChunk(message);
+                    break;
+                    
+                case 'chunk_confirmation':
+                    this.handleChunkConfirmation(message);
+                    break;
+                    
+                case 'file_transfer_complete':
+                    this.handleTransferComplete(message);
+                    break;
+                    
+                case 'file_transfer_error':
+                    this.handleTransferError(message);
+                    break;
+                    
+                default:
+                    console.warn('⚠️ Unknown file message type:', message.type);
+            }
+            
+        } catch (error) {
+            console.error('❌ Error handling file message:', error);
+            
+            // Отправляем сообщение об ошибке
+            if (message.fileId) {
+                const errorMessage = {
+                    type: 'file_transfer_error',
+                    fileId: message.fileId,
+                    error: error.message,
+                    timestamp: Date.now()
+                };
+                await this.sendSecureMessage(errorMessage);
+            }
+        }
     }
 
     // ============================================
@@ -281,17 +449,9 @@ class EnhancedSecureFileTransfer {
             
             transferState.status = 'metadata_sent';
             
-            // Notify progress
-            if (this.onProgress) {
-                this.onProgress({
-                    fileId: transferState.fileId,
-                    fileName: transferState.file.name,
-                    progress: 5, // 5% for metadata sent
-                    status: 'metadata_sent',
-                    totalChunks: transferState.totalChunks,
-                    sentChunks: 0
-                });
-            }
+            // ИСПРАВЛЕНИЕ: НЕ отправляем системные сообщения в чат
+            // Только логируем
+            console.log(`📁 File metadata sent: ${transferState.file.name} (5% progress)`);
 
         } catch (error) {
             console.error('❌ Failed to send file metadata:', error);
@@ -321,16 +481,9 @@ class EnhancedSecureFileTransfer {
                 transferState.sentChunks++;
                 const progress = Math.round((transferState.sentChunks / totalChunks) * 95) + 5; // 5-100%
                 
-                if (this.onProgress) {
-                    this.onProgress({
-                        fileId: transferState.fileId,
-                        fileName: transferState.file.name,
-                        progress: progress,
-                        status: 'transmitting',
-                        totalChunks: totalChunks,
-                        sentChunks: transferState.sentChunks
-                    });
-                }
+                // ИСПРАВЛЕНИЕ: НЕ отправляем каждый чанк в чат
+                // Только логируем
+                console.log(`📤 Chunk sent ${transferState.sentChunks}/${totalChunks} (${progress}%)`);
                 
                 // Small delay between chunks to prevent overwhelming
                 if (chunkIndex < totalChunks - 1) {
@@ -437,11 +590,6 @@ class EnhancedSecureFileTransfer {
     // MESSAGE HANDLERS
     // ============================================
 
-    setupFileMessageHandlers() {
-        // This is now handled by WebRTC manager's processMessage method
-        // No need to override onMessage here
-    }
-
     async handleFileTransferStart(metadata) {
         try {
             console.log('📥 Receiving file transfer:', metadata.fileName);
@@ -493,17 +641,9 @@ class EnhancedSecureFileTransfer {
             
             await this.sendSecureMessage(response);
             
-            // Notify progress
-            if (this.onProgress) {
-                this.onProgress({
-                    fileId: receivingState.fileId,
-                    fileName: receivingState.fileName,
-                    progress: 0,
-                    status: 'receiving',
-                    totalChunks: receivingState.totalChunks,
-                    receivedChunks: 0
-                });
-            }
+            // ИСПРАВЛЕНИЕ: НЕ отправляем уведомления в чат
+            // Только логируем
+            console.log(`📥 Started receiving file: ${receivingState.fileName} (${(receivingState.fileSize / 1024 / 1024).toFixed(2)} MB)`);
 
             // Process buffered chunks if any
             if (this.pendingChunks.has(metadata.fileId)) {
@@ -592,17 +732,8 @@ class EnhancedSecureFileTransfer {
             
             console.log(`📥 Received chunk ${chunkMessage.chunkIndex + 1}/${receivingState.totalChunks} (${progress}%)`);
             
-            // Notify progress
-            if (this.onProgress) {
-                this.onProgress({
-                    fileId: receivingState.fileId,
-                    fileName: receivingState.fileName,
-                    progress: progress,
-                    status: 'receiving',
-                    totalChunks: receivingState.totalChunks,
-                    receivedChunks: receivingState.receivedCount
-                });
-            }
+            // ИСПРАВЛЕНИЕ: НЕ отправляем уведомления о прогрессе в чат
+            // Только логируем
             
             // Send chunk confirmation
             const confirmation = {
@@ -783,6 +914,7 @@ class EnhancedSecureFileTransfer {
         try {
             const transferState = this.activeTransfers.get(confirmation.fileId);
             if (!transferState) {
+                console.warn('⚠️ Received chunk confirmation for unknown transfer:', confirmation.fileId);
                 return;
             }
             
@@ -801,6 +933,7 @@ class EnhancedSecureFileTransfer {
             
             const transferState = this.activeTransfers.get(completion.fileId);
             if (!transferState) {
+                console.warn('⚠️ Received completion for unknown transfer:', completion.fileId);
                 return;
             }
             
@@ -979,6 +1112,29 @@ class EnhancedSecureFileTransfer {
     cleanup() {
         console.log('🧹 Cleaning up file transfer system');
         
+        // ИСПРАВЛЕНИЕ: Очищаем глобальные флаги
+        window.FILE_TRANSFER_ACTIVE = false;
+        window.fileTransferSystem = null;
+        
+        // ИСПРАВЛЕНИЕ: Восстанавливаем ВСЕ перехваченные методы
+        if (this.webrtcManager && this.webrtcManager.dataChannel && this.originalOnMessage) {
+            console.log('🔄 Restoring original onmessage handler');
+            this.webrtcManager.dataChannel.onmessage = this.originalOnMessage;
+            this.originalOnMessage = null;
+        }
+        
+        if (this.webrtcManager && this.originalProcessMessage) {
+            console.log('🔄 Restoring original processMessage handler');
+            this.webrtcManager.processMessage = this.originalProcessMessage;
+            this.originalProcessMessage = null;
+        }
+        
+        if (this.webrtcManager && this.originalRemoveSecurityLayers) {
+            console.log('🔄 Restoring original removeSecurityLayers handler');
+            this.webrtcManager.removeSecurityLayers = this.originalRemoveSecurityLayers;
+            this.originalRemoveSecurityLayers = null;
+        }
+        
         // Cleanup all active transfers
         for (const fileId of this.activeTransfers.keys()) {
             this.cleanupTransfer(fileId);
@@ -996,6 +1152,8 @@ class EnhancedSecureFileTransfer {
         this.sessionKeys.clear();
         this.transferNonces.clear();
         this.processedChunks.clear();
+        
+        console.log('✅ File transfer system cleaned up');
     }
 
     // ============================================
@@ -1024,11 +1182,9 @@ class EnhancedSecureFileTransfer {
         try {
             console.log('🔍 Debug: Testing key derivation for:', fileId);
             
-            if (!this.webrtcManager.macKey) {
-                throw new Error('MAC key not available');
+            if (!this.webrtcManager.keyFingerprint || !this.webrtcManager.sessionSalt) {
+                throw new Error('Session data not available');
             }
-            
-            const salt = crypto.getRandomValues(new Uint8Array(32));
             
             // Test sender derivation
             const senderResult = await this.deriveFileSessionKey(fileId);
@@ -1067,6 +1223,58 @@ class EnhancedSecureFileTransfer {
             console.error('❌ Key derivation test failed:', error);
             return { success: false, error: error.message };
         }
+    }
+
+    // ============================================
+    // АЛЬТЕРНАТИВНЫЙ МЕТОД ИНИЦИАЛИЗАЦИИ ОБРАБОТЧИКОВ
+    // ============================================
+    
+    // Если переопределение processMessage не работает, 
+    // используйте этот метод для явной регистрации обработчика
+    registerWithWebRTCManager() {
+        console.log('🔧 Registering file transfer handler with WebRTC manager');
+        
+        if (!this.webrtcManager) {
+            throw new Error('WebRTC manager not available');
+        }
+        
+        // Сохраняем ссылку на файловую систему в WebRTC менеджере
+        this.webrtcManager.fileTransferSystem = this;
+        
+        // КРИТИЧЕСКИ ВАЖНО: Устанавливаем обработчик файловых сообщений
+        this.webrtcManager.setFileMessageHandler = (handler) => {
+            this.webrtcManager._fileMessageHandler = handler;
+            console.log('✅ File message handler registered in WebRTC manager');
+        };
+        
+        // Регистрируем наш обработчик
+        this.webrtcManager.setFileMessageHandler((message) => {
+            console.log('📁 File message via registered handler:', message.type);
+            return this.handleFileMessage(message);
+        });
+        
+        console.log('✅ File transfer handler registered');
+    }
+
+    // Метод для прямого вызова из WebRTC менеджера
+    static createFileMessageFilter(fileTransferSystem) {
+        return async (event) => {
+            try {
+                if (typeof event.data === 'string') {
+                    const parsed = JSON.parse(event.data);
+                    
+                    if (fileTransferSystem.isFileTransferMessage(parsed)) {
+                        console.log('📁 File message filtered by static method:', parsed.type);
+                        await fileTransferSystem.handleFileMessage(parsed);
+                        return true; // Сообщение обработано
+                    }
+                }
+            } catch (error) {
+                // Не файловое сообщение или ошибка парсинга
+            }
+            
+            return false; // Сообщение не обработано
+        };
     }
 }
 

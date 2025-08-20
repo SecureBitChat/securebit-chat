@@ -2963,6 +2963,34 @@
                 }
 
                 const handleMessage = (message, type) => {
+                    // Дополнительная проверка на файловые и системные сообщения
+                    if (typeof message === 'string' && message.trim().startsWith('{')) {
+                        try {
+                            const parsedMessage = JSON.parse(message);
+                            const blockedTypes = [
+                                'file_transfer_start',
+                                'file_transfer_response',
+                                'file_chunk',
+                                'chunk_confirmation',
+                                'file_transfer_complete',
+                                'file_transfer_error',
+                                'heartbeat',
+                                'verification',
+                                'verification_response',
+                                'peer_disconnect',
+                                'key_rotation_signal',
+                                'key_rotation_ready',
+                                'security_upgrade'
+                            ];
+                            if (parsedMessage.type && blockedTypes.includes(parsedMessage.type)) {
+                                console.log(`🛑 Blocked system/file message from chat: ${parsedMessage.type}`);
+                                return; // Не показываем системные и файловые сообщения в чате
+                            }
+                        } catch (parseError) {
+                            // Не JSON - это нормально для обычных текстовых сообщений
+                        }
+                    }
+                    
                     addMessageWithAutoScroll(message, type);
                 };
 
