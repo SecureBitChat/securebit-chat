@@ -2309,244 +2309,309 @@
             }
         };
 
-        // Enhanced Chat Interface with better security indicators
-        const EnhancedChatInterface = ({ 
-            messages, 
-            messageInput, 
-            setMessageInput, 
-            onSendMessage, 
-            onDisconnect,
-            keyFingerprint,
-            isVerified,
-            chatMessagesRef,
-            scrollToBottom,
-            webrtcManager
-        }) => {
-            const [showScrollButton, setShowScrollButton] = React.useState(false);
-            const [showFileTransfer, setShowFileTransfer] = React.useState(false);
-            React.useEffect(() => {
-                if (chatMessagesRef.current && messages.length > 0) {
-                    const { scrollTop, scrollHeight, clientHeight } = chatMessagesRef.current;
-                    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
-                    
-                    if (isNearBottom) {
-                        const scrollToBottom = () => {
-                if (chatMessagesRef.current) {
-                    chatMessagesRef.current.scrollTo({
-                        top: chatMessagesRef.current.scrollHeight,
-                        behavior: 'smooth'
-                    });
-                            }
-                        };
-                        
-                        scrollToBottom();
-                        setTimeout(scrollToBottom, 50);
-                        setTimeout(scrollToBottom, 150);
+       const EnhancedChatInterface = ({
+    messages,
+    messageInput,
+    setMessageInput,
+    onSendMessage,
+    onDisconnect,
+    keyFingerprint,
+    isVerified,
+    chatMessagesRef,
+    scrollToBottom,
+    webrtcManager
+}) => {
+    const [showScrollButton, setShowScrollButton] = React.useState(false);
+    const [showFileTransfer, setShowFileTransfer] = React.useState(false);
+
+    // Автоматическая прокрутка при изменении сообщений
+    React.useEffect(() => {
+        if (chatMessagesRef.current && messages.length > 0) {
+            const { scrollTop, scrollHeight, clientHeight } = chatMessagesRef.current;
+            const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+            if (isNearBottom) {
+                const smoothScroll = () => {
+                    if (chatMessagesRef.current) {
+                        chatMessagesRef.current.scrollTo({
+                            top: chatMessagesRef.current.scrollHeight,
+                            behavior: 'smooth'
+                        });
                     }
-                }
-            }, [messages]);
-            
-            // Scroll handler to show the button
-            const handleScroll = () => {
-                if (chatMessagesRef.current) {
-                    const { scrollTop, scrollHeight, clientHeight } = chatMessagesRef.current;
-                    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
-                    setShowScrollButton(!isNearBottom);
-                }
-            };
-            
-            // Wrapper for scrollToBottom with button state update
-            const handleScrollToBottom = () => {
-                scrollToBottom();
-                setShowScrollButton(false);
-            };
+                };
+                smoothScroll();
+                setTimeout(smoothScroll, 50);
+                setTimeout(smoothScroll, 150);
+            }
+        }
+    }, [messages, chatMessagesRef]);
 
-            const handleKeyPress = (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    onSendMessage();
-                }
-            };
+    // Обработчик скролла
+    const handleScroll = () => {
+        if (chatMessagesRef.current) {
+            const { scrollTop, scrollHeight, clientHeight } = chatMessagesRef.current;
+            const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+            setShowScrollButton(!isNearBottom);
+        }
+    };
 
-            return React.createElement('div', {
-                className: "chat-container"
-            }, [
-                // Chat Messages Area
-                React.createElement('div', {
-                    key: 'chat-body',
-                    className: "chat-messages-area max-w-4xl mx-auto w-full p-4 relative"
-                }, [
-                    React.createElement('div', {
-                        key: 'messages-container',
-                        ref: chatMessagesRef,
-                        onScroll: handleScroll,
-                        className: "h-full overflow-y-auto space-y-3 custom-scrollbar pr-2 scroll-smooth"
-                    }, 
-                        messages.length === 0 ? 
-                        React.createElement('div', {
-                            key: 'empty-state',
-                            className: "flex items-center justify-center h-full"
-                        }, [
-                            React.createElement('div', {
-                                className: "text-center max-w-md"
-                            }, [
-                                React.createElement('div', {
-                                    key: 'icon',
-                                    className: "w-16 h-16 bg-green-500/10 border border-green-500/20 rounded-xl flex items-center justify-center mx-auto mb-4"
-                                }, [
-                                    React.createElement('i', {
-                                        className: 'fas fa-comments text-2xl accent-green'
-                                    })
-                                ]),
-                                React.createElement('h3', {
-                                    key: 'title',
-                                    className: "text-lg font-medium text-primary mb-2"
-                                }, "Secure channel is ready!"),
-                                React.createElement('p', {
-                                    key: 'description',
-                                    className: "text-secondary text-sm mb-4"
-                                }, "All messages are protected by modern cryptographic algorithms"),
-                                React.createElement('div', {
-                                    key: 'features',
-                                    className: "text-left space-y-2"
-                                }, [
-                                    React.createElement('div', {
-                                        key: 'f1',
-                                        className: "flex items-center text-sm text-muted"
-                                    }, [
-                                        React.createElement('i', {
-                                            className: 'fas fa-check accent-green mr-3'
-                                        }),
-                                        'End-to-end encryption'
-                                    ]),
-                                    React.createElement('div', {
-                                        key: 'f2',
-                                        className: "flex items-center text-sm text-muted"
-                                    }, [
-                                        React.createElement('i', {
-                                            className: 'fas fa-check accent-green mr-3'
-                                        }),
-                                        'Protection against replay attacks'
-                                    ]),
-                                    React.createElement('div', {
-                                        key: 'f3',
-                                        className: "flex items-center text-sm text-muted"
-                                    }, [
-                                        React.createElement('i', {
-                                            className: 'fas fa-check accent-green mr-3'
-                                        }),
-                                        'Integrity verification'
-                                    ]),
-                                    React.createElement('div', {
-                                        key: 'f4',
-                                        className: "flex items-center text-sm text-muted"
-                                    }, [
-                                        React.createElement('i', {
-                                            className: 'fas fa-sync-alt accent-purple mr-3'
-                                        }),
-                                        'Perfect Forward Secrecy'
-                                    ])
-                                ])
-                            ])
-                        ]) :
-                        messages.map((msg) => 
-                            React.createElement(EnhancedChatMessage, { 
-                                key: msg.id, 
-                                message: msg.message, 
-                                type: msg.type,
-                                timestamp: msg.timestamp
-                            })
-                        )
-                    )
-                ]),
-                
-                // Scroll down button
-                showScrollButton && React.createElement('button', {
-                    key: 'scroll-down-btn',
-                    onClick: handleScrollToBottom,
-                    className: "absolute bottom-4 right-4 w-10 h-10 bg-gray-600/80 hover:bg-gray-500/80 text-white rounded-full flex items-center justify-center transition-all duration-200 shadow-lg",
-                    style: { zIndex: 10 }
-                }, [
-                    React.createElement('i', {
-                        className: 'fas fa-chevron-down'
-                    })
-                ]),
-                React.createElement('div', {
-                    key: 'file-section',
-                    className: "file-transfer-section max-w-4xl mx-auto p-4 border-t border-gray-500/10"
-                }, [
-                    React.createElement('button', {
-                        key: 'toggle-files',
-                        onClick: () => setShowFileTransfer(!showFileTransfer),
-                        className: `flex items-center text-sm text-secondary hover:text-primary transition-colors ${showFileTransfer ? 'mb-4' : ''}`
-                    }, [
-                        React.createElement('i', {
-                            key: 'icon',
-                            className: `fas fa-${showFileTransfer ? 'chevron-up' : 'paperclip'} mr-2`
-                        }),
-                        showFileTransfer ? 'Hide file transfer' : 'Send files'
-                    ]),
+    // Прокрутка вниз по кнопке
+    const handleScrollToBottom = () => {
+        scrollToBottom();
+        setShowScrollButton(false);
+    };
 
-                    showFileTransfer && React.createElement(FileTransferComponent, {
-                        key: 'file-transfer',
-                        webrtcManager: webrtcManager,
-                        isConnected: isVerified
-                    })
-                ]),    
-                // Enhanced Chat Input Area
-                React.createElement('div', {
-                    key: 'chat-input',
-                    className: "chat-input-area border-t border-gray-500/10"
-                }, [
-                    React.createElement('div', {
-                        key: 'input-container',
-                        className: "max-w-4xl mx-auto p-4"
-                    }, [
-                        React.createElement('div', {
-                            key: 'input-wrapper',
-                            className: "flex items-end space-x-3"
-                        }, [
-                            React.createElement('div', {
-                                key: 'text-area-wrapper',
-                                className: "flex-1 relative"
-                            }, [
-                                React.createElement('textarea', {
-                                    key: 'input',
-                                    value: messageInput,
-                                    onChange: (e) => setMessageInput(e.target.value),
-                                    onKeyDown: handleKeyPress,
-                                    placeholder: "Enter message to encrypt...",
-                                    rows: 2,
-                                    maxLength: 2000,
-                                    className: "w-full p-3 bg-gray-900/30 border border-gray-500/20 rounded-lg resize-none text-primary placeholder-gray-500 focus:border-green-500/40 focus:outline-none transition-all custom-scrollbar text-sm"
-                                }),
-                                React.createElement('div', {
-                                    key: 'input-info',
-                                    className: "absolute bottom-2 right-3 flex items-center space-x-2 text-xs text-muted"
-                                }, [
-                                    React.createElement('span', {
-                                        key: 'counter'
-                                    }, `${messageInput.length}/2000`),
-                                    React.createElement('span', {
-                                        key: 'hint'
-                                    }, "• Enter to send")
-                                ])
-                            ]),
-                            React.createElement('button', {
-                                key: 'send',
-                                onClick: onSendMessage,
-                                disabled: !messageInput.trim(),
-                                className: "security-shield text-white p-3 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                            }, [
-                                React.createElement('i', {
-                                    className: 'fas fa-paper-plane'
+    // Обработчик нажатия Enter
+    const handleKeyPress = (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            onSendMessage();
+        }
+    };
+
+    // ИСПРАВЛЕНИЕ: Проверка готовности для файловых трансферов
+    const isFileTransferReady = () => {
+        if (!webrtcManager) return false;
+        
+        const connected = webrtcManager.isConnected ? webrtcManager.isConnected() : false;
+        const verified = webrtcManager.isVerified || false;
+        const hasDataChannel = webrtcManager.dataChannel && webrtcManager.dataChannel.readyState === 'open';
+        
+        return connected && verified && hasDataChannel;
+    };
+
+    // Возврат JSX через React.createElement
+    return React.createElement(
+        'div',
+        {
+            className: "chat-container flex flex-col",
+            style: { backgroundColor: '#272827', height: 'calc(100vh - 64px)' }
+        },
+        [
+            // Область сообщений
+            React.createElement(
+                'div',
+                { className: "flex-1 flex flex-col overflow-hidden" },
+                React.createElement(
+                    'div',
+                    { className: "flex-1 max-w-4xl mx-auto w-full p-4 overflow-hidden" },
+                    React.createElement(
+                        'div',
+                        {
+                            ref: chatMessagesRef,
+                            onScroll: handleScroll,
+                            className: "h-full overflow-y-auto space-y-3 hide-scrollbar pr-2 scroll-smooth"
+                        },
+                        messages.length === 0 ?
+                            React.createElement(
+                                'div',
+                                { className: "flex items-center justify-center h-full" },
+                                React.createElement(
+                                    'div',
+                                    { className: "text-center max-w-md" },
+                                    [
+                                        React.createElement(
+                                            'div',
+                                            { className: "w-16 h-16 bg-green-500/10 border border-green-500/20 rounded-xl flex items-center justify-center mx-auto mb-4" },
+                                            React.createElement(
+                                                'svg',
+                                                { className: "w-8 h-8 text-green-500", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24" },
+                                                React.createElement('path', {
+                                                    strokeLinecap: "round",
+                                                    strokeLinejoin: "round",
+                                                    strokeWidth: 2,
+                                                    d: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                                                })
+                                            )
+                                        ),
+                                        React.createElement('h3', { className: "text-lg font-medium text-gray-300 mb-2" }, "Secure channel is ready!"),
+                                        React.createElement('p', { className: "text-gray-400 text-sm mb-4" }, "All messages are protected by modern cryptographic algorithms"),
+                                        React.createElement(
+                                            'div',
+                                            { className: "text-left space-y-2" },
+                                            [
+                                                ['End-to-end encryption', 'M5 13l4 4L19 7'],
+                                                ['Protection against replay attacks', 'M5 13l4 4L19 7'],
+                                                ['Integrity verification', 'M5 13l4 4L19 7'],
+                                                ['Perfect Forward Secrecy', 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15']
+                                            ].map(([text, d], i) =>
+                                                React.createElement(
+                                                    'div',
+                                                    { key: `f${i}`, className: "flex items-center text-sm text-gray-400" },
+                                                    [
+                                                        React.createElement(
+                                                            'svg',
+                                                            {
+                                                                className: `w-4 h-4 mr-3 ${i === 3 ? 'text-purple-500' : 'text-green-500'}`,
+                                                                fill: "none",
+                                                                stroke: "currentColor",
+                                                                viewBox: "0 0 24 24"
+                                                            },
+                                                            React.createElement('path', {
+                                                                strokeLinecap: "round",
+                                                                strokeLinejoin: "round",
+                                                                strokeWidth: 2,
+                                                                d: d
+                                                            })
+                                                        ),
+                                                        text
+                                                    ]
+                                                )
+                                            )
+                                        )
+                                    ]
+                                )
+                            ) :
+                            messages.map((msg) =>
+                                React.createElement(EnhancedChatMessage, {
+                                    key: msg.id,
+                                    message: msg.message,
+                                    type: msg.type,
+                                    timestamp: msg.timestamp
                                 })
-                            ])
-                        ])
-                    ])
-                ])
-            ]);
-        };
+                            )
+                    )
+                )
+            ),
+
+            // Кнопка прокрутки вниз
+            showScrollButton &&
+                React.createElement(
+                    'button',
+                    {
+                        onClick: handleScrollToBottom,
+                        className: "fixed right-6 w-12 h-12 bg-green-500/20 hover:bg-green-500/30 border border-green-500/30 text-green-400 rounded-full flex items-center justify-center transition-all duration-200 shadow-lg z-50",
+                        style: { bottom: '160px' }
+                    },
+                    React.createElement(
+                        'svg',
+                        { className: "w-6 h-6", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24" },
+                        React.createElement('path', {
+                            strokeLinecap: "round",
+                            strokeLinejoin: "round",
+                            strokeWidth: 2,
+                            d: "M19 14l-7 7m0 0l-7-7m7 7V3"
+                        })
+                    )
+                ),
+
+            // Секция передачи файлов
+            React.createElement(
+                'div',
+                {
+                    className: "flex-shrink-0 border-t border-gray-500/10",
+                    style: { backgroundColor: '#272827' }
+                },
+                React.createElement(
+                    'div',
+                    { className: "max-w-4xl mx-auto px-4" },
+                    [
+                        React.createElement(
+                            'button',
+                            {
+                                onClick: () => setShowFileTransfer(!showFileTransfer),
+                                className: `flex items-center text-sm text-gray-400 hover:text-gray-300 transition-colors py-4 ${showFileTransfer ? 'mb-4' : ''}`
+                            },
+                            [
+                                React.createElement(
+                                    'svg',
+                                    {
+                                        className: `w-4 h-4 mr-2 transform transition-transform ${showFileTransfer ? 'rotate-180' : ''}`,
+                                        fill: "none",
+                                        stroke: "currentColor",
+                                        viewBox: "0 0 24 24"
+                                    },
+                                    showFileTransfer ?
+                                        React.createElement('path', {
+                                            strokeLinecap: "round",
+                                            strokeLinejoin: "round",
+                                            strokeWidth: 2,
+                                            d: "M5 15l7-7 7 7"
+                                        }) :
+                                        React.createElement('path', {
+                                            strokeLinecap: "round",
+                                            strokeLinejoin: "round",
+                                            strokeWidth: 2,
+                                            d: "M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                                        })
+                                ),
+                                showFileTransfer ? 'Hide file transfer' : 'Send files'
+                            ]
+                        ),
+                        // ИСПРАВЛЕНИЕ: Используем правильный компонент
+                        showFileTransfer &&
+                            React.createElement(window.FileTransferComponent || (() => 
+                                React.createElement('div', {
+                                    className: "p-4 text-center text-red-400"
+                                }, 'FileTransferComponent not loaded')
+                            ), {
+                                webrtcManager: webrtcManager,
+                                isConnected: isFileTransferReady()
+                            })
+                    ]
+                )
+            ),
+
+            // Область ввода сообщений
+            React.createElement(
+                'div',
+                { className: "border-t border-gray-500/10" },
+                React.createElement(
+                    'div',
+                    { className: "max-w-4xl mx-auto p-4" },
+                    React.createElement(
+                        'div',
+                        { className: "flex items-stretch space-x-3" },
+                        [
+                            React.createElement(
+                                'div',
+                                { className: "flex-1 relative" },
+                                [
+                                    React.createElement('textarea', {
+                                        value: messageInput,
+                                        onChange: (e) => setMessageInput(e.target.value),
+                                        onKeyDown: handleKeyPress,
+                                        placeholder: "Enter message to encrypt...",
+                                        rows: 2,
+                                        maxLength: 2000,
+                                        style: { backgroundColor: '#272827' },
+                                        className: "w-full p-3 border border-gray-600 rounded-lg resize-none text-gray-300 placeholder-gray-500 focus:border-green-500/40 focus:outline-none transition-all custom-scrollbar text-sm"
+                                    }),
+                                    React.createElement(
+                                        'div',
+                                        { className: "absolute bottom-2 right-3 flex items-center space-x-2 text-xs text-gray-400" },
+                                        [
+                                            React.createElement('span', null, `${messageInput.length}/2000`),
+                                            React.createElement('span', null, "• Enter to send")
+                                        ]
+                                    )
+                                ]
+                            ),
+                            React.createElement(
+                                'button',
+                                {
+                                    onClick: onSendMessage,
+                                    disabled: !messageInput.trim(),
+                                    className: "bg-green-400/20 text-green-400 p-3 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-h-[72px]"
+                                },
+                                React.createElement(
+                                    'svg',
+                                    { className: "w-6 h-6", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24" },
+                                    React.createElement('path', {
+                                        strokeLinecap: "round",
+                                        strokeLinejoin: "round",
+                                        strokeWidth: 2,
+                                        d: "M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                                    })
+                                )
+                            )
+                        ]
+                    )
+                )
+            )
+        ]
+    );
+};
+
 
         // Main Enhanced Application Component
         const EnhancedSecureP2PChat = () => {
@@ -2670,7 +2735,7 @@
             // Safe because it's a ref object and we maintain it centrally here
             window.webrtcManagerRef = webrtcManagerRef;
 
-            const addMessageWithAutoScroll = (message, type) => {
+            const addMessageWithAutoScroll = React.useCallback((message, type) => {
                 const newMessage = {
                     message,
                     type,
@@ -2678,17 +2743,36 @@
                     timestamp: Date.now()
                 };
                 
-                setMessages(prev => [...prev, newMessage]);
-
-                setTimeout(() => {
-                    if (chatMessagesRef.current) {
-                        chatMessagesRef.current.scrollTo({
-                            top: chatMessagesRef.current.scrollHeight,
-                            behavior: 'smooth'
-                        });
-                    }
-                }, 100);
-            };
+                setMessages(prev => {
+                    const updated = [...prev, newMessage];
+                    
+                    setTimeout(() => {
+                        if (chatMessagesRef?.current) {
+                            const container = chatMessagesRef.current;
+                            try {
+                                const { scrollTop, scrollHeight, clientHeight } = container;
+                                const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+                                
+                                if (isNearBottom || prev.length === 0) {
+                                    requestAnimationFrame(() => {
+                                        if (container && container.scrollTo) {
+                                            container.scrollTo({
+                                                top: container.scrollHeight,
+                                                behavior: 'smooth'
+                                            });
+                                        }
+                                    });
+                                }
+                            } catch (error) {
+                                console.warn('Scroll error:', error);
+                                container.scrollTop = container.scrollHeight;
+                            }
+                        }
+                    }, 50);
+                    
+                    return updated;
+                });
+            }, []);
 
             // Update security level based on real verification
             const updateSecurityLevel = React.useCallback(async () => {
@@ -3617,7 +3701,6 @@
                             keyFingerprint: keyFingerprint,
                             isVerified: isVerified,
                             chatMessagesRef: chatMessagesRef,
-                            scrollToBottom: scrollToBottom,
                             webrtcManager: webrtcManagerRef.current
                         })
                         : React.createElement(EnhancedConnectionSetup, {

@@ -5,12 +5,46 @@
     flex-direction: column;
 }
 
+.hide-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;     /* Firefox */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+    display: none;            /* Chrome, Safari, Opera */
+}
+
 /* ============================================ */
 /* FILE TRANSFER STYLES */
 /* ============================================ */
 
 .file-transfer-component {
     margin-top: 1rem;
+}
+
+@media (max-width: 768px) {
+    /* Используем dvh для динамической высоты на мобильных */
+    .mobile-chat-height {
+        height: calc(100dvh - 64px) !important;
+    }
+    
+    /* Кнопка прокрутки на мобильном */
+    .scroll-to-bottom-mobile {
+        bottom: 140px !important;
+        right: 16px !important;
+        width: 40px !important;
+        height: 40px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .header-minimal {
+        height: 56px;
+    }
+    
+    .mobile-chat-height {
+        height: calc(100dvh - 56px) !important;
+    }
 }
 
 .file-drop-zone {
@@ -96,6 +130,9 @@
     -webkit-backdrop-filter: blur(5px);
     flex-shrink: 0;
     height: 64px; 
+    position: sticky;
+    top: 0;
+    z-index: 40;
 }
 
 .header-minimal .cursor-pointer:hover {
@@ -108,11 +145,11 @@
 
 /* The main chat container takes up the rest of the height. */
 .chat-container {
-    display: flex;
+    /* display: flex; */
     flex-direction: column;
     height: calc(100vh - 64px); /* 64px - header height */
     min-height: 0;
-    flex: 1;
+    /* flex: 1; */
 }
 
 .chat-messages-area {
