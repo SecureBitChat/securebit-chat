@@ -3191,15 +3191,32 @@
                     
                     // File received callback
                     (fileData) => {
-                        // Auto-download received file
-                        const url = URL.createObjectURL(fileData.fileBlob);
+                        const sizeMb = Math.max(1, Math.round((fileData.fileSize || 0) / (1024 * 1024)));
+                        const downloadMessage = React.createElement('div', {
+                            className: 'flex items-center space-x-2'
+                        }, [
+                            React.createElement('span', { key: 'label' }, `📥 Файл получен: ${fileData.fileName} (${sizeMb} MB)`),
+                            React.createElement('button', {
+                                key: 'btn',
+                                className: 'px-3 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs',
+                                onClick: async () => {
+                                    try {
+                                        const url = await fileData.getObjectURL();
                         const a = document.createElement('a');
                         a.href = url;
                         a.download = fileData.fileName;
                         a.click();
-                        URL.revokeObjectURL(url);
+                                        // Даем браузеру время начать загрузку, затем освобождаем URL
+                                        setTimeout(() => fileData.revokeObjectURL(url), 15000);
+                                    } catch (e) {
+                                        console.error('Download failed:', e);
+                                        addMessageWithAutoScroll(`❌ Ошибка загрузки файла: ${String(e?.message || e)}`, 'system');
+                                    }
+                                }
+                            }, 'Скачать')
+                        ]);
                         
-                        addMessageWithAutoScroll(`📥 Файл загружен: ${fileData.fileName}`, 'system');
+                        addMessageWithAutoScroll(downloadMessage, 'system');
                     },
                     
                     // Error callback
@@ -3563,7 +3580,10 @@
                     await webrtcManagerRef.current.sendMessage(messageInput);
                     setMessageInput('');
                 } catch (error) {
-                    addMessageWithAutoScroll(`❌ Sending error: ${error.message}`, 'system');
+                    const msg = String(error?.message || error);
+                    if (!/queued for sending|Data channel not ready/i.test(msg)) {
+                        addMessageWithAutoScroll(`❌ Sending error: ${msg}`,'system');
+                    }
                 }
             };
 

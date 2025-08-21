@@ -1,6 +1,16 @@
 // Import EnhancedSecureFileTransfer
 import { EnhancedSecureFileTransfer } from '../transfer/EnhancedSecureFileTransfer.js';
 
+// ============================================
+// ИСПРАВЛЕНИЯ СИСТЕМЫ MUTEX - РЕШЕНИЕ ПРОБЛЕМЫ С ПЕРЕДАЧЕЙ СООБЩЕНИЙ
+// ============================================
+// Проблема: После внедрения системы Mutex перестали передаваться сообщения между пользователями
+// Решение: Упрощена логика блокировок - mutex используется ТОЛЬКО для критических операций
+// - Обычные сообщения обрабатываются БЕЗ mutex
+// - Файловые сообщения обрабатываются БЕЗ mutex  
+// - MUTEX используется ТОЛЬКО для криптографических операций
+// ============================================
+
 class EnhancedSecureWebRTCManager {
     // ============================================
     // КОНСТАНТЫ
@@ -95,6 +105,7 @@ class EnhancedSecureWebRTCManager {
 
     // Инициализируем защищенную систему логирования
         this._initializeSecureLogging();
+        this._disableConsoleLogInProduction();
     // Check the availability of the global object
         this._setupSecureGlobalAPI();
     if (!window.EnhancedSecureCryptoUtils) {
@@ -125,6 +136,37 @@ class EnhancedSecureWebRTCManager {
     this.isInitiator = false;
     this.connectionAttempts = 0;
     this.maxConnectionAttempts = EnhancedSecureWebRTCManager.LIMITS.MAX_CONNECTION_ATTEMPTS;
+    try {
+    this._initializeMutexSystem();
+} catch (error) {
+    this._secureLog('error', '❌ Failed to initialize mutex system', {
+        errorType: error.constructor.name
+    });
+    throw new Error('Critical: Mutex system initialization failed');
+}
+
+// Валидация системы после инициализации
+if (!this._validateMutexSystem()) {
+    this._secureLog('error', '❌ Mutex system validation failed after initialization');
+    throw new Error('Critical: Mutex system validation failed');
+}
+
+// Добавление глобального обработчика для экстренных случаев
+if (typeof window !== 'undefined') {
+    window.emergencyUnlockMutexes = () => {
+        return this._emergencyUnlockAllMutexes();
+    };
+    
+    window.getMutexDiagnostics = () => {
+        return this._getMutexSystemDiagnostics();
+    };
+    
+    window.recoverMutexSystem = () => {
+        return this._emergencyRecoverMutexSystem();
+    };
+}
+
+this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and validated');
     this.heartbeatInterval = null;
     this.messageQueue = [];
     this.ecdhKeyPair = null;
@@ -282,7 +324,96 @@ class EnhancedSecureWebRTCManager {
             this.startPeriodicCleanup();
                 
             this.initializeEnhancedSecurity(); 
+            // ============================================
+            // СИСТЕМА MUTEX ДЛЯ ПРЕДОТВРАЩЕНИЯ RACE CONDITIONS
+            // ============================================
+
+            // Mutex для операций с ключами
+            this._keyOperationMutex = {
+                locked: false,
+                queue: [],
+                lockId: null,
+                lockTimeout: null
+            };
+
+            // Mutex для операций шифрования/дешифрования
+            this._cryptoOperationMutex = {
+                locked: false,
+                queue: [],
+                lockId: null,
+                lockTimeout: null
+            };
+
+            // Mutex для инициализации соединения
+            this._connectionOperationMutex = {
+                locked: false,
+                queue: [],
+                lockId: null,
+                lockTimeout: null
+            };
+
+            // Состояние системы ключей
+            this._keySystemState = {
+                isInitializing: false,
+                isRotating: false,
+                isDestroying: false,
+                lastOperation: null,
+                lastOperationTime: Date.now()
+            };
+
+            // Счетчики операций
+            this._operationCounters = {
+                keyOperations: 0,
+                cryptoOperations: 0,
+                connectionOperations: 0
+            };
+
         }
+_initializeMutexSystem() {
+	// Инициализация стандартных mutex, ожидаемых системой
+	this._keyOperationMutex = {
+		locked: false,
+		queue: [],
+		lockId: null,
+		lockTimeout: null
+	};
+
+	this._cryptoOperationMutex = {
+		locked: false,
+		queue: [],
+		lockId: null,
+		lockTimeout: null
+	};
+
+	this._connectionOperationMutex = {
+		locked: false,
+		queue: [],
+		lockId: null,
+		lockTimeout: null
+	};
+
+	// Состояние системы ключей
+	this._keySystemState = {
+		isInitializing: false,
+		isRotating: false,
+		isDestroying: false,
+		lastOperation: null,
+		lastOperationTime: Date.now()
+	};
+
+	// Счетчики операций
+	this._operationCounters = {
+		keyOperations: 0,
+		cryptoOperations: 0,
+		connectionOperations: 0
+	};
+
+	this._secureLog('info', '🔒 Mutex system initialized successfully', {
+		mutexes: ['keyOperation', 'cryptoOperation', 'connectionOperation'],
+		timestamp: Date.now()
+	});
+}
+
     // ============================================
     // SECURE KEY STORAGE MANAGEMENT
     // ============================================
@@ -299,6 +430,31 @@ class EnhancedSecureWebRTCManager {
             lastRotation: null,
         };
         this._secureLog('info', '🔐 Secure key storage initialized');
+    }
+
+    // Helper: ensure file transfer system is ready (lazy init on receiver)
+    async _ensureFileTransferReady() {
+        try {
+            // Если уже есть — готово
+            if (this.fileTransferSystem) {
+                return true;
+            }
+            // Должен быть открытый канал и верифицированное соединение
+            if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
+                throw new Error('Data channel not open');
+            }
+            if (!this.isVerified) {
+                throw new Error('Connection not verified');
+            }
+            // Инициализация
+            this.initializeFileTransfer();
+            // Небольшая задержка для инициализации
+            await new Promise(r => setTimeout(r, 300));
+            return !!this.fileTransferSystem;
+        } catch (e) {
+            console.error('❌ _ensureFileTransferReady failed:', e?.message || e);
+            return false;
+        }
     }
 
     /**
@@ -372,8 +528,12 @@ class EnhancedSecureWebRTCManager {
      */
     _getKeyStorageStats() {
         return {
-            ...this._keyStorageStats,
-            storageType: this._secureKeyStorage.constructor.name,
+            totalKeysCount: this._keyStorageStats.totalKeys,
+            activeKeysCount: this._keyStorageStats.activeKeys,
+            hasLastAccess: !!this._keyStorageStats.lastAccess,
+            hasLastRotation: !!this._keyStorageStats.lastRotation,
+            storageType: 'SecureMap',
+            timestamp: Date.now()
         };
     }
 
@@ -427,16 +587,52 @@ class EnhancedSecureWebRTCManager {
             trace: 4
         };
         
-        // Текущий уровень логирования
+        // ИСПРАВЛЕНИЕ: Более строгие уровни для production
         this._currentLogLevel = this._isProductionMode ? 
-            this._logLevels.warn : // В production только warnings и errors
-            this._logLevels.debug; // В development больше информации
+            this._logLevels.error : // В production ТОЛЬКО ошибки
+            this._logLevels.info;   // В development до info
         
         // Счетчик логов для предотвращения спама
         this._logCounts = new Map();
-        this._maxLogCount = 100; // Максимум логов одного типа
+        this._maxLogCount = this._isProductionMode ? 10 : 100; // Максимум логов одного типа
+
+        this._absoluteBlacklist = new Set([
+            'encryptionKey', 'macKey', 'metadataKey', 'privateKey', 
+            'verificationCode', 'sessionSalt', 'keyFingerprint',
+            'password', 'token', 'secret', 'credential', 'signature',
+            'ecdhKeyPair', 'ecdsaKeyPair', 'peerPublicKey',
+            'sessionId', 'authChallenge', 'authProof'
+        ]);
+
+        // НОВОЕ: Whitelist безопасных полей
+        this._safeFieldsWhitelist = new Set([
+            'timestamp', 'type', 'length', 'size', 'count', 'level',
+            'status', 'state', 'readyState', 'connectionState', 
+            'isConnected', 'isVerified', 'isInitiator', 'version',
+            'activeFeaturesCount', 'totalFeatures', 'stage'
+        ]);
         
         this._secureLog('info', `🔧 Secure logging initialized (Production: ${this._isProductionMode})`);
+    }
+    /**
+     * Отключает шумное логирование в production: console.log/debug становятся no-op
+     * Преднамеренно сохраняем warn/error для видимости проблем
+     */
+    _disableConsoleLogInProduction() {
+        try {
+            if (this._isProductionMode && typeof console !== 'undefined') {
+                const originalWarn = console.warn?.bind(console);
+                const originalError = console.error?.bind(console);
+                // Безопасно глушим информационные логи
+                console.log = () => {};
+                console.debug = () => {};
+                // Сохраняем предупреждения и ошибки
+                if (originalWarn) console.warn = (...args) => originalWarn(...args);
+                if (originalError) console.error = (...args) => originalError(...args);
+            }
+        } catch (e) {
+            // Ничего не делаем, это нефункциональная защита
+        }
     }
     /**
      * Защищенное логирование
@@ -447,7 +643,12 @@ class EnhancedSecureWebRTCManager {
     _secureLog(level, message, data = null) {
         // Проверяем уровень логирования
         if (this._logLevels[level] > this._currentLogLevel) {
-            return; // Пропускаем логи ниже текущего уровня
+            return;
+        }
+        
+        // НОВОЕ: Audit проверка перед логированием
+        if (data && !this._auditLogMessage(message, data)) {
+            return; // Логирование заблокировано из-за потенциальной утечки
         }
         
         // Предотвращаем спам логов
@@ -455,21 +656,24 @@ class EnhancedSecureWebRTCManager {
         const currentCount = this._logCounts.get(logKey) || 0;
         
         if (currentCount >= this._maxLogCount) {
-            return; // Слишком много одинаковых логов
+            return;
         }
         
         this._logCounts.set(logKey, currentCount + 1);
         
-        // Sanitize данные для безопасного логирования
+        // Sanitize данные
         const sanitizedData = data ? this._sanitizeLogData(data) : null;
         
-        // Выводим лог в соответствующий метод консоли
-        const logMethod = console[level] || console.log;
-        
-        if (sanitizedData) {
-            logMethod(message, sanitizedData);
+        // НОВОЕ: В production вообще не выводим данные
+        if (this._isProductionMode && level !== 'error') {
+            console[level] || console.log(message); // Только сообщение без данных
         } else {
-            logMethod(message);
+            const logMethod = console[level] || console.log;
+            if (sanitizedData) {
+                logMethod(message, sanitizedData);
+            } else {
+                logMethod(message);
+            }
         }
     }
     /**
@@ -477,58 +681,84 @@ class EnhancedSecureWebRTCManager {
      */
     _sanitizeLogData(data) {
         if (!data || typeof data !== 'object') {
+            // Для примитивных типов - проверяем на sensitive patterns
+            if (typeof data === 'string') {
+                return this._sanitizeString(data);
+            }
             return data;
         }
-        
-        // Список опасных ключей, которые нужно скрывать
-        const sensitiveKeys = [
-            'encryptionKey', 'macKey', 'metadataKey', 'privateKey', 'publicKey',
-            'verificationCode', 'sessionSalt', 'sessionId', 'keyFingerprint',
-            'password', 'token', 'secret', 'credential', 'auth', 'signature',
-            'data', 'message', 'content', 'buffer', 'chunk', 'payload'
-        ];
         
         const sanitized = {};
         
         for (const [key, value] of Object.entries(data)) {
             const lowerKey = key.toLowerCase();
             
-            // Проверяем на чувствительные ключи
-            if (sensitiveKeys.some(sensitiveKey => lowerKey.includes(sensitiveKey))) {
-                if (typeof value === 'string') {
-                    // Показываем только первые и последние символы
-                    sanitized[key] = value.length > 8 ? 
-                        `${value.substring(0, 4)}...${value.substring(value.length - 4)}` :
-                        '[HIDDEN]';
-                } else if (value instanceof ArrayBuffer || value instanceof Uint8Array) {
-                    sanitized[key] = `[${value.constructor.name}(${value.byteLength || value.length} bytes)]`;
-                } else if (value && typeof value === 'object') {
-                    sanitized[key] = '[OBJECT_HIDDEN]';
-                } else {
-                    sanitized[key] = '[HIDDEN]';
-                }
-            } else if (key === 'timestamp' || key === 'length' || key === 'size' || key === 'count') {
-                // Безопасные числовые значения
+            // АБСОЛЮТНЫЙ BLACKLIST - никогда не логируем
+            if (this._absoluteBlacklist.has(key) || 
+                Array.from(this._absoluteBlacklist).some(banned => lowerKey.includes(banned))) {
+                sanitized[key] = '[ABSOLUTELY_FORBIDDEN]';
+                continue;
+            }
+            
+            // WHITELIST - безопасные поля логируем как есть
+            if (this._safeFieldsWhitelist.has(key)) {
                 sanitized[key] = value;
-            } else if (typeof value === 'boolean') {
-                // Булевы значения безопасны
+                continue;
+            }
+            
+            // Для всех остальных полей - строгая обработка
+            if (typeof value === 'boolean' || typeof value === 'number') {
                 sanitized[key] = value;
-            } else if (typeof value === 'string' && value.length < 100) {
-                // Короткие строки (если не содержат чувствительную информацию)
-                if (!this._containsSensitiveContent(value)) {
-                    sanitized[key] = value;
-                } else {
-                    sanitized[key] = '[SANITIZED]';
-                }
-            } else if (typeof value === 'object' && value !== null) {
-                // Рекурсивно sanitize вложенных объектов (с ограничением глубины)
+            } else if (typeof value === 'string') {
+                sanitized[key] = this._sanitizeString(value);
+            } else if (value instanceof ArrayBuffer || value instanceof Uint8Array) {
+                sanitized[key] = `[${value.constructor.name}(${value.byteLength || value.length} bytes)]`;
+            } else if (value && typeof value === 'object') {
+                // Рекурсивно с ограничением глубины
                 sanitized[key] = this._sanitizeLogData(value);
             } else {
-                sanitized[key] = typeof value;
+                sanitized[key] = `[${typeof value}]`;
             }
         }
         
         return sanitized;
+    }
+    /**
+     * НОВОЕ: Специальная sanitization для строк
+     */
+    _sanitizeString(str) {
+        if (typeof str !== 'string' || str.length === 0) {
+            return str;
+        }
+        
+        // КРИТИЧЕСКОЕ: Поиск sensitive patterns
+        const sensitivePatterns = [
+            /[a-f0-9]{32,}/i,                    // Hex строки (ключи)
+            /[A-Za-z0-9+/=]{20,}/,               // Base64 строки
+            /\b[A-Za-z0-9]{20,}\b/,              // Длинные алфанумерные строки
+            /BEGIN\s+(PRIVATE|PUBLIC)\s+KEY/i,   // PEM ключи
+            /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/, // Кредитные карты
+            /\b\d{3}-\d{2}-\d{4}\b/,             // SSN
+            /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/, // Email (частично)
+        ];
+        
+        for (const pattern of sensitivePatterns) {
+            if (pattern.test(str)) {
+                // Если строка короткая - полностью скрываем
+                if (str.length <= 10) {
+                    return '[SENSITIVE]';
+                }
+                // Для длинных - показываем только начало и конец
+                return `${str.substring(0, 3)}...[REDACTED]...${str.substring(str.length - 3)}`;
+            }
+        }
+        
+        // Для обычных строк - ограничиваем длину
+        if (str.length > 100) {
+            return str.substring(0, 50) + '...[TRUNCATED]';
+        }
+        
+        return str;
     }
     /**
      * Проверяет содержит ли строка чувствительный контент
@@ -1195,72 +1425,111 @@ class EnhancedSecureWebRTCManager {
     _emergencyDisableLogging() {
         this._currentLogLevel = -1; // Отключаем все логи
         this._logCounts.clear();
-        this._secureLog = () => {}; // Пустая функция
+        // Переопределяем _secureLog на пустую функцию
+        this._secureLog = () => {};
+        // Только критическая ошибка в консоль (без данных)
+        console.error('🚨 SECURITY: Logging disabled due to potential data exposure');
+    }
+    _auditLogMessage(message, data) {
+        if (!data || typeof data !== 'object') return true;
         
-        // Только критическая ошибка в консоль
-        console.error('🚨 Logging disabled due to security concerns');
+        const dataString = JSON.stringify(data).toLowerCase();
+        
+        // Проверяем на случайные утечки
+        // Уточняем паттерны, чтобы избежать ложных срабатываний на слова вроде "keyOperation"
+        const dangerousPatterns = [
+            'secret', 'token', 'password', 'credential',
+            'fingerprint', 'salt', 'signature', 'private_key', 'api_key', 'private'
+        ];
+        
+        for (const pattern of dangerousPatterns) {
+            if (dataString.includes(pattern) && !this._safeFieldsWhitelist.has(pattern)) {
+                this._emergencyDisableLogging();
+                console.error(`🚨 SECURITY BREACH: Potential sensitive data in log: ${pattern}`);
+                return false;
+            }
+        }
+        
+        return true;
     }
 
     initializeFileTransfer() {
         try {
-        console.log('🔧 Initializing Enhanced Secure File Transfer system...');
+            console.log('🔧 Initializing Enhanced Secure File Transfer system...');
             
-        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Убедимся что dataChannel готов
-        if (!this._validateConnection(false)) {
-            console.warn('⚠️ Data channel not open, deferring file transfer initialization');
-                
-            if (this.dataChannel) {
-                this.dataChannel.addEventListener('open', () => {
-                    console.log('🔄 DataChannel opened, initializing file transfer...');
-                    this.initializeFileTransfer();
-                }, { once: true }); // Используем once: true чтобы обработчик сработал только один раз
+            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Пошаговая проверка готовности
+            const channelReady = !!(this.dataChannel && this.dataChannel.readyState === 'open');
+            if (!channelReady) {
+                console.warn('⚠️ Data channel not open, deferring file transfer initialization');
+                if (this.dataChannel) {
+                    const initHandler = () => {
+                        console.log('🔄 DataChannel opened, initializing file transfer...');
+                        this.initializeFileTransfer();
+                    };
+                    this.dataChannel.addEventListener('open', initHandler, { once: true });
+                }
+                return;
             }
-            return;
-        }
+
+            if (!this.isVerified) {
+                console.warn('⚠️ Connection not verified yet, deferring file transfer initialization');
+                setTimeout(() => this.initializeFileTransfer(), 500);
+                return;
+            }
             
-        // ИСПРАВЛЕНИЕ: Очищаем предыдущую систему если есть
-        if (this.fileTransferSystem) {
-            console.log('🧹 Cleaning up existing file transfer system');
-            this.fileTransferSystem.cleanup();
+            // ИСПРАВЛЕНИЕ: Очищаем предыдущую систему если есть
+            if (this.fileTransferSystem) {
+                console.log('🧹 Cleaning up existing file transfer system');
+                this.fileTransferSystem.cleanup();
+                this.fileTransferSystem = null;
+            }
+            
+            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Проверяем наличие ключей
+            if (!this.encryptionKey || !this.macKey) {
+                console.warn('⚠️ Encryption keys not ready, deferring file transfer initialization');
+                setTimeout(() => this.initializeFileTransfer(), 1000);
+                return;
+            }
+            
+            // ВАЖНО: порядок колбэков: (onProgress, onComplete, onError, onFileReceived)
+            const safeOnComplete = (summary) => {
+                // Отправитель: завершение передачи, без работы с Blob
+                try {
+                    console.log('🏁 Sender transfer summary:', summary);
+                    // При необходимости прокидываем как прогресс/событие UI
+                    if (this.onFileProgress) {
+                        this.onFileProgress({ type: 'complete', ...summary });
+                    }
+                } catch (e) {
+                    console.warn('⚠️ onComplete handler failed:', e.message);
+                }
+            };
+
+            this.fileTransferSystem = new EnhancedSecureFileTransfer(
+                this,
+                this.onFileProgress || null,
+                safeOnComplete,
+                this.onFileError || null,
+                this.onFileReceived || null
+            );
+            
+            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Устанавливаем глобальные ссылки
+            window.FILE_TRANSFER_ACTIVE = true;
+            window.fileTransferSystem = this.fileTransferSystem;
+            
+            console.log('✅ Enhanced Secure File Transfer system initialized successfully');
+            
+            // Проверяем что система готова
+            const status = this.fileTransferSystem.getSystemStatus();
+            console.log('🔍 File transfer system status after init:', status);
+            
+        } catch (error) {
+            console.error('❌ Failed to initialize file transfer system:', error);
             this.fileTransferSystem = null;
+            window.FILE_TRANSFER_ACTIVE = false;
+            window.fileTransferSystem = null;
         }
-            
-        this.fileTransferSystem = new EnhancedSecureFileTransfer(
-            this, // WebRTC manager reference
-            null, // Progress callback - отключен для чата
-            null, // Completion callback - отключен для чата  
-            (error) => {
-                // Error callback - только критические ошибки
-                console.error('File transfer critical error:', error);
-                if (this.onFileError) {
-                    this.onFileError(error);
-                }
-            },
-            (fileData) => {
-                // File received callback
-                if (this.onFileReceived) {
-                    this.onFileReceived(fileData);
-                }
-            }
-        );
-            
-        window.FILE_TRANSFER_ACTIVE = true;
-        window.fileTransferSystem = this.fileTransferSystem;
-            
-        console.log('✅ Enhanced Secure File Transfer system initialized successfully');
-            
-            
-        // КРИТИЧЕСКОЕ ДОБАВЛЕНИЕ: Проверяем что система готова
-        const status = this.fileTransferSystem.getSystemStatus();
-        console.log('🔍 File transfer system status after init:', status);
-            
-    } catch (error) {
-        console.error('❌ Failed to initialize file transfer system:', error);
-        this.fileTransferSystem = null;
-        window.FILE_TRANSFER_ACTIVE = false;
-        window.fileTransferSystem = null;
     }
-}
 
     // ============================================
     // ENHANCED SECURITY INITIALIZATION
@@ -1396,8 +1665,16 @@ class EnhancedSecureWebRTCManager {
             }
         });
     }
-    deliverMessageToUI(message, type = 'user') {
+    deliverMessageToUI(message, type = 'received') {
         try {
+            // ДОБАВЛЯЕМ ОТЛАДОЧНЫЕ ЛОГИ
+            console.log('📤 deliverMessageToUI called:', {
+                message: message,
+                type: type,
+                messageType: typeof message,
+                hasOnMessage: !!this.onMessage
+            });
+            
             // Фильтруем file transfer и системные сообщения
             if (typeof message === 'object' && message.type) {
                 const blockedTypes = [
@@ -1456,7 +1733,10 @@ class EnhancedSecureWebRTCManager {
             }
 
             if (this.onMessage) {
+                console.log('📤 Calling this.onMessage callback with:', { message, type });
                 this.onMessage(message, type);
+            } else {
+                console.warn('⚠️ this.onMessage callback is null or undefined');
             }
         } catch (err) {
             console.error('❌ Failed to deliver message to UI:', err);
@@ -1821,8 +2101,8 @@ class EnhancedSecureWebRTCManager {
 
         try {
             this._secureLog('debug', '🎭 Sending fake message', {
-                pattern: fakeMessage.pattern,
-                size: fakeMessage.size
+                hasPattern: !!fakeMessage.pattern,
+                sizeRange: fakeMessage.size > 100 ? 'large' : 'small'
             });
             
             const fakeData = JSON.stringify({
@@ -1884,75 +2164,52 @@ emergencyDisableFakeTraffic() {
             }
         }
     }
+    async _applySecurityLayersWithoutMutex(data, isFakeMessage = false) {
+    try {
+        let processedData = data;
+        
+        if (isFakeMessage) {
+            if (this.encryptionKey && typeof processedData === 'string') {
+                processedData = await window.EnhancedSecureCryptoUtils.encryptData(processedData, this.encryptionKey);
+            }
+            return processedData;
+        }
+        
+        // Nested Encryption (если включено)
+        if (this.securityFeatures.hasNestedEncryption && this.nestedEncryptionKey && processedData instanceof ArrayBuffer) {
+            processedData = await this.applyNestedEncryption(processedData);
+        }
+        
+        // Packet Reordering (если включено)
+        if (this.securityFeatures.hasPacketReordering && this.reorderingConfig?.enabled && processedData instanceof ArrayBuffer) {
+            processedData = this.applyPacketReordering(processedData);
+        }
+        
+        // Packet Padding (если включено)
+        if (this.securityFeatures.hasPacketPadding && processedData instanceof ArrayBuffer) {
+            processedData = this.applyPacketPadding(processedData);
+        }
+        
+        // Anti-Fingerprinting (если включено)
+        if (this.securityFeatures.hasAntiFingerprinting && processedData instanceof ArrayBuffer) {
+            processedData = this.applyAntiFingerprinting(processedData);
+        }
+        
+        // Финальное шифрование (если есть ключи)
+        if (this.encryptionKey && typeof processedData === 'string') {
+            processedData = await window.EnhancedSecureCryptoUtils.encryptData(processedData, this.encryptionKey);
+        }
+        
+        return processedData;
+        
+    } catch (error) {
+        console.error('❌ Error in applySecurityLayersWithoutMutex:', error);
+        return data; // Возвращаем исходные данные при ошибке
+    }
+}
     // ============================================
     // 4. MESSAGE CHUNKING
     // ============================================
-
-    async sendMessageInChunks(data, messageId) {
-        if (!this.chunkingConfig.enabled || data.byteLength <= this.chunkingConfig.maxChunkSize) {
-            // Send as single message if chunking is disabled or data is small
-            return this.sendMessage(data);
-        }
-
-        try {
-            const dataArray = new Uint8Array(data);
-            const totalChunks = Math.ceil(dataArray.length / this.chunkingConfig.maxChunkSize);
-            const chunks = [];
-
-            // Split data into chunks
-            for (let i = 0; i < totalChunks; i++) {
-                const start = i * this.chunkingConfig.maxChunkSize;
-                const end = Math.min(start + this.chunkingConfig.maxChunkSize, dataArray.length);
-                const chunk = dataArray.slice(start, end);
-
-                if (this.chunkingConfig.addChunkHeaders) {
-                    // Add chunk header
-                    const header = new ArrayBuffer(16);
-                    const headerView = new DataView(header);
-                    headerView.setUint32(0, messageId, false);
-                    headerView.setUint32(4, i, false);
-                    headerView.setUint32(8, totalChunks, false);
-                    headerView.setUint32(12, chunk.length, false);
-
-                    const chunkWithHeader = new Uint8Array(16 + chunk.length);
-                    chunkWithHeader.set(new Uint8Array(header), 0);
-                    chunkWithHeader.set(chunk, 16);
-                    chunks.push(chunkWithHeader);
-                } else {
-                    chunks.push(chunk);
-                }
-            }
-
-            // Send chunks with random delays
-            for (let i = 0; i < chunks.length; i++) {
-                const chunk = chunks[i];
-                
-                // Apply security layers to chunk
-                const encryptedChunk = await this.applySecurityLayers(chunk.buffer, false);
-                
-                // Send chunk
-                this.dataChannel.send(encryptedChunk);
-                
-                console.log(`📦 Sent chunk ${i + 1}/${totalChunks} (${chunk.length} bytes)`);
-                
-                // Add delay before next chunk (except for last chunk)
-                if (i < chunks.length - 1) {
-                    const delay = this.chunkingConfig.useRandomDelays ?
-                        Math.random() * (this.chunkingConfig.maxDelay - this.chunkingConfig.minDelay) + 
-                        this.chunkingConfig.minDelay :
-                        this.chunkingConfig.minDelay;
-                    
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                }
-            }
-
-            console.log(`📦 Message chunking completed: ${totalChunks} chunks sent`);
-        } catch (error) {
-            console.error('❌ Message chunking failed:', error);
-            // Fallback to single message
-            return this.sendMessage(data);
-        }
-    }
 
     async processChunkedMessage(chunkData) {
         try {
@@ -2807,82 +3064,104 @@ async processOrderedPackets() {
     }
 
     async sendMessage(data) {
-        if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
-            throw new Error('Data channel not ready');
-        }
-
-        try {
-            this._secureLog('debug', '📤 sendMessage called', {
-                hasDataChannel: !!this.dataChannel,
-                dataChannelState: this.dataChannel?.readyState,
-                isInitiator: this.isInitiator,
-                isVerified: this.isVerified,
-                connectionState: this.peerConnection?.connectionState
-            });
-
-            this._secureLog('debug', '🔍 sendMessage DEBUG', {
-                dataType: typeof data,
-                isString: typeof data === 'string',
-                isArrayBuffer: data instanceof ArrayBuffer,
-                dataLength: data?.length || data?.byteLength || 0,
-            });
-
-            // ИСПРАВЛЕНИЕ: Проверяем, не является ли это файловым сообщением
-            if (typeof data === 'string') {
-                try {
-                    const parsed = JSON.parse(data);
-                    
-                    // Файловые сообщения отправляем напрямую без дополнительного шифрования
-                    if (parsed.type && parsed.type.startsWith('file_')) {
-                        this._secureLog('debug', '📁 Sending file message directly', { type: parsed.type });
-                        this.dataChannel.send(data);
-                        return true;
-                    }
-                } catch (jsonError) {
-                    // Не JSON - продолжаем обычную обработку
-                }
-            }
-
-            // Для обычных текстовых сообщений используем простой формат
-            if (typeof data === 'string') {
-                const message = {
-                    type: 'message',
-                    data: data,
-                    timestamp: Date.now()
-                };
-                
-                this._secureLog('debug', '📤 Sending regular message', {
-                    messageLength: message.data.length,
-                    hasContent: message.data.length > 0
-                });
-                
-                const messageString = JSON.stringify(message);
-
-                this._secureLog('debug', '📤 Message prepared for sending', {
-                    messageLength: messageString.length,
-                    dataChannelState: this.dataChannel.readyState,
-                    isInitiator: this.isInitiator,
-                    isVerified: this.isVerified
-                });
-                
-                this.dataChannel.send(messageString);
-                return true;
-            }
-
-            // Для бинарных данных применяем security layers
-            this._secureLog('debug', '🔐 Applying security layers to non-string data');
-            const securedData = await this.applySecurityLayers(data, false);
-            this.dataChannel.send(securedData);
-            
-            return true;
-        } catch (error) {
-            this._secureLog('error', '❌ Failed to send message', { 
-                error: error.message,
-                errorType: error.constructor.name
-            });
-            throw error;
-        }
+    if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
+        throw new Error('Data channel not ready');
     }
+
+    try {
+        this._secureLog('debug', 'sendMessage called', {
+            hasDataChannel: !!this.dataChannel,
+            dataChannelReady: this.dataChannel?.readyState === 'open',
+            isInitiator: this.isInitiator,
+            isVerified: this.isVerified,
+            connectionReady: this.peerConnection?.connectionState === 'connected'
+        });
+
+        this._secureLog('debug', '🔍 sendMessage DEBUG', {
+            dataType: typeof data,
+            isString: typeof data === 'string',
+            isArrayBuffer: data instanceof ArrayBuffer,
+            dataLength: data?.length || data?.byteLength || 0,
+        });
+
+        // ИСПРАВЛЕНИЕ: Проверяем, не является ли это файловым сообщением
+        if (typeof data === 'string') {
+            try {
+                const parsed = JSON.parse(data);
+                
+                // Файловые сообщения отправляем напрямую без дополнительного шифрования
+                if (parsed.type && parsed.type.startsWith('file_')) {
+                    this._secureLog('debug', '📁 Sending file message directly', { type: parsed.type });
+                    this.dataChannel.send(data);
+                    return true;
+                }
+            } catch (jsonError) {
+                // Не JSON - продолжаем обычную обработку
+            }
+        }
+
+        // Для обычных текстовых сообщений отправляем через защищённый путь
+        if (typeof data === 'string') {
+            return await this.sendSecureMessage({ type: 'message', data, timestamp: Date.now() });
+        }
+
+        // Для бинарных данных применяем security layers с ограниченным mutex
+        this._secureLog('debug', '🔐 Applying security layers to non-string data');
+        const securedData = await this._applySecurityLayersWithLimitedMutex(data, false);
+        this.dataChannel.send(securedData);
+        
+        return true;
+    } catch (error) {
+        this._secureLog('error', '❌ Failed to send message', { 
+            error: error.message,
+            errorType: error.constructor.name
+        });
+        throw error;
+    }
+}
+
+    // ИСПРАВЛЕНИЕ: Новый метод для ограниченного применения security layers
+    async _applySecurityLayersWithLimitedMutex(data, isFakeMessage = false) {
+    // Используем mutex ТОЛЬКО для криптографических операций
+    return this._withMutex('cryptoOperation', async (operationId) => {
+        try {
+            let processedData = data;
+            
+            if (isFakeMessage) {
+                if (this.encryptionKey && typeof processedData === 'string') {
+                    processedData = await window.EnhancedSecureCryptoUtils.encryptData(processedData, this.encryptionKey);
+                }
+                return processedData;
+            }
+            
+            if (this.securityFeatures.hasNestedEncryption && this.nestedEncryptionKey && processedData instanceof ArrayBuffer) {
+                processedData = await this.applyNestedEncryption(processedData);
+            }
+            
+            if (this.securityFeatures.hasPacketReordering && this.reorderingConfig?.enabled && processedData instanceof ArrayBuffer) {
+                processedData = this.applyPacketReordering(processedData);
+            }
+            
+            if (this.securityFeatures.hasPacketPadding && processedData instanceof ArrayBuffer) {
+                processedData = this.applyPacketPadding(processedData);
+            }
+            
+            if (this.securityFeatures.hasAntiFingerprinting && processedData instanceof ArrayBuffer) {
+                processedData = this.applyAntiFingerprinting(processedData);
+            }
+            
+            if (this.encryptionKey && typeof processedData === 'string') {
+                processedData = await window.EnhancedSecureCryptoUtils.encryptData(processedData, this.encryptionKey);
+            }
+            
+            return processedData;
+            
+        } catch (error) {
+            console.error('❌ Error in applySecurityLayers:', error);
+            return data;
+        }
+    }, 3000); // Короткий timeout для crypto операций
+}
 
     async sendSystemMessage(messageData) {
         if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
@@ -2906,181 +3185,218 @@ async processOrderedPackets() {
         }
     }
 
-    async processMessage(data) {
-        try {
-            console.log('📨 Processing message:', {
-                dataType: typeof data,
-                isArrayBuffer: data instanceof ArrayBuffer,
-                dataLength: data?.length || data?.byteLength || 0
-            });
-            
-            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Ранняя проверка на файловые сообщения
-            if (typeof data === 'string') {
-                try {
-                        const parsed = JSON.parse(data);
+    // ИСПРАВЛЕНИЕ 1: Упрощенная система Mutex для обработки сообщений
+async processMessage(data) {
+    try {
+        this._secureLog('debug', '�� Processing message', {
+            dataType: typeof data,
+            isArrayBuffer: data instanceof ArrayBuffer,
+            hasData: !!(data?.length || data?.byteLength)
+        });
+        
+        // КРИТИЧЕСКИ ВАЖНО: Ранняя проверка на файловые сообщения БЕЗ mutex
+        if (typeof data === 'string') {
+            try {
+                const parsed = JSON.parse(data);
 
-                        const fileMessageTypes = [
-                        'file_transfer_start',
-                        'file_transfer_response',
-                        'file_chunk',
-                        'chunk_confirmation',
-                        'file_transfer_complete',
-                        'file_transfer_error'
-                    ];
+                // ============================================
+                // ФАЙЛОВЫЕ СООБЩЕНИЯ - ПРИОРИТЕТ 1 (БЕЗ MUTEX)
+                // ============================================
+                
+                const fileMessageTypes = [
+                    'file_transfer_start',
+                    'file_transfer_response',
+                    'file_chunk', 
+                    'chunk_confirmation',
+                    'file_transfer_complete',
+                    'file_transfer_error'
+                ];
 
-                    if (parsed.type && fileMessageTypes.includes(parsed.type)) {
-                        console.log('📁 File message detected in processMessage:', parsed.type);
-                        
-                        // Передаем в файловую систему
-                        if (window.fileTransferSystem && window.fileTransferSystem.handleFileMessage) {
-                            await window.fileTransferSystem.handleFileMessage(parsed);
-                        }
-                        return; // ВАЖНО: Выходим после обработки
-                    }
+                if (parsed.type && fileMessageTypes.includes(parsed.type)) {
+                    console.log('📁 File message detected in processMessage:', parsed.type);
                     
-                    // ИСПРАВЛЕНИЕ: Обработка файловых сообщений
-                    if (parsed.type && parsed.type.startsWith('file_')) {
-                        console.log('📁 File message detected in processMessage:', parsed.type);
-                        
-                        // КРИТИЧЕСКИ ВАЖНО: Передаем напрямую в файловую систему
-                        if (this.fileTransferSystem) {
-                            console.log('📁 Forwarding file message to file transfer system');
-                            
-                            // Вызываем обработчики файловой системы напрямую
-                            switch (parsed.type) {
-                                case 'file_transfer_start':
-                                    await this.fileTransferSystem.handleFileTransferStart(parsed);
-                                    break;
-                                case 'file_chunk':
-                                    await this.fileTransferSystem.handleFileChunk(parsed);
-                                    break;
-                                case 'file_transfer_response':
-                                    this.fileTransferSystem.handleTransferResponse(parsed);
-                                    break;
-                                case 'chunk_confirmation':
-                                    this.fileTransferSystem.handleChunkConfirmation(parsed);
-                                    break;
-                                case 'file_transfer_complete':
-                                    this.fileTransferSystem.handleTransferComplete(parsed);
-                                    break;
-                                case 'file_transfer_error':
-                                    this.fileTransferSystem.handleTransferError(parsed);
-                                    break;
-                                default:
-                                    console.warn('⚠️ Unknown file message type:', parsed.type);
-                            }
-                            return; // ВАЖНО: Выходим после обработки файлового сообщения
-                        } else {
-                            console.error('❌ File transfer system not initialized for file message:', parsed.type);
+                    // Обрабатываем файловые сообщения БЕЗ mutex
+                    if (this.fileTransferSystem && typeof this.fileTransferSystem.handleFileMessage === 'function') {
+                        console.log('📁 Processing file message directly:', parsed.type);
+                        await this.fileTransferSystem.handleFileMessage(parsed);
+                        return;
+                    }
+                    // Попытка ленивой инициализации на стороне-получателе
+                    console.warn('⚠️ File transfer system not available, attempting lazy init...');
+                    try {
+                        await this._ensureFileTransferReady();
+                        if (this.fileTransferSystem && typeof this.fileTransferSystem.handleFileMessage === 'function') {
+                            await this.fileTransferSystem.handleFileMessage(parsed);
                             return;
                         }
+                    } catch (e) {
+                        console.error('❌ Lazy init of file transfer failed:', e?.message || e);
                     }
-                    
-                    // Обработка обычных пользовательских сообщений
-                    if (parsed.type === 'message') {
-                        console.log('📝 Regular user message detected in processMessage');
-                        if (this.onMessage && parsed.data) {
-                            this.deliverMessageToUI(parsed.data, 'received');
-                        }
-                        return;
-                    }
-                    
-                    // Системные сообщения
-                    if (parsed.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'security_upgrade'].includes(parsed.type)) {
-                        this.handleSystemMessage(parsed);
-                        return;
-                    }
-                    
-                    // Fake messages
-                    if (parsed.type === 'fake') {
-                        console.log('🎭 Fake message blocked in processMessage:', parsed.pattern);
-                        return;
-                    }
-                    
-                } catch (jsonError) {
-                        // Не JSON - обрабатываем как текст
-                        if (this.onMessage) {
-                            this.deliverMessageToUI(data, 'received');
-                        }
-                        return;
-                    }
+                    console.error('❌ File transfer system not available for:', parsed.type);
+                    return; // ВАЖНО: Выходим после обработки
                 }
-
-            // Если дошли сюда - применяем security layers
-            const originalData = await this.removeSecurityLayers(data);
-
-            if (originalData === 'FAKE_MESSAGE_FILTERED' || originalData === 'FILE_MESSAGE_FILTERED' || originalData === 'SYSTEM_MESSAGE_FILTERED') {
+                
+                // ============================================
+                // ОБЫЧНЫЕ ПОЛЬЗОВАТЕЛЬСКИЕ СООБЩЕНИЯ (БЕЗ MUTEX)
+                // ============================================
+                
+                if (parsed.type === 'message') {
+                    console.log('📝 Regular user message detected in processMessage');
+                    if (this.onMessage && parsed.data) {
+                        this.deliverMessageToUI(parsed.data, 'received');
+                    }
+                    return;
+                }
+                
+                // ============================================
+                // СИСТЕМНЫЕ СООБЩЕНИЯ (БЕЗ MUTEX)
+                // ============================================
+                
+                if (parsed.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'security_upgrade'].includes(parsed.type)) {
+                    this.handleSystemMessage(parsed);
+                    return;
+                }
+                
+                // ============================================
+                // FAKE MESSAGES (БЕЗ MUTEX)
+                // ============================================
+                
+                if (parsed.type === 'fake') {
+                    console.log('🎭 Fake message blocked in processMessage:', parsed.pattern);
+                    return;
+                }
+                
+            } catch (jsonError) {
+                // Не JSON - обрабатываем как текст БЕЗ mutex
+                if (this.onMessage) {
+                    this.deliverMessageToUI(data, 'received');
+                }
                 return;
             }
-            
-            
-            if (!originalData) {
-                console.warn('⚠️ No data returned from removeSecurityLayers');
-                return;
-            }
+        }
 
-            // Обработка результата после removeSecurityLayers
-            let messageText;
-            
-            if (typeof originalData === 'string') {
-                try {
-                    const message = JSON.parse(originalData);
-                    if (message.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'security_upgrade'].includes(message.type)) {
-                        this.handleSystemMessage(message);
-                        return;
+        // ============================================
+        // ОБРАБОТКА ЗАШИФРОВАННЫХ ДАННЫХ (С MUTEX ТОЛЬКО ДЛЯ КРИПТОГРАФИИ)
+        // ============================================
+        
+        // Если дошли сюда - применяем security layers с ограниченным mutex
+        const originalData = await this._processEncryptedDataWithLimitedMutex(data);
+
+        // Проверяем результат обработки
+        if (originalData === 'FAKE_MESSAGE_FILTERED' || 
+            originalData === 'FILE_MESSAGE_FILTERED' || 
+            originalData === 'SYSTEM_MESSAGE_FILTERED') {
+            return;
+        }
+        
+        if (!originalData) {
+            console.warn('⚠️ No data returned from removeSecurityLayers');
+            return;
+        }
+
+        // Обработка результата после removeSecurityLayers
+        let messageText;
+        
+        if (typeof originalData === 'string') {
+            try {
+                const message = JSON.parse(originalData);
+                
+                // ПОВТОРНАЯ ПРОВЕРКА ФАЙЛОВЫХ СООБЩЕНИЙ ПОСЛЕ ДЕШИФРОВКИ
+                if (message.type && fileMessageTypes.includes(message.type)) {
+                    console.log('📁 File message detected after decryption:', message.type);
+                    if (this.fileTransferSystem) {
+                        await this.fileTransferSystem.handleFileMessage(message);
                     }
-                    
-                    if (message.type === 'fake') {
-                        console.log(`🎭 Post-decryption fake message blocked: ${message.pattern}`);
-                        return;
-                    }
-                    
-                    // Обычные сообщения
-                    if (message.type === 'message' && message.data) {
-                        messageText = message.data;
-                    } else {
-                        messageText = originalData;
-                    }
-                } catch (e) {
+                    return;
+                }
+                
+                if (message.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'security_upgrade'].includes(message.type)) {
+                    this.handleSystemMessage(message);
+                    return;
+                }
+                
+                if (message.type === 'fake') {
+                    console.log(`🎭 Post-decryption fake message blocked: ${message.pattern}`);
+                    return;
+                }
+                
+                // Обычные сообщения
+                if (message.type === 'message' && message.data) {
+                    messageText = message.data;
+                } else {
                     messageText = originalData;
                 }
-            } else if (originalData instanceof ArrayBuffer) {
-                messageText = new TextDecoder().decode(originalData);
-            } else if (originalData && typeof originalData === 'object' && originalData.message) {
-                messageText = originalData.message;
-            } else {
-                console.warn('⚠️ Unexpected data type after processing:', typeof originalData);
-                return;
+            } catch (e) {
+                messageText = originalData;
             }
-
-            // Финальная проверка на fake сообщения и файловые сообщения
-            if (messageText && messageText.trim().startsWith('{')) {
-                try {
-                    const finalCheck = JSON.parse(messageText);
-                    if (finalCheck.type === 'fake') {
-                        console.log(`🎭 Final fake message check blocked: ${finalCheck.pattern}`);
-                        return;
-                    }
-                    
-                    // Дополнительная проверка на файловые и системные сообщения
-                    if (finalCheck.type && ['file_transfer_start', 'file_transfer_response', 'file_chunk', 'chunk_confirmation', 'file_transfer_complete', 'file_transfer_error', 'heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'key_rotation_signal', 'key_rotation_ready', 'security_upgrade'].includes(finalCheck.type)) {
-                        console.log(`📁 Final system/file message check blocked: ${finalCheck.type}`);
-                        return;
-                    }
-                } catch (e) {
-                    // Не JSON - это нормально для обычных текстовых сообщений
-                }
-            }
-
-            // Отправляем сообщение пользователю
-            if (this.onMessage && messageText) {
-                console.log('📤 Calling message handler with:', messageText.substring(0, 100));
-                this.deliverMessageToUI(messageText, 'user');
-            }
-
-        } catch (error) {
-            console.error('❌ Failed to process message:', error);
+        } else if (originalData instanceof ArrayBuffer) {
+            messageText = new TextDecoder().decode(originalData);
+        } else if (originalData && typeof originalData === 'object' && originalData.message) {
+            messageText = originalData.message;
+        } else {
+            console.warn('⚠️ Unexpected data type after processing:', typeof originalData);
+            return;
         }
+
+        // Финальная проверка на fake сообщения и файловые сообщения
+        if (messageText && messageText.trim().startsWith('{')) {
+            try {
+                const finalCheck = JSON.parse(messageText);
+                if (finalCheck.type === 'fake') {
+                    console.log(`�� Final fake message check blocked: ${finalCheck.pattern}`);
+                    return;
+                }
+                
+                // Дополнительная проверка на файловые и системные сообщения
+                const blockedTypes = [
+                    'file_transfer_start', 'file_transfer_response', 'file_chunk', 
+                    'chunk_confirmation', 'file_transfer_complete', 'file_transfer_error',
+                    'heartbeat', 'verification', 'verification_response', 
+                    'peer_disconnect', 'key_rotation_signal', 'key_rotation_ready', 'security_upgrade'
+                ];
+                
+                if (finalCheck.type && blockedTypes.includes(finalCheck.type)) {
+                    console.log(`📁 Final system/file message check blocked: ${finalCheck.type}`);
+                    return;
+                }
+            } catch (e) {
+                // Не JSON - это нормально для обычных текстовых сообщений
+            }
+        }
+
+        // Отправляем сообщение пользователю
+        if (this.onMessage && messageText) {
+            console.log('📤 Calling message handler with:', messageText.substring(0, 100));
+            this.deliverMessageToUI(messageText, 'received');
+        }
+
+    } catch (error) {
+        console.error('❌ Failed to process message:', error);
+    }
+}
+
+    // ИСПРАВЛЕНИЕ: Новый метод для ограниченного mutex при обработке зашифрованных данных
+    async _processEncryptedDataWithLimitedMutex(data) {
+        // Используем mutex ТОЛЬКО для криптографических операций
+        return this._withMutex('cryptoOperation', async (operationId) => {
+            this._secureLog('debug', '🔐 Processing encrypted data with limited mutex', {
+                operationId: operationId,
+                dataType: typeof data
+            });
+            
+            try {
+                // Применяем security layers
+                const originalData = await this.removeSecurityLayers(data);
+                return originalData;
+                
+            } catch (error) {
+                this._secureLog('error', '❌ Error processing encrypted data', {
+                    operationId: operationId,
+                    errorType: error.constructor.name
+                });
+                return data; // Возвращаем исходные данные при ошибке
+            }
+        }, 2000); // Короткий timeout для crypto операций
     }
 
 notifySecurityUpdate() {
@@ -3343,11 +3659,10 @@ handleSystemMessage(message) {
                 const securityData = await window.EnhancedSecureCryptoUtils.calculateSecurityLevel(this);
                 
                 this._secureLog('info', '🔐 Real security level calculated', {
-                    level: securityData.level,
-                    score: securityData.score,
-                    passedChecks: securityData.passedChecks,
-                    totalChecks: securityData.totalChecks,
-                    isRealData: securityData.isRealData
+                    hasSecurityLevel: !!securityData.level,
+                    scoreRange: securityData.score > 80 ? 'high' : securityData.score > 50 ? 'medium' : 'low',
+                    checksRatio: `${securityData.passedChecks}/${securityData.totalChecks}`,
+                    isRealCalculation: securityData.isRealData
                 });
 
                 this.lastSecurityCalculation = securityData;
@@ -3375,7 +3690,6 @@ handleSystemMessage(message) {
                 
             } catch (error) {
                 this._secureLog('error', '❌ Failed to calculate real security level', {
-                    error: error.message,
                     errorType: error.constructor.name
                 });
                 return null;
@@ -3545,41 +3859,75 @@ handleSystemMessage(message) {
 
     // PFS: Rotate encryption keys for Perfect Forward Secrecy
     async rotateKeys() {
-        try {
+        return this._withMutex('keyOperation', async (operationId) => {
+            this._secureLog('info', '🔄 Starting key rotation with mutex', {
+                operationId: operationId
+            });
+            
+            // Проверяем состояние в критической секции
             if (!this.isConnected() || !this.isVerified) {
+                this._secureLog('warn', '⚠️ Key rotation aborted - connection not ready', {
+                    operationId: operationId,
+                    isConnected: this.isConnected(),
+                    isVerified: this.isVerified
+                });
                 return false;
             }
-    
-            // Sending key rotation signal to partner.
-            const rotationSignal = {
-                type: 'key_rotation_signal',
-                newVersion: this.currentKeyVersion + 1,
-                timestamp: Date.now()
-            };
             
-            this.dataChannel.send(JSON.stringify(rotationSignal));
+            // Проверяем, не идет ли уже ротация
+            if (this._keySystemState.isRotating) {
+                this._secureLog('warn', '⚠️ Key rotation already in progress', {
+                    operationId: operationId
+                });
+                return false;
+            }
             
-            // Waiting for partner's confirmation before rotation.
-            return new Promise((resolve) => {
-                this.pendingRotation = {
+            try {
+                // Устанавливаем флаг ротации
+                this._keySystemState.isRotating = true;
+                this._keySystemState.lastOperation = 'rotation';
+                this._keySystemState.lastOperationTime = Date.now();
+                
+                // Отправляем сигнал ротации партнеру
+                const rotationSignal = {
+                    type: 'key_rotation_signal',
                     newVersion: this.currentKeyVersion + 1,
-                    resolve: resolve
+                    timestamp: Date.now(),
+                    operationId: operationId
                 };
                 
-                // Timeout in case the partner doesn't respond.
-                setTimeout(() => {
-                    if (this.pendingRotation) {
-                        this.pendingRotation.resolve(false);
-                        this.pendingRotation = null;
-                    }
-                }, 5000);
-            });
-        } catch (error) {
-            window.EnhancedSecureCryptoUtils.secureLog.log('error', 'Key rotation failed', {
-                error: error.message
-            });
-            return false;
-        }
+                if (this.dataChannel && this.dataChannel.readyState === 'open') {
+                    this.dataChannel.send(JSON.stringify(rotationSignal));
+                } else {
+                    throw new Error('Data channel not ready for key rotation');
+                }
+                
+                // Ждем подтверждения от партнера
+                return new Promise((resolve) => {
+                    this.pendingRotation = {
+                        newVersion: this.currentKeyVersion + 1,
+                        operationId: operationId,
+                        resolve: resolve,
+                        timeout: setTimeout(() => {
+                            this._secureLog('error', '⚠️ Key rotation timeout', {
+                                operationId: operationId
+                            });
+                            this._keySystemState.isRotating = false;
+                            this.pendingRotation = null;
+                            resolve(false);
+                        }, 10000) // 10 секунд timeout
+                    };
+                });
+                
+            } catch (error) {
+                this._secureLog('error', '❌ Key rotation failed in critical section', {
+                    operationId: operationId,
+                    errorType: error.constructor.name
+                });
+                this._keySystemState.isRotating = false;
+                return false;
+            }
+        }, 10000); // 10 секунд timeout для всей операции
     }
 
     // PFS: Clean up old keys that are no longer needed
@@ -3722,10 +4070,19 @@ handleSystemMessage(message) {
                 dataChannelState: this.dataChannel.readyState,
                 dataChannelLabel: this.dataChannel.label
             });
+            // Настройка backpressure для больших передач
+            try {
+                if (this.dataChannel && typeof this.dataChannel.bufferedAmountLowThreshold === 'number') {
+                    // 1 MB порог для события bufferedamountlow
+                    this.dataChannel.bufferedAmountLowThreshold = 1024 * 1024;
+                }
+            } catch (e) {
+                // ignore
+            }
             
             try {
-            await this.establishConnection();
-            
+                await this.establishConnection();
+                
                 // КРИТИЧЕСКИ ВАЖНО: Инициализируем file transfer сразу
                 this.initializeFileTransfer();
                 
@@ -3754,7 +4111,6 @@ handleSystemMessage(message) {
             if (!this.intentionalDisconnect) {
                 this.onStatusChange('disconnected');
                 
-                // Проверяем, не было ли уже отправлено сообщение о закрытии соединения
                 if (!this.connectionClosedNotificationSent) {
                     this.connectionClosedNotificationSent = true;
                     this.deliverMessageToUI('🔌 Enhanced secure connection closed. Check connection status.', 'system');
@@ -3762,7 +4118,6 @@ handleSystemMessage(message) {
             } else {
                 this.onStatusChange('disconnected');
                 
-                // Проверяем, не было ли уже отправлено сообщение о закрытии соединения
                 if (!this.connectionClosedNotificationSent) {
                     this.connectionClosedNotificationSent = true;
                     this.deliverMessageToUI('🔌 Enhanced secure connection closed', 'system');
@@ -3773,18 +4128,32 @@ handleSystemMessage(message) {
             this.isVerified = false;
         };
 
-        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ ОБРАБОТКИ СООБЩЕНИЙ
+        // ИСПРАВЛЕНИЕ 2: ПОЛНОСТЬЮ УБИРАЕМ MUTEX ИЗ ОБРАБОТКИ СООБЩЕНИЙ
         this.dataChannel.onmessage = async (event) => {
             try {
-                // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Проверка файловых сообщений
-                if (window.FILE_TRANSFER_ACTIVE && typeof event.data === 'string') {
+                console.log('📨 Raw message received:', {
+                    dataType: typeof event.data,
+                    dataLength: event.data?.length || event.data?.byteLength || 0,
+                    isString: typeof event.data === 'string'
+                });
+
+                // ВАЖНО: Обрабатываем ВСЕ сообщения БЕЗ MUTEX
+                if (typeof event.data === 'string') {
                     try {
                         const parsed = JSON.parse(event.data);
+                        console.log('📨 Parsed message:', {
+                            type: parsed.type,
+                            hasData: !!parsed.data,
+                            timestamp: parsed.timestamp
+                        });
                         
-                        // Список типов файловых сообщений
+                        // ============================================
+                        // КРИТИЧЕСКИ ВАЖНО: ФАЙЛОВЫЕ СООБЩЕНИЯ (БЕЗ MUTEX)
+                        // ============================================
+                        
                         const fileMessageTypes = [
                             'file_transfer_start',
-                            'file_transfer_response',
+                            'file_transfer_response', 
                             'file_chunk',
                             'chunk_confirmation',
                             'file_transfer_complete',
@@ -3792,419 +4161,1725 @@ handleSystemMessage(message) {
                         ];
                         
                         if (parsed.type && fileMessageTypes.includes(parsed.type)) {
-                            console.log('🚫 File message blocked at WebRTC level:', parsed.type);
+                            console.log('📁 File message intercepted at WebRTC level:', parsed.type);
                             
-                            // Передаем в файловую систему если она есть
-                            if (window.fileTransferSystem && window.fileTransferSystem.handleFileMessage) {
+                            // Обрабатываем напрямую БЕЗ дополнительных проверок
+                            if (window.fileTransferSystem) {
+                                console.log('📁 Forwarding to global file transfer system:', parsed.type);
                                 await window.fileTransferSystem.handleFileMessage(parsed);
+                                return;
                             }
-                            return; // НЕ обрабатываем дальше
+                            if (this.fileTransferSystem) {
+                                console.log('📁 Forwarding to local file transfer system:', parsed.type);
+                                await this.fileTransferSystem.handleFileMessage(parsed);
+                                return;
+                            }
+                            // Попытка ленивой инициализации на стороне-получателе
+                            console.warn('⚠️ File transfer system not ready, attempting lazy init...');
+                            try {
+                                await this._ensureFileTransferReady();
+                                if (this.fileTransferSystem) {
+                                    await this.fileTransferSystem.handleFileMessage(parsed);
+                                    return;
+                                }
+                            } catch (e) {
+                                console.error('❌ Lazy init of file transfer failed:', e?.message || e);
+                            }
+                            console.error('❌ No file transfer system available for:', parsed.type);
+                            return; // ВАЖНО: Не обрабатываем дальше
                         }
-                    } catch (jsonError) {
-                        // Не JSON - продолжаем обычную обработку
-                    }
-                }
-
-                // Обработка обычных сообщений
-                if (typeof event.data === 'string') {
-                    try {
-                        const parsed = JSON.parse(event.data);
                         
-                        // Обычные пользовательские сообщения
+                        // ============================================
+                        // СИСТЕМНЫЕ СООБЩЕНИЯ (БЕЗ MUTEX)
+                        // ============================================
+                        
+                        if (parsed.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'security_upgrade'].includes(parsed.type)) {
+                            console.log('🔧 System message detected:', parsed.type);
+                            this.handleSystemMessage(parsed);
+                            return;
+                        }
+                        
+                        // ============================================
+                        // ОБЫЧНЫЕ ПОЛЬЗОВАТЕЛЬСКИЕ СООБЩЕНИЯ (БЕЗ MUTEX)
+                        // ============================================
+                        
                         if (parsed.type === 'message' && parsed.data) {
+                            console.log('📝 User message detected:', parsed.data.substring(0, 50));
                             if (this.onMessage) {
                                 this.deliverMessageToUI(parsed.data, 'received');
                             }
                             return;
                         }
                         
-                        // Системные сообщения
-                        if (parsed.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'security_upgrade'].includes(parsed.type)) {
-                            await this.processMessage(event.data);
+                        // ============================================
+                        // ENHANCED MESSAGES (БЕЗ MUTEX)
+                        // ============================================
+                        
+                        if (parsed.type === 'enhanced_message' && parsed.data) {
+                            console.log('🔐 Enhanced message detected, processing...');
+                            await this._processEnhancedMessageWithoutMutex(parsed);
                             return;
                         }
+                        
+                        // ============================================
+                        // FAKE MESSAGES (БЕЗ MUTEX)
+                        // ============================================
+                        
+                        if (parsed.type === 'fake') {
+                            console.log('🎭 Fake message blocked:', parsed.pattern);
+                            return;
+                        }
+                        
+                        // ============================================
+                        // НЕИЗВЕСТНЫЕ ТИПЫ СООБЩЕНИЙ
+                        // ============================================
+                        
+                        console.log('❓ Unknown message type:', parsed.type);
+                        
                     } catch (jsonError) {
-                        // Обрабатываем как обычное текстовое сообщение
+                        // Не JSON - обрабатываем как обычное текстовое сообщение
+                        console.log('📄 Non-JSON message detected, treating as text');
                         if (this.onMessage) {
                             this.deliverMessageToUI(event.data, 'received');
                         }
                         return;
                     }
+                } else if (event.data instanceof ArrayBuffer) {
+                    // Бинарные данные - обрабатываем БЕЗ MUTEX
+                    console.log('🔢 Binary data received, processing...');
+                    await this._processBinaryDataWithoutMutex(event.data);
+                } else {
+                    console.log('❓ Unknown data type:', typeof event.data);
                 }
-                
-                // Обрабатываем все остальные сообщения
-                await this.processMessage(event.data);
                 
             } catch (error) {
                 console.error('❌ Failed to process message in onmessage:', error);
             }
         };
     }
-    async createSecureOffer() {
-        try {
-            // Сброс флагов уведомлений для нового соединения
-            this._resetNotificationFlags();
+    // ИСПРАВЛЕНИЕ 4: Новый метод для обработки бинарных данных БЕЗ MUTEX
+async _processBinaryDataWithoutMutex(data) {
+    try {
+        console.log('🔢 Processing binary data without mutex...');
+        
+        // Применяем security layers БЕЗ MUTEX
+        let processedData = data;
+        
+        // Nested Encryption Removal (если включено)
+        if (this.securityFeatures.hasNestedEncryption && 
+            this.nestedEncryptionKey && 
+            processedData instanceof ArrayBuffer &&
+            processedData.byteLength > 12) {
             
-            // Check rate limiting
-            if (!this._checkRateLimit()) {
-                throw new Error('Connection rate limit exceeded. Please wait before trying again.');
+            try {
+                processedData = await this.removeNestedEncryption(processedData);
+            } catch (error) {
+                console.warn('⚠️ Nested decryption failed, continuing with original data');
+            }
+        }
+        
+        // Packet Padding Removal (если включено)
+        if (this.securityFeatures.hasPacketPadding && processedData instanceof ArrayBuffer) {
+            try {
+                processedData = this.removePacketPadding(processedData);
+            } catch (error) {
+                console.warn('⚠️ Packet padding removal failed, continuing with original data');
+            }
+        }
+        
+        // Anti-Fingerprinting Removal (если включено)
+        if (this.securityFeatures.hasAntiFingerprinting && processedData instanceof ArrayBuffer) {
+            try {
+                processedData = this.removeAntiFingerprinting(processedData);
+            } catch (error) {
+                console.warn('⚠️ Anti-fingerprinting removal failed, continuing with original data');
+            }
+        }
+        
+        // Преобразуем в текст
+        if (processedData instanceof ArrayBuffer) {
+            const textData = new TextDecoder().decode(processedData);
+            
+            // Проверяем на fake сообщения
+            try {
+                const content = JSON.parse(textData);
+                if (content.type === 'fake' || content.isFakeTraffic === true) {
+                    console.log(`🎭 BLOCKED: Binary fake message: ${content.pattern || 'unknown'}`);
+                    return;
+                }
+            } catch (e) {
+                // Не JSON - это нормально для обычных текстовых сообщений
             }
             
-            this.connectionAttempts = 0;
-            this.sessionSalt = window.EnhancedSecureCryptoUtils.generateSalt(); // Now 64 bytes
+            // Отправляем сообщение пользователю
+            if (this.onMessage) {
+                this.deliverMessageToUI(textData, 'received');
+            }
+        }
+        
+    } catch (error) {
+        console.error('❌ Error processing binary data:', error);
+    }
+}
+    // ИСПРАВЛЕНИЕ 3: Новый метод для обработки enhanced сообщений БЕЗ MUTEX
+async _processEnhancedMessageWithoutMutex(parsedMessage) {
+    try {
+        console.log('🔐 Processing enhanced message without mutex...');
+        
+        if (!this.encryptionKey || !this.macKey || !this.metadataKey) {
+            console.error('❌ Missing encryption keys for enhanced message');
+            return;
+        }
+        
+        const decryptedResult = await window.EnhancedSecureCryptoUtils.decryptMessage(
+            parsedMessage.data,
+            this.encryptionKey,
+            this.macKey,
+            this.metadataKey
+        );
+        
+        if (decryptedResult && decryptedResult.message) {
+            console.log('✅ Enhanced message decrypted successfully');
             
-            // Generate ECDH key pair (non-extractable)
-            this.ecdhKeyPair = await window.EnhancedSecureCryptoUtils.generateECDHKeyPair();
-            
-            // Generate ECDSA key pair for digital signatures
-            this.ecdsaKeyPair = await window.EnhancedSecureCryptoUtils.generateECDSAKeyPair();
-            
-            // MITM Protection: Verify key uniqueness and prevent key reuse attacks
-            const ecdhFingerprint = await window.EnhancedSecureCryptoUtils.calculateKeyFingerprint(
-                await crypto.subtle.exportKey('spki', this.ecdhKeyPair.publicKey)
-            );
-            const ecdsaFingerprint = await window.EnhancedSecureCryptoUtils.calculateKeyFingerprint(
-                await crypto.subtle.exportKey('spki', this.ecdsaKeyPair.publicKey)
-            );
-            
-            window.EnhancedSecureCryptoUtils.secureLog.log('info', 'Generated unique key pairs for MITM protection', {
-                ecdhFingerprint: ecdhFingerprint.substring(0, EnhancedSecureWebRTCManager.SIZES.FINGERPRINT_DISPLAY_LENGTH),
-                ecdsaFingerprint: ecdsaFingerprint.substring(0, EnhancedSecureWebRTCManager.SIZES.FINGERPRINT_DISPLAY_LENGTH),
-                timestamp: Date.now()
-            });
-            
-            // Export keys with signatures
-            const ecdhPublicKeyData = await window.EnhancedSecureCryptoUtils.exportPublicKeyWithSignature(
-                this.ecdhKeyPair.publicKey,
-                this.ecdsaKeyPair.privateKey,
-                'ECDH'
-            );
-            
-            const ecdsaPublicKeyData = await window.EnhancedSecureCryptoUtils.exportPublicKeyWithSignature(
-                this.ecdsaKeyPair.publicKey,
-                this.ecdsaKeyPair.privateKey,
-                'ECDSA'
-            );
-            
-            // Update security features
-            this.securityFeatures.hasECDSA = true;
-            this.securityFeatures.hasMutualAuth = true;
-            this.securityFeatures.hasMetadataProtection = true;
-            this.securityFeatures.hasEnhancedReplayProtection = true;
-            this.securityFeatures.hasNonExtractableKeys = true;
-            this.securityFeatures.hasRateLimiting = true;
-            this.securityFeatures.hasEnhancedValidation = true;
-            this.securityFeatures.hasPFS = true;
-            
-            this.isInitiator = true;
-            this.onStatusChange('connecting');
-            
-            this.createPeerConnection();
-            
-            this.dataChannel = this.peerConnection.createDataChannel('securechat', {
-                ordered: true,
-                maxRetransmits: EnhancedSecureWebRTCManager.LIMITS.MAX_CONNECTION_ATTEMPTS
-            });
-            this.setupDataChannel(this.dataChannel);
-
-            const offer = await this.peerConnection.createOffer({
-                offerToReceiveAudio: false,
-                offerToReceiveVideo: false
-            });
-            
-            await this.peerConnection.setLocalDescription(offer);
-            await this.waitForIceGathering();
-
-            // Generate verification code for out-of-band authentication
-            this.verificationCode = window.EnhancedSecureCryptoUtils.generateVerificationCode();
-            this.onVerificationRequired(this.verificationCode);
-
-            // Generate mutual authentication challenge
-            const authChallenge = window.EnhancedSecureCryptoUtils.generateMutualAuthChallenge();
-
-            // MITM Protection: Add session-specific data to prevent session hijacking
-            this.sessionId = Array.from(crypto.getRandomValues(new Uint8Array(EnhancedSecureWebRTCManager.SIZES.SESSION_ID_LENGTH)))
-                .map(b => b.toString(16).padStart(2, '0')).join('');
-            
-            const offerPackage = {
-                type: 'enhanced_secure_offer',
-                sdp: this.peerConnection.localDescription.sdp,
-                ecdhPublicKey: ecdhPublicKeyData,
-                ecdsaPublicKey: ecdsaPublicKeyData,
-                salt: this.sessionSalt,
-                verificationCode: this.verificationCode,
-                authChallenge: authChallenge,
-                sessionId: this.sessionId, // Additional MITM protection
-                timestamp: Date.now(),
-                version: '4.0',
-                securityLevel: await this.calculateSecurityLevel()
-            };
-
-            window.EnhancedSecureCryptoUtils.secureLog.log('info', 'Enhanced secure offer created', {
-                version: '4.0',
-                hasECDSA: true,
-                saltSize: this.sessionSalt.length,
-                securityLevel: offerPackage.securityLevel.level
-            });
-
-            document.dispatchEvent(new CustomEvent('new-connection', {
-                detail: { 
-                    type: 'offer',
-                    timestamp: Date.now()
+            // Попытка распарсить как JSON и показать вложенный текст, если это чат-сообщение
+            try {
+                const decryptedContent = JSON.parse(decryptedResult.message);
+                if (decryptedContent.type === 'fake' || decryptedContent.isFakeTraffic === true) {
+                    console.log(`�� BLOCKED: Encrypted fake message: ${decryptedContent.pattern || 'unknown'}`);
+                    return;
                 }
-            }));
+                if (decryptedContent && decryptedContent.type === 'message' && typeof decryptedContent.data === 'string') {
+                    if (this.onMessage) {
+                        this.deliverMessageToUI(decryptedContent.data, 'received');
+                    }
+                    return;
+                }
+            } catch (e) {
+                // Не JSON - это нормально для обычных текстовых сообщений
+            }
+            
+            // Иначе передаём как есть
+            if (this.onMessage) {
+                this.deliverMessageToUI(decryptedResult.message, 'received');
+            }
+        } else {
+            console.warn('⚠️ No message content in decrypted result');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error processing enhanced message:', error);
+    }
+}
+    /**
+     * Создает уникальный ID для операции
+     */
+    _generateOperationId() {
+        return `op_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
 
-            return offerPackage;
-        } catch (error) {
-            window.EnhancedSecureCryptoUtils.secureLog.log('error', 'Enhanced secure offer creation failed', {
-                error: error.message
+    /**
+     * Универсальная функция получения mutex
+     */
+    async _acquireMutex(mutexName, operationId, timeout = 5000) {
+        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Правильное построение имени mutex
+        const mutexPropertyName = `_${mutexName}Mutex`;
+        const mutex = this[mutexPropertyName];
+        
+        if (!mutex) {
+            this._secureLog('error', `❌ Unknown mutex: ${mutexName}`, {
+                mutexPropertyName: mutexPropertyName,
+                availableMutexes: this._getAvailableMutexes(),
+                operationId: operationId
             });
-            this.onStatusChange('disconnected');
+            throw new Error(`Unknown mutex: ${mutexName}. Available: ${this._getAvailableMutexes().join(', ')}`);
+        }
+        
+        return new Promise((resolve, reject) => {
+            const attemptLock = () => {
+                if (!mutex.locked) {
+                    // Получаем блокировку
+                    mutex.locked = true;
+                    mutex.lockId = operationId;
+                    mutex.lockTimeout = setTimeout(() => {
+                        this._secureLog('error', `⚠️ Mutex timeout for ${mutexName}`, {
+                            operationId: operationId,
+                            timeout: timeout,
+                            queueLength: mutex.queue.length
+                        });
+                        this._releaseMutex(mutexName, operationId);
+                        reject(new Error(`Mutex timeout for ${mutexName}`));
+                    }, timeout);
+                    
+                    this._secureLog('debug', `🔒 Mutex acquired: ${mutexName}`, {
+                        operationId: operationId,
+                        queueLength: mutex.queue.length
+                    });
+                    
+                    resolve();
+                } else {
+                    // Добавляем в очередь
+                    mutex.queue.push({ resolve, reject, operationId, attemptLock });
+                    
+                    this._secureLog('debug', `⏳ Mutex queued: ${mutexName}`, {
+                        operationId: operationId,
+                        queuePosition: mutex.queue.length,
+                        currentLockId: mutex.lockId
+                    });
+                }
+            };
+            
+            attemptLock();
+        });
+    }
+
+    /**
+     * Освобождение mutex
+     */
+    _releaseMutex(mutexName, operationId) {
+        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Правильное построение имени mutex
+        const mutexPropertyName = `_${mutexName}Mutex`;
+        const mutex = this[mutexPropertyName];
+        
+        if (!mutex) {
+            this._secureLog('error', `❌ Unknown mutex for release: ${mutexName}`, {
+                mutexPropertyName: mutexPropertyName,
+                availableMutexes: this._getAvailableMutexes(),
+                operationId: operationId
+            });
+            return; // Не выбрасываем ошибку, просто логируем
+        }
+        
+        if (mutex.lockId !== operationId) {
+            this._secureLog('error', `❌ Invalid mutex release attempt`, {
+                mutexName: mutexName,
+                expectedLockId: mutex.lockId,
+                providedOperationId: operationId
+            });
+            return; // Не выбрасываем ошибку, просто логируем
+        }
+        
+        // Очищаем timeout
+        if (mutex.lockTimeout) {
+            clearTimeout(mutex.lockTimeout);
+            mutex.lockTimeout = null;
+        }
+        
+        // Освобождаем блокировку
+        mutex.locked = false;
+        mutex.lockId = null;
+        
+        this._secureLog('debug', `🔓 Mutex released: ${mutexName}`, {
+            operationId: operationId,
+            queueLength: mutex.queue.length
+        });
+        
+        // Обрабатываем очередь
+        if (mutex.queue.length > 0) {
+            const next = mutex.queue.shift();
+            setImmediate(() => {
+                try {
+                    next.attemptLock();
+                } catch (error) {
+                    this._secureLog('error', '❌ Error processing mutex queue', {
+                        mutexName: mutexName,
+                        errorType: error.constructor.name
+                    });
+                    next.reject(error);
+                }
+            });
+        }
+    }
+
+    _getAvailableMutexes() {
+        const mutexes = [];
+        const propertyNames = Object.getOwnPropertyNames(this);
+        
+        for (const prop of propertyNames) {
+            if (prop.endsWith('Mutex') && prop.startsWith('_')) {
+                // Извлекаем имя mutex без префикса и суффикса
+                const mutexName = prop.slice(1, -5); // Убираем '_' в начале и 'Mutex' в конце
+                mutexes.push(mutexName);
+            }
+        }
+        
+        return mutexes;
+    }
+
+    /**
+     * Безопасное выполнение операции с mutex
+     */
+    async _withMutex(mutexName, operation, timeout = 5000) {
+    const operationId = this._generateOperationId();
+    
+    // Валидация перед началом
+    if (!this._validateMutexSystem()) {
+        this._secureLog('error', '❌ Mutex system not properly initialized', {
+            operationId: operationId,
+            mutexName: mutexName
+        });
+        throw new Error('Mutex system not properly initialized. Call _initializeMutexSystem() first.');
+    }
+    
+    try {
+        await this._acquireMutex(mutexName, operationId, timeout);
+        
+        // Увеличиваем счетчик операций
+        const counterKey = `${mutexName}Operations`;
+        if (this._operationCounters && this._operationCounters[counterKey] !== undefined) {
+            this._operationCounters[counterKey]++;
+        }
+        
+        // Выполняем операцию
+        const result = await operation(operationId);
+        return result;
+        
+    } catch (error) {
+        this._secureLog('error', '❌ Error in mutex operation', {
+            operationId: operationId,
+            mutexName: mutexName,
+            errorType: error.constructor.name,
+            errorMessage: error.message
+        });
+        throw error;
+    } finally {
+        // Всегда освобождаем mutex в finally блоке
+        try {
+            this._releaseMutex(mutexName, operationId);
+        } catch (releaseError) {
+            this._secureLog('error', '❌ Error releasing mutex in finally block', {
+                operationId: operationId,
+                mutexName: mutexName,
+                releaseErrorType: releaseError.constructor.name
+            });
+        }
+    }
+}
+
+_validateMutexSystem() {
+    const requiredMutexes = ['keyOperation', 'cryptoOperation', 'connectionOperation'];
+    
+    for (const mutexName of requiredMutexes) {
+        const mutexPropertyName = `_${mutexName}Mutex`;
+        const mutex = this[mutexPropertyName];
+        
+        if (!mutex || typeof mutex !== 'object') {
+            this._secureLog('error', `❌ Missing or invalid mutex: ${mutexName}`, {
+                mutexPropertyName: mutexPropertyName,
+                mutexType: typeof mutex
+            });
+            return false;
+        }
+        
+        // Проверяем структуру mutex
+        const requiredProps = ['locked', 'queue', 'lockId', 'lockTimeout'];
+        for (const prop of requiredProps) {
+            if (!(prop in mutex)) {
+                this._secureLog('error', `❌ Mutex ${mutexName} missing property: ${prop}`);
+                return false;
+            }
+        }
+    }
+    
+    return true;
+}
+
+/**
+ * НОВЫЙ: Экстренное восстановление системы mutex
+ */
+_emergencyRecoverMutexSystem() {
+    this._secureLog('warn', '🚨 Emergency mutex system recovery initiated');
+    
+    try {
+        // Принудительно инициализируем систему заново
+        this._initializeMutexSystem();
+        
+        this._secureLog('info', '✅ Mutex system recovered successfully');
+        return true;
+        
+    } catch (error) {
+        this._secureLog('error', '❌ Failed to recover mutex system', {
+            errorType: error.constructor.name
+        });
+        return false;
+    }
+}
+
+    /**
+     * Безопасная генерация ключей с mutex
+     */
+    async _generateEncryptionKeys() {
+        return this._withMutex('keyOperation', async (operationId) => {
+            this._secureLog('info', '🔑 Generating encryption keys with mutex', {
+                operationId: operationId
+            });
+            
+            // Проверяем, не идет ли инициализация
+            if (this._keySystemState.isInitializing) {
+                throw new Error('Key initialization already in progress');
+            }
+            
+            try {
+                this._keySystemState.isInitializing = true;
+                this._keySystemState.lastOperation = 'generation';
+                this._keySystemState.lastOperationTime = Date.now();
+                
+                // Генерируем ECDH ключи
+                const ecdhKeyPair = await window.EnhancedSecureCryptoUtils.generateECDHKeyPair();
+                
+                // Проверяем, что ключи сгенерированы корректно
+                if (!ecdhKeyPair || !ecdhKeyPair.privateKey || !ecdhKeyPair.publicKey) {
+                    throw new Error('Failed to generate valid ECDH key pair');
+                }
+                
+                // Генерируем ECDSA ключи
+                const ecdsaKeyPair = await window.EnhancedSecureCryptoUtils.generateECDSAKeyPair();
+                
+                if (!ecdsaKeyPair || !ecdsaKeyPair.privateKey || !ecdsaKeyPair.publicKey) {
+                    throw new Error('Failed to generate valid ECDSA key pair');
+                }
+                
+                this._secureLog('info', '✅ Encryption keys generated successfully', {
+                    operationId: operationId,
+                    hasECDHKeys: !!(ecdhKeyPair?.privateKey && ecdhKeyPair?.publicKey),
+                    hasECDSAKeys: !!(ecdsaKeyPair?.privateKey && ecdsaKeyPair?.publicKey)
+                });
+                
+                return { ecdhKeyPair, ecdsaKeyPair };
+                
+            } finally {
+                this._keySystemState.isInitializing = false;
+            }
+        });
+    }
+
+    /**
+     * Экстренное разблокирование всех mutex
+     */
+    _emergencyUnlockAllMutexes() {
+        const mutexes = ['keyOperation', 'cryptoOperation', 'connectionOperation'];
+        
+        this._secureLog('error', '🚨 EMERGENCY: Unlocking all mutexes');
+        
+        mutexes.forEach(mutexName => {
+            const mutex = this[`_${mutexName}Mutex`];
+            if (mutex) {
+                if (mutex.lockTimeout) {
+                    clearTimeout(mutex.lockTimeout);
+                }
+                mutex.locked = false;
+                mutex.lockId = null;
+                mutex.lockTimeout = null;
+                
+                // Очищаем очередь
+                mutex.queue.forEach(item => {
+                    item.reject(new Error('Emergency mutex unlock'));
+                });
+                mutex.queue = [];
+            }
+        });
+    }
+/**
+ * НОВЫЙ: Диагностика состояния mutex системы
+ */
+_getMutexSystemDiagnostics() {
+    const diagnostics = {
+        timestamp: Date.now(),
+        systemValid: this._validateMutexSystem(),
+        mutexes: {},
+        counters: { ...this._operationCounters },
+        keySystemState: { ...this._keySystemState }
+    };
+    
+    const mutexNames = ['keyOperation', 'cryptoOperation', 'connectionOperation'];
+    
+    mutexNames.forEach(mutexName => {
+        const mutexPropertyName = `_${mutexName}Mutex`;
+        const mutex = this[mutexPropertyName];
+        
+        if (mutex) {
+            diagnostics.mutexes[mutexName] = {
+                locked: mutex.locked,
+                lockId: mutex.lockId,
+                queueLength: mutex.queue.length,
+                hasTimeout: !!mutex.lockTimeout
+            };
+        } else {
+            diagnostics.mutexes[mutexName] = { error: 'not_found' };
+        }
+    });
+    
+    return diagnostics;
+}
+
+    /**
+     * ПОЛНЫЙ ИСПРАВЛЕННЫЙ МЕТОД createSecureOffer()
+     * С защитой от race conditions и улучшенной безопасностью
+     */
+    async createSecureOffer() {
+        return this._withMutex('connectionOperation', async (operationId) => {
+            this._secureLog('info', '📤 Creating secure offer with mutex', {
+                operationId: operationId,
+                connectionAttempts: this.connectionAttempts,
+                currentState: this.peerConnection?.connectionState || 'none'
+            });
+            
+            try {
+                // ============================================
+                // ФАЗА 1: ИНИЦИАЛИЗАЦИЯ И ВАЛИДАЦИЯ
+                // ============================================
+                
+                // Сброс флагов уведомлений для нового соединения
+                this._resetNotificationFlags();
+                
+                // Проверка rate limiting
+                if (!this._checkRateLimit()) {
+                    throw new Error('Connection rate limit exceeded. Please wait before trying again.');
+                }
+                
+                // Сброс счетчиков попыток
+                this.connectionAttempts = 0;
+                
+                // Генерация соли сессии (64 байта для v4.0)
+                this.sessionSalt = window.EnhancedSecureCryptoUtils.generateSalt();
+                
+                this._secureLog('debug', '🧂 Session salt generated', {
+                    operationId: operationId,
+                    saltLength: this.sessionSalt.length,
+                    isValidSalt: Array.isArray(this.sessionSalt) && this.sessionSalt.length === 64
+                });
+                
+                // ============================================
+                // ФАЗА 2: БЕЗОПАСНАЯ ГЕНЕРАЦИЯ КЛЮЧЕЙ
+                // ============================================
+                
+                // Безопасная генерация ключей через mutex
+                const keyPairs = await this._generateEncryptionKeys();
+                this.ecdhKeyPair = keyPairs.ecdhKeyPair;
+                this.ecdsaKeyPair = keyPairs.ecdsaKeyPair;
+                
+                // Валидация сгенерированных ключей
+                if (!this.ecdhKeyPair?.privateKey || !this.ecdhKeyPair?.publicKey) {
+                    throw new Error('Failed to generate valid ECDH key pair');
+                }
+                
+                if (!this.ecdsaKeyPair?.privateKey || !this.ecdsaKeyPair?.publicKey) {
+                    throw new Error('Failed to generate valid ECDSA key pair');
+                }
+                
+                // ============================================
+                // ФАЗА 3: MITM ЗАЩИТА И FINGERPRINTING
+                // ============================================
+                
+                // MITM Protection: Вычисление уникальных отпечатков ключей
+                const ecdhFingerprint = await window.EnhancedSecureCryptoUtils.calculateKeyFingerprint(
+                    await crypto.subtle.exportKey('spki', this.ecdhKeyPair.publicKey)
+                );
+                const ecdsaFingerprint = await window.EnhancedSecureCryptoUtils.calculateKeyFingerprint(
+                    await crypto.subtle.exportKey('spki', this.ecdsaKeyPair.publicKey)
+                );
+                
+                // Валидация отпечатков
+                if (!ecdhFingerprint || !ecdsaFingerprint) {
+                    throw new Error('Failed to generate key fingerprints');
+                }
+                
+                this._secureLog('info', 'Generated unique key pairs for MITM protection', {
+                    operationId: operationId,
+                    hasECDHFingerprint: !!ecdhFingerprint,
+                    hasECDSAFingerprint: !!ecdsaFingerprint,
+                    fingerprintLength: ecdhFingerprint.length,
+                    timestamp: Date.now()
+                });
+                
+                // ============================================
+                // ФАЗА 4: ЭКСПОРТ КЛЮЧЕЙ С ПОДПИСЯМИ
+                // ============================================
+                
+                // Экспорт ключей с цифровыми подписями
+                const ecdhPublicKeyData = await window.EnhancedSecureCryptoUtils.exportPublicKeyWithSignature(
+                    this.ecdhKeyPair.publicKey,
+                    this.ecdsaKeyPair.privateKey,
+                    'ECDH'
+                );
+                
+                const ecdsaPublicKeyData = await window.EnhancedSecureCryptoUtils.exportPublicKeyWithSignature(
+                    this.ecdsaKeyPair.publicKey,
+                    this.ecdsaKeyPair.privateKey,
+                    'ECDSA'
+                );
+                
+                // Валидация экспортированных данных
+                if (!ecdhPublicKeyData?.keyData || !ecdhPublicKeyData?.signature) {
+                    throw new Error('Failed to export ECDH public key with signature');
+                }
+                
+                if (!ecdsaPublicKeyData?.keyData || !ecdsaPublicKeyData?.signature) {
+                    throw new Error('Failed to export ECDSA public key with signature');
+                }
+                
+                // ============================================
+                // ФАЗА 5: ОБНОВЛЕНИЕ SECURITY FEATURES
+                // ============================================
+                
+                // Атомарное обновление security features
+                this._updateSecurityFeatures({
+                    hasEncryption: true,
+                    hasECDH: true,
+                    hasECDSA: true,
+                    hasMutualAuth: true,
+                    hasMetadataProtection: true,
+                    hasEnhancedReplayProtection: true,
+                    hasNonExtractableKeys: true,
+                    hasRateLimiting: true,
+                    hasEnhancedValidation: true,
+                    hasPFS: true
+                });
+                
+                // ============================================
+                // ФАЗА 6: ИНИЦИАЛИЗАЦИЯ PEER CONNECTION
+                // ============================================
+                
+                this.isInitiator = true;
+                this.onStatusChange('connecting');
+                
+                // Создание peer connection
+                this.createPeerConnection();
+                
+                // Создание основного data channel
+                this.dataChannel = this.peerConnection.createDataChannel('securechat', {
+                    ordered: true
+                });
+                
+                // Настройка data channel
+                this.setupDataChannel(this.dataChannel);
+                
+                this._secureLog('debug', '🔗 Data channel created', {
+                    operationId: operationId,
+                    channelLabel: this.dataChannel.label,
+                    channelOrdered: this.dataChannel.ordered
+                });
+                
+                // ============================================
+                // ФАЗА 7: СОЗДАНИЕ SDP OFFER
+                // ============================================
+                
+                // Создание WebRTC offer
+                const offer = await this.peerConnection.createOffer({
+                    offerToReceiveAudio: false,
+                    offerToReceiveVideo: false
+                });
+                
+                // Установка локального описания
+                await this.peerConnection.setLocalDescription(offer);
+                
+                // Ожидание сбора ICE кандидатов
+                await this.waitForIceGathering();
+                
+                this._secureLog('debug', '🧊 ICE gathering completed', {
+                    operationId: operationId,
+                    iceGatheringState: this.peerConnection.iceGatheringState,
+                    connectionState: this.peerConnection.connectionState
+                });
+                
+                // ============================================
+                // ФАЗА 8: ГЕНЕРАЦИЯ VERIFICATION CODE
+                // ============================================
+                
+                // Генерация кода верификации для out-of-band аутентификации
+                this.verificationCode = window.EnhancedSecureCryptoUtils.generateVerificationCode();
+                
+                // Валидация verification code
+                if (!this.verificationCode || this.verificationCode.length < EnhancedSecureWebRTCManager.SIZES.VERIFICATION_CODE_MIN_LENGTH) {
+                    throw new Error('Failed to generate valid verification code');
+                }
+                
+                // Уведомление UI о необходимости верификации
+                this.onVerificationRequired(this.verificationCode);
+                
+                // ============================================
+                // ФАЗА 9: MUTUAL AUTHENTICATION CHALLENGE
+                // ============================================
+                
+                // Генерация challenge для взаимной аутентификации
+                const authChallenge = window.EnhancedSecureCryptoUtils.generateMutualAuthChallenge();
+                
+                if (!authChallenge) {
+                    throw new Error('Failed to generate mutual authentication challenge');
+                }
+                
+                // ============================================
+                // ФАЗА 10: SESSION ID ДЛЯ MITM ЗАЩИТЫ
+                // ============================================
+                
+                // MITM Protection: Генерация session-specific ID
+                this.sessionId = Array.from(crypto.getRandomValues(new Uint8Array(EnhancedSecureWebRTCManager.SIZES.SESSION_ID_LENGTH)))
+                    .map(b => b.toString(16).padStart(2, '0')).join('');
+                
+                // Валидация session ID
+                if (!this.sessionId || this.sessionId.length !== (EnhancedSecureWebRTCManager.SIZES.SESSION_ID_LENGTH * 2)) {
+                    throw new Error('Failed to generate valid session ID');
+                }
+                
+                // ============================================
+                // ФАЗА 11: РАСЧЕТ УРОВНЯ БЕЗОПАСНОСТИ
+                // ============================================
+                
+                // Предварительный расчет уровня безопасности
+                let securityLevel;
+                try {
+                    securityLevel = await this.calculateSecurityLevel();
+                } catch (error) {
+                    this._secureLog('warn', '⚠️ Security level calculation failed, using fallback', {
+                        operationId: operationId,
+                        errorType: error.constructor.name
+                    });
+                    
+                    // Fallback значение
+                    securityLevel = {
+                        level: 'enhanced',
+                        score: 75,
+                        passedChecks: 10,
+                        totalChecks: 15,
+                        isRealData: false
+                    };
+                }
+                
+                // ============================================
+                // ФАЗА 12: СОЗДАНИЕ OFFER PACKAGE
+                // ============================================
+                
+                const currentTimestamp = Date.now();
+                
+                const offerPackage = {
+                    // Основная информация
+                    type: 'enhanced_secure_offer',
+                    sdp: this.peerConnection.localDescription.sdp,
+                    version: '4.0',
+                    timestamp: currentTimestamp,
+                    
+                    // Криптографические ключи
+                    ecdhPublicKey: ecdhPublicKeyData,
+                    ecdsaPublicKey: ecdsaPublicKeyData,
+                    
+                    // Сессионные данные
+                    salt: this.sessionSalt,
+                    sessionId: this.sessionId,
+                    
+                    // Аутентификация
+                    verificationCode: this.verificationCode,
+                    authChallenge: authChallenge,
+                    
+                    // Метаданные безопасности
+                    securityLevel: securityLevel,
+                    
+                    // Дополнительные поля для валидации
+                    keyFingerprints: {
+                        ecdh: ecdhFingerprint.substring(0, 16), // Первые 16 символов для валидации
+                        ecdsa: ecdsaFingerprint.substring(0, 16)
+                    },
+                    
+                    // Опциональная информация о возможностях
+                    capabilities: {
+                        supportsFileTransfer: true,
+                        supportsEnhancedSecurity: true,
+                        supportsKeyRotation: true,
+                        supportsFakeTraffic: this.fakeTrafficConfig.enabled,
+                        supportsDecoyChannels: this.decoyChannelConfig.enabled
+                    }
+                };
+                
+                // ============================================
+                // ФАЗА 13: ВАЛИДАЦИЯ OFFER PACKAGE
+                // ============================================
+                
+                // Финальная валидация созданного package
+                if (!this.validateEnhancedOfferData(offerPackage)) {
+                    throw new Error('Generated offer package failed validation');
+                }
+                
+                // ============================================
+                // ФАЗА 14: ЛОГИРОВАНИЕ И СОБЫТИЯ
+                // ============================================
+                
+                this._secureLog('info', 'Enhanced secure offer created successfully', {
+                    operationId: operationId,
+                    version: offerPackage.version,
+                    hasECDSA: true,
+                    hasMutualAuth: true,
+                    hasSessionId: !!offerPackage.sessionId,
+                    securityLevel: securityLevel.level,
+                    timestamp: currentTimestamp,
+                    capabilitiesCount: Object.keys(offerPackage.capabilities).length
+                });
+                
+                // Отправка события о новом соединении
+                document.dispatchEvent(new CustomEvent('new-connection', {
+                    detail: { 
+                        type: 'offer',
+                        timestamp: currentTimestamp,
+                        securityLevel: securityLevel.level,
+                        operationId: operationId
+                    }
+                }));
+                
+                // ============================================
+                // ФАЗА 15: ВОЗВРАТ РЕЗУЛЬТАТА
+                // ============================================
+                
+                return offerPackage;
+                
+            } catch (error) {
+                // ============================================
+                // ОБРАБОТКА ОШИБОК
+                // ============================================
+                
+                this._secureLog('error', '❌ Enhanced secure offer creation failed in critical section', {
+                    operationId: operationId,
+                    errorType: error.constructor.name,
+                    errorMessage: error.message,
+                    phase: this._determineErrorPhase(error),
+                    connectionAttempts: this.connectionAttempts
+                });
+                
+                // Очистка состояния при ошибке
+                this._cleanupFailedOfferCreation();
+                
+                // Обновление статуса
+                this.onStatusChange('disconnected');
+                
+                // Проброс ошибки для обработки на верхнем уровне
+                throw error;
+            }
+        }, 15000); // 15 секунд timeout для всей операции создания offer
+    }
+
+    /**
+     * HELPER: Определение фазы, на которой произошла ошибка
+     */
+    _determineErrorPhase(error) {
+        const message = error.message.toLowerCase();
+        
+        if (message.includes('rate limit')) return 'rate_limiting';
+        if (message.includes('key pair') || message.includes('generate')) return 'key_generation';
+        if (message.includes('fingerprint')) return 'fingerprinting';
+        if (message.includes('export') || message.includes('signature')) return 'key_export';
+        if (message.includes('peer connection')) return 'webrtc_setup';
+        if (message.includes('offer') || message.includes('sdp')) return 'sdp_creation';
+        if (message.includes('verification')) return 'verification_setup';
+        if (message.includes('session')) return 'session_setup';
+        if (message.includes('validation')) return 'package_validation';
+        
+        return 'unknown';
+    }
+
+    /**
+     * HELPER: Очистка состояния при неудачном создании offer
+     */
+    _cleanupFailedOfferCreation() {
+        try {
+            // Очистка ключей
+            this.ecdhKeyPair = null;
+            this.ecdsaKeyPair = null;
+            this.sessionSalt = null;
+            this.sessionId = null;
+            this.verificationCode = null;
+            
+            // Закрытие peer connection если был создан
+            if (this.peerConnection) {
+                this.peerConnection.close();
+                this.peerConnection = null;
+            }
+            
+            // Очистка data channel
+            if (this.dataChannel) {
+                this.dataChannel.close();
+                this.dataChannel = null;
+            }
+            
+            // Сброс флагов
+            this.isInitiator = false;
+            this.isVerified = false;
+            
+            // Сброс security features до базового состояния
+            this._updateSecurityFeatures({
+                hasEncryption: false,
+                hasECDH: false,
+                hasECDSA: false,
+                hasMutualAuth: false,
+                hasMetadataProtection: false,
+                hasEnhancedReplayProtection: false,
+                hasNonExtractableKeys: false,
+                hasEnhancedValidation: false,
+                hasPFS: false
+            });
+            
+            this._secureLog('debug', '🧹 Failed offer creation cleanup completed');
+            
+        } catch (cleanupError) {
+            this._secureLog('error', '❌ Error during offer creation cleanup', {
+                errorType: cleanupError.constructor.name
+            });
+        }
+    }
+
+    /**
+     * HELPER: Атомарное обновление security features (если еще не добавлен)
+     */
+    _updateSecurityFeatures(updates) {
+        const oldFeatures = { ...this.securityFeatures };
+        
+        try {
+            Object.assign(this.securityFeatures, updates);
+            
+            this._secureLog('debug', '🔧 Security features updated', {
+                updatedCount: Object.keys(updates).length,
+                totalFeatures: Object.keys(this.securityFeatures).length
+            });
+            
+        } catch (error) {
+            // Rollback в случае ошибки
+            this.securityFeatures = oldFeatures;
+            this._secureLog('error', '❌ Security features update failed, rolled back', {
+                errorType: error.constructor.name
+            });
             throw error;
         }
     }
 
+    /**
+     * ПОЛНЫЙ ИСПРАВЛЕННЫЙ МЕТОД createSecureAnswer()
+     * С защитой от race conditions и усиленной безопасностью
+     */
     async createSecureAnswer(offerData) {
-        try {
-            // Сброс флагов уведомлений для нового соединения
-            this.lastSecurityLevelNotification = null;
-            this.verificationNotificationSent = false;
-            this.verificationInitiationSent = false;
-            this.disconnectNotificationSent = false;
-            this.reconnectionFailedNotificationSent = false;
-            this.peerDisconnectNotificationSent = false;
-            this.connectionClosedNotificationSent = false;
-            this.fakeTrafficDisabledNotificationSent = false;
-            this.advancedFeaturesDisabledNotificationSent = false;
-            this.securityUpgradeNotificationSent = false;
-            this.lastSecurityUpgradeStage = null;
-            this.securityCalculationNotificationSent = false;
-            this.lastSecurityCalculationLevel = null;
-            
-            window.EnhancedSecureCryptoUtils.secureLog.log('info', 'Starting createSecureAnswer', {
+        return this._withMutex('connectionOperation', async (operationId) => {
+            this._secureLog('info', '📨 Creating secure answer with mutex', {
+                operationId: operationId,
                 hasOfferData: !!offerData,
                 offerType: offerData?.type,
-                hasECDHKey: !!offerData?.ecdhPublicKey,
-                hasECDSAKey: !!offerData?.ecdsaPublicKey,
-                hasSalt: !!offerData?.salt
+                offerVersion: offerData?.version,
+                offerTimestamp: offerData?.timestamp
             });
             
-            if (!this.validateEnhancedOfferData(offerData)) {
-                throw new Error('Invalid connection data format');
-            }
-
-            // Check rate limiting
-            if (!window.EnhancedSecureCryptoUtils.rateLimiter.checkConnectionRate(this.rateLimiterId)) {
-                throw new Error('Connection rate limit exceeded. Please wait before trying again.');
-            }
-
-            this.sessionSalt = offerData.salt;
-            
-            // Generate our ECDH key pair (non-extractable)
-            this.ecdhKeyPair = await window.EnhancedSecureCryptoUtils.generateECDHKeyPair();
-            
-            // Generate our ECDSA key pair for digital signatures
-            this.ecdsaKeyPair = await window.EnhancedSecureCryptoUtils.generateECDSAKeyPair();
-            
-            // First, import the ECDSA public key without signature verification (for self-signed keys)
-            const peerECDSAPublicKey = await crypto.subtle.importKey(
-                'spki',
-                new Uint8Array(offerData.ecdsaPublicKey.keyData),
-                {
-                    name: 'ECDSA',
-                    namedCurve: 'P-384'
-                },
-                false,
-                ['verify']
-            );
-            
-            // Now verify the ECDSA key's self-signature
-            const ecdsaPackageCopy = { ...offerData.ecdsaPublicKey };
-            delete ecdsaPackageCopy.signature;
-            const ecdsaPackageString = JSON.stringify(ecdsaPackageCopy);
-            const ecdsaSignatureValid = await window.EnhancedSecureCryptoUtils.verifySignature(
-                peerECDSAPublicKey,
-                offerData.ecdsaPublicKey.signature,
-                ecdsaPackageString
-            );
-            
-            if (!ecdsaSignatureValid) {
-                throw new Error('Invalid ECDSA key self-signature');
-            }
-            
-            // Now import and verify the ECDH public key using the verified ECDSA key
-            const peerECDHPublicKey = await window.EnhancedSecureCryptoUtils.importSignedPublicKey(
-                offerData.ecdhPublicKey,
-                peerECDSAPublicKey,
-                'ECDH'
-            );
-            
-            // Additional validation: Ensure all keys are CryptoKey instances before derivation
-            if (!(this.ecdhKeyPair?.privateKey instanceof CryptoKey)) {
-                window.EnhancedSecureCryptoUtils.secureLog.log('error', 'Local ECDH private key is not a CryptoKey in createEnhancedSecureAnswer', {
-                    hasKeyPair: !!this.ecdhKeyPair,
-                    privateKeyType: typeof this.ecdhKeyPair?.privateKey,
-                    privateKeyAlgorithm: this.ecdhKeyPair?.privateKey?.algorithm?.name
+            try {
+                // ============================================
+                // ФАЗА 1: ПРЕДВАРИТЕЛЬНАЯ ВАЛИДАЦИЯ OFFER
+                // ============================================
+                
+                // Сброс флагов уведомлений для нового соединения
+                this._resetNotificationFlags();
+                
+                this._secureLog('debug', 'Starting enhanced offer validation', {
+                    operationId: operationId,
+                    hasOfferData: !!offerData,
+                    offerType: offerData?.type,
+                    hasECDHKey: !!offerData?.ecdhPublicKey,
+                    hasECDSAKey: !!offerData?.ecdsaPublicKey,
+                    hasSalt: !!offerData?.salt
                 });
-                throw new Error('The local ECDH private key is not a valid CryptoKey.');
-            }
-            
-            if (!(peerECDHPublicKey instanceof CryptoKey)) {
-                window.EnhancedSecureCryptoUtils.secureLog.log('error', 'Peer ECDH public key is not a CryptoKey in createEnhancedSecureAnswer', {
-                    publicKeyType: typeof peerECDHPublicKey,
-                    publicKeyAlgorithm: peerECDHPublicKey?.algorithm?.name
+                
+                // Строгая валидация входных данных
+                if (!this.validateEnhancedOfferData(offerData)) {
+                    throw new Error('Invalid connection data format - failed enhanced validation');
+                }
+                
+                // Проверка rate limiting
+                if (!window.EnhancedSecureCryptoUtils.rateLimiter.checkConnectionRate(this.rateLimiterId)) {
+                    throw new Error('Connection rate limit exceeded. Please wait before trying again.');
+                }
+                
+                // ============================================
+                // ФАЗА 2: БЕЗОПАСНОСТЬ И ANTI-REPLAY ЗАЩИТА
+                // ============================================
+                
+                // MITM Protection: Валидация структуры данных offer
+                if (!offerData.timestamp || !offerData.version) {
+                    throw new Error('Missing required security fields in offer data – possible MITM attack');
+                }
+                
+                // Защита от replay атак (сокращено окно до 5 минут)
+                const offerAge = Date.now() - offerData.timestamp;
+                const MAX_OFFER_AGE = 300000; // 5 минут вместо 1 часа
+                
+                if (offerAge > MAX_OFFER_AGE) {
+                    this._secureLog('error', 'Offer data is too old - possible replay attack', {
+                        operationId: operationId,
+                        offerAge: Math.round(offerAge / 1000),
+                        maxAllowedAge: Math.round(MAX_OFFER_AGE / 1000),
+                        timestamp: offerData.timestamp
+                    });
+                    
+                    // Уведомляем основной код об атаке replay
+                    if (this.onAnswerError) {
+                        this.onAnswerError('replay_attack', 'Offer data is too old – possible replay attack');
+                    }
+                    
+                    throw new Error('Offer data is too old – possible replay attack');
+                }
+                
+                // Проверка совместимости версий протокола
+                if (offerData.version !== '4.0') {
+                    this._secureLog('warn', 'Protocol version mismatch detected', {
+                        operationId: operationId,
+                        expectedVersion: '4.0',
+                        receivedVersion: offerData.version
+                    });
+                    
+                    // Для обратной совместимости с v3.0 можно добавить fallback
+                    if (offerData.version !== '3.0') {
+                        throw new Error(`Unsupported protocol version: ${offerData.version}`);
+                    }
+                }
+                
+                // ============================================
+                // ФАЗА 3: ИЗВЛЕЧЕНИЕ И ВАЛИДАЦИЯ СОЛИ СЕССИИ
+                // ============================================
+                
+                // Установка соли сессии из offer
+                this.sessionSalt = offerData.salt;
+                
+                // Валидация соли сессии
+                if (!Array.isArray(this.sessionSalt)) {
+                    throw new Error('Invalid session salt format - must be array');
+                }
+                
+                const expectedSaltLength = offerData.version === '4.0' ? 64 : 32;
+                if (this.sessionSalt.length !== expectedSaltLength) {
+                    throw new Error(`Invalid session salt length: expected ${expectedSaltLength}, got ${this.sessionSalt.length}`);
+                }
+                
+                // MITM Protection: Проверка целостности соли
+                const saltFingerprint = await window.EnhancedSecureCryptoUtils.calculateKeyFingerprint(this.sessionSalt);
+                
+                this._secureLog('info', 'Session salt validated successfully', {
+                    operationId: operationId,
+                    saltLength: this.sessionSalt.length,
+                    saltFingerprint: saltFingerprint.substring(0, 8)
                 });
-                throw new Error('The peer\'s ECDH public key is not a valid CryptoKey');
+                
+                // ============================================
+                // ФАЗА 4: БЕЗОПАСНАЯ ГЕНЕРАЦИЯ НАШИХ КЛЮЧЕЙ
+                // ============================================
+                
+                // Безопасная генерация наших ключей через mutex
+                const keyPairs = await this._generateEncryptionKeys();
+                this.ecdhKeyPair = keyPairs.ecdhKeyPair;
+                this.ecdsaKeyPair = keyPairs.ecdsaKeyPair;
+                
+                // Дополнительная валидация сгенерированных ключей
+                if (!(this.ecdhKeyPair?.privateKey instanceof CryptoKey)) {
+                    this._secureLog('error', 'Local ECDH private key is not a CryptoKey', {
+                        operationId: operationId,
+                        hasKeyPair: !!this.ecdhKeyPair,
+                        privateKeyType: typeof this.ecdhKeyPair?.privateKey,
+                        privateKeyAlgorithm: this.ecdhKeyPair?.privateKey?.algorithm?.name
+                    });
+                    throw new Error('Local ECDH private key is not a valid CryptoKey');
+                }
+                
+                // ============================================
+                // ФАЗА 5: ИМПОРТ И ВЕРИФИКАЦИЯ КЛЮЧЕЙ ПАРТНЕРА
+                // ============================================
+                
+                // Импорт ECDSA публичного ключа партнера для верификации подписей
+                let peerECDSAPublicKey;
+                
+                try {
+                    peerECDSAPublicKey = await crypto.subtle.importKey(
+                        'spki',
+                        new Uint8Array(offerData.ecdsaPublicKey.keyData),
+                        {
+                            name: 'ECDSA',
+                            namedCurve: 'P-384'
+                        },
+                        false,
+                        ['verify']
+                    );
+                } catch (error) {
+                    throw new Error(`Failed to import peer ECDSA public key: ${error.message}`);
+                }
+                
+                // Верификация самоподписи ECDSA ключа
+                const ecdsaPackageCopy = { ...offerData.ecdsaPublicKey };
+                delete ecdsaPackageCopy.signature;
+                const ecdsaPackageString = JSON.stringify(ecdsaPackageCopy);
+                
+                const ecdsaSignatureValid = await window.EnhancedSecureCryptoUtils.verifySignature(
+                    peerECDSAPublicKey,
+                    offerData.ecdsaPublicKey.signature,
+                    ecdsaPackageString
+                );
+                
+                if (!ecdsaSignatureValid) {
+                    this._secureLog('error', 'Invalid ECDSA signature detected - possible MITM attack', {
+                        operationId: operationId,
+                        timestamp: offerData.timestamp,
+                        version: offerData.version
+                    });
+                    throw new Error('Invalid ECDSA key signature – possible MITM attack');
+                }
+                
+                this._secureLog('info', 'ECDSA signature verification passed', {
+                    operationId: operationId,
+                    timestamp: offerData.timestamp,
+                    version: offerData.version
+                });
+                
+                // ============================================
+                // ФАЗА 6: ИМПОРТ И ВЕРИФИКАЦИЯ ECDH КЛЮЧА
+                // ============================================
+                
+                // Импорт и верификация ECDH публичного ключа с использованием проверенного ECDSA ключа
+                let peerECDHPublicKey;
+                
+                try {
+                    peerECDHPublicKey = await window.EnhancedSecureCryptoUtils.importSignedPublicKey(
+                        offerData.ecdhPublicKey,
+                        peerECDSAPublicKey,
+                        'ECDH'
+                    );
+                } catch (error) {
+                    this._secureLog('error', 'Failed to import signed ECDH public key', {
+                        operationId: operationId,
+                        errorType: error.constructor.name
+                    });
+                    throw new Error(`Failed to import peer ECDH public key: ${error.message}`);
+                }
+                
+                // Финальная валидация ECDH ключа
+                if (!(peerECDHPublicKey instanceof CryptoKey)) {
+                    this._secureLog('error', 'Peer ECDH public key is not a CryptoKey', {
+                        operationId: operationId,
+                        publicKeyType: typeof peerECDHPublicKey,
+                        publicKeyAlgorithm: peerECDHPublicKey?.algorithm?.name
+                    });
+                    throw new Error('Peer ECDH public key is not a valid CryptoKey');
+                }
+                
+                // Сохранение ключа партнера для PFS ротации
+                this.peerPublicKey = peerECDHPublicKey;
+                
+                // ============================================
+                // ФАЗА 7: ДЕРИВАЦИЯ ОБЩИХ КЛЮЧЕЙ ШИФРОВАНИЯ
+                // ============================================
+                
+                // Деривация общих ключей с метаданными защиты
+                let derivedKeys;
+                
+                try {
+                    derivedKeys = await window.EnhancedSecureCryptoUtils.deriveSharedKeys(
+                        this.ecdhKeyPair.privateKey,
+                        peerECDHPublicKey,
+                        this.sessionSalt
+                    );
+                } catch (error) {
+                    this._secureLog('error', 'Failed to derive shared keys', {
+                        operationId: operationId,
+                        errorType: error.constructor.name
+                    });
+                    throw new Error(`Key derivation failed: ${error.message}`);
+                }
+                
+                // Безопасная установка ключей через helper метод
+                await this._setEncryptionKeys(
+                    derivedKeys.encryptionKey,
+                    derivedKeys.macKey,
+                    derivedKeys.metadataKey,
+                    derivedKeys.fingerprint
+                );
+                
+                // Дополнительная валидация установленных ключей
+                if (!(this.encryptionKey instanceof CryptoKey) || 
+                    !(this.macKey instanceof CryptoKey) || 
+                    !(this.metadataKey instanceof CryptoKey)) {
+                    
+                    this._secureLog('error', 'Invalid key types after derivation', {
+                        operationId: operationId,
+                        encryptionKeyType: typeof this.encryptionKey,
+                        macKeyType: typeof this.macKey,
+                        metadataKeyType: typeof this.metadataKey
+                    });
+                    throw new Error('Invalid key types after derivation');
+                }
+                
+                // Установка verification code из offer
+                this.verificationCode = offerData.verificationCode;
+                
+                this._secureLog('info', 'Encryption keys derived and set successfully', {
+                    operationId: operationId,
+                    hasEncryptionKey: !!this.encryptionKey,
+                    hasMacKey: !!this.macKey,
+                    hasMetadataKey: !!this.metadataKey,
+                    hasKeyFingerprint: !!this.keyFingerprint,
+                    mitmProtection: 'enabled',
+                    signatureVerified: true
+                });
+                
+                // ============================================
+                // ФАЗА 8: ОБНОВЛЕНИЕ SECURITY FEATURES
+                // ============================================
+                
+                // Атомарное обновление security features
+                this._updateSecurityFeatures({
+                    hasEncryption: true,
+                    hasECDH: true,
+                    hasECDSA: true,
+                    hasMutualAuth: true,
+                    hasMetadataProtection: true,
+                    hasEnhancedReplayProtection: true,
+                    hasNonExtractableKeys: true,
+                    hasRateLimiting: true,
+                    hasEnhancedValidation: true,
+                    hasPFS: true
+                });
+                
+                // PFS: Инициализация отслеживания версий ключей
+                this.currentKeyVersion = 0;
+                this.lastKeyRotation = Date.now();
+                this.keyVersions.set(0, {
+                    salt: this.sessionSalt,
+                    timestamp: this.lastKeyRotation,
+                    messageCount: 0
+                });
+                
+                // ============================================
+                // ФАЗА 9: СОЗДАНИЕ AUTHENTICATION PROOF
+                // ============================================
+                
+                // Создание proof для взаимной аутентификации
+                let authProof;
+                
+                if (offerData.authChallenge) {
+                    try {
+                        authProof = await window.EnhancedSecureCryptoUtils.createAuthProof(
+                            offerData.authChallenge,
+                            this.ecdsaKeyPair.privateKey,
+                            this.ecdsaKeyPair.publicKey
+                        );
+                    } catch (error) {
+                        this._secureLog('error', 'Failed to create authentication proof', {
+                            operationId: operationId,
+                            errorType: error.constructor.name
+                        });
+                        throw new Error(`Authentication proof creation failed: ${error.message}`);
+                    }
+                } else {
+                    this._secureLog('warn', 'No auth challenge in offer - mutual auth disabled', {
+                        operationId: operationId
+                    });
+                }
+                
+                // ============================================
+                // ФАЗА 10: ИНИЦИАЛИЗАЦИЯ WEBRTC
+                // ============================================
+                
+                this.isInitiator = false;
+                this.onStatusChange('connecting');
+                this.onKeyExchange(this.keyFingerprint);
+                this.onVerificationRequired(this.verificationCode);
+                
+                // Создание peer connection
+                this.createPeerConnection();
+                
+                // Установка удаленного описания из offer
+                try {
+                    await this.peerConnection.setRemoteDescription(new RTCSessionDescription({
+                        type: 'offer',
+                        sdp: offerData.sdp
+                    }));
+                } catch (error) {
+                    throw new Error(`Failed to set remote description: ${error.message}`);
+                }
+                
+                this._secureLog('debug', '🔗 Remote description set successfully', {
+                    operationId: operationId,
+                    connectionState: this.peerConnection.connectionState,
+                    signalingState: this.peerConnection.signalingState
+                });
+                
+                // ============================================
+                // ФАЗА 11: СОЗДАНИЕ SDP ANSWER
+                // ============================================
+                
+                // Создание WebRTC answer
+                let answer;
+                
+                try {
+                    answer = await this.peerConnection.createAnswer({
+                        offerToReceiveAudio: false,
+                        offerToReceiveVideo: false
+                    });
+                } catch (error) {
+                    throw new Error(`Failed to create answer: ${error.message}`);
+                }
+                
+                // Установка локального описания
+                try {
+                    await this.peerConnection.setLocalDescription(answer);
+                } catch (error) {
+                    throw new Error(`Failed to set local description: ${error.message}`);
+                }
+                
+                // Ожидание сбора ICE кандидатов
+                await this.waitForIceGathering();
+                
+                this._secureLog('debug', '🧊 ICE gathering completed for answer', {
+                    operationId: operationId,
+                    iceGatheringState: this.peerConnection.iceGatheringState,
+                    connectionState: this.peerConnection.connectionState
+                });
+                
+                // ============================================
+                // ФАЗА 12: ЭКСПОРТ НАШИХ КЛЮЧЕЙ
+                // ============================================
+                
+                // Экспорт наших ключей с подписями
+                const ecdhPublicKeyData = await window.EnhancedSecureCryptoUtils.exportPublicKeyWithSignature(
+                    this.ecdhKeyPair.publicKey,
+                    this.ecdsaKeyPair.privateKey,
+                    'ECDH'
+                );
+                
+                const ecdsaPublicKeyData = await window.EnhancedSecureCryptoUtils.exportPublicKeyWithSignature(
+                    this.ecdsaKeyPair.publicKey,
+                    this.ecdsaKeyPair.privateKey,
+                    'ECDSA'
+                );
+                
+                // Валидация экспортированных данных
+                if (!ecdhPublicKeyData?.keyData || !ecdhPublicKeyData?.signature) {
+                    throw new Error('Failed to export ECDH public key with signature');
+                }
+                
+                if (!ecdsaPublicKeyData?.keyData || !ecdsaPublicKeyData?.signature) {
+                    throw new Error('Failed to export ECDSA public key with signature');
+                }
+                
+                // ============================================
+                // ФАЗА 13: РАСЧЕТ УРОВНЯ БЕЗОПАСНОСТИ
+                // ============================================
+                
+                // Расчет уровня безопасности
+                let securityLevel;
+                
+                try {
+                    securityLevel = await this.calculateSecurityLevel();
+                } catch (error) {
+                    this._secureLog('warn', '⚠️ Security level calculation failed, using fallback', {
+                        operationId: operationId,
+                        errorType: error.constructor.name
+                    });
+                    
+                    // Fallback значение
+                    securityLevel = {
+                        level: 'enhanced',
+                        score: 80,
+                        passedChecks: 12,
+                        totalChecks: 15,
+                        isRealData: false
+                    };
+                }
+                
+                // ============================================
+                // ФАЗА 14: СОЗДАНИЕ ANSWER PACKAGE
+                // ============================================
+                
+                const currentTimestamp = Date.now();
+                
+                const answerPackage = {
+                    // Основная информация
+                    type: 'enhanced_secure_answer',
+                    sdp: this.peerConnection.localDescription.sdp,
+                    version: '4.0',
+                    timestamp: currentTimestamp,
+                    
+                    // Криптографические ключи
+                    ecdhPublicKey: ecdhPublicKeyData,
+                    ecdsaPublicKey: ecdsaPublicKeyData,
+                    
+                    // Аутентификация
+                    authProof: authProof,
+                    
+                    // Метаданные безопасности
+                    securityLevel: securityLevel,
+                    
+                    // Дополнительные поля безопасности
+                    sessionConfirmation: {
+                        saltFingerprint: saltFingerprint.substring(0, 16),
+                        keyDerivationSuccess: true,
+                        mutualAuthEnabled: !!authProof
+                    },
+                    
+                    // Возможности answerer
+                    capabilities: {
+                        supportsFileTransfer: true,
+                        supportsEnhancedSecurity: true,
+                        supportsKeyRotation: true,
+                        supportsFakeTraffic: this.fakeTrafficConfig.enabled,
+                        supportsDecoyChannels: this.decoyChannelConfig.enabled,
+                        protocolVersion: '4.0'
+                    }
+                };
+                
+                // ============================================
+                // ФАЗА 15: ВАЛИДАЦИЯ И ЛОГИРОВАНИЕ
+                // ============================================
+                
+                // Финальная валидация answer package
+                if (!answerPackage.sdp || !answerPackage.ecdhPublicKey || !answerPackage.ecdsaPublicKey) {
+                    throw new Error('Generated answer package is incomplete');
+                }
+                
+                this._secureLog('info', 'Enhanced secure answer created successfully', {
+                    operationId: operationId,
+                    version: answerPackage.version,
+                    hasECDSA: true,
+                    hasMutualAuth: !!authProof,
+                    hasSessionConfirmation: !!answerPackage.sessionConfirmation,
+                    securityLevel: securityLevel.level,
+                    timestamp: currentTimestamp,
+                    processingTime: currentTimestamp - offerData.timestamp
+                });
+                
+                // Отправка события о новом соединении
+                document.dispatchEvent(new CustomEvent('new-connection', {
+                    detail: { 
+                        type: 'answer',
+                        timestamp: currentTimestamp,
+                        securityLevel: securityLevel.level,
+                        operationId: operationId
+                    }
+                }));
+                
+                // ============================================
+                // ФАЗА 16: ПЛАНИРОВАНИЕ SECURITY РАСЧЕТОВ
+                // ============================================
+                
+                // Планируем расчет безопасности после соединения
+                setTimeout(async () => {
+                    try {
+                        const realSecurityData = await this.calculateAndReportSecurityLevel();
+                        if (realSecurityData) {
+                            this.notifySecurityUpdate();
+                            this._secureLog('info', '✅ Post-connection security level calculated', {
+                                operationId: operationId,
+                                level: realSecurityData.level
+                            });
+                        }
+                    } catch (error) {
+                        this._secureLog('error', '❌ Error calculating post-connection security', {
+                            operationId: operationId,
+                            errorType: error.constructor.name
+                        });
+                    }
+                }, 1000);
+                
+                // Retry если первый расчет неудачный
+                setTimeout(async () => {
+                    if (!this.lastSecurityCalculation || this.lastSecurityCalculation.score < 50) {
+                        this._secureLog('info', '🔄 Retrying security calculation', {
+                            operationId: operationId
+                        });
+                        await this.calculateAndReportSecurityLevel();
+                        this.notifySecurityUpdate();
+                    }
+                }, 3000);
+                
+                // Финальное обновление безопасности
+                this.notifySecurityUpdate();
+                
+                // ============================================
+                // ФАЗА 17: ВОЗВРАТ РЕЗУЛЬТАТА
+                // ============================================
+                
+                return answerPackage;
+                
+            } catch (error) {
+                // ============================================
+                // ОБРАБОТКА ОШИБОК
+                // ============================================
+                
+                this._secureLog('error', '❌ Enhanced secure answer creation failed in critical section', {
+                    operationId: operationId,
+                    errorType: error.constructor.name,
+                    errorMessage: error.message,
+                    phase: this._determineAnswerErrorPhase(error),
+                    offerAge: offerData?.timestamp ? Date.now() - offerData.timestamp : 'unknown'
+                });
+                
+                // Очистка состояния при ошибке
+                this._cleanupFailedAnswerCreation();
+                
+                // Обновление статуса
+                this.onStatusChange('disconnected');
+                
+                // Специальная обработка ошибок безопасности
+                if (this.onAnswerError) {
+                    if (error.message.includes('too old') || error.message.includes('replay')) {
+                        this.onAnswerError('replay_attack', error.message);
+                    } else if (error.message.includes('MITM') || error.message.includes('signature')) {
+                        this.onAnswerError('security_violation', error.message);
+                    } else if (error.message.includes('validation') || error.message.includes('format')) {
+                        this.onAnswerError('invalid_format', error.message);
+                    } else {
+                        this.onAnswerError('general_error', error.message);
+                    }
+                }
+                
+                // Проброс ошибки для обработки на верхнем уровне
+                throw error;
+            }
+        }, 20000); // 20 секунд timeout для всей операции создания answer (дольше чем offer)
+    }
+
+    /**
+     * HELPER: Определение фазы ошибки для answer
+     */
+    _determineAnswerErrorPhase(error) {
+        const message = error.message.toLowerCase();
+        
+        if (message.includes('validation') || message.includes('format')) return 'offer_validation';
+        if (message.includes('rate limit')) return 'rate_limiting';
+        if (message.includes('replay') || message.includes('too old')) return 'replay_protection';
+        if (message.includes('salt')) return 'salt_validation';
+        if (message.includes('key pair') || message.includes('generate')) return 'key_generation';
+        if (message.includes('import') || message.includes('ecdsa') || message.includes('ecdh')) return 'key_import';
+        if (message.includes('signature') || message.includes('mitm')) return 'signature_verification';
+        if (message.includes('derive') || message.includes('shared')) return 'key_derivation';
+        if (message.includes('auth') || message.includes('proof')) return 'authentication';
+        if (message.includes('remote description') || message.includes('local description')) return 'webrtc_setup';
+        if (message.includes('answer') || message.includes('sdp')) return 'sdp_creation';
+        if (message.includes('export')) return 'key_export';
+        if (message.includes('security level')) return 'security_calculation';
+        
+        return 'unknown';
+    }
+
+    /**
+     * HELPER: Очистка состояния при неудачном создании answer
+     */
+    _cleanupFailedAnswerCreation() {
+        try {
+            // Очистка ключей и сессионных данных
+            this.ecdhKeyPair = null;
+            this.ecdsaKeyPair = null;
+            this.peerPublicKey = null;
+            this.sessionSalt = null;
+            this.verificationCode = null;
+            this.encryptionKey = null;
+            this.macKey = null;
+            this.metadataKey = null;
+            this.keyFingerprint = null;
+            
+            // Сброс версий ключей PFS
+            this.currentKeyVersion = 0;
+            this.keyVersions.clear();
+            this.oldKeys.clear();
+            
+            // Закрытие peer connection если был создан
+            if (this.peerConnection) {
+                this.peerConnection.close();
+                this.peerConnection = null;
             }
             
-            // Store peer's public key for PFS key rotation
-            this.peerPublicKey = peerECDHPublicKey;
+            // Очистка data channel
+            if (this.dataChannel) {
+                this.dataChannel.close();
+                this.dataChannel = null;
+            }
             
-            // Derive shared keys with metadata protection
-            const derivedKeys = await window.EnhancedSecureCryptoUtils.deriveSharedKeys(
-                this.ecdhKeyPair.privateKey,
-                peerECDHPublicKey,
-                this.sessionSalt
-            );
-            
-            this.encryptionKey = derivedKeys.encryptionKey;
-            this.macKey = derivedKeys.macKey;
-            this.metadataKey = derivedKeys.metadataKey;
-            this.keyFingerprint = derivedKeys.fingerprint;
+            // Сброс флагов и счетчиков
+            this.isInitiator = false;
+            this.isVerified = false;
             this.sequenceNumber = 0;
             this.expectedSequenceNumber = 0;
             this.messageCounter = 0;
             this.processedMessageIds.clear();
-            this.verificationCode = offerData.verificationCode;
             
-            // Validate that all keys are properly set
-            if (!(this.encryptionKey instanceof CryptoKey) || 
-                !(this.macKey instanceof CryptoKey) || 
-                !(this.metadataKey instanceof CryptoKey)) {
-                window.EnhancedSecureCryptoUtils.secureLog.log('error', 'Invalid key types after derivation in createEnhancedSecureAnswer', {
-                    encryptionKeyType: typeof this.encryptionKey,
-                    macKeyType: typeof this.macKey,
-                    metadataKeyType: typeof this.metadataKey,
-                    encryptionKeyAlgorithm: this.encryptionKey?.algorithm?.name,
-                    macKeyAlgorithm: this.macKey?.algorithm?.name,
-                    metadataKeyAlgorithm: this.metadataKey?.algorithm?.name
-                });
-                throw new Error('Invalid key types after output');
+            // Сброс security features до базового состояния
+            this._updateSecurityFeatures({
+                hasEncryption: false,
+                hasECDH: false,
+                hasECDSA: false,
+                hasMutualAuth: false,
+                hasMetadataProtection: false,
+                hasEnhancedReplayProtection: false,
+                hasNonExtractableKeys: false,
+                hasEnhancedValidation: false,
+                hasPFS: false
+            });
+            
+            this._secureLog('debug', '🧹 Failed answer creation cleanup completed');
+            
+        } catch (cleanupError) {
+            this._secureLog('error', '❌ Error during answer creation cleanup', {
+                errorType: cleanupError.constructor.name
+            });
+        }
+    }
+
+    /**
+     * HELPER: Безопасная установка ключей шифрования (если еще нет)
+     */
+    async _setEncryptionKeys(encryptionKey, macKey, metadataKey, keyFingerprint) {
+        return this._withMutex('keyOperation', async (operationId) => {
+            this._secureLog('info', '🔐 Setting encryption keys with mutex', {
+                operationId: operationId
+            });
+            
+            // Валидация всех ключей перед установкой
+            if (!(encryptionKey instanceof CryptoKey) ||
+                !(macKey instanceof CryptoKey) ||
+                !(metadataKey instanceof CryptoKey)) {
+                throw new Error('Invalid key types provided');
             }
             
-            // PFS: Initialize key version tracking
-            this.currentKeyVersion = 0;
-            this.lastKeyRotation = Date.now();
-            this.keyVersions.set(0, {
-                salt: this.sessionSalt,
-                timestamp: this.lastKeyRotation,
-                messageCount: 0
-            });
+            if (!keyFingerprint || typeof keyFingerprint !== 'string') {
+                throw new Error('Invalid key fingerprint provided');
+            }
             
-            window.EnhancedSecureCryptoUtils.secureLog.log('info', 'Encryption keys set in createEnhancedSecureAnswer', {
-                hasEncryptionKey: !!this.encryptionKey,
-                hasMacKey: !!this.macKey,
-                hasMetadataKey: !!this.metadataKey,
+            // Атомарная установка всех ключей
+            const oldKeys = {
+                encryptionKey: this.encryptionKey,
+                macKey: this.macKey,
+                metadataKey: this.metadataKey,
                 keyFingerprint: this.keyFingerprint
-            });
-            
-            // Update security features
-            this.securityFeatures.hasECDSA = true;
-            this.securityFeatures.hasMutualAuth = true;
-            this.securityFeatures.hasMetadataProtection = true;
-            this.securityFeatures.hasEnhancedReplayProtection = true;
-            this.securityFeatures.hasNonExtractableKeys = true;
-            this.securityFeatures.hasRateLimiting = true;
-            this.securityFeatures.hasEnhancedValidation = true;
-            this.securityFeatures.hasPFS = true;
-            
-            // Create authentication proof for mutual authentication
-            const authProof = await window.EnhancedSecureCryptoUtils.createAuthProof(
-                offerData.authChallenge,
-                this.ecdsaKeyPair.privateKey,
-                this.ecdsaKeyPair.publicKey
-            );
-            
-            this.isInitiator = false;
-            this.onStatusChange('connecting');
-            this.onKeyExchange(this.keyFingerprint);
-            this.onVerificationRequired(this.verificationCode);
-            
-            this.createPeerConnection();
-
-            await this.peerConnection.setRemoteDescription(new RTCSessionDescription({
-                type: 'offer',
-                sdp: offerData.sdp
-            }));
-
-            const answer = await this.peerConnection.createAnswer({
-                offerToReceiveAudio: false,
-                offerToReceiveVideo: false
-            });
-
-            await this.peerConnection.setLocalDescription(answer);
-            await this.waitForIceGathering();
-
-            // Export our keys with signatures
-            const ecdhPublicKeyData = await window.EnhancedSecureCryptoUtils.exportPublicKeyWithSignature(
-                this.ecdhKeyPair.publicKey,
-                this.ecdsaKeyPair.privateKey,
-                'ECDH'
-            );
-            
-            const ecdsaPublicKeyData = await window.EnhancedSecureCryptoUtils.exportPublicKeyWithSignature(
-                this.ecdsaKeyPair.publicKey,
-                this.ecdsaKeyPair.privateKey,
-                'ECDSA'
-            );
-
-            const answerPackage = {
-                type: 'enhanced_secure_answer',
-                sdp: this.peerConnection.localDescription.sdp,
-                ecdhPublicKey: ecdhPublicKeyData,
-                ecdsaPublicKey: ecdsaPublicKeyData,
-                authProof: authProof,
-                timestamp: Date.now(),
-                version: '4.0',
-                securityLevel: await this.calculateSecurityLevel()
             };
-
-            window.EnhancedSecureCryptoUtils.secureLog.log('info', 'Enhanced secure answer created', {
-                version: '4.0',
-                hasECDSA: true,
-                hasMutualAuth: true,
-                securityLevel: answerPackage.securityLevel.level
-            });
-
-            document.dispatchEvent(new CustomEvent('new-connection', {
-                detail: { 
-                    type: 'answer',
-                    timestamp: Date.now()
-                }
-            }));
-
-            document.dispatchEvent(new CustomEvent('new-connection', {
-                detail: { 
-                    type: 'answer',
-                    timestamp: Date.now()
-                }
-            }));
-
-            setTimeout(async () => {
-                await this.calculateAndReportSecurityLevel();
-                this.notifySecurityUpdate();
-            }, 1000);
-
-            return answerPackage;
-        } catch (error) {
-            window.EnhancedSecureCryptoUtils.secureLog.log('error', 'Enhanced secure answer creation failed', {
-                error: error.message
-            });
-            this.onStatusChange('disconnected');
-            // Не вызываем cleanupConnection для ошибок создания answer
-            // чтобы не закрывать сессию полностью
-            throw error;
-        }
+            
+            try {
+                this.encryptionKey = encryptionKey;
+                this.macKey = macKey;
+                this.metadataKey = metadataKey;
+                this.keyFingerprint = keyFingerprint;
+                
+                // Сброс счетчиков
+                this.sequenceNumber = 0;
+                this.expectedSequenceNumber = 0;
+                this.messageCounter = 0;
+                this.processedMessageIds.clear();
+                
+                this._secureLog('info', '✅ Encryption keys set successfully', {
+                    operationId: operationId,
+                    hasAllKeys: !!(this.encryptionKey && this.macKey && this.metadataKey),
+                    hasFingerprint: !!this.keyFingerprint
+                });
+                
+                return true;
+                
+            } catch (error) {
+                // Rollback в случае ошибки
+                this.encryptionKey = oldKeys.encryptionKey;
+                this.macKey = oldKeys.macKey;
+                this.metadataKey = oldKeys.metadataKey;
+                this.keyFingerprint = oldKeys.keyFingerprint;
+                
+                this._secureLog('error', '❌ Key setting failed, rolled back', {
+                    operationId: operationId,
+                    errorType: error.constructor.name
+                });
+                
+                throw error;
+            }
+        });
     }
 
     async handleSecureAnswer(answerData) {
@@ -4366,15 +6041,13 @@ handleSystemMessage(message) {
                 throw new Error('Invalid key types after export');
             }
             
-            window.EnhancedSecureCryptoUtils.secureLog.log('info', 'Encryption keys set in handleSecureAnswer', {
+            this._secureLog('info', 'Encryption keys set in handleSecureAnswer', {
                 hasEncryptionKey: !!this.encryptionKey,
                 hasMacKey: !!this.macKey,
                 hasMetadataKey: !!this.metadataKey,
-                keyFingerprint: this.keyFingerprint,
+                hasKeyFingerprint: !!this.keyFingerprint,
                 mitmProtection: 'enabled',
-                signatureVerified: true,
-                timestamp: answerData.timestamp,
-                version: answerData.version
+                signatureVerified: true
             });
             
             // Update security features for initiator after successful key exchange
@@ -4421,7 +6094,9 @@ handleSystemMessage(message) {
             }, 3000);
             this.notifySecurityUpdate();
         } catch (error) {
-            console.error('Enhanced secure answer handling failed:', error);
+            this._secureLog('error', 'Enhanced secure answer handling failed', {
+                errorType: error.constructor.name
+            });
             this.onStatusChange('failed');
 
             if (this.onAnswerError) {
@@ -4610,9 +6285,9 @@ handleSystemMessage(message) {
                     throw new Error('Invalid verification code format');
                 }
 
-                window.EnhancedSecureCryptoUtils.secureLog.log('info', 'v4.0 offer validation passed', {
+                this._secureLog('info', 'v4.0 offer validation passed', {
                     version: offerData.version,
-                    securityLevel: offerData.securityLevel?.level || 'unknown',
+                    hasSecurityLevel: !!offerData.securityLevel?.level,
                     offerAge: Math.round(offerAge / 1000) + 's'
                 });
             } else {
@@ -4655,57 +6330,76 @@ handleSystemMessage(message) {
     }
 
     async sendSecureMessage(message) {
-    if (!this.isConnected() || !this.isVerified) {
-        // Для файловых сообщений не добавляем в очередь, а выбрасываем ошибку
-        if (message && typeof message === 'object' && message.type && message.type.startsWith('file_')) {
-            throw new Error('Connection not ready for file transfer. Please ensure the connection is established and verified.');
+        // Быстрая проверка готовности БЕЗ mutex
+        if (!this.isConnected() || !this.isVerified) {
+            if (message && typeof message === 'object' && message.type && message.type.startsWith('file_')) {
+                throw new Error('Connection not ready for file transfer. Please ensure the connection is established and verified.');
+            }
+            this.messageQueue.push(message);
+            throw new Error('Connection not ready. Message queued for sending.');
         }
         
-        // Для обычных сообщений добавляем в очередь
-        this.messageQueue.push(message);
-        throw new Error('Connection not ready. Message queued for sending.');
+        // ИСПРАВЛЕНИЕ: Используем mutex ТОЛЬКО для криптографических операций
+        return this._withMutex('cryptoOperation', async (operationId) => {
+            // Повторная проверка в критической секции
+            if (!this.isConnected() || !this.isVerified) {
+                throw new Error('Connection lost during message preparation');
+            }
+            
+            // Проверка ключей в критической секции
+            if (!this.encryptionKey || !this.macKey || !this.metadataKey) {
+                throw new Error('Encryption keys not initialized');
+            }
+            
+            // Проверка rate limiting
+            if (!window.EnhancedSecureCryptoUtils.rateLimiter.checkMessageRate(this.rateLimiterId)) {
+                throw new Error('Message rate limit exceeded (60 messages per minute)');
+            }
+            
+            try {
+                // Допускаем как строку, так и объект; объекты сериализуем в строку
+                const textToSend = typeof message === 'string' ? message : JSON.stringify(message);
+                const sanitizedMessage = window.EnhancedSecureCryptoUtils.sanitizeMessage(textToSend);
+                const messageId = `msg_${Date.now()}_${this.messageCounter++}`;
+                
+                // Используем enhanced encryption с metadata protection
+                const encryptedData = await window.EnhancedSecureCryptoUtils.encryptMessage(
+                    sanitizedMessage,
+                    this.encryptionKey,
+                    this.macKey,
+                    this.metadataKey,
+                    messageId,
+                    this.sequenceNumber++
+                );
+                
+                const payload = {
+                    type: 'enhanced_message',
+                    data: encryptedData,
+                    keyVersion: this.currentKeyVersion,
+                    version: '4.0'
+                };
+                
+                this.dataChannel.send(JSON.stringify(payload));
+                // Отображаем локально только простые строковые сообщения, чтобы избежать дублирования в UI
+                if (typeof message === 'string') {
+                    this.deliverMessageToUI(message, 'sent');
+                }
+                
+                this._secureLog('debug', '📤 Secure message sent successfully', {
+                    operationId: operationId,
+                    messageLength: sanitizedMessage.length,
+                    keyVersion: this.currentKeyVersion
+                });
+                
+            } catch (error) {
+                this._secureLog('error', '❌ Secure message sending failed', {
+                    operationId: operationId,
+                    errorType: error.constructor.name
+                });
+                throw error;
+            }
+        }, 2000); // Уменьшенный timeout для crypto операций
     }
-
-    // Validate encryption keys
-    if (!this.encryptionKey || !this.macKey || !this.metadataKey) {
-        console.error('❌ Encryption keys not initialized');
-        throw new Error('Encryption keys not initialized. Please check the connection.');
-    }
-
-    try {
-        // Check rate limiting
-        if (!window.EnhancedSecureCryptoUtils.rateLimiter.checkMessageRate(this.rateLimiterId)) {
-            throw new Error('Message rate limit exceeded (60 messages per minute)');
-        }
-
-        const sanitizedMessage = window.EnhancedSecureCryptoUtils.sanitizeMessage(message);
-        const messageId = `msg_${Date.now()}_${this.messageCounter++}`;
-        
-        // Use enhanced encryption with metadata protection
-        const encryptedData = await window.EnhancedSecureCryptoUtils.encryptMessage(
-            sanitizedMessage,
-            this.encryptionKey,
-            this.macKey,
-            this.metadataKey,
-            messageId,
-            this.sequenceNumber++
-        );
-        
-        const payload = {
-            type: 'enhanced_message',
-            data: encryptedData,
-            keyVersion: this.currentKeyVersion,
-            version: '4.0'
-        };
-        
-        this.dataChannel.send(JSON.stringify(payload));
-        this.deliverMessageToUI(sanitizedMessage, 'sent');
-
-    } catch (error) {
-        console.error('❌ Enhanced message sending failed:', error);
-        throw error;
-    }
-}
 
     processMessageQueue() {
         while (this.messageQueue.length > 0 && this.isConnected() && this.isVerified) {

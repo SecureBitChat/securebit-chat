@@ -24,7 +24,8 @@ class EnhancedSecureFileTransfer {
         });
         
         // Transfer settings
-        this.CHUNK_SIZE = 65536; // 64 KB chunks
+        // Размер чанка по умолчанию (баланс нагрузки и стабильности очереди)
+        this.CHUNK_SIZE = 64 * 1024; // 64 KB
         this.MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB limit
         this.MAX_CONCURRENT_TRANSFERS = 3;
         this.CHUNK_TIMEOUT = 30000; // 30 seconds per chunk
@@ -42,11 +43,60 @@ class EnhancedSecureFileTransfer {
         // Security
         this.processedChunks = new Set(); // Prevent replay attacks
         this.transferNonces = new Map(); // fileId -> current nonce counter
+        this.receivedFileBuffers = new Map(); // fileId -> { buffer:ArrayBuffer, type:string, name:string, size:number }
         
         // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Регистрируем обработчик сообщений
         this.setupFileMessageHandlers();
         
         console.log('🔒 Enhanced Secure File Transfer initialized');
+    }
+
+    // ============================================
+    // ENCODING HELPERS (Base64 for efficient transport)
+    // ============================================
+    arrayBufferToBase64(buffer) {
+        const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+        let binary = '';
+        const len = bytes.byteLength;
+        for (let i = 0; i < len; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
+    }
+
+    base64ToUint8Array(base64) {
+        const binaryString = atob(base64);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes;
+    }
+
+    // ============================================
+    // PUBLIC ACCESSORS FOR RECEIVED FILES
+    // ============================================
+    getReceivedFileMeta(fileId) {
+        const entry = this.receivedFileBuffers.get(fileId);
+        if (!entry) return null;
+        return { fileId, fileName: entry.name, fileSize: entry.size, mimeType: entry.type };
+    }
+
+    async getBlob(fileId) {
+        const entry = this.receivedFileBuffers.get(fileId);
+        if (!entry) return null;
+        return new Blob([entry.buffer], { type: entry.type });
+    }
+
+    async getObjectURL(fileId) {
+        const blob = await this.getBlob(fileId);
+        if (!blob) return null;
+        return URL.createObjectURL(blob);
+    }
+
+    revokeObjectURL(url) {
+        try { URL.revokeObjectURL(url); } catch (_) {}
     }
 
     // ============================================
@@ -474,7 +524,7 @@ class EnhancedSecureFileTransfer {
                 // Read chunk from file
                 const chunkData = await this.readFileChunk(file, start, end);
                 
-                // Send chunk
+                // Send chunk (с учётом backpressure)
                 await this.sendFileChunk(transferState, chunkIndex, chunkData);
                 
                 // Update progress
@@ -485,10 +535,8 @@ class EnhancedSecureFileTransfer {
                 // Только логируем
                 console.log(`📤 Chunk sent ${transferState.sentChunks}/${totalChunks} (${progress}%)`);
                 
-                // Small delay between chunks to prevent overwhelming
-                if (chunkIndex < totalChunks - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 10));
-                }
+                // Backpressure: ждём разгрузки очереди перед следующим чанком
+                await this.waitForBackpressure();
             }
             
             transferState.status = 'waiting_confirmation';
@@ -537,17 +585,21 @@ class EnhancedSecureFileTransfer {
                 chunkData
             );
             
+            // Use Base64 to drastically reduce JSON overhead
+            const encryptedB64 = this.arrayBufferToBase64(new Uint8Array(encryptedChunk));
             const chunkMessage = {
                 type: 'file_chunk',
                 fileId: transferState.fileId,
                 chunkIndex: chunkIndex,
                 totalChunks: transferState.totalChunks,
                 nonce: Array.from(nonce),
-                encryptedData: Array.from(new Uint8Array(encryptedChunk)),
+                encryptedDataB64: encryptedB64,
                 chunkSize: chunkData.byteLength,
                 timestamp: Date.now()
             };
             
+            // Перед отправкой проверяем backpressure (доп. защита)
+            await this.waitForBackpressure();
             // Send chunk through secure channel
             await this.sendSecureMessage(chunkMessage);
             
@@ -558,19 +610,64 @@ class EnhancedSecureFileTransfer {
     }
 
     async sendSecureMessage(message) {
-        try {
-            // Send through existing WebRTC channel
-            const messageString = JSON.stringify(message);
-            
-            // Use the WebRTC manager's sendMessage method
-            if (this.webrtcManager.sendMessage) {
-                await this.webrtcManager.sendMessage(messageString);
-            } else {
-                throw new Error('WebRTC manager sendMessage method not available');
+        // ВАЖНО: отправляем напрямую в DataChannel, чтобы file_* и chunk_confirmation
+        // приходили верхнего уровня и перехватывались файловой системой, без обёртки type: 'message'
+        const messageString = JSON.stringify(message);
+        const dc = this.webrtcManager?.dataChannel;
+        const maxRetries = 10;
+        let attempt = 0;
+        const wait = (ms) => new Promise(r => setTimeout(r, ms));
+
+        while (true) {
+            try {
+                if (!dc || dc.readyState !== 'open') {
+                    throw new Error('Data channel not ready');
+                }
+                await this.waitForBackpressure();
+                dc.send(messageString);
+                return; // success
+            } catch (error) {
+                const msg = String(error?.message || '');
+                const queueFull = msg.includes('send queue is full') || msg.includes('bufferedAmount');
+                const opErr = error?.name === 'OperationError';
+                if ((queueFull || opErr) && attempt < maxRetries) {
+                    attempt++;
+                    await this.waitForBackpressure();
+                    await wait(Math.min(50 * attempt, 500));
+                    continue;
+                }
+                console.error('❌ Failed to send secure message:', error);
+                throw error;
             }
-        } catch (error) {
-            console.error('❌ Failed to send secure message:', error);
-            throw error;
+        }
+    }
+
+    async waitForBackpressure() {
+        try {
+            const dc = this.webrtcManager?.dataChannel;
+            if (!dc) return;
+
+            if (typeof dc.bufferedAmountLowThreshold === 'number') {
+                // Если буфер превышает порог — ждём события снижения
+                if (dc.bufferedAmount > dc.bufferedAmountLowThreshold) {
+                    await new Promise(resolve => {
+                        const handler = () => {
+                            dc.removeEventListener('bufferedamountlow', handler);
+                            resolve();
+                        };
+                        dc.addEventListener('bufferedamountlow', handler, { once: true });
+                    });
+                }
+                return;
+            }
+
+            // Фолбэк: опрашиваем bufferedAmount и ждём пока не упадёт ниже 4MB
+            const softLimit = 4 * 1024 * 1024;
+            while (dc.bufferedAmount > softLimit) {
+                await new Promise(r => setTimeout(r, 20));
+            }
+        } catch (_) {
+            // ignore
         }
     }
 
@@ -705,7 +802,15 @@ class EnhancedSecureFileTransfer {
             
             // Decrypt chunk
             const nonce = new Uint8Array(chunkMessage.nonce);
-            const encryptedData = new Uint8Array(chunkMessage.encryptedData);
+            // Backward compatible: prefer Base64, fallback to numeric array
+            let encryptedData;
+            if (chunkMessage.encryptedDataB64) {
+                encryptedData = this.base64ToUint8Array(chunkMessage.encryptedDataB64);
+            } else if (chunkMessage.encryptedData) {
+                encryptedData = new Uint8Array(chunkMessage.encryptedData);
+            } else {
+                throw new Error('Missing encrypted data');
+            }
             
             console.log('🔓 Decrypting chunk:', chunkMessage.chunkIndex);
             
@@ -816,20 +921,43 @@ class EnhancedSecureFileTransfer {
                 throw new Error('File integrity check failed - hash mismatch');
             }
             
-            // Create blob and notify
-            const fileBlob = new Blob([fileData], { type: receivingState.fileType });
+            // Lazy: храним буфер, но для совместимости формируем Blob для onFileReceived
+            const fileBuffer = fileData.buffer;
+            const fileBlob = new Blob([fileBuffer], { type: receivingState.fileType });
             
             receivingState.endTime = Date.now();
             receivingState.status = 'completed';
             
-            // Notify file received
+            // Сохраняем в кэше до запроса скачивания
+            this.receivedFileBuffers.set(receivingState.fileId, {
+                buffer: fileBuffer,
+                type: receivingState.fileType,
+                name: receivingState.fileName,
+                size: receivingState.fileSize
+            });
+
+            // Сообщаем UI о готовности файла и даём ленивые методы получения
             if (this.onFileReceived) {
+                const getBlob = async () => new Blob([this.receivedFileBuffers.get(receivingState.fileId).buffer], { type: receivingState.fileType });
+                const getObjectURL = async () => {
+                    const blob = await getBlob();
+                    return URL.createObjectURL(blob);
+                };
+                const revokeObjectURL = (url) => {
+                    try { URL.revokeObjectURL(url); } catch (_) {}
+                };
+
                 this.onFileReceived({
                     fileId: receivingState.fileId,
                     fileName: receivingState.fileName,
                     fileSize: receivingState.fileSize,
-                    fileBlob: fileBlob,
-                    transferTime: receivingState.endTime - receivingState.startTime
+                    mimeType: receivingState.fileType,
+                    transferTime: receivingState.endTime - receivingState.startTime,
+                    // backward-compatibility for existing UIs
+                    fileBlob,
+                    getBlob,
+                    getObjectURL,
+                    revokeObjectURL
                 });
             }
             
@@ -843,7 +971,13 @@ class EnhancedSecureFileTransfer {
             await this.sendSecureMessage(completionMessage);
             
             // Cleanup
-            this.cleanupReceivingTransfer(receivingState.fileId);
+            // Не удаляем буфер сразу, оставляем до загрузки пользователем
+            // Очистим метаданные чанков, оставив итоговый буфер
+            if (this.receivingTransfers.has(receivingState.fileId)) {
+                const rs = this.receivingTransfers.get(receivingState.fileId);
+                if (rs && rs.receivedChunks) rs.receivedChunks.clear();
+            }
+            this.receivingTransfers.delete(receivingState.fileId);
             
             console.log('✅ File assembly completed:', receivingState.fileName);
             
@@ -1058,6 +1192,8 @@ class EnhancedSecureFileTransfer {
         
         this.receivingTransfers.delete(fileId);
         this.sessionKeys.delete(fileId);
+        // Также очищаем финальный буфер, если он ещё хранится
+        this.receivedFileBuffers.delete(fileId);
         
         // Remove processed chunk IDs
         for (const chunkId of this.processedChunks) {

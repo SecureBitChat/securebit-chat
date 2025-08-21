@@ -2,6 +2,7 @@
 const FileTransferComponent = ({ webrtcManager, isConnected }) => {
     const [dragOver, setDragOver] = React.useState(false);
     const [transfers, setTransfers] = React.useState({ sending: [], receiving: [] });
+    const [readyFiles, setReadyFiles] = React.useState([]); // файлы, готовые к скачиванию
     const fileInputRef = React.useRef(null);
 
     // Update transfers periodically
@@ -33,24 +34,27 @@ const FileTransferComponent = ({ webrtcManager, isConnected }) => {
                 // НЕ отправляем сообщения в чат!
             },
             
-            // File received callback - показываем только финальное уведомление
+            // File received callback - добавляем кнопку скачивания в UI
             (fileData) => {
                 console.log(`📥 File received in UI: ${fileData.fileName}`);
-                
-                // Auto-download received file
-                const url = URL.createObjectURL(fileData.fileBlob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = fileData.fileName;
-                a.click();
-                URL.revokeObjectURL(url);
-                
-                // Update transfer list
+                // Добавляем в список готовых к скачиванию
+                setReadyFiles(prev => {
+                    // избегаем дублей по fileId
+                    if (prev.some(f => f.fileId === fileData.fileId)) return prev;
+                    return [...prev, {
+                        fileId: fileData.fileId,
+                        fileName: fileData.fileName,
+                        fileSize: fileData.fileSize,
+                        mimeType: fileData.mimeType,
+                        getBlob: fileData.getBlob,
+                        getObjectURL: fileData.getObjectURL,
+                        revokeObjectURL: fileData.revokeObjectURL
+                    }];
+                });
+
+                // Обновляем список активных передач
                 const currentTransfers = webrtcManager.getFileTransfers();
                 setTransfers(currentTransfers);
-                
-                // ИСПРАВЛЕНИЕ: НЕ дублируем системные сообщения
-                // Финальное уведомление уже отправляется в WebRTC менеджере
             },
             
             // Error callback
@@ -342,14 +346,40 @@ const FileTransferComponent = ({ webrtcManager, isConnected }) => {
                                 className: "text-muted text-xs ml-2"
                             }, formatFileSize(transfer.fileSize))
                         ]),
-                        React.createElement('button', {
-                            key: 'cancel',
-                            onClick: () => webrtcManager.cancelFileTransfer(transfer.fileId),
-                            className: "text-red-400 hover:text-red-300 text-xs"
-                        }, [
-                            React.createElement('i', {
-                                className: 'fas fa-times'
-                            })
+                        React.createElement('div', { key: 'actions', className: 'flex items-center space-x-2' }, [
+                            // Кнопка скачать, если файл уже готов (есть в readyFiles)
+                            (() => {
+                                const rf = readyFiles.find(f => f.fileId === transfer.fileId);
+                                if (!rf || transfer.status !== 'completed') return null;
+                                return React.createElement('button', {
+                                    key: 'download',
+                                    className: 'text-green-400 hover:text-green-300 text-xs flex items-center',
+                                    onClick: async () => {
+                                        try {
+                                            const url = await rf.getObjectURL();
+                                            const a = document.createElement('a');
+                                            a.href = url;
+                                            a.download = rf.fileName || 'file';
+                                            a.click();
+                                            rf.revokeObjectURL(url);
+                                        } catch (e) {
+                                            alert('Не удалось начать скачивание: ' + e.message);
+                                        }
+                                    }
+                                }, [
+                                    React.createElement('i', { key: 'i', className: 'fas fa-download mr-1' }),
+                                    'Скачать'
+                                ]);
+                            })(),
+                            React.createElement('button', {
+                                key: 'cancel',
+                                onClick: () => webrtcManager.cancelFileTransfer(transfer.fileId),
+                                className: "text-red-400 hover:text-red-300 text-xs"
+                            }, [
+                                React.createElement('i', {
+                                    className: 'fas fa-times'
+                                })
+                            ])
                         ])
                     ]),
                     React.createElement('div', {
