@@ -15,7 +15,7 @@
 
 ---
 
-## ✨ What's New in v4.01.223
+## ✨ What's New in v4.01.412
 
 ### 🔒 Comprehensive Connection Security Overhaul
 * **Advanced mutex framework** with 15-second timeout protection
