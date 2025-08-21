@@ -17,6 +17,8 @@ SecureBit.chat is built with security-first principles and implements **military
 - **Perfect Forward Secrecy:** Automatic key rotation every 5 minutes with secure key versioning
 - **Non-extractable Keys:** All cryptographic keys are hardware-protected and non-exportable
 - **Enhanced Replay Protection:** Multi-factor protection with sequence numbers, message IDs, and timestamps
+- **Secure Key Storage:** WeakMap-based isolation preventing direct access to sensitive keys
+- **Key Security Monitoring:** Automatic validation, rotation, and emergency wipe capabilities
 
 ### Advanced Traffic Obfuscation
 - **Packet Padding:** Random padding (64-512 bytes) to hide real message sizes
@@ -33,16 +35,21 @@ SecureBit.chat is built with security-first principles and implements **military
 - **Enhanced Rate Limiting:** 60 messages/minute, 5 connections/5 minutes with cryptographic verification
 - **Session Security:** 64-byte salts, unique session IDs, and replay attack prevention
 - **MITM Protection:** Out-of-band verification codes with enhanced validation
+- **Connection Security Framework:** Advanced mutex system with 15-second timeout protection
+- **Race Condition Protection:** Atomic key generation and serialized connection operations
+- **Multi-stage Validation:** Step-by-step validation with automatic rollback on failures
+- **Production Security Logging:** Environment-aware logging with data sanitization
 
 ## 🚨 Supported Versions
 
 | Version | Security Level | Supported          |
 | ------- | -------------- | ------------------ |
+| 4.1.x   | MILITARY-GRADE | ✅ Yes (15 layers)|
 | 4.0.x   | MAXIMUM        | ✅ Yes (12 layers)|
 | 3.x.x   | HIGH           | ⚠️  Limited       |
 | < 3.0   | BASIC          | ❌ No             |
 
-**Recommendation:** Upgrade to 4.0.x immediately for maximum security protection.
+**Recommendation:** Upgrade to 4.1.x immediately for military-grade security protection.
 
 ## 📋 Reporting a Vulnerability
 

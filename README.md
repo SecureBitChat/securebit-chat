@@ -15,7 +15,30 @@
 
 ---
 
-## ✨ What's New in v4.01.222
+## ✨ What's New in v4.01.223
+
+### 🔒 Comprehensive Connection Security Overhaul
+* **Advanced mutex framework** with 15-second timeout protection
+* **Race condition prevention** through atomic key generation
+* **Multi-stage validation pipeline** with automatic rollback
+* **Enhanced MITM protection** with unique encryption key fingerprints
+* **Session ID anti-hijacking** with mutual authentication challenges
+* **Package integrity validation** for all connection operations
+
+### 🔐 Secure Key Storage System
+* **WeakMap-based isolation** for all cryptographic keys
+* **Private key storage** replacing public key properties
+* **Secure access methods** with validation and rotation
+* **Emergency key wipe** capabilities for threat response
+* **Key security monitoring** with lifetime limits enforcement
+* **Backward compatibility** maintained through getters/setters
+
+### 🛡️ Production-Ready Security Logging
+* **Environment-aware logging** (production vs development)
+* **Data sanitization** preventing sensitive information leaks
+* **Rate limiting** and automatic memory cleanup
+* **Secure debugging** without exposing encryption keys
+* **Privacy protection** while maintaining useful diagnostics
 
 ### 📱 Progressive Web App (PWA)
 * **Install directly** on mobile and desktop devices
@@ -80,6 +103,9 @@
 10. **Memory protection** — No persistent storage
 11. **Hardware security** — Non-extractable keys
 12. **Session isolation** — Complete cleanup
+13. **Mutex framework** — Race condition protection
+14. **Secure key storage** — WeakMap isolation
+15. **Production logging** — Data sanitization
 
 ### 🎭 Advanced Privacy
 

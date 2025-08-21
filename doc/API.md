@@ -4,6 +4,19 @@
 
 SecureBit.chat is built as a client-side application with no backend servers. The "API" consists of JavaScript classes and methods that handle cryptography, P2P connections, and Lightning Network integration.
 
+## 📋 Table of Contents
+
+1. [Core Classes](#-core-classes)
+   - [EnhancedSecureCryptoUtils](#-enhancedsecurecryptoutils)
+   - [EnhancedSecureWebRTCManager](#-enhancedsecurewebrtcmanager)
+   - [LightningNetworkManager](#-lightningnetworkmanager)
+2. [Security Framework APIs](#-security-framework-apis)
+   - [SecureKeyManager](#-securekeymanager)
+   - [ConnectionMutexManager](#-connectionmutexmanager)
+   - [SecureLogger](#-securelogger)
+3. [Testing and Examples](#testing-and-examples)
+4. [Integration Examples](#integration-examples)
+
 ## 📚 Core Classes
 
 ### 🔐 EnhancedSecureCryptoUtils
@@ -857,3 +870,214 @@ async function waitForConnection(manager1, manager2, timeout = 10000) {
     
     throw new Error('Connection timeout');
 }
+
+---
+
+## 🔒 Security Framework APIs
+
+### 🔐 SecureKeyManager
+
+Manages cryptographic keys with WeakMap-based isolation and secure access methods.
+
+#### `_initializeSecureKeyStorage()`
+```javascript
+_initializeSecureKeyStorage(): void
+Initializes secure key storage with WeakMap isolation.
+Example:
+javascriptconst keyManager = new SecureKeyManager();
+keyManager._initializeSecureKeyStorage();
+```
+
+#### `_getSecureKey(keyName)`
+```javascript
+_getSecureKey(keyName: string): CryptoKey | ArrayBuffer | Uint8Array
+Retrieves a key from secure storage with access tracking.
+Parameters:
+- keyName - Name of the key to retrieve
+Returns: The stored key value
+Throws: Error if key not found
+Example:
+javascriptconst encryptionKey = keyManager._getSecureKey('encryptionKey');
+```
+
+#### `_setSecureKey(keyName, keyValue, options)`
+```javascript
+_setSecureKey(
+    keyName: string,
+    keyValue: CryptoKey | ArrayBuffer | Uint8Array,
+    options?: { validate?: boolean }
+): void
+Stores a key in secure storage with validation.
+Parameters:
+- keyName - Name for the key
+- keyValue - The key to store
+- options.validate - Whether to validate the key value
+Example:
+javascriptkeyManager._setSecureKey('encryptionKey', newKey, { validate: true });
+```
+
+#### `_validateKeyValue(keyValue, keyName)`
+```javascript
+_validateKeyValue(keyValue: any, keyName: string): void
+Validates key value for security requirements.
+Throws: Error if validation fails
+```
+
+#### `_rotateKeys()`
+```javascript
+_rotateKeys(): void
+Performs secure key rotation with new key generation.
+```
+
+#### `_emergencyKeyWipe()`
+```javascript
+_emergencyKeyWipe(): void
+Immediately removes all keys from memory for threat response.
+```
+
+### 🔒 ConnectionMutexManager
+
+Manages connection operations with mutex-based race condition protection.
+
+#### `_withMutex(mutexName, operation, timeout)`
+```javascript
+_withMutex(
+    mutexName: string,
+    operation: () => Promise<any>,
+    timeout?: number
+): Promise<any>
+Executes an operation with mutex protection.
+Parameters:
+- mutexName - Name of the mutex lock
+- operation - Async function to execute
+- timeout - Timeout in milliseconds (default: 15000)
+Returns: Result of the operation
+Throws: Error if mutex is locked or operation fails
+Example:
+javascriptawait mutexManager._withMutex('connectionOperation', async () => {
+    await this._generateEncryptionKeys();
+    await this._establishSecureChannel();
+});
+```
+
+#### `_generateOperationId()`
+```javascript
+_generateOperationId(): string
+Generates unique operation identifier for tracking.
+Returns: Unique operation ID string
+```
+
+#### `_cleanupFailedOfferCreation(operationId)`
+```javascript
+_cleanupFailedOfferCreation(operationId: string): Promise<void>
+Performs cleanup for failed connection operations.
+Parameters:
+- operationId - ID of the failed operation
+```
+
+### 🛡️ SecureLogger
+
+Provides environment-aware logging with data sanitization.
+
+#### `_secureLog(level, message, data)`
+```javascript
+_secureLog(
+    level: 'debug' | 'info' | 'warn' | 'error',
+    message: string,
+    data?: any
+): void
+Logs message with data sanitization and environment detection.
+Parameters:
+- level - Log level
+- message - Log message
+- data - Optional data object (will be sanitized)
+Example:
+javascriptlogger._secureLog('debug', 'Connection established', {
+    userId: 'user123',
+    encryptionKey: new Uint8Array(32)
+});
+// Production: No output
+// Development: [SecureBit:DEBUG] Connection established { userId: 'user123', encryptionKey: '[REDACTED]' }
+```
+
+#### `debug(message, data)`
+```javascript
+debug(message: string, data?: any): void
+Logs debug message (development only).
+```
+
+#### `info(message, data)`
+```javascript
+info(message: string, data?: any): void
+Logs info message.
+```
+
+#### `warn(message, data)`
+```javascript
+warn(message: string, data?: any): void
+Logs warning message.
+```
+
+#### `error(message, data)`
+```javascript
+error(message: string, data?: any): void
+Logs error message.
+```
+
+### 🔐 Backward Compatibility
+
+#### Getters and Setters
+```javascript
+// Secure key access with backward compatibility
+get encryptionKey(): CryptoKey {
+    return this._getSecureKey('encryptionKey');
+}
+
+set encryptionKey(value: CryptoKey) {
+    this._setSecureKey('encryptionKey', value, { validate: true });
+}
+
+get macKey(): CryptoKey {
+    return this._getSecureKey('macKey');
+}
+
+set macKey(value: CryptoKey) {
+    this._setSecureKey('macKey', value, { validate: true });
+}
+```
+
+### 🔒 Security Framework Usage Examples
+
+#### Complete Security Setup
+```javascript
+// Initialize security framework
+const keyManager = new SecureKeyManager();
+const mutexManager = new ConnectionMutexManager();
+const logger = new SecureLogger();
+
+// Secure connection establishment
+await mutexManager._withMutex('connectionOperation', async () => {
+    logger.debug('Starting secure connection');
+    
+    // Generate and store keys securely
+    const keyPair = await EnhancedSecureCryptoUtils.generateECDHKeyPair();
+    keyManager._setSecureKey('privateKey', keyPair.privateKey, { validate: true });
+    
+    // Establish connection
+    await this._establishSecureChannel();
+    
+    logger.info('Secure connection established');
+});
+```
+
+#### Emergency Security Response
+```javascript
+// Emergency key wipe in case of security threat
+keyManager._emergencyKeyWipe();
+logger.warn('Emergency key wipe completed');
+
+// Force cleanup
+if (typeof gc === 'function') {
+    gc();
+}
+```
