@@ -254,7 +254,7 @@ open http://localhost:8000
 
 ## 🗺️ Development Roadmap
 
-**Current:** v4.01.222 — PWA & File Transfer Edition ✅
+**Current:** v4.01.412 — PWA & File Transfer Edition ✅
 
 * Progressive Web App installation
 * Secure P2P file transfer system
@@ -551,6 +551,6 @@ SecureBit.chat:
 
 ---
 
-**Latest Release: v4.01.222** — PWA & Secure File Transfer
+**Latest Release: v4.01.412** — PWA & Secure File Transfer
 
 </div>

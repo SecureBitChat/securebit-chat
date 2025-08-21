@@ -449,9 +449,20 @@ _initializeMutexSystem() {
             }
             // Initialization
             this.initializeFileTransfer();
-            // Small delay for initialization
-            await new Promise(r => setTimeout(r, 300));
-            return !!this.fileTransferSystem;
+            
+            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Ждем инициализации с таймаутом
+            let attempts = 0;
+            const maxAttempts = 50; // 5 секунд максимум
+            while (!this.fileTransferSystem && attempts < maxAttempts) {
+                await new Promise(r => setTimeout(r, 100));
+                attempts++;
+            }
+            
+            if (!this.fileTransferSystem) {
+                throw new Error('File transfer system initialization timeout');
+            }
+            
+            return true;
         } catch (e) {
             console.error('❌ _ensureFileTransferReady failed:', e?.message || e);
             return false;
@@ -1509,6 +1520,12 @@ _initializeMutexSystem() {
     initializeFileTransfer() {
         try {
             console.log('🔧 Initializing Enhanced Secure File Transfer system...');
+            
+            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Проверяем, не инициализирована ли уже система
+            if (this.fileTransferSystem) {
+                console.log('✅ File transfer system already initialized');
+                return;
+            }
             
             // CRITICAL FIX: Step-by-step readiness check
             const channelReady = !!(this.dataChannel && this.dataChannel.readyState === 'open');
@@ -3274,17 +3291,43 @@ async processMessage(data) {
                         await this.fileTransferSystem.handleFileMessage(parsed);
                         return;
                     }
-                    // Attempt lazy initialization on the receiver side
-                    console.warn('⚠️ File transfer system not available, attempting lazy init...');
+                    
+                    // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Автоматическая инициализация файловой системы
+                    console.warn('⚠️ File transfer system not available, attempting automatic initialization...');
                     try {
-                        await this._ensureFileTransferReady();
-                        if (this.fileTransferSystem && typeof this.fileTransferSystem.handleFileMessage === 'function') {
-                            await this.fileTransferSystem.handleFileMessage(parsed);
+                        // Проверяем готовность соединения
+                        if (!this.isVerified) {
+                            console.warn('⚠️ Connection not verified, cannot initialize file transfer');
                             return;
                         }
+                        
+                        if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
+                            console.warn('⚠️ Data channel not open, cannot initialize file transfer');
+                            return;
+                        }
+                        
+                        // Инициализируем файловую систему
+                        this.initializeFileTransfer();
+                        
+                        // Ждем инициализации
+                        let attempts = 0;
+                        const maxAttempts = 30; // 3 секунды максимум
+                        while (!this.fileTransferSystem && attempts < maxAttempts) {
+                            await new Promise(resolve => setTimeout(resolve, 100));
+                            attempts++;
+                        }
+                        
+                        if (this.fileTransferSystem && typeof this.fileTransferSystem.handleFileMessage === 'function') {
+                            console.log('✅ File transfer system initialized, processing message:', parsed.type);
+                            await this.fileTransferSystem.handleFileMessage(parsed);
+                            return;
+                        } else {
+                            console.error('❌ File transfer system initialization failed');
+                        }
                     } catch (e) {
-                        console.error('❌ Lazy init of file transfer failed:', e?.message || e);
+                        console.error('❌ Automatic file transfer initialization failed:', e?.message || e);
                     }
+                    
                     console.error('❌ File transfer system not available for:', parsed.type);
                     return; // IMPORTANT: Exit after handling
                 }
@@ -4134,8 +4177,8 @@ handleSystemMessage(message) {
             try {
                 await this.establishConnection();
                 
-                // CRITICAL: Initialize file transfer immediately
-                this.initializeFileTransfer();
+                        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Инициализируем файловую систему для обеих сторон
+        this.initializeFileTransfer();
                 
             } catch (error) {
                 console.error('❌ Error in establishConnection:', error);
@@ -4213,6 +4256,26 @@ handleSystemMessage(message) {
                         
                         if (parsed.type && fileMessageTypes.includes(parsed.type)) {
                             console.log('📁 File message intercepted at WebRTC level:', parsed.type);
+                            
+                            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Инициализируем файловую систему при получении файловых сообщений
+                            if (!this.fileTransferSystem) {
+                                try {
+                                    // Проверяем готовность соединения
+                                    if (this.isVerified && this.dataChannel && this.dataChannel.readyState === 'open') {
+                                        this.initializeFileTransfer();
+                                        
+                                        // Ждем инициализации
+                                        let attempts = 0;
+                                        const maxAttempts = 30;
+                                        while (!this.fileTransferSystem && attempts < maxAttempts) {
+                                            await new Promise(resolve => setTimeout(resolve, 100));
+                                            attempts++;
+                                        }
+                                    }
+                                } catch (initError) {
+                                    console.error('❌ Failed to initialize file transfer system for receiver:', initError);
+                                }
+                            }
                             
                             // Handle directly WITHOUT extra checks
                             if (window.fileTransferSystem) {
@@ -6930,14 +6993,14 @@ _getMutexSystemDiagnostics() {
                 console.log('✅ Session verified - setting isVerified to true');
             }
             
-            // Initialize file transfer system with a delay
-            setTimeout(() => {
-                try {
-                    this.initializeFileTransfer();
-                } catch (error) {
-                    console.warn('⚠️ File transfer initialization failed during session activation:', error.message);
-                }
-            }, 1000);
+                    // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Инициализируем файловую систему для обеих сторон
+        setTimeout(() => {
+            try {
+                this.initializeFileTransfer();
+            } catch (error) {
+                console.warn('⚠️ File transfer initialization failed during session activation:', error.message);
+            }
+        }, 1000);
             
             console.log('✅ Session activation handled successfully');
             
@@ -7011,11 +7074,20 @@ checkFileTransferReadiness() {
                 dataChannelState: this.dataChannel?.readyState,
                 isConnected: this.isConnected(),
                 isVerified: this.isVerified,
+                isInitiator: this.isInitiator,
                 hasEncryptionKey: !!this.encryptionKey,
                 hasMacKey: !!this.macKey,
-                hasMetadataKey: !!this.metadataKey
+                hasMetadataKey: !!this.metadataKey,
+                hasKeyFingerprint: !!this.keyFingerprint,
+                hasSessionSalt: !!this.sessionSalt
             },
-            fileTransferSystem: null
+            fileTransferSystem: null,
+            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Дополнительная диагностика
+            globalState: {
+                fileTransferActive: window.FILE_TRANSFER_ACTIVE,
+                hasGlobalFileTransferSystem: !!window.fileTransferSystem,
+                globalFileTransferSystemType: window.fileTransferSystem?.constructor?.name
+            }
         };
         
         if (this.fileTransferSystem) {
@@ -7027,6 +7099,103 @@ checkFileTransferReadiness() {
         }
         
         return diagnostics;
+    }
+
+    getSupportedFileTypes() {
+        if (!this.fileTransferSystem) {
+            return { error: 'File transfer system not initialized' };
+        }
+        
+        try {
+            return this.fileTransferSystem.getSupportedFileTypes();
+        } catch (error) {
+            return { error: error.message };
+        }
+    }
+
+    validateFile(file) {
+        if (!this.fileTransferSystem) {
+            return { 
+                isValid: false, 
+                errors: ['File transfer system not initialized'],
+                fileType: null,
+                fileSize: file?.size || 0,
+                formattedSize: '0 B'
+            };
+        }
+        
+        try {
+            return this.fileTransferSystem.validateFile(file);
+        } catch (error) {
+            return { 
+                isValid: false, 
+                errors: [error.message],
+                fileType: null,
+                fileSize: file?.size || 0,
+                formattedSize: '0 B'
+            };
+        }
+    }
+
+    getFileTypeInfo() {
+        if (!this.fileTransferSystem) {
+            return { error: 'File transfer system not initialized' };
+        }
+        
+        try {
+            return this.fileTransferSystem.getFileTypeInfo();
+        } catch (error) {
+            return { error: error.message };
+        }
+    }
+
+    // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Метод для принудительной инициализации файловой системы
+    forceInitializeFileTransfer() {
+        try {
+            // Проверяем готовность соединения
+            if (!this.isVerified) {
+                throw new Error('Connection not verified');
+            }
+            
+            if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
+                throw new Error('Data channel not open');
+            }
+            
+            if (!this.encryptionKey || !this.macKey) {
+                throw new Error('Encryption keys not ready');
+            }
+            
+            // Очищаем существующую систему
+            if (this.fileTransferSystem) {
+                this.fileTransferSystem.cleanup();
+                this.fileTransferSystem = null;
+            }
+            
+            // Инициализируем новую систему
+            this.initializeFileTransfer();
+            
+            // Ждем инициализации
+            let attempts = 0;
+            const maxAttempts = 50;
+            while (!this.fileTransferSystem && attempts < maxAttempts) {
+                // Синхронное ожидание
+                const start = Date.now();
+                while (Date.now() - start < 100) {
+                    // busy wait
+                }
+                attempts++;
+            }
+            
+            if (this.fileTransferSystem) {
+                return true;
+            } else {
+                throw new Error('Force initialization timeout');
+            }
+            
+        } catch (error) {
+            console.error('❌ Force file transfer initialization failed:', error);
+            return false;
+        }
     }
 }
 

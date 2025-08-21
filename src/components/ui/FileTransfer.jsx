@@ -25,8 +25,6 @@ const FileTransferComponent = ({ webrtcManager, isConnected }) => {
         webrtcManager.setFileTransferCallbacks(
             // Progress callback - ТОЛЬКО обновляем UI, НЕ отправляем в чат
             (progress) => {
-                console.log(`📁 UI Progress: ${progress.fileName}: ${progress.progress.toFixed(1)}% (${progress.status})`);
-                
                 // Обновляем только локальное состояние
                 const currentTransfers = webrtcManager.getFileTransfers();
                 setTransfers(currentTransfers);
@@ -36,7 +34,6 @@ const FileTransferComponent = ({ webrtcManager, isConnected }) => {
             
             // File received callback - добавляем кнопку скачивания в UI
             (fileData) => {
-                console.log(`📥 File received in UI: ${fileData.fileName}`);
                 // Добавляем в список готовых к скачиванию
                 setReadyFiles(prev => {
                     // избегаем дублей по fileId
@@ -59,7 +56,6 @@ const FileTransferComponent = ({ webrtcManager, isConnected }) => {
             
             // Error callback
             (error) => {
-                console.error('File transfer error in UI:', error);
                 const currentTransfers = webrtcManager.getFileTransfers();
                 setTransfers(currentTransfers);
                 
@@ -83,19 +79,27 @@ const FileTransferComponent = ({ webrtcManager, isConnected }) => {
 
         for (const file of files) {
             try {
-                console.log(`🚀 Starting file upload from UI: ${file.name}`);
+                // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Валидация файла перед отправкой
+                const validation = webrtcManager.validateFile(file);
+                if (!validation.isValid) {
+                    const errorMessage = validation.errors.join('. ');
+                    alert(`Файл ${file.name} не может быть отправлен: ${errorMessage}`);
+                    continue;
+                }
+
                 await webrtcManager.sendFile(file);
             } catch (error) {
                 // Более мягкая обработка ошибок - не закрываем сессию
-                console.error(`Failed to send ${file.name}:`, error);
                 
                 // Показываем пользователю ошибку, но не закрываем соединение
                 if (error.message.includes('Connection not ready')) {
                     alert(`Файл ${file.name} не может быть отправлен сейчас. Проверьте соединение и попробуйте снова.`);
-                } else if (error.message.includes('File too large')) {
-                    alert(`Файл ${file.name} слишком большой. Максимальный размер: 100 MB`);
+                } else if (error.message.includes('File too large') || error.message.includes('exceeds maximum')) {
+                    alert(`Файл ${file.name} слишком большой: ${error.message}`);
                 } else if (error.message.includes('Maximum concurrent transfers')) {
                     alert(`Достигнут лимит одновременных передач. Дождитесь завершения текущих передач.`);
+                } else if (error.message.includes('File type not allowed')) {
+                    alert(`Тип файла ${file.name} не поддерживается: ${error.message}`);
                 } else {
                     alert(`Ошибка отправки файла ${file.name}: ${error.message}`);
                 }

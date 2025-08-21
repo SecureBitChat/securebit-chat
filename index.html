@@ -161,7 +161,7 @@
             icon: "fas fa-shield-halved",
             color: "orange",
             title: "12-Layer Military Security",
-            description: "Revolutionary defense system with ECDH P-384 + AES-GCM 256 + ECDSA. Enhanced Security Edition v4.01.222 provides military-grade protection exceeding government standards."
+            description: "Revolutionary defense system with ECDH P-384 + AES-GCM 256 + ECDSA. Enhanced Security Edition v4.01.412 provides military-grade protection exceeding government standards."
         },
         {
             icon: "fas fa-bolt",
@@ -511,7 +511,7 @@
                 Enhanced Security Edition Comparison
                 </h3>
                 <p className="text-secondary max-w-2xl mx-auto mb-4">
-                SecureBit.chat v4.01.222 Enhanced Security Edition vs leading secure messengers
+                SecureBit.chat v4.01.412 Enhanced Security Edition vs leading secure messengers
                 </p>
                 <div className="inline-flex items-center px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                 <span className="text-yellow-400 mr-2">🏆</span>
@@ -657,7 +657,7 @@
                 <div className="p-6 bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border border-orange-500/20 rounded-xl">
                     <h4 className="text-xl font-bold text-orange-400 mb-4 flex items-center">
                     <i className="fas fa-trophy mr-3" />
-                    SecureBit.chat v4.01.222 Enhanced Security Edition Summary
+                    SecureBit.chat v4.01.412 Enhanced Security Edition Summary
                     </h4>
                     <p className="text-secondary leading-relaxed text-lg mb-4">
                     SecureBit.chat dominates in 11 out of 15 security categories, establishing itself as the most secure P2P messenger available.
@@ -3195,7 +3195,7 @@
                         const downloadMessage = React.createElement('div', {
                             className: 'flex items-center space-x-2'
                         }, [
-                            React.createElement('span', { key: 'label' }, `📥 Файл получен: ${fileData.fileName} (${sizeMb} MB)`),
+                            React.createElement('span', { key: 'label' }, `📥 File received: ${fileData.fileName} (${sizeMb} MB)`),
                             React.createElement('button', {
                                 key: 'btn',
                                 className: 'px-3 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs',
@@ -3210,7 +3210,7 @@
                                         setTimeout(() => fileData.revokeObjectURL(url), 15000);
                                     } catch (e) {
                                         console.error('Download failed:', e);
-                                        addMessageWithAutoScroll(`❌ Ошибка загрузки файла: ${String(e?.message || e)}`, 'system');
+                                        addMessageWithAutoScroll(`❌ File upload error: ${String(e?.message || e)}`, 'system');
                                     }
                                 }
                             }, 'Скачать')
@@ -3221,15 +3221,14 @@
                     
                     // Error callback
                     (error) => {
-                        // Более мягкая обработка ошибок файлового трансфера - не закрываем сессию
                         console.error('File transfer error:', error);
                         
                         if (error.includes('Connection not ready')) {
-                            addMessageWithAutoScroll(`⚠️ Ошибка передачи файла: соединение не готово. Попробуйте позже.`, 'system');
+                            addMessageWithAutoScroll(`⚠️ File transfer error: connection not ready. Try again later.`, 'system');
                         } else if (error.includes('File too large')) {
-                            addMessageWithAutoScroll(`⚠️ Файл слишком большой. Максимальный размер: 100 МБ`, 'system');
+                            addMessageWithAutoScroll(`⚠️ File is too big. Maximum size: 100 MB`, 'system');
                         } else {
-                            addMessageWithAutoScroll(`❌ Ошибка передачи файла: ${error}`, 'system');
+                            addMessageWithAutoScroll(`❌ File transfer error: ${error}`, 'system');
                         }
                     }
                 );
