@@ -2,18 +2,18 @@
 import { EnhancedSecureFileTransfer } from '../transfer/EnhancedSecureFileTransfer.js';
 
 // ============================================
-// ИСПРАВЛЕНИЯ СИСТЕМЫ MUTEX - РЕШЕНИЕ ПРОБЛЕМЫ С ПЕРЕДАЧЕЙ СООБЩЕНИЙ
+// MUTEX SYSTEM FIXES - RESOLVING MESSAGE DELIVERY ISSUES
 // ============================================
-// Проблема: После внедрения системы Mutex перестали передаваться сообщения между пользователями
-// Решение: Упрощена логика блокировок - mutex используется ТОЛЬКО для критических операций
-// - Обычные сообщения обрабатываются БЕЗ mutex
-// - Файловые сообщения обрабатываются БЕЗ mutex  
-// - MUTEX используется ТОЛЬКО для криптографических операций
+// Issue: After introducing the Mutex system, messages stopped being delivered between users
+// Fix: Simplified locking logic — mutex is used ONLY for critical operations
+// - Regular messages are processed WITHOUT mutex
+// - File messages are processed WITHOUT mutex  
+// - Mutex is used ONLY for cryptographic operations
 // ============================================
 
 class EnhancedSecureWebRTCManager {
     // ============================================
-    // КОНСТАНТЫ
+    // CONSTANTS
     // ============================================
     
     static TIMEOUTS = {
@@ -99,25 +99,26 @@ class EnhancedSecureWebRTCManager {
         SYSTEM_MESSAGE: 'SYSTEM_MESSAGE_FILTERED'
     };
     constructor(onMessage, onStatusChange, onKeyExchange, onVerificationRequired, onAnswerError = null) {
-    // Определяем режим работы
+    // Determine runtime mode
     this._isProductionMode = this._detectProductionMode();
     this._debugMode = !this._isProductionMode && window.DEBUG_MODE;
 
-    // Инициализируем защищенную систему логирования
+    // Initialize the secure logging system
         this._initializeSecureLogging();
         this._disableConsoleLogInProduction();
+        this._redirectConsoleLogToSecure();
     // Check the availability of the global object
         this._setupSecureGlobalAPI();
     if (!window.EnhancedSecureCryptoUtils) {
         throw new Error('EnhancedSecureCryptoUtils is not loaded. Please ensure the module is loaded first.');
     }
     this.getSecurityData = () => {
-        // Возвращаем только публичную информацию
+        // Return only public information
         return this.lastSecurityCalculation ? {
             level: this.lastSecurityCalculation.level,
             score: this.lastSecurityCalculation.score,
             timestamp: this.lastSecurityCalculation.timestamp,
-            // НЕ возвращаем детали проверок или чувствительные данные
+            // Do NOT return check details or sensitive data
         } : null;
     };
     this._secureLog('info', '🔒 Enhanced WebRTC Manager initialized with secure API');
@@ -145,13 +146,13 @@ class EnhancedSecureWebRTCManager {
     throw new Error('Critical: Mutex system initialization failed');
 }
 
-// Валидация системы после инициализации
+// Post-initialization validation of the mutex system
 if (!this._validateMutexSystem()) {
     this._secureLog('error', '❌ Mutex system validation failed after initialization');
     throw new Error('Critical: Mutex system validation failed');
 }
 
-// Добавление глобального обработчика для экстренных случаев
+// Add global emergency handlers
 if (typeof window !== 'undefined') {
     window.emergencyUnlockMutexes = () => {
         return this._emergencyUnlockAllMutexes();
@@ -325,10 +326,10 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 
             this.initializeEnhancedSecurity(); 
             // ============================================
-            // СИСТЕМА MUTEX ДЛЯ ПРЕДОТВРАЩЕНИЯ RACE CONDITIONS
+            // MUTEX SYSTEM TO PREVENT RACE CONDITIONS
             // ============================================
 
-            // Mutex для операций с ключами
+            // Mutex for key operations
             this._keyOperationMutex = {
                 locked: false,
                 queue: [],
@@ -336,7 +337,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 lockTimeout: null
             };
 
-            // Mutex для операций шифрования/дешифрования
+            // Mutex for encryption/decryption operations
             this._cryptoOperationMutex = {
                 locked: false,
                 queue: [],
@@ -344,7 +345,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 lockTimeout: null
             };
 
-            // Mutex для инициализации соединения
+            // Mutex for connection initialization
             this._connectionOperationMutex = {
                 locked: false,
                 queue: [],
@@ -352,7 +353,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 lockTimeout: null
             };
 
-            // Состояние системы ключей
+            // Key system state
             this._keySystemState = {
                 isInitializing: false,
                 isRotating: false,
@@ -361,7 +362,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 lastOperationTime: Date.now()
             };
 
-            // Счетчики операций
+            // Operation counters
             this._operationCounters = {
                 keyOperations: 0,
                 cryptoOperations: 0,
@@ -370,7 +371,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
 
         }
 _initializeMutexSystem() {
-	// Инициализация стандартных mutex, ожидаемых системой
+	// Initialize standard mutexes expected by the system
 	this._keyOperationMutex = {
 		locked: false,
 		queue: [],
@@ -392,7 +393,7 @@ _initializeMutexSystem() {
 		lockTimeout: null
 	};
 
-	// Состояние системы ключей
+	// Key system state
 	this._keySystemState = {
 		isInitializing: false,
 		isRotating: false,
@@ -401,7 +402,7 @@ _initializeMutexSystem() {
 		lastOperationTime: Date.now()
 	};
 
-	// Счетчики операций
+	// Operation counters
 	this._operationCounters = {
 		keyOperations: 0,
 		cryptoOperations: 0,
@@ -419,7 +420,7 @@ _initializeMutexSystem() {
     // ============================================
 
     /**
-     * Ініціалізує безпечне сховище ключів
+     * Initializes the secure key storage
      */
     _initializeSecureKeyStorage() {
         this._secureKeyStorage = new Map();
@@ -435,20 +436,20 @@ _initializeMutexSystem() {
     // Helper: ensure file transfer system is ready (lazy init on receiver)
     async _ensureFileTransferReady() {
         try {
-            // Если уже есть — готово
+            // If already initialized — done
             if (this.fileTransferSystem) {
                 return true;
             }
-            // Должен быть открытый канал и верифицированное соединение
+            // Requires an open data channel and a verified connection
             if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
                 throw new Error('Data channel not open');
             }
             if (!this.isVerified) {
                 throw new Error('Connection not verified');
             }
-            // Инициализация
+            // Initialization
             this.initializeFileTransfer();
-            // Небольшая задержка для инициализации
+            // Small delay for initialization
             await new Promise(r => setTimeout(r, 300));
             return !!this.fileTransferSystem;
         } catch (e) {
@@ -458,9 +459,9 @@ _initializeMutexSystem() {
     }
 
     /**
-     * Отримує ключ зі сховища
-     * @param {string} keyId - Ідентифікатор ключа
-     * @returns {CryptoKey|null} Ключ або null, якщо не знайдено
+     * Retrieves a key from secure storage
+     * @param {string} keyId - Key identifier
+     * @returns {CryptoKey|null} The key or null if not found
      */
     _getSecureKey(keyId) {
         if (!this._secureKeyStorage.has(keyId)) {
@@ -472,9 +473,9 @@ _initializeMutexSystem() {
     }
 
     /**
-     * Зберігає ключ у сховищі
-     * @param {string} keyId - Ідентифікатор ключа
-     * @param {CryptoKey} key - Ключ для збереження
+     * Stores a key in secure storage
+     * @param {string} keyId - Key identifier
+     * @param {CryptoKey} key - Key to store
      */
     _setSecureKey(keyId, key) {
         if (!(key instanceof CryptoKey)) {
@@ -489,9 +490,9 @@ _initializeMutexSystem() {
     }
 
     /**
-     * Перевіряє коректність значення ключа
-     * @param {CryptoKey} key - Ключ для перевірки
-     * @returns {boolean} true, якщо ключ коректний
+     * Validates a key value
+     * @param {CryptoKey} key - Key to validate
+     * @returns {boolean} true if the key is valid
      */
     _validateKeyValue(key) {
         return key instanceof CryptoKey &&
@@ -501,7 +502,7 @@ _initializeMutexSystem() {
     }
 
     /**
-     * Безпечно видаляє всі ключі зі сховища
+     * Securely wipes all keys from storage
      */
     _secureWipeKeys() {
         this._secureKeyStorage.clear();
@@ -515,16 +516,16 @@ _initializeMutexSystem() {
     }
 
     /**
-     * Перевіряє стан сховища ключів
-     * @returns {boolean} true, якщо сховище готове до роботи
+     * Validates key storage state
+     * @returns {boolean} true if the storage is ready
      */
     _validateKeyStorage() {
         return this._secureKeyStorage instanceof Map;
     }
 
     /**
-     * Отримує статистику використання сховища ключів
-     * @returns {object} Статистика сховища
+     * Returns secure key storage statistics
+     * @returns {object} Storage metrics
      */
     _getKeyStorageStats() {
         return {
@@ -538,7 +539,7 @@ _initializeMutexSystem() {
     }
 
     /**
-     * Виконує ротацію ключів у сховищі
+     * Performs key rotation in storage
      */
     _rotateKeys() {
         const oldKeys = Array.from(this._secureKeyStorage.keys());
@@ -549,7 +550,7 @@ _initializeMutexSystem() {
     }
 
     /**
-     * Екстрене видалення ключів (наприклад, при виявленні загрози)
+     * Emergency key wipe (e.g., upon detecting a threat)
      */
     _emergencyKeyWipe() {
         this._secureWipeKeys();
@@ -557,7 +558,7 @@ _initializeMutexSystem() {
     }
 
     /**
-     * Запускає моніторинг безпеки ключів
+     * Starts key security monitoring
      */
     _startKeySecurityMonitoring() {
         setInterval(() => {
@@ -567,18 +568,18 @@ _initializeMutexSystem() {
             if (Date.now() - (this._keyStorageStats.lastRotation || 0) > 3600000) {
                 this._rotateKeys();
             }
-        }, 300000); // Перевірка кожні 5 хвилин
+        }, 300000); // Check every 5 minutes
     }
 
 
     // ============================================
-    // HELPER МЕТОДЫ
+    // HELPER METHODS
     // ============================================
     /**
-     * Инициализирует защищенную систему логирования
+     * Initializes the secure logging system
      */
     _initializeSecureLogging() {
-        // Уровни логирования
+        // Logging levels
         this._logLevels = {
             error: 0,
             warn: 1, 
@@ -587,14 +588,14 @@ _initializeMutexSystem() {
             trace: 4
         };
         
-        // ИСПРАВЛЕНИЕ: Более строгие уровни для production
+        // FIX: Stricter levels for production
         this._currentLogLevel = this._isProductionMode ? 
-            this._logLevels.error : // В production ТОЛЬКО ошибки
-            this._logLevels.info;   // В development до info
+            this._logLevels.error : // In production, ONLY errors
+            this._logLevels.info;   // In development, up to info
         
-        // Счетчик логов для предотвращения спама
+        // Log counter to prevent spam
         this._logCounts = new Map();
-        this._maxLogCount = this._isProductionMode ? 10 : 100; // Максимум логов одного типа
+        this._maxLogCount = this._isProductionMode ? 10 : 100; // Max logs of one type
 
         this._absoluteBlacklist = new Set([
             'encryptionKey', 'macKey', 'metadataKey', 'privateKey', 
@@ -604,7 +605,7 @@ _initializeMutexSystem() {
             'sessionId', 'authChallenge', 'authProof'
         ]);
 
-        // НОВОЕ: Whitelist безопасных полей
+        // NEW: Whitelist of safe fields
         this._safeFieldsWhitelist = new Set([
             'timestamp', 'type', 'length', 'size', 'count', 'level',
             'status', 'state', 'readyState', 'connectionState', 
@@ -615,43 +616,95 @@ _initializeMutexSystem() {
         this._secureLog('info', `🔧 Secure logging initialized (Production: ${this._isProductionMode})`);
     }
     /**
-     * Отключает шумное логирование в production: console.log/debug становятся no-op
-     * Преднамеренно сохраняем warn/error для видимости проблем
+     * Shim to redirect arbitrary console.log calls to _secureLog('info', ...)
+     */
+    _secureLogShim(...args) {
+        try {
+            if (!args || args.length === 0) {
+                return;
+            }
+            const [message, ...rest] = args;
+            if (rest.length === 0) {
+                this._secureLog('info', String(message));
+                return;
+            }
+            if (rest.length === 1) {
+                this._secureLog('info', String(message), rest[0]);
+                return;
+            }
+            this._secureLog('info', String(message), { args: rest });
+        } catch (e) {
+            // Fallback — do not disrupt main execution flow
+        }
+    }
+    /**
+     * Redirects global console.log to this instance's secure logger
+     */
+    _redirectConsoleLogToSecure() {
+        try {
+            if (typeof console === 'undefined') return;
+            // Preserve originals once
+            if (!this._originalConsole) {
+                this._originalConsole = {
+                    log: console.log?.bind(console),
+                    info: console.info?.bind(console),
+                    warn: console.warn?.bind(console),
+                    error: console.error?.bind(console),
+                    debug: console.debug?.bind(console)
+                };
+            }
+            const self = this;
+            // Only console.log is redirected to secure; warn/error stay intact
+            console.log = function(...args) {
+                try {
+                    self._secureLogShim(...args);
+                } catch (e) {
+                    // Fallback to original log on failure
+                    if (self._originalConsole?.log) self._originalConsole.log(...args);
+                }
+            };
+        } catch (e) {
+            // Safe degradation
+        }
+    }
+    /**
+     * Disables noisy logging in production: console.log/debug become no-ops
+     * Intentionally preserves warn/error for problem visibility
      */
     _disableConsoleLogInProduction() {
         try {
             if (this._isProductionMode && typeof console !== 'undefined') {
                 const originalWarn = console.warn?.bind(console);
                 const originalError = console.error?.bind(console);
-                // Безопасно глушим информационные логи
+                // Safely mute informational logs
                 console.log = () => {};
                 console.debug = () => {};
-                // Сохраняем предупреждения и ошибки
+                // Preserve warnings and errors
                 if (originalWarn) console.warn = (...args) => originalWarn(...args);
                 if (originalError) console.error = (...args) => originalError(...args);
             }
         } catch (e) {
-            // Ничего не делаем, это нефункциональная защита
+            // No action required, non-functional safeguard
         }
     }
     /**
-     * Защищенное логирование
-     * @param {string} level - Уровень лога (error, warn, info, debug, trace)
-     * @param {string} message - Сообщение
-     * @param {object} data - Дополнительные данные (будут sanitized)
+     * Secure logging
+     * @param {string} level - Log level (error, warn, info, debug, trace)
+     * @param {string} message - Message
+     * @param {object} data - Optional payload (will be sanitized)
      */
     _secureLog(level, message, data = null) {
-        // Проверяем уровень логирования
+        // Check log level
         if (this._logLevels[level] > this._currentLogLevel) {
             return;
         }
         
-        // НОВОЕ: Audit проверка перед логированием
+        // NEW: Audit check before logging
         if (data && !this._auditLogMessage(message, data)) {
-            return; // Логирование заблокировано из-за потенциальной утечки
+            return; // Logging blocked due to potential data leakage
         }
         
-        // Предотвращаем спам логов
+        // Prevent log spam
         const logKey = `${level}:${message}`;
         const currentCount = this._logCounts.get(logKey) || 0;
         
@@ -661,12 +714,12 @@ _initializeMutexSystem() {
         
         this._logCounts.set(logKey, currentCount + 1);
         
-        // Sanitize данные
+        // Sanitize data
         const sanitizedData = data ? this._sanitizeLogData(data) : null;
         
-        // НОВОЕ: В production вообще не выводим данные
+        // NEW: In production do not output payloads
         if (this._isProductionMode && level !== 'error') {
-            console[level] || console.log(message); // Только сообщение без данных
+            console[level] || console.log(message); // Only message without payload
         } else {
             const logMethod = console[level] || console.log;
             if (sanitizedData) {
@@ -677,11 +730,11 @@ _initializeMutexSystem() {
         }
     }
     /**
-     * Sanitize данных для логирования
+     * Sanitize data for logging
      */
     _sanitizeLogData(data) {
         if (!data || typeof data !== 'object') {
-            // Для примитивных типов - проверяем на sensitive patterns
+            // For primitive types — check for sensitive patterns
             if (typeof data === 'string') {
                 return this._sanitizeString(data);
             }
@@ -693,20 +746,20 @@ _initializeMutexSystem() {
         for (const [key, value] of Object.entries(data)) {
             const lowerKey = key.toLowerCase();
             
-            // АБСОЛЮТНЫЙ BLACKLIST - никогда не логируем
+            // ABSOLUTE BLACKLIST — never log
             if (this._absoluteBlacklist.has(key) || 
                 Array.from(this._absoluteBlacklist).some(banned => lowerKey.includes(banned))) {
                 sanitized[key] = '[ABSOLUTELY_FORBIDDEN]';
                 continue;
             }
             
-            // WHITELIST - безопасные поля логируем как есть
+            // WHITELIST — safe fields are logged as-is
             if (this._safeFieldsWhitelist.has(key)) {
                 sanitized[key] = value;
                 continue;
             }
             
-            // Для всех остальных полей - строгая обработка
+            // Strict handling for all other fields
             if (typeof value === 'boolean' || typeof value === 'number') {
                 sanitized[key] = value;
             } else if (typeof value === 'string') {
@@ -714,7 +767,7 @@ _initializeMutexSystem() {
             } else if (value instanceof ArrayBuffer || value instanceof Uint8Array) {
                 sanitized[key] = `[${value.constructor.name}(${value.byteLength || value.length} bytes)]`;
             } else if (value && typeof value === 'object') {
-                // Рекурсивно с ограничением глубины
+                // Recursive with depth limitation
                 sanitized[key] = this._sanitizeLogData(value);
             } else {
                 sanitized[key] = `[${typeof value}]`;
@@ -724,36 +777,36 @@ _initializeMutexSystem() {
         return sanitized;
     }
     /**
-     * НОВОЕ: Специальная sanitization для строк
+     * NEW: Specialized sanitization for strings
      */
     _sanitizeString(str) {
         if (typeof str !== 'string' || str.length === 0) {
             return str;
         }
         
-        // КРИТИЧЕСКОЕ: Поиск sensitive patterns
+        // CRITICAL: Detect sensitive patterns
         const sensitivePatterns = [
-            /[a-f0-9]{32,}/i,                    // Hex строки (ключи)
-            /[A-Za-z0-9+/=]{20,}/,               // Base64 строки
-            /\b[A-Za-z0-9]{20,}\b/,              // Длинные алфанумерные строки
-            /BEGIN\s+(PRIVATE|PUBLIC)\s+KEY/i,   // PEM ключи
-            /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/, // Кредитные карты
+            /[a-f0-9]{32,}/i,                    // Hex strings (keys)
+            /[A-Za-z0-9+/=]{20,}/,               // Base64 strings
+            /\b[A-Za-z0-9]{20,}\b/,              // Long alphanumeric strings
+            /BEGIN\s+(PRIVATE|PUBLIC)\s+KEY/i,   // PEM keys
+            /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/, // Credit cards
             /\b\d{3}-\d{2}-\d{4}\b/,             // SSN
-            /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/, // Email (частично)
+            /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/, // Email (partial)
         ];
         
         for (const pattern of sensitivePatterns) {
             if (pattern.test(str)) {
-                // Если строка короткая - полностью скрываем
+                // If short — fully hide
                 if (str.length <= 10) {
                     return '[SENSITIVE]';
                 }
-                // Для длинных - показываем только начало и конец
+                // If long — reveal only start and end
                 return `${str.substring(0, 3)}...[REDACTED]...${str.substring(str.length - 3)}`;
             }
         }
         
-        // Для обычных строк - ограничиваем длину
+        // For regular strings — limit length
         if (str.length > 100) {
             return str.substring(0, 50) + '...[TRUNCATED]';
         }
@@ -761,58 +814,58 @@ _initializeMutexSystem() {
         return str;
     }
     /**
-     * Проверяет содержит ли строка чувствительный контент
+     * Checks whether a string contains sensitive content
      */
     _containsSensitiveContent(str) {
         if (typeof str !== 'string') return false;
         
         const sensitivePatterns = [
-            /[a-f0-9]{32,}/i,          // Hex строки (ключи)
-            /[A-Za-z0-9+/=]{20,}/,     // Base64 строки
-            /\b[A-Za-z0-9]{20,}\b/,    // Длинные алфанумерные строки
-            /BEGIN\s+(PRIVATE|PUBLIC)\s+KEY/i, // PEM ключи
+            /[a-f0-9]{32,}/i,          // Hex strings (keys)
+            /[A-Za-z0-9+/=]{20,}/,     // Base64 strings
+            /\b[A-Za-z0-9]{20,}\b/,    // Long alphanumeric strings
+            /BEGIN\s+(PRIVATE|PUBLIC)\s+KEY/i, // PEM keys
         ];
         
         return sensitivePatterns.some(pattern => pattern.test(str));
     }
     // ============================================
-    // СИСТЕМА ЗАЩИЩЕННОГО ЛОГИРОВАНИЯ
+    // SECURE LOGGING SYSTEM
     // ============================================
     
     /**
-     * Определяет production mode
+     * Detects production mode
      */
     _detectProductionMode() {
-        // Проверяем различные индикаторы production mode
+        // Check various production mode indicators
         return (
-            // Стандартные переменные окружения
+            // Standard env variables
             (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production') ||
-            // Отсутствие debug флагов
+            // No debug flags
             (!window.DEBUG_MODE && !window.DEVELOPMENT_MODE) ||
-            // Production домены
+            // Production domains
             (window.location.hostname && !window.location.hostname.includes('localhost') && 
              !window.location.hostname.includes('127.0.0.1') && 
              !window.location.hostname.includes('.local')) ||
-            // Минификация кода (примерная проверка)
+            // Minified code (heuristic check)
             (typeof window.webpackHotUpdate === 'undefined' && !window.location.search.includes('debug'))
         );
     }
     // ============================================
-    // ИСПРАВЛЕННЫЙ БЕЗОПАСНЫЙ ГЛОБАЛЬНЫЙ API
+    // FIXED SECURE GLOBAL API
     // ============================================
     
     /**
-     * Настраивает безопасный глобальный API с ограниченным доступом
+     * Sets up a secure global API with limited access
      */
     _setupSecureGlobalAPI() {
-        // Создаем ограниченный публичный API
+        // Create a restricted public API
         const secureAPI = {
             // ============================================
-            // БЕЗОПАСНЫЕ ПУБЛИЧНЫЕ МЕТОДЫ
+            // SAFE PUBLIC METHODS
             // ============================================
             
             /**
-             * Отправка сообщения (безопасная обертка)
+             * Send a message (safe wrapper)
              */
             sendMessage: (message) => {
                 try {
@@ -830,7 +883,7 @@ _initializeMutexSystem() {
             },
             
             /**
-             * Получение статуса соединения (только публичная информация)
+             * Get connection status (public information only)
              */
             getConnectionStatus: () => {
                 return {
@@ -841,7 +894,7 @@ _initializeMutexSystem() {
             },
             
             /**
-             * Получение статуса безопасности (ограниченная информация)
+             * Get security status (limited information)
              */
             getSecurityStatus: () => {
                 const status = this.getSecurityStatus();
@@ -853,14 +906,14 @@ _initializeMutexSystem() {
             },
             
             /**
-             * Отправка файла (безопасная обертка)
+             * Send a file (safe wrapper)
              */
             sendFile: async (file) => {
                 try {
                     if (!file || !(file instanceof File)) {
                         throw new Error('Invalid file object');
                     }
-                    if (file.size > 100 * 1024 * 1024) { // Лимит 100MB
+                    if (file.size > 100 * 1024 * 1024) { // 100MB limit
                         throw new Error('File too large');
                     }
                     return await this.sendFile(file);
@@ -871,7 +924,7 @@ _initializeMutexSystem() {
             },
             
             /**
-             * Получение статуса файловых трансферов
+             * Get file transfer status
              */
             getFileTransferStatus: () => {
                 const status = this.getFileTransferStatus();
@@ -884,7 +937,7 @@ _initializeMutexSystem() {
             },
             
             /**
-             * Отключение (безопасное)
+             * Disconnect (safe)
              */
             disconnect: () => {
                 try {
@@ -896,7 +949,7 @@ _initializeMutexSystem() {
                 }
             },
             
-            // Метаинформация API
+            // API meta information
             _api: {
                 version: '4.0.1-secure',
                 type: 'secure-wrapper',
@@ -907,14 +960,14 @@ _initializeMutexSystem() {
             }
         };
        // ============================================
-        // УСТАНОВКА ГЛОБАЛЬНОГО API С ЗАЩИТОЙ
+        // INSTALL SECURE GLOBAL API
         // ============================================
         
-        // Делаем API неизменяемым
+        // Make the API immutable
         Object.freeze(secureAPI);
         Object.freeze(secureAPI._api);
         
-        // Устанавливаем глобальный API только если его еще нет
+        // Set global API only if it does not exist yet
         if (!window.secureBitChat) {
             Object.defineProperty(window, 'secureBitChat', {
                 value: secureAPI,
@@ -929,30 +982,30 @@ _initializeMutexSystem() {
         }
         
         // ============================================
-        // УПРОЩЕННАЯ ЗАЩИТА БЕЗ PROXY
+        // SIMPLIFIED PROTECTION WITHOUT PROXY
         // ============================================
         this._setupSimpleProtection();
     }
     _setupSimpleProtection() {
-        // Защищаем только через мониторинг, без переопределения window
+        // Protect via monitoring only, without overriding window
         this._monitorGlobalExposure();
         
-        // Предупреждение в консоли
+        // Console notice
         if (window.DEBUG_MODE) {
             console.warn('🔒 Security Notice: WebRTC Manager is protected. Use window.secureBitChat for safe access.');
         }
     }
     /**
-     * Мониторинг глобального exposure без Proxy
+     * Monitoring global exposure without Proxy
      */
     _monitorGlobalExposure() {
-        // Список потенциально опасных имен
+        // Potentially dangerous global names
         const dangerousNames = [
             'webrtcManager', 'globalWebRTCManager', 'webrtcInstance', 
             'rtcManager', 'secureWebRTC', 'enhancedWebRTC'
         ];
         
-        // Проверяем периодически
+        // Periodic check
         const checkForExposure = () => {
             const exposures = [];
             
@@ -966,7 +1019,7 @@ _initializeMutexSystem() {
             if (exposures.length > 0) {
                 console.warn('🚫 WARNING: Potential security exposure detected:', exposures);
                 
-                // В production автоматически удаляем
+                // In production, remove automatically
                 if (!window.DEBUG_MODE) {
                     exposures.forEach(name => {
                         try {
@@ -982,22 +1035,22 @@ _initializeMutexSystem() {
             return exposures;
         };
         
-        // Немедленная проверка
+        // Immediate check
         checkForExposure();
         
-        // Периодическая проверка
-        const interval = window.DEBUG_MODE ? 30000 : 300000; // 30s в dev, 5min в prod
+        // Periodic check
+        const interval = window.DEBUG_MODE ? 30000 : 300000; // 30s in dev, 5min in prod
         setInterval(checkForExposure, interval);
     }
     /**
-     * Предотвращает случайное глобальное exposure
+     * Prevents accidental global exposure
      */
     _preventGlobalExposure() {
-        // Мониторинг попыток добавления webrtc объектов в window
+        // Monitor attempts to add webrtc objects to window
         const originalDefineProperty = Object.defineProperty;
         const self = this;
         
-        // Переопределяем defineProperty для window только для webrtc связанных свойств
+        // Override defineProperty for window only for webrtc-related properties
         const webrtcRelatedNames = [
             'webrtcManager', 'globalWebRTCManager', 'webrtcInstance', 
             'rtcManager', 'secureWebRTC', 'enhancedWebRTC'
@@ -1006,20 +1059,20 @@ _initializeMutexSystem() {
         Object.defineProperty = function(obj, prop, descriptor) {
             if (obj === window && webrtcRelatedNames.includes(prop)) {
                 console.warn(`🚫 Prevented potential global exposure of: ${prop}`);
-                // Не устанавливаем свойство, просто логируем
+                // Do not set the property, only log
                 return obj;
             }
             return originalDefineProperty.call(this, obj, prop, descriptor);
         };
         
-        // Защита от прямого присваивания
+        // Protect against direct assignment
         const webrtcRelatedPatterns = /webrtc|rtc|secure.*chat/i;
         const handler = {
             set(target, property, value) {
                 if (typeof property === 'string' && webrtcRelatedPatterns.test(property)) {
                     if (value === self || (value && value.constructor === self.constructor)) {
                         console.warn(`🚫 Prevented global exposure attempt: window.${property}`);
-                        return true; // Притворяемся что установили, но не устанавливаем
+                        return true; // Pretend we set it, but do not
                     }
                 }
                 target[property] = value;
@@ -1027,13 +1080,13 @@ _initializeMutexSystem() {
             }
         };
         
-        // Применяем Proxy только в development mode для производительности
+        // Apply Proxy only in development mode for performance
         if (window.DEBUG_MODE) {
             window = new Proxy(window, handler);
         }
     }
     /**
-     * Проверка целостности API
+     * API integrity check
      */
     _verifyAPIIntegrity() {
         try {
@@ -1059,16 +1112,16 @@ _initializeMutexSystem() {
         }
     }
     // ============================================
-    // ДОПОЛНИТЕЛЬНЫЕ МЕТОДЫ БЕЗОПАСНОСТИ
+    // ADDITIONAL SECURITY METHODS
     // ============================================
     
     /**
-     * Проверяет, нет ли случайного exposure в глобальном пространстве
+     * Checks for accidental exposure in global scope
      */
     _auditGlobalExposure() {
         const dangerousExposures = [];
         
-        // Проверяем window на наличие WebRTC manager
+        // Check window for WebRTC manager
         for (const prop in window) {
             const value = window[prop];
             if (value === this || (value && value.constructor === this.constructor)) {
@@ -1079,7 +1132,7 @@ _initializeMutexSystem() {
         if (dangerousExposures.length > 0) {
             console.error('🚨 SECURITY ALERT: WebRTC Manager exposed globally:', dangerousExposures);
             
-            // В production mode автоматически удаляем exposure
+            // In production mode, remove exposure automatically
             if (!window.DEBUG_MODE) {
                 dangerousExposures.forEach(prop => {
                     try {
@@ -1096,40 +1149,40 @@ _initializeMutexSystem() {
     }
     
     /**
-     * Периодический аудит безопасности
+     * Periodic security audit
      */
     _startSecurityAudit() {
-        // Проверяем каждые 30 секунд в development, каждые 5 минут в production
+        // Check every 30 seconds in development, every 5 minutes in production
         const auditInterval = window.DEBUG_MODE ? 30000 : 300000;
         
         setInterval(() => {
             const exposures = this._auditGlobalExposure();
             
             if (exposures.length > 0 && !window.DEBUG_MODE) {
-                // В production это критическая проблема
+                // In production, this is a critical issue
                 console.error('🚨 CRITICAL: Unauthorized global exposure detected in production');
                 
-                // Можно добавить отправку алерта или принудительное отключение
+                // Could add alert sending or forced shutdown
                 // this.emergencyShutdown();
             }
         }, auditInterval);
     }
     
     /**
-     * Экстренное отключение при критических проблемах
+     * Emergency shutdown for critical issues
      */
     _emergencyShutdown(reason = 'Security breach') {
         console.error(`🚨 EMERGENCY SHUTDOWN: ${reason}`);
         
         try {
-            // Очищаем критические данные
+            // Clear critical data
             this.encryptionKey = null;
             this.macKey = null;
             this.metadataKey = null;
             this.verificationCode = null;
             this.keyFingerprint = null;
             
-            // Закрываем соединения
+            // Close connections
             if (this.dataChannel) {
                 this.dataChannel.close();
                 this.dataChannel = null;
@@ -1139,12 +1192,12 @@ _initializeMutexSystem() {
                 this.peerConnection = null;
             }
             
-            // Очищаем буферы
+            // Clear buffers
             this.messageQueue = [];
             this.processedMessageIds.clear();
             this.packetBuffer.clear();
             
-            // Уведомляем UI
+            // Notify UI
             if (this.onStatusChange) {
                 this.onStatusChange('security_breach');
             }
@@ -1157,15 +1210,15 @@ _initializeMutexSystem() {
     }
     _finalizeSecureInitialization() {
         this._startKeySecurityMonitoring();
-        // Проверяем целостность API
+        // Verify API integrity
         if (!this._verifyAPIIntegrity()) {
             console.error('🚨 Security initialization failed');
             return;
         }
         
-        // Начинаем мониторинг
+        // Start monitoring
         this._startSecurityMonitoring();
-        // Запускаем периодическую очистку логов
+        // Start periodic log cleanup
         setInterval(() => {
             this._cleanupLogs();
         }, 300000);
@@ -1173,15 +1226,15 @@ _initializeMutexSystem() {
         console.log('✅ Secure WebRTC Manager initialization completed');
     }
     /**
-     * Запуск мониторинга безопасности
+     * Start security monitoring
      */
     _startSecurityMonitoring() {
-        // Проверяем каждые 5 минут
+        // Check every 5 minutes
         setInterval(() => {
             this._verifyAPIIntegrity();
         }, 300000);
         
-        // В development mode более частые проверки
+        // In development mode, perform more frequent checks
         if (window.DEBUG_MODE) {
             setInterval(() => {
                 this._monitorGlobalExposure();
@@ -1189,9 +1242,9 @@ _initializeMutexSystem() {
         }
     }
     /**
-     * Проверяет готовность соединения для отправки данных
-     * @param {boolean} throwError - выбрасывать ошибку при неготовности
-     * @returns {boolean} готовность соединения
+     * Validates connection readiness for sending data
+     * @param {boolean} throwError - whether to throw on not ready
+     * @returns {boolean} true if connection is ready
      */
     _validateConnection(throwError = true) {
         const isDataChannelReady = this.dataChannel && this.dataChannel.readyState === 'open';
@@ -1211,9 +1264,9 @@ _initializeMutexSystem() {
     }
 
     /**
-     * Проверяет готовность ключей шифрования
-     * @param {boolean} throwError - выбрасывать ошибку при неготовности
-     * @returns {boolean} готовность ключей
+     * Validates encryption keys readiness
+     * @param {boolean} throwError - whether to throw on not ready
+     * @returns {boolean} true if keys are ready
      */
     _validateEncryptionKeys(throwError = true) {
         const hasAllKeys = !!(this.encryptionKey && this.macKey && this.metadataKey);
@@ -1226,9 +1279,9 @@ _initializeMutexSystem() {
     }
 
     /**
-     * Проверяет, является ли сообщение файловым
-     * @param {string|object} data - данные для проверки
-     * @returns {boolean} true если файловое сообщение
+     * Checks whether a message is a file-transfer message
+     * @param {string|object} data - message payload
+     * @returns {boolean} true if it's a file message
      */
     _isFileMessage(data) {
         if (typeof data === 'string') {
@@ -1248,9 +1301,9 @@ _initializeMutexSystem() {
     }
 
     /**
-     * Проверяет, является ли сообщение системным
-     * @param {string|object} data - данные для проверки  
-     * @returns {boolean} true если системное сообщение
+     * Checks whether a message is a system message
+     * @param {string|object} data - message payload  
+     * @returns {boolean} true if it's a system message
      */
     _isSystemMessage(data) {
         const systemTypes = [
@@ -1280,9 +1333,9 @@ _initializeMutexSystem() {
     }
 
     /**
-     * Проверяет, является ли сообщение поддельным (fake traffic)
-     * @param {any} data - данные для проверки
-     * @returns {boolean} true если поддельное сообщение
+     * Checks whether a message is fake traffic
+     * @param {any} data - message payload
+     * @returns {boolean} true if it's a fake message
      */
     _isFakeMessage(data) {
         if (typeof data === 'string') {
@@ -1304,11 +1357,11 @@ _initializeMutexSystem() {
     }
 
     /**
-     * Безопасное выполнение операции с обработкой ошибок
-     * @param {Function} operation - операция для выполнения
-     * @param {string} errorMessage - сообщение об ошибке
-     * @param {any} fallback - значение по умолчанию при ошибке
-     * @returns {any} результат операции или fallback
+     * Safely executes an operation with error handling
+     * @param {Function} operation - operation to execute
+     * @param {string} errorMessage - error message to log
+     * @param {any} fallback - default value on error
+     * @returns {any} operation result or fallback
      */
     _withErrorHandling(operation, errorMessage, fallback = null) {
         try {
@@ -1322,11 +1375,11 @@ _initializeMutexSystem() {
     }
 
     /**
-     * Асинхронное выполнение операции с обработкой ошибок
-     * @param {Function} operation - асинхронная операция
-     * @param {string} errorMessage - сообщение об ошибке
-     * @param {any} fallback - значение по умолчанию при ошибке
-     * @returns {Promise<any>} результат операции или fallback
+     * Safely executes an async operation with error handling
+     * @param {Function} operation - async operation
+     * @param {string} errorMessage - error message to log
+     * @param {any} fallback - default value on error
+     * @returns {Promise<any>} operation result or fallback
      */
     async _withAsyncErrorHandling(operation, errorMessage, fallback = null) {
         try {
@@ -1340,17 +1393,17 @@ _initializeMutexSystem() {
     }
 
     /**
-     * Проверяет ограничения скорости
-     * @returns {boolean} true если можно продолжить
+     * Checks rate limits
+     * @returns {boolean} true if allowed to proceed
      */
     _checkRateLimit() {
         return window.EnhancedSecureCryptoUtils.rateLimiter.checkConnectionRate(this.rateLimiterId);
     }
 
     /**
-     * Получает тип сообщения из данных
-     * @param {string|object} data - данные сообщения
-     * @returns {string|null} тип сообщения или null
+     * Extracts message type from data
+     * @param {string|object} data - message data
+     * @returns {string|null} message type or null
      */
     _getMessageType(data) {
         if (typeof data === 'string') {
@@ -1370,7 +1423,7 @@ _initializeMutexSystem() {
     }
 
     /**
-     * Сбрасывает флаги уведомлений для нового соединения
+     * Resets notification flags for a new connection
      */
     _resetNotificationFlags() {
         this.lastSecurityLevelNotification = null;
@@ -1389,26 +1442,26 @@ _initializeMutexSystem() {
     }
 
     /**
-     * Проверяет, было ли сообщение отфильтровано
-     * @param {any} result - результат обработки сообщения
-     * @returns {boolean} true если сообщение было отфильтровано
+     * Checks whether a message was filtered out
+     * @param {any} result - processing result
+     * @returns {boolean} true if filtered
      */
     _isFilteredMessage(result) {
         const filteredResults = Object.values(EnhancedSecureWebRTCManager.FILTERED_RESULTS);
         return filteredResults.includes(result);
     }
     /**
-     * Очистка логов для предотвращения утечек памяти
+     * Cleans up log counters to prevent memory leaks
      */
     _cleanupLogs() {
-        // Очищаем счетчики логов если их слишком много
+        // Clear log counters if there are too many
         if (this._logCounts.size > 1000) {
             this._logCounts.clear();
             this._secureLog('debug', '🧹 Log counts cleared');
         }
     }
     /**
-     * Получение статистики логирования (для диагностики)
+     * Returns logging stats (for diagnostics)
      */
     _getLoggingStats() {
         return {
@@ -1420,14 +1473,14 @@ _initializeMutexSystem() {
         };
     }
     /**
-     * Экстренное отключение логирования
+     * Emergency logging disable
      */
     _emergencyDisableLogging() {
-        this._currentLogLevel = -1; // Отключаем все логи
+        this._currentLogLevel = -1; // Disable all logs
         this._logCounts.clear();
-        // Переопределяем _secureLog на пустую функцию
+        // Override _secureLog to a no-op
         this._secureLog = () => {};
-        // Только критическая ошибка в консоль (без данных)
+        // Only critical error to console (no payload)
         console.error('🚨 SECURITY: Logging disabled due to potential data exposure');
     }
     _auditLogMessage(message, data) {
@@ -1435,8 +1488,8 @@ _initializeMutexSystem() {
         
         const dataString = JSON.stringify(data).toLowerCase();
         
-        // Проверяем на случайные утечки
-        // Уточняем паттерны, чтобы избежать ложных срабатываний на слова вроде "keyOperation"
+        // Check for accidental leaks
+        // Narrow patterns to avoid false positives (e.g., words like "keyOperation")
         const dangerousPatterns = [
             'secret', 'token', 'password', 'credential',
             'fingerprint', 'salt', 'signature', 'private_key', 'api_key', 'private'
@@ -1457,7 +1510,7 @@ _initializeMutexSystem() {
         try {
             console.log('🔧 Initializing Enhanced Secure File Transfer system...');
             
-            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Пошаговая проверка готовности
+            // CRITICAL FIX: Step-by-step readiness check
             const channelReady = !!(this.dataChannel && this.dataChannel.readyState === 'open');
             if (!channelReady) {
                 console.warn('⚠️ Data channel not open, deferring file transfer initialization');
@@ -1477,26 +1530,26 @@ _initializeMutexSystem() {
                 return;
             }
             
-            // ИСПРАВЛЕНИЕ: Очищаем предыдущую систему если есть
+            // FIX: Clean up previous system if present
             if (this.fileTransferSystem) {
                 console.log('🧹 Cleaning up existing file transfer system');
                 this.fileTransferSystem.cleanup();
                 this.fileTransferSystem = null;
             }
             
-            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Проверяем наличие ключей
+            // CRITICAL FIX: Ensure encryption keys are present
             if (!this.encryptionKey || !this.macKey) {
                 console.warn('⚠️ Encryption keys not ready, deferring file transfer initialization');
                 setTimeout(() => this.initializeFileTransfer(), 1000);
                 return;
             }
             
-            // ВАЖНО: порядок колбэков: (onProgress, onComplete, onError, onFileReceived)
+            // IMPORTANT: callback order: (onProgress, onComplete, onError, onFileReceived)
             const safeOnComplete = (summary) => {
-                // Отправитель: завершение передачи, без работы с Blob
+                // Sender: finalize transfer, no Blob handling
                 try {
                     console.log('🏁 Sender transfer summary:', summary);
-                    // При необходимости прокидываем как прогресс/событие UI
+                    // Optionally forward as progress/UI event
                     if (this.onFileProgress) {
                         this.onFileProgress({ type: 'complete', ...summary });
                     }
@@ -1513,13 +1566,13 @@ _initializeMutexSystem() {
                 this.onFileReceived || null
             );
             
-            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Устанавливаем глобальные ссылки
+            // CRITICAL FIX: Set global references
             window.FILE_TRANSFER_ACTIVE = true;
             window.fileTransferSystem = this.fileTransferSystem;
             
             console.log('✅ Enhanced Secure File Transfer system initialized successfully');
             
-            // Проверяем что система готова
+            // Verify the system is ready
             const status = this.fileTransferSystem.getSystemStatus();
             console.log('🔍 File transfer system status after init:', status);
             
@@ -1667,7 +1720,7 @@ _initializeMutexSystem() {
     }
     deliverMessageToUI(message, type = 'received') {
         try {
-            // ДОБАВЛЯЕМ ОТЛАДОЧНЫЕ ЛОГИ
+            // Add debug logs
             console.log('📤 deliverMessageToUI called:', {
                 message: message,
                 type: type,
@@ -1675,7 +1728,7 @@ _initializeMutexSystem() {
                 hasOnMessage: !!this.onMessage
             });
             
-            // Фильтруем file transfer и системные сообщения
+            // Filter out file-transfer and system messages
             if (typeof message === 'object' && message.type) {
                 const blockedTypes = [
                     EnhancedSecureWebRTCManager.MESSAGE_TYPES.FILE_TRANSFER_START,
@@ -1696,11 +1749,11 @@ _initializeMutexSystem() {
                     if (window.DEBUG_MODE) {
                         console.log(`🛑 Blocked system/file message from UI: ${message.type}`);
                     }
-                    return; // не показываем в чате
+                    return; // do not show in chat
                 }
             }
 
-            // Дополнительная проверка для строковых сообщений, содержащих JSON
+            // Additional check for string messages containing JSON
             if (typeof message === 'string' && message.trim().startsWith('{')) {
                 try {
                     const parsedMessage = JSON.parse(message);
@@ -1724,11 +1777,11 @@ _initializeMutexSystem() {
                             if (window.DEBUG_MODE) {
                                 console.log(`🛑 Blocked system/file message from UI (string): ${parsedMessage.type}`);
                             }
-                            return; // не показываем в чате
+                            return; // do not show in chat
                         }
                     }
                 } catch (parseError) {
-                    // Не JSON - это нормально для обычных текстовых сообщений
+                    // Not JSON — fine for plain text messages
                 }
             }
 
@@ -1746,9 +1799,9 @@ _initializeMutexSystem() {
 
     // Security Level Notification
     notifySecurityLevel() {
-        // Проверяем, не было ли уже отправлено сообщение о текущем уровне безопасности
+        // Avoid duplicate notifications for the same security level
         if (this.lastSecurityLevelNotification === this.currentSecurityLevel) {
-            return; // Избегаем дублирования
+            return; // prevent duplication
         }
         
         this.lastSecurityLevelNotification = this.currentSecurityLevel;
@@ -2085,7 +2138,7 @@ _initializeMutexSystem() {
         
         console.log('✅ Advanced features disabled, keeping basic encryption');
         
-        // Проверяем, не было ли уже отправлено сообщение о отключении расширенных функций
+        // Check that advanced-features-disabled notification wasn't already sent
         if (!this.advancedFeaturesDisabledNotificationSent) {
             this.advancedFeaturesDisabledNotificationSent = true;
             if (this.onMessage) {
@@ -2156,7 +2209,7 @@ emergencyDisableFakeTraffic() {
             console.log('✅ Fake traffic disabled');
         }
         
-        // Проверяем, не было ли уже отправлено сообщение о отключении fake traffic
+        // Check that fake-traffic-disabled notification wasn't already sent
         if (!this.fakeTrafficDisabledNotificationSent) {
             this.fakeTrafficDisabledNotificationSent = true;
             if (this.onMessage) {
@@ -2175,27 +2228,27 @@ emergencyDisableFakeTraffic() {
             return processedData;
         }
         
-        // Nested Encryption (если включено)
+        // Nested Encryption (if enabled)
         if (this.securityFeatures.hasNestedEncryption && this.nestedEncryptionKey && processedData instanceof ArrayBuffer) {
             processedData = await this.applyNestedEncryption(processedData);
         }
         
-        // Packet Reordering (если включено)
+        // Packet Reordering (if enabled)
         if (this.securityFeatures.hasPacketReordering && this.reorderingConfig?.enabled && processedData instanceof ArrayBuffer) {
             processedData = this.applyPacketReordering(processedData);
         }
         
-        // Packet Padding (если включено)
+        // Packet Padding (if enabled)
         if (this.securityFeatures.hasPacketPadding && processedData instanceof ArrayBuffer) {
             processedData = this.applyPacketPadding(processedData);
         }
         
-        // Anti-Fingerprinting (если включено)
+        // Anti-Fingerprinting (if enabled)
         if (this.securityFeatures.hasAntiFingerprinting && processedData instanceof ArrayBuffer) {
             processedData = this.applyAntiFingerprinting(processedData);
         }
         
-        // Финальное шифрование (если есть ключи)
+        // Final encryption (if keys are present)
         if (this.encryptionKey && typeof processedData === 'string') {
             processedData = await window.EnhancedSecureCryptoUtils.encryptData(processedData, this.encryptionKey);
         }
@@ -2204,7 +2257,7 @@ emergencyDisableFakeTraffic() {
         
     } catch (error) {
         console.error('❌ Error in applySecurityLayersWithoutMutex:', error);
-        return data; // Возвращаем исходные данные при ошибке
+        return data; // Return original data on error
     }
 }
     // ============================================
@@ -2783,7 +2836,7 @@ async processOrderedPackets() {
                     return 'FAKE_MESSAGE_FILTERED'; 
                 }
                 
-                // System messages - НЕ возвращаем для повторной обработки
+                // System messages — do NOT return for re-processing
                 if (jsonData.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'key_rotation_signal', 'key_rotation_ready', 'security_upgrade'].includes(jsonData.type)) {
                     if (window.DEBUG_MODE) {
                         console.log('🔧 System message detected, blocking from chat:', jsonData.type);
@@ -2791,7 +2844,7 @@ async processOrderedPackets() {
                     return 'SYSTEM_MESSAGE_FILTERED';
                 }
                 
-                // File transfer messages - НЕ возвращаем для отображения
+                // File transfer messages — do NOT return for display
                 if (jsonData.type && ['file_transfer_start', 'file_transfer_response', 'file_chunk', 'chunk_confirmation', 'file_transfer_complete', 'file_transfer_error'].includes(jsonData.type)) {
                     if (window.DEBUG_MODE) {
                         console.log('📁 File transfer message detected, blocking from chat:', jsonData.type);
@@ -3084,28 +3137,28 @@ async processOrderedPackets() {
             dataLength: data?.length || data?.byteLength || 0,
         });
 
-        // ИСПРАВЛЕНИЕ: Проверяем, не является ли это файловым сообщением
+        // FIX: Check whether this is a file-transfer message
         if (typeof data === 'string') {
             try {
                 const parsed = JSON.parse(data);
                 
-                // Файловые сообщения отправляем напрямую без дополнительного шифрования
+                // Send file messages directly without additional encryption
                 if (parsed.type && parsed.type.startsWith('file_')) {
                     this._secureLog('debug', '📁 Sending file message directly', { type: parsed.type });
                     this.dataChannel.send(data);
                     return true;
                 }
             } catch (jsonError) {
-                // Не JSON - продолжаем обычную обработку
+                // Not JSON — continue normal handling
             }
         }
 
-        // Для обычных текстовых сообщений отправляем через защищённый путь
+        // For regular text messages, send via secure path
         if (typeof data === 'string') {
             return await this.sendSecureMessage({ type: 'message', data, timestamp: Date.now() });
         }
 
-        // Для бинарных данных применяем security layers с ограниченным mutex
+        // For binary data, apply security layers with a limited mutex
         this._secureLog('debug', '🔐 Applying security layers to non-string data');
         const securedData = await this._applySecurityLayersWithLimitedMutex(data, false);
         this.dataChannel.send(securedData);
@@ -3120,9 +3173,9 @@ async processOrderedPackets() {
     }
 }
 
-    // ИСПРАВЛЕНИЕ: Новый метод для ограниченного применения security layers
+    // FIX: New method applying security layers with limited mutex use
     async _applySecurityLayersWithLimitedMutex(data, isFakeMessage = false) {
-    // Используем mutex ТОЛЬКО для криптографических операций
+    // Use mutex ONLY for cryptographic operations
     return this._withMutex('cryptoOperation', async (operationId) => {
         try {
             let processedData = data;
@@ -3160,7 +3213,7 @@ async processOrderedPackets() {
             console.error('❌ Error in applySecurityLayers:', error);
             return data;
         }
-    }, 3000); // Короткий timeout для crypto операций
+    }, 3000); // Short timeout for crypto operations
 }
 
     async sendSystemMessage(messageData) {
@@ -3185,7 +3238,7 @@ async processOrderedPackets() {
         }
     }
 
-    // ИСПРАВЛЕНИЕ 1: Упрощенная система Mutex для обработки сообщений
+    // FIX 1: Simplified mutex system for message processing
 async processMessage(data) {
     try {
         this._secureLog('debug', '�� Processing message', {
@@ -3194,13 +3247,13 @@ async processMessage(data) {
             hasData: !!(data?.length || data?.byteLength)
         });
         
-        // КРИТИЧЕСКИ ВАЖНО: Ранняя проверка на файловые сообщения БЕЗ mutex
+        // CRITICAL: Early check for file messages WITHOUT mutex
         if (typeof data === 'string') {
             try {
                 const parsed = JSON.parse(data);
 
                 // ============================================
-                // ФАЙЛОВЫЕ СООБЩЕНИЯ - ПРИОРИТЕТ 1 (БЕЗ MUTEX)
+                // FILE MESSAGES — PRIORITY 1 (WITHOUT MUTEX)
                 // ============================================
                 
                 const fileMessageTypes = [
@@ -3215,13 +3268,13 @@ async processMessage(data) {
                 if (parsed.type && fileMessageTypes.includes(parsed.type)) {
                     console.log('📁 File message detected in processMessage:', parsed.type);
                     
-                    // Обрабатываем файловые сообщения БЕЗ mutex
+                    // Process file messages WITHOUT mutex
                     if (this.fileTransferSystem && typeof this.fileTransferSystem.handleFileMessage === 'function') {
                         console.log('📁 Processing file message directly:', parsed.type);
                         await this.fileTransferSystem.handleFileMessage(parsed);
                         return;
                     }
-                    // Попытка ленивой инициализации на стороне-получателе
+                    // Attempt lazy initialization on the receiver side
                     console.warn('⚠️ File transfer system not available, attempting lazy init...');
                     try {
                         await this._ensureFileTransferReady();
@@ -3233,11 +3286,11 @@ async processMessage(data) {
                         console.error('❌ Lazy init of file transfer failed:', e?.message || e);
                     }
                     console.error('❌ File transfer system not available for:', parsed.type);
-                    return; // ВАЖНО: Выходим после обработки
+                    return; // IMPORTANT: Exit after handling
                 }
                 
                 // ============================================
-                // ОБЫЧНЫЕ ПОЛЬЗОВАТЕЛЬСКИЕ СООБЩЕНИЯ (БЕЗ MUTEX)
+                // REGULAR USER MESSAGES (WITHOUT MUTEX)
                 // ============================================
                 
                 if (parsed.type === 'message') {
@@ -3249,7 +3302,7 @@ async processMessage(data) {
                 }
                 
                 // ============================================
-                // СИСТЕМНЫЕ СООБЩЕНИЯ (БЕЗ MUTEX)
+                // SYSTEM MESSAGES (WITHOUT MUTEX)
                 // ============================================
                 
                 if (parsed.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'security_upgrade'].includes(parsed.type)) {
@@ -3258,7 +3311,7 @@ async processMessage(data) {
                 }
                 
                 // ============================================
-                // FAKE MESSAGES (БЕЗ MUTEX)
+                // FAKE MESSAGES (WITHOUT MUTEX)
                 // ============================================
                 
                 if (parsed.type === 'fake') {
@@ -3267,7 +3320,7 @@ async processMessage(data) {
                 }
                 
             } catch (jsonError) {
-                // Не JSON - обрабатываем как текст БЕЗ mutex
+                // Not JSON — treat as text WITHOUT mutex
                 if (this.onMessage) {
                     this.deliverMessageToUI(data, 'received');
                 }
@@ -3276,13 +3329,13 @@ async processMessage(data) {
         }
 
         // ============================================
-        // ОБРАБОТКА ЗАШИФРОВАННЫХ ДАННЫХ (С MUTEX ТОЛЬКО ДЛЯ КРИПТОГРАФИИ)
+        // ENCRYPTED DATA PROCESSING (WITH MUTEX ONLY FOR CRYPTO)
         // ============================================
         
-        // Если дошли сюда - применяем security layers с ограниченным mutex
+        // If here — apply security layers with limited mutex
         const originalData = await this._processEncryptedDataWithLimitedMutex(data);
 
-        // Проверяем результат обработки
+        // Check processing result
         if (originalData === 'FAKE_MESSAGE_FILTERED' || 
             originalData === 'FILE_MESSAGE_FILTERED' || 
             originalData === 'SYSTEM_MESSAGE_FILTERED') {
@@ -3294,14 +3347,14 @@ async processMessage(data) {
             return;
         }
 
-        // Обработка результата после removeSecurityLayers
+        // Handle result after removeSecurityLayers
         let messageText;
         
         if (typeof originalData === 'string') {
             try {
                 const message = JSON.parse(originalData);
                 
-                // ПОВТОРНАЯ ПРОВЕРКА ФАЙЛОВЫХ СООБЩЕНИЙ ПОСЛЕ ДЕШИФРОВКИ
+                // SECOND CHECK FOR FILE MESSAGES AFTER DECRYPTION
                 if (message.type && fileMessageTypes.includes(message.type)) {
                     console.log('📁 File message detected after decryption:', message.type);
                     if (this.fileTransferSystem) {
@@ -3320,7 +3373,7 @@ async processMessage(data) {
                     return;
                 }
                 
-                // Обычные сообщения
+                // Regular messages
                 if (message.type === 'message' && message.data) {
                     messageText = message.data;
                 } else {
@@ -3338,7 +3391,7 @@ async processMessage(data) {
             return;
         }
 
-        // Финальная проверка на fake сообщения и файловые сообщения
+        // Final check for fake and file messages
         if (messageText && messageText.trim().startsWith('{')) {
             try {
                 const finalCheck = JSON.parse(messageText);
@@ -3347,7 +3400,7 @@ async processMessage(data) {
                     return;
                 }
                 
-                // Дополнительная проверка на файловые и системные сообщения
+                // Additional check for file and system messages
                 const blockedTypes = [
                     'file_transfer_start', 'file_transfer_response', 'file_chunk', 
                     'chunk_confirmation', 'file_transfer_complete', 'file_transfer_error',
@@ -3360,11 +3413,11 @@ async processMessage(data) {
                     return;
                 }
             } catch (e) {
-                // Не JSON - это нормально для обычных текстовых сообщений
+                // Not JSON — fine for plain text
             }
         }
 
-        // Отправляем сообщение пользователю
+        // Deliver message to the UI
         if (this.onMessage && messageText) {
             console.log('📤 Calling message handler with:', messageText.substring(0, 100));
             this.deliverMessageToUI(messageText, 'received');
@@ -3375,9 +3428,9 @@ async processMessage(data) {
     }
 }
 
-    // ИСПРАВЛЕНИЕ: Новый метод для ограниченного mutex при обработке зашифрованных данных
+    // FIX: New method with limited mutex when processing encrypted data
     async _processEncryptedDataWithLimitedMutex(data) {
-        // Используем mutex ТОЛЬКО для криптографических операций
+        // Use mutex ONLY for cryptographic operations
         return this._withMutex('cryptoOperation', async (operationId) => {
             this._secureLog('debug', '🔐 Processing encrypted data with limited mutex', {
                 operationId: operationId,
@@ -3385,7 +3438,7 @@ async processMessage(data) {
             });
             
             try {
-                // Применяем security layers
+                // Apply security layers
                 const originalData = await this.removeSecurityLayers(data);
                 return originalData;
                 
@@ -3394,9 +3447,9 @@ async processMessage(data) {
                     operationId: operationId,
                     errorType: error.constructor.name
                 });
-                return data; // Возвращаем исходные данные при ошибке
+                return data; // Return original data on error
             }
-        }, 2000); // Короткий timeout для crypto операций
+        }, 2000); // Short timeout for crypto operations
     }
 
 notifySecurityUpdate() {
@@ -3602,7 +3655,7 @@ handleSystemMessage(message) {
             
             const message = `🔒 Security upgraded to Stage ${stage}: ${stageNames[stage]}`;
             
-            // Проверяем, не было ли уже отправлено сообщение о повышении безопасности
+            // Avoid duplicate security-upgrade notifications
             if (!this.securityUpgradeNotificationSent || this.lastSecurityUpgradeStage !== stage) {
                 this.securityUpgradeNotificationSent = true;
                 this.lastSecurityUpgradeStage = stage;
@@ -3773,8 +3826,7 @@ handleSystemMessage(message) {
             
         } catch (error) {
             console.error('❌ Failed to establish enhanced connection:', error);
-            // Не закрываем соединение при ошибках установки
-            // просто логируем ошибку и продолжаем
+            // Do not close the connection on setup errors — just log and continue
             this.onStatusChange('disconnected');
             throw error;
         }
@@ -3864,7 +3916,7 @@ handleSystemMessage(message) {
                 operationId: operationId
             });
             
-            // Проверяем состояние в критической секции
+            // Validate state inside the critical section
             if (!this.isConnected() || !this.isVerified) {
                 this._secureLog('warn', '⚠️ Key rotation aborted - connection not ready', {
                     operationId: operationId,
@@ -3874,7 +3926,7 @@ handleSystemMessage(message) {
                 return false;
             }
             
-            // Проверяем, не идет ли уже ротация
+            // Ensure rotation is not already in progress
             if (this._keySystemState.isRotating) {
                 this._secureLog('warn', '⚠️ Key rotation already in progress', {
                     operationId: operationId
@@ -3883,12 +3935,12 @@ handleSystemMessage(message) {
             }
             
             try {
-                // Устанавливаем флаг ротации
+                // Set rotation flag
                 this._keySystemState.isRotating = true;
                 this._keySystemState.lastOperation = 'rotation';
                 this._keySystemState.lastOperationTime = Date.now();
                 
-                // Отправляем сигнал ротации партнеру
+                // Send rotation signal to peer
                 const rotationSignal = {
                     type: 'key_rotation_signal',
                     newVersion: this.currentKeyVersion + 1,
@@ -3902,7 +3954,7 @@ handleSystemMessage(message) {
                     throw new Error('Data channel not ready for key rotation');
                 }
                 
-                // Ждем подтверждения от партнера
+                // Wait for peer confirmation
                 return new Promise((resolve) => {
                     this.pendingRotation = {
                         newVersion: this.currentKeyVersion + 1,
@@ -3915,7 +3967,7 @@ handleSystemMessage(message) {
                             this._keySystemState.isRotating = false;
                             this.pendingRotation = null;
                             resolve(false);
-                        }, 10000) // 10 секунд timeout
+                        }, 10000) // 10 seconds timeout
                     };
                 });
                 
@@ -3927,7 +3979,7 @@ handleSystemMessage(message) {
                 this._keySystemState.isRotating = false;
                 return false;
             }
-        }, 10000); // 10 секунд timeout для всей операции
+        }, 10000); // 10 seconds timeout for the entire operation
     }
 
     // PFS: Clean up old keys that are no longer needed
@@ -4007,22 +4059,21 @@ handleSystemMessage(message) {
                     this.onStatusChange('disconnected');
                     setTimeout(() => this.disconnect(), 100);
                 } else {
-                    // Unexpected disconnection — не пытаемся переподключиться автоматически
+                    // Unexpected disconnection — do not auto-reconnect
                     this.onStatusChange('disconnected');
-                    // Не вызываем cleanupConnection автоматически
-                    // чтобы не закрывать сессию при ошибках соединения
+                    // Do not call cleanupConnection automatically
+                    // to avoid closing the session on connection errors
                 }
             } else if (state === 'failed') {
-                // Не пытаемся переподключиться автоматически
-                // чтобы не закрывать сессию при ошибках соединения
+                // Do not auto-reconnect to avoid closing the session on errors
                 this.onStatusChange('disconnected');
                 // if (!this.intentionalDisconnect && this.connectionAttempts < this.maxConnectionAttempts) {
                 //     this.connectionAttempts++;
                 //     setTimeout(() => this.retryConnection(), 2000);
                 // } else {
                 //     this.onStatusChange('disconnected');
-                //     // Не вызываем cleanupConnection автоматически для состояния 'failed'
-                //     // чтобы не закрывать сессию при ошибках соединения
+                //     // Do not call cleanupConnection automatically for 'failed'
+                //     // to avoid closing the session on connection errors
                 // }
             } else {
                 this.onStatusChange(state);
@@ -4070,10 +4121,10 @@ handleSystemMessage(message) {
                 dataChannelState: this.dataChannel.readyState,
                 dataChannelLabel: this.dataChannel.label
             });
-            // Настройка backpressure для больших передач
+            // Configure backpressure for large transfers
             try {
                 if (this.dataChannel && typeof this.dataChannel.bufferedAmountLowThreshold === 'number') {
-                    // 1 MB порог для события bufferedamountlow
+                    // 1 MB threshold for bufferedamountlow event
                     this.dataChannel.bufferedAmountLowThreshold = 1024 * 1024;
                 }
             } catch (e) {
@@ -4083,12 +4134,12 @@ handleSystemMessage(message) {
             try {
                 await this.establishConnection();
                 
-                // КРИТИЧЕСКИ ВАЖНО: Инициализируем file transfer сразу
+                // CRITICAL: Initialize file transfer immediately
                 this.initializeFileTransfer();
                 
             } catch (error) {
                 console.error('❌ Error in establishConnection:', error);
-                // Продолжаем несмотря на ошибки
+                // Continue despite errors
             }
                 
             if (this.isVerified) {
@@ -4128,7 +4179,7 @@ handleSystemMessage(message) {
             this.isVerified = false;
         };
 
-        // ИСПРАВЛЕНИЕ 2: ПОЛНОСТЬЮ УБИРАЕМ MUTEX ИЗ ОБРАБОТКИ СООБЩЕНИЙ
+        // FIX 2: Remove mutex entirely from message processing path
         this.dataChannel.onmessage = async (event) => {
             try {
                 console.log('📨 Raw message received:', {
@@ -4137,7 +4188,7 @@ handleSystemMessage(message) {
                     isString: typeof event.data === 'string'
                 });
 
-                // ВАЖНО: Обрабатываем ВСЕ сообщения БЕЗ MUTEX
+                // IMPORTANT: Process ALL messages WITHOUT mutex
                 if (typeof event.data === 'string') {
                     try {
                         const parsed = JSON.parse(event.data);
@@ -4148,7 +4199,7 @@ handleSystemMessage(message) {
                         });
                         
                         // ============================================
-                        // КРИТИЧЕСКИ ВАЖНО: ФАЙЛОВЫЕ СООБЩЕНИЯ (БЕЗ MUTEX)
+                        // CRITICAL: FILE MESSAGES (WITHOUT MUTEX)
                         // ============================================
                         
                         const fileMessageTypes = [
@@ -4163,7 +4214,7 @@ handleSystemMessage(message) {
                         if (parsed.type && fileMessageTypes.includes(parsed.type)) {
                             console.log('📁 File message intercepted at WebRTC level:', parsed.type);
                             
-                            // Обрабатываем напрямую БЕЗ дополнительных проверок
+                            // Handle directly WITHOUT extra checks
                             if (window.fileTransferSystem) {
                                 console.log('📁 Forwarding to global file transfer system:', parsed.type);
                                 await window.fileTransferSystem.handleFileMessage(parsed);
@@ -4174,7 +4225,7 @@ handleSystemMessage(message) {
                                 await this.fileTransferSystem.handleFileMessage(parsed);
                                 return;
                             }
-                            // Попытка ленивой инициализации на стороне-получателе
+                            // Attempt lazy initialization on receiver side
                             console.warn('⚠️ File transfer system not ready, attempting lazy init...');
                             try {
                                 await this._ensureFileTransferReady();
@@ -4186,11 +4237,11 @@ handleSystemMessage(message) {
                                 console.error('❌ Lazy init of file transfer failed:', e?.message || e);
                             }
                             console.error('❌ No file transfer system available for:', parsed.type);
-                            return; // ВАЖНО: Не обрабатываем дальше
+                            return; // IMPORTANT: Do not process further
                         }
                         
                         // ============================================
-                        // СИСТЕМНЫЕ СООБЩЕНИЯ (БЕЗ MUTEX)
+                        // SYSTEM MESSAGES (WITHOUT MUTEX)
                         // ============================================
                         
                         if (parsed.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'security_upgrade'].includes(parsed.type)) {
@@ -4200,7 +4251,7 @@ handleSystemMessage(message) {
                         }
                         
                         // ============================================
-                        // ОБЫЧНЫЕ ПОЛЬЗОВАТЕЛЬСКИЕ СООБЩЕНИЯ (БЕЗ MUTEX)
+                        // REGULAR USER MESSAGES (WITHOUT MUTEX)
                         // ============================================
                         
                         if (parsed.type === 'message' && parsed.data) {
@@ -4212,7 +4263,7 @@ handleSystemMessage(message) {
                         }
                         
                         // ============================================
-                        // ENHANCED MESSAGES (БЕЗ MUTEX)
+                        // ENHANCED MESSAGES (WITHOUT MUTEX)
                         // ============================================
                         
                         if (parsed.type === 'enhanced_message' && parsed.data) {
@@ -4222,7 +4273,7 @@ handleSystemMessage(message) {
                         }
                         
                         // ============================================
-                        // FAKE MESSAGES (БЕЗ MUTEX)
+                        // FAKE MESSAGES (WITHOUT MUTEX)
                         // ============================================
                         
                         if (parsed.type === 'fake') {
@@ -4231,13 +4282,13 @@ handleSystemMessage(message) {
                         }
                         
                         // ============================================
-                        // НЕИЗВЕСТНЫЕ ТИПЫ СООБЩЕНИЙ
+                        // UNKNOWN MESSAGE TYPES
                         // ============================================
                         
                         console.log('❓ Unknown message type:', parsed.type);
                         
                     } catch (jsonError) {
-                        // Не JSON - обрабатываем как обычное текстовое сообщение
+                        // Not JSON — treat as regular text message
                         console.log('📄 Non-JSON message detected, treating as text');
                         if (this.onMessage) {
                             this.deliverMessageToUI(event.data, 'received');
@@ -4245,7 +4296,7 @@ handleSystemMessage(message) {
                         return;
                     }
                 } else if (event.data instanceof ArrayBuffer) {
-                    // Бинарные данные - обрабатываем БЕЗ MUTEX
+                    // Binary data — process WITHOUT mutex
                     console.log('🔢 Binary data received, processing...');
                     await this._processBinaryDataWithoutMutex(event.data);
                 } else {
@@ -4257,15 +4308,15 @@ handleSystemMessage(message) {
             }
         };
     }
-    // ИСПРАВЛЕНИЕ 4: Новый метод для обработки бинарных данных БЕЗ MUTEX
+    // FIX 4: New method for processing binary data WITHOUT mutex
 async _processBinaryDataWithoutMutex(data) {
     try {
         console.log('🔢 Processing binary data without mutex...');
         
-        // Применяем security layers БЕЗ MUTEX
+        // Apply security layers WITHOUT mutex
         let processedData = data;
         
-        // Nested Encryption Removal (если включено)
+        // Nested Encryption Removal (if enabled)
         if (this.securityFeatures.hasNestedEncryption && 
             this.nestedEncryptionKey && 
             processedData instanceof ArrayBuffer &&
@@ -4278,7 +4329,7 @@ async _processBinaryDataWithoutMutex(data) {
             }
         }
         
-        // Packet Padding Removal (если включено)
+        // Packet Padding Removal (if enabled)
         if (this.securityFeatures.hasPacketPadding && processedData instanceof ArrayBuffer) {
             try {
                 processedData = this.removePacketPadding(processedData);
@@ -4287,7 +4338,7 @@ async _processBinaryDataWithoutMutex(data) {
             }
         }
         
-        // Anti-Fingerprinting Removal (если включено)
+        // Anti-Fingerprinting Removal (if enabled)
         if (this.securityFeatures.hasAntiFingerprinting && processedData instanceof ArrayBuffer) {
             try {
                 processedData = this.removeAntiFingerprinting(processedData);
@@ -4296,11 +4347,11 @@ async _processBinaryDataWithoutMutex(data) {
             }
         }
         
-        // Преобразуем в текст
+        // Convert to text
         if (processedData instanceof ArrayBuffer) {
             const textData = new TextDecoder().decode(processedData);
             
-            // Проверяем на fake сообщения
+            // Check for fake messages
             try {
                 const content = JSON.parse(textData);
                 if (content.type === 'fake' || content.isFakeTraffic === true) {
@@ -4308,10 +4359,10 @@ async _processBinaryDataWithoutMutex(data) {
                     return;
                 }
             } catch (e) {
-                // Не JSON - это нормально для обычных текстовых сообщений
+                // Not JSON — fine for plain text
             }
             
-            // Отправляем сообщение пользователю
+            // Deliver message to user
             if (this.onMessage) {
                 this.deliverMessageToUI(textData, 'received');
             }
@@ -4321,7 +4372,7 @@ async _processBinaryDataWithoutMutex(data) {
         console.error('❌ Error processing binary data:', error);
     }
 }
-    // ИСПРАВЛЕНИЕ 3: Новый метод для обработки enhanced сообщений БЕЗ MUTEX
+    // FIX 3: New method for processing enhanced messages WITHOUT mutex
 async _processEnhancedMessageWithoutMutex(parsedMessage) {
     try {
         console.log('🔐 Processing enhanced message without mutex...');
@@ -4341,7 +4392,7 @@ async _processEnhancedMessageWithoutMutex(parsedMessage) {
         if (decryptedResult && decryptedResult.message) {
             console.log('✅ Enhanced message decrypted successfully');
             
-            // Попытка распарсить как JSON и показать вложенный текст, если это чат-сообщение
+            // Try parsing JSON and showing nested text if it's a chat message
             try {
                 const decryptedContent = JSON.parse(decryptedResult.message);
                 if (decryptedContent.type === 'fake' || decryptedContent.isFakeTraffic === true) {
@@ -4355,10 +4406,10 @@ async _processEnhancedMessageWithoutMutex(parsedMessage) {
                     return;
                 }
             } catch (e) {
-                // Не JSON - это нормально для обычных текстовых сообщений
+                // Not JSON — fine for plain text
             }
             
-            // Иначе передаём как есть
+            // Otherwise pass as-is
             if (this.onMessage) {
                 this.deliverMessageToUI(decryptedResult.message, 'received');
             }
@@ -4371,17 +4422,17 @@ async _processEnhancedMessageWithoutMutex(parsedMessage) {
     }
 }
     /**
-     * Создает уникальный ID для операции
+     * Creates a unique ID for an operation
      */
     _generateOperationId() {
         return `op_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     }
 
     /**
-     * Универсальная функция получения mutex
+     * Universal function to acquire a mutex
      */
     async _acquireMutex(mutexName, operationId, timeout = 5000) {
-        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Правильное построение имени mutex
+        // CRITICAL FIX: Build correct mutex property name
         const mutexPropertyName = `_${mutexName}Mutex`;
         const mutex = this[mutexPropertyName];
         
@@ -4397,7 +4448,7 @@ async _processEnhancedMessageWithoutMutex(parsedMessage) {
         return new Promise((resolve, reject) => {
             const attemptLock = () => {
                 if (!mutex.locked) {
-                    // Получаем блокировку
+                    // Acquire lock
                     mutex.locked = true;
                     mutex.lockId = operationId;
                     mutex.lockTimeout = setTimeout(() => {
@@ -4417,7 +4468,7 @@ async _processEnhancedMessageWithoutMutex(parsedMessage) {
                     
                     resolve();
                 } else {
-                    // Добавляем в очередь
+                    // Enqueue
                     mutex.queue.push({ resolve, reject, operationId, attemptLock });
                     
                     this._secureLog('debug', `⏳ Mutex queued: ${mutexName}`, {
@@ -4433,10 +4484,10 @@ async _processEnhancedMessageWithoutMutex(parsedMessage) {
     }
 
     /**
-     * Освобождение mutex
+     * Release a mutex
      */
     _releaseMutex(mutexName, operationId) {
-        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Правильное построение имени mutex
+        // CRITICAL FIX: Build correct mutex property name
         const mutexPropertyName = `_${mutexName}Mutex`;
         const mutex = this[mutexPropertyName];
         
@@ -4446,7 +4497,7 @@ async _processEnhancedMessageWithoutMutex(parsedMessage) {
                 availableMutexes: this._getAvailableMutexes(),
                 operationId: operationId
             });
-            return; // Не выбрасываем ошибку, просто логируем
+            return; // Do not throw, just log
         }
         
         if (mutex.lockId !== operationId) {
@@ -4455,16 +4506,16 @@ async _processEnhancedMessageWithoutMutex(parsedMessage) {
                 expectedLockId: mutex.lockId,
                 providedOperationId: operationId
             });
-            return; // Не выбрасываем ошибку, просто логируем
+            return; // Do not throw, just log
         }
         
-        // Очищаем timeout
+        // Clear timeout
         if (mutex.lockTimeout) {
             clearTimeout(mutex.lockTimeout);
             mutex.lockTimeout = null;
         }
         
-        // Освобождаем блокировку
+        // Release lock
         mutex.locked = false;
         mutex.lockId = null;
         
@@ -4473,7 +4524,7 @@ async _processEnhancedMessageWithoutMutex(parsedMessage) {
             queueLength: mutex.queue.length
         });
         
-        // Обрабатываем очередь
+        // Process queue
         if (mutex.queue.length > 0) {
             const next = mutex.queue.shift();
             setImmediate(() => {
@@ -4496,8 +4547,8 @@ async _processEnhancedMessageWithoutMutex(parsedMessage) {
         
         for (const prop of propertyNames) {
             if (prop.endsWith('Mutex') && prop.startsWith('_')) {
-                // Извлекаем имя mutex без префикса и суффикса
-                const mutexName = prop.slice(1, -5); // Убираем '_' в начале и 'Mutex' в конце
+                // Extract mutex name without prefix/suffix
+                const mutexName = prop.slice(1, -5); // Remove '_' prefix and 'Mutex' suffix
                 mutexes.push(mutexName);
             }
         }
@@ -4506,12 +4557,12 @@ async _processEnhancedMessageWithoutMutex(parsedMessage) {
     }
 
     /**
-     * Безопасное выполнение операции с mutex
+     * Safely execute an operation with a mutex
      */
     async _withMutex(mutexName, operation, timeout = 5000) {
     const operationId = this._generateOperationId();
     
-    // Валидация перед началом
+    // Validate before start
     if (!this._validateMutexSystem()) {
         this._secureLog('error', '❌ Mutex system not properly initialized', {
             operationId: operationId,
@@ -4523,13 +4574,13 @@ async _processEnhancedMessageWithoutMutex(parsedMessage) {
     try {
         await this._acquireMutex(mutexName, operationId, timeout);
         
-        // Увеличиваем счетчик операций
+        // Increment operation counter
         const counterKey = `${mutexName}Operations`;
         if (this._operationCounters && this._operationCounters[counterKey] !== undefined) {
             this._operationCounters[counterKey]++;
         }
         
-        // Выполняем операцию
+        // Execute the operation
         const result = await operation(operationId);
         return result;
         
@@ -4542,7 +4593,7 @@ async _processEnhancedMessageWithoutMutex(parsedMessage) {
         });
         throw error;
     } finally {
-        // Всегда освобождаем mutex в finally блоке
+        // Always release the mutex in the finally block
         try {
             this._releaseMutex(mutexName, operationId);
         } catch (releaseError) {
@@ -4570,7 +4621,7 @@ _validateMutexSystem() {
             return false;
         }
         
-        // Проверяем структуру mutex
+        // Validate mutex structure
         const requiredProps = ['locked', 'queue', 'lockId', 'lockTimeout'];
         for (const prop of requiredProps) {
             if (!(prop in mutex)) {
@@ -4584,13 +4635,13 @@ _validateMutexSystem() {
 }
 
 /**
- * НОВЫЙ: Экстренное восстановление системы mutex
+ * NEW: Emergency recovery of the mutex system
  */
 _emergencyRecoverMutexSystem() {
     this._secureLog('warn', '🚨 Emergency mutex system recovery initiated');
     
     try {
-        // Принудительно инициализируем систему заново
+        // Force re-initialize the system
         this._initializeMutexSystem();
         
         this._secureLog('info', '✅ Mutex system recovered successfully');
@@ -4605,7 +4656,7 @@ _emergencyRecoverMutexSystem() {
 }
 
     /**
-     * Безопасная генерация ключей с mutex
+     * Secure key generation with mutex
      */
     async _generateEncryptionKeys() {
         return this._withMutex('keyOperation', async (operationId) => {
@@ -4613,7 +4664,7 @@ _emergencyRecoverMutexSystem() {
                 operationId: operationId
             });
             
-            // Проверяем, не идет ли инициализация
+            // Ensure initialization is not already in progress
             if (this._keySystemState.isInitializing) {
                 throw new Error('Key initialization already in progress');
             }
@@ -4623,15 +4674,15 @@ _emergencyRecoverMutexSystem() {
                 this._keySystemState.lastOperation = 'generation';
                 this._keySystemState.lastOperationTime = Date.now();
                 
-                // Генерируем ECDH ключи
+                // Generate ECDH keys
                 const ecdhKeyPair = await window.EnhancedSecureCryptoUtils.generateECDHKeyPair();
                 
-                // Проверяем, что ключи сгенерированы корректно
+                // Validate that keys were generated correctly
                 if (!ecdhKeyPair || !ecdhKeyPair.privateKey || !ecdhKeyPair.publicKey) {
                     throw new Error('Failed to generate valid ECDH key pair');
                 }
                 
-                // Генерируем ECDSA ключи
+                // Generate ECDSA keys
                 const ecdsaKeyPair = await window.EnhancedSecureCryptoUtils.generateECDSAKeyPair();
                 
                 if (!ecdsaKeyPair || !ecdsaKeyPair.privateKey || !ecdsaKeyPair.publicKey) {
@@ -4653,7 +4704,7 @@ _emergencyRecoverMutexSystem() {
     }
 
     /**
-     * Экстренное разблокирование всех mutex
+     * Emergency unlocking of all mutexes
      */
     _emergencyUnlockAllMutexes() {
         const mutexes = ['keyOperation', 'cryptoOperation', 'connectionOperation'];
@@ -4670,7 +4721,7 @@ _emergencyRecoverMutexSystem() {
                 mutex.lockId = null;
                 mutex.lockTimeout = null;
                 
-                // Очищаем очередь
+                // Clear the queue
                 mutex.queue.forEach(item => {
                     item.reject(new Error('Emergency mutex unlock'));
                 });
@@ -4679,7 +4730,7 @@ _emergencyRecoverMutexSystem() {
         });
     }
 /**
- * НОВЫЙ: Диагностика состояния mutex системы
+ * NEW: Diagnostics of the mutex system state
  */
 _getMutexSystemDiagnostics() {
     const diagnostics = {
@@ -4712,8 +4763,8 @@ _getMutexSystemDiagnostics() {
 }
 
     /**
-     * ПОЛНЫЙ ИСПРАВЛЕННЫЙ МЕТОД createSecureOffer()
-     * С защитой от race conditions и улучшенной безопасностью
+     * FULLY FIXED createSecureOffer()
+     * With race-condition protection and improved security
      */
     async createSecureOffer() {
         return this._withMutex('connectionOperation', async (operationId) => {
@@ -4725,21 +4776,21 @@ _getMutexSystemDiagnostics() {
             
             try {
                 // ============================================
-                // ФАЗА 1: ИНИЦИАЛИЗАЦИЯ И ВАЛИДАЦИЯ
+                // PHASE 1: INITIALIZATION AND VALIDATION
                 // ============================================
                 
-                // Сброс флагов уведомлений для нового соединения
+                // Reset notification flags for a new connection
                 this._resetNotificationFlags();
                 
-                // Проверка rate limiting
+                // Rate limiting check
                 if (!this._checkRateLimit()) {
                     throw new Error('Connection rate limit exceeded. Please wait before trying again.');
                 }
                 
-                // Сброс счетчиков попыток
+                // Reset attempt counters
                 this.connectionAttempts = 0;
                 
-                // Генерация соли сессии (64 байта для v4.0)
+                // Generate session salt (64 bytes for v4.0)
                 this.sessionSalt = window.EnhancedSecureCryptoUtils.generateSalt();
                 
                 this._secureLog('debug', '🧂 Session salt generated', {
@@ -4749,15 +4800,15 @@ _getMutexSystemDiagnostics() {
                 });
                 
                 // ============================================
-                // ФАЗА 2: БЕЗОПАСНАЯ ГЕНЕРАЦИЯ КЛЮЧЕЙ
+                // PHASE 2: SECURE KEY GENERATION
                 // ============================================
                 
-                // Безопасная генерация ключей через mutex
+                // Secure key generation via mutex
                 const keyPairs = await this._generateEncryptionKeys();
                 this.ecdhKeyPair = keyPairs.ecdhKeyPair;
                 this.ecdsaKeyPair = keyPairs.ecdsaKeyPair;
                 
-                // Валидация сгенерированных ключей
+                // Validate generated keys
                 if (!this.ecdhKeyPair?.privateKey || !this.ecdhKeyPair?.publicKey) {
                     throw new Error('Failed to generate valid ECDH key pair');
                 }
@@ -4767,10 +4818,10 @@ _getMutexSystemDiagnostics() {
                 }
                 
                 // ============================================
-                // ФАЗА 3: MITM ЗАЩИТА И FINGERPRINTING
+                // PHASE 3: MITM PROTECTION AND FINGERPRINTING
                 // ============================================
                 
-                // MITM Protection: Вычисление уникальных отпечатков ключей
+                // MITM Protection: Compute unique key fingerprints
                 const ecdhFingerprint = await window.EnhancedSecureCryptoUtils.calculateKeyFingerprint(
                     await crypto.subtle.exportKey('spki', this.ecdhKeyPair.publicKey)
                 );
@@ -4778,7 +4829,7 @@ _getMutexSystemDiagnostics() {
                     await crypto.subtle.exportKey('spki', this.ecdsaKeyPair.publicKey)
                 );
                 
-                // Валидация отпечатков
+                // Validate fingerprints
                 if (!ecdhFingerprint || !ecdsaFingerprint) {
                     throw new Error('Failed to generate key fingerprints');
                 }
@@ -4792,10 +4843,10 @@ _getMutexSystemDiagnostics() {
                 });
                 
                 // ============================================
-                // ФАЗА 4: ЭКСПОРТ КЛЮЧЕЙ С ПОДПИСЯМИ
+                // PHASE 4: EXPORT SIGNED KEYS
                 // ============================================
                 
-                // Экспорт ключей с цифровыми подписями
+                // Export keys with digital signatures
                 const ecdhPublicKeyData = await window.EnhancedSecureCryptoUtils.exportPublicKeyWithSignature(
                     this.ecdhKeyPair.publicKey,
                     this.ecdsaKeyPair.privateKey,
@@ -4808,7 +4859,7 @@ _getMutexSystemDiagnostics() {
                     'ECDSA'
                 );
                 
-                // Валидация экспортированных данных
+                // Validate exported data
                 if (!ecdhPublicKeyData?.keyData || !ecdhPublicKeyData?.signature) {
                     throw new Error('Failed to export ECDH public key with signature');
                 }
@@ -4818,10 +4869,10 @@ _getMutexSystemDiagnostics() {
                 }
                 
                 // ============================================
-                // ФАЗА 5: ОБНОВЛЕНИЕ SECURITY FEATURES
+                // PHASE 5: UPDATE SECURITY FEATURES
                 // ============================================
                 
-                // Атомарное обновление security features
+                // Atomic update of security features
                 this._updateSecurityFeatures({
                     hasEncryption: true,
                     hasECDH: true,
@@ -4836,21 +4887,21 @@ _getMutexSystemDiagnostics() {
                 });
                 
                 // ============================================
-                // ФАЗА 6: ИНИЦИАЛИЗАЦИЯ PEER CONNECTION
+                // PHASE 6: INITIALIZE PEER CONNECTION
                 // ============================================
                 
                 this.isInitiator = true;
                 this.onStatusChange('connecting');
                 
-                // Создание peer connection
+                // Create peer connection
                 this.createPeerConnection();
                 
-                // Создание основного data channel
+                // Create main data channel
                 this.dataChannel = this.peerConnection.createDataChannel('securechat', {
                     ordered: true
                 });
                 
-                // Настройка data channel
+                // Setup data channel
                 this.setupDataChannel(this.dataChannel);
                 
                 this._secureLog('debug', '🔗 Data channel created', {
@@ -4860,19 +4911,19 @@ _getMutexSystemDiagnostics() {
                 });
                 
                 // ============================================
-                // ФАЗА 7: СОЗДАНИЕ SDP OFFER
+                // PHASE 7: CREATE SDP OFFER
                 // ============================================
                 
-                // Создание WebRTC offer
+                // Create WebRTC offer
                 const offer = await this.peerConnection.createOffer({
                     offerToReceiveAudio: false,
                     offerToReceiveVideo: false
                 });
                 
-                // Установка локального описания
+                // Set local description
                 await this.peerConnection.setLocalDescription(offer);
                 
-                // Ожидание сбора ICE кандидатов
+                // Await ICE gathering
                 await this.waitForIceGathering();
                 
                 this._secureLog('debug', '🧊 ICE gathering completed', {
@@ -4882,25 +4933,25 @@ _getMutexSystemDiagnostics() {
                 });
                 
                 // ============================================
-                // ФАЗА 8: ГЕНЕРАЦИЯ VERIFICATION CODE
+                // PHASE 8: GENERATE VERIFICATION CODE
                 // ============================================
                 
-                // Генерация кода верификации для out-of-band аутентификации
+                // Generate verification code for out-of-band auth
                 this.verificationCode = window.EnhancedSecureCryptoUtils.generateVerificationCode();
                 
-                // Валидация verification code
+                // Validate verification code
                 if (!this.verificationCode || this.verificationCode.length < EnhancedSecureWebRTCManager.SIZES.VERIFICATION_CODE_MIN_LENGTH) {
                     throw new Error('Failed to generate valid verification code');
                 }
                 
-                // Уведомление UI о необходимости верификации
+                // Notify UI about verification requirement
                 this.onVerificationRequired(this.verificationCode);
                 
                 // ============================================
-                // ФАЗА 9: MUTUAL AUTHENTICATION CHALLENGE
+                // PHASE 9: MUTUAL AUTHENTICATION CHALLENGE
                 // ============================================
                 
-                // Генерация challenge для взаимной аутентификации
+                // Generate challenge for mutual authentication
                 const authChallenge = window.EnhancedSecureCryptoUtils.generateMutualAuthChallenge();
                 
                 if (!authChallenge) {
@@ -4908,23 +4959,23 @@ _getMutexSystemDiagnostics() {
                 }
                 
                 // ============================================
-                // ФАЗА 10: SESSION ID ДЛЯ MITM ЗАЩИТЫ
+                // PHASE 10: SESSION ID FOR MITM PROTECTION
                 // ============================================
                 
-                // MITM Protection: Генерация session-specific ID
+                // MITM Protection: Generate session-specific ID
                 this.sessionId = Array.from(crypto.getRandomValues(new Uint8Array(EnhancedSecureWebRTCManager.SIZES.SESSION_ID_LENGTH)))
                     .map(b => b.toString(16).padStart(2, '0')).join('');
                 
-                // Валидация session ID
+                // Validate session ID
                 if (!this.sessionId || this.sessionId.length !== (EnhancedSecureWebRTCManager.SIZES.SESSION_ID_LENGTH * 2)) {
                     throw new Error('Failed to generate valid session ID');
                 }
                 
                 // ============================================
-                // ФАЗА 11: РАСЧЕТ УРОВНЯ БЕЗОПАСНОСТИ
+                // PHASE 11: SECURITY LEVEL CALCULATION
                 // ============================================
                 
-                // Предварительный расчет уровня безопасности
+                // Preliminary security level calculation
                 let securityLevel;
                 try {
                     securityLevel = await this.calculateSecurityLevel();
@@ -4934,7 +4985,7 @@ _getMutexSystemDiagnostics() {
                         errorType: error.constructor.name
                     });
                     
-                    // Fallback значение
+                    // Fallback value
                     securityLevel = {
                         level: 'enhanced',
                         score: 75,
@@ -4945,40 +4996,40 @@ _getMutexSystemDiagnostics() {
                 }
                 
                 // ============================================
-                // ФАЗА 12: СОЗДАНИЕ OFFER PACKAGE
+                // PHASE 12: CREATE OFFER PACKAGE
                 // ============================================
                 
                 const currentTimestamp = Date.now();
                 
                 const offerPackage = {
-                    // Основная информация
+                    // Core information
                     type: 'enhanced_secure_offer',
                     sdp: this.peerConnection.localDescription.sdp,
                     version: '4.0',
                     timestamp: currentTimestamp,
                     
-                    // Криптографические ключи
+                    // Cryptographic keys
                     ecdhPublicKey: ecdhPublicKeyData,
                     ecdsaPublicKey: ecdsaPublicKeyData,
                     
-                    // Сессионные данные
+                    // Session data
                     salt: this.sessionSalt,
                     sessionId: this.sessionId,
                     
-                    // Аутентификация
+                    // Authentication
                     verificationCode: this.verificationCode,
                     authChallenge: authChallenge,
                     
-                    // Метаданные безопасности
+                    // Security metadata
                     securityLevel: securityLevel,
                     
-                    // Дополнительные поля для валидации
+                    // Additional fields for validation
                     keyFingerprints: {
-                        ecdh: ecdhFingerprint.substring(0, 16), // Первые 16 символов для валидации
+                        ecdh: ecdhFingerprint.substring(0, 16), // First 16 chars for validation
                         ecdsa: ecdsaFingerprint.substring(0, 16)
                     },
                     
-                    // Опциональная информация о возможностях
+                    // Optional capabilities info
                     capabilities: {
                         supportsFileTransfer: true,
                         supportsEnhancedSecurity: true,
@@ -4989,16 +5040,16 @@ _getMutexSystemDiagnostics() {
                 };
                 
                 // ============================================
-                // ФАЗА 13: ВАЛИДАЦИЯ OFFER PACKAGE
+                // PHASE 13: VALIDATE OFFER PACKAGE
                 // ============================================
                 
-                // Финальная валидация созданного package
+                // Final validation of the generated package
                 if (!this.validateEnhancedOfferData(offerPackage)) {
                     throw new Error('Generated offer package failed validation');
                 }
                 
                 // ============================================
-                // ФАЗА 14: ЛОГИРОВАНИЕ И СОБЫТИЯ
+                // PHASE 14: LOGGING AND EVENTS
                 // ============================================
                 
                 this._secureLog('info', 'Enhanced secure offer created successfully', {
@@ -5012,7 +5063,7 @@ _getMutexSystemDiagnostics() {
                     capabilitiesCount: Object.keys(offerPackage.capabilities).length
                 });
                 
-                // Отправка события о новом соединении
+                // Dispatch event about new connection
                 document.dispatchEvent(new CustomEvent('new-connection', {
                     detail: { 
                         type: 'offer',
@@ -5023,14 +5074,14 @@ _getMutexSystemDiagnostics() {
                 }));
                 
                 // ============================================
-                // ФАЗА 15: ВОЗВРАТ РЕЗУЛЬТАТА
+                // PHASE 15: RETURN RESULT
                 // ============================================
                 
                 return offerPackage;
                 
             } catch (error) {
                 // ============================================
-                // ОБРАБОТКА ОШИБОК
+                // ERROR HANDLING
                 // ============================================
                 
                 this._secureLog('error', '❌ Enhanced secure offer creation failed in critical section', {
@@ -5041,20 +5092,20 @@ _getMutexSystemDiagnostics() {
                     connectionAttempts: this.connectionAttempts
                 });
                 
-                // Очистка состояния при ошибке
+                // Cleanup state on error
                 this._cleanupFailedOfferCreation();
                 
-                // Обновление статуса
+                // Update status
                 this.onStatusChange('disconnected');
                 
-                // Проброс ошибки для обработки на верхнем уровне
+                // Re-throw for upper-level handling
                 throw error;
             }
-        }, 15000); // 15 секунд timeout для всей операции создания offer
+        }, 15000); // 15 seconds timeout for the entire offer creation
     }
 
     /**
-     * HELPER: Определение фазы, на которой произошла ошибка
+     * HELPER: Determine the phase where the error occurred
      */
     _determineErrorPhase(error) {
         const message = error.message.toLowerCase();
@@ -5073,34 +5124,34 @@ _getMutexSystemDiagnostics() {
     }
 
     /**
-     * HELPER: Очистка состояния при неудачном создании offer
+     * HELPER: Cleanup state after failed offer creation
      */
     _cleanupFailedOfferCreation() {
         try {
-            // Очистка ключей
+            // Clear keys
             this.ecdhKeyPair = null;
             this.ecdsaKeyPair = null;
             this.sessionSalt = null;
             this.sessionId = null;
             this.verificationCode = null;
             
-            // Закрытие peer connection если был создан
+            // Close peer connection if it was created
             if (this.peerConnection) {
                 this.peerConnection.close();
                 this.peerConnection = null;
             }
             
-            // Очистка data channel
+            // Clear data channel
             if (this.dataChannel) {
                 this.dataChannel.close();
                 this.dataChannel = null;
             }
             
-            // Сброс флагов
+            // Reset flags
             this.isInitiator = false;
             this.isVerified = false;
             
-            // Сброс security features до базового состояния
+            // Reset security features to baseline
             this._updateSecurityFeatures({
                 hasEncryption: false,
                 hasECDH: false,
@@ -5123,7 +5174,7 @@ _getMutexSystemDiagnostics() {
     }
 
     /**
-     * HELPER: Атомарное обновление security features (если еще не добавлен)
+     * HELPER: Atomic update of security features (if not added yet)
      */
     _updateSecurityFeatures(updates) {
         const oldFeatures = { ...this.securityFeatures };
@@ -5137,7 +5188,7 @@ _getMutexSystemDiagnostics() {
             });
             
         } catch (error) {
-            // Rollback в случае ошибки
+            // Roll back on error
             this.securityFeatures = oldFeatures;
             this._secureLog('error', '❌ Security features update failed, rolled back', {
                 errorType: error.constructor.name
@@ -5147,8 +5198,8 @@ _getMutexSystemDiagnostics() {
     }
 
     /**
-     * ПОЛНЫЙ ИСПРАВЛЕННЫЙ МЕТОД createSecureAnswer()
-     * С защитой от race conditions и усиленной безопасностью
+     * FULLY FIXED METHOD createSecureAnswer()
+     * With race-condition protection and enhanced security
      */
     async createSecureAnswer(offerData) {
         return this._withMutex('connectionOperation', async (operationId) => {
@@ -5162,10 +5213,10 @@ _getMutexSystemDiagnostics() {
             
             try {
                 // ============================================
-                // ФАЗА 1: ПРЕДВАРИТЕЛЬНАЯ ВАЛИДАЦИЯ OFFER
+                // PHASE 1: PRE-VALIDATION OF OFFER
                 // ============================================
                 
-                // Сброс флагов уведомлений для нового соединения
+                // Reset notification flags for a new connection
                 this._resetNotificationFlags();
                 
                 this._secureLog('debug', 'Starting enhanced offer validation', {
@@ -5177,28 +5228,28 @@ _getMutexSystemDiagnostics() {
                     hasSalt: !!offerData?.salt
                 });
                 
-                // Строгая валидация входных данных
+                // Strict input validation
                 if (!this.validateEnhancedOfferData(offerData)) {
                     throw new Error('Invalid connection data format - failed enhanced validation');
                 }
                 
-                // Проверка rate limiting
+                // Rate limiting check
                 if (!window.EnhancedSecureCryptoUtils.rateLimiter.checkConnectionRate(this.rateLimiterId)) {
                     throw new Error('Connection rate limit exceeded. Please wait before trying again.');
                 }
                 
                 // ============================================
-                // ФАЗА 2: БЕЗОПАСНОСТЬ И ANTI-REPLAY ЗАЩИТА
+                // PHASE 2: SECURITY AND ANTI-REPLAY PROTECTION
                 // ============================================
                 
-                // MITM Protection: Валидация структуры данных offer
+                // MITM Protection: Validate offer data structure
                 if (!offerData.timestamp || !offerData.version) {
                     throw new Error('Missing required security fields in offer data – possible MITM attack');
                 }
                 
-                // Защита от replay атак (сокращено окно до 5 минут)
+                // Replay attack protection (window reduced to 5 minutes)
                 const offerAge = Date.now() - offerData.timestamp;
-                const MAX_OFFER_AGE = 300000; // 5 минут вместо 1 часа
+                const MAX_OFFER_AGE = 300000; // 5 minutes instead of 1 hour
                 
                 if (offerAge > MAX_OFFER_AGE) {
                     this._secureLog('error', 'Offer data is too old - possible replay attack', {
@@ -5208,7 +5259,7 @@ _getMutexSystemDiagnostics() {
                         timestamp: offerData.timestamp
                     });
                     
-                    // Уведомляем основной код об атаке replay
+                    // Notify the main code about the replay attack
                     if (this.onAnswerError) {
                         this.onAnswerError('replay_attack', 'Offer data is too old – possible replay attack');
                     }
@@ -5216,7 +5267,7 @@ _getMutexSystemDiagnostics() {
                     throw new Error('Offer data is too old – possible replay attack');
                 }
                 
-                // Проверка совместимости версий протокола
+                // Protocol version compatibility check
                 if (offerData.version !== '4.0') {
                     this._secureLog('warn', 'Protocol version mismatch detected', {
                         operationId: operationId,
@@ -5224,20 +5275,20 @@ _getMutexSystemDiagnostics() {
                         receivedVersion: offerData.version
                     });
                     
-                    // Для обратной совместимости с v3.0 можно добавить fallback
+                    // For backward compatibility with v3.0, a fallback can be added
                     if (offerData.version !== '3.0') {
                         throw new Error(`Unsupported protocol version: ${offerData.version}`);
                     }
                 }
                 
                 // ============================================
-                // ФАЗА 3: ИЗВЛЕЧЕНИЕ И ВАЛИДАЦИЯ СОЛИ СЕССИИ
+                // PHASE 3: EXTRACT AND VALIDATE SESSION SALT
                 // ============================================
                 
-                // Установка соли сессии из offer
+                // Set session salt from offer
                 this.sessionSalt = offerData.salt;
                 
-                // Валидация соли сессии
+                // Validate session salt
                 if (!Array.isArray(this.sessionSalt)) {
                     throw new Error('Invalid session salt format - must be array');
                 }
@@ -5247,7 +5298,7 @@ _getMutexSystemDiagnostics() {
                     throw new Error(`Invalid session salt length: expected ${expectedSaltLength}, got ${this.sessionSalt.length}`);
                 }
                 
-                // MITM Protection: Проверка целостности соли
+                // MITM Protection: Check salt integrity
                 const saltFingerprint = await window.EnhancedSecureCryptoUtils.calculateKeyFingerprint(this.sessionSalt);
                 
                 this._secureLog('info', 'Session salt validated successfully', {
@@ -5257,15 +5308,15 @@ _getMutexSystemDiagnostics() {
                 });
                 
                 // ============================================
-                // ФАЗА 4: БЕЗОПАСНАЯ ГЕНЕРАЦИЯ НАШИХ КЛЮЧЕЙ
+                // PHASE 4: SECURE GENERATION OF OUR KEYS
                 // ============================================
                 
-                // Безопасная генерация наших ключей через mutex
+                // Secure generation of our keys via mutex
                 const keyPairs = await this._generateEncryptionKeys();
                 this.ecdhKeyPair = keyPairs.ecdhKeyPair;
                 this.ecdsaKeyPair = keyPairs.ecdsaKeyPair;
                 
-                // Дополнительная валидация сгенерированных ключей
+                // Additional validation of generated keys
                 if (!(this.ecdhKeyPair?.privateKey instanceof CryptoKey)) {
                     this._secureLog('error', 'Local ECDH private key is not a CryptoKey', {
                         operationId: operationId,
@@ -5277,10 +5328,10 @@ _getMutexSystemDiagnostics() {
                 }
                 
                 // ============================================
-                // ФАЗА 5: ИМПОРТ И ВЕРИФИКАЦИЯ КЛЮЧЕЙ ПАРТНЕРА
+                // PHASE 5: IMPORT AND VERIFY PEER KEYS
                 // ============================================
                 
-                // Импорт ECDSA публичного ключа партнера для верификации подписей
+                // Import peer ECDSA public key for signature verification
                 let peerECDSAPublicKey;
                 
                 try {
@@ -5298,7 +5349,7 @@ _getMutexSystemDiagnostics() {
                     throw new Error(`Failed to import peer ECDSA public key: ${error.message}`);
                 }
                 
-                // Верификация самоподписи ECDSA ключа
+                // Verify ECDSA key self-signature
                 const ecdsaPackageCopy = { ...offerData.ecdsaPublicKey };
                 delete ecdsaPackageCopy.signature;
                 const ecdsaPackageString = JSON.stringify(ecdsaPackageCopy);
@@ -5325,10 +5376,10 @@ _getMutexSystemDiagnostics() {
                 });
                 
                 // ============================================
-                // ФАЗА 6: ИМПОРТ И ВЕРИФИКАЦИЯ ECDH КЛЮЧА
+                // PHASE 6: IMPORT AND VERIFY ECDH KEY
                 // ============================================
                 
-                // Импорт и верификация ECDH публичного ключа с использованием проверенного ECDSA ключа
+                // Import and verify ECDH public key using verified ECDSA key
                 let peerECDHPublicKey;
                 
                 try {
@@ -5345,7 +5396,7 @@ _getMutexSystemDiagnostics() {
                     throw new Error(`Failed to import peer ECDH public key: ${error.message}`);
                 }
                 
-                // Финальная валидация ECDH ключа
+                // Final validation of ECDH key
                 if (!(peerECDHPublicKey instanceof CryptoKey)) {
                     this._secureLog('error', 'Peer ECDH public key is not a CryptoKey', {
                         operationId: operationId,
@@ -5355,14 +5406,14 @@ _getMutexSystemDiagnostics() {
                     throw new Error('Peer ECDH public key is not a valid CryptoKey');
                 }
                 
-                // Сохранение ключа партнера для PFS ротации
+                // Save peer key for PFS rotation
                 this.peerPublicKey = peerECDHPublicKey;
                 
                 // ============================================
-                // ФАЗА 7: ДЕРИВАЦИЯ ОБЩИХ КЛЮЧЕЙ ШИФРОВАНИЯ
+                // PHASE 7: DERIVE SHARED ENCRYPTION KEYS
                 // ============================================
                 
-                // Деривация общих ключей с метаданными защиты
+                // Derive shared keys with metadata protection
                 let derivedKeys;
                 
                 try {
@@ -5379,7 +5430,7 @@ _getMutexSystemDiagnostics() {
                     throw new Error(`Key derivation failed: ${error.message}`);
                 }
                 
-                // Безопасная установка ключей через helper метод
+                // Securely set keys via helper
                 await this._setEncryptionKeys(
                     derivedKeys.encryptionKey,
                     derivedKeys.macKey,
@@ -5387,7 +5438,7 @@ _getMutexSystemDiagnostics() {
                     derivedKeys.fingerprint
                 );
                 
-                // Дополнительная валидация установленных ключей
+                // Additional validation of installed keys
                 if (!(this.encryptionKey instanceof CryptoKey) || 
                     !(this.macKey instanceof CryptoKey) || 
                     !(this.metadataKey instanceof CryptoKey)) {
@@ -5401,7 +5452,7 @@ _getMutexSystemDiagnostics() {
                     throw new Error('Invalid key types after derivation');
                 }
                 
-                // Установка verification code из offer
+                // Set verification code from offer
                 this.verificationCode = offerData.verificationCode;
                 
                 this._secureLog('info', 'Encryption keys derived and set successfully', {
@@ -5415,10 +5466,10 @@ _getMutexSystemDiagnostics() {
                 });
                 
                 // ============================================
-                // ФАЗА 8: ОБНОВЛЕНИЕ SECURITY FEATURES
+                // PHASE 8: UPDATE SECURITY FEATURES
                 // ============================================
                 
-                // Атомарное обновление security features
+                // Atomic update of security features
                 this._updateSecurityFeatures({
                     hasEncryption: true,
                     hasECDH: true,
@@ -5432,7 +5483,7 @@ _getMutexSystemDiagnostics() {
                     hasPFS: true
                 });
                 
-                // PFS: Инициализация отслеживания версий ключей
+                // PFS: Initialize key version tracking
                 this.currentKeyVersion = 0;
                 this.lastKeyRotation = Date.now();
                 this.keyVersions.set(0, {
@@ -5442,10 +5493,10 @@ _getMutexSystemDiagnostics() {
                 });
                 
                 // ============================================
-                // ФАЗА 9: СОЗДАНИЕ AUTHENTICATION PROOF
+                // PHASE 9: CREATE AUTHENTICATION PROOF
                 // ============================================
                 
-                // Создание proof для взаимной аутентификации
+                // Create proof for mutual authentication
                 let authProof;
                 
                 if (offerData.authChallenge) {
@@ -5469,7 +5520,7 @@ _getMutexSystemDiagnostics() {
                 }
                 
                 // ============================================
-                // ФАЗА 10: ИНИЦИАЛИЗАЦИЯ WEBRTC
+                // PHASE 10: INITIALIZE WEBRTC
                 // ============================================
                 
                 this.isInitiator = false;
@@ -5477,10 +5528,10 @@ _getMutexSystemDiagnostics() {
                 this.onKeyExchange(this.keyFingerprint);
                 this.onVerificationRequired(this.verificationCode);
                 
-                // Создание peer connection
+                // Create peer connection
                 this.createPeerConnection();
                 
-                // Установка удаленного описания из offer
+                // Set remote description from offer
                 try {
                     await this.peerConnection.setRemoteDescription(new RTCSessionDescription({
                         type: 'offer',
@@ -5497,10 +5548,10 @@ _getMutexSystemDiagnostics() {
                 });
                 
                 // ============================================
-                // ФАЗА 11: СОЗДАНИЕ SDP ANSWER
+                // PHASE 11: CREATE SDP ANSWER
                 // ============================================
                 
-                // Создание WebRTC answer
+                // Create WebRTC answer
                 let answer;
                 
                 try {
@@ -5512,14 +5563,14 @@ _getMutexSystemDiagnostics() {
                     throw new Error(`Failed to create answer: ${error.message}`);
                 }
                 
-                // Установка локального описания
+                // Set local description
                 try {
                     await this.peerConnection.setLocalDescription(answer);
                 } catch (error) {
                     throw new Error(`Failed to set local description: ${error.message}`);
                 }
                 
-                // Ожидание сбора ICE кандидатов
+                // Await ICE gathering
                 await this.waitForIceGathering();
                 
                 this._secureLog('debug', '🧊 ICE gathering completed for answer', {
@@ -5529,10 +5580,10 @@ _getMutexSystemDiagnostics() {
                 });
                 
                 // ============================================
-                // ФАЗА 12: ЭКСПОРТ НАШИХ КЛЮЧЕЙ
+                // PHASE 12: EXPORT OUR KEYS
                 // ============================================
                 
-                // Экспорт наших ключей с подписями
+                // Export our keys with signatures
                 const ecdhPublicKeyData = await window.EnhancedSecureCryptoUtils.exportPublicKeyWithSignature(
                     this.ecdhKeyPair.publicKey,
                     this.ecdsaKeyPair.privateKey,
@@ -5545,7 +5596,7 @@ _getMutexSystemDiagnostics() {
                     'ECDSA'
                 );
                 
-                // Валидация экспортированных данных
+                // Validate exported data
                 if (!ecdhPublicKeyData?.keyData || !ecdhPublicKeyData?.signature) {
                     throw new Error('Failed to export ECDH public key with signature');
                 }
@@ -5555,10 +5606,10 @@ _getMutexSystemDiagnostics() {
                 }
                 
                 // ============================================
-                // ФАЗА 13: РАСЧЕТ УРОВНЯ БЕЗОПАСНОСТИ
+                // PHASE 13: SECURITY LEVEL CALCULATION
                 // ============================================
                 
-                // Расчет уровня безопасности
+                // Calculate security level
                 let securityLevel;
                 
                 try {
@@ -5569,7 +5620,7 @@ _getMutexSystemDiagnostics() {
                         errorType: error.constructor.name
                     });
                     
-                    // Fallback значение
+                    // Fallback value
                     securityLevel = {
                         level: 'enhanced',
                         score: 80,
@@ -5580,36 +5631,36 @@ _getMutexSystemDiagnostics() {
                 }
                 
                 // ============================================
-                // ФАЗА 14: СОЗДАНИЕ ANSWER PACKAGE
+                // PHASE 14: CREATE ANSWER PACKAGE
                 // ============================================
                 
                 const currentTimestamp = Date.now();
                 
                 const answerPackage = {
-                    // Основная информация
+                    // Core information
                     type: 'enhanced_secure_answer',
                     sdp: this.peerConnection.localDescription.sdp,
                     version: '4.0',
                     timestamp: currentTimestamp,
                     
-                    // Криптографические ключи
+                    // Cryptographic keys
                     ecdhPublicKey: ecdhPublicKeyData,
                     ecdsaPublicKey: ecdsaPublicKeyData,
                     
-                    // Аутентификация
+                    // Authentication
                     authProof: authProof,
                     
-                    // Метаданные безопасности
+                    // Security metadata
                     securityLevel: securityLevel,
                     
-                    // Дополнительные поля безопасности
+                    // Additional security fields
                     sessionConfirmation: {
                         saltFingerprint: saltFingerprint.substring(0, 16),
                         keyDerivationSuccess: true,
                         mutualAuthEnabled: !!authProof
                     },
                     
-                    // Возможности answerer
+                    // Answerer capabilities
                     capabilities: {
                         supportsFileTransfer: true,
                         supportsEnhancedSecurity: true,
@@ -5621,10 +5672,10 @@ _getMutexSystemDiagnostics() {
                 };
                 
                 // ============================================
-                // ФАЗА 15: ВАЛИДАЦИЯ И ЛОГИРОВАНИЕ
+                // PHASE 15: VALIDATION AND LOGGING
                 // ============================================
                 
-                // Финальная валидация answer package
+                // Final validation of the answer package
                 if (!answerPackage.sdp || !answerPackage.ecdhPublicKey || !answerPackage.ecdsaPublicKey) {
                     throw new Error('Generated answer package is incomplete');
                 }
@@ -5640,7 +5691,7 @@ _getMutexSystemDiagnostics() {
                     processingTime: currentTimestamp - offerData.timestamp
                 });
                 
-                // Отправка события о новом соединении
+                // Dispatch event about new connection
                 document.dispatchEvent(new CustomEvent('new-connection', {
                     detail: { 
                         type: 'answer',
@@ -5651,10 +5702,10 @@ _getMutexSystemDiagnostics() {
                 }));
                 
                 // ============================================
-                // ФАЗА 16: ПЛАНИРОВАНИЕ SECURITY РАСЧЕТОВ
+                // PHASE 16: SCHEDULE SECURITY CALCULATIONS
                 // ============================================
                 
-                // Планируем расчет безопасности после соединения
+                // Plan security calculation after connection
                 setTimeout(async () => {
                     try {
                         const realSecurityData = await this.calculateAndReportSecurityLevel();
@@ -5673,7 +5724,7 @@ _getMutexSystemDiagnostics() {
                     }
                 }, 1000);
                 
-                // Retry если первый расчет неудачный
+                // Retry if the first calculation fails
                 setTimeout(async () => {
                     if (!this.lastSecurityCalculation || this.lastSecurityCalculation.score < 50) {
                         this._secureLog('info', '🔄 Retrying security calculation', {
@@ -5684,18 +5735,18 @@ _getMutexSystemDiagnostics() {
                     }
                 }, 3000);
                 
-                // Финальное обновление безопасности
+                // Final security update
                 this.notifySecurityUpdate();
                 
                 // ============================================
-                // ФАЗА 17: ВОЗВРАТ РЕЗУЛЬТАТА
+                // PHASE 17: RETURN RESULT
                 // ============================================
                 
                 return answerPackage;
                 
             } catch (error) {
                 // ============================================
-                // ОБРАБОТКА ОШИБОК
+                // ERROR HANDLING
                 // ============================================
                 
                 this._secureLog('error', '❌ Enhanced secure answer creation failed in critical section', {
@@ -5706,13 +5757,13 @@ _getMutexSystemDiagnostics() {
                     offerAge: offerData?.timestamp ? Date.now() - offerData.timestamp : 'unknown'
                 });
                 
-                // Очистка состояния при ошибке
+                // Cleanup state on error
                 this._cleanupFailedAnswerCreation();
                 
-                // Обновление статуса
+                // Update status
                 this.onStatusChange('disconnected');
                 
-                // Специальная обработка ошибок безопасности
+                // Special handling of security errors
                 if (this.onAnswerError) {
                     if (error.message.includes('too old') || error.message.includes('replay')) {
                         this.onAnswerError('replay_attack', error.message);
@@ -5725,14 +5776,14 @@ _getMutexSystemDiagnostics() {
                     }
                 }
                 
-                // Проброс ошибки для обработки на верхнем уровне
+                // Re-throw for upper-level handling
                 throw error;
             }
-        }, 20000); // 20 секунд timeout для всей операции создания answer (дольше чем offer)
+        }, 20000); // 20 seconds timeout for the entire answer creation (longer than offer)
     }
 
     /**
-     * HELPER: Определение фазы ошибки для answer
+     * HELPER: Determine error phase for answer
      */
     _determineAnswerErrorPhase(error) {
         const message = error.message.toLowerCase();
@@ -5755,11 +5806,11 @@ _getMutexSystemDiagnostics() {
     }
 
     /**
-     * HELPER: Очистка состояния при неудачном создании answer
+     * HELPER: Cleanup state after failed answer creation
      */
     _cleanupFailedAnswerCreation() {
         try {
-            // Очистка ключей и сессионных данных
+            // Clear keys and session data
             this.ecdhKeyPair = null;
             this.ecdsaKeyPair = null;
             this.peerPublicKey = null;
@@ -5770,24 +5821,24 @@ _getMutexSystemDiagnostics() {
             this.metadataKey = null;
             this.keyFingerprint = null;
             
-            // Сброс версий ключей PFS
+            // Reset PFS key versions
             this.currentKeyVersion = 0;
             this.keyVersions.clear();
             this.oldKeys.clear();
             
-            // Закрытие peer connection если был создан
+            // Close peer connection if created
             if (this.peerConnection) {
                 this.peerConnection.close();
                 this.peerConnection = null;
             }
             
-            // Очистка data channel
+            // Clear data channel
             if (this.dataChannel) {
                 this.dataChannel.close();
                 this.dataChannel = null;
             }
             
-            // Сброс флагов и счетчиков
+            // Reset flags and counters
             this.isInitiator = false;
             this.isVerified = false;
             this.sequenceNumber = 0;
@@ -5795,7 +5846,7 @@ _getMutexSystemDiagnostics() {
             this.messageCounter = 0;
             this.processedMessageIds.clear();
             
-            // Сброс security features до базового состояния
+            // Reset security features to baseline
             this._updateSecurityFeatures({
                 hasEncryption: false,
                 hasECDH: false,
@@ -5818,7 +5869,7 @@ _getMutexSystemDiagnostics() {
     }
 
     /**
-     * HELPER: Безопасная установка ключей шифрования (если еще нет)
+     * HELPER: Securely set encryption keys (if not set yet)
      */
     async _setEncryptionKeys(encryptionKey, macKey, metadataKey, keyFingerprint) {
         return this._withMutex('keyOperation', async (operationId) => {
@@ -5826,7 +5877,7 @@ _getMutexSystemDiagnostics() {
                 operationId: operationId
             });
             
-            // Валидация всех ключей перед установкой
+            // Validate all keys before setting
             if (!(encryptionKey instanceof CryptoKey) ||
                 !(macKey instanceof CryptoKey) ||
                 !(metadataKey instanceof CryptoKey)) {
@@ -5837,7 +5888,7 @@ _getMutexSystemDiagnostics() {
                 throw new Error('Invalid key fingerprint provided');
             }
             
-            // Атомарная установка всех ключей
+            // Atomically set all keys
             const oldKeys = {
                 encryptionKey: this.encryptionKey,
                 macKey: this.macKey,
@@ -5851,7 +5902,7 @@ _getMutexSystemDiagnostics() {
                 this.metadataKey = metadataKey;
                 this.keyFingerprint = keyFingerprint;
                 
-                // Сброс счетчиков
+                // Reset counters
                 this.sequenceNumber = 0;
                 this.expectedSequenceNumber = 0;
                 this.messageCounter = 0;
@@ -5866,7 +5917,7 @@ _getMutexSystemDiagnostics() {
                 return true;
                 
             } catch (error) {
-                // Rollback в случае ошибки
+                // Roll back on error
                 this.encryptionKey = oldKeys.encryptionKey;
                 this.macKey = oldKeys.macKey;
                 this.metadataKey = oldKeys.metadataKey;
@@ -6100,9 +6151,9 @@ _getMutexSystemDiagnostics() {
             this.onStatusChange('failed');
 
             if (this.onAnswerError) {
-                if (error.message.includes('слишком старые') || error.message.includes('too old')) {
+                if (error.message.includes('too old') || error.message.includes('слишком старые')) {
                     this.onAnswerError('replay_attack', error.message);
-                } else if (error.message.includes('MITM') || error.message.includes('подпись')) {
+                } else if (error.message.includes('MITM') || error.message.includes('signature') || error.message.includes('подпись')) {
                     this.onAnswerError('security_violation', error.message);
                 } else {
                     this.onAnswerError('general_error', error.message);
@@ -6130,7 +6181,7 @@ _getMutexSystemDiagnostics() {
 
     initiateVerification() {
         if (this.isInitiator) {
-            // Проверяем, не было ли уже отправлено сообщение о подтверждении верификации
+            // Ensure verification initiation notice wasn't already sent
             if (!this.verificationInitiationSent) {
                 this.verificationInitiationSent = true;
                 this.deliverMessageToUI('🔐 Confirm the security code with your peer to complete the connection', 'system');
@@ -6155,7 +6206,7 @@ _getMutexSystemDiagnostics() {
             this.isVerified = true;
             this.onStatusChange('connected');
             
-            // Проверяем, не было ли уже отправлено сообщение о верификации
+            // Ensure verification success notice wasn't already sent
             if (!this.verificationNotificationSent) {
                 this.verificationNotificationSent = true;
                 this.deliverMessageToUI('✅ Verification successful. The channel is now secure!', 'system');
@@ -6181,7 +6232,7 @@ _getMutexSystemDiagnostics() {
             this.isVerified = true;
             this.onStatusChange('connected');
             
-            // Проверяем, не было ли уже отправлено сообщение о верификации
+            // Ensure verification success notice wasn't already sent
             if (!this.verificationNotificationSent) {
                 this.verificationNotificationSent = true;
                 this.deliverMessageToUI('✅ Verification successful. The channel is now secure!', 'system');
@@ -6199,7 +6250,7 @@ _getMutexSystemDiagnostics() {
             this.isVerified = true;
             this.onStatusChange('connected');
             
-            // Проверяем, не было ли уже отправлено сообщение о верификации
+            // Ensure verification success notice wasn't already sent
             if (!this.verificationNotificationSent) {
                 this.verificationNotificationSent = true;
                 this.deliverMessageToUI('✅ Verification successful. The channel is now secure!', 'system');
@@ -6330,7 +6381,7 @@ _getMutexSystemDiagnostics() {
     }
 
     async sendSecureMessage(message) {
-        // Быстрая проверка готовности БЕЗ mutex
+        // Quick readiness check WITHOUT mutex
         if (!this.isConnected() || !this.isVerified) {
             if (message && typeof message === 'object' && message.type && message.type.startsWith('file_')) {
                 throw new Error('Connection not ready for file transfer. Please ensure the connection is established and verified.');
@@ -6339,30 +6390,30 @@ _getMutexSystemDiagnostics() {
             throw new Error('Connection not ready. Message queued for sending.');
         }
         
-        // ИСПРАВЛЕНИЕ: Используем mutex ТОЛЬКО для криптографических операций
+        // FIX: Use mutex ONLY for cryptographic operations
         return this._withMutex('cryptoOperation', async (operationId) => {
-            // Повторная проверка в критической секции
+            // Re-check inside critical section
             if (!this.isConnected() || !this.isVerified) {
                 throw new Error('Connection lost during message preparation');
             }
             
-            // Проверка ключей в критической секции
+            // Validate keys inside critical section
             if (!this.encryptionKey || !this.macKey || !this.metadataKey) {
                 throw new Error('Encryption keys not initialized');
             }
             
-            // Проверка rate limiting
+            // Rate limiting check
             if (!window.EnhancedSecureCryptoUtils.rateLimiter.checkMessageRate(this.rateLimiterId)) {
                 throw new Error('Message rate limit exceeded (60 messages per minute)');
             }
             
             try {
-                // Допускаем как строку, так и объект; объекты сериализуем в строку
+                // Accept strings and objects; stringify objects
                 const textToSend = typeof message === 'string' ? message : JSON.stringify(message);
                 const sanitizedMessage = window.EnhancedSecureCryptoUtils.sanitizeMessage(textToSend);
                 const messageId = `msg_${Date.now()}_${this.messageCounter++}`;
                 
-                // Используем enhanced encryption с metadata protection
+                // Use enhanced encryption with metadata protection
                 const encryptedData = await window.EnhancedSecureCryptoUtils.encryptMessage(
                     sanitizedMessage,
                     this.encryptionKey,
@@ -6380,7 +6431,7 @@ _getMutexSystemDiagnostics() {
                 };
                 
                 this.dataChannel.send(JSON.stringify(payload));
-                // Отображаем локально только простые строковые сообщения, чтобы избежать дублирования в UI
+                // Locally display only plain strings to avoid UI duplication
                 if (typeof message === 'string') {
                     this.deliverMessageToUI(message, 'sent');
                 }
@@ -6398,7 +6449,7 @@ _getMutexSystemDiagnostics() {
                 });
                 throw error;
             }
-        }, 2000); // Уменьшенный timeout для crypto операций
+        }, 2000); // Reduced timeout for crypto operations
     }
 
     processMessageQueue() {
@@ -6509,7 +6560,7 @@ _getMutexSystemDiagnostics() {
         this.sendDisconnectNotification();
         this.isVerified = false;
         
-        // Проверяем, не было ли уже отправлено сообщение о разрыве соединения
+        // Ensure disconnect notification wasn't already sent
         if (!this.disconnectNotificationSent) {
             this.disconnectNotificationSent = true;
             this.deliverMessageToUI('🔌 Connection lost. Attempting to reconnect...', 'system');
@@ -6529,8 +6580,7 @@ _getMutexSystemDiagnostics() {
             }
         }));
 
-        // Не пытаемся переподключиться автоматически
-        // чтобы не закрывать сессию при ошибках
+        // Do not auto-reconnect to avoid closing the session on errors
         // setTimeout(() => {
         //     if (!this.intentionalDisconnect) {
         //         this.attemptReconnection();
@@ -6572,13 +6622,12 @@ _getMutexSystemDiagnostics() {
     }
     
     attemptReconnection() {
-        // Проверяем, не было ли уже отправлено сообщение о неудачном переподключении
+        // Ensure reconnection-failed notification wasn't already sent
         if (!this.reconnectionFailedNotificationSent) {
             this.reconnectionFailedNotificationSent = true;
             this.deliverMessageToUI('❌ Unable to reconnect. A new connection is required.', 'system');
         }
-        // Не вызываем cleanupConnection автоматически
-        // чтобы не закрывать сессию при ошибках
+        // Do not call cleanupConnection automatically to avoid closing the session on errors
         // this.disconnect();
     }
     
@@ -6586,7 +6635,7 @@ _getMutexSystemDiagnostics() {
         const reason = data.reason || 'unknown';
         const reasonText = reason === 'user_disconnect' ? 'manually disconnected.' : 'connection lost.';
         
-        // Проверяем, не было ли уже отправлено сообщение о разрыве соединения пира
+        // Ensure peer-disconnect notification wasn't already sent
         if (!this.peerDisconnectNotificationSent) {
             this.peerDisconnectNotificationSent = true;
             this.deliverMessageToUI(`👋 Peer ${reasonText}`, 'system');
@@ -6700,7 +6749,7 @@ _getMutexSystemDiagnostics() {
             console.log('🔄 File transfer system not initialized, attempting to initialize...');
             this.initializeFileTransfer();
             
-            // Дать время на инициализацию
+            // Allow time for initialization
             await new Promise(resolve => setTimeout(resolve, 500));
             
             if (!this.fileTransferSystem) {
@@ -6708,7 +6757,7 @@ _getMutexSystemDiagnostics() {
             }
         }
 
-        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Проверяем готовность ключей
+        // CRITICAL FIX: Verify key readiness
         if (!this.encryptionKey || !this.macKey) {
             throw new Error('Encryption keys not ready. Please wait for connection to be fully established.');
         }
@@ -6729,7 +6778,7 @@ _getMutexSystemDiagnostics() {
         } catch (error) {
             console.error('❌ File transfer error:', error);
             
-            // Перебрасываем ошибку с более понятным сообщением
+            // Re-throw with a clearer message
             if (error.message.includes('Connection not ready')) {
                 throw new Error('Connection not ready for file transfer. Check connection status.');
             } else if (error.message.includes('Encryption keys not initialized')) {
@@ -6749,7 +6798,7 @@ _getMutexSystemDiagnostics() {
         }
         
         try {
-            // Проверяем наличие методов в файловой системе
+            // Check available methods in file transfer system
             let sending = [];
             let receiving = [];
             
@@ -6860,7 +6909,7 @@ _getMutexSystemDiagnostics() {
             this.currentSession = sessionData;
             this.sessionManager = sessionData.sessionManager;
             
-            // ИСПРАВЛЕНИЕ: Более мягкие проверки для активации
+            // FIX: More lenient checks for activation
             const hasKeys = !!(this.encryptionKey && this.macKey);
             const hasSession = !!(this.sessionManager && (this.sessionManager.hasActiveSession?.() || sessionData.sessionId));
             
@@ -6871,17 +6920,17 @@ _getMutexSystemDiagnostics() {
                 isDemo: sessionData.isDemo
             });
             
-            // Force connection status если у нас есть сессия
+            // Force connection status if there is an active session
             if (hasSession) {
                 console.log('🔓 Session activated - forcing connection status to connected');
                 this.onStatusChange('connected');
                 
-                // Устанавливаем isVerified для активных сессий
+                // Set isVerified for active sessions
                 this.isVerified = true;
                 console.log('✅ Session verified - setting isVerified to true');
             }
             
-            // Инициализируем file transfer систему с задержкой
+            // Initialize file transfer system with a delay
             setTimeout(() => {
                 try {
                     this.initializeFileTransfer();
@@ -6908,7 +6957,7 @@ _getMutexSystemDiagnostics() {
             console.error('❌ Failed to handle session activation:', error);
         }
     }
-    // Метод для проверки готовности файловых трансферов
+    // Method to check readiness of file transfers
 checkFileTransferReadiness() {
         const status = {
             hasFileTransferSystem: !!this.fileTransferSystem,
@@ -6931,7 +6980,7 @@ checkFileTransferReadiness() {
         return status;
     }
 
-    // Метод для принудительной переинициализации файловой системы
+    // Method to force re-initialize file transfer system
     forceReinitializeFileTransfer() {
         try {
             console.log('🔄 Force reinitializing file transfer system...');
@@ -6941,7 +6990,7 @@ checkFileTransferReadiness() {
                 this.fileTransferSystem = null;
             }
             
-            // Небольшая задержка перед переинициализацией
+            // Small delay before reinitialization
             setTimeout(() => {
                 this.initializeFileTransfer();
             }, 500);
@@ -6953,7 +7002,7 @@ checkFileTransferReadiness() {
         }
     }
 
-    // Метод для получения диагностической информации
+    // Method to get diagnostic information
     getFileTransferDiagnostics() {
         const diagnostics = {
             timestamp: new Date().toISOString(),
