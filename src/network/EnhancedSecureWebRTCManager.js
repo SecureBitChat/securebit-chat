@@ -2,16 +2,108 @@
 import { EnhancedSecureFileTransfer } from '../transfer/EnhancedSecureFileTransfer.js';
 
 class EnhancedSecureWebRTCManager {
+    // ============================================
+    // КОНСТАНТЫ
+    // ============================================
+    
+    static TIMEOUTS = {
+        KEY_ROTATION_INTERVAL: 300000,      // 5 minutes
+        CONNECTION_TIMEOUT: 10000,          // 10 seconds  
+        HEARTBEAT_INTERVAL: 30000,          // 30 seconds
+        SECURITY_CALC_DELAY: 1000,          // 1 second
+        SECURITY_CALC_RETRY_DELAY: 3000,    // 3 seconds
+        CLEANUP_INTERVAL: 300000,           // 5 minutes (periodic cleanup)
+        CLEANUP_CHECK_INTERVAL: 60000,      // 1 minute (cleanup check)
+        ICE_GATHERING_TIMEOUT: 10000,       // 10 seconds
+        DISCONNECT_CLEANUP_DELAY: 500,      // 500ms
+        PEER_DISCONNECT_CLEANUP: 2000,      // 2 seconds
+        STAGE2_ACTIVATION_DELAY: 10000,     // 10 seconds
+        STAGE3_ACTIVATION_DELAY: 15000,     // 15 seconds  
+        STAGE4_ACTIVATION_DELAY: 20000,     // 20 seconds
+        FILE_TRANSFER_INIT_DELAY: 1000,     // 1 second
+        FAKE_TRAFFIC_MIN_INTERVAL: 15000,   // 15 seconds
+        FAKE_TRAFFIC_MAX_INTERVAL: 30000,   // 30 seconds
+        DECOY_INITIAL_DELAY: 5000,          // 5 seconds
+        DECOY_TRAFFIC_MIN: 10000,           // 10 seconds
+        DECOY_TRAFFIC_MAX: 25000,           // 25 seconds
+        REORDER_TIMEOUT: 3000,              // 3 seconds
+        RETRY_CONNECTION_DELAY: 2000        // 2 seconds
+    };
+
+    static LIMITS = {
+        MAX_CONNECTION_ATTEMPTS: 3,
+        MAX_OLD_KEYS: 3,
+        MAX_PROCESSED_MESSAGE_IDS: 1000,
+        MAX_OUT_OF_ORDER_PACKETS: 5,
+        MAX_DECOY_CHANNELS: 1,
+        MESSAGE_RATE_LIMIT: 60,             // messages per minute
+        MAX_KEY_AGE: 900000,                // 15 minutes
+        OFFER_MAX_AGE: 3600000,             // 1 hour
+        SALT_SIZE_V3: 32,                   // bytes
+        SALT_SIZE_V4: 64                    // bytes
+    };
+
+    static SIZES = {
+        VERIFICATION_CODE_MIN_LENGTH: 6,
+        FAKE_TRAFFIC_MIN_SIZE: 32,
+        FAKE_TRAFFIC_MAX_SIZE: 128,
+        PACKET_PADDING_MIN: 64,
+        PACKET_PADDING_MAX: 512,
+        CHUNK_SIZE_MAX: 2048,
+        CHUNK_DELAY_MIN: 100,
+        CHUNK_DELAY_MAX: 500,
+        FINGERPRINT_DISPLAY_LENGTH: 8,
+        SESSION_ID_LENGTH: 16,
+        NESTED_ENCRYPTION_IV_SIZE: 12
+    };
+
+    static MESSAGE_TYPES = {
+        // Regular messages
+        MESSAGE: 'message',
+        ENHANCED_MESSAGE: 'enhanced_message',
+        
+        // System messages
+        HEARTBEAT: 'heartbeat',
+        VERIFICATION: 'verification',
+        VERIFICATION_RESPONSE: 'verification_response',
+        PEER_DISCONNECT: 'peer_disconnect',
+        SECURITY_UPGRADE: 'security_upgrade',
+        KEY_ROTATION_SIGNAL: 'key_rotation_signal',
+        KEY_ROTATION_READY: 'key_rotation_ready',
+        
+        // File transfer messages
+        FILE_TRANSFER_START: 'file_transfer_start',
+        FILE_TRANSFER_RESPONSE: 'file_transfer_response',
+        FILE_CHUNK: 'file_chunk',
+        CHUNK_CONFIRMATION: 'chunk_confirmation',
+        FILE_TRANSFER_COMPLETE: 'file_transfer_complete',
+        FILE_TRANSFER_ERROR: 'file_transfer_error',
+        
+        // Fake traffic
+        FAKE: 'fake'
+    };
+
+    static FILTERED_RESULTS = {
+        FAKE_MESSAGE: 'FAKE_MESSAGE_FILTERED',
+        FILE_MESSAGE: 'FILE_MESSAGE_FILTERED', 
+        SYSTEM_MESSAGE: 'SYSTEM_MESSAGE_FILTERED'
+    };
     constructor(onMessage, onStatusChange, onKeyExchange, onVerificationRequired, onAnswerError = null) {
     // Check the availability of the global object
-    window.webrtcManager = this;
-    window.globalWebRTCManager = this;
+        this._setupSecureGlobalAPI();
     if (!window.EnhancedSecureCryptoUtils) {
         throw new Error('EnhancedSecureCryptoUtils is not loaded. Please ensure the module is loaded first.');
     }
-    this.getSecurityData = () => this.lastSecurityCalculation;
-    
-    console.log('🔒 Enhanced WebRTC Manager initialized and registered globally');
+    this.getSecurityData = () => {
+        // Возвращаем только публичную информацию
+        return this.lastSecurityCalculation ? {
+            level: this.lastSecurityCalculation.level,
+            score: this.lastSecurityCalculation.score,
+            timestamp: this.lastSecurityCalculation.timestamp,
+            // НЕ возвращаем детали проверок или чувствительные данные
+        } : null;
+    };
+    console.log('🔒 Enhanced WebRTC Manager initialized with secure API');
     this.currentSessionType = null;
     this.currentSecurityLevel = 'basic';
     this.sessionConstraints = null;
@@ -28,7 +120,7 @@ class EnhancedSecureWebRTCManager {
     this.onAnswerError = onAnswerError; // Callback for response processing errors
     this.isInitiator = false;
     this.connectionAttempts = 0;
-    this.maxConnectionAttempts = 3;
+    this.maxConnectionAttempts = EnhancedSecureWebRTCManager.LIMITS.MAX_CONNECTION_ATTEMPTS;
     this.heartbeatInterval = null;
     this.messageQueue = [];
     this.ecdhKeyPair = null;
@@ -50,9 +142,9 @@ class EnhancedSecureWebRTCManager {
     this.intentionalDisconnect = false;
     this.lastCleanupTime = Date.now();
     
-    // Флаги для предотвращения дублирования системных сообщений
-    this.lastSecurityLevelNotification = null;
-    this.verificationNotificationSent = false;
+    // Reset notification flags for new connection
+    this._resetNotificationFlags();
+
     this.verificationInitiationSent = false;
     this.disconnectNotificationSent = false;
     this.reconnectionFailedNotificationSent = false;
@@ -72,15 +164,15 @@ class EnhancedSecureWebRTCManager {
     this.onFileError = null;
     
     // PFS (Perfect Forward Secrecy) Implementation
-    this.keyRotationInterval = 300000; // 5 minutes
+    this.keyRotationInterval = EnhancedSecureWebRTCManager.TIMEOUTS.KEY_ROTATION_INTERVAL;
     this.lastKeyRotation = Date.now();
     this.currentKeyVersion = 0;
     this.keyVersions = new Map(); // Store key versions for PFS
     this.oldKeys = new Map(); // Store old keys temporarily for decryption
-    this.maxOldKeys = 3; // Keep last 3 key versions for decryption
+    this.maxOldKeys = EnhancedSecureWebRTCManager.LIMITS.MAX_OLD_KEYS; // Keep last 3 key versions for decryption
     this.peerConnection = null;
     this.dataChannel = null;
-     this.securityFeatures = {
+         this.securityFeatures = {
             hasEncryption: true,
             hasECDH: true,
             hasECDSA: false,
@@ -101,71 +193,71 @@ class EnhancedSecureWebRTCManager {
             hasDecoyChannels: false,       
             hasMessageChunking: false      
         };
-    console.log('🔒 Enhanced WebRTC Manager initialized with tiered security');
+        console.log('🔒 Enhanced WebRTC Manager initialized with tiered security');
     // ============================================
     // ENHANCED SECURITY FEATURES
     // ============================================
-    
-    // 1. Nested Encryption Layer
+        
+        // 1. Nested Encryption Layer
             this.nestedEncryptionKey = null;
             this.nestedEncryptionIV = null;
             this.nestedEncryptionCounter = 0;
-            
+                
             // 2. Packet Padding
             this.paddingConfig = {
                 enabled: true,              
-                minPadding: 64,
-                maxPadding: 512,            
+                minPadding: EnhancedSecureWebRTCManager.SIZES.PACKET_PADDING_MIN,
+                maxPadding: EnhancedSecureWebRTCManager.SIZES.PACKET_PADDING_MAX,            
                 useRandomPadding: true,
                 preserveMessageSize: false
             };
-            
+                
             // 3. Fake Traffic Generation
             this.fakeTrafficConfig = {
                 enabled: !window.DISABLE_FAKE_TRAFFIC, 
-                minInterval: 15000,        
-                maxInterval: 30000,       
-                minSize: 32,
-                maxSize: 128,               
+                minInterval: EnhancedSecureWebRTCManager.TIMEOUTS.FAKE_TRAFFIC_MIN_INTERVAL,        
+                maxInterval: EnhancedSecureWebRTCManager.TIMEOUTS.FAKE_TRAFFIC_MAX_INTERVAL,       
+                minSize: EnhancedSecureWebRTCManager.SIZES.FAKE_TRAFFIC_MIN_SIZE,
+                maxSize: EnhancedSecureWebRTCManager.SIZES.FAKE_TRAFFIC_MAX_SIZE,               
                 patterns: ['heartbeat', 'status', 'sync']
             };
             this.fakeTrafficTimer = null;
             this.lastFakeTraffic = 0;
-            
+                
             // 4. Message Chunking
             this.chunkingConfig = {
                 enabled: false,
-                maxChunkSize: 2048,        
-                minDelay: 100,
-                maxDelay: 500,
+                maxChunkSize: EnhancedSecureWebRTCManager.SIZES.CHUNK_SIZE_MAX,        
+                minDelay: EnhancedSecureWebRTCManager.SIZES.CHUNK_DELAY_MIN,
+                maxDelay: EnhancedSecureWebRTCManager.SIZES.CHUNK_DELAY_MAX,
                 useRandomDelays: true,
                 addChunkHeaders: true
             };
             this.chunkQueue = [];
             this.chunkingInProgress = false;
-            
+                
             // 5. Decoy Channels
             this.decoyChannels = new Map();
             this.decoyChannelConfig = {
                 enabled: !window.DISABLE_DECOY_CHANNELS, 
-                maxDecoyChannels: 1,       
+                maxDecoyChannels: EnhancedSecureWebRTCManager.LIMITS.MAX_DECOY_CHANNELS,       
                 decoyChannelNames: ['heartbeat'], 
                 sendDecoyData: true,
                 randomDecoyIntervals: true
             };
             this.decoyTimers = new Map();
-            
+                
             // 6. Packet Reordering Protection
             this.reorderingConfig = {
                 enabled: false,             
-                maxOutOfOrder: 5,           
-                reorderTimeout: 3000,       
+                maxOutOfOrder: EnhancedSecureWebRTCManager.LIMITS.MAX_OUT_OF_ORDER_PACKETS,           
+                reorderTimeout: EnhancedSecureWebRTCManager.TIMEOUTS.REORDER_TIMEOUT,       
                 useSequenceNumbers: true,
                 useTimestamps: true
             };
             this.packetBuffer = new Map(); // sequence -> {data, timestamp}
             this.lastProcessedSequence = -1;
-            
+                
             // 7. Anti-Fingerprinting
             this.antiFingerprintingConfig = {
                 enabled: false,             
@@ -176,23 +268,623 @@ class EnhancedSecureWebRTCManager {
                 useRandomHeaders: false     
             };
             this.fingerprintMask = this.generateFingerprintMask();
-            
+                
             // Initialize rate limiter ID
             this.rateLimiterId = `webrtc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            
+                
             // Start periodic cleanup
             this.startPeriodicCleanup();
-            
+                
             this.initializeEnhancedSecurity(); 
         }
-    initializeFileTransfer() {
-    try {
-        console.log('🔧 Initializing Enhanced Secure File Transfer system...');
-        
-        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Убедимся что dataChannel готов
-        if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
-            console.warn('⚠️ Data channel not open, deferring file transfer initialization');
+
+    // ============================================
+    // HELPER МЕТОДЫ
+    // ============================================
+    // ============================================
+    // ИСПРАВЛЕННЫЙ БЕЗОПАСНЫЙ ГЛОБАЛЬНЫЙ API
+    // ============================================
+    
+    /**
+     * Настраивает безопасный глобальный API с ограниченным доступом
+     */
+    _setupSecureGlobalAPI() {
+        // Создаем ограниченный публичный API
+        const secureAPI = {
+            // ============================================
+            // БЕЗОПАСНЫЕ ПУБЛИЧНЫЕ МЕТОДЫ
+            // ============================================
             
+            /**
+             * Отправка сообщения (безопасная обертка)
+             */
+            sendMessage: (message) => {
+                try {
+                    if (typeof message !== 'string' || message.length === 0) {
+                        throw new Error('Invalid message format');
+                    }
+                    if (message.length > 10000) {
+                        throw new Error('Message too long');
+                    }
+                    return this.sendMessage(message);
+                } catch (error) {
+                    console.error('❌ Failed to send message through secure API:', error.message);
+                    throw new Error('Failed to send message');
+                }
+            },
+            
+            /**
+             * Получение статуса соединения (только публичная информация)
+             */
+            getConnectionStatus: () => {
+                return {
+                    isConnected: this.isConnected(),
+                    isVerified: this.isVerified,
+                    connectionState: this.peerConnection?.connectionState || 'disconnected',
+                };
+            },
+            
+            /**
+             * Получение статуса безопасности (ограниченная информация)
+             */
+            getSecurityStatus: () => {
+                const status = this.getSecurityStatus();
+                return {
+                    securityLevel: status.securityLevel,
+                    stage: status.stage,
+                    activeFeaturesCount: status.activeFeaturesCount,
+                };
+            },
+            
+            /**
+             * Отправка файла (безопасная обертка)
+             */
+            sendFile: async (file) => {
+                try {
+                    if (!file || !(file instanceof File)) {
+                        throw new Error('Invalid file object');
+                    }
+                    if (file.size > 100 * 1024 * 1024) { // Лимит 100MB
+                        throw new Error('File too large');
+                    }
+                    return await this.sendFile(file);
+                } catch (error) {
+                    console.error('❌ Failed to send file through secure API:', error.message);
+                    throw new Error('Failed to send file');
+                }
+            },
+            
+            /**
+             * Получение статуса файловых трансферов
+             */
+            getFileTransferStatus: () => {
+                const status = this.getFileTransferStatus();
+                return {
+                    initialized: status.initialized,
+                    status: status.status,
+                    activeTransfers: status.activeTransfers || 0,
+                    receivingTransfers: status.receivingTransfers || 0,
+                };
+            },
+            
+            /**
+             * Отключение (безопасное)
+             */
+            disconnect: () => {
+                try {
+                    this.disconnect();
+                    return true;
+                } catch (error) {
+                    console.error('❌ Failed to disconnect through secure API:', error.message);
+                    return false;
+                }
+            },
+            
+            // Метаинформация API
+            _api: {
+                version: '4.0.1-secure',
+                type: 'secure-wrapper',
+                methods: [
+                    'sendMessage', 'getConnectionStatus', 'getSecurityStatus',
+                    'sendFile', 'getFileTransferStatus', 'disconnect'
+                ]
+            }
+        };
+       // ============================================
+        // УСТАНОВКА ГЛОБАЛЬНОГО API С ЗАЩИТОЙ
+        // ============================================
+        
+        // Делаем API неизменяемым
+        Object.freeze(secureAPI);
+        Object.freeze(secureAPI._api);
+        
+        // Устанавливаем глобальный API только если его еще нет
+        if (!window.secureBitChat) {
+            Object.defineProperty(window, 'secureBitChat', {
+                value: secureAPI,
+                writable: false,
+                enumerable: true,
+                configurable: false
+            });
+            
+            console.log('🔒 Secure global API established: window.secureBitChat');
+        } else {
+            console.warn('⚠️ Global API already exists, skipping setup');
+        }
+        
+        // ============================================
+        // УПРОЩЕННАЯ ЗАЩИТА БЕЗ PROXY
+        // ============================================
+        this._setupSimpleProtection();
+    }
+    _setupSimpleProtection() {
+        // Защищаем только через мониторинг, без переопределения window
+        this._monitorGlobalExposure();
+        
+        // Предупреждение в консоли
+        if (window.DEBUG_MODE) {
+            console.warn('🔒 Security Notice: WebRTC Manager is protected. Use window.secureBitChat for safe access.');
+        }
+    }
+    /**
+     * Мониторинг глобального exposure без Proxy
+     */
+    _monitorGlobalExposure() {
+        // Список потенциально опасных имен
+        const dangerousNames = [
+            'webrtcManager', 'globalWebRTCManager', 'webrtcInstance', 
+            'rtcManager', 'secureWebRTC', 'enhancedWebRTC'
+        ];
+        
+        // Проверяем периодически
+        const checkForExposure = () => {
+            const exposures = [];
+            
+            dangerousNames.forEach(name => {
+                if (window[name] === this || 
+                    (window[name] && window[name].constructor === this.constructor)) {
+                    exposures.push(name);
+                }
+            });
+            
+            if (exposures.length > 0) {
+                console.warn('🚫 WARNING: Potential security exposure detected:', exposures);
+                
+                // В production автоматически удаляем
+                if (!window.DEBUG_MODE) {
+                    exposures.forEach(name => {
+                        try {
+                            delete window[name];
+                            console.log(`🧹 Removed exposure: ${name}`);
+                        } catch (error) {
+                            console.error(`❌ Failed to remove: ${name}`);
+                        }
+                    });
+                }
+            }
+            
+            return exposures;
+        };
+        
+        // Немедленная проверка
+        checkForExposure();
+        
+        // Периодическая проверка
+        const interval = window.DEBUG_MODE ? 30000 : 300000; // 30s в dev, 5min в prod
+        setInterval(checkForExposure, interval);
+    }
+    /**
+     * Предотвращает случайное глобальное exposure
+     */
+    _preventGlobalExposure() {
+        // Мониторинг попыток добавления webrtc объектов в window
+        const originalDefineProperty = Object.defineProperty;
+        const self = this;
+        
+        // Переопределяем defineProperty для window только для webrtc связанных свойств
+        const webrtcRelatedNames = [
+            'webrtcManager', 'globalWebRTCManager', 'webrtcInstance', 
+            'rtcManager', 'secureWebRTC', 'enhancedWebRTC'
+        ];
+        
+        Object.defineProperty = function(obj, prop, descriptor) {
+            if (obj === window && webrtcRelatedNames.includes(prop)) {
+                console.warn(`🚫 Prevented potential global exposure of: ${prop}`);
+                // Не устанавливаем свойство, просто логируем
+                return obj;
+            }
+            return originalDefineProperty.call(this, obj, prop, descriptor);
+        };
+        
+        // Защита от прямого присваивания
+        const webrtcRelatedPatterns = /webrtc|rtc|secure.*chat/i;
+        const handler = {
+            set(target, property, value) {
+                if (typeof property === 'string' && webrtcRelatedPatterns.test(property)) {
+                    if (value === self || (value && value.constructor === self.constructor)) {
+                        console.warn(`🚫 Prevented global exposure attempt: window.${property}`);
+                        return true; // Притворяемся что установили, но не устанавливаем
+                    }
+                }
+                target[property] = value;
+                return true;
+            }
+        };
+        
+        // Применяем Proxy только в development mode для производительности
+        if (window.DEBUG_MODE) {
+            window = new Proxy(window, handler);
+        }
+    }
+    /**
+     * Проверка целостности API
+     */
+    _verifyAPIIntegrity() {
+        try {
+            if (!window.secureBitChat) {
+                console.error('🚨 SECURITY ALERT: Secure API has been removed!');
+                return false;
+            }
+            
+            const requiredMethods = ['sendMessage', 'getConnectionStatus', 'disconnect'];
+            const missingMethods = requiredMethods.filter(method => 
+                typeof window.secureBitChat[method] !== 'function'
+            );
+            
+            if (missingMethods.length > 0) {
+                console.error('🚨 SECURITY ALERT: API tampering detected, missing methods:', missingMethods);
+                return false;
+            }
+            
+            return true;
+        } catch (error) {
+            console.error('🚨 SECURITY ALERT: API integrity check failed:', error);
+            return false;
+        }
+    }
+    // ============================================
+    // ДОПОЛНИТЕЛЬНЫЕ МЕТОДЫ БЕЗОПАСНОСТИ
+    // ============================================
+    
+    /**
+     * Проверяет, нет ли случайного exposure в глобальном пространстве
+     */
+    _auditGlobalExposure() {
+        const dangerousExposures = [];
+        
+        // Проверяем window на наличие WebRTC manager
+        for (const prop in window) {
+            const value = window[prop];
+            if (value === this || (value && value.constructor === this.constructor)) {
+                dangerousExposures.push(prop);
+            }
+        }
+        
+        if (dangerousExposures.length > 0) {
+            console.error('🚨 SECURITY ALERT: WebRTC Manager exposed globally:', dangerousExposures);
+            
+            // В production mode автоматически удаляем exposure
+            if (!window.DEBUG_MODE) {
+                dangerousExposures.forEach(prop => {
+                    try {
+                        delete window[prop];
+                        console.log(`🧹 Removed dangerous global exposure: ${prop}`);
+                    } catch (error) {
+                        console.error(`❌ Failed to remove exposure: ${prop}`, error);
+                    }
+                });
+            }
+        }
+        
+        return dangerousExposures;
+    }
+    
+    /**
+     * Периодический аудит безопасности
+     */
+    _startSecurityAudit() {
+        // Проверяем каждые 30 секунд в development, каждые 5 минут в production
+        const auditInterval = window.DEBUG_MODE ? 30000 : 300000;
+        
+        setInterval(() => {
+            const exposures = this._auditGlobalExposure();
+            
+            if (exposures.length > 0 && !window.DEBUG_MODE) {
+                // В production это критическая проблема
+                console.error('🚨 CRITICAL: Unauthorized global exposure detected in production');
+                
+                // Можно добавить отправку алерта или принудительное отключение
+                // this.emergencyShutdown();
+            }
+        }, auditInterval);
+    }
+    
+    /**
+     * Экстренное отключение при критических проблемах
+     */
+    _emergencyShutdown(reason = 'Security breach') {
+        console.error(`🚨 EMERGENCY SHUTDOWN: ${reason}`);
+        
+        try {
+            // Очищаем критические данные
+            this.encryptionKey = null;
+            this.macKey = null;
+            this.metadataKey = null;
+            this.verificationCode = null;
+            this.keyFingerprint = null;
+            
+            // Закрываем соединения
+            if (this.dataChannel) {
+                this.dataChannel.close();
+                this.dataChannel = null;
+            }
+            if (this.peerConnection) {
+                this.peerConnection.close();
+                this.peerConnection = null;
+            }
+            
+            // Очищаем буферы
+            this.messageQueue = [];
+            this.processedMessageIds.clear();
+            this.packetBuffer.clear();
+            
+            // Уведомляем UI
+            if (this.onStatusChange) {
+                this.onStatusChange('security_breach');
+            }
+            
+            console.log('🔒 Emergency shutdown completed');
+            
+        } catch (error) {
+            console.error('❌ Error during emergency shutdown:', error);
+        }
+    }
+    _finalizeSecureInitialization() {
+        // Проверяем целостность API
+        if (!this._verifyAPIIntegrity()) {
+            console.error('🚨 Security initialization failed');
+            return;
+        }
+        
+        // Начинаем мониторинг
+        this._startSecurityMonitoring();
+        
+        console.log('✅ Secure WebRTC Manager initialization completed');
+    }
+    /**
+     * Запуск мониторинга безопасности
+     */
+    _startSecurityMonitoring() {
+        // Проверяем каждые 5 минут
+        setInterval(() => {
+            this._verifyAPIIntegrity();
+        }, 300000);
+        
+        // В development mode более частые проверки
+        if (window.DEBUG_MODE) {
+            setInterval(() => {
+                this._monitorGlobalExposure();
+            }, 30000);
+        }
+    }
+    /**
+     * Проверяет готовность соединения для отправки данных
+     * @param {boolean} throwError - выбрасывать ошибку при неготовности
+     * @returns {boolean} готовность соединения
+     */
+    _validateConnection(throwError = true) {
+        const isDataChannelReady = this.dataChannel && this.dataChannel.readyState === 'open';
+        const isConnectionVerified = this.isVerified;
+        const isValid = isDataChannelReady && isConnectionVerified;
+        
+        if (!isValid && throwError) {
+            if (!isDataChannelReady) {
+                throw new Error('Data channel not ready');
+            }
+            if (!isConnectionVerified) {
+                throw new Error('Connection not verified');
+            }
+        }
+        
+        return isValid;
+    }
+
+    /**
+     * Проверяет готовность ключей шифрования
+     * @param {boolean} throwError - выбрасывать ошибку при неготовности
+     * @returns {boolean} готовность ключей
+     */
+    _validateEncryptionKeys(throwError = true) {
+        const hasAllKeys = !!(this.encryptionKey && this.macKey && this.metadataKey);
+        
+        if (!hasAllKeys && throwError) {
+            throw new Error('Encryption keys not initialized');
+        }
+        
+        return hasAllKeys;
+    }
+
+    /**
+     * Проверяет, является ли сообщение файловым
+     * @param {string|object} data - данные для проверки
+     * @returns {boolean} true если файловое сообщение
+     */
+    _isFileMessage(data) {
+        if (typeof data === 'string') {
+            try {
+                const parsed = JSON.parse(data);
+                return parsed.type && parsed.type.startsWith('file_');
+            } catch {
+                return false;
+            }
+        }
+        
+        if (typeof data === 'object' && data.type) {
+            return data.type.startsWith('file_');
+        }
+        
+        return false;
+    }
+
+    /**
+     * Проверяет, является ли сообщение системным
+     * @param {string|object} data - данные для проверки  
+     * @returns {boolean} true если системное сообщение
+     */
+    _isSystemMessage(data) {
+        const systemTypes = [
+            EnhancedSecureWebRTCManager.MESSAGE_TYPES.HEARTBEAT,
+            EnhancedSecureWebRTCManager.MESSAGE_TYPES.VERIFICATION,
+            EnhancedSecureWebRTCManager.MESSAGE_TYPES.VERIFICATION_RESPONSE,
+            EnhancedSecureWebRTCManager.MESSAGE_TYPES.PEER_DISCONNECT,
+            EnhancedSecureWebRTCManager.MESSAGE_TYPES.SECURITY_UPGRADE,
+            EnhancedSecureWebRTCManager.MESSAGE_TYPES.KEY_ROTATION_SIGNAL,
+            EnhancedSecureWebRTCManager.MESSAGE_TYPES.KEY_ROTATION_READY
+        ];
+
+        if (typeof data === 'string') {
+            try {
+                const parsed = JSON.parse(data);
+                return systemTypes.includes(parsed.type);
+            } catch {
+                return false;
+            }
+        }
+        
+        if (typeof data === 'object' && data.type) {
+            return systemTypes.includes(data.type);
+        }
+        
+        return false;
+    }
+
+    /**
+     * Проверяет, является ли сообщение поддельным (fake traffic)
+     * @param {any} data - данные для проверки
+     * @returns {boolean} true если поддельное сообщение
+     */
+    _isFakeMessage(data) {
+        if (typeof data === 'string') {
+            try {
+                const parsed = JSON.parse(data);
+                return parsed.type === EnhancedSecureWebRTCManager.MESSAGE_TYPES.FAKE || 
+                       parsed.isFakeTraffic === true;
+            } catch {
+                return false;
+            }
+        }
+        
+        if (typeof data === 'object' && data !== null) {
+            return data.type === EnhancedSecureWebRTCManager.MESSAGE_TYPES.FAKE || 
+                   data.isFakeTraffic === true;
+        }
+        
+        return false;
+    }
+
+    /**
+     * Безопасное выполнение операции с обработкой ошибок
+     * @param {Function} operation - операция для выполнения
+     * @param {string} errorMessage - сообщение об ошибке
+     * @param {any} fallback - значение по умолчанию при ошибке
+     * @returns {any} результат операции или fallback
+     */
+    _withErrorHandling(operation, errorMessage, fallback = null) {
+        try {
+            return operation();
+        } catch (error) {
+            if (window.DEBUG_MODE) {
+                console.error(`❌ ${errorMessage}:`, error);
+            }
+            return fallback;
+        }
+    }
+
+    /**
+     * Асинхронное выполнение операции с обработкой ошибок
+     * @param {Function} operation - асинхронная операция
+     * @param {string} errorMessage - сообщение об ошибке
+     * @param {any} fallback - значение по умолчанию при ошибке
+     * @returns {Promise<any>} результат операции или fallback
+     */
+    async _withAsyncErrorHandling(operation, errorMessage, fallback = null) {
+        try {
+            return await operation();
+        } catch (error) {
+            if (window.DEBUG_MODE) {
+                console.error(`❌ ${errorMessage}:`, error);
+            }
+            return fallback;
+        }
+    }
+
+    /**
+     * Проверяет ограничения скорости
+     * @returns {boolean} true если можно продолжить
+     */
+    _checkRateLimit() {
+        return window.EnhancedSecureCryptoUtils.rateLimiter.checkConnectionRate(this.rateLimiterId);
+    }
+
+    /**
+     * Получает тип сообщения из данных
+     * @param {string|object} data - данные сообщения
+     * @returns {string|null} тип сообщения или null
+     */
+    _getMessageType(data) {
+        if (typeof data === 'string') {
+            try {
+                const parsed = JSON.parse(data);
+                return parsed.type || null;
+            } catch {
+                return null;
+            }
+        }
+        
+        if (typeof data === 'object' && data !== null) {
+            return data.type || null;
+        }
+        
+        return null;
+    }
+
+    /**
+     * Сбрасывает флаги уведомлений для нового соединения
+     */
+    _resetNotificationFlags() {
+        this.lastSecurityLevelNotification = null;
+        this.verificationNotificationSent = false;
+        this.verificationInitiationSent = false;
+        this.disconnectNotificationSent = false;
+        this.reconnectionFailedNotificationSent = false;
+        this.peerDisconnectNotificationSent = false;
+        this.connectionClosedNotificationSent = false;
+        this.fakeTrafficDisabledNotificationSent = false;
+        this.advancedFeaturesDisabledNotificationSent = false;
+        this.securityUpgradeNotificationSent = false;
+        this.lastSecurityUpgradeStage = null;
+        this.securityCalculationNotificationSent = false;
+        this.lastSecurityCalculationLevel = null;
+    }
+
+    /**
+     * Проверяет, было ли сообщение отфильтровано
+     * @param {any} result - результат обработки сообщения
+     * @returns {boolean} true если сообщение было отфильтровано
+     */
+    _isFilteredMessage(result) {
+        const filteredResults = Object.values(EnhancedSecureWebRTCManager.FILTERED_RESULTS);
+        return filteredResults.includes(result);
+    }
+
+    initializeFileTransfer() {
+        try {
+        console.log('🔧 Initializing Enhanced Secure File Transfer system...');
+            
+        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Убедимся что dataChannel готов
+        if (!this._validateConnection(false)) {
+            console.warn('⚠️ Data channel not open, deferring file transfer initialization');
+                
             if (this.dataChannel) {
                 this.dataChannel.addEventListener('open', () => {
                     console.log('🔄 DataChannel opened, initializing file transfer...');
@@ -201,14 +893,14 @@ class EnhancedSecureWebRTCManager {
             }
             return;
         }
-        
+            
         // ИСПРАВЛЕНИЕ: Очищаем предыдущую систему если есть
         if (this.fileTransferSystem) {
             console.log('🧹 Cleaning up existing file transfer system');
             this.fileTransferSystem.cleanup();
             this.fileTransferSystem = null;
         }
-        
+            
         this.fileTransferSystem = new EnhancedSecureFileTransfer(
             this, // WebRTC manager reference
             null, // Progress callback - отключен для чата
@@ -227,17 +919,17 @@ class EnhancedSecureWebRTCManager {
                 }
             }
         );
-        
+            
         window.FILE_TRANSFER_ACTIVE = true;
         window.fileTransferSystem = this.fileTransferSystem;
-        
+            
         console.log('✅ Enhanced Secure File Transfer system initialized successfully');
-        
-        
+            
+            
         // КРИТИЧЕСКОЕ ДОБАВЛЕНИЕ: Проверяем что система готова
         const status = this.fileTransferSystem.getSystemStatus();
         console.log('🔍 File transfer system status after init:', status);
-        
+            
     } catch (error) {
         console.error('❌ Failed to initialize file transfer system:', error);
         this.fileTransferSystem = null;
@@ -309,7 +1001,7 @@ class EnhancedSecureWebRTCManager {
             
             setTimeout(() => {
                 this.calculateAndReportSecurityLevel();
-            }, 1000);
+            }, EnhancedSecureWebRTCManager.TIMEOUTS.SECURITY_CALC_DELAY);
             
         } else {
             console.warn('⚠️ Session manager not available, using default security');
@@ -381,71 +1073,71 @@ class EnhancedSecureWebRTCManager {
         });
     }
     deliverMessageToUI(message, type = 'user') {
-    try {
-        // Фильтруем file transfer и системные сообщения
-        if (typeof message === 'object' && message.type) {
-            const blockedTypes = [
-                'file_transfer_start',
-                'file_transfer_response',
-                'file_chunk',
-                'chunk_confirmation',
-                'file_transfer_complete',
-                'file_transfer_error',
-                'heartbeat',
-                'verification',
-                'verification_response',
-                'peer_disconnect',
-                'key_rotation_signal',
-                'key_rotation_ready',
-                'security_upgrade'
-            ];
-            if (blockedTypes.includes(message.type)) {
-                if (window.DEBUG_MODE) {
-                    console.log(`🛑 Blocked system/file message from UI: ${message.type}`);
-                }
-                return; // не показываем в чате
-            }
-        }
-
-                        // Дополнительная проверка для строковых сообщений, содержащих JSON
-                if (typeof message === 'string' && message.trim().startsWith('{')) {
-                    try {
-                        const parsedMessage = JSON.parse(message);
-                        if (parsedMessage.type) {
-                            const blockedTypes = [
-                                'file_transfer_start',
-                                'file_transfer_response',
-                                'file_chunk',
-                                'chunk_confirmation',
-                                'file_transfer_complete',
-                                'file_transfer_error',
-                                'heartbeat',
-                                'verification',
-                                'verification_response',
-                                'peer_disconnect',
-                                'key_rotation_signal',
-                                'key_rotation_ready',
-                                'security_upgrade'
-                            ];
-                            if (blockedTypes.includes(parsedMessage.type)) {
-                                if (window.DEBUG_MODE) {
-                                    console.log(`🛑 Blocked system/file message from UI (string): ${parsedMessage.type}`);
-                                }
-                                return; // не показываем в чате
-                            }
-                        }
-                    } catch (parseError) {
-                        // Не JSON - это нормально для обычных текстовых сообщений
+        try {
+            // Фильтруем file transfer и системные сообщения
+            if (typeof message === 'object' && message.type) {
+                const blockedTypes = [
+                    EnhancedSecureWebRTCManager.MESSAGE_TYPES.FILE_TRANSFER_START,
+                    EnhancedSecureWebRTCManager.MESSAGE_TYPES.FILE_TRANSFER_RESPONSE,
+                    EnhancedSecureWebRTCManager.MESSAGE_TYPES.FILE_CHUNK,
+                    EnhancedSecureWebRTCManager.MESSAGE_TYPES.CHUNK_CONFIRMATION,
+                    EnhancedSecureWebRTCManager.MESSAGE_TYPES.FILE_TRANSFER_COMPLETE,
+                    EnhancedSecureWebRTCManager.MESSAGE_TYPES.FILE_TRANSFER_ERROR,
+                    EnhancedSecureWebRTCManager.MESSAGE_TYPES.HEARTBEAT,
+                    EnhancedSecureWebRTCManager.MESSAGE_TYPES.VERIFICATION,
+                    EnhancedSecureWebRTCManager.MESSAGE_TYPES.VERIFICATION_RESPONSE,
+                    EnhancedSecureWebRTCManager.MESSAGE_TYPES.PEER_DISCONNECT,
+                    EnhancedSecureWebRTCManager.MESSAGE_TYPES.KEY_ROTATION_SIGNAL,
+                    EnhancedSecureWebRTCManager.MESSAGE_TYPES.KEY_ROTATION_READY,
+                    EnhancedSecureWebRTCManager.MESSAGE_TYPES.SECURITY_UPGRADE
+                ];
+                if (blockedTypes.includes(message.type)) {
+                    if (window.DEBUG_MODE) {
+                        console.log(`🛑 Blocked system/file message from UI: ${message.type}`);
                     }
+                    return; // не показываем в чате
                 }
+            }
 
-        if (this.onMessage) {
-            this.onMessage(message, type);
+            // Дополнительная проверка для строковых сообщений, содержащих JSON
+            if (typeof message === 'string' && message.trim().startsWith('{')) {
+                try {
+                    const parsedMessage = JSON.parse(message);
+                    if (parsedMessage.type) {
+                        const blockedTypes = [
+                            EnhancedSecureWebRTCManager.MESSAGE_TYPES.FILE_TRANSFER_START,
+                            EnhancedSecureWebRTCManager.MESSAGE_TYPES.FILE_TRANSFER_RESPONSE,
+                            EnhancedSecureWebRTCManager.MESSAGE_TYPES.FILE_CHUNK,
+                            EnhancedSecureWebRTCManager.MESSAGE_TYPES.CHUNK_CONFIRMATION,
+                            EnhancedSecureWebRTCManager.MESSAGE_TYPES.FILE_TRANSFER_COMPLETE,
+                            EnhancedSecureWebRTCManager.MESSAGE_TYPES.FILE_TRANSFER_ERROR,
+                            EnhancedSecureWebRTCManager.MESSAGE_TYPES.HEARTBEAT,
+                            EnhancedSecureWebRTCManager.MESSAGE_TYPES.VERIFICATION,
+                            EnhancedSecureWebRTCManager.MESSAGE_TYPES.VERIFICATION_RESPONSE,
+                            EnhancedSecureWebRTCManager.MESSAGE_TYPES.PEER_DISCONNECT,
+                            EnhancedSecureWebRTCManager.MESSAGE_TYPES.KEY_ROTATION_SIGNAL,
+                            EnhancedSecureWebRTCManager.MESSAGE_TYPES.KEY_ROTATION_READY,
+                            EnhancedSecureWebRTCManager.MESSAGE_TYPES.SECURITY_UPGRADE
+                        ];
+                        if (blockedTypes.includes(parsedMessage.type)) {
+                            if (window.DEBUG_MODE) {
+                                console.log(`🛑 Blocked system/file message from UI (string): ${parsedMessage.type}`);
+                            }
+                            return; // не показываем в чате
+                        }
+                    }
+                } catch (parseError) {
+                    // Не JSON - это нормально для обычных текстовых сообщений
+                }
+            }
+
+            if (this.onMessage) {
+                this.onMessage(message, type);
+            }
+        } catch (err) {
+            console.error('❌ Failed to deliver message to UI:', err);
         }
-    } catch (err) {
-        console.error('❌ Failed to deliver message to UI:', err);
     }
-}
 
 
     // Security Level Notification
@@ -513,7 +1205,7 @@ class EnhancedSecureWebRTCManager {
             );
             
             // Generate random IV for nested encryption
-            this.nestedEncryptionIV = crypto.getRandomValues(new Uint8Array(12));
+            this.nestedEncryptionIV = crypto.getRandomValues(new Uint8Array(EnhancedSecureWebRTCManager.SIZES.NESTED_ENCRYPTION_IV_SIZE));
             this.nestedEncryptionCounter = 0;
             
         } catch (error) {
@@ -529,7 +1221,7 @@ class EnhancedSecureWebRTCManager {
 
         try {
             // Create unique IV for each encryption
-            const uniqueIV = new Uint8Array(12);
+            const uniqueIV = new Uint8Array(EnhancedSecureWebRTCManager.SIZES.NESTED_ENCRYPTION_IV_SIZE);
             uniqueIV.set(this.nestedEncryptionIV);
             uniqueIV[11] = (this.nestedEncryptionCounter++) & 0xFF;
             
@@ -541,9 +1233,9 @@ class EnhancedSecureWebRTCManager {
             );
             
             // Combine IV and encrypted data
-            const result = new Uint8Array(12 + encrypted.byteLength);
+            const result = new Uint8Array(EnhancedSecureWebRTCManager.SIZES.NESTED_ENCRYPTION_IV_SIZE + encrypted.byteLength);
             result.set(uniqueIV, 0);
-            result.set(new Uint8Array(encrypted), 12);
+            result.set(new Uint8Array(encrypted), EnhancedSecureWebRTCManager.SIZES.NESTED_ENCRYPTION_IV_SIZE);
             
             return result.buffer;
         } catch (error) {
@@ -557,7 +1249,7 @@ class EnhancedSecureWebRTCManager {
             return data;
         }
 
-            // FIX: Check that the data is actually encrypted
+        // FIX: Check that the data is actually encrypted
         if (!(data instanceof ArrayBuffer) || data.byteLength < 20) {
             if (window.DEBUG_MODE) {
                 console.log('📝 Data not encrypted or too short for nested decryption');
@@ -567,8 +1259,8 @@ class EnhancedSecureWebRTCManager {
 
         try {
             const dataArray = new Uint8Array(data);
-            const iv = dataArray.slice(0, 12);
-            const encryptedData = dataArray.slice(12);
+            const iv = dataArray.slice(0, EnhancedSecureWebRTCManager.SIZES.NESTED_ENCRYPTION_IV_SIZE);
+            const encryptedData = dataArray.slice(EnhancedSecureWebRTCManager.SIZES.NESTED_ENCRYPTION_IV_SIZE);
             
             // Check that there is data to decrypt
             if (encryptedData.length === 0) {
@@ -719,7 +1411,7 @@ class EnhancedSecureWebRTCManager {
                     this.fakeTrafficConfig.minInterval;
                 
                 // Minimum interval 15 seconds for stability
-                const safeInterval = Math.max(nextInterval, 15000);
+                const safeInterval = Math.max(nextInterval, EnhancedSecureWebRTCManager.TIMEOUTS.FAKE_TRAFFIC_MIN_INTERVAL);
                 
                 this.fakeTrafficTimer = setTimeout(sendFakeMessage, safeInterval);
             } catch (error) {
@@ -731,9 +1423,8 @@ class EnhancedSecureWebRTCManager {
         };
 
         // Start fake traffic generation with longer initial delay
-        const initialDelay = Math.random() * this.fakeTrafficConfig.maxInterval + 5000; // Add 5 seconds minimum
+        const initialDelay = Math.random() * this.fakeTrafficConfig.maxInterval + EnhancedSecureWebRTCManager.TIMEOUTS.DECOY_INITIAL_DELAY; // Add 5 seconds minimum
         this.fakeTrafficTimer = setTimeout(sendFakeMessage, initialDelay);
-        
     }
 
     stopFakeTrafficGeneration() {
@@ -744,133 +1435,132 @@ class EnhancedSecureWebRTCManager {
     }
 
     generateFakeMessage() {
-    const pattern = this.fakeTrafficConfig.patterns[
-        Math.floor(Math.random() * this.fakeTrafficConfig.patterns.length)
-    ];
-    
-    const size = Math.floor(Math.random() * 
-        (this.fakeTrafficConfig.maxSize - this.fakeTrafficConfig.minSize + 1)) + 
-        this.fakeTrafficConfig.minSize;
-    
-    const fakeData = crypto.getRandomValues(new Uint8Array(size));
-    
-    return {
-        type: 'fake', 
-        pattern: pattern,
-        data: Array.from(fakeData).map(b => b.toString(16).padStart(2, '0')).join(''),
-        timestamp: Date.now(),
-        size: size,
-        isFakeTraffic: true, 
-        source: 'fake_traffic_generator',
-        fakeId: crypto.getRandomValues(new Uint32Array(1))[0].toString(36) 
-    };
-}
+        const pattern = this.fakeTrafficConfig.patterns[
+            Math.floor(Math.random() * this.fakeTrafficConfig.patterns.length)
+        ];
+        
+        const size = Math.floor(Math.random() * 
+            (this.fakeTrafficConfig.maxSize - this.fakeTrafficConfig.minSize + 1)) + 
+            this.fakeTrafficConfig.minSize;
+        
+        const fakeData = crypto.getRandomValues(new Uint8Array(size));
+        
+        return {
+            type: EnhancedSecureWebRTCManager.MESSAGE_TYPES.FAKE, 
+            pattern: pattern,
+            data: Array.from(fakeData).map(b => b.toString(16).padStart(2, '0')).join(''),
+            timestamp: Date.now(),
+            size: size,
+            isFakeTraffic: true, 
+            source: 'fake_traffic_generator',
+            fakeId: crypto.getRandomValues(new Uint32Array(1))[0].toString(36) 
+        };
+    }
 
-// ============================================
-// EMERGENCY SHUT-OFF OF ADVANCED FUNCTIONS
-// ============================================
+    // ============================================
+    // EMERGENCY SHUT-OFF OF ADVANCED FUNCTIONS
+    // ============================================
 
-emergencyDisableAdvancedFeatures() {
-    console.log('🚨 Emergency disabling advanced security features due to errors');
-    
-    // Disable problematic functions
-    this.securityFeatures.hasNestedEncryption = false;
-    this.securityFeatures.hasPacketReordering = false;
-    this.securityFeatures.hasAntiFingerprinting = false;
-    
-    // Disable configurations
-    this.reorderingConfig.enabled = false;
-    this.antiFingerprintingConfig.enabled = false;
-    
-    // Clear the buffers
-    this.packetBuffer.clear();
-    
-    // Stopping fake traffic
-    this.emergencyDisableFakeTraffic();
-    
-    console.log('✅ Advanced features disabled, keeping basic encryption');
-    
-    // Проверяем, не было ли уже отправлено сообщение о отключении расширенных функций
-    if (!this.advancedFeaturesDisabledNotificationSent) {
-        this.advancedFeaturesDisabledNotificationSent = true;
-        if (this.onMessage) {
-            this.deliverMessageToUI('🚨 Advanced security features temporarily disabled due to compatibility issues', 'system');
+        emergencyDisableAdvancedFeatures() {
+        console.log('🚨 Emergency disabling advanced security features due to errors');
+        
+        // Disable problematic functions
+        this.securityFeatures.hasNestedEncryption = false;
+        this.securityFeatures.hasPacketReordering = false;
+        this.securityFeatures.hasAntiFingerprinting = false;
+        
+        // Disable configurations
+        this.reorderingConfig.enabled = false;
+        this.antiFingerprintingConfig.enabled = false;
+        
+        // Clear the buffers
+        this.packetBuffer.clear();
+        
+        // Stopping fake traffic
+        this.emergencyDisableFakeTraffic();
+        
+        console.log('✅ Advanced features disabled, keeping basic encryption');
+        
+        // Проверяем, не было ли уже отправлено сообщение о отключении расширенных функций
+        if (!this.advancedFeaturesDisabledNotificationSent) {
+            this.advancedFeaturesDisabledNotificationSent = true;
+            if (this.onMessage) {
+                this.deliverMessageToUI('🚨 Advanced security features temporarily disabled due to compatibility issues', 'system');
+            }
         }
     }
-}
 
     async sendFakeMessage(fakeMessage) {
-    if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
-        return;
-    }
+        if (!this._validateConnection(false)) {
+            return;
+        }
 
-    try {
-
-        if (window.DEBUG_MODE) {
-            console.log(`🎭 Sending fake message: ${fakeMessage.pattern} (${fakeMessage.size} bytes)`);
-        }
-        
-        const fakeData = JSON.stringify({
-            ...fakeMessage,
-            type: 'fake', 
-            isFakeTraffic: true, 
-            timestamp: Date.now()
-        });
-        
-        const fakeBuffer = new TextEncoder().encode(fakeData);
-        
-        const encryptedFake = await this.applySecurityLayers(fakeBuffer, true);
-        
-        this.dataChannel.send(encryptedFake);
-        
-        if (window.DEBUG_MODE) {
-            console.log(`🎭 Fake message sent successfully: ${fakeMessage.pattern}`);
-        }
-    } catch (error) {
-        if (window.DEBUG_MODE) {
-            console.error('❌ Failed to send fake message:', error);
+        try {
+            if (window.DEBUG_MODE) {
+                console.log(`🎭 Sending fake message: ${fakeMessage.pattern} (${fakeMessage.size} bytes)`);
+            }
+            
+            const fakeData = JSON.stringify({
+                ...fakeMessage,
+                type: EnhancedSecureWebRTCManager.MESSAGE_TYPES.FAKE, 
+                isFakeTraffic: true, 
+                timestamp: Date.now()
+            });
+            
+            const fakeBuffer = new TextEncoder().encode(fakeData);
+            
+            const encryptedFake = await this.applySecurityLayers(fakeBuffer, true);
+            
+            this.dataChannel.send(encryptedFake);
+            
+            if (window.DEBUG_MODE) {
+                console.log(`🎭 Fake message sent successfully: ${fakeMessage.pattern}`);
+            }
+        } catch (error) {
+            if (window.DEBUG_MODE) {
+                console.error('❌ Failed to send fake message:', error);
+            }
         }
     }
-}
 
 checkFakeTrafficStatus() {
-    const status = {
-        fakeTrafficEnabled: this.securityFeatures.hasFakeTraffic,
-        fakeTrafficConfigEnabled: this.fakeTrafficConfig.enabled,
-        timerActive: !!this.fakeTrafficTimer,
-        patterns: this.fakeTrafficConfig.patterns,
-        intervals: {
-            min: this.fakeTrafficConfig.minInterval,
-            max: this.fakeTrafficConfig.maxInterval
+        const status = {
+            fakeTrafficEnabled: this.securityFeatures.hasFakeTraffic,
+            fakeTrafficConfigEnabled: this.fakeTrafficConfig.enabled,
+            timerActive: !!this.fakeTrafficTimer,
+            patterns: this.fakeTrafficConfig.patterns,
+            intervals: {
+                min: this.fakeTrafficConfig.minInterval,
+                max: this.fakeTrafficConfig.maxInterval
+            }
+        };
+        
+        if (window.DEBUG_MODE) {
+            console.log('🎭 Fake Traffic Status:', status);
         }
-    };
-    
-    if (window.DEBUG_MODE) {
-        console.log('🎭 Fake Traffic Status:', status);
+        return status;
     }
-    return status;
-}
 emergencyDisableFakeTraffic() {
-    if (window.DEBUG_MODE) {
-        console.log('🚨 Emergency disabling fake traffic');
-    }
-    
-    this.securityFeatures.hasFakeTraffic = false;
-    this.fakeTrafficConfig.enabled = false;
-    this.stopFakeTrafficGeneration();
-    
-    if (window.DEBUG_MODE) {
-        console.log('✅ Fake traffic disabled');
-    }
-    
-    // Проверяем, не было ли уже отправлено сообщение о отключении fake traffic
-    if (!this.fakeTrafficDisabledNotificationSent) {
-        this.fakeTrafficDisabledNotificationSent = true;
-        if (this.onMessage) {
-            this.deliverMessageToUI('🚨 Fake traffic emergency disabled', 'system');
+        if (window.DEBUG_MODE) {
+            console.log('🚨 Emergency disabling fake traffic');
+        }
+        
+        this.securityFeatures.hasFakeTraffic = false;
+        this.fakeTrafficConfig.enabled = false;
+        this.stopFakeTrafficGeneration();
+        
+        if (window.DEBUG_MODE) {
+            console.log('✅ Fake traffic disabled');
+        }
+        
+        // Проверяем, не было ли уже отправлено сообщение о отключении fake traffic
+        if (!this.fakeTrafficDisabledNotificationSent) {
+            this.fakeTrafficDisabledNotificationSent = true;
+            if (this.onMessage) {
+                this.deliverMessageToUI('🚨 Fake traffic emergency disabled', 'system');
+            }
         }
     }
-}
     // ============================================
     // 4. MESSAGE CHUNKING
     // ============================================
@@ -2499,19 +3189,19 @@ handleSystemMessage(message) {
     startPeriodicCleanup() {
         setInterval(() => {
             const now = Date.now();
-            if (now - this.lastCleanupTime > 300000) { // Every 5 minutes
+            if (now - this.lastCleanupTime > EnhancedSecureWebRTCManager.TIMEOUTS.CLEANUP_INTERVAL) { // Every 5 minutes
                 window.EnhancedSecureCryptoUtils.rateLimiter.cleanup();
                 this.lastCleanupTime = now;
                 
                 // Clean old processed message IDs (keep only last hour)
-                if (this.processedMessageIds.size > 1000) {
+                if (this.processedMessageIds.size > EnhancedSecureWebRTCManager.LIMITS.MAX_PROCESSED_MESSAGE_IDS) {
                     this.processedMessageIds.clear();
                 }
                 
                 // PFS: Clean old keys that are no longer needed
                 this.cleanupOldKeys();
             }
-        }, 60000); // Check every minute
+        }, EnhancedSecureWebRTCManager.TIMEOUTS.CLEANUP_CHECK_INTERVAL); // Check every minute
     }
 
     // Calculate current security level with real verification
@@ -2575,7 +3265,7 @@ handleSystemMessage(message) {
     // PFS: Clean up old keys that are no longer needed
     cleanupOldKeys() {
         const now = Date.now();
-        const maxKeyAge = 900000; // 15 minutes - keys older than this are deleted
+        const maxKeyAge = EnhancedSecureWebRTCManager.LIMITS.MAX_KEY_AGE; // 15 minutes - keys older than this are deleted
         
         for (const [version, keySet] of this.oldKeys.entries()) {
             if (now - keySet.timestamp > maxKeyAge) {
@@ -2833,22 +3523,10 @@ handleSystemMessage(message) {
     async createSecureOffer() {
         try {
             // Сброс флагов уведомлений для нового соединения
-            this.lastSecurityLevelNotification = null;
-            this.verificationNotificationSent = false;
-            this.verificationInitiationSent = false;
-            this.disconnectNotificationSent = false;
-            this.reconnectionFailedNotificationSent = false;
-            this.peerDisconnectNotificationSent = false;
-            this.connectionClosedNotificationSent = false;
-            this.fakeTrafficDisabledNotificationSent = false;
-            this.advancedFeaturesDisabledNotificationSent = false;
-            this.securityUpgradeNotificationSent = false;
-            this.lastSecurityUpgradeStage = null;
-            this.securityCalculationNotificationSent = false;
-            this.lastSecurityCalculationLevel = null;
+            this._resetNotificationFlags();
             
             // Check rate limiting
-            if (!window.EnhancedSecureCryptoUtils.rateLimiter.checkConnectionRate(this.rateLimiterId)) {
+            if (!this._checkRateLimit()) {
                 throw new Error('Connection rate limit exceeded. Please wait before trying again.');
             }
             
@@ -2870,8 +3548,8 @@ handleSystemMessage(message) {
             );
             
             window.EnhancedSecureCryptoUtils.secureLog.log('info', 'Generated unique key pairs for MITM protection', {
-                ecdhFingerprint: ecdhFingerprint.substring(0, 8),
-                ecdsaFingerprint: ecdsaFingerprint.substring(0, 8),
+                ecdhFingerprint: ecdhFingerprint.substring(0, EnhancedSecureWebRTCManager.SIZES.FINGERPRINT_DISPLAY_LENGTH),
+                ecdsaFingerprint: ecdsaFingerprint.substring(0, EnhancedSecureWebRTCManager.SIZES.FINGERPRINT_DISPLAY_LENGTH),
                 timestamp: Date.now()
             });
             
@@ -2905,7 +3583,7 @@ handleSystemMessage(message) {
             
             this.dataChannel = this.peerConnection.createDataChannel('securechat', {
                 ordered: true,
-                maxRetransmits: 3
+                maxRetransmits: EnhancedSecureWebRTCManager.LIMITS.MAX_CONNECTION_ATTEMPTS
             });
             this.setupDataChannel(this.dataChannel);
 
@@ -2925,7 +3603,7 @@ handleSystemMessage(message) {
             const authChallenge = window.EnhancedSecureCryptoUtils.generateMutualAuthChallenge();
 
             // MITM Protection: Add session-specific data to prevent session hijacking
-            this.sessionId = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+            this.sessionId = Array.from(crypto.getRandomValues(new Uint8Array(EnhancedSecureWebRTCManager.SIZES.SESSION_ID_LENGTH)))
                 .map(b => b.toString(16).padStart(2, '0')).join('');
             
             const offerPackage = {
@@ -2962,8 +3640,6 @@ handleSystemMessage(message) {
                 error: error.message
             });
             this.onStatusChange('disconnected');
-            // Не вызываем cleanupConnection для ошибок создания offer
-            // чтобы не закрывать сессию полностью
             throw error;
         }
     }
@@ -3723,14 +4399,14 @@ handleSystemMessage(message) {
             if (this.isConnected()) {
                 try {
                     this.dataChannel.send(JSON.stringify({ 
-                        type: 'heartbeat', 
+                        type: EnhancedSecureWebRTCManager.MESSAGE_TYPES.HEARTBEAT, 
                         timestamp: Date.now() 
                     }));
                 } catch (error) {
                     console.error('Heartbeat failed:', error);
                 }
             }
-        }, 30000);
+        }, EnhancedSecureWebRTCManager.TIMEOUTS.HEARTBEAT_INTERVAL);
     }
 
     stopHeartbeat() {
@@ -3763,7 +4439,7 @@ handleSystemMessage(message) {
             setTimeout(() => {
                 this.peerConnection.removeEventListener('icegatheringstatechange', checkState);
                 resolve();
-            }, 10000);
+            }, EnhancedSecureWebRTCManager.TIMEOUTS.ICE_GATHERING_TIMEOUT);
         });
     }
 
@@ -3813,12 +4489,6 @@ handleSystemMessage(message) {
                 timestamp: Date.now()
             }
         }));
-        
-        // Не вызываем cleanupConnection автоматически
-        // чтобы не закрывать сессию при ошибках
-        // setTimeout(() => {
-        //     this.cleanupConnection();
-        // }, 500);
     }
     
     handleUnexpectedDisconnect() {
