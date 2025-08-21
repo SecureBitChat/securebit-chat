@@ -89,6 +89,12 @@ class EnhancedSecureWebRTCManager {
         SYSTEM_MESSAGE: 'SYSTEM_MESSAGE_FILTERED'
     };
     constructor(onMessage, onStatusChange, onKeyExchange, onVerificationRequired, onAnswerError = null) {
+    // Определяем режим работы
+    this._isProductionMode = this._detectProductionMode();
+    this._debugMode = !this._isProductionMode && window.DEBUG_MODE;
+
+    // Инициализируем защищенную систему логирования
+        this._initializeSecureLogging();
     // Check the availability of the global object
         this._setupSecureGlobalAPI();
     if (!window.EnhancedSecureCryptoUtils) {
@@ -103,7 +109,7 @@ class EnhancedSecureWebRTCManager {
             // НЕ возвращаем детали проверок или чувствительные данные
         } : null;
     };
-    console.log('🔒 Enhanced WebRTC Manager initialized with secure API');
+    this._secureLog('info', '🔒 Enhanced WebRTC Manager initialized with secure API');
     this.currentSessionType = null;
     this.currentSecurityLevel = 'basic';
     this.sessionConstraints = null;
@@ -281,6 +287,159 @@ class EnhancedSecureWebRTCManager {
     // ============================================
     // HELPER МЕТОДЫ
     // ============================================
+    /**
+     * Инициализирует защищенную систему логирования
+     */
+    _initializeSecureLogging() {
+        // Уровни логирования
+        this._logLevels = {
+            error: 0,
+            warn: 1, 
+            info: 2,
+            debug: 3,
+            trace: 4
+        };
+        
+        // Текущий уровень логирования
+        this._currentLogLevel = this._isProductionMode ? 
+            this._logLevels.warn : // В production только warnings и errors
+            this._logLevels.debug; // В development больше информации
+        
+        // Счетчик логов для предотвращения спама
+        this._logCounts = new Map();
+        this._maxLogCount = 100; // Максимум логов одного типа
+        
+        this._secureLog('info', `🔧 Secure logging initialized (Production: ${this._isProductionMode})`);
+    }
+    /**
+     * Защищенное логирование
+     * @param {string} level - Уровень лога (error, warn, info, debug, trace)
+     * @param {string} message - Сообщение
+     * @param {object} data - Дополнительные данные (будут sanitized)
+     */
+    _secureLog(level, message, data = null) {
+        // Проверяем уровень логирования
+        if (this._logLevels[level] > this._currentLogLevel) {
+            return; // Пропускаем логи ниже текущего уровня
+        }
+        
+        // Предотвращаем спам логов
+        const logKey = `${level}:${message}`;
+        const currentCount = this._logCounts.get(logKey) || 0;
+        
+        if (currentCount >= this._maxLogCount) {
+            return; // Слишком много одинаковых логов
+        }
+        
+        this._logCounts.set(logKey, currentCount + 1);
+        
+        // Sanitize данные для безопасного логирования
+        const sanitizedData = data ? this._sanitizeLogData(data) : null;
+        
+        // Выводим лог в соответствующий метод консоли
+        const logMethod = console[level] || console.log;
+        
+        if (sanitizedData) {
+            logMethod(message, sanitizedData);
+        } else {
+            logMethod(message);
+        }
+    }
+    /**
+     * Sanitize данных для логирования
+     */
+    _sanitizeLogData(data) {
+        if (!data || typeof data !== 'object') {
+            return data;
+        }
+        
+        // Список опасных ключей, которые нужно скрывать
+        const sensitiveKeys = [
+            'encryptionKey', 'macKey', 'metadataKey', 'privateKey', 'publicKey',
+            'verificationCode', 'sessionSalt', 'sessionId', 'keyFingerprint',
+            'password', 'token', 'secret', 'credential', 'auth', 'signature',
+            'data', 'message', 'content', 'buffer', 'chunk', 'payload'
+        ];
+        
+        const sanitized = {};
+        
+        for (const [key, value] of Object.entries(data)) {
+            const lowerKey = key.toLowerCase();
+            
+            // Проверяем на чувствительные ключи
+            if (sensitiveKeys.some(sensitiveKey => lowerKey.includes(sensitiveKey))) {
+                if (typeof value === 'string') {
+                    // Показываем только первые и последние символы
+                    sanitized[key] = value.length > 8 ? 
+                        `${value.substring(0, 4)}...${value.substring(value.length - 4)}` :
+                        '[HIDDEN]';
+                } else if (value instanceof ArrayBuffer || value instanceof Uint8Array) {
+                    sanitized[key] = `[${value.constructor.name}(${value.byteLength || value.length} bytes)]`;
+                } else if (value && typeof value === 'object') {
+                    sanitized[key] = '[OBJECT_HIDDEN]';
+                } else {
+                    sanitized[key] = '[HIDDEN]';
+                }
+            } else if (key === 'timestamp' || key === 'length' || key === 'size' || key === 'count') {
+                // Безопасные числовые значения
+                sanitized[key] = value;
+            } else if (typeof value === 'boolean') {
+                // Булевы значения безопасны
+                sanitized[key] = value;
+            } else if (typeof value === 'string' && value.length < 100) {
+                // Короткие строки (если не содержат чувствительную информацию)
+                if (!this._containsSensitiveContent(value)) {
+                    sanitized[key] = value;
+                } else {
+                    sanitized[key] = '[SANITIZED]';
+                }
+            } else if (typeof value === 'object' && value !== null) {
+                // Рекурсивно sanitize вложенных объектов (с ограничением глубины)
+                sanitized[key] = this._sanitizeLogData(value);
+            } else {
+                sanitized[key] = typeof value;
+            }
+        }
+        
+        return sanitized;
+    }
+    /**
+     * Проверяет содержит ли строка чувствительный контент
+     */
+    _containsSensitiveContent(str) {
+        if (typeof str !== 'string') return false;
+        
+        const sensitivePatterns = [
+            /[a-f0-9]{32,}/i,          // Hex строки (ключи)
+            /[A-Za-z0-9+/=]{20,}/,     // Base64 строки
+            /\b[A-Za-z0-9]{20,}\b/,    // Длинные алфанумерные строки
+            /BEGIN\s+(PRIVATE|PUBLIC)\s+KEY/i, // PEM ключи
+        ];
+        
+        return sensitivePatterns.some(pattern => pattern.test(str));
+    }
+    // ============================================
+    // СИСТЕМА ЗАЩИЩЕННОГО ЛОГИРОВАНИЯ
+    // ============================================
+    
+    /**
+     * Определяет production mode
+     */
+    _detectProductionMode() {
+        // Проверяем различные индикаторы production mode
+        return (
+            // Стандартные переменные окружения
+            (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production') ||
+            // Отсутствие debug флагов
+            (!window.DEBUG_MODE && !window.DEVELOPMENT_MODE) ||
+            // Production домены
+            (window.location.hostname && !window.location.hostname.includes('localhost') && 
+             !window.location.hostname.includes('127.0.0.1') && 
+             !window.location.hostname.includes('.local')) ||
+            // Минификация кода (примерная проверка)
+            (typeof window.webpackHotUpdate === 'undefined' && !window.location.search.includes('debug'))
+        );
+    }
     // ============================================
     // ИСПРАВЛЕННЫЙ БЕЗОПАСНЫЙ ГЛОБАЛЬНЫЙ API
     // ============================================
@@ -648,6 +807,10 @@ class EnhancedSecureWebRTCManager {
         
         // Начинаем мониторинг
         this._startSecurityMonitoring();
+        // Запускаем периодическую очистку логов
+        setInterval(() => {
+            this._cleanupLogs();
+        }, 300000);
         
         console.log('✅ Secure WebRTC Manager initialization completed');
     }
@@ -875,6 +1038,39 @@ class EnhancedSecureWebRTCManager {
     _isFilteredMessage(result) {
         const filteredResults = Object.values(EnhancedSecureWebRTCManager.FILTERED_RESULTS);
         return filteredResults.includes(result);
+    }
+    /**
+     * Очистка логов для предотвращения утечек памяти
+     */
+    _cleanupLogs() {
+        // Очищаем счетчики логов если их слишком много
+        if (this._logCounts.size > 1000) {
+            this._logCounts.clear();
+            this._secureLog('debug', '🧹 Log counts cleared');
+        }
+    }
+    /**
+     * Получение статистики логирования (для диагностики)
+     */
+    _getLoggingStats() {
+        return {
+            isProductionMode: this._isProductionMode,
+            debugMode: this._debugMode,
+            currentLogLevel: this._currentLogLevel,
+            logCountsSize: this._logCounts.size,
+            maxLogCount: this._maxLogCount
+        };
+    }
+    /**
+     * Экстренное отключение логирования
+     */
+    _emergencyDisableLogging() {
+        this._currentLogLevel = -1; // Отключаем все логи
+        this._logCounts.clear();
+        this._secureLog = () => {}; // Пустая функция
+        
+        // Только критическая ошибка в консоль
+        console.error('🚨 Logging disabled due to security concerns');
     }
 
     initializeFileTransfer() {
@@ -1496,9 +1692,10 @@ class EnhancedSecureWebRTCManager {
         }
 
         try {
-            if (window.DEBUG_MODE) {
-                console.log(`🎭 Sending fake message: ${fakeMessage.pattern} (${fakeMessage.size} bytes)`);
-            }
+            this._secureLog('debug', '🎭 Sending fake message', {
+                pattern: fakeMessage.pattern,
+                size: fakeMessage.size
+            });
             
             const fakeData = JSON.stringify({
                 ...fakeMessage,
@@ -1508,18 +1705,16 @@ class EnhancedSecureWebRTCManager {
             });
             
             const fakeBuffer = new TextEncoder().encode(fakeData);
-            
             const encryptedFake = await this.applySecurityLayers(fakeBuffer, true);
-            
             this.dataChannel.send(encryptedFake);
             
-            if (window.DEBUG_MODE) {
-                console.log(`🎭 Fake message sent successfully: ${fakeMessage.pattern}`);
-            }
+            this._secureLog('debug', '🎭 Fake message sent successfully', {
+                pattern: fakeMessage.pattern
+            });
         } catch (error) {
-            if (window.DEBUG_MODE) {
-                console.error('❌ Failed to send fake message:', error);
-            }
+            this._secureLog('error', '❌ Failed to send fake message', {
+                error: error.message
+            });
         }
     }
 
@@ -2489,7 +2684,7 @@ async processOrderedPackets() {
         }
 
         try {
-            console.log('📤 sendMessage called:', {
+            this._secureLog('debug', '📤 sendMessage called', {
                 hasDataChannel: !!this.dataChannel,
                 dataChannelState: this.dataChannel?.readyState,
                 isInitiator: this.isInitiator,
@@ -2497,13 +2692,11 @@ async processOrderedPackets() {
                 connectionState: this.peerConnection?.connectionState
             });
 
-            console.log('🔍 sendMessage DEBUG:', {
+            this._secureLog('debug', '🔍 sendMessage DEBUG', {
                 dataType: typeof data,
                 isString: typeof data === 'string',
                 isArrayBuffer: data instanceof ArrayBuffer,
                 dataLength: data?.length || data?.byteLength || 0,
-                dataConstructor: data?.constructor?.name,
-                dataSample: typeof data === 'string' ? data.substring(0, 50) : 'not string'
             });
 
             // ИСПРАВЛЕНИЕ: Проверяем, не является ли это файловым сообщением
@@ -2513,7 +2706,7 @@ async processOrderedPackets() {
                     
                     // Файловые сообщения отправляем напрямую без дополнительного шифрования
                     if (parsed.type && parsed.type.startsWith('file_')) {
-                        console.log('📁 Sending file message directly:', parsed.type);
+                        this._secureLog('debug', '📁 Sending file message directly', { type: parsed.type });
                         this.dataChannel.send(data);
                         return true;
                     }
@@ -2530,16 +2723,18 @@ async processOrderedPackets() {
                     timestamp: Date.now()
                 };
                 
-                console.log('📤 Sending regular message:', message.data.substring(0, 100));
+                this._secureLog('debug', '📤 Sending regular message', {
+                    messageLength: message.data.length,
+                    hasContent: message.data.length > 0
+                });
                 
                 const messageString = JSON.stringify(message);
-                console.log('📤 ACTUALLY SENDING:', {
-                    messageString: messageString.substring(0, 100),
+
+                this._secureLog('debug', '📤 Message prepared for sending', {
                     messageLength: messageString.length,
                     dataChannelState: this.dataChannel.readyState,
                     isInitiator: this.isInitiator,
-                    isVerified: this.isVerified,
-                    connectionState: this.peerConnection?.connectionState
+                    isVerified: this.isVerified
                 });
                 
                 this.dataChannel.send(messageString);
@@ -2547,13 +2742,16 @@ async processOrderedPackets() {
             }
 
             // Для бинарных данных применяем security layers
-            console.log('🔐 Applying security layers to non-string data');
+            this._secureLog('debug', '🔐 Applying security layers to non-string data');
             const securedData = await this.applySecurityLayers(data, false);
             this.dataChannel.send(securedData);
             
             return true;
         } catch (error) {
-            console.error('❌ Failed to send message:', error);
+            this._secureLog('error', '❌ Failed to send message', { 
+                error: error.message,
+                errorType: error.constructor.name
+            });
             throw error;
         }
     }
@@ -2759,14 +2957,12 @@ async processOrderedPackets() {
 
 notifySecurityUpdate() {
     try {
-        if (window.DEBUG_MODE) {
-            console.log('🔒 Notifying about security level update...', {
+        this._secureLog('debug', '🔒 Notifying about security level update', {
                 isConnected: this.isConnected(),
                 isVerified: this.isVerified,
                 hasKeys: !!(this.encryptionKey && this.macKey && this.metadataKey),
                 hasLastCalculation: !!this.lastSecurityCalculation
             });
-        }
         
         // Send an event about security level update
         document.dispatchEvent(new CustomEvent('security-level-updated', {
@@ -2800,7 +2996,9 @@ notifySecurityUpdate() {
         }
         
     } catch (error) {
-        console.error('❌ Error in notifySecurityUpdate:', error);
+        this._secureLog('error', '❌ Error in notifySecurityUpdate', {
+                error: error.message
+            });
     }
 }
 
@@ -2995,42 +3193,34 @@ handleSystemMessage(message) {
         async calculateAndReportSecurityLevel() {
             try {
                 if (!window.EnhancedSecureCryptoUtils) {
-                    console.warn('⚠️ EnhancedSecureCryptoUtils not available for security calculation');
+                    this._secureLog('warn', '⚠️ EnhancedSecureCryptoUtils not available for security calculation');
                     return null;
                 }
 
                 if (!this.isConnected() || !this.isVerified || !this.encryptionKey || !this.macKey) {
-                    if (window.DEBUG_MODE) {
-                        console.log('⚠️ WebRTC not ready for security calculation:', {
-                            connected: this.isConnected(),
-                            verified: this.isVerified,
-                            hasEncryptionKey: !!this.encryptionKey,
-                            hasMacKey: !!this.macKey
-                        });
-                    }
+                    this._secureLog('debug', '⚠️ WebRTC not ready for security calculation', {
+                        connected: this.isConnected(),
+                        verified: this.isVerified,
+                        hasEncryptionKey: !!this.encryptionKey,
+                        hasMacKey: !!this.macKey
+                    });
                     return null;
                 }
 
-                if (window.DEBUG_MODE) {
-                    console.log('🔍 Calculating real security level...', {
-                        managerState: 'ready',
-                        encryptionKey: !!this.encryptionKey,
-                        macKey: !!this.macKey,
-                        metadataKey: !!this.metadataKey
-                    });
-                }
+                this._secureLog('debug', '🔍 Calculating real security level', {
+                    managerState: 'ready',
+                    hasAllKeys: !!(this.encryptionKey && this.macKey && this.metadataKey)
+                });
                 
                 const securityData = await window.EnhancedSecureCryptoUtils.calculateSecurityLevel(this);
                 
-                if (window.DEBUG_MODE) {
-                    console.log('🔐 Real security level calculated:', {
-                        level: securityData.level,
-                        score: securityData.score,
-                        passedChecks: securityData.passedChecks,
-                        totalChecks: securityData.totalChecks,
-                        isRealData: securityData.isRealData
-                    });
-                }
+                this._secureLog('info', '🔐 Real security level calculated', {
+                    level: securityData.level,
+                    score: securityData.score,
+                    passedChecks: securityData.passedChecks,
+                    totalChecks: securityData.totalChecks,
+                    isRealData: securityData.isRealData
+                });
 
                 this.lastSecurityCalculation = securityData;
 
@@ -3044,7 +3234,6 @@ handleSystemMessage(message) {
                 }));
 
                 if (securityData.isRealData && this.onMessage) {
-                    // Проверяем, не было ли уже отправлено сообщение о расчете безопасности
                     if (!this.securityCalculationNotificationSent || this.lastSecurityCalculationLevel !== securityData.level) {
                         this.securityCalculationNotificationSent = true;
                         this.lastSecurityCalculationLevel = securityData.level;
@@ -3057,7 +3246,10 @@ handleSystemMessage(message) {
                 return securityData;
                 
             } catch (error) {
-                console.error('❌ Failed to calculate real security level:', error);
+                this._secureLog('error', '❌ Failed to calculate real security level', {
+                    error: error.message,
+                    errorType: error.constructor.name
+                });
                 return null;
             }
         }
