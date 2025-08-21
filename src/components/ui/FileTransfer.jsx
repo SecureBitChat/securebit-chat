@@ -221,11 +221,11 @@ const FileTransferComponent = ({ webrtcManager, isConnected }) => {
                 React.createElement('p', {
                     key: 'text',
                     className: "text-primary font-medium"
-                }, 'Перетащите файлы сюда или нажмите для выбора'),
+                }, 'Drag files here or click to select'),
                 React.createElement('p', {
                     key: 'subtext',
                     className: "text-muted text-sm"
-                }, 'Максимальный размер: 100 МБ на файл')
+                }, 'Maximum size: 100 MB per file')
             ])
         ]),
 
@@ -351,7 +351,6 @@ const FileTransferComponent = ({ webrtcManager, isConnected }) => {
                             }, formatFileSize(transfer.fileSize))
                         ]),
                         React.createElement('div', { key: 'actions', className: 'flex items-center space-x-2' }, [
-                            // Кнопка скачать, если файл уже готов (есть в readyFiles)
                             (() => {
                                 const rf = readyFiles.find(f => f.fileId === transfer.fileId);
                                 if (!rf || transfer.status !== 'completed') return null;
@@ -367,12 +366,12 @@ const FileTransferComponent = ({ webrtcManager, isConnected }) => {
                                             a.click();
                                             rf.revokeObjectURL(url);
                                         } catch (e) {
-                                            alert('Не удалось начать скачивание: ' + e.message);
+                                            alert('Failed to start download: ' + e.message);
                                         }
                                     }
                                 }, [
                                     React.createElement('i', { key: 'i', className: 'fas fa-download mr-1' }),
-                                    'Скачать'
+                                    'Download'
                                 ]);
                             })(),
                             React.createElement('button', {
