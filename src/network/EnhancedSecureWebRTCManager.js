@@ -115,10 +115,8 @@ class EnhancedSecureWebRTCManager {
     this.sessionConstraints = null;
     this.peerConnection = null;
     this.dataChannel = null;
-    this.encryptionKey = null;
-    this.macKey = null;
-    this.metadataKey = null;
-    this.keyFingerprint = null;
+
+
     this.onMessage = onMessage;
     this.onStatusChange = onStatusChange;
     this.onKeyExchange = onKeyExchange;
@@ -150,6 +148,8 @@ class EnhancedSecureWebRTCManager {
     
     // Reset notification flags for new connection
     this._resetNotificationFlags();
+    
+    
 
     this.verificationInitiationSent = false;
     this.disconnectNotificationSent = false;
@@ -283,6 +283,133 @@ class EnhancedSecureWebRTCManager {
                 
             this.initializeEnhancedSecurity(); 
         }
+    // ============================================
+    // SECURE KEY STORAGE MANAGEMENT
+    // ============================================
+
+    /**
+     * Ініціалізує безпечне сховище ключів
+     */
+    _initializeSecureKeyStorage() {
+        this._secureKeyStorage = new Map();
+        this._keyStorageStats = {
+            totalKeys: 0,
+            activeKeys: 0,
+            lastAccess: null,
+            lastRotation: null,
+        };
+        this._secureLog('info', '🔐 Secure key storage initialized');
+    }
+
+    /**
+     * Отримує ключ зі сховища
+     * @param {string} keyId - Ідентифікатор ключа
+     * @returns {CryptoKey|null} Ключ або null, якщо не знайдено
+     */
+    _getSecureKey(keyId) {
+        if (!this._secureKeyStorage.has(keyId)) {
+            this._secureLog('warn', `⚠️ Key ${keyId} not found in secure storage`);
+            return null;
+        }
+        this._keyStorageStats.lastAccess = Date.now();
+        return this._secureKeyStorage.get(keyId);
+    }
+
+    /**
+     * Зберігає ключ у сховищі
+     * @param {string} keyId - Ідентифікатор ключа
+     * @param {CryptoKey} key - Ключ для збереження
+     */
+    _setSecureKey(keyId, key) {
+        if (!(key instanceof CryptoKey)) {
+            this._secureLog('error', '❌ Attempt to store non-CryptoKey in secure storage');
+            return;
+        }
+        this._secureKeyStorage.set(keyId, key);
+        this._keyStorageStats.totalKeys++;
+        this._keyStorageStats.activeKeys++;
+        this._keyStorageStats.lastAccess = Date.now();
+        this._secureLog('info', `🔑 Key ${keyId} stored securely`);
+    }
+
+    /**
+     * Перевіряє коректність значення ключа
+     * @param {CryptoKey} key - Ключ для перевірки
+     * @returns {boolean} true, якщо ключ коректний
+     */
+    _validateKeyValue(key) {
+        return key instanceof CryptoKey &&
+            key.algorithm &&
+            key.usages &&
+            key.usages.length > 0;
+    }
+
+    /**
+     * Безпечно видаляє всі ключі зі сховища
+     */
+    _secureWipeKeys() {
+        this._secureKeyStorage.clear();
+        this._keyStorageStats = {
+            totalKeys: 0,
+            activeKeys: 0,
+            lastAccess: null,
+            lastRotation: null,
+        };
+        this._secureLog('info', '🧹 All keys securely wiped from storage');
+    }
+
+    /**
+     * Перевіряє стан сховища ключів
+     * @returns {boolean} true, якщо сховище готове до роботи
+     */
+    _validateKeyStorage() {
+        return this._secureKeyStorage instanceof Map;
+    }
+
+    /**
+     * Отримує статистику використання сховища ключів
+     * @returns {object} Статистика сховища
+     */
+    _getKeyStorageStats() {
+        return {
+            ...this._keyStorageStats,
+            storageType: this._secureKeyStorage.constructor.name,
+        };
+    }
+
+    /**
+     * Виконує ротацію ключів у сховищі
+     */
+    _rotateKeys() {
+        const oldKeys = Array.from(this._secureKeyStorage.keys());
+        this._secureKeyStorage.clear();
+        this._keyStorageStats.lastRotation = Date.now();
+        this._keyStorageStats.activeKeys = 0;
+        this._secureLog('info', `🔄 Key rotation completed. ${oldKeys.length} keys rotated`);
+    }
+
+    /**
+     * Екстрене видалення ключів (наприклад, при виявленні загрози)
+     */
+    _emergencyKeyWipe() {
+        this._secureWipeKeys();
+        this._secureLog('error', '🚨 EMERGENCY: All keys wiped due to security threat');
+    }
+
+    /**
+     * Запускає моніторинг безпеки ключів
+     */
+    _startKeySecurityMonitoring() {
+        setInterval(() => {
+            if (this._keyStorageStats.activeKeys > 10) {
+                this._secureLog('warn', '⚠️ High number of active keys detected. Consider rotation.');
+            }
+            if (Date.now() - (this._keyStorageStats.lastRotation || 0) > 3600000) {
+                this._rotateKeys();
+            }
+        }, 300000); // Перевірка кожні 5 хвилин
+    }
+
 
     // ============================================
     // HELPER МЕТОДЫ
@@ -799,6 +926,7 @@ class EnhancedSecureWebRTCManager {
         }
     }
     _finalizeSecureInitialization() {
+        this._startKeySecurityMonitoring();
         // Проверяем целостность API
         if (!this._verifyAPIIntegrity()) {
             console.error('🚨 Security initialization failed');
@@ -3529,7 +3657,7 @@ handleSystemMessage(message) {
                 // If this is an intentional disconnect, clear immediately.
                 if (this.intentionalDisconnect) {
                     this.onStatusChange('disconnected');
-                    setTimeout(() => this.cleanupConnection(), 100);
+                    setTimeout(() => this.disconnect(), 100);
                 } else {
                     // Unexpected disconnection — не пытаемся переподключиться автоматически
                     this.onStatusChange('disconnected');
@@ -4757,7 +4885,7 @@ handleSystemMessage(message) {
         }
         // Не вызываем cleanupConnection автоматически
         // чтобы не закрывать сессию при ошибках
-        // this.cleanupConnection();
+        // this.disconnect();
     }
     
     handlePeerDisconnectNotification(data) {
@@ -4787,7 +4915,7 @@ handleSystemMessage(message) {
         }));
 
         setTimeout(() => {
-            this.cleanupConnection();
+            this.disconnect();
         }, 2000);
         
         window.EnhancedSecureCryptoUtils.secureLog.log('info', 'Peer disconnect notification processed', {
@@ -4795,20 +4923,15 @@ handleSystemMessage(message) {
         });
     }
     
-    cleanupConnection() {
+    disconnect() {
         this.stopHeartbeat();
         this.isVerified = false;
         this.processedMessageIds.clear();
         this.messageCounter = 0;
-
+        this._initializeSecureKeyStorage();
         this.encryptionKey = null;
         this.macKey = null;
         this.metadataKey = null;
-        this.keyFingerprint = null;
-        this.sessionSalt = null;
-        this.sessionId = null;
-        this.peerPublicKey = null;
-        this.verificationCode = null;
         
         // PFS: Clearing all key versions
         this.keyVersions.clear();
@@ -4851,9 +4974,6 @@ handleSystemMessage(message) {
         // Clearing message queue
         this.messageQueue = [];
         
-        // Не очищаем логи безопасности автоматически
-        // чтобы сохранить информацию об ошибках
-        // window.EnhancedSecureCryptoUtils.secureLog.clearLogs();
         
         document.dispatchEvent(new CustomEvent('connection-cleaned', {
             detail: { 
