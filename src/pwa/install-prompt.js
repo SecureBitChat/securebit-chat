@@ -7,7 +7,6 @@ class PWAInstallPrompt {
         this.dismissedCount = 0;
         this.maxDismissals = 3;
         this.installationChecked = false;
-        this.delayedPromptTimeout = null;
         
         this.init();
     }
@@ -24,9 +23,6 @@ class PWAInstallPrompt {
         if (this.isIOSSafari()) {
             this.startInstallationMonitoring();
         }
-        
-        // Автоматический показ модального окна через 10 секунд для новых пользователей
-        this.scheduleDelayedPrompt();
         
         console.log('✅ PWA Install Prompt initialized');
     }
@@ -97,30 +93,6 @@ class PWAInstallPrompt {
                 setTimeout(checkStandalone, 1000);
             }
         });
-    }
-
-    scheduleDelayedPrompt() {
-        // Автоматический показ модального окна через 10 секунд для новых пользователей
-        this.delayedPromptTimeout = setTimeout(() => {
-            console.log('⏰ Checking if delayed install prompt should be shown...');
-            
-            // Проверяем, нужно ли показывать промпт
-            if (!this.isInstalled && this.shouldShowPrompt()) {
-                console.log('💿 Showing delayed install modal after 10 seconds');
-                
-                // Для iOS Safari показываем модальное окно с инструкциями
-                if (this.isIOSSafari()) {
-                    this.showIOSInstallInstructions();
-                } else {
-                    // Для других устройств показываем fallback инструкции
-                    this.showFallbackInstructions();
-                }
-            } else {
-                console.log('💿 Delayed install prompt not shown - app is installed or dismissed');
-            }
-        }, 10000); // 10 секунд
-        
-        console.log('⏰ Delayed install prompt scheduled for 10 seconds');
     }
 
     setupEventListeners() {
@@ -251,21 +223,11 @@ class PWAInstallPrompt {
             return;
         }
         
-        // Отменяем отложенный промпт, так как показываем промпт сейчас
-        if (this.delayedPromptTimeout) {
-            clearTimeout(this.delayedPromptTimeout);
-            this.delayedPromptTimeout = null;
-            console.log('⏰ Delayed install prompt cancelled - showing prompt now');
-        }
-        
-        // Для мобильных устройств показываем модальные окна, а не кнопки
         if (this.isIOSSafari()) {
-            this.showIOSInstallInstructions();
+            this.showInstallButton();
         } else if (this.isMobileDevice()) {
-            // Для мобильных показываем fallback инструкции вместо баннера
-            this.showFallbackInstructions();
+            this.showInstallBanner();
         } else {
-            // Для десктопа показываем кнопку
             this.showInstallButton();
         }
     }
@@ -322,13 +284,6 @@ class PWAInstallPrompt {
 
     hideInstallPrompts() {
         console.log('💿 Hiding all install prompts');
-        
-        // Отменяем отложенный промпт
-        if (this.delayedPromptTimeout) {
-            clearTimeout(this.delayedPromptTimeout);
-            this.delayedPromptTimeout = null;
-            console.log('⏰ Delayed install prompt cancelled');
-        }
         
         if (this.installButton) {
             this.installButton.classList.add('hidden');
@@ -634,13 +589,19 @@ class PWAInstallPrompt {
                     <div class="text-sm opacity-90 mb-3">
                         You can still install SecureBit.chat from your browser's menu for the best experience.
                     </div>
-                    <button onclick="this.parentElement.parentElement.remove()" 
-                            class="text-sm bg-white/20 hover:bg-white/30 px-3 py-1 rounded transition-colors">
+                    <button class="ok-btn text-sm bg-white/20 hover:bg-white/30 px-3 py-1 rounded transition-colors">
                         OK
                     </button>
                 </div>
             </div>
         `;
+        
+        // Добавляем обработчик события для кнопки OK
+        const okBtn = notification.querySelector('.ok-btn');
+        okBtn.addEventListener('click', () => {
+            notification.remove();
+            console.log('✅ Final dismissal message acknowledged');
+        });
         
         document.body.appendChild(notification);
         
