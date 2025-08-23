@@ -7,6 +7,7 @@ class PWAInstallPrompt {
         this.dismissedCount = 0;
         this.maxDismissals = 3;
         this.installationChecked = false;
+        this.delayedPromptTimeout = null;
         
         this.init();
     }
@@ -23,6 +24,9 @@ class PWAInstallPrompt {
         if (this.isIOSSafari()) {
             this.startInstallationMonitoring();
         }
+        
+        // Автоматический показ через 10 секунд для новых пользователей
+        this.scheduleDelayedPrompt();
         
         console.log('✅ PWA Install Prompt initialized');
     }
@@ -93,6 +97,23 @@ class PWAInstallPrompt {
                 setTimeout(checkStandalone, 1000);
             }
         });
+    }
+
+    scheduleDelayedPrompt() {
+        // Автоматический показ промпта через 10 секунд для новых пользователей
+        this.delayedPromptTimeout = setTimeout(() => {
+            console.log('⏰ Checking if delayed install prompt should be shown...');
+            
+            // Проверяем, нужно ли показывать промпт
+            if (!this.isInstalled && this.shouldShowPrompt()) {
+                console.log('💿 Showing delayed install prompt after 10 seconds');
+                this.showInstallOptions();
+            } else {
+                console.log('💿 Delayed install prompt not shown - app is installed or dismissed');
+            }
+        }, 10000); // 10 секунд
+        
+        console.log('⏰ Delayed install prompt scheduled for 10 seconds');
     }
 
     setupEventListeners() {
@@ -223,6 +244,13 @@ class PWAInstallPrompt {
             return;
         }
         
+        // Отменяем отложенный промпт, так как показываем промпт сейчас
+        if (this.delayedPromptTimeout) {
+            clearTimeout(this.delayedPromptTimeout);
+            this.delayedPromptTimeout = null;
+            console.log('⏰ Delayed install prompt cancelled - showing prompt now');
+        }
+        
         if (this.isIOSSafari()) {
             this.showInstallButton();
         } else if (this.isMobileDevice()) {
@@ -284,6 +312,13 @@ class PWAInstallPrompt {
 
     hideInstallPrompts() {
         console.log('💿 Hiding all install prompts');
+        
+        // Отменяем отложенный промпт
+        if (this.delayedPromptTimeout) {
+            clearTimeout(this.delayedPromptTimeout);
+            this.delayedPromptTimeout = null;
+            console.log('⏰ Delayed install prompt cancelled');
+        }
         
         if (this.installButton) {
             this.installButton.classList.add('hidden');
@@ -648,6 +683,24 @@ class PWAInstallPrompt {
         this.dismissedCount = 0;
         this.saveInstallPreference('dismissed', 0);
         console.log('💿 Install dismissals reset');
+    }
+    
+    // Метод для отмены отложенного промпта
+    cancelDelayedPrompt() {
+        if (this.delayedPromptTimeout) {
+            clearTimeout(this.delayedPromptTimeout);
+            this.delayedPromptTimeout = null;
+            console.log('⏰ Delayed install prompt manually cancelled');
+            return true;
+        }
+        return false;
+    }
+    
+    // Метод для перезапуска отложенного промпта
+    rescheduleDelayedPrompt() {
+        this.cancelDelayedPrompt();
+        this.scheduleDelayedPrompt();
+        console.log('⏰ Delayed install prompt rescheduled');
     }
 
     // Method for setting service worker registration

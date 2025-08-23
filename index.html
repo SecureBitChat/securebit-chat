@@ -4206,6 +4206,21 @@ window.PWAUtils = {
             window.pwaInstallPrompt.checkInstallationStatus();
             console.log('🔄 PWA Installation status reset');
         }
+    },
+    
+    // Метод для отмены отложенного промпта
+    cancelDelayedPrompt: () => {
+        if (window.pwaInstallPrompt) {
+            return window.pwaInstallPrompt.cancelDelayedPrompt();
+        }
+        return false;
+    },
+    
+    // Метод для перезапуска отложенного промпта
+    rescheduleDelayedPrompt: () => {
+        if (window.pwaInstallPrompt) {
+            window.pwaInstallPrompt.rescheduleDelayedPrompt();
+        }
     }
 };
 
