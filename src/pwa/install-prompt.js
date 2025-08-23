@@ -25,7 +25,7 @@ class PWAInstallPrompt {
             this.startInstallationMonitoring();
         }
         
-        // Автоматический показ через 10 секунд для новых пользователей
+        // Автоматический показ модального окна через 10 секунд для новых пользователей
         this.scheduleDelayedPrompt();
         
         console.log('✅ PWA Install Prompt initialized');
@@ -100,14 +100,21 @@ class PWAInstallPrompt {
     }
 
     scheduleDelayedPrompt() {
-        // Автоматический показ промпта через 10 секунд для новых пользователей
+        // Автоматический показ модального окна через 10 секунд для новых пользователей
         this.delayedPromptTimeout = setTimeout(() => {
             console.log('⏰ Checking if delayed install prompt should be shown...');
             
             // Проверяем, нужно ли показывать промпт
             if (!this.isInstalled && this.shouldShowPrompt()) {
-                console.log('💿 Showing delayed install prompt after 10 seconds');
-                this.showInstallOptions();
+                console.log('💿 Showing delayed install modal after 10 seconds');
+                
+                // Для iOS Safari показываем модальное окно с инструкциями
+                if (this.isIOSSafari()) {
+                    this.showIOSInstallInstructions();
+                } else {
+                    // Для других устройств показываем fallback инструкции
+                    this.showFallbackInstructions();
+                }
             } else {
                 console.log('💿 Delayed install prompt not shown - app is installed or dismissed');
             }
@@ -251,11 +258,14 @@ class PWAInstallPrompt {
             console.log('⏰ Delayed install prompt cancelled - showing prompt now');
         }
         
+        // Для мобильных устройств показываем модальные окна, а не кнопки
         if (this.isIOSSafari()) {
-            this.showInstallButton();
+            this.showIOSInstallInstructions();
         } else if (this.isMobileDevice()) {
-            this.showInstallBanner();
+            // Для мобильных показываем fallback инструкции вместо баннера
+            this.showFallbackInstructions();
         } else {
+            // Для десктопа показываем кнопку
             this.showInstallButton();
         }
     }
@@ -417,17 +427,34 @@ class PWAInstallPrompt {
                 </div>
                 
                 <div class="flex space-x-3">
-                    <button onclick="this.parentElement.parentElement.remove(); localStorage.setItem('ios_install_shown', Date.now());" 
-                            class="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-3 px-4 rounded-lg font-medium transition-colors">
+                    <button class="got-it-btn flex-1 bg-blue-500 hover:bg-blue-600 text-white py-3 px-4 rounded-lg font-medium transition-colors">
                         Got it
                     </button>
-                    <button onclick="this.parentElement.parentElement.remove(); localStorage.setItem('ios_install_dismissed', Date.now());" 
-                            class="flex-1 bg-gray-600 hover:bg-gray-500 text-white py-3 px-4 rounded-lg font-medium transition-colors">
+                    <button class="later-btn flex-1 bg-gray-600 hover:bg-gray-500 text-white py-3 px-4 rounded-lg font-medium transition-colors">
                         Later
                     </button>
                 </div>
             </div>
         `;
+        
+        // Добавляем обработчики событий для кнопок
+        const gotItBtn = modal.querySelector('.got-it-btn');
+        const laterBtn = modal.querySelector('.later-btn');
+        
+        gotItBtn.addEventListener('click', () => {
+            modal.remove();
+            localStorage.setItem('ios_install_shown', Date.now());
+            this.saveInstallPreference('ios_instructions_shown', Date.now());
+            console.log('✅ iOS install instructions acknowledged');
+        });
+        
+        laterBtn.addEventListener('click', () => {
+            modal.remove();
+            localStorage.setItem('ios_install_dismissed', Date.now());
+            this.dismissedCount++;
+            this.saveInstallPreference('dismissed', this.dismissedCount);
+            console.log('❌ iOS install instructions dismissed');
+        });
         
         document.body.appendChild(modal);
         
@@ -463,12 +490,18 @@ class PWAInstallPrompt {
                     </div>
                 </div>
                 
-                <button onclick="this.parentElement.parentElement.remove()" 
-                        class="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 px-4 rounded-lg font-medium transition-colors mt-6">
+                <button class="close-btn w-full bg-orange-500 hover:bg-orange-600 text-white py-3 px-4 rounded-lg font-medium transition-colors mt-6">
                     Close
                 </button>
             </div>
         `;
+        
+        // Добавляем обработчик события для кнопки Close
+        const closeBtn = modal.querySelector('.close-btn');
+        closeBtn.addEventListener('click', () => {
+            modal.remove();
+            console.log('📱 Fallback install instructions closed');
+        });
         
         document.body.appendChild(modal);
     }
@@ -683,24 +716,6 @@ class PWAInstallPrompt {
         this.dismissedCount = 0;
         this.saveInstallPreference('dismissed', 0);
         console.log('💿 Install dismissals reset');
-    }
-    
-    // Метод для отмены отложенного промпта
-    cancelDelayedPrompt() {
-        if (this.delayedPromptTimeout) {
-            clearTimeout(this.delayedPromptTimeout);
-            this.delayedPromptTimeout = null;
-            console.log('⏰ Delayed install prompt manually cancelled');
-            return true;
-        }
-        return false;
-    }
-    
-    // Метод для перезапуска отложенного промпта
-    rescheduleDelayedPrompt() {
-        this.cancelDelayedPrompt();
-        this.scheduleDelayedPrompt();
-        console.log('⏰ Delayed install prompt rescheduled');
     }
 
     // Method for setting service worker registration

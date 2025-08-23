@@ -4208,19 +4208,26 @@ window.PWAUtils = {
         }
     },
     
-    // Метод для отмены отложенного промпта
-    cancelDelayedPrompt: () => {
-        if (window.pwaInstallPrompt) {
-            return window.pwaInstallPrompt.cancelDelayedPrompt();
-        }
-        return false;
-    },
-    
     // Метод для перезапуска отложенного промпта
     rescheduleDelayedPrompt: () => {
-        if (window.pwaInstallPrompt) {
-            window.pwaInstallPrompt.rescheduleDelayedPrompt();
+        if (window.pwaInstallPrompt && window.pwaInstallPrompt.scheduleDelayedPrompt) {
+            // Отменяем существующий таймер и запускаем новый
+            if (window.pwaInstallPrompt.delayedPromptTimeout) {
+                clearTimeout(window.pwaInstallPrompt.delayedPromptTimeout);
+            }
+            window.pwaInstallPrompt.scheduleDelayedPrompt();
         }
+    },
+    
+    // Метод для отмены отложенного промпта
+    cancelDelayedPrompt: () => {
+        if (window.pwaInstallPrompt && window.pwaInstallPrompt.delayedPromptTimeout) {
+            clearTimeout(window.pwaInstallPrompt.delayedPromptTimeout);
+            window.pwaInstallPrompt.delayedPromptTimeout = null;
+            console.log('⏰ Delayed install prompt cancelled via PWAUtils');
+            return true;
+        }
+        return false;
     }
 };
 
