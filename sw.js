@@ -1,5 +1,5 @@
 // SecureBit.chat Service Worker
-// Enhanced Security Edition v4.01.412
+// Enhanced Security Edition v4.01.413
 
 const CACHE_NAME = 'securebit-v4.0.3';
 const STATIC_CACHE = 'securebit-static-v4.0.3';
@@ -96,31 +96,40 @@ self.addEventListener('install', (event) => {
     );
 });
 
-// Activate event - clean up old caches
+// Activate event - clean up old caches and notify about updates
 self.addEventListener('activate', (event) => {
     console.log('🚀 Service Worker activating...');
     
     event.waitUntil(
-        caches.keys()
-            .then((cacheNames) => {
-                return Promise.all(
-                    cacheNames.map((cacheName) => {
-                        if (cacheName !== STATIC_CACHE && 
-                            cacheName !== DYNAMIC_CACHE && 
-                            cacheName !== CACHE_NAME) {
-                            console.log('🗑️ Deleting old cache:', cacheName);
-                            return caches.delete(cacheName);
-                        }
-                    })
-                );
-            })
-            .then(() => {
-                console.log('✅ Service Worker activated');
-                // Claim all clients immediately
-                return self.clients.claim();
-            })
+        caches.keys().then(cacheNames => {
+            return Promise.all(
+                cacheNames.map(cacheName => {
+                    // Remove old caches
+                    if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE && cacheName !== CACHE_NAME) {
+                        console.log(`🗑️ Removing old cache: ${cacheName}`);
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        }).then(() => {
+            console.log('✅ Service Worker activated and old caches cleaned');
+            
+            // Notify all clients about the update
+            return self.clients.claim().then(() => {
+                self.clients.matchAll().then(clients => {
+                    clients.forEach(client => {
+                        client.postMessage({
+                            type: 'SW_ACTIVATED',
+                            timestamp: Date.now()
+                        });
+                    });
+                });
+            });
+        })
     );
 });
+
+// Удаляем дублирующийся код activate event
 
 // Fetch event - handle requests with security-aware caching
 self.addEventListener('fetch', (event) => {
@@ -352,4 +361,4 @@ self.addEventListener('unhandledrejection', (event) => {
     console.error('❌ Service Worker unhandled rejection:', event.reason);
 });
 
-console.log('🔧 SecureBit.chat Service Worker loaded - Enhanced Security Edition v4.01.412');
+console.log('🔧 SecureBit.chat Service Worker loaded - Enhanced Security Edition v4.01.413');

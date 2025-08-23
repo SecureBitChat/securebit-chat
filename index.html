@@ -161,7 +161,7 @@
             icon: "fas fa-shield-halved",
             color: "orange",
             title: "12-Layer Military Security",
-            description: "Revolutionary defense system with ECDH P-384 + AES-GCM 256 + ECDSA. Enhanced Security Edition v4.01.412 provides military-grade protection exceeding government standards."
+            description: "Revolutionary defense system with ECDH P-384 + AES-GCM 256 + ECDSA. Enhanced Security Edition v4.01.413 provides military-grade protection exceeding government standards."
         },
         {
             icon: "fas fa-bolt",
@@ -511,7 +511,7 @@
                 Enhanced Security Edition Comparison
                 </h3>
                 <p className="text-secondary max-w-2xl mx-auto mb-4">
-                SecureBit.chat v4.01.412 Enhanced Security Edition vs leading secure messengers
+                SecureBit.chat v4.01.413 Enhanced Security Edition vs leading secure messengers
                 </p>
                 <div className="inline-flex items-center px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                 <span className="text-yellow-400 mr-2">🏆</span>
@@ -657,7 +657,7 @@
                 <div className="p-6 bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border border-orange-500/20 rounded-xl">
                     <h4 className="text-xl font-bold text-orange-400 mb-4 flex items-center">
                     <i className="fas fa-trophy mr-3" />
-                    SecureBit.chat v4.01.412 Enhanced Security Edition Summary
+                    SecureBit.chat v4.01.413 Enhanced Security Edition Summary
                     </h4>
                     <p className="text-secondary leading-relaxed text-lg mb-4">
                     SecureBit.chat dominates in 11 out of 15 security categories, establishing itself as the most secure P2P messenger available.
@@ -3944,7 +3944,23 @@ if ('serviceWorker' in navigator) {
                 newWorker.addEventListener('statechange', () => {
                     if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                         console.log('🆕 PWA: New version available');
-                        showUpdateNotification();
+                        
+                        // Проверяем, установлено ли приложение как PWA
+                        const isPWAInstalled = window.matchMedia('(display-mode: standalone)').matches || 
+                                              window.navigator.standalone === true ||
+                                              (window.pwaInstallPrompt && window.pwaInstallPrompt.isInstalled);
+                        
+                        if (isPWAInstalled) {
+                            // Если это PWA, показываем уведомление об обновлении
+                            showUpdateNotification();
+                        } else {
+                            // Если это браузер, показываем промпт установки
+                            if (window.pwaInstallPrompt && !window.pwaInstallPrompt.isInstalled) {
+                                setTimeout(() => {
+                                    window.pwaInstallPrompt.showInstallOptions();
+                                }, 2000);
+                            }
+                        }
                     }
                 });
             });
@@ -3966,17 +3982,64 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.ready.then(registration => {
         console.log('🎯 PWA: Service Worker ready');
         
+        // Проверяем статус установки PWA
+        const isPWAInstalled = window.matchMedia('(display-mode: standalone)').matches || 
+                              window.navigator.standalone === true;
+        
+        console.log('🔍 PWA Installation Status:', { 
+            isStandalone: isPWAInstalled, 
+            displayMode: window.matchMedia('(display-mode: standalone)').matches,
+            iosStandalone: window.navigator.standalone === true
+        });
+        
         if (window.pwaInstallPrompt && window.pwaInstallPrompt.setServiceWorkerRegistration) {
             window.pwaInstallPrompt.setServiceWorkerRegistration(registration);
+            
+            // Если PWA уже установлено, обновляем статус
+            if (isPWAInstalled && !window.pwaInstallPrompt.isInstalled) {
+                console.log('✅ PWA already installed, updating status');
+                window.pwaInstallPrompt.isInstalled = true;
+                window.pwaInstallPrompt.hideInstallPrompts();
+            }
         }
         
         if (window.pwaOfflineManager && window.pwaOfflineManager.setServiceWorkerRegistration) {
             window.pwaOfflineManager.setServiceWorkerRegistration(registration);
         }
     });
+    
+    // Слушаем сообщения от Service Worker
+    navigator.serviceWorker.addEventListener('message', (event) => {
+        console.log('📨 Message from Service Worker:', event.data);
+        
+        if (event.data && event.data.type === 'SW_ACTIVATED') {
+            console.log('🔄 Service Worker activated, checking for updates...');
+            
+            // Проверяем, установлено ли приложение как PWA
+            const isPWAInstalled = window.matchMedia('(display-mode: standalone)').matches || 
+                                  window.navigator.standalone === true ||
+                                  (window.pwaInstallPrompt && window.pwaInstallPrompt.isInstalled);
+            
+            if (isPWAInstalled) {
+                // Если это PWA, показываем уведомление об обновлении
+                setTimeout(() => {
+                    showUpdateNotification();
+                }, 1000);
+            } else {
+                // Если это браузер, показываем промпт установки
+                if (window.pwaInstallPrompt && !window.pwaInstallPrompt.isInstalled) {
+                    setTimeout(() => {
+                        window.pwaInstallPrompt.showInstallOptions();
+                    }, 2000);
+                }
+            }
+        }
+    });
 }
 
 function showUpdateNotification() {
+    console.log('🆕 Showing update notification for PWA');
+    
     const notification = document.createElement('div');
     notification.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm';
     notification.innerHTML = `
@@ -4058,6 +4121,30 @@ function checkPWASupport() {
 
 document.addEventListener('DOMContentLoaded', () => {
     checkPWASupport();
+    
+    // Дополнительная проверка PWA Install Prompt после полной загрузки
+    setTimeout(() => {
+        if (window.pwaInstallPrompt) {
+            console.log('🔍 Final PWA Install Prompt status check...');
+            
+            // Используем новый метод для проверки статуса
+            window.PWAUtils.checkInstallationStatus();
+            
+            console.log('📱 Final PWA status:', {
+                isInstalled: window.pwaInstallPrompt.isInstalled,
+                displayMode: window.matchMedia('(display-mode: standalone)').matches,
+                iosStandalone: window.navigator.standalone === true
+            });
+        }
+    }, 2000);
+    
+    // Дополнительная проверка через 5 секунд для надежности
+    setTimeout(() => {
+        if (window.pwaInstallPrompt) {
+            console.log('🔍 Delayed PWA status check...');
+            window.PWAUtils.checkInstallationStatus();
+        }
+    }, 5000);
 });
 
 window.PWAUtils = {
@@ -4086,6 +4173,38 @@ window.PWAUtils = {
             window.pwaInstallPrompt.showInstallPrompt();
         } else {
             console.warn('⚠️ PWA Install Prompt not initialized');
+        }
+    },
+    
+    // Новый метод для принудительной проверки статуса установки
+    checkInstallationStatus: () => {
+        const isPWAInstalled = window.matchMedia('(display-mode: standalone)').matches || 
+                              window.navigator.standalone === true;
+        
+        console.log('🔍 PWA Installation Status Check:', {
+            isStandalone: isPWAInstalled,
+            displayMode: window.matchMedia('(display-mode: standalone)').matches,
+            iosStandalone: window.navigator.standalone === true,
+            pwaInstallPrompt: !!window.pwaInstallPrompt,
+            pwaInstallPromptInstalled: window.pwaInstallPrompt ? window.pwaInstallPrompt.isInstalled : false
+        });
+        
+        if (window.pwaInstallPrompt && isPWAInstalled && !window.pwaInstallPrompt.isInstalled) {
+            console.log('✅ Updating PWA Install Prompt status to installed');
+            window.pwaInstallPrompt.isInstalled = true;
+            window.pwaInstallPrompt.hideInstallPrompts();
+        }
+        
+        return isPWAInstalled;
+    },
+    
+    // Метод для сброса статуса установки (для тестирования)
+    resetInstallationStatus: () => {
+        if (window.pwaInstallPrompt) {
+            window.pwaInstallPrompt.isInstalled = false;
+            window.pwaInstallPrompt.installationChecked = false;
+            window.pwaInstallPrompt.checkInstallationStatus();
+            console.log('🔄 PWA Installation status reset');
         }
     }
 };

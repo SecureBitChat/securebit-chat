@@ -6,6 +6,7 @@ class PWAInstallPrompt {
         this.installBanner = null;
         this.dismissedCount = 0;
         this.maxDismissals = 3;
+        this.installationChecked = false;
         
         this.init();
     }
@@ -18,39 +19,80 @@ class PWAInstallPrompt {
         this.createInstallButton();
         this.loadInstallPreferences();
         
-        if (this.isIOSSafari() && !this.isInstalled && this.shouldShowPrompt()) {
-            setTimeout(() => {
-                this.showIOSInstallInstructions();
-            }, 3000);
+        // Проверяем статус установки периодически для iOS
+        if (this.isIOSSafari()) {
+            this.startInstallationMonitoring();
         }
         
         console.log('✅ PWA Install Prompt initialized');
     }
 
     checkInstallationStatus() {
-        if (window.matchMedia('(display-mode: standalone)').matches || 
-            window.navigator.standalone === true) {
+        // Проверяем различные способы определения установки PWA
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+        const isIOSStandalone = window.navigator.standalone === true;
+        const hasInstallPreference = this.loadInstallPreferences().installed;
+        
+        // Проверяем, установлено ли приложение
+        if (isStandalone || isIOSStandalone || hasInstallPreference) {
             this.isInstalled = true;
             console.log('📱 App is already installed as PWA');
             document.body.classList.add('pwa-installed');
+            
+            // Скрываем все промпты установки
+            this.hideInstallPrompts();
+            
+            // Если это iOS, добавляем специальный класс
+            if (this.isIOSSafari()) {
+                document.body.classList.add('ios-pwa');
+            }
+            
+            this.installationChecked = true;
             return true;
         }
         
-        if (this.isIOSSafari()) {
-            this.isInstalled = window.navigator.standalone === true;
-            if (this.isInstalled) {
-                console.log('📱 iOS PWA detected');
-                document.body.classList.add('pwa-installed', 'ios-pwa');
-            }
-        }
-        
-        document.body.classList.add(this.isInstalled ? 'pwa-installed' : 'pwa-browser');
+        // Если не установлено, добавляем соответствующие классы
+        document.body.classList.add('pwa-browser');
         
         if (this.isIOSSafari()) {
             document.body.classList.add('ios-safari');
         }
         
-        return this.isInstalled;
+        this.installationChecked = true;
+        return false;
+    }
+
+    startInstallationMonitoring() {
+        // Для iOS Safari мониторим изменения в standalone режиме
+        let wasStandalone = window.navigator.standalone;
+        
+        const checkStandalone = () => {
+            const isStandalone = window.navigator.standalone;
+            
+            if (isStandalone && !wasStandalone && !this.isInstalled) {
+                console.log('✅ iOS PWA installation detected');
+                this.isInstalled = true;
+                this.hideInstallPrompts();
+                this.showInstallSuccess();
+                document.body.classList.remove('pwa-browser');
+                document.body.classList.add('pwa-installed', 'ios-pwa');
+                
+                // Сохраняем предпочтение установки
+                this.saveInstallPreference('installed', true);
+            }
+            
+            wasStandalone = isStandalone;
+        };
+        
+        // Проверяем каждые 2 секунды
+        setInterval(checkStandalone, 2000);
+        
+        // Также проверяем при изменении видимости страницы
+        window.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                setTimeout(checkStandalone, 1000);
+            }
+        });
     }
 
     setupEventListeners() {
@@ -59,6 +101,7 @@ class PWAInstallPrompt {
             event.preventDefault();
             this.deferredPrompt = event;
             
+            // Показываем промпт только если приложение не установлено
             if (!this.isInstalled && this.shouldShowPrompt()) {
                 this.showInstallOptions();
             }
@@ -75,6 +118,7 @@ class PWAInstallPrompt {
             document.body.classList.add('pwa-installed');
         });
 
+        // Дополнительная проверка для iOS
         if (this.isIOSSafari()) {
             let wasStandalone = window.navigator.standalone;
             
@@ -91,6 +135,9 @@ class PWAInstallPrompt {
                         this.showInstallSuccess();
                         document.body.classList.remove('pwa-browser');
                         document.body.classList.add('pwa-installed', 'ios-pwa');
+                        
+                        // Сохраняем предпочтение установки
+                        this.saveInstallPreference('installed', true);
                     }
                     
                     wasStandalone = isStandalone;
@@ -166,7 +213,15 @@ class PWAInstallPrompt {
     }
 
     showInstallOptions() {
-        if (this.isInstalled) return;
+        // Дополнительная проверка статуса установки
+        if (!this.installationChecked) {
+            this.checkInstallationStatus();
+        }
+        
+        if (this.isInstalled) {
+            console.log('💿 App is already installed, not showing install options');
+            return;
+        }
         
         if (this.isIOSSafari()) {
             this.showInstallButton();
@@ -178,6 +233,11 @@ class PWAInstallPrompt {
     }
 
     showInstallButton() {
+        // Дополнительная проверка статуса установки
+        if (!this.installationChecked) {
+            this.checkInstallationStatus();
+        }
+        
         if (this.installButton && !this.isInstalled) {
             this.installButton.classList.remove('hidden');
             
@@ -190,10 +250,22 @@ class PWAInstallPrompt {
             }, 100);
             
             console.log('💿 Install button shown');
+        } else {
+            console.log('💿 Install button not shown - app is installed or button not available');
         }
     }
 
     showInstallBanner() {
+        // Дополнительная проверка статуса установки
+        if (!this.installationChecked) {
+            this.checkInstallationStatus();
+        }
+        
+        if (this.isInstalled) {
+            console.log('💿 App is installed, not showing install banner');
+            return;
+        }
+        
         if (!this.installBanner) {
             this.createInstallBanner();
         }
@@ -205,18 +277,27 @@ class PWAInstallPrompt {
             }, 1000);
             
             console.log('💿 Install banner shown');
+        } else {
+            console.log('💿 Install banner not shown - app is installed or banner not available');
         }
     }
 
     hideInstallPrompts() {
+        console.log('💿 Hiding all install prompts');
+        
         if (this.installButton) {
             this.installButton.classList.add('hidden');
+            console.log('💿 Install button hidden');
         }
         
         if (this.installBanner) {
             this.installBanner.classList.remove('show');
             this.installBanner.style.transform = 'translateY(100%)';
+            console.log('💿 Install banner hidden');
         }
+        
+        // Устанавливаем флаг установки
+        this.isInstalled = true;
     }
 
     async handleInstallClick() {
@@ -358,6 +439,8 @@ class PWAInstallPrompt {
     }
 
     showInstallSuccess() {
+        console.log('✅ Showing installation success notification');
+        
         const notification = document.createElement('div');
         notification.className = 'fixed top-4 right-4 bg-green-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm transform translate-x-full transition-transform duration-300';
         
@@ -387,12 +470,37 @@ class PWAInstallPrompt {
             notification.classList.add('translate-x-full');
             setTimeout(() => notification.remove(), 300);
         }, 5000);
+        
+        // Скрываем все промпты установки
+        this.hideInstallPrompts();
     }
 
     shouldShowPrompt() {
+        // Если приложение уже установлено, не показываем промпт
+        if (this.isInstalled) {
+            console.log('💿 App is already installed, not showing install prompt');
+            return false;
+        }
+        
+        // Дополнительная проверка статуса установки
+        if (!this.installationChecked) {
+            this.checkInstallationStatus();
+        }
+        
+        // Если после проверки приложение установлено, не показываем промпт
+        if (this.isInstalled) {
+            console.log('💿 App installation confirmed, not showing install prompt');
+            return false;
+        }
+        
         const preferences = this.loadInstallPreferences();
         
-        if (this.isInstalled) return false;
+        // Проверяем, не было ли приложение уже установлено
+        if (preferences.installed) {
+            console.log('💿 Installation preference found, not showing install prompt');
+            this.isInstalled = true;
+            return false;
+        }
         
         if (this.isIOSSafari()) {
             const lastShown = preferences.ios_instructions_shown;
