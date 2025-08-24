@@ -13,11 +13,9 @@ class PWAInstallPrompt {
 
     init() {
         console.log('💿 PWA Install Prompt initializing...');
-        
-        // Сначала проверяем статус установки
+
         this.checkInstallationStatus();
-        
-        // Если уже установлено, не инициализируем остальное
+
         if (this.isInstalled) {
             console.log('💿 App already installed, skipping initialization');
             return;
@@ -26,8 +24,7 @@ class PWAInstallPrompt {
         this.setupEventListeners();
         this.createInstallButton();
         this.loadInstallPreferences();
-        
-        // Проверяем статус установки периодически для iOS
+
         if (this.isIOSSafari()) {
             this.startInstallationMonitoring();
         }
@@ -37,8 +34,7 @@ class PWAInstallPrompt {
 
     checkInstallationStatus() {
         console.log('🔍 Checking PWA installation status...');
-        
-        // Проверяем различные способы определения установки PWA
+
         const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
         const isIOSStandalone = window.navigator.standalone === true;
         const hasInstallPreference = this.loadInstallPreferences().installed;
@@ -49,18 +45,15 @@ class PWAInstallPrompt {
             hasInstallPreference,
             userAgent: navigator.userAgent.slice(0, 100)
         });
-        
-        // Проверяем, установлено ли приложение
+
         if (isStandalone || isIOSStandalone || hasInstallPreference) {
             this.isInstalled = true;
             console.log('📱 App is already installed as PWA');
             document.body.classList.add('pwa-installed');
             document.body.classList.remove('pwa-browser');
-            
-            // Скрываем все промпты установки
+
             this.hideInstallPrompts();
-            
-            // Если это iOS, добавляем специальный класс
+
             if (this.isIOSSafari()) {
                 document.body.classList.add('ios-pwa');
             }
@@ -68,8 +61,7 @@ class PWAInstallPrompt {
             this.installationChecked = true;
             return true;
         }
-        
-        // Если не установлено, добавляем соответствующие классы
+
         this.isInstalled = false;
         document.body.classList.add('pwa-browser');
         document.body.classList.remove('pwa-installed');
@@ -83,7 +75,6 @@ class PWAInstallPrompt {
     }
 
     startInstallationMonitoring() {
-        // Для iOS Safari мониторим изменения в standalone режиме
         let wasStandalone = window.navigator.standalone;
         
         const checkStandalone = () => {
@@ -96,25 +87,21 @@ class PWAInstallPrompt {
                 this.showInstallSuccess();
                 document.body.classList.remove('pwa-browser', 'ios-safari');
                 document.body.classList.add('pwa-installed', 'ios-pwa');
-                
-                // Сохраняем предпочтение установки
+
                 this.saveInstallPreference('installed', true);
             }
             
             wasStandalone = isStandalone;
         };
-        
-        // Проверяем каждые 2 секунды
+
         setInterval(checkStandalone, 2000);
-        
-        // Также проверяем при изменении видимости страницы
+
         window.addEventListener('visibilitychange', () => {
             if (!document.hidden) {
                 setTimeout(checkStandalone, 1000);
             }
         });
-        
-        // Проверяем при фокусе окна
+
         window.addEventListener('focus', () => {
             setTimeout(checkStandalone, 500);
         });
@@ -125,13 +112,11 @@ class PWAInstallPrompt {
             console.log('💿 Install prompt event captured');
             event.preventDefault();
             this.deferredPrompt = event;
-            
-            // Повторно проверяем статус установки
+
             if (this.checkInstallationStatus()) {
-                return; // Если установлено, не показываем промпт
+                return; 
             }
-            
-            // Показываем промпт только если приложение не установлено
+
             if (!this.isInstalled && this.shouldShowPrompt()) {
                 setTimeout(() => this.showInstallOptions(), 1000);
             }
@@ -148,15 +133,13 @@ class PWAInstallPrompt {
             document.body.classList.add('pwa-installed');
         });
 
-        // Дополнительная проверка для всех устройств при изменении видимости
         window.addEventListener('visibilitychange', () => {
             if (document.hidden) return;
             
             setTimeout(() => {
                 const wasInstalled = this.isInstalled;
                 this.checkInstallationStatus();
-                
-                // Если статус изменился с "не установлено" на "установлено"
+
                 if (!wasInstalled && this.isInstalled) {
                     console.log('✅ PWA installation detected on visibility change');
                     this.hideInstallPrompts();
@@ -164,8 +147,7 @@ class PWAInstallPrompt {
                 }
             }, 1000);
         });
-        
-        // Проверяем при фокусе окна
+
         window.addEventListener('focus', () => {
             setTimeout(() => {
                 const wasInstalled = this.isInstalled;
@@ -181,7 +163,6 @@ class PWAInstallPrompt {
     }
 
     createInstallButton() {
-        // Если уже установлено, не создаем кнопку
         if (this.isInstalled) {
             return;
         }
@@ -201,15 +182,13 @@ class PWAInstallPrompt {
                 ×
             </button>
         `;
-        
-        // Обработчик для установки
+
         this.installButton.addEventListener('click', (e) => {
             if (!e.target.classList.contains('close-btn')) {
                 this.handleInstallClick();
             }
         });
-        
-        // Обработчик для закрытия
+
         const closeBtn = this.installButton.querySelector('.close-btn');
         closeBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -220,7 +199,6 @@ class PWAInstallPrompt {
     }
 
     createInstallBanner() {
-        // Если уже установлено, не создаем баннер
         if (this.isInstalled || this.installBanner) {
             return;
         }
@@ -268,7 +246,6 @@ class PWAInstallPrompt {
     }
 
     showInstallOptions() {
-        // Всегда проверяем статус установки перед показом
         if (this.checkInstallationStatus()) {
             console.log('💿 App is installed, not showing install options');
             return;
@@ -284,7 +261,6 @@ class PWAInstallPrompt {
     }
 
     showInstallButton() {
-        // Проверяем статус установки
         if (this.checkInstallationStatus()) {
             console.log('💿 App is installed, not showing install button');
             return;
@@ -308,7 +284,6 @@ class PWAInstallPrompt {
     }
 
     showInstallBanner() {
-        // Проверяем статус установки
         if (this.checkInstallationStatus()) {
             console.log('💿 App is installed, not showing install banner');
             return;
@@ -335,7 +310,6 @@ class PWAInstallPrompt {
         
         if (this.installButton) {
             this.installButton.classList.add('hidden');
-            // Полностью удаляем кнопку если приложение установлено
             if (this.isInstalled) {
                 this.installButton.remove();
                 this.installButton = null;
@@ -346,7 +320,6 @@ class PWAInstallPrompt {
         if (this.installBanner) {
             this.installBanner.classList.remove('show');
             this.installBanner.style.transform = 'translateY(100%)';
-            // Полностью удаляем баннер если приложение установлено
             if (this.isInstalled) {
                 setTimeout(() => {
                     if (this.installBanner) {
@@ -379,7 +352,7 @@ class PWAInstallPrompt {
 
             if (result.outcome === 'accepted') {
                 console.log('✅ User accepted install prompt');
-                this.isInstalled = true; // Устанавливаем флаг сразу
+                this.isInstalled = true; 
                 this.hideInstallPrompts();
                 this.saveInstallPreference('accepted', true);
                 this.saveInstallPreference('installed', true);
@@ -549,13 +522,11 @@ class PWAInstallPrompt {
             notification.classList.add('translate-x-full');
             setTimeout(() => notification.remove(), 300);
         }, 5000);
-        
-        // Скрываем все промпты установки
+
         this.hideInstallPrompts();
     }
 
     shouldShowPrompt() {
-        // Всегда проверяем актуальный статус установки
         if (this.checkInstallationStatus()) {
             console.log('💿 App is installed, not showing prompt');
             return false;
@@ -563,7 +534,6 @@ class PWAInstallPrompt {
         
         const preferences = this.loadInstallPreferences();
         
-        // Проверяем, не было ли приложение уже установлено
         if (preferences.installed) {
             console.log('💿 Installation preference found, marking as installed');
             this.isInstalled = true;
@@ -691,7 +661,6 @@ class PWAInstallPrompt {
 
     // Public API methods
     showInstallPrompt() {
-        // Проверяем статус перед показом
         if (this.checkInstallationStatus()) {
             console.log('💿 App already installed, not showing prompt');
             return;
@@ -711,7 +680,6 @@ class PWAInstallPrompt {
     }
 
     getInstallStatus() {
-        // Проверяем актуальный статус
         this.checkInstallationStatus();
         
         return {
@@ -735,7 +703,6 @@ class PWAInstallPrompt {
         console.log('📡 Service Worker registration set for PWA Install Prompt');
     }
 
-    // Метод для принудительной проверки статуса установки
     forceInstallationCheck() {
         console.log('🔄 Force checking installation status...');
         this.installationChecked = false;
@@ -766,10 +733,8 @@ if (typeof window !== 'undefined') {
         }
     });
     
-    // Дополнительная проверка при полной загрузке страницы
     window.addEventListener('load', () => {
         if (window.pwaInstallPrompt) {
-            // Проверяем статус установки через небольшую задержку
             setTimeout(() => {
                 window.pwaInstallPrompt.forceInstallationCheck();
             }, 1000);
