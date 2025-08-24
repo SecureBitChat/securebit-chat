@@ -1,3 +1,262 @@
+// ============================================
+// SECURE FILE TRANSFER CONTEXT
+// ============================================
+class SecureFileTransferContext {
+    static #instance = null;
+    static #contextKey = Symbol('SecureFileTransferContext');
+    
+    static getInstance() {
+        if (!this.#instance) {
+            this.#instance = new SecureFileTransferContext();
+        }
+        return this.#instance;
+    }
+    
+    #fileTransferSystem = null;
+    #active = false;
+    #securityLevel = 'high';
+    
+    setFileTransferSystem(system) {
+        if (!(system instanceof EnhancedSecureFileTransfer)) {
+            throw new Error('Invalid file transfer system instance');
+        }
+        this.#fileTransferSystem = system;
+        this.#active = true;
+        console.log('🔒 Secure file transfer context initialized');
+    }
+    
+    getFileTransferSystem() {
+        return this.#fileTransferSystem;
+    }
+    
+    isActive() {
+        return this.#active && this.#fileTransferSystem !== null;
+    }
+    
+    deactivate() {
+        this.#active = false;
+        this.#fileTransferSystem = null;
+        console.log('🔒 Secure file transfer context deactivated');
+    }
+    
+    getSecurityLevel() {
+        return this.#securityLevel;
+    }
+    
+    setSecurityLevel(level) {
+        if (['low', 'medium', 'high'].includes(level)) {
+            this.#securityLevel = level;
+        }
+    }
+}
+
+// ============================================
+// SECURITY ERROR HANDLER
+// ============================================
+
+class SecurityErrorHandler {
+    static #allowedErrors = new Set([
+        'File size exceeds maximum limit',
+        'Unsupported file type',
+        'Transfer timeout',
+        'Connection lost',
+        'Invalid file data',
+        'File transfer failed',
+        'Transfer cancelled',
+        'Network error',
+        'File not found',
+        'Permission denied'
+    ]);
+    
+    static sanitizeError(error) {
+        const message = error.message || error;
+
+        for (const allowed of this.#allowedErrors) {
+            if (message.includes(allowed)) {
+                return allowed;
+            }
+        }
+
+        console.error('🔒 Internal file transfer error:', {
+            message: error.message,
+            stack: error.stack,
+            timestamp: new Date().toISOString()
+        });
+
+        return 'File transfer failed';
+    }
+    
+    static logSecurityEvent(event, details = {}) {
+        console.warn('🔒 Security event:', {
+            event,
+            timestamp: new Date().toISOString(),
+            ...details
+        });
+    }
+}
+
+// ============================================
+// FILE METADATA SIGNATURE SYSTEM
+// ============================================
+
+class FileMetadataSigner {
+    static async signFileMetadata(metadata, privateKey) {
+        try {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(JSON.stringify({
+                fileId: metadata.fileId,
+                fileName: metadata.fileName,
+                fileSize: metadata.fileSize,
+                fileHash: metadata.fileHash,
+                timestamp: metadata.timestamp,
+                version: metadata.version || '2.0'
+            }));
+            
+            const signature = await crypto.subtle.sign(
+                'RSASSA-PKCS1-v1_5',
+                privateKey,
+                data
+            );
+            
+            return Array.from(new Uint8Array(signature));
+        } catch (error) {
+            SecurityErrorHandler.logSecurityEvent('signature_failed', { error: error.message });
+            throw new Error('Failed to sign file metadata');
+        }
+    }
+    
+    static async verifyFileMetadata(metadata, signature, publicKey) {
+        try {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(JSON.stringify({
+                fileId: metadata.fileId,
+                fileName: metadata.fileName,
+                fileSize: metadata.fileSize,
+                fileHash: metadata.fileHash,
+                timestamp: metadata.timestamp,
+                version: metadata.version || '2.0'
+            }));
+            
+            const signatureBuffer = new Uint8Array(signature);
+            
+            const isValid = await crypto.subtle.verify(
+                'RSASSA-PKCS1-v1_5',
+                publicKey,
+                signatureBuffer,
+                data
+            );
+            
+            if (!isValid) {
+                SecurityErrorHandler.logSecurityEvent('invalid_signature', { fileId: metadata.fileId });
+            }
+            
+            return isValid;
+        } catch (error) {
+            SecurityErrorHandler.logSecurityEvent('verification_failed', { error: error.message });
+            return false;
+        }
+    }
+}
+
+// ============================================
+// ТОЧНЫЕ ИСПРАВЛЕНИЯ БЕЗОПАСНОСТИ
+// ============================================
+
+class MessageSizeValidator {
+    static MAX_MESSAGE_SIZE = 1024 * 1024; // 1MB
+    
+    static isMessageSizeValid(message) {
+        const messageString = JSON.stringify(message);
+        const sizeInBytes = new Blob([messageString]).size;
+        
+        if (sizeInBytes > this.MAX_MESSAGE_SIZE) {
+            SecurityErrorHandler.logSecurityEvent('message_too_large', {
+                size: sizeInBytes,
+                limit: this.MAX_MESSAGE_SIZE
+            });
+            throw new Error('Message too large');
+        }
+        
+        return true;
+    }
+}
+
+class AtomicOperations {
+    constructor() {
+        this.locks = new Map();
+    }
+    
+    async withLock(key, operation) {
+        if (this.locks.has(key)) {
+            await this.locks.get(key);
+        }
+        
+        const lockPromise = (async () => {
+            try {
+                return await operation();
+            } finally {
+                this.locks.delete(key);
+            }
+        })();
+        
+        this.locks.set(key, lockPromise);
+        return lockPromise;
+    }
+}
+
+// Rate limiting для защиты от спама
+class RateLimiter {
+    constructor(maxRequests, windowMs) {
+        this.maxRequests = maxRequests;
+        this.windowMs = windowMs;
+        this.requests = new Map();
+    }
+    
+    isAllowed(identifier) {
+        const now = Date.now();
+        const windowStart = now - this.windowMs;
+        
+        if (!this.requests.has(identifier)) {
+            this.requests.set(identifier, []);
+        }
+        
+        const userRequests = this.requests.get(identifier);
+        
+        const validRequests = userRequests.filter(time => time > windowStart);
+        this.requests.set(identifier, validRequests);
+        
+        if (validRequests.length >= this.maxRequests) {
+            SecurityErrorHandler.logSecurityEvent('rate_limit_exceeded', {
+                identifier,
+                requestCount: validRequests.length,
+                limit: this.maxRequests
+            });
+            return false;
+        }
+        
+        validRequests.push(now);
+        return true;
+    }
+}
+
+class SecureMemoryManager {
+    static secureWipe(buffer) {
+        if (buffer instanceof ArrayBuffer) {
+            const view = new Uint8Array(buffer);
+            crypto.getRandomValues(view);
+        } else if (buffer instanceof Uint8Array) {
+            crypto.getRandomValues(buffer);
+        }
+    }
+    
+    static secureDelete(obj, prop) {
+        if (obj[prop]) {
+            this.secureWipe(obj[prop]);
+            delete obj[prop];
+        }
+    }
+}
+
 class EnhancedSecureFileTransfer {
     constructor(webrtcManager, onProgress, onComplete, onError, onFileReceived) {
         this.webrtcManager = webrtcManager;
@@ -11,23 +270,22 @@ class EnhancedSecureFileTransfer {
             throw new Error('webrtcManager is required for EnhancedSecureFileTransfer');
         }
         
-        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Устанавливаем глобальный флаг
-        window.FILE_TRANSFER_ACTIVE = true;
-        window.fileTransferSystem = this;
+        SecureFileTransferContext.getInstance().setFileTransferSystem(this);
         
+        this.atomicOps = new AtomicOperations();
+        this.rateLimiter = new RateLimiter(10, 60000);
 
+        this.signingKey = null;
+        this.verificationKey = null;
         
         // Transfer settings
-        // Размер чанка по умолчанию (баланс нагрузки и стабильности очереди)
         this.CHUNK_SIZE = 64 * 1024; // 64 KB
         this.MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB limit
         this.MAX_CONCURRENT_TRANSFERS = 3;
         this.CHUNK_TIMEOUT = 30000; // 30 seconds per chunk
         this.RETRY_ATTEMPTS = 3;
-        
-        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Система ограничений по типам файлов
+
         this.FILE_TYPE_RESTRICTIONS = {
-            // Документы
             documents: {
                 extensions: ['.pdf', '.doc', '.docx', '.txt', '.md', '.rtf', '.odt'],
                 mimeTypes: [
@@ -44,7 +302,6 @@ class EnhancedSecureFileTransfer {
                 description: 'PDF, DOC, TXT, MD, RTF, ODT'
             },
             
-            // Изображения
             images: {
                 extensions: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.ico'],
                 mimeTypes: [
@@ -61,7 +318,6 @@ class EnhancedSecureFileTransfer {
                 description: 'JPG, PNG, GIF, WEBP, BMP, SVG, ICO'
             },
             
-            // Архивы
             archives: {
                 extensions: ['.zip', '.rar', '.7z', '.tar', '.gz', '.bz2', '.xz'],
                 mimeTypes: [
@@ -78,7 +334,6 @@ class EnhancedSecureFileTransfer {
                 description: 'ZIP, RAR, 7Z, TAR, GZ, BZ2, XZ'
             },
             
-            // Медиа файлы
             media: {
                 extensions: ['.mp3', '.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.ogg', '.wav'],
                 mimeTypes: [
@@ -98,10 +353,9 @@ class EnhancedSecureFileTransfer {
                 description: 'MP3, MP4, AVI, MKV, MOV, WMV, FLV, WEBM, OGG, WAV'
             },
             
-            // Общие файлы (любые другие типы)
             general: {
-                extensions: [], // Пустой массив означает "все остальные"
-                mimeTypes: [], // Пустой массив означает "все остальные"
+                extensions: [], 
+                mimeTypes: [], 
                 maxSize: 50 * 1024 * 1024, // 50 MB
                 category: 'General',
                 description: 'Any file type up to size limits'
@@ -121,11 +375,9 @@ class EnhancedSecureFileTransfer {
         this.processedChunks = new Set(); // Prevent replay attacks
         this.transferNonces = new Map(); // fileId -> current nonce counter
         this.receivedFileBuffers = new Map(); // fileId -> { buffer:ArrayBuffer, type:string, name:string, size:number }
-        
-        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Регистрируем обработчик сообщений
+
         this.setupFileMessageHandlers();
-        
-        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Устанавливаем ссылку в WebRTC менеджере
+
         if (this.webrtcManager) {
             this.webrtcManager.fileTransferSystem = this;
         }
@@ -134,18 +386,15 @@ class EnhancedSecureFileTransfer {
     // ============================================
     // FILE TYPE VALIDATION SYSTEM
     // ============================================
-    
-    // Определяем тип файла по расширению и MIME типу
+
     getFileType(file) {
         const fileName = file.name.toLowerCase();
         const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
         const mimeType = file.type.toLowerCase();
-        
-        // Проверяем каждый тип файла
+
         for (const [typeKey, typeConfig] of Object.entries(this.FILE_TYPE_RESTRICTIONS)) {
             if (typeKey === 'general') continue; // Пропускаем общий тип
-            
-            // Проверяем расширение
+
             if (typeConfig.extensions.includes(fileExtension)) {
                 return {
                     type: typeKey,
@@ -155,8 +404,7 @@ class EnhancedSecureFileTransfer {
                     allowed: true
                 };
             }
-            
-            // Проверяем MIME тип
+
             if (typeConfig.mimeTypes.includes(mimeType)) {
                 return {
                     type: typeKey,
@@ -167,8 +415,7 @@ class EnhancedSecureFileTransfer {
                 };
             }
         }
-        
-        // Если не найден в специфических типах, используем общий
+
         const generalConfig = this.FILE_TYPE_RESTRICTIONS.general;
         return {
             type: 'general',
@@ -178,23 +425,19 @@ class EnhancedSecureFileTransfer {
             allowed: true
         };
     }
-    
-    // Проверяем, разрешен ли файл для передачи
+
     validateFile(file) {
         const fileType = this.getFileType(file);
         const errors = [];
-        
-        // Проверяем размер файла
+
         if (file.size > fileType.maxSize) {
             errors.push(`File size (${this.formatFileSize(file.size)}) exceeds maximum allowed for ${fileType.category} (${this.formatFileSize(fileType.maxSize)})`);
         }
-        
-        // Проверяем, разрешен ли тип файла
+
         if (!fileType.allowed) {
             errors.push(`File type not allowed. Supported types: ${fileType.description}`);
         }
-        
-        // Проверяем общий лимит размера
+
         if (file.size > this.MAX_FILE_SIZE) {
             errors.push(`File size (${this.formatFileSize(file.size)}) exceeds general limit (${this.formatFileSize(this.MAX_FILE_SIZE)})`);
         }
@@ -207,8 +450,7 @@ class EnhancedSecureFileTransfer {
             formattedSize: this.formatFileSize(file.size)
         };
     }
-    
-    // Форматируем размер файла для отображения
+
     formatFileSize(bytes) {
         if (bytes === 0) return '0 B';
         const k = 1024;
@@ -216,8 +458,7 @@ class EnhancedSecureFileTransfer {
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
-    
-    // Получаем список поддерживаемых типов файлов
+
     getSupportedFileTypes() {
         const supportedTypes = {};
         
@@ -235,8 +476,7 @@ class EnhancedSecureFileTransfer {
         
         return supportedTypes;
     }
-    
-    // Получаем общую информацию о поддерживаемых типах
+
     getFileTypeInfo() {
         return {
             supportedTypes: this.getSupportedFileTypes(),
@@ -294,22 +534,15 @@ class EnhancedSecureFileTransfer {
         try { URL.revokeObjectURL(url); } catch (_) {}
     }
 
-    // ============================================
-    // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ - ОБРАБОТКА СООБЩЕНИЙ
-    // ============================================
-
     setupFileMessageHandlers() {
-        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Ждем готовности dataChannel
         if (!this.webrtcManager.dataChannel) {
-            // Попытаемся настроить через небольшой интервал
             const setupRetry = setInterval(() => {
                 if (this.webrtcManager.dataChannel) {
                     clearInterval(setupRetry);
                     this.setupMessageInterception();
                 }
             }, 100);
-            
-            // Timeout для предотвращения бесконечного ожидания
+
             setTimeout(() => {
                 clearInterval(setupRetry);
             }, 5000);
@@ -321,44 +554,45 @@ class EnhancedSecureFileTransfer {
         this.setupMessageInterception();
     }
 
-    // В методе setupMessageInterception(), замените весь метод на:
     setupMessageInterception() {
         try {
             if (!this.webrtcManager.dataChannel) {
                 return;
             }
 
-            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Глобальный флаг для блокировки файловых сообщений
-            window.FILE_TRANSFER_ACTIVE = true;
-            window.fileTransferSystem = this;
-
-            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Устанавливаем ссылку в WebRTC менеджере
             if (this.webrtcManager) {
                 this.webrtcManager.fileTransferSystem = this;
             }
 
-            // 1. ПЕРЕХВАТ НА УРОВНЕ dataChannel.onmessage
             if (this.webrtcManager.dataChannel.onmessage) {
                 this.originalOnMessage = this.webrtcManager.dataChannel.onmessage;
             }
 
             this.webrtcManager.dataChannel.onmessage = async (event) => {
                 try {
-                    // Проверяем файловые сообщения ПЕРВЫМИ
+                    if (event.data.length > MessageSizeValidator.MAX_MESSAGE_SIZE) {
+                        console.warn('🔒 Message too large, ignoring');
+                        SecurityErrorHandler.logSecurityEvent('oversized_message_blocked');
+                        return;
+                    }
+                    
                     if (typeof event.data === 'string') {
                         try {
                             const parsed = JSON.parse(event.data);
                             
+                            MessageSizeValidator.isMessageSizeValid(parsed);
+                            
                             if (this.isFileTransferMessage(parsed)) {
                                 await this.handleFileMessage(parsed);
-                                return; // КРИТИЧЕСКИ ВАЖНО: НЕ передаем дальше
+                                return; 
                             }
                         } catch (parseError) {
-                            // Не JSON - передаем оригинальному обработчику
+                            if (parseError.message === 'Message too large') {
+                                return; 
+                            }
                         }
                     }
 
-                    // Передаем обычные сообщения оригинальному обработчику
                     if (this.originalOnMessage) {
                         return this.originalOnMessage.call(this.webrtcManager.dataChannel, event);
                     }
@@ -374,7 +608,6 @@ class EnhancedSecureFileTransfer {
         }
     }
 
-    // Проверяем, является ли сообщение файловым
     isFileTransferMessage(message) {
         if (!message || typeof message !== 'object' || !message.type) {
             return false;
@@ -392,19 +625,15 @@ class EnhancedSecureFileTransfer {
         return fileMessageTypes.includes(message.type);
     }
 
-    // Обрабатываем файловые сообщения
     async handleFileMessage(message) {
         try {
-            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Проверяем готовность файловой системы
             if (!this.webrtcManager.fileTransferSystem) {
                 try {
-                    // Попытка инициализации файловой системы
                     if (typeof this.webrtcManager.initializeFileTransfer === 'function') {
                         this.webrtcManager.initializeFileTransfer();
                         
-                        // Ждем инициализации
                         let attempts = 0;
-                        const maxAttempts = 50; // 5 секунд максимум
+                        const maxAttempts = 50; 
                         while (!this.webrtcManager.fileTransferSystem && attempts < maxAttempts) {
                             await new Promise(resolve => setTimeout(resolve, 100));
                             attempts++;
@@ -418,7 +647,6 @@ class EnhancedSecureFileTransfer {
                     }
                 } catch (initError) {
                     console.error('❌ Failed to initialize file transfer system:', initError);
-                    // Отправляем ошибку отправителю
                     if (message.fileId) {
                         const errorMessage = {
                             type: 'file_transfer_error',
@@ -463,8 +691,7 @@ class EnhancedSecureFileTransfer {
             
         } catch (error) {
             console.error('❌ Error handling file message:', error);
-            
-            // Отправляем сообщение об ошибке
+
             if (message.fileId) {
                 const errorMessage = {
                     type: 'file_transfer_error',
@@ -483,22 +710,17 @@ class EnhancedSecureFileTransfer {
 
     async deriveFileSessionKey(fileId) {
         try {
-            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Используем keyFingerprint и sessionSalt
-            // которые уже согласованы между пирами
             
             if (!this.webrtcManager.keyFingerprint || !this.webrtcManager.sessionSalt) {
                 throw new Error('WebRTC session data not available');
             }
-            
-            // Генерируем соль для этого конкретного файла
+
             const fileSalt = crypto.getRandomValues(new Uint8Array(32));
-            
-            // Создаем seed из согласованных данных
+
             const encoder = new TextEncoder();
             const fingerprintData = encoder.encode(this.webrtcManager.keyFingerprint);
             const fileIdData = encoder.encode(fileId);
-            
-            // Объединяем все компоненты для создания уникального seed
+
             const sessionSaltArray = new Uint8Array(this.webrtcManager.sessionSalt);
             const combinedSeed = new Uint8Array(
                 fingerprintData.length + 
@@ -515,11 +737,9 @@ class EnhancedSecureFileTransfer {
             combinedSeed.set(fileSalt, offset);
             offset += fileSalt.length;
             combinedSeed.set(fileIdData, offset);
-            
-            // Хешируем для получения ключевого материала
+
             const keyMaterial = await crypto.subtle.digest('SHA-256', combinedSeed);
-            
-            // Импортируем как AES ключ напрямую
+
             const fileSessionKey = await crypto.subtle.importKey(
                 'raw',
                 keyMaterial,
@@ -528,7 +748,6 @@ class EnhancedSecureFileTransfer {
                 ['encrypt', 'decrypt']
             );
 
-            // Сохраняем ключ и соль
             this.sessionKeys.set(fileId, {
                 key: fileSessionKey,
                 salt: Array.from(fileSalt),
@@ -545,7 +764,6 @@ class EnhancedSecureFileTransfer {
 
     async deriveFileSessionKeyFromSalt(fileId, saltArray) {
         try {
-            // Проверка соли
             if (!saltArray || !Array.isArray(saltArray) || saltArray.length !== 32) {
                 throw new Error(`Invalid salt: ${saltArray?.length || 0} bytes`);
             }
@@ -553,17 +771,14 @@ class EnhancedSecureFileTransfer {
             if (!this.webrtcManager.keyFingerprint || !this.webrtcManager.sessionSalt) {
                 throw new Error('WebRTC session data not available');
             }
-            
-            // Используем тот же процесс что и отправитель
+
             const encoder = new TextEncoder();
             const fingerprintData = encoder.encode(this.webrtcManager.keyFingerprint);
             const fileIdData = encoder.encode(fileId);
-            
-            // Используем полученную соль файла
+
             const fileSalt = new Uint8Array(saltArray);
             const sessionSaltArray = new Uint8Array(this.webrtcManager.sessionSalt);
-            
-            // Объединяем компоненты в том же порядке
+
             const combinedSeed = new Uint8Array(
                 fingerprintData.length + 
                 sessionSaltArray.length + 
@@ -579,11 +794,9 @@ class EnhancedSecureFileTransfer {
             combinedSeed.set(fileSalt, offset);
             offset += fileSalt.length;
             combinedSeed.set(fileIdData, offset);
-            
-            // Хешируем для получения того же ключевого материала
+
             const keyMaterial = await crypto.subtle.digest('SHA-256', combinedSeed);
-            
-            // Импортируем как AES ключ
+
             const fileSessionKey = await crypto.subtle.importKey(
                 'raw',
                 keyMaterial,
@@ -616,13 +829,17 @@ class EnhancedSecureFileTransfer {
             if (!this.webrtcManager) {
                 throw new Error('WebRTC Manager not initialized');
             }
-            
-            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Валидация файла с новой системой типов
+
+            const clientId = this.getClientIdentifier();
+            if (!this.rateLimiter.isAllowed(clientId)) {
+                SecurityErrorHandler.logSecurityEvent('rate_limit_exceeded', { clientId });
+                throw new Error('Rate limit exceeded. Please wait before sending another file.');
+            }
+
             if (!file || !file.size) {
                 throw new Error('Invalid file object');
             }
 
-            // Проверяем тип и размер файла
             const validation = this.validateFile(file);
             if (!validation.isValid) {
                 const errorMessage = validation.errors.join('. ');
@@ -650,7 +867,7 @@ class EnhancedSecureFileTransfer {
                 file: file,
                 fileHash: fileHash,
                 sessionKey: sessionKey,
-                salt: salt, // Сохраняем соль для отправки
+                salt: salt, 
                 totalChunks: Math.ceil(file.size / this.CHUNK_SIZE),
                 sentChunks: 0,
                 confirmedChunks: 0,
@@ -672,9 +889,10 @@ class EnhancedSecureFileTransfer {
             return fileId;
 
         } catch (error) {
-            console.error('❌ File sending failed:', error);
-            if (this.onError) this.onError(error.message);
-            throw error;
+            const safeError = SecurityErrorHandler.sanitizeError(error);
+            console.error('❌ File sending failed:', safeError);
+            if (this.onError) this.onError(safeError);
+            throw new Error(safeError);
         }
     }
 
@@ -689,10 +907,22 @@ class EnhancedSecureFileTransfer {
                 fileHash: transferState.fileHash,
                 totalChunks: transferState.totalChunks,
                 chunkSize: this.CHUNK_SIZE,
-                salt: transferState.salt, // Отправляем соль получателю
+                salt: transferState.salt, 
                 timestamp: Date.now(),
                 version: '2.0'
             };
+
+            if (this.signingKey) {
+                try {
+                    metadata.signature = await FileMetadataSigner.signFileMetadata(metadata, this.signingKey);
+                    console.log('🔒 File metadata signed successfully');
+                } catch (signError) {
+                    SecurityErrorHandler.logSecurityEvent('signature_failed', { 
+                        fileId: transferState.fileId, 
+                        error: signError.message 
+                    });
+                }
+            }
 
             // Send metadata through secure channel
             await this.sendSecureMessage(metadata);
@@ -700,9 +930,10 @@ class EnhancedSecureFileTransfer {
             transferState.status = 'metadata_sent';
 
         } catch (error) {
-            console.error('❌ Failed to send file metadata:', error);
+            const safeError = SecurityErrorHandler.sanitizeError(error);
+            console.error('❌ Failed to send file metadata:', safeError);
             transferState.status = 'failed';
-            throw error;
+            throw new Error(safeError);
         }
     }
 
@@ -726,8 +957,7 @@ class EnhancedSecureFileTransfer {
                 // Update progress
                 transferState.sentChunks++;
                 const progress = Math.round((transferState.sentChunks / totalChunks) * 95) + 5; // 5-100%
-                
-                // Backpressure: ждём разгрузки очереди перед следующим чанком
+
                 await this.waitForBackpressure();
             }
             
@@ -744,9 +974,10 @@ class EnhancedSecureFileTransfer {
             }, 30000);
             
         } catch (error) {
-            console.error('❌ Chunk transmission failed:', error);
+            const safeError = SecurityErrorHandler.sanitizeError(error);
+            console.error('❌ Chunk transmission failed:', safeError);
             transferState.status = 'failed';
-            throw error;
+            throw new Error(safeError);
         }
     }
 
@@ -755,8 +986,9 @@ class EnhancedSecureFileTransfer {
             const blob = file.slice(start, end);
             return await blob.arrayBuffer();
         } catch (error) {
-            console.error('❌ Failed to read file chunk:', error);
-            throw error;
+            const safeError = SecurityErrorHandler.sanitizeError(error);
+            console.error('❌ Failed to read file chunk:', safeError);
+            throw new Error(safeError);
         }
     }
 
@@ -787,21 +1019,20 @@ class EnhancedSecureFileTransfer {
                 chunkSize: chunkData.byteLength,
                 timestamp: Date.now()
             };
-            
-            // Перед отправкой проверяем backpressure (доп. защита)
+
             await this.waitForBackpressure();
             // Send chunk through secure channel
             await this.sendSecureMessage(chunkMessage);
             
         } catch (error) {
-            console.error('❌ Failed to send file chunk:', error);
-            throw error;
+            const safeError = SecurityErrorHandler.sanitizeError(error);
+            console.error('❌ Failed to send file chunk:', safeError);
+            throw new Error(safeError);
         }
     }
 
     async sendSecureMessage(message) {
-        // ВАЖНО: отправляем напрямую в DataChannel, чтобы file_* и chunk_confirmation
-        // приходили верхнего уровня и перехватывались файловой системой, без обёртки type: 'message'
+
         const messageString = JSON.stringify(message);
         const dc = this.webrtcManager?.dataChannel;
         const maxRetries = 10;
@@ -838,7 +1069,6 @@ class EnhancedSecureFileTransfer {
             if (!dc) return;
 
             if (typeof dc.bufferedAmountLowThreshold === 'number') {
-                // Если буфер превышает порог — ждём события снижения
                 if (dc.bufferedAmount > dc.bufferedAmountLowThreshold) {
                     await new Promise(resolve => {
                         const handler = () => {
@@ -851,7 +1081,6 @@ class EnhancedSecureFileTransfer {
                 return;
             }
 
-            // Фолбэк: опрашиваем bufferedAmount и ждём пока не упадёт ниже 4MB
             const softLimit = 4 * 1024 * 1024;
             while (dc.bufferedAmount > softLimit) {
                 await new Promise(r => setTimeout(r, 20));
@@ -882,6 +1111,31 @@ class EnhancedSecureFileTransfer {
             // Validate metadata
             if (!metadata.fileId || !metadata.fileName || !metadata.fileSize) {
                 throw new Error('Invalid file transfer metadata');
+            }
+
+            if (metadata.signature && this.verificationKey) {
+                try {
+                    const isValid = await FileMetadataSigner.verifyFileMetadata(
+                        metadata, 
+                        metadata.signature, 
+                        this.verificationKey
+                    );
+                    
+                    if (!isValid) {
+                        SecurityErrorHandler.logSecurityEvent('invalid_metadata_signature', { 
+                            fileId: metadata.fileId 
+                        });
+                        throw new Error('Invalid file metadata signature');
+                    }
+                    
+                    console.log('🔒 File metadata signature verified successfully');
+                } catch (verifyError) {
+                    SecurityErrorHandler.logSecurityEvent('verification_failed', { 
+                        fileId: metadata.fileId, 
+                        error: verifyError.message 
+                    });
+                    throw new Error('File metadata verification failed');
+                }
             }
             
             // Check if we already have this transfer
@@ -937,14 +1191,15 @@ class EnhancedSecureFileTransfer {
             }
             
         } catch (error) {
-            console.error('❌ Failed to handle file transfer start:', error);
+            const safeError = SecurityErrorHandler.sanitizeError(error);
+            console.error('❌ Failed to handle file transfer start:', safeError);
             
             // Send error response
             const errorResponse = {
                 type: 'file_transfer_response',
                 fileId: metadata.fileId,
                 accepted: false,
-                error: error.message,
+                error: safeError, 
                 timestamp: Date.now()
             };
             await this.sendSecureMessage(errorResponse);
@@ -952,99 +1207,105 @@ class EnhancedSecureFileTransfer {
     }
 
     async handleFileChunk(chunkMessage) {
-        try {
-            let receivingState = this.receivingTransfers.get(chunkMessage.fileId);
-        
-            // Buffer early chunks if transfer not yet initialized
-            if (!receivingState) {
-                if (!this.pendingChunks.has(chunkMessage.fileId)) {
-                    this.pendingChunks.set(chunkMessage.fileId, new Map());
-                }
+        return this.atomicOps.withLock(
+            `chunk-${chunkMessage.fileId}`, 
+            async () => {
+                try {
+                    let receivingState = this.receivingTransfers.get(chunkMessage.fileId);
                 
-                this.pendingChunks.get(chunkMessage.fileId).set(chunkMessage.chunkIndex, chunkMessage);
-                return;
+                    // Buffer early chunks if transfer not yet initialized
+                    if (!receivingState) {
+                        if (!this.pendingChunks.has(chunkMessage.fileId)) {
+                            this.pendingChunks.set(chunkMessage.fileId, new Map());
+                        }
+                        
+                        this.pendingChunks.get(chunkMessage.fileId).set(chunkMessage.chunkIndex, chunkMessage);
+                        return;
+                    }
+                    
+                    // Update last chunk time
+                    receivingState.lastChunkTime = Date.now();
+                    
+                    // Check if chunk already received
+                    if (receivingState.receivedChunks.has(chunkMessage.chunkIndex)) {
+                        return;
+                    }
+                    
+                    // Validate chunk
+                    if (chunkMessage.chunkIndex < 0 || chunkMessage.chunkIndex >= receivingState.totalChunks) {
+                        throw new Error(`Invalid chunk index: ${chunkMessage.chunkIndex}`);
+                    }
+                    
+                    // Decrypt chunk
+                    const nonce = new Uint8Array(chunkMessage.nonce);
+                    // Backward compatible: prefer Base64, fallback to numeric array
+                    let encryptedData;
+                    if (chunkMessage.encryptedDataB64) {
+                        encryptedData = this.base64ToUint8Array(chunkMessage.encryptedDataB64);
+                    } else if (chunkMessage.encryptedData) {
+                        encryptedData = new Uint8Array(chunkMessage.encryptedData);
+                    } else {
+                        throw new Error('Missing encrypted data');
+                    }
+                    
+                    const decryptedChunk = await crypto.subtle.decrypt(
+                        {
+                            name: 'AES-GCM',
+                            iv: nonce
+                        },
+                        receivingState.sessionKey,
+                        encryptedData
+                    );
+                    
+                    // Verify chunk size
+                    if (decryptedChunk.byteLength !== chunkMessage.chunkSize) {
+                        throw new Error(`Chunk size mismatch: expected ${chunkMessage.chunkSize}, got ${decryptedChunk.byteLength}`);
+                    }
+                    
+                    // Store chunk
+                    receivingState.receivedChunks.set(chunkMessage.chunkIndex, decryptedChunk);
+                    receivingState.receivedCount++;
+                    
+                    // Send chunk confirmation
+                    const confirmation = {
+                        type: 'chunk_confirmation',
+                        fileId: chunkMessage.fileId,
+                        chunkIndex: chunkMessage.chunkIndex,
+                        timestamp: Date.now()
+                    };
+                    await this.sendSecureMessage(confirmation);
+                    
+                    // Check if all chunks received
+                    if (receivingState.receivedCount === receivingState.totalChunks) {
+                        await this.assembleFile(receivingState);
+                    }
+                    
+                } catch (error) {
+                    const safeError = SecurityErrorHandler.sanitizeError(error);
+                    console.error('❌ Failed to handle file chunk:', safeError);
+                    
+                    // Send error notification
+                    const errorMessage = {
+                        type: 'file_transfer_error',
+                        fileId: chunkMessage.fileId,
+                        error: safeError, 
+                        chunkIndex: chunkMessage.chunkIndex,
+                        timestamp: Date.now()
+                    };
+                    await this.sendSecureMessage(errorMessage);
+                    
+                    // Mark transfer as failed
+                    const receivingState = this.receivingTransfers.get(chunkMessage.fileId);
+                    if (receivingState) {
+                        receivingState.status = 'failed';
+                    }
+                    
+                    if (this.onError) {
+                        this.onError(`Chunk processing failed: ${safeError}`);
+                    }
+                }
             }
-            
-            // Update last chunk time
-            receivingState.lastChunkTime = Date.now();
-            
-            // Check if chunk already received
-            if (receivingState.receivedChunks.has(chunkMessage.chunkIndex)) {
-                return;
-            }
-            
-            // Validate chunk
-            if (chunkMessage.chunkIndex < 0 || chunkMessage.chunkIndex >= receivingState.totalChunks) {
-                throw new Error(`Invalid chunk index: ${chunkMessage.chunkIndex}`);
-            }
-            
-            // Decrypt chunk
-            const nonce = new Uint8Array(chunkMessage.nonce);
-            // Backward compatible: prefer Base64, fallback to numeric array
-            let encryptedData;
-            if (chunkMessage.encryptedDataB64) {
-                encryptedData = this.base64ToUint8Array(chunkMessage.encryptedDataB64);
-            } else if (chunkMessage.encryptedData) {
-                encryptedData = new Uint8Array(chunkMessage.encryptedData);
-            } else {
-                throw new Error('Missing encrypted data');
-            }
-            
-            const decryptedChunk = await crypto.subtle.decrypt(
-                {
-                    name: 'AES-GCM',
-                    iv: nonce
-                },
-                receivingState.sessionKey,
-                encryptedData
-            );
-            
-            // Verify chunk size
-            if (decryptedChunk.byteLength !== chunkMessage.chunkSize) {
-                throw new Error(`Chunk size mismatch: expected ${chunkMessage.chunkSize}, got ${decryptedChunk.byteLength}`);
-            }
-            
-            // Store chunk
-            receivingState.receivedChunks.set(chunkMessage.chunkIndex, decryptedChunk);
-            receivingState.receivedCount++;
-            
-            // Send chunk confirmation
-            const confirmation = {
-                type: 'chunk_confirmation',
-                fileId: chunkMessage.fileId,
-                chunkIndex: chunkMessage.chunkIndex,
-                timestamp: Date.now()
-            };
-            await this.sendSecureMessage(confirmation);
-            
-            // Check if all chunks received
-            if (receivingState.receivedCount === receivingState.totalChunks) {
-                await this.assembleFile(receivingState);
-            }
-            
-        } catch (error) {
-            console.error('❌ Failed to handle file chunk:', error);
-            
-            // Send error notification
-            const errorMessage = {
-                type: 'file_transfer_error',
-                fileId: chunkMessage.fileId,
-                error: error.message,
-                chunkIndex: chunkMessage.chunkIndex,
-                timestamp: Date.now()
-            };
-            await this.sendSecureMessage(errorMessage);
-            
-            // Mark transfer as failed
-            const receivingState = this.receivingTransfers.get(chunkMessage.fileId);
-            if (receivingState) {
-                receivingState.status = 'failed';
-            }
-            
-            if (this.onError) {
-                this.onError(`Chunk processing failed: ${error.message}`);
-            }
-        }
+        );
     }
 
     async assembleFile(receivingState) {
@@ -1086,15 +1347,13 @@ class EnhancedSecureFileTransfer {
             if (receivedHash !== receivingState.fileHash) {
                 throw new Error('File integrity check failed - hash mismatch');
             }
-            
-            // Lazy: храним буфер, но для совместимости формируем Blob для onFileReceived
+
             const fileBuffer = fileData.buffer;
             const fileBlob = new Blob([fileBuffer], { type: receivingState.fileType });
             
             receivingState.endTime = Date.now();
             receivingState.status = 'completed';
-            
-            // Сохраняем в кэше до запроса скачивания
+
             this.receivedFileBuffers.set(receivingState.fileId, {
                 buffer: fileBuffer,
                 type: receivingState.fileType,
@@ -1102,7 +1361,6 @@ class EnhancedSecureFileTransfer {
                 size: receivingState.fileSize
             });
 
-            // Сообщаем UI о готовности файла и даём ленивые методы получения
             if (this.onFileReceived) {
                 const getBlob = async () => new Blob([this.receivedFileBuffers.get(receivingState.fileId).buffer], { type: receivingState.fileType });
                 const getObjectURL = async () => {
@@ -1137,8 +1395,6 @@ class EnhancedSecureFileTransfer {
             await this.sendSecureMessage(completionMessage);
             
             // Cleanup
-            // Не удаляем буфер сразу, оставляем до загрузки пользователем
-            // Очистим метаданные чанков, оставив итоговый буфер
             if (this.receivingTransfers.has(receivingState.fileId)) {
                 const rs = this.receivingTransfers.get(receivingState.fileId);
                 if (rs && rs.receivedChunks) rs.receivedChunks.clear();
@@ -1335,14 +1591,26 @@ class EnhancedSecureFileTransfer {
         this.pendingChunks.delete(fileId);
         const receivingState = this.receivingTransfers.get(fileId);
         if (receivingState) {
-            // Clear chunk data from memory
-            receivingState.receivedChunks.clear();
+            if (receivingState.receivedChunks) {
+                for (const [index, chunk] of receivingState.receivedChunks) {
+                    SecureMemoryManager.secureWipe(chunk);
+                }
+                receivingState.receivedChunks.clear();
+            }
+
+            if (receivingState.sessionKey) {
+                receivingState.sessionKey = null;
+            }
         }
         
         this.receivingTransfers.delete(fileId);
         this.sessionKeys.delete(fileId);
-        // Также очищаем финальный буфер, если он ещё хранится
-        this.receivedFileBuffers.delete(fileId);
+        
+        const fileBuffer = this.receivedFileBuffers.get(fileId);
+        if (fileBuffer) {
+            SecureMemoryManager.secureWipe(fileBuffer.buffer);
+            this.receivedFileBuffers.delete(fileId);
+        }
         
         // Remove processed chunk IDs
         for (const chunkId of this.processedChunks) {
@@ -1391,25 +1659,20 @@ class EnhancedSecureFileTransfer {
             chunkSize: this.CHUNK_SIZE,
             hasWebrtcManager: !!this.webrtcManager,
             isConnected: this.webrtcManager?.isConnected?.() || false,
-            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Дополнительная диагностика
             hasDataChannel: !!this.webrtcManager?.dataChannel,
             dataChannelState: this.webrtcManager?.dataChannel?.readyState,
             isVerified: this.webrtcManager?.isVerified,
             hasEncryptionKey: !!this.webrtcManager?.encryptionKey,
             hasMacKey: !!this.webrtcManager?.macKey,
             linkedToWebRTCManager: this.webrtcManager?.fileTransferSystem === this,
-            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Информация о поддерживаемых типах файлов
             supportedFileTypes: this.getSupportedFileTypes(),
             fileTypeInfo: this.getFileTypeInfo()
         };
     }
 
     cleanup() {
-        // ИСПРАВЛЕНИЕ: Очищаем глобальные флаги
-        window.FILE_TRANSFER_ACTIVE = false;
-        window.fileTransferSystem = null;
-        
-        // ИСПРАВЛЕНИЕ: Восстанавливаем ВСЕ перехваченные методы
+        SecureFileTransferContext.getInstance().deactivate();
+
         if (this.webrtcManager && this.webrtcManager.dataChannel && this.originalOnMessage) {
             this.webrtcManager.dataChannel.onmessage = this.originalOnMessage;
             this.originalOnMessage = null;
@@ -1425,13 +1688,21 @@ class EnhancedSecureFileTransfer {
             this.originalRemoveSecurityLayers = null;
         }
         
-        // Cleanup all active transfers
+        // Cleanup all active transfers with secure memory wiping
         for (const fileId of this.activeTransfers.keys()) {
             this.cleanupTransfer(fileId);
         }
         
         for (const fileId of this.receivingTransfers.keys()) {
             this.cleanupReceivingTransfer(fileId);
+        }
+
+        if (this.atomicOps) {
+            this.atomicOps.locks.clear();
+        }
+        
+        if (this.rateLimiter) {
+            this.rateLimiter.requests.clear();
         }
         
         // Clear all state
@@ -1442,6 +1713,8 @@ class EnhancedSecureFileTransfer {
         this.sessionKeys.clear();
         this.transferNonces.clear();
         this.processedChunks.clear();
+
+        this.clearKeys();
     }
 
     // ============================================
@@ -1457,7 +1730,6 @@ class EnhancedSecureFileTransfer {
     // DEBUGGING AND DIAGNOSTICS
     // ============================================
 
-    // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Метод для диагностики проблем с передачей файлов
     diagnoseFileTransferIssue() {
         const diagnosis = {
             timestamp: new Date().toISOString(),
@@ -1477,10 +1749,11 @@ class EnhancedSecureFileTransfer {
                 hasKeyFingerprint: !!this.webrtcManager?.keyFingerprint,
                 hasSessionSalt: !!this.webrtcManager?.sessionSalt
             },
-            globalState: {
-                fileTransferActive: window.FILE_TRANSFER_ACTIVE,
-                hasGlobalFileTransferSystem: !!window.fileTransferSystem,
-                globalFileTransferSystemType: window.fileTransferSystem?.constructor?.name
+            securityContext: {
+                contextActive: SecureFileTransferContext.getInstance().isActive(),
+                securityLevel: SecureFileTransferContext.getInstance().getSecurityLevel(),
+                hasAtomicOps: !!this.atomicOps,
+                hasRateLimiter: !!this.rateLimiter
             },
             transfers: {
                 activeTransfers: this.activeTransfers.size,
@@ -1488,7 +1761,6 @@ class EnhancedSecureFileTransfer {
                 pendingChunks: this.pendingChunks.size,
                 sessionKeys: this.sessionKeys.size
             },
-            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Информация о поддерживаемых типах файлов
             fileTypeSupport: {
                 supportedTypes: this.getSupportedFileTypes(),
                 generalMaxSize: this.formatFileSize(this.MAX_FILE_SIZE),
@@ -1542,31 +1814,25 @@ class EnhancedSecureFileTransfer {
     }
 
     // ============================================
-    // АЛЬТЕРНАТИВНЫЙ МЕТОД ИНИЦИАЛИЗАЦИИ ОБРАБОТЧИКОВ
+    // ALTERNATIVE METHOD OF INITIALIZING HANDLERS
     // ============================================
-    
-    // Если переопределение processMessage не работает, 
-    // используйте этот метод для явной регистрации обработчика
+
     registerWithWebRTCManager() {
         if (!this.webrtcManager) {
             throw new Error('WebRTC manager not available');
         }
-        
-        // Сохраняем ссылку на файловую систему в WebRTC менеджере
+
         this.webrtcManager.fileTransferSystem = this;
-        
-        // КРИТИЧЕСКИ ВАЖНО: Устанавливаем обработчик файловых сообщений
+
         this.webrtcManager.setFileMessageHandler = (handler) => {
             this.webrtcManager._fileMessageHandler = handler;
         };
-        
-        // Регистрируем наш обработчик
+
         this.webrtcManager.setFileMessageHandler((message) => {
             return this.handleFileMessage(message);
         });
     }
 
-    // Метод для прямого вызова из WebRTC менеджера
     static createFileMessageFilter(fileTransferSystem) {
         return async (event) => {
             try {
@@ -1575,15 +1841,86 @@ class EnhancedSecureFileTransfer {
                     
                     if (fileTransferSystem.isFileTransferMessage(parsed)) {
                         await fileTransferSystem.handleFileMessage(parsed);
-                        return true; // Сообщение обработано
+                        return true; 
                     }
                 }
             } catch (error) {
-                // Не файловое сообщение или ошибка парсинга
             }
             
-            return false; // Сообщение не обработано
+            return false; 
         };
+    }
+
+    // ============================================
+    // SECURITY KEY MANAGEMENT
+    // ============================================
+
+    setSigningKey(privateKey) {
+        if (!privateKey || !(privateKey instanceof CryptoKey)) {
+            throw new Error('Invalid private key for signing');
+        }
+        this.signingKey = privateKey;
+        console.log('🔒 Signing key set successfully');
+    }
+
+    setVerificationKey(publicKey) {
+        if (!publicKey || !(publicKey instanceof CryptoKey)) {
+            throw new Error('Invalid public key for verification');
+        }
+        this.verificationKey = publicKey;
+        console.log('🔒 Verification key set successfully');
+    }
+
+    async generateSigningKeyPair() {
+        try {
+            const keyPair = await crypto.subtle.generateKey(
+                {
+                    name: 'RSASSA-PKCS1-v1_5',
+                    modulusLength: 2048,
+                    publicExponent: new Uint8Array([1, 0, 1]),
+                    hash: 'SHA-256'
+                },
+                true, // extractable
+                ['sign', 'verify']
+            );
+            
+            this.signingKey = keyPair.privateKey;
+            this.verificationKey = keyPair.publicKey;
+            
+            console.log('🔒 RSA key pair generated successfully');
+            return keyPair;
+        } catch (error) {
+            const safeError = SecurityErrorHandler.sanitizeError(error);
+            console.error('❌ Failed to generate signing key pair:', safeError);
+            throw new Error(safeError);
+        }
+    }
+
+    clearKeys() {
+        this.signingKey = null;
+        this.verificationKey = null;
+        console.log('🔒 Security keys cleared');
+    }
+
+    getSecurityStatus() {
+        return {
+            signingEnabled: this.signingKey !== null,
+            verificationEnabled: this.verificationKey !== null,
+            contextActive: SecureFileTransferContext.getInstance().isActive(),
+            securityLevel: SecureFileTransferContext.getInstance().getSecurityLevel()
+        };
+    }
+
+    getClientIdentifier() {
+        return this.webrtcManager?.connectionId || 
+               this.webrtcManager?.keyFingerprint?.substring(0, 16) || 
+               'default-client';
+    }
+    
+    destroy() {
+        SecureFileTransferContext.getInstance().deactivate();
+        this.clearKeys();
+        console.log('🔒 File transfer system destroyed safely');
     }
 }
 
