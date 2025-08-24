@@ -1,5 +1,5 @@
 // SecureBit.chat Service Worker
-// Enhanced Security Edition v4.01.413
+// Enhanced Security Edition v4.01.441
 
 const CACHE_NAME = 'securebit-v4.0.3';
 const STATIC_CACHE = 'securebit-static-v4.0.3';
@@ -361,4 +361,4 @@ self.addEventListener('unhandledrejection', (event) => {
     console.error('❌ Service Worker unhandled rejection:', event.reason);
 });
 
-console.log('🔧 SecureBit.chat Service Worker loaded - Enhanced Security Edition v4.01.413');
+console.log('🔧 SecureBit.chat Service Worker loaded - Enhanced Security Edition v4.01.441');

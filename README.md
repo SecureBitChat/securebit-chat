@@ -15,7 +15,7 @@
 
 ---
 
-## ✨ What's New in v4.01.413
+## ✨ What's New in v4.01.441
 
 ### 🔒 Comprehensive Connection Security Overhaul
 * **Advanced mutex framework** with 15-second timeout protection
@@ -254,7 +254,7 @@ open http://localhost:8000
 
 ## 🗺️ Development Roadmap
 
-**Current:** v4.01.413 — PWA & File Transfer Edition ✅
+**Current:** v4.01.441 — PWA & File Transfer Edition ✅
 
 * Progressive Web App installation
 * Secure P2P file transfer system
@@ -551,6 +551,6 @@ SecureBit.chat:
 
 ---
 
-**Latest Release: v4.01.413** — PWA & Secure File Transfer
+**Latest Release: v4.01.441** — PWA & Secure File Transfer
 
 </div>

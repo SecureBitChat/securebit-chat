@@ -1587,36 +1587,140 @@ class EnhancedSecureFileTransfer {
         }
     }
 
+    // ✅ УЛУЧШЕННАЯ безопасная очистка памяти для предотвращения use-after-free
     cleanupReceivingTransfer(fileId) {
-        this.pendingChunks.delete(fileId);
-        const receivingState = this.receivingTransfers.get(fileId);
-        if (receivingState) {
-            if (receivingState.receivedChunks) {
-                for (const [index, chunk] of receivingState.receivedChunks) {
-                    SecureMemoryManager.secureWipe(chunk);
+        try {
+            // Безопасно очищаем pending chunks
+            this.pendingChunks.delete(fileId);
+            
+            const receivingState = this.receivingTransfers.get(fileId);
+            if (receivingState) {
+                // ✅ БЕЗОПАСНАЯ очистка receivedChunks с дополнительной защитой
+                if (receivingState.receivedChunks && receivingState.receivedChunks.size > 0) {
+                    for (const [index, chunk] of receivingState.receivedChunks) {
+                        try {
+                            // Дополнительная проверка на валидность chunk
+                            if (chunk && (chunk instanceof ArrayBuffer || chunk instanceof Uint8Array)) {
+                                SecureMemoryManager.secureWipe(chunk);
+                                
+                                // Дополнительная очистка - заполняем нулями перед удалением
+                                if (chunk instanceof ArrayBuffer) {
+                                    const view = new Uint8Array(chunk);
+                                    view.fill(0);
+                                } else if (chunk instanceof Uint8Array) {
+                                    chunk.fill(0);
+                                }
+                            }
+                        } catch (chunkError) {
+                            console.warn('⚠️ Failed to securely wipe chunk:', chunkError);
+                        }
+                    }
+                    receivingState.receivedChunks.clear();
                 }
-                receivingState.receivedChunks.clear();
+                
+                // ✅ БЕЗОПАСНАЯ очистка session key
+                if (receivingState.sessionKey) {
+                    try {
+                        // Для CryptoKey нельзя безопасно очистить, но можем удалить ссылку
+                        receivingState.sessionKey = null;
+                    } catch (keyError) {
+                        console.warn('⚠️ Failed to clear session key:', keyError);
+                    }
+                }
+                
+                // ✅ БЕЗОПАСНАЯ очистка других чувствительных данных
+                if (receivingState.salt) {
+                    try {
+                        if (Array.isArray(receivingState.salt)) {
+                            receivingState.salt.fill(0);
+                        }
+                        receivingState.salt = null;
+                    } catch (saltError) {
+                        console.warn('⚠️ Failed to clear salt:', saltError);
+                    }
+                }
+                
+                // Очищаем все свойства receivingState
+                for (const [key, value] of Object.entries(receivingState)) {
+                    if (value && typeof value === 'object') {
+                        if (value instanceof ArrayBuffer || value instanceof Uint8Array) {
+                            SecureMemoryManager.secureWipe(value);
+                        } else if (Array.isArray(value)) {
+                            value.fill(0);
+                        }
+                        receivingState[key] = null;
+                    }
+                }
             }
-
-            if (receivingState.sessionKey) {
-                receivingState.sessionKey = null;
+            
+            // Удаляем из основных коллекций
+            this.receivingTransfers.delete(fileId);
+            this.sessionKeys.delete(fileId);
+            
+            // ✅ БЕЗОПАСНАЯ очистка финального буфера файла
+            const fileBuffer = this.receivedFileBuffers.get(fileId);
+            if (fileBuffer) {
+                try {
+                    if (fileBuffer.buffer) {
+                        SecureMemoryManager.secureWipe(fileBuffer.buffer);
+                        
+                        // Дополнительная очистка - заполняем нулями
+                        const view = new Uint8Array(fileBuffer.buffer);
+                        view.fill(0);
+                    }
+                    
+                    // Очищаем все свойства fileBuffer
+                    for (const [key, value] of Object.entries(fileBuffer)) {
+                        if (value && typeof value === 'object') {
+                            if (value instanceof ArrayBuffer || value instanceof Uint8Array) {
+                                SecureMemoryManager.secureWipe(value);
+                            }
+                            fileBuffer[key] = null;
+                        }
+                    }
+                    
+                    this.receivedFileBuffers.delete(fileId);
+                } catch (bufferError) {
+                    console.warn('⚠️ Failed to securely clear file buffer:', bufferError);
+                    // Принудительно удаляем даже при ошибке
+                    this.receivedFileBuffers.delete(fileId);
+                }
             }
-        }
-        
-        this.receivingTransfers.delete(fileId);
-        this.sessionKeys.delete(fileId);
-        
-        const fileBuffer = this.receivedFileBuffers.get(fileId);
-        if (fileBuffer) {
-            SecureMemoryManager.secureWipe(fileBuffer.buffer);
-            this.receivedFileBuffers.delete(fileId);
-        }
-        
-        // Remove processed chunk IDs
-        for (const chunkId of this.processedChunks) {
-            if (chunkId.startsWith(fileId)) {
+            
+            // ✅ БЕЗОПАСНАЯ очистка processed chunks
+            const chunksToRemove = [];
+            for (const chunkId of this.processedChunks) {
+                if (chunkId.startsWith(fileId)) {
+                    chunksToRemove.push(chunkId);
+                }
+            }
+            
+            // Удаляем в отдельном цикле для избежания изменения коллекции во время итерации
+            for (const chunkId of chunksToRemove) {
                 this.processedChunks.delete(chunkId);
             }
+            
+            // Принудительная очистка памяти
+            if (typeof global !== 'undefined' && global.gc) {
+                try {
+                    global.gc();
+                } catch (gcError) {
+                    // Игнорируем ошибки GC
+                }
+            }
+            
+            console.log(`🔒 Memory safely cleaned for file transfer: ${fileId}`);
+            
+        } catch (error) {
+            console.error('❌ Error during secure memory cleanup:', error);
+            
+            // Принудительная очистка даже при ошибке
+            this.receivingTransfers.delete(fileId);
+            this.sessionKeys.delete(fileId);
+            this.receivedFileBuffers.delete(fileId);
+            this.pendingChunks.delete(fileId);
+            
+            throw new Error(`Memory cleanup failed: ${error.message}`);
         }
     }
 

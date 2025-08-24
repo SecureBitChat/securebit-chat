@@ -37,6 +37,7 @@ SecureBit.chat implements state-of-the-art cryptographic protocols providing **m
 | **Symmetric Encryption** | AES-256-GCM | 256-bit | 256-bit | FIPS 197 |
 | **Asymmetric Encryption** | ECDH P-384 | 384-bit | 192-bit | FIPS 186-4 |
 | **Digital Signatures** | ECDSA P-384 | 384-bit | 192-bit | FIPS 186-4 |
+| **File Metadata Signatures** | RSA-2048 | 2048-bit | 112-bit | FIPS 186-4 |
 | **Hash Function** | SHA-384 | - | 192-bit | FIPS 180-4 |
 | **Message Authentication** | HMAC-SHA-384 | 384-bit | 192-bit | FIPS 198-1 |
 | **Key Derivation** | HKDF-SHA-384 | Variable | 192-bit | RFC 5869 |
@@ -716,6 +717,80 @@ async function exportPublicKeyWithSignature(publicKey, signingKey, keyType) {
     
     // Validate key structure
     await validateKeyStructure(keyData, keyType);
+```
+
+### RSA-2048 File Metadata Signatures
+
+#### **RSA Key Generation**
+```javascript
+async function generateRSAKeyPair() {
+    const keyPair = await crypto.subtle.generateKey(
+        {
+            name: 'RSASSA-PKCS1-v1_5',
+            modulusLength: 2048,
+            publicExponent: new Uint8Array([1, 0, 1]),
+            hash: 'SHA-256'
+        },
+        true, // extractable
+        ['sign', 'verify']
+    );
+    
+    return keyPair;
+}
+```
+
+#### **File Metadata Signing**
+```javascript
+async function signFileMetadata(metadata, privateKey) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(JSON.stringify({
+        fileId: metadata.fileId,
+        fileName: metadata.fileName,
+        fileSize: metadata.fileSize,
+        fileHash: metadata.fileHash,
+        timestamp: metadata.timestamp,
+        version: metadata.version || '2.0'
+    }));
+    
+    const signature = await crypto.subtle.sign(
+        'RSASSA-PKCS1-v1_5',
+        privateKey,
+        data
+    );
+    
+    return Array.from(new Uint8Array(signature));
+}
+```
+
+#### **File Metadata Verification**
+```javascript
+async function verifyFileMetadata(metadata, signature, publicKey) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(JSON.stringify({
+        fileId: metadata.fileId,
+        fileName: metadata.fileName,
+        fileSize: metadata.fileSize,
+        fileHash: metadata.fileHash,
+        timestamp: metadata.timestamp,
+        version: metadata.version || '2.0'
+    }));
+    
+    const signatureBuffer = new Uint8Array(signature);
+    
+    return await crypto.subtle.verify(
+        'RSASSA-PKCS1-v1_5',
+        publicKey,
+        signatureBuffer,
+        data
+    );
+}
+```
+
+#### **RSA Signature Benefits**
+- **File Integrity:** Cryptographic proof of file metadata authenticity
+- **Source Verification:** Ensures files come from verified sources
+- **Tamper Detection:** Prevents metadata manipulation
+- **Compliance:** Meets enterprise security requirements
     
     // Create key package
     const keyPackage = {

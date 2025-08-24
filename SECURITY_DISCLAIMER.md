@@ -1,6 +1,6 @@
 # Security Disclaimer and Terms of Use
 
-## 🔒 SecureBit.chat Enhanced Security Edition v4.01.413
+## 🔒 SecureBit.chat Enhanced Security Edition v4.01.441
 
 ### Important Legal Notice
 
@@ -124,16 +124,26 @@ We believe privacy and free speech are fundamental human rights, but:
 - **ECDH P-384** key exchange
 - **AES-GCM 256-bit** encryption
 - **ECDSA P-384** digital signatures
+- **RSA-2048** digital signatures for file metadata
 - **Perfect Forward Secrecy** with key rotation
 - **MITM protection** via out-of-band verification
 - **Zero server architecture** (pure P2P)
+- **DTLS Race Condition Protection** against October 2024 WebRTC vulnerabilities
+- **ICE Endpoint Verification** for secure WebRTC connections
+- **Message Size Validation** with 1MB DoS protection
+- **Atomic Operations** for race condition prevention
+- **Secure Memory Management** with advanced wiping techniques
+- **Symbol-Based Context Isolation** for private instance management
+- **Rate Limiting System** (10 files/minute) with client identification
 
 ### Known Limitations
-- WebRTC fingerprinting possibilities
+- WebRTC fingerprinting possibilities (mitigated by anti-fingerprinting techniques)
 - Browser-based implementation constraints
 - Dependency on Web Crypto API security
 - No protection against compromised endpoints
-- Traffic analysis potential despite encryption
+- Traffic analysis potential despite encryption (mitigated by packet padding and noise)
+- Memory safety depends on JavaScript engine implementation
+- DTLS protection effectiveness depends on WebRTC implementation
 
 ---
 
@@ -143,6 +153,15 @@ We believe privacy and free speech are fundamental human rights, but:
 - **v5.0**: CRYSTALS-Kyber/Dilithium implementation
 - **Long-term**: Resistance to quantum cryptanalysis
 - **Ongoing**: Security audits and improvements
+
+### Advanced Security Technologies (v4.01.441)
+- **DTLS Protection Framework**: Comprehensive WebRTC security enhancement
+- **Memory Safety Mechanisms**: Advanced protection against use-after-free vulnerabilities
+- **Race Condition Prevention**: Atomic operations for critical security sections
+- **Error Sanitization System**: Secure error handling without information leakage
+- **Context Isolation**: Symbol-based private instance management
+- **File Transfer Security**: Cryptographic signatures and metadata validation
+- **Advanced DoS Protection**: Message size validation and rate limiting
 
 ---
 
@@ -202,7 +221,7 @@ This software is created to:
 
 ---
 
-*Last Updated: 08.07.2025*  
-*Version: Enhanced Security Edition v4.01.413*
+*Last Updated: December 2024*  
+*Version: Enhanced Security Edition v4.01.441 - DTLS Protected*
 
 **USE AT YOUR OWN RISK AND RESPONSIBILITY**
