@@ -57,6 +57,15 @@ const CACHE_FIRST_PATTERNS = [
     /logo/
 ];
 
+self.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'PWA_INSTALLED') {
+        self.clients.matchAll().then(clients => {
+            clients.forEach(client => {
+                client.postMessage({ type: 'PWA_INSTALL_DETECTED' });
+            });
+        });
+    }
+});
 // Install event - cache static assets with better error handling
 self.addEventListener('install', (event) => {
     console.log('🔧 Service Worker installing...');
