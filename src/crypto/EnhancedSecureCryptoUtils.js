@@ -753,6 +753,19 @@ class EnhancedSecureCryptoUtils {
     }
 };
 
+    static validateSalt(salt) {
+        if (!salt || salt.length !== 64) {
+            throw new Error('Salt must be exactly 64 bytes');
+        }
+        
+        const uniqueBytes = new Set(salt);
+        if (uniqueBytes.size < 16) {
+            throw new Error('Salt has insufficient entropy');
+        }
+        
+        return true;
+    }
+
     // Secure logging without data leaks
     static secureLog = {
         logs: [],
@@ -786,12 +799,19 @@ class EnhancedSecureCryptoUtils {
         },
         
         sanitizeContext(context) {
+            const sensitivePatterns = [
+                /key/i, /secret/i, /password/i, /token/i, /signature/i,
+                /challenge/i, /proof/i, /salt/i, /iv/i, /nonce/i, /hash/i,
+                /fingerprint/i, /mac/i
+            ];
+            
             const sanitized = {};
             for (const [key, value] of Object.entries(context)) {
-                if (key.toLowerCase().includes('key') ||
-                    key.toLowerCase().includes('secret') ||
-                    key.toLowerCase().includes('password') ||
-                    key.toLowerCase().includes('token')) {
+                const isSensitive = sensitivePatterns.some(pattern => 
+                    pattern.test(key) || (typeof value === 'string' && pattern.test(value))
+                );
+                
+                if (isSensitive) {
                     sanitized[key] = '[REDACTED]';
                 } else if (typeof value === 'string' && value.length > 100) {
                     sanitized[key] = value.substring(0, 100) + '...[TRUNCATED]';
@@ -1725,6 +1745,7 @@ class EnhancedSecureCryptoUtils {
     // Verify mutual authentication proof
     static async verifyAuthProof(proof, challenge, publicKey) {
         try {
+            await new Promise(resolve => setTimeout(resolve, Math.floor(Math.random() * 20) + 5));
             // Assert the public key is valid and has the correct usage
             EnhancedSecureCryptoUtils.assertCryptoKey(publicKey, 'ECDSA', ['verify']);
 
