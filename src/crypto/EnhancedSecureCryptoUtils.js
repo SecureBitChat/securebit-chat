@@ -187,13 +187,14 @@ class EnhancedSecureCryptoUtils {
 
     
     // Generate secure password for data exchange
-        static generateSecurePassword() {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-        const randomValues = new Uint32Array(16);
+    static generateSecurePassword() {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?';
+        const length = 32; 
+        const randomValues = new Uint32Array(length);
         crypto.getRandomValues(randomValues);
-
+        
         let password = '';
-        for (let i = 0; i < 16; i++) {
+        for (let i = 0; i < length; i++) {
             password += chars[randomValues[i] % chars.length];
         }
         return password;
@@ -609,10 +610,13 @@ class EnhancedSecureCryptoUtils {
     
     static async verifyRateLimiting(securityManager) {
         try {
-            // Check if rate limiting is active
+            const testId = 'test_' + Date.now();
+            const canProceed = await EnhancedSecureCryptoUtils.rateLimiter.checkMessageRate(testId, 1, 60000);
+            
             return securityManager.rateLimiterId && 
-                   EnhancedSecureCryptoUtils.rateLimiter &&
-                   typeof EnhancedSecureCryptoUtils.rateLimiter.checkMessageRate === 'function';
+                EnhancedSecureCryptoUtils.rateLimiter &&
+                typeof EnhancedSecureCryptoUtils.rateLimiter.checkMessageRate === 'function' &&
+                canProceed === true;
         } catch (error) {
             EnhancedSecureCryptoUtils.secureLog.log('error', 'Rate limiting verification failed', { error: error.message });
             return false;
@@ -636,12 +640,27 @@ class EnhancedSecureCryptoUtils {
 
     // Rate limiting implementation
     static rateLimiter = {
-        messages: new Map(),
-        connections: new Map(),
+    messages: new Map(),
+    connections: new Map(),
+    locks: new Map(),
+    
+    async checkMessageRate(identifier, limit = 60, windowMs = 60000) {
+        if (typeof identifier !== 'string' || identifier.length > 256) {
+            return false;
+        }
         
-        checkMessageRate(identifier, limit = 60, windowMs = 60000) {
+        const key = `msg_${identifier}`;
+
+        if (this.locks.has(key)) {
+
+            await new Promise(resolve => setTimeout(resolve, Math.floor(Math.random() * 10) + 5));
+            return this.checkMessageRate(identifier, limit, windowMs);
+        }
+        
+        this.locks.set(key, true);
+        
+        try {
             const now = Date.now();
-            const key = `msg_${identifier}`;
             
             if (!this.messages.has(key)) {
                 this.messages.set(key, []);
@@ -649,21 +668,36 @@ class EnhancedSecureCryptoUtils {
             
             const timestamps = this.messages.get(key);
             
-            // Remove old timestamps
             const validTimestamps = timestamps.filter(ts => now - ts < windowMs);
-            this.messages.set(key, validTimestamps);
             
             if (validTimestamps.length >= limit) {
-                return false; // Rate limit exceeded
+                return false; 
             }
             
             validTimestamps.push(now);
+            this.messages.set(key, validTimestamps);
             return true;
-        },
+        } finally {
+            this.locks.delete(key);
+        }
+    },
+    
+    async checkConnectionRate(identifier, limit = 5, windowMs = 300000) {
+        if (typeof identifier !== 'string' || identifier.length > 256) {
+            return false;
+        }
         
-        checkConnectionRate(identifier, limit = 5, windowMs = 300000) {
+        const key = `conn_${identifier}`;
+        
+        if (this.locks.has(key)) {
+            await new Promise(resolve => setTimeout(resolve, Math.floor(Math.random() * 10) + 5));
+            return this.checkConnectionRate(identifier, limit, windowMs);
+        }
+        
+        this.locks.set(key, true);
+        
+        try {
             const now = Date.now();
-            const key = `conn_${identifier}`;
             
             if (!this.connections.has(key)) {
                 this.connections.set(key, []);
@@ -671,39 +705,53 @@ class EnhancedSecureCryptoUtils {
             
             const timestamps = this.connections.get(key);
             const validTimestamps = timestamps.filter(ts => now - ts < windowMs);
-            this.connections.set(key, validTimestamps);
             
             if (validTimestamps.length >= limit) {
                 return false;
             }
             
             validTimestamps.push(now);
+            this.connections.set(key, validTimestamps);
             return true;
-        },
+        } finally {
+            this.locks.delete(key);
+        }
+    },
+    
+    cleanup() {
+        const now = Date.now();
+        const maxAge = 3600000; 
         
-        cleanup() {
-            const now = Date.now();
-            const maxAge = 3600000; // 1 hour
+        for (const [key, timestamps] of this.messages.entries()) {
+            if (this.locks.has(key)) continue;
             
-            for (const [key, timestamps] of this.messages.entries()) {
-                const valid = timestamps.filter(ts => now - ts < maxAge);
-                if (valid.length === 0) {
-                    this.messages.delete(key);
-                } else {
-                    this.messages.set(key, valid);
-                }
-            }
-            
-            for (const [key, timestamps] of this.connections.entries()) {
-                const valid = timestamps.filter(ts => now - ts < maxAge);
-                if (valid.length === 0) {
-                    this.connections.delete(key);
-                } else {
-                    this.connections.set(key, valid);
-                }
+            const valid = timestamps.filter(ts => now - ts < maxAge);
+            if (valid.length === 0) {
+                this.messages.delete(key);
+            } else {
+                this.messages.set(key, valid);
             }
         }
-    };
+        
+        for (const [key, timestamps] of this.connections.entries()) {
+            if (this.locks.has(key)) continue;
+            
+            const valid = timestamps.filter(ts => now - ts < maxAge);
+            if (valid.length === 0) {
+                this.connections.delete(key);
+            } else {
+                this.connections.set(key, valid);
+            }
+        }
+
+        for (const lockKey of this.locks.keys()) {
+            const keyTimestamp = parseInt(lockKey.split('_').pop()) || 0;
+            if (now - keyTimestamp > 30000) {
+                this.locks.delete(lockKey);
+            }
+        }
+    }
+};
 
     // Secure logging without data leaks
     static secureLog = {
@@ -1040,7 +1088,7 @@ class EnhancedSecureCryptoUtils {
                 throw new Error('Missing required fields in signed package');
             }
             
-            if (keyType !== expectedKeyType) {
+            if (!EnhancedSecureCryptoUtils.constantTimeCompare(keyType, expectedKeyType)) {
                 throw new Error(`Key type mismatch: expected ${expectedKeyType}, got ${keyType}`);
             }
             
@@ -1240,26 +1288,6 @@ class EnhancedSecureCryptoUtils {
                     securityRisk: 'HIGH - Potential MITM attack vector'
                 });
 
-                // Check if insecure mode is explicitly allowed (for debugging/testing only)
-                if (options.allowInsecureImport === true && options.explicitWarningAcknowledged === true) {
-                    EnhancedSecureCryptoUtils.secureLog.log('warn', 'INSECURE MODE: Importing signed package without verification (DANGEROUS)', {
-                        keyType: signedPackage.keyType,
-                        securityLevel: 'COMPROMISED',
-                        recommendation: 'This mode should NEVER be used in production'
-                    });
-
-                    // Continue with insecure import but mark the key as untrusted
-                    const key = await EnhancedSecureCryptoUtils._importKeyUnsafe(signedPackage);
-
-                    // Use WeakMap to store metadata
-                    EnhancedSecureCryptoUtils._keyMetadata.set(key, {
-                        trusted: false,
-                        verificationStatus: 'UNVERIFIED_DANGEROUS',
-                        verificationTimestamp: Date.now()
-                    });
-
-                    return key;
-                }
 
                 // REJECT the signed package if no verifying key provided
                 throw new Error('CRITICAL SECURITY ERROR: Signed key package received without a verification key. ' +
@@ -1713,9 +1741,9 @@ class EnhancedSecureCryptoUtils {
             }
 
             // Verify challenge matches
-            if (JSON.stringify(proof.challenge) !== JSON.stringify(challenge.challenge) ||
+            if (!EnhancedSecureCryptoUtils.constantTimeCompareArrays(proof.challenge, challenge.challenge) ||
                 proof.timestamp !== challenge.timestamp ||
-                JSON.stringify(proof.nonce) !== JSON.stringify(challenge.nonce)) {
+                !EnhancedSecureCryptoUtils.constantTimeCompareArrays(proof.nonce, challenge.nonce)) {
                 throw new Error('Challenge mismatch - possible replay attack');
             }
 
@@ -1727,7 +1755,7 @@ class EnhancedSecureCryptoUtils {
 
             // Verify public key hash
             const expectedHash = await EnhancedSecureCryptoUtils.hashPublicKey(publicKey);
-            if (proof.publicKeyHash !== expectedHash) {
+            if (!EnhancedSecureCryptoUtils.constantTimeCompare(proof.publicKeyHash, expectedHash)) {
                 throw new Error('Public key hash mismatch');
             }
 
@@ -2008,6 +2036,48 @@ class EnhancedSecureCryptoUtils {
             EnhancedSecureCryptoUtils.secureLog.log('error', 'Key fingerprint calculation failed', { error: error.message });
             throw new Error('Failed to compute the key fingerprint');
         }
+    }
+
+    static constantTimeCompare(a, b) {
+        const strA = typeof a === 'string' ? a : JSON.stringify(a);
+        const strB = typeof b === 'string' ? b : JSON.stringify(b);
+        
+        if (strA.length !== strB.length) {
+            let dummy = 0;
+            for (let i = 0; i < Math.max(strA.length, strB.length); i++) {
+                dummy |= (strA.charCodeAt(i % strA.length) || 0) ^ (strB.charCodeAt(i % strB.length) || 0);
+            }
+            return false;
+        }
+        
+        let result = 0;
+        for (let i = 0; i < strA.length; i++) {
+            result |= strA.charCodeAt(i) ^ strB.charCodeAt(i);
+        }
+        
+        return result === 0;
+    }
+
+    static constantTimeCompareArrays(arr1, arr2) {
+        if (!Array.isArray(arr1) || !Array.isArray(arr2)) {
+            return false;
+        }
+        
+        if (arr1.length !== arr2.length) {
+            let dummy = 0;
+            const maxLen = Math.max(arr1.length, arr2.length);
+            for (let i = 0; i < maxLen; i++) {
+                dummy |= (arr1[i % arr1.length] || 0) ^ (arr2[i % arr2.length] || 0);
+            }
+            return false;
+        }
+        
+        let result = 0;
+        for (let i = 0; i < arr1.length; i++) {
+            result |= arr1[i] ^ arr2[i];
+        }
+        
+        return result === 0;
     }
 }
 
