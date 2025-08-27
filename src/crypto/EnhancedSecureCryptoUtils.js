@@ -1225,47 +1225,6 @@ class EnhancedSecureCryptoUtils {
         }
     }
 
-    // Helper method for unsafe import (should only be used in testing/debugging)
-    static async _importKeyUnsafe(signedPackage) {
-        EnhancedSecureCryptoUtils.secureLog.log('warn', 'UNSAFE KEY IMPORT - This should never happen in production', {
-            keyType: signedPackage.keyType,
-            keySize: signedPackage.keyData.length,
-            securityRisk: 'CRITICAL'
-        });
-        
-        const keyBytes = new Uint8Array(signedPackage.keyData);
-        const keyType = signedPackage.keyType || 'ECDH';
-        
-        // Try P-384 first
-        try {
-            const publicKey = await crypto.subtle.importKey(
-                'spki',
-                keyBytes,
-                {
-                    name: keyType,
-                    namedCurve: 'P-384'
-                },
-                false,
-                []
-            );
-            
-            return publicKey;
-        } catch (p384Error) {
-            // Fallback to P-256
-            const publicKey = await crypto.subtle.importKey(
-                'spki',
-                keyBytes,
-                {
-                    name: keyType,
-                    namedCurve: 'P-256'
-                },
-                false,
-                []
-            );
-            
-            return publicKey;
-        }
-    }
 
     // Method to check if a key is trusted
     static isKeyTrusted(keyOrFingerprint) {
