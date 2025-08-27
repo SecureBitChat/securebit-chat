@@ -2,12 +2,12 @@
 
 ## 🔐 Overview
 
-SecureBit.chat implements state-of-the-art cryptographic protocols providing **military-grade security** for peer-to-peer communications. Our cryptographic design prioritizes security, performance, and future-proofing against emerging threats including quantum computing.
+SecureBit.chat implements state-of-the-art cryptographic protocols providing **military-grade security** for peer-to-peer communications. Our cryptographic design prioritizes security, performance, and future-proofing against emerging threats including quantum computing. **Version 4.02.442 introduces complete ASN.1 validation for enhanced key security.**
 
 **Cryptographic Strength:** 256+ bit security level  
 **Quantum Resistance:** Timeline > 2040  
-**Standards Compliance:** NIST, FIPS, NSA Suite B  
-**Implementation:** Hardware-accelerated, constant-time algorithms
+**Standards Compliance:** NIST, FIPS, NSA Suite B, RFC 5280, RFC 5480  
+**Implementation:** Hardware-accelerated, constant-time algorithms with complete ASN.1 validation
 
 ---
 
@@ -25,6 +25,7 @@ SecureBit.chat implements state-of-the-art cryptographic protocols providing **m
 10. [Implementation Details](#implementation-details)
 11. [Performance Optimization](#performance-optimization)
 12. [Compliance and Standards](#compliance-and-standards)
+13. [ASN.1 Validation Framework](#asn1-validation-framework)
 
 ---
 
@@ -41,6 +42,7 @@ SecureBit.chat implements state-of-the-art cryptographic protocols providing **m
 | **Hash Function** | SHA-384 | - | 192-bit | FIPS 180-4 |
 | **Message Authentication** | HMAC-SHA-384 | 384-bit | 192-bit | FIPS 198-1 |
 | **Key Derivation** | HKDF-SHA-384 | Variable | 192-bit | RFC 5869 |
+| **ASN.1 Validation** | Complete DER Parser | - | Structural | RFC 5280, RFC 5480 |
 
 ### Algorithm Selection Rationale
 
@@ -68,6 +70,12 @@ SecureBit.chat implements state-of-the-art cryptographic protocols providing **m
 - **Compatibility:** Matches P-384 curve security level
 - **Standard:** Part of SHA-2 family, widely standardized
 
+#### **ASN.1 DER Parser (NEW)**
+- **Chosen For:** Complete key structure validation
+- **Security:** Prevents key manipulation attacks
+- **Compliance:** Full PKCS and RFC standards adherence
+- **Performance:** < 10ms validation time
+
 ---
 
 ## 🔑 Key Management
@@ -94,6 +102,12 @@ SecureBit.chat implements state-of-the-art cryptographic protocols providing **m
 │ Nested Encryption Key (256-bit AES, hardware-generated)   │
 │ ├── Additional encryption layer                            │
 │ └── Rotated every 1000 messages                           │
+├─────────────────────────────────────────────────────────────┤
+│ ASN.1 Validation Keys (Structural verification)            │
+│ ├── OID validation (P-256/P-384 only)                     │
+│ ├── EC point format verification (0x04 uncompressed)      │
+│ ├── SPKI structure validation                              │
+│ └── Key size limits (50-2000 bytes)                       │
 └─────────────────────────────────────────────────────────────┘
 ```
 

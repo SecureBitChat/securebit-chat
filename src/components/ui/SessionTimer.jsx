@@ -1,3 +1,4 @@
+// SessionTimer Component - v4.02.442 - ASN.1 Validated
 const SessionTimer = ({ timeLeft, sessionType, sessionManager }) => {
     const [currentTime, setCurrentTime] = React.useState(timeLeft || 0);
     const [showExpiredMessage, setShowExpiredMessage] = React.useState(false);

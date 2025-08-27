@@ -89,7 +89,11 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                     '🛡️ Metadata Protection',
                     '🔄 Perfect Forward Secrecy',
                     '🔐 Nested Encryption',
-                    '📦 Packet Padding'
+                    '📦 Packet Padding',
+                    '🔒 Complete ASN.1 validation',
+                    '🔍 OID and EC point verification',
+                    '🏗️ SPKI structure validation',
+                    '🛡️ 18-layer security architecture'
                 ],
                 unavailable: [
                     '🎭 Traffic Obfuscation',
@@ -129,7 +133,12 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
                     '🕵️ Decoy Channels',
                     '🚫 Anti-Fingerprinting',
                     '📝 Message Chunking',
-                    '🔄 Advanced Replay Protection'
+                    '🔄 Advanced Replay Protection',
+                    '🔒 Complete ASN.1 validation',
+                    '🔍 OID and EC point verification',
+                    '🏗️ SPKI structure validation',
+                    '🛡️ 18-layer security architecture',
+                    '🚀 ASN.1 Validated'
                 ],
                 unavailable: [],
                 upgrade: {

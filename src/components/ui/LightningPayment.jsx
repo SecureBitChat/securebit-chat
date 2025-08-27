@@ -53,7 +53,7 @@ const IntegratedLightningPayment = ({ sessionType, onSuccess, onCancel, paymentM
 
     const handleWebLNPayment = async () => {
         if (!window.webln) {
-            setError('WebLN is not supported. Please use the Alby or Zeus wallet.');
+            setError('WebLN is not supported. Please use the Alby or Zeus wallet. SecureBit.chat v4.02.442 - ASN.1 Validated requires WebLN for Lightning payments.');
             return;
         }
 

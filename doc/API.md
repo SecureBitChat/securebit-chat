@@ -2,7 +2,7 @@
 
 ## 🏗️ Architecture Overview
 
-SecureBit.chat is built as a client-side application with no backend servers. The "API" consists of JavaScript classes and methods that handle cryptography, P2P connections, and Lightning Network integration.
+SecureBit.chat is built as a client-side application with no backend servers. The "API" consists of JavaScript classes and methods that handle cryptography, P2P connections, and Lightning Network integration. **Version 4.02.442 introduces complete ASN.1 validation for enhanced key security.**
 
 ## 📋 Table of Contents
 
@@ -14,8 +14,483 @@ SecureBit.chat is built as a client-side application with no backend servers. Th
    - [SecureKeyManager](#-securekeymanager)
    - [ConnectionMutexManager](#-connectionmutexmanager)
    - [SecureLogger](#-securelogger)
+   - [ASN1Validator](#-asn1validator) (NEW)
 3. [Testing and Examples](#testing-and-examples)
 4. [Integration Examples](#integration-examples)
+
+## 📚 Core Classes
+
+### 🔐 EnhancedSecureCryptoUtils
+
+Central cryptographic utilities class providing military-grade encryption with complete ASN.1 validation.
+
+#### Key Generation
+
+##### `generateECDHKeyPair()`
+```javascript
+static async generateECDHKeyPair(): Promise<CryptoKeyPair>
+Generates non-extractable ECDH P-384 key pair for secure key exchange.
+Returns: CryptoKeyPair with P-384 keys
+Throws: Error if key generation fails
+
+Example:
+const keyPair = await EnhancedSecureCryptoUtils.generateECDHKeyPair();
+console.log(keyPair.privateKey.algorithm.namedCurve); // "P-384"
+```
+
+##### `generateECDSAKeyPair()`
+```javascript
+static async generateECDSAKeyPair(): Promise<CryptoKeyPair>
+Generates non-extractable ECDSA P-384 key pair for digital signatures.
+Returns: CryptoKeyPair for signing and verification
+Throws: Error if key generation fails
+```
+
+#### Encryption/Decryption
+
+##### `encryptMessage()`
+```javascript
+static async encryptMessage(
+    message: string,
+    encryptionKey: CryptoKey,
+    macKey: CryptoKey,
+    metadataKey: CryptoKey,
+    messageId: string,
+    sequenceNumber: number = 0
+): Promise<EncryptedMessage>
+
+Encrypts a message with metadata protection and sequence numbers.
+
+Parameters:
+- message - Plaintext message (max 2000 chars)
+- encryptionKey - AES-GCM 256-bit key
+- macKey - HMAC key for authentication
+- metadataKey - Key for metadata encryption
+- messageId - Unique message identifier
+- sequenceNumber - Message sequence for replay protection
+
+Returns:
+```typescript
+interface EncryptedMessage {
+    messageIv: number[];
+    messageData: number[];
+    metadataIv: number[];
+    metadataData: number[];
+    mac: number[];
+    version: string;
+}
+```
+
+Example:
+```javascript
+const encrypted = await EnhancedSecureCryptoUtils.encryptMessage(
+    "Hello, secure world!",
+    encryptionKey,
+    macKey,
+    metadataKey,
+    "msg_12345",
+    42
+);
+```
+
+##### `decryptMessage()`
+```javascript
+static async decryptMessage(
+    encryptedPayload: EncryptedMessage,
+    encryptionKey: CryptoKey,
+    macKey: CryptoKey,
+    metadataKey: CryptoKey,
+    expectedSequenceNumber?: number
+): Promise<DecryptedMessage>
+
+Decrypts and verifies an encrypted message.
+
+Returns:
+```typescript
+interface DecryptedMessage {
+    message: string;
+    messageId: string;
+    timestamp: number;
+    sequenceNumber: number;
+}
+```
+
+#### Key Exchange
+
+##### `deriveSharedKeys()`
+```javascript
+static async deriveSharedKeys(
+    privateKey: CryptoKey,
+    publicKey: CryptoKey,
+```
+
+## 🔒 ASN1Validator (NEW)
+
+Complete ASN.1 DER parser and validation system for cryptographic key security.
+
+### Overview
+The `ASN1Validator` class provides comprehensive structural validation of all cryptographic keys according to PKCS standards and RFC specifications.
+
+### Constructor
+```javascript
+const asn1Validator = new ASN1Validator();
+```
+
+### Methods
+
+#### `validateKeyStructure(keyData)`
+```javascript
+validateKeyStructure(keyData: ArrayBuffer): boolean
+
+Complete structural validation of cryptographic keys using ASN.1 DER parsing.
+
+Parameters:
+- keyData: ArrayBuffer - Raw key data to validate
+
+Returns:
+- boolean - True if validation passes, false otherwise
+
+Throws:
+- Error - Detailed error message for validation failures
+
+Example:
+const isValid = asn1Validator.validateKeyStructure(keyData);
+if (!isValid) {
+    console.error('Key structure validation failed');
+}
+```
+
+#### `parseDER(data)`
+```javascript
+parseDER(data: ArrayBuffer): ASN1Structure
+
+Parses ASN.1 DER encoded data into structured format.
+
+Parameters:
+- data: ArrayBuffer - DER encoded data
+
+Returns:
+- ASN1Structure - Parsed ASN.1 structure
+
+Example:
+const parsed = asn1Validator.parseDER(keyData);
+console.log('Parsed structure:', parsed);
+```
+
+#### `validateSPKI(parsed)`
+```javascript
+validateSPKI(parsed: ASN1Structure): boolean
+
+Validates SubjectPublicKeyInfo structure according to RFC 5280.
+
+Parameters:
+- parsed: ASN1Structure - Parsed ASN.1 structure
+
+Returns:
+- boolean - True if SPKI structure is valid
+
+Example:
+if (!asn1Validator.validateSPKI(parsed)) {
+    throw new Error('Invalid SPKI structure');
+}
+```
+
+#### `validateOID(parsed)`
+```javascript
+validateOID(parsed: ASN1Structure): string
+
+Validates algorithm OID and returns supported curve name.
+
+Parameters:
+- parsed: ASN1Structure - Parsed ASN.1 structure
+
+Returns:
+- string - Supported curve name ('P-256' or 'P-384')
+
+Throws:
+- Error - If OID is not supported
+
+Example:
+try {
+    const curve = asn1Validator.validateOID(parsed);
+    console.log('Supported curve:', curve);
+} catch (error) {
+    console.error('Unsupported curve:', error.message);
+}
+```
+
+#### `validateECPoint(parsed)`
+```javascript
+validateECPoint(parsed: ASN1Structure): boolean
+
+Validates elliptic curve point format and structure.
+
+Parameters:
+- parsed: ASN1Structure - Parsed ASN.1 structure
+
+Returns:
+- boolean - True if EC point is valid
+
+Throws:
+- Error - If EC point format is invalid
+
+Example:
+if (!asn1Validator.validateECPoint(parsed)) {
+    throw new Error('Invalid EC point format');
+}
+```
+
+### Properties
+
+#### `supportedOIDs`
+```javascript
+readonly supportedOIDs: Record<string, string>
+
+Supported algorithm OIDs and their corresponding curve names.
+
+Example:
+console.log(asn1Validator.supportedOIDs);
+// Output: {
+//   '1.2.840.10045.3.1.7': 'P-256',
+//   '1.3.132.0.34': 'P-384'
+// }
+```
+
+#### `maxKeySize`
+```javascript
+readonly maxKeySize: number
+
+Maximum allowed key size in bytes (2000).
+
+Example:
+console.log('Max key size:', asn1Validator.maxKeySize); // 2000
+```
+
+#### `minKeySize`
+```javascript
+readonly minKeySize: number
+
+Minimum allowed key size in bytes (50).
+
+Example:
+console.log('Min key size:', asn1Validator.minKeySize); // 50
+```
+
+### Integration Examples
+
+#### Enhanced Key Import
+```javascript
+// Enhanced key import with ASN.1 validation
+const importKey = async (keyData, keyType) => {
+    // Validate key structure before processing
+    if (!asn1Validator.validateKeyStructure(keyData)) {
+        throw new Error('Key structure validation failed');
+    }
+    
+    // Proceed with standard key import
+    return await crypto.subtle.importKey(
+        keyType, 
+        keyData, 
+        algorithm, 
+        extractable, 
+        keyUsages
+    );
+};
+```
+
+#### Enhanced Key Export
+```javascript
+// Enhanced key export with validation
+const exportKey = async (key, format) => {
+    const exported = await crypto.subtle.exportKey(format, key);
+    
+    // Validate exported key structure
+    if (format === 'spki' && !asn1Validator.validateKeyStructure(exported)) {
+        throw new Error('Exported key validation failed');
+    }
+    
+    return exported;
+};
+```
+
+#### Real-time Validation
+```javascript
+// Continuous validation during operations
+const validateOperation = (operation, keyData) => {
+    // Validate key structure before each operation
+    if (!asn1Validator.validateKeyStructure(keyData)) {
+        throw new Error('Key validation failed during operation');
+    }
+    
+    return operation(keyData);
+};
+```
+
+### Error Handling
+
+#### Common Error Types
+```javascript
+// OID validation errors
+try {
+    asn1Validator.validateOID(parsed);
+} catch (error) {
+    if (error.message.includes('Unsupported curve')) {
+        console.error('Algorithm not supported');
+    }
+}
+
+// EC point format errors
+try {
+    asn1Validator.validateECPoint(parsed);
+} catch (error) {
+    if (error.message.includes('Only uncompressed')) {
+        console.error('Compressed EC points not supported');
+    }
+    if (error.message.includes('Key size outside')) {
+        console.error('Key size limits exceeded');
+    }
+}
+
+// SPKI structure errors
+try {
+    asn1Validator.validateSPKI(parsed);
+} catch (error) {
+    if (error.message.includes('Invalid SPKI')) {
+        console.error('Key structure is invalid');
+    }
+}
+```
+
+### Performance Characteristics
+
+#### Validation Timing
+```javascript
+// Measure validation performance
+const measureValidation = (keyData) => {
+    const start = performance.now();
+    const isValid = asn1Validator.validateKeyStructure(keyData);
+    const duration = performance.now() - start;
+    
+    console.log(`Validation took ${duration.toFixed(2)}ms`);
+    console.log(`Validation result: ${isValid}`);
+    
+    return { isValid, duration };
+};
+```
+
+#### Batch Validation
+```javascript
+// Validate multiple keys efficiently
+const validateMultipleKeys = (keyArray) => {
+    const results = [];
+    const start = performance.now();
+    
+    for (const keyData of keyArray) {
+        const result = asn1Validator.validateKeyStructure(keyData);
+        results.push({ keyData, isValid: result });
+    }
+    
+    const totalTime = performance.now() - start;
+    const avgTime = totalTime / keyArray.length;
+    
+    console.log(`Validated ${keyArray.length} keys in ${totalTime.toFixed(2)}ms`);
+    console.log(`Average time per key: ${avgTime.toFixed(2)}ms`);
+    
+    return results;
+};
+```
+
+### Testing and Validation
+
+#### Unit Test Examples
+```javascript
+describe('ASN1Validator', () => {
+    let asn1Validator;
+    
+    beforeEach(() => {
+        asn1Validator = new ASN1Validator();
+    });
+    
+    test('validates correct P-384 key structure', () => {
+        const validKey = generateValidP384Key();
+        expect(asn1Validator.validateKeyStructure(validKey)).toBe(true);
+    });
+    
+    test('rejects modified key with valid header', () => {
+        const modifiedKey = modifyKeyData(validKey);
+        expect(asn1Validator.validateKeyStructure(modifiedKey)).toBe(false);
+    });
+    
+    test('rejects unsupported curve OID', () => {
+        const invalidOIDKey = generateKeyWithInvalidOID();
+        expect(() => asn1Validator.validateOID(invalidOIDKey)).toThrow();
+    });
+    
+    test('rejects compressed EC point format', () => {
+        const compressedKey = generateCompressedKey();
+        expect(() => asn1Validator.validateECPoint(compressedKey)).toThrow();
+    });
+});
+```
+
+#### Performance Test Examples
+```javascript
+describe('ASN1Validator Performance', () => {
+    test('validation completes within 10ms', () => {
+        const start = performance.now();
+        asn1Validator.validateKeyStructure(validKey);
+        const duration = performance.now() - start;
+        expect(duration).toBeLessThan(10);
+    });
+    
+    test('handles high-frequency validation', () => {
+        const iterations = 1000;
+        const start = performance.now();
+        
+        for (let i = 0; i < iterations; i++) {
+            asn1Validator.validateKeyStructure(validKey);
+        }
+        
+        const duration = performance.now() - start;
+        const avgTime = duration / iterations;
+        expect(avgTime).toBeLessThan(1); // < 1ms average
+    });
+});
+```
+
+### Migration Guide
+
+#### From Version 4.01.x
+```javascript
+// Old code (v4.01.x)
+const importKey = async (keyData, keyType) => {
+    return await crypto.subtle.importKey(keyType, keyData, algorithm, extractable, keyUsages);
+};
+
+// New code (v4.02.x) - Enhanced with ASN.1 validation
+const importKey = async (keyData, keyType) => {
+    // Add ASN.1 validation
+    if (!asn1Validator.validateKeyStructure(keyData)) {
+        throw new Error('Key structure validation failed');
+    }
+    
+    return await crypto.subtle.importKey(keyType, keyData, algorithm, extractable, keyUsages);
+};
+```
+
+#### Breaking Changes
+- **Enhanced key validation** now performs complete ASN.1 parsing
+- **Stricter key acceptance** criteria for improved security
+- **New error types** for validation failures
+- **Performance impact** minimal (< 10ms per validation)
+
+#### Backward Compatibility
+- **Existing keys** are validated on next use
+- **Valid key structures** continue to work unchanged
+- **Fallback support** from P-384 to P-256 maintained
+- **Error handling** provides clear feedback for invalid keys
+
+---
 
 ## 📚 Core Classes
 

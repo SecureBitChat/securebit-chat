@@ -1,6 +1,6 @@
 # Security Disclaimer and Terms of Use
 
-## 🔒 SecureBit.chat Enhanced Security Edition v4.01.441
+## 🔒 SecureBit.chat Enhanced Security Edition v4.02.442
 
 ### Important Legal Notice
 
@@ -10,7 +10,7 @@
 
 ## 📋 Overview
 
-SecureBit.chat is an open-source, peer-to-peer encrypted messaging application designed to support **freedom of speech** and **privacy rights**. This software implements military-grade cryptography and is provided as-is for educational, research, and legitimate communication purposes.
+SecureBit.chat is an open-source, peer-to-peer encrypted messaging application designed to support **freedom of speech** and **privacy rights**. This software implements military-grade cryptography with complete ASN.1 validation and is provided as-is for educational, research, and legitimate communication purposes.
 
 ---
 
@@ -120,10 +120,10 @@ We believe privacy and free speech are fundamental human rights, but:
 
 ## 📊 Technical Security Information
 
-### Current Implementation
-- **ECDH P-384** key exchange
+### Current Implementation (v4.02.442)
+- **ECDH P-384** key exchange with complete ASN.1 validation
 - **AES-GCM 256-bit** encryption
-- **ECDSA P-384** digital signatures
+- **ECDSA P-384** digital signatures with enhanced key verification
 - **RSA-2048** digital signatures for file metadata
 - **Perfect Forward Secrecy** with key rotation
 - **MITM protection** via out-of-band verification
@@ -135,6 +135,16 @@ We believe privacy and free speech are fundamental human rights, but:
 - **Secure Memory Management** with advanced wiping techniques
 - **Symbol-Based Context Isolation** for private instance management
 - **Rate Limiting System** (10 files/minute) with client identification
+
+### 🔒 ASN.1 Complete Structure Validation (NEW)
+- **Complete ASN.1 DER Parser**: Full structural validation of all cryptographic keys
+- **OID Validation**: Algorithm and curve verification (P-256/P-384 only)
+- **EC Point Format Verification**: Uncompressed format 0x04 validation
+- **SPKI Structure Validation**: Element count and type checking
+- **Key Size Limits**: 50-2000 bytes to prevent DoS attacks
+- **BIT STRING Validation**: Ensuring unused bits are 0
+- **Fallback Support**: P-384 to P-256 compatibility
+- **High-Risk Vulnerability Fix**: Prevents keys with valid headers but modified data
 
 ### Known Limitations
 - WebRTC fingerprinting possibilities (mitigated by anti-fingerprinting techniques)
@@ -154,7 +164,14 @@ We believe privacy and free speech are fundamental human rights, but:
 - **Long-term**: Resistance to quantum cryptanalysis
 - **Ongoing**: Security audits and improvements
 
-### Advanced Security Technologies (v4.01.441)
+### Advanced Security Technologies (v4.02.442)
+- **ASN.1 Validation Framework**: Complete DER parsing and key structure verification
+- **Enhanced Key Security**: OID and EC point validation for all cryptographic operations
+- **PKCS Compliance**: Full adherence to cryptographic standards
+- **Structural Security**: Complete validation of all key components
+- **Vulnerability Prevention**: High-risk key manipulation attack prevention
+
+### Previous Advanced Security Technologies (v4.01.441)
 - **DTLS Protection Framework**: Comprehensive WebRTC security enhancement
 - **Memory Safety Mechanisms**: Advanced protection against use-after-free vulnerabilities
 - **Race Condition Prevention**: Atomic operations for critical security sections
@@ -221,7 +238,7 @@ This software is created to:
 
 ---
 
-*Last Updated: December 2024*  
-*Version: Enhanced Security Edition v4.01.441 - DTLS Protected*
+*Last Updated: January 15, 2025*  
+*Version: Enhanced Security Edition v4.02.442 - ASN.1 Validated*
 
 **USE AT YOUR OWN RISK AND RESPONSIBILITY**

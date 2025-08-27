@@ -8,7 +8,7 @@
 export const TOKEN_AUTH_CONFIG = {
     // Основные настройки
     APP_NAME: 'SecureBit',
-    APP_VERSION: '4.01.441',
+    APP_VERSION: '4.02.442',
     
     // Настройки Web3
     WEB3: {

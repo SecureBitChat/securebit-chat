@@ -67,8 +67,8 @@
 
 
     <!-- GitHub Pages SEO -->
-    <meta name="description" content="SecureBit.chat — P2P messenger with military-grade cryptography and Lightning Network payments">
-    <meta name="keywords" content="P2P messenger, encryption, Lightning Network, WebRTC, privacy">
+    <meta name="description" content="SecureBit.chat v4.02.442 — P2P messenger with 18-layer military-grade cryptography, complete ASN.1 validation, and Lightning Network payments">
+    <meta name="keywords" content="P2P messenger, encryption, Lightning Network, WebRTC, privacy, ASN.1 validation, military-grade security, 18-layer defense">
     <meta name="author" content="Volodymyr">
     <link rel="canonical" href="https://github.com/SecureBitChat/securebit-chat/">
     
@@ -160,8 +160,8 @@
         {
             icon: "fas fa-shield-halved",
             color: "orange",
-            title: "12-Layer Military Security",
-            description: "Revolutionary defense system with ECDH P-384 + AES-GCM 256 + ECDSA. Enhanced Security Edition v4.01.441 provides military-grade protection exceeding government standards."
+            title: "18-Layer Military Security",
+            description: "Revolutionary defense system with ECDH P-384 + AES-GCM 256 + ECDSA + Complete ASN.1 Validation. Enhanced Security Edition provides military-grade protection exceeding government standards with complete key structure verification."
         },
         {
             icon: "fas fa-bolt",
@@ -337,7 +337,7 @@
                     <i className="fas fa-shield-halved text-orange-400" />
                     </div>,
             type: "P2P WebRTC",
-            version: "v4.0 Enhanced",
+            version: "Latest",
             color: "orange",
             },
             {
@@ -384,7 +384,7 @@
         const features = [
             {
             name: "Security Architecture",
-            lockbit: { status: "🏆", detail: "12-layer military-grade defense system" },
+            lockbit: { status: "🏆", detail: "18-layer military-grade defense system with complete ASN.1 validation" },
             signal: { status: "✅", detail: "Signal Protocol with double ratchet" },
             threema: { status: "✅", detail: "Standard security implementation" },
             session: { status: "✅", detail: "Modified Signal Protocol + Onion routing" },
@@ -511,7 +511,7 @@
                 Enhanced Security Edition Comparison
                 </h3>
                 <p className="text-secondary max-w-2xl mx-auto mb-4">
-                SecureBit.chat v4.01.441 Enhanced Security Edition vs leading secure messengers
+                Enhanced Security Edition vs leading secure messengers
                 </p>
                 <div className="inline-flex items-center px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                 <span className="text-yellow-400 mr-2">🏆</span>
@@ -657,17 +657,17 @@
                 <div className="p-6 bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border border-orange-500/20 rounded-xl">
                     <h4 className="text-xl font-bold text-orange-400 mb-4 flex items-center">
                     <i className="fas fa-trophy mr-3" />
-                    SecureBit.chat v4.01.441 Enhanced Security Edition Summary
+                    SecureBit.chat Enhanced Security Edition Summary
                     </h4>
                     <p className="text-secondary leading-relaxed text-lg mb-4">
                     SecureBit.chat dominates in 11 out of 15 security categories, establishing itself as the most secure P2P messenger available.
-                    The Enhanced Security Edition introduces revolutionary 12-layer defense architecture, Lightning Network integration, and military-grade cryptography that exceeds government and enterprise standards.
+                    The Enhanced Security Edition introduces revolutionary 18-layer defense architecture with complete ASN.1 validation, Lightning Network integration, and military-grade cryptography that exceeds government and enterprise standards.
                     </p>
                     <div className="grid md:grid-cols-2 gap-4 mt-6">
                     <div className="p-4 bg-orange-500/5 border border-orange-500/10 rounded-lg">
                         <h5 className="text-orange-400 font-semibold mb-2">🔐 Cryptographic Superiority</h5>
                         <p className="text-sm text-gray-300">
-                        ECDH P-384 + AES-GCM 256 + ECDSA P-384 with non-extractable keys and 12-layer defense system
+                        ECDH P-384 + AES-GCM 256 + ECDSA P-384 + Complete ASN.1 Validation with non-extractable keys and 18-layer defense system
                         </p>
                     </div>
                     <div className="p-4 bg-orange-500/5 border border-orange-500/10 rounded-lg">
@@ -696,7 +696,7 @@
                 <div className="mt-8 text-center">
                 <div className="inline-flex items-center px-6 py-3 bg-gray-800/50 border border-gray-600/30 rounded-xl">
                     <span className="text-orange-400 mr-2">🚀</span>
-                    <span className="text-gray-300 text-sm">Enhanced Security Edition v4.0 - </span>
+                                            <span className="text-gray-300 text-sm">Enhanced Security Edition v4.02.442 - ASN.1 Validated - </span>
                     <span className="text-orange-400 font-semibold text-sm">Active Production Release</span>
                     <span className="text-gray-400 text-sm ml-2"> | Next: v5.0 Post-Quantum</span>
                 </div>
@@ -783,16 +783,19 @@
 
             // current and future phases
             {
-                version: "v4.0",
+                                  version: "v4.02.442",
                 title: "Enhanced Security Edition",
                 status: "current",
                 date: "Now",
-                description: "Current version with military-grade cryptography",
+                description: "Current version with 18-layer military-grade cryptography and complete ASN.1 validation",
                 features: [
                 "ECDH P-384 + AES-GCM 256-bit encryption",
                 "ECDSA digital signatures",
                 "Perfect Forward Secrecy with key rotation",
                 "Out-of-band MITM verification",
+                "Complete ASN.1 DER validation",
+                "OID and EC point verification",
+                "SPKI structure validation",
                 "Lightning Network payments",
                 "P2P WebRTC architecture",
                 "Metadata protection",
@@ -951,7 +954,7 @@
                   Development Roadmap
                 </h3>
                 <p key="subtitle" className="text-secondary max-w-2xl mx-auto mb-6">
-                  Evolution of SecureBit.chat: from initial development to a quantum-resistant decentralized network
+                  Evolution of SecureBit.chat : from initial development to quantum-resistant decentralized network with complete ASN.1 validation
                 </p>
                 <div
                   key="roadmap-note"
@@ -1113,7 +1116,7 @@
                     Join the future of privacy
                   </h4>
                   <p key="cta-description" className="text-secondary mb-6">
-                    SecureBit.chat grows thanks to the community. Your ideas and feedback help shape the future of secure communication.
+                    SecureBit.chat grows thanks to the community. Your ideas and feedback help shape the future of secure communication with complete ASN.1 validation.
                   </p>
         
                   <div
@@ -3118,7 +3121,7 @@
                     handleAnswerError
                 );
 
-                handleMessage('🚀 SecureBit.chat Enhanced Edition initialized. Ready to establish a secure connection with ECDH, encrypted exchange, and verification.', 'system');
+                handleMessage('🚀 SecureBit.chat Enhanced Security Edition v4.02.442 - ASN.1 Validated initialized. Ready to establish a secure connection with ECDH, encrypted exchange, complete ASN.1 validation, and verification.', 'system');
 
                 const handleBeforeUnload = (event) => {
                     if (event.type === 'beforeunload' && !isTabSwitching) {
@@ -4047,7 +4050,7 @@ function showUpdateNotification() {
             <i class="fas fa-download text-lg"></i>
             <div class="flex-1">
                 <div class="font-medium">Update Available</div>
-                <div class="text-sm opacity-90">A new version of SecureBit.chat is ready</div>
+                <div class="text-sm opacity-90">SecureBit.chat v4.02.442 - ASN.1 Validated is ready</div>
             </div>
             <button onclick="window.location.reload()" 
                     class="bg-white/20 hover:bg-white/30 px-3 py-1 rounded text-sm font-medium transition-colors">

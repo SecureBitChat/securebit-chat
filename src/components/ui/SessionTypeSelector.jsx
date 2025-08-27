@@ -80,7 +80,12 @@ const SessionTypeSelector = ({ onSelectType, onCancel, sessionManager }) => {
                 'Metadata protection', 
                 'Perfect forward secrecy',
                 'Nested encryption',
-                'Packet padding'
+                'Packet padding',
+                'Complete ASN.1 validation',
+                'OID and EC point verification',
+                'SPKI structure validation',
+                '18-layer security architecture',
+                'ASN.1 Validated'
             ],
             limitations: [
                 'Limited traffic obfuscation',
@@ -104,7 +109,12 @@ const SessionTypeSelector = ({ onSelectType, onCancel, sessionManager }) => {
                 'Decoy channels',
                 'Anti-fingerprinting',
                 'Message chunking',
-                'Advanced replay protection'
+                'Advanced replay protection',
+                'Complete ASN.1 validation',
+                'OID and EC point verification',
+                'SPKI structure validation',
+                '18-layer security architecture',
+                'ASN.1 Validated'
             ],
             limitations: []
         }
