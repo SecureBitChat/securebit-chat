@@ -1015,39 +1015,289 @@ class EnhancedSecureCryptoUtils {
         }
     }
 
-    // Enhanced DER/SPKI validation with improved error handling
-        static async validateKeyStructure(keyData, expectedAlgorithm = 'ECDH') {
+    // Enhanced DER/SPKI validation with full ASN.1 parsing
+    static async validateKeyStructure(keyData, expectedAlgorithm = 'ECDH') {
+        try {
+            if (!Array.isArray(keyData) || keyData.length === 0) {
+                throw new Error('Invalid key data format');
+            }
+
+            const keyBytes = new Uint8Array(keyData);
+
+            // Size limits to prevent DoS
+            if (keyBytes.length < 50) {
+                throw new Error('Key data too short - invalid SPKI structure');
+            }
+            if (keyBytes.length > 2000) {
+                throw new Error('Key data too long - possible attack');
+            }
+
+            // Parse ASN.1 DER structure
+            const asn1 = EnhancedSecureCryptoUtils.parseASN1(keyBytes);
+            
+            // Validate SPKI structure
+            if (!asn1 || asn1.tag !== 0x30) {
+                throw new Error('Invalid SPKI structure - missing SEQUENCE tag');
+            }
+
+            // SPKI should have exactly 2 elements: AlgorithmIdentifier and BIT STRING
+            if (asn1.children.length !== 2) {
+                throw new Error(`Invalid SPKI structure - expected 2 elements, got ${asn1.children.length}`);
+            }
+
+            // Validate AlgorithmIdentifier
+            const algIdentifier = asn1.children[0];
+            if (algIdentifier.tag !== 0x30) {
+                throw new Error('Invalid AlgorithmIdentifier - not a SEQUENCE');
+            }
+
+            // Parse algorithm OID
+            const algOid = algIdentifier.children[0];
+            if (algOid.tag !== 0x06) {
+                throw new Error('Invalid algorithm OID - not an OBJECT IDENTIFIER');
+            }
+
+            // Validate algorithm OID based on expected algorithm
+            const oidBytes = algOid.value;
+            const oidString = EnhancedSecureCryptoUtils.oidToString(oidBytes);
+            
+            // Check for expected algorithms
+            const validAlgorithms = {
+                'ECDH': ['1.2.840.10045.2.1'], // id-ecPublicKey
+                'ECDSA': ['1.2.840.10045.2.1'], // id-ecPublicKey (same as ECDH)
+                'RSA': ['1.2.840.113549.1.1.1'], // rsaEncryption
+                'AES-GCM': ['2.16.840.1.101.3.4.1.6', '2.16.840.1.101.3.4.1.46'] // AES-128-GCM, AES-256-GCM
+            };
+
+            const expectedOids = validAlgorithms[expectedAlgorithm];
+            if (!expectedOids) {
+                throw new Error(`Unknown algorithm: ${expectedAlgorithm}`);
+            }
+
+            if (!expectedOids.includes(oidString)) {
+                throw new Error(`Invalid algorithm OID: expected ${expectedOids.join(' or ')}, got ${oidString}`);
+            }
+
+            // For EC algorithms, validate curve parameters
+            if (expectedAlgorithm === 'ECDH' || expectedAlgorithm === 'ECDSA') {
+                if (algIdentifier.children.length < 2) {
+                    throw new Error('Missing curve parameters for EC key');
+                }
+
+                const curveOid = algIdentifier.children[1];
+                if (curveOid.tag !== 0x06) {
+                    throw new Error('Invalid curve OID - not an OBJECT IDENTIFIER');
+                }
+
+                const curveOidString = EnhancedSecureCryptoUtils.oidToString(curveOid.value);
+                
+                // Only allow P-256 and P-384 curves
+                const validCurves = {
+                    '1.2.840.10045.3.1.7': 'P-256', // secp256r1
+                    '1.3.132.0.34': 'P-384' // secp384r1
+                };
+
+                if (!validCurves[curveOidString]) {
+                    throw new Error(`Invalid or unsupported curve OID: ${curveOidString}`);
+                }
+
+                EnhancedSecureCryptoUtils.secureLog.log('info', 'EC key curve validated', {
+                    curve: validCurves[curveOidString],
+                    oid: curveOidString
+                });
+            }
+
+            // Validate public key BIT STRING
+            const publicKeyBitString = asn1.children[1];
+            if (publicKeyBitString.tag !== 0x03) {
+                throw new Error('Invalid public key - not a BIT STRING');
+            }
+
+            // Check for unused bits (should be 0 for public keys)
+            if (publicKeyBitString.value[0] !== 0x00) {
+                throw new Error(`Invalid BIT STRING - unexpected unused bits: ${publicKeyBitString.value[0]}`);
+            }
+
+            // For EC keys, validate point format
+            if (expectedAlgorithm === 'ECDH' || expectedAlgorithm === 'ECDSA') {
+                const pointData = publicKeyBitString.value.slice(1); // Skip unused bits byte
+                
+                // Check for uncompressed point format (0x04)
+                if (pointData[0] !== 0x04) {
+                    throw new Error(`Invalid EC point format: expected uncompressed (0x04), got 0x${pointData[0].toString(16)}`);
+                }
+
+                // Validate point size based on curve
+                const expectedSizes = {
+                    'P-256': 65, // 1 + 32 + 32
+                    'P-384': 97  // 1 + 48 + 48
+                };
+
+                // We already validated the curve above, so we can determine expected size
+                const curveOidString = EnhancedSecureCryptoUtils.oidToString(algIdentifier.children[1].value);
+                const curveName = curveOidString === '1.2.840.10045.3.1.7' ? 'P-256' : 'P-384';
+                const expectedSize = expectedSizes[curveName];
+
+                if (pointData.length !== expectedSize) {
+                    throw new Error(`Invalid EC point size for ${curveName}: expected ${expectedSize}, got ${pointData.length}`);
+                }
+            }
+
+            // Additional validation: try to import the key
             try {
-                if (!Array.isArray(keyData) || keyData.length === 0) {
-                    throw new Error('Invalid key data format');
-                }
-
-                const keyBytes = new Uint8Array(keyData);
-
-                // Basic DER check
-                if (keyBytes[0] !== 0x30) {
-                    throw new Error('Invalid DER structure - missing SEQUENCE tag');
-                }
-
-                if (keyBytes.length > 2000) { 
-                    throw new Error('Key data too long - possible attack');
-                }
-
-                // Try to import; await the promise
-                const alg = (expectedAlgorithm === 'ECDSA' || expectedAlgorithm === 'ECDH')
+                const algorithm = expectedAlgorithm === 'ECDSA' || expectedAlgorithm === 'ECDH'
                     ? { name: expectedAlgorithm, namedCurve: 'P-384' }
                     : { name: expectedAlgorithm };
 
-                await crypto.subtle.importKey('spki', keyBytes.buffer, alg, false, expectedAlgorithm === 'ECDSA' ? ['verify'] : []);
-                EnhancedSecureCryptoUtils.secureLog.log('info', 'Key structure validation passed', { keyLen: keyBytes.length });
-                return true;
-            } catch (err) {
-                EnhancedSecureCryptoUtils.secureLog.log('error', 'Key structure validation failed', { short: err.message });
-                throw new Error('Invalid key structure');
+                const usages = expectedAlgorithm === 'ECDSA' ? ['verify'] : [];
+                
+                await crypto.subtle.importKey('spki', keyBytes.buffer, algorithm, false, usages);
+            } catch (importError) {
+                // Try P-256 as fallback for EC keys
+                if (expectedAlgorithm === 'ECDSA' || expectedAlgorithm === 'ECDH') {
+                    try {
+                        const algorithm = { name: expectedAlgorithm, namedCurve: 'P-256' };
+                        const usages = expectedAlgorithm === 'ECDSA' ? ['verify'] : [];
+                        await crypto.subtle.importKey('spki', keyBytes.buffer, algorithm, false, usages);
+                    } catch (fallbackError) {
+                        throw new Error(`Key import validation failed: ${fallbackError.message}`);
+                    }
+                } else {
+                    throw new Error(`Key import validation failed: ${importError.message}`);
+                }
+            }
+
+            EnhancedSecureCryptoUtils.secureLog.log('info', 'Key structure validation passed', {
+                keyLen: keyBytes.length,
+                algorithm: expectedAlgorithm,
+                asn1Valid: true,
+                oidValid: true,
+                importValid: true
+            });
+
+            return true;
+        } catch (err) {
+            EnhancedSecureCryptoUtils.secureLog.log('error', 'Key structure validation failed', {
+                error: err.message,
+                algorithm: expectedAlgorithm
+            });
+            throw new Error(`Invalid key structure: ${err.message}`);
+        }
+    }
+
+    // ASN.1 DER parser helper
+    static parseASN1(bytes, offset = 0) {
+        if (offset >= bytes.length) {
+            return null;
+        }
+
+        const tag = bytes[offset];
+        let lengthOffset = offset + 1;
+        
+        if (lengthOffset >= bytes.length) {
+            throw new Error('Truncated ASN.1 structure');
+        }
+
+        let length = bytes[lengthOffset];
+        let valueOffset = lengthOffset + 1;
+
+        // Handle long form length
+        if (length & 0x80) {
+            const numLengthBytes = length & 0x7f;
+            if (numLengthBytes > 4) {
+                throw new Error('ASN.1 length too large');
+            }
+            
+            length = 0;
+            for (let i = 0; i < numLengthBytes; i++) {
+                if (valueOffset + i >= bytes.length) {
+                    throw new Error('Truncated ASN.1 length');
+                }
+                length = (length << 8) | bytes[valueOffset + i];
+            }
+            valueOffset += numLengthBytes;
+        }
+
+        if (valueOffset + length > bytes.length) {
+            throw new Error('ASN.1 structure extends beyond data');
+        }
+
+        const value = bytes.slice(valueOffset, valueOffset + length);
+        const node = {
+            tag: tag,
+            length: length,
+            value: value,
+            children: []
+        };
+
+        // Parse children for SEQUENCE and SET
+        if (tag === 0x30 || tag === 0x31) {
+            let childOffset = 0;
+            while (childOffset < value.length) {
+                const child = EnhancedSecureCryptoUtils.parseASN1(value, childOffset);
+                if (!child) break;
+                node.children.push(child);
+                childOffset = childOffset + 1 + child.lengthBytes + child.length;
             }
         }
 
-    // Export public key for transmission with signature
+        // Calculate how many bytes were used for length encoding
+        node.lengthBytes = valueOffset - lengthOffset;
+        
+        return node;
+    }
+
+    // OID decoder helper
+    static oidToString(bytes) {
+        if (!bytes || bytes.length === 0) {
+            throw new Error('Empty OID');
+        }
+
+        const parts = [];
+        
+        // First byte encodes first two components
+        const first = Math.floor(bytes[0] / 40);
+        const second = bytes[0] % 40;
+        parts.push(first);
+        parts.push(second);
+
+        // Decode remaining components
+        let value = 0;
+        for (let i = 1; i < bytes.length; i++) {
+            value = (value << 7) | (bytes[i] & 0x7f);
+            if (!(bytes[i] & 0x80)) {
+                parts.push(value);
+                value = 0;
+            }
+        }
+
+        return parts.join('.');
+    }
+
+    // Helper to validate and sanitize OID string
+    static validateOidString(oidString) {
+        // OID format: digits separated by dots
+        const oidRegex = /^[0-9]+(\.[0-9]+)*$/;
+        if (!oidRegex.test(oidString)) {
+            throw new Error(`Invalid OID format: ${oidString}`);
+        }
+
+        const parts = oidString.split('.').map(Number);
+        
+        // First component must be 0, 1, or 2
+        if (parts[0] > 2) {
+            throw new Error(`Invalid OID first component: ${parts[0]}`);
+        }
+
+        // If first component is 0 or 1, second must be <= 39
+        if ((parts[0] === 0 || parts[0] === 1) && parts[1] > 39) {
+            throw new Error(`Invalid OID second component: ${parts[1]} (must be <= 39 for first component ${parts[0]})`);
+        }
+
+        return true;
+    }
+
+    // Export public key for transmission with signature 
     static async exportPublicKeyWithSignature(publicKey, signingKey, keyType = 'ECDH') {
         try {
             // Validate key type
@@ -1058,7 +1308,6 @@ class EnhancedSecureCryptoUtils {
             const exported = await crypto.subtle.exportKey('spki', publicKey);
             const keyData = Array.from(new Uint8Array(exported));
             
-            // Validate exported key structure
             await EnhancedSecureCryptoUtils.validateKeyStructure(keyData, keyType);
             
             // Create signed key package
@@ -1118,7 +1367,6 @@ class EnhancedSecureCryptoUtils {
                 throw new Error('Signed key package is too old');
             }
             
-            // Validate key structure
             await EnhancedSecureCryptoUtils.validateKeyStructure(keyData, keyType);
             
             // Verify signature
@@ -1130,29 +1378,60 @@ class EnhancedSecureCryptoUtils {
                 throw new Error('Invalid signature on key package - possible MITM attack');
             }
             
-            // Import the key
+            // Import the key with fallback support
             const keyBytes = new Uint8Array(keyData);
-            const algorithm = keyType === 'ECDH' ?
-                { name: 'ECDH', namedCurve: 'P-384' }
-                : { name: 'ECDSA', namedCurve: 'P-384' };
             
-            const keyUsages = keyType === 'ECDH' ? [] : ['verify'];
-            
-            const publicKey = await crypto.subtle.importKey(
-                'spki',
-                keyBytes,
-                algorithm,
-                false, // Non-extractable
-                keyUsages
-            );
-            
-            EnhancedSecureCryptoUtils.secureLog.log('info', 'Signed public key imported successfully', {
-                keyType,
-                signatureValid: true,
-                keyAge: Math.round(keyAge / 1000) + 's'
-            });
-            
-            return publicKey;
+            // Try P-384 first
+            try {
+                const algorithm = keyType === 'ECDH' ?
+                    { name: 'ECDH', namedCurve: 'P-384' }
+                    : { name: 'ECDSA', namedCurve: 'P-384' };
+                
+                const keyUsages = keyType === 'ECDH' ? [] : ['verify'];
+                
+                const publicKey = await crypto.subtle.importKey(
+                    'spki',
+                    keyBytes,
+                    algorithm,
+                    false, // Non-extractable
+                    keyUsages
+                );
+                
+                EnhancedSecureCryptoUtils.secureLog.log('info', 'Signed public key imported successfully (P-384)', {
+                    keyType,
+                    signatureValid: true,
+                    keyAge: Math.round(keyAge / 1000) + 's'
+                });
+                
+                return publicKey;
+            } catch (p384Error) {
+                // Fallback to P-256
+                EnhancedSecureCryptoUtils.secureLog.log('warn', 'P-384 import failed, trying P-256', {
+                    error: p384Error.message
+                });
+                
+                const algorithm = keyType === 'ECDH' ?
+                    { name: 'ECDH', namedCurve: 'P-256' }
+                    : { name: 'ECDSA', namedCurve: 'P-256' };
+                
+                const keyUsages = keyType === 'ECDH' ? [] : ['verify'];
+                
+                const publicKey = await crypto.subtle.importKey(
+                    'spki',
+                    keyBytes,
+                    algorithm,
+                    false, // Non-extractable
+                    keyUsages
+                );
+                
+                EnhancedSecureCryptoUtils.secureLog.log('info', 'Signed public key imported successfully (P-256 fallback)', {
+                    keyType,
+                    signatureValid: true,
+                    keyAge: Math.round(keyAge / 1000) + 's'
+                });
+                
+                return publicKey;
+            }
         } catch (error) {
             EnhancedSecureCryptoUtils.secureLog.log('error', 'Signed public key import failed', {
                 error: error.message,
@@ -1168,7 +1447,6 @@ class EnhancedSecureCryptoUtils {
             const exported = await crypto.subtle.exportKey('spki', publicKey);
             const keyData = Array.from(new Uint8Array(exported));
             
-            // Validate exported key
             await EnhancedSecureCryptoUtils.validateKeyStructure(keyData, 'ECDH');
             
             EnhancedSecureCryptoUtils.secureLog.log('info', 'Legacy public key exported', { keySize: keyData.length });
@@ -1267,13 +1545,12 @@ class EnhancedSecureCryptoUtils {
                     securityRisk: 'HIGH - Potential MITM attack vector'
                 });
 
-
                 // REJECT the signed package if no verifying key provided
                 throw new Error('CRITICAL SECURITY ERROR: Signed key package received without a verification key. ' +
                                 'This may indicate a possible MITM attack attempt. Import rejected for security reasons.');
             }
 
-            // Validate key structure
+            // ОБНОВЛЕНО: Используем улучшенную валидацию
             await EnhancedSecureCryptoUtils.validateKeyStructure(signedPackage.keyData, signedPackage.keyType || 'ECDH');
 
             // MANDATORY signature verification when verifyingKey is provided
@@ -1322,7 +1599,7 @@ class EnhancedSecureCryptoUtils {
                         namedCurve: 'P-384'
                     },
                     false, // Non-extractable
-                    []
+                    keyType === 'ECDSA' ? ['verify'] : []
                 );
 
                 // Use WeakMap to store metadata
@@ -1345,7 +1622,7 @@ class EnhancedSecureCryptoUtils {
                         namedCurve: 'P-256'
                     },
                     false, // Non-extractable
-                    []
+                    keyType === 'ECDSA' ? ['verify'] : []
                 );
 
                 // Use WeakMap to store metadata
