@@ -2,10 +2,7 @@ class EnhancedSecureCryptoUtils {
 
     static _keyMetadata = new WeakMap();
     
-    // Initialize secure logging system
-    static {
-        EnhancedSecureCryptoUtils.secureLog.init();
-    }
+    // Initialize secure logging system after class definition
 
     // Utility to sort object keys for deterministic serialization
     static sortObjectKeys(obj) {
@@ -2418,6 +2415,13 @@ class EnhancedSecureCryptoUtils {
         }
         
         return result === 0;
+    }
+    
+    // Initialize secure logging system after class definition
+    static {
+        if (EnhancedSecureCryptoUtils.secureLog && typeof EnhancedSecureCryptoUtils.secureLog.init === 'function') {
+            EnhancedSecureCryptoUtils.secureLog.init();
+        }
     }
 }
 
