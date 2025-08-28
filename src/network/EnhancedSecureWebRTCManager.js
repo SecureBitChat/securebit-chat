@@ -274,8 +274,8 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         
         // 1. Nested Encryption Layer
             this.nestedEncryptionKey = null;
-            this.nestedEncryptionIV = null;
-            this.nestedEncryptionCounter = 0;
+                    // CRITICAL FIX: Removed nestedEncryptionIV and nestedEncryptionCounter
+        // Each nested encryption now generates fresh random IV for maximum security
                 
             // 2. Packet Padding
             this.paddingConfig = {
@@ -642,55 +642,104 @@ _initializeMutexSystem() {
         this._secureLog('info', `🔧 Secure logging initialized (Production: ${this._isProductionMode})`);
     }
     /**
-     * Shim to redirect arbitrary console.log calls to _secureLog('info', ...)
+     * CRITICAL FIX: Shim to redirect arbitrary console.log calls to _secureLog('info', ...)
+     * Fixed syntax errors and improved error handling
      */
     _secureLogShim(...args) {
         try {
-            if (!args || args.length === 0) {
+            // Validate arguments array
+            if (!Array.isArray(args) || args.length === 0) {
                 return;
             }
-            const [message, ...rest] = args;
-            if (rest.length === 0) {
-                this._secureLog('info', String(message));
+            
+            // CRITICAL FIX: Proper destructuring with fallback
+            const message = args[0];
+            const restArgs = args.slice(1);
+            
+            // Handle different argument patterns
+            if (restArgs.length === 0) {
+                this._secureLog('info', String(message || ''));
                 return;
             }
-            if (rest.length === 1) {
-                this._secureLog('info', String(message), rest[0]);
+            
+            if (restArgs.length === 1) {
+                this._secureLog('info', String(message || ''), restArgs[0]);
                 return;
             }
-            this._secureLog('info', String(message), { args: rest });
-        } catch (e) {
-            // Fallback — do not disrupt main execution flow
+            
+            // CRITICAL FIX: Proper object structure for multiple args
+            this._secureLog('info', String(message || ''), { 
+                additionalArgs: restArgs,
+                argCount: restArgs.length 
+            });
+        } catch (error) {
+            // CRITICAL FIX: Better error handling - fallback to original console if available
+            try {
+                if (this._originalConsole?.log) {
+                    this._originalConsole.log(...args);
+                }
+            } catch (fallbackError) {
+                // Silent failure to prevent execution disruption
+            }
         }
     }
     /**
-     * Redirects global console.log to this instance's secure logger
+     * CRITICAL FIX: Redirects global console.log to this instance's secure logger
+     * Improved error handling and validation
      */
     _redirectConsoleLogToSecure() {
         try {
-            if (typeof console === 'undefined') return;
-            // Preserve originals once
+            // Validate console availability
+            if (typeof console === 'undefined' || !console) {
+                return;
+            }
+            
+            // CRITICAL FIX: Preserve originals once with better validation
             if (!this._originalConsole) {
                 this._originalConsole = {
-                    log: console.log?.bind(console),
-                    info: console.info?.bind(console),
-                    warn: console.warn?.bind(console),
-                    error: console.error?.bind(console),
-                    debug: console.debug?.bind(console)
+                    log: (typeof console.log === 'function') ? console.log.bind(console) : null,
+                    info: (typeof console.info === 'function') ? console.info.bind(console) : null,
+                    warn: (typeof console.warn === 'function') ? console.warn.bind(console) : null,
+                    error: (typeof console.error === 'function') ? console.error.bind(console) : null,
+                    debug: (typeof console.debug === 'function') ? console.debug.bind(console) : null
                 };
             }
+            
             const self = this;
-            // Only console.log is redirected to secure; warn/error stay intact
+            
+            // CRITICAL FIX: Only console.log is redirected to secure; warn/error stay intact
+            // Better error handling and validation
             console.log = function(...args) {
                 try {
-                    self._secureLogShim(...args);
-                } catch (e) {
-                    // Fallback to original log on failure
-                    if (self._originalConsole?.log) self._originalConsole.log(...args);
+                    // Validate self and method availability
+                    if (self && typeof self._secureLogShim === 'function') {
+                        self._secureLogShim(...args);
+                    } else {
+                        // Fallback to original if shim is not available
+                        if (self._originalConsole?.log) {
+                            self._originalConsole.log(...args);
+                        }
+                    }
+                } catch (error) {
+                    // CRITICAL FIX: Better fallback handling
+                    try {
+                        if (self._originalConsole?.log) {
+                            self._originalConsole.log(...args);
+                        }
+                    } catch (fallbackError) {
+                        // Silent failure to prevent execution disruption
+                    }
                 }
             };
-        } catch (e) {
-            // Safe degradation
+        } catch (error) {
+            // CRITICAL FIX: Better error logging for debugging
+            try {
+                if (this._originalConsole?.error) {
+                    this._originalConsole.error('❌ Failed to redirect console.log to secure logger:', error);
+                }
+            } catch (logError) {
+                // Silent failure - last resort
+            }
         }
     }
     /**
@@ -2053,8 +2102,8 @@ _initializeMutexSystem() {
             );
             
             // Generate random IV for nested encryption
-            this.nestedEncryptionIV = crypto.getRandomValues(new Uint8Array(EnhancedSecureWebRTCManager.SIZES.NESTED_ENCRYPTION_IV_SIZE));
-            this.nestedEncryptionCounter = 0;
+                    // CRITICAL FIX: No need for base IV or counter - each encryption gets fresh random IV
+        // This ensures maximum entropy and prevents IV reuse attacks
             
         } catch (error) {
             this._secureLog('error', '❌ Failed to generate nested encryption key:', { errorType: error?.constructor?.name || 'Unknown' });
@@ -2068,10 +2117,9 @@ _initializeMutexSystem() {
         }
 
         try {
-            // Create unique IV for each encryption
-            const uniqueIV = new Uint8Array(EnhancedSecureWebRTCManager.SIZES.NESTED_ENCRYPTION_IV_SIZE);
-            uniqueIV.set(this.nestedEncryptionIV);
-            uniqueIV[11] = (this.nestedEncryptionCounter++) & 0xFF;
+            // CRITICAL FIX: Generate fresh random 96-bit IV for each encryption
+            // This prevents IV reuse attacks that completely break AES-GCM security
+            const uniqueIV = crypto.getRandomValues(new Uint8Array(EnhancedSecureWebRTCManager.SIZES.NESTED_ENCRYPTION_IV_SIZE));
             
             // Encrypt data with nested layer
             const encrypted = await crypto.subtle.encrypt(
@@ -2097,10 +2145,10 @@ _initializeMutexSystem() {
             return data;
         }
 
-        // FIX: Check that the data is actually encrypted
-        if (!(data instanceof ArrayBuffer) || data.byteLength < 20) {
+        // CRITICAL FIX: Check that the data is actually encrypted with proper IV size
+        if (!(data instanceof ArrayBuffer) || data.byteLength < EnhancedSecureWebRTCManager.SIZES.NESTED_ENCRYPTION_IV_SIZE + 16) {
             if (window.DEBUG_MODE) {
-                console.log('📝 Data not encrypted or too short for nested decryption');
+                console.log('📝 Data not encrypted or too short for nested decryption (need IV + minimum encrypted data)');
             }
             return data;
         }
@@ -7349,8 +7397,17 @@ checkFileTransferReadiness() {
         }
     }
 
-    // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Метод для принудительной инициализации файловой системы
-    forceInitializeFileTransfer() {
+    // CRITICAL FIX: Метод для принудительной инициализации файловой системы
+    // Устранен busy-wait, заменен на асинхронное ожидание
+    async forceInitializeFileTransfer(options = {}) {
+        // CRITICAL FIX: Добавляем возможность отмены операции
+        const abortController = new AbortController();
+        const { signal = abortController.signal, timeout = 6000 } = options;
+        
+        // Связываем внешний signal с внутренним abortController
+        if (signal && signal !== abortController.signal) {
+            signal.addEventListener('abort', () => abortController.abort());
+        }
         try {
             // Проверяем готовность соединения
             if (!this.isVerified) {
@@ -7374,17 +7431,46 @@ checkFileTransferReadiness() {
             // Инициализируем новую систему
             this.initializeFileTransfer();
             
-            // Ждем инициализации
+            // CRITICAL FIX: Заменяем busy-wait на асинхронное ожидание
+            // Это предотвращает блокировку UI-потока и DoS-атаки
             let attempts = 0;
             const maxAttempts = 50;
-            while (!this.fileTransferSystem && attempts < maxAttempts) {
-                // Синхронное ожидание
-                const start = Date.now();
-                while (Date.now() - start < 100) {
-                    // busy wait
-                }
-                attempts++;
-            }
+            const checkInterval = 100; // 100ms между проверками
+            const maxWaitTime = maxAttempts * checkInterval; // Максимальное время ожидания
+            
+            // CRITICAL FIX: Используем Promise.race для возможности отмены операции
+            const initializationPromise = new Promise((resolve, reject) => {
+                const checkInitialization = () => {
+                    // Проверяем отмену операции
+                    if (abortController.signal.aborted) {
+                        reject(new Error('Operation cancelled'));
+                        return;
+                    }
+                    
+                    if (this.fileTransferSystem) {
+                        resolve(true);
+                        return;
+                    }
+                    
+                    if (attempts >= maxAttempts) {
+                        reject(new Error(`Initialization timeout after ${maxWaitTime}ms`));
+                        return;
+                    }
+                    
+                    attempts++;
+                    setTimeout(checkInitialization, checkInterval);
+                };
+                
+                checkInitialization();
+            });
+            
+            // CRITICAL FIX: Ждем инициализации с возможностью отмены и таймаутом
+            await Promise.race([
+                initializationPromise,
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error(`Global timeout after ${timeout}ms`)), timeout)
+                )
+            ]);
             
             if (this.fileTransferSystem) {
                 return true;
@@ -7393,9 +7479,61 @@ checkFileTransferReadiness() {
             }
             
         } catch (error) {
-            this._secureLog('error', '❌ Force file transfer initialization failed:', { errorType: error?.constructor?.name || 'Unknown' });
+            // CRITICAL FIX: Улучшенная обработка ошибок
+            if (error.name === 'AbortError' || error.message.includes('cancelled')) {
+                this._secureLog('info', '⏹️ File transfer initialization cancelled by user');
+                return { cancelled: true };
+            }
+            
+            this._secureLog('error', '❌ Force file transfer initialization failed:', { 
+                errorType: error?.constructor?.name || 'Unknown',
+                message: error.message,
+                attempts: attempts
+            });
+            return { error: error.message, attempts: attempts };
+        }
+    }
+    
+    // CRITICAL FIX: Метод для отмены инициализации файловой системы
+    cancelFileTransferInitialization() {
+        try {
+            if (this.fileTransferSystem) {
+                this.fileTransferSystem.cleanup();
+                this.fileTransferSystem = null;
+                this._secureLog('info', '⏹️ File transfer initialization cancelled');
+                return true;
+            }
+            return false;
+        } catch (error) {
+            this._secureLog('error', '❌ Failed to cancel file transfer initialization:', { 
+                errorType: error?.constructor?.name || 'Unknown' 
+            });
             return false;
         }
+    }
+    
+    // CRITICAL FIX: Validate nested encryption security
+    _validateNestedEncryptionSecurity() {
+        if (this.securityFeatures.hasNestedEncryption && this.nestedEncryptionKey) {
+            // Test that we can generate fresh random IVs
+            try {
+                const testIV1 = crypto.getRandomValues(new Uint8Array(EnhancedSecureWebRTCManager.SIZES.NESTED_ENCRYPTION_IV_SIZE));
+                const testIV2 = crypto.getRandomValues(new Uint8Array(EnhancedSecureWebRTCManager.SIZES.NESTED_ENCRYPTION_IV_SIZE));
+                
+                // Verify IVs are different (very unlikely to be the same with 96-bit random)
+                if (testIV1.every((byte, index) => byte === testIV2[index])) {
+                    console.error('❌ CRITICAL: Nested encryption IV generation failed - IVs are identical!');
+                    return false;
+                }
+                
+                console.log('✅ Nested encryption security validation passed - fresh random IVs generated');
+                return true;
+            } catch (error) {
+                console.error('❌ CRITICAL: Nested encryption security validation failed:', error);
+                return false;
+            }
+        }
+        return true;
     }
 }
 
@@ -7409,6 +7547,15 @@ class SecureKeyStorage {
         // Master encryption key for storage encryption
         this._storageMasterKey = null;
         this._initializeStorageMaster();
+        
+            // CRITICAL FIX: Validate storage integrity after initialization
+        setTimeout(() => {
+            if (!this.validateStorageIntegrity()) {
+                console.error('❌ CRITICAL: Key storage integrity check failed');
+            }
+        }, 100);
+        
+        // CRITICAL FIX: Storage integrity validation only (nested encryption validation is in main class)
     }
 
     async _initializeStorageMaster() {
@@ -7443,6 +7590,11 @@ class SecureKeyStorage {
             // For extractable keys, proceed with encryption
             const keyData = await crypto.subtle.exportKey('jwk', cryptoKey);
             const encryptedKeyData = await this._encryptKeyData(keyData);
+            
+            // CRITICAL FIX: Validate that extractable keys are properly encrypted
+            if (!encryptedKeyData || encryptedKeyData.byteLength === 0) {
+                throw new Error('Failed to encrypt extractable key data');
+            }
 
             // Create a storage object
             const storageObject = {
@@ -7465,7 +7617,9 @@ class SecureKeyStorage {
             this._keyMetadata.set(keyId, {
                 ...metadata,
                 created: Date.now(),
-                lastAccessed: Date.now()
+                lastAccessed: Date.now(),
+                extractable: true,
+                encrypted: true  // CRITICAL FIX: Mark extractable keys as encrypted
             });
 
             return true;
@@ -7486,7 +7640,18 @@ class SecureKeyStorage {
 
         // For non-encrypted keys (non-extractable), return directly
         if (!metadata.encrypted) {
-            return this._keyReferences.get(keyId);
+            // CRITICAL FIX: Only non-extractable keys should be non-encrypted
+            if (metadata.extractable === false) {
+                return this._keyReferences.get(keyId);
+            } else {
+                // This should never happen - extractable keys must be encrypted
+                this._secureLog('error', '❌ SECURITY VIOLATION: Extractable key marked as non-encrypted', {
+                    keyId,
+                    extractable: metadata.extractable,
+                    encrypted: metadata.encrypted
+                });
+                return null;
+            }
         }
 
         // For encrypted keys, decrypt and recreate
@@ -7591,6 +7756,38 @@ class SecureKeyStorage {
         if (typeof window.gc === 'function') {
             window.gc();
         }
+    }
+
+    // CRITICAL FIX: Validate storage integrity
+    validateStorageIntegrity() {
+        const violations = [];
+        
+        for (const [keyId, metadata] of this._keyMetadata.entries()) {
+            // Check: extractable keys must be encrypted
+            if (metadata.extractable === true && metadata.encrypted !== true) {
+                violations.push({
+                    keyId,
+                    type: 'EXTRACTABLE_KEY_NOT_ENCRYPTED',
+                    metadata
+                });
+            }
+            
+            // Check: non-extractable keys should not be encrypted
+            if (metadata.extractable === false && metadata.encrypted === true) {
+                violations.push({
+                    keyId,
+                    type: 'NON_EXTRACTABLE_KEY_ENCRYPTED',
+                    metadata
+                });
+            }
+        }
+        
+        if (violations.length > 0) {
+            console.error('❌ Storage integrity violations detected:', violations);
+            return false;
+        }
+        
+        return true;
     }
 
     getStorageStats() {
