@@ -171,19 +171,8 @@ if (!this._validateMutexSystem()) {
     throw new Error('Critical: Mutex system validation failed');
 }
 
-// Add global emergency handlers
 if (typeof window !== 'undefined') {
-    window.emergencyUnlockMutexes = () => {
-        return this._emergencyUnlockAllMutexes();
-    };
-    
-    window.getMutexDiagnostics = () => {
-        return this._getMutexSystemDiagnostics();
-    };
-    
-    window.recoverMutexSystem = () => {
-        return this._emergencyRecoverMutexSystem();
-    };
+    this._secureLog('info', '🔒 Emergency mutex handlers will be available through secure API');
 }
 
 this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and validated');
@@ -246,19 +235,21 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     this.iceVerificationInProgress = false; // Флаг процесса ICE верификации
     this.dtlsProtectionEnabled = true; // Включена ли защита от DTLS race condition
     
+
     this.securityFeatures = {
-        hasEncryption: true,
-        hasECDH: true,
-        hasECDSA: false,
-        hasMutualAuth: false,
-        hasMetadataProtection: false,
-        hasEnhancedReplayProtection: false,
-        hasNonExtractableKeys: false,
-            hasRateLimiting: true,
-            hasEnhancedValidation: false,
-            hasPFS: false,
-            
-            // Advanced Features (Session Managed)
+
+        hasEncryption: true,      
+        hasECDH: true,            
+        hasECDSA: false,          
+        hasMutualAuth: false,     
+        hasMetadataProtection: false,      
+        hasEnhancedReplayProtection: false, 
+        hasNonExtractableKeys: false,      
+        hasRateLimiting: true,    
+        hasEnhancedValidation: false,      
+        hasPFS: false,           
+        
+        // Advanced Features (Session Managed) 
             hasNestedEncryption: false,     
             hasPacketPadding: false,        
             hasPacketReordering: false,    
@@ -267,7 +258,14 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             hasDecoyChannels: false,       
             hasMessageChunking: false      
         };
-        console.log('🔒 Enhanced WebRTC Manager initialized with tiered security');
+        this._secureLog('info', '🔒 Enhanced WebRTC Manager initialized with tiered security');
+        
+        this._syncSecurityFeaturesWithTariff();
+        
+        if (!this._validateCryptographicSecurity()) {
+            this._secureLog('error', '🚨 CRITICAL: Cryptographic security validation failed after tariff sync');
+            throw new Error('Critical cryptographic features are missing after tariff synchronization');
+        }
     // ============================================
     // ENHANCED SECURITY FEATURES
     // ============================================
@@ -713,7 +711,7 @@ _initializeMutexSystem() {
                 try {
                     // Validate self and method availability
                     if (self && typeof self._secureLogShim === 'function') {
-                        self._secureLogShim(...args);
+                    self._secureLogShim(...args);
                     } else {
                         // Fallback to original if shim is not available
                         if (self._originalConsole?.log) {
@@ -794,9 +792,11 @@ _initializeMutexSystem() {
         
         // NEW: In production do not output payloads
         if (this._isProductionMode && level !== 'error') {
-            console[level] || console.log(message); // Only message without payload
+            // CRITICAL FIX: Убираем прямые вызовы console
+            this._originalConsole?.[level]?.(message) || this._originalConsole?.log?.(message);
         } else {
-            const logMethod = console[level] || console.log;
+                          // CRITICAL FIX: Убираем прямые вызовы console
+              const logMethod = this._originalConsole?.[level] || this._originalConsole?.log;
             if (sanitizedData) {
                 logMethod(message, sanitizedData);
             } else {
@@ -909,12 +909,11 @@ _initializeMutexSystem() {
     // ============================================
     
     /**
-     * ✅ ДОБАВИТЬ проверку источника DTLS пакетов
-     * Защита от DTLS ClientHello race condition (октябрь 2024)
+     * 
+     * DTLS protection ClientHello race condition 
      */
     async validateDTLSSource(clientHelloData, expectedSource) {
         try {
-            // Проверяем, что ClientHello приходит от верифицированного ICE endpoint
             if (!this.verifiedICEEndpoints.has(expectedSource)) {
                 this._secureLog('error', 'DTLS ClientHello from unverified source - possible race condition attack', {
                     source: expectedSource,
@@ -923,8 +922,7 @@ _initializeMutexSystem() {
                 });
                 throw new Error('DTLS ClientHello from unverified source - possible race condition attack');
             }
-            
-            // Дополнительная валидация cipher suites
+
             if (!clientHelloData.cipherSuite || 
                 !EnhancedSecureWebRTCManager.DTLS_PROTECTION.SUPPORTED_CIPHERS.includes(clientHelloData.cipherSuite)) {
                 this._secureLog('error', 'Invalid cipher suite in ClientHello', {
@@ -933,8 +931,7 @@ _initializeMutexSystem() {
                 });
                 throw new Error('Invalid cipher suite in ClientHello');
             }
-            
-            // Проверка версии TLS
+
             if (clientHelloData.tlsVersion) {
                 const version = clientHelloData.tlsVersion;
                 if (version < EnhancedSecureWebRTCManager.DTLS_PROTECTION.MIN_TLS_VERSION ||
@@ -966,7 +963,7 @@ _initializeMutexSystem() {
     }
     
     /**
-     * Добавляет ICE endpoint в список верифицированных
+     * Adds ICE endpoint to the list of verified ones
      */
     addVerifiedICEEndpoint(endpoint) {
         this.verifiedICEEndpoints.add(endpoint);
@@ -977,13 +974,11 @@ _initializeMutexSystem() {
     }
     
     /**
-     * Обрабатывает DTLS ClientHello с защитой от race condition
+     * Handles DTLS ClientHello with race condition protection
      */
     async handleDTLSClientHello(clientHelloData, sourceEndpoint) {
         try {
-            // Проверяем, что ICE верификация завершена
             if (this.iceVerificationInProgress) {
-                // Помещаем в очередь до завершения ICE верификации
                 this.dtlsClientHelloQueue.set(sourceEndpoint, {
                     data: clientHelloData,
                     timestamp: Date.now(),
@@ -995,13 +990,12 @@ _initializeMutexSystem() {
                     queueSize: this.dtlsClientHelloQueue.size
                 });
                 
-                return false; // Обработка отложена
+                return false; 
             }
             
-            // Валидируем источник DTLS пакета
+            // Validate the source of the DTLS packet
             await this.validateDTLSSource(clientHelloData, sourceEndpoint);
-            
-            // Обрабатываем валидный ClientHello
+
             this._secureLog('info', 'DTLS ClientHello processed successfully', {
                 source: sourceEndpoint,
                 cipherSuite: clientHelloData.cipherSuite
@@ -1014,8 +1008,7 @@ _initializeMutexSystem() {
                 source: sourceEndpoint,
                 timestamp: Date.now()
             });
-            
-            // Блокируем подозрительный endpoint
+
             this.verifiedICEEndpoints.delete(sourceEndpoint);
             
             throw error;
@@ -1023,18 +1016,17 @@ _initializeMutexSystem() {
     }
     
     /**
-     * Завершает ICE верификацию и обрабатывает отложенные DTLS сообщения
+     * Completes ICE verification and processes pending DTLS messages
      */
     async completeICEVerification(verifiedEndpoints) {
         try {
             this.iceVerificationInProgress = false;
-            
-            // Добавляем верифицированные endpoints
+
             for (const endpoint of verifiedEndpoints) {
                 this.addVerifiedICEEndpoint(endpoint);
             }
             
-            // Обрабатываем отложенные DTLS ClientHello сообщения
+            // Processing Deferred DTLS ClientHello Messages
             for (const [endpoint, queuedData] of this.dtlsClientHelloQueue.entries()) {
                 try {
                     if (this.verifiedICEEndpoints.has(endpoint)) {
@@ -1193,27 +1185,54 @@ _initializeMutexSystem() {
                 ]
             }
         };
-       // ============================================
-        // INSTALL SECURE GLOBAL API
-        // ============================================
         
-        // Make the API immutable
-        Object.freeze(secureAPI);
-        Object.freeze(secureAPI._api);
-        
-        // Set global API only if it does not exist yet
+        const safeGlobalAPI = {
+            sendMessage: secureAPI.sendMessage,
+            getConnectionStatus: secureAPI.getConnectionStatus,
+            getSecurityStatus: secureAPI.getSecurityStatus,
+            sendFile: secureAPI.sendFile,
+            getFileTransferStatus: secureAPI.getFileTransferStatus,
+            disconnect: secureAPI.disconnect,
+
+            getFileTransferSystemStatus: () => this.getFileTransferSystemStatus(),
+
+            emergency: {
+                emergencyUnlockMutexes: () => {
+                    this._secureLog('warn', '🚨 Emergency mutex unlock requested through safe API');
+                    return this._emergencyUnlockAllMutexes();
+                },
+                
+                getMutexDiagnostics: () => {
+                    this._secureLog('info', '🔍 Mutex diagnostics requested through safe API');
+                    return this._getMutexSystemDiagnostics();
+                },
+                
+                recoverMutexSystem: () => {
+                    this._secureLog('warn', '🚨 Emergency mutex recovery requested through safe API');
+                    return this._emergencyRecoverMutexSystem();
+                }
+            },
+
+            version: secureAPI._api.version,
+            type: 'secure-public-wrapper'
+        };
+
+        Object.freeze(safeGlobalAPI);
+
         if (!window.secureBitChat) {
             Object.defineProperty(window, 'secureBitChat', {
-                value: secureAPI,
+                value: safeGlobalAPI,
                 writable: false,
                 enumerable: true,
                 configurable: false
             });
             
-            console.log('🔒 Secure global API established: window.secureBitChat');
+            this._secureLog('info', '🔒 Безопасный глобальный API установлен: window.secureBitChat');
         } else {
-            this._secureLog('warn', '⚠️ Global API already exists, skipping setup');
+            this._secureLog('warn', '⚠️ Глобальный API уже существует, пропускаем установку');
         }
+
+        this._protectGlobalAPI();
         
         // ============================================
         // SIMPLIFIED PROTECTION WITHOUT PROXY
@@ -1221,25 +1240,23 @@ _initializeMutexSystem() {
         this._setupSimpleProtection();
     }
     _setupSimpleProtection() {
-        // Protect via monitoring only, without overriding window
         this._monitorGlobalExposure();
         
         // Console notice
         if (window.DEBUG_MODE) {
             this._secureLog('warn', '⚠️ 🔒 Security Notice: WebRTC Manager is protected. Use window.secureBitChat for safe access.');
         }
+
+        this._secureLog('info', '🔒 Global exposure protection: Monitoring only, no automatic removal');
     }
-    /**
-     * Monitoring global exposure without Proxy
-     */
+
     _monitorGlobalExposure() {
         // Potentially dangerous global names
         const dangerousNames = [
             'webrtcManager', 'globalWebRTCManager', 'webrtcInstance', 
             'rtcManager', 'secureWebRTC', 'enhancedWebRTC'
         ];
-        
-        // Periodic check
+
         const checkForExposure = () => {
             const exposures = [];
             
@@ -1251,17 +1268,16 @@ _initializeMutexSystem() {
             });
             
             if (exposures.length > 0) {
-                this._secureLog('warn', '⚠️ 🚫 WARNING: Potential security exposure detected:', { details: exposures });
-                
-                // In production, remove automatically
-                if (!window.DEBUG_MODE) {
-                    exposures.forEach(name => {
-                        try {
-                            delete window[name];
-                            console.log(`🧹 Removed exposure: ${name}`);
-                        } catch (error) {
-                            this._secureLog('error', '❌ Failed to remove: ${name}');
-                        }
+                this._secureLog('error', '🚨 CRITICAL: Unauthorized global exposure detected', { 
+                    details: exposures,
+                    recommendation: 'Use window.secureBitChat for safe access'
+                });
+
+                if (this.onStatusChange) {
+                    this.onStatusChange('security_warning', {
+                        type: 'global_exposure',
+                        exposed: exposures,
+                        message: 'Unauthorized global exposure detected'
                     });
                 }
             }
@@ -1271,52 +1287,27 @@ _initializeMutexSystem() {
         
         // Immediate check
         checkForExposure();
-        
-        // Periodic check
-        const interval = window.DEBUG_MODE ? 30000 : 300000; // 30s in dev, 5min in prod
+
+        const interval = window.DEBUG_MODE ? 60000 : 600000; // 1min in dev, 10min in prod
         setInterval(checkForExposure, interval);
     }
-    /**
-     * Prevents accidental global exposure
-     */
+
     _preventGlobalExposure() {
-        // Monitor attempts to add webrtc objects to window
-        const originalDefineProperty = Object.defineProperty;
-        const self = this;
         
-        // Override defineProperty for window only for webrtc-related properties
-        const webrtcRelatedNames = [
-            'webrtcManager', 'globalWebRTCManager', 'webrtcInstance', 
-            'rtcManager', 'secureWebRTC', 'enhancedWebRTC'
-        ];
-        
-        Object.defineProperty = function(obj, prop, descriptor) {
-            if (obj === window && webrtcRelatedNames.includes(prop)) {
-                this._secureLog('warn', '⚠️ 🚫 Prevented potential global exposure of: ${prop}');
-                // Do not set the property, only log
-                return obj;
-            }
-            return originalDefineProperty.call(this, obj, prop, descriptor);
-        };
-        
-        // Protect against direct assignment
-        const webrtcRelatedPatterns = /webrtc|rtc|secure.*chat/i;
-        const handler = {
-            set(target, property, value) {
-                if (typeof property === 'string' && webrtcRelatedPatterns.test(property)) {
-                    if (value === self || (value && value.constructor === self.constructor)) {
-                        this._secureLog('warn', '⚠️ 🚫 Prevented global exposure attempt: window.${property}');
-                        return true; // Pretend we set it, but do not
-                    }
-                }
-                target[property] = value;
-                return true;
-            }
-        };
-        
-        // Apply Proxy only in development mode for performance
+                this._secureLog('info', '🔒 Global exposure protection active (monitoring only)');
+
         if (window.DEBUG_MODE) {
-            window = new Proxy(window, handler);
+            this._secureLog('info', '🔍 Development mode: Enhanced monitoring enabled');
+
+            const originalDefineProperty = Object.defineProperty;
+            const self = this;
+            
+            Object.defineProperty = function(obj, prop, descriptor) {
+                if (obj === window && /webrtc|rtc|secure.*chat/i.test(prop)) {
+                    self._secureLog('warn', `⚠️ Attempt to expose ${prop} globally detected`);
+                }
+                return originalDefineProperty.call(this, obj, prop, descriptor);
+            };
         }
     }
     /**
@@ -1349,9 +1340,6 @@ _initializeMutexSystem() {
     // ADDITIONAL SECURITY METHODS
     // ============================================
     
-    /**
-     * Checks for accidental exposure in global scope
-     */
     _auditGlobalExposure() {
         const dangerousExposures = [];
         
@@ -1364,17 +1352,17 @@ _initializeMutexSystem() {
         }
         
         if (dangerousExposures.length > 0) {
-            this._secureLog('error', '❌ SECURITY ALERT: WebRTC Manager exposed globally:', { errorType: dangerousExposures?.constructor?.name || 'Unknown' });
-            
-            // In production mode, remove exposure automatically
-            if (!window.DEBUG_MODE) {
-                dangerousExposures.forEach(prop => {
-                    try {
-                        delete window[prop];
-                        console.log(`🧹 Removed dangerous global exposure: ${prop}`);
-                    } catch (error) {
-                        this._secureLog('error', '❌ Failed to remove exposure: ${prop}', { errorType: error?.constructor?.name || 'Unknown' });
-                    }
+            this._secureLog('error', '🚨 CRITICAL: WebRTC Manager exposed globally', { 
+                exposed: dangerousExposures,
+                recommendation: 'Use window.secureBitChat for safe access',
+                action: 'Logging and notification only - no automatic removal'
+            });
+
+            if (this.onStatusChange) {
+                this.onStatusChange('security_breach', {
+                    type: 'global_exposure',
+                    exposed: dangerousExposures,
+                    message: 'WebRTC Manager exposed globally - security breach detected'
                 });
             }
         }
@@ -1382,24 +1370,191 @@ _initializeMutexSystem() {
         return dangerousExposures;
     }
     
-    /**
-     * Periodic security audit
-     */
     _startSecurityAudit() {
-        // Check every 30 seconds in development, every 5 minutes in production
-        const auditInterval = window.DEBUG_MODE ? 30000 : 300000;
+        // Check every 2 minutes in development, every 10 minutes in production
+        const auditInterval = window.DEBUG_MODE ? 120000 : 600000;
         
         setInterval(() => {
             const exposures = this._auditGlobalExposure();
             
-            if (exposures.length > 0 && !window.DEBUG_MODE) {
-                // In production, this is a critical issue
-                this._secureLog('error', '❌ CRITICAL: Unauthorized global exposure detected in production');
-                
-                // Could add alert sending or forced shutdown
-                // this.emergencyShutdown();
+            if (exposures.length > 0) {
+                this._secureLog('error', '🚨 CRITICAL: Unauthorized global exposure detected', {
+                    exposed: exposures,
+                    action: 'Manual intervention required - no automatic shutdown'
+                });
+
+                if (this.onStatusChange) {
+                    this.onStatusChange('security_audit_failed', {
+                        type: 'global_exposure',
+                        exposed: exposures,
+                        message: 'Security audit failed - manual intervention required'
+                    });
+                }
             }
         }, auditInterval);
+    }
+    
+    _protectGlobalAPI() {
+        if (!window.secureBitChat) {
+            this._secureLog('warn', '⚠️ Global API not found during protection setup');
+            return;
+        }
+
+        try {
+            const testProperty = 'test_immutability_' + Date.now();
+
+            try {
+                Object.defineProperty(window.secureBitChat, testProperty, {
+                    value: 'test',
+                    writable: true,
+                    enumerable: true,
+                    configurable: true
+                });
+
+                this._secureLog('error', '🚨 CRITICAL: Global API is not fully protected');
+
+                Object.defineProperty(window.secureBitChat, testProperty, {
+                    value: 'test',
+                    writable: false,
+                    enumerable: false,
+                    configurable: false
+                });
+
+                delete window.secureBitChat[testProperty];
+                
+            } catch (error) {
+                this._secureLog('info', '✅ Global API protection verified');
+            }
+
+            const originalAPI = window.secureBitChat;
+            
+            Object.defineProperty(window, 'secureBitChat', {
+                get: () => originalAPI,
+                set: (newValue) => {
+                    this._secureLog('error', '🚨 CRITICAL: Attempt to replace secureBitChat API detected and blocked');
+                    return false;
+                },
+                configurable: false,
+                enumerable: true
+            });
+            
+            this._secureLog('info', '🔒 Global API protection enhanced with replacement blocking');
+            
+        } catch (error) {
+            this._secureLog('error', '❌ Failed to enhance global API protection', { errorType: error.constructor.name });
+        }
+    }
+
+    _validateCryptographicSecurity() {
+
+        const criticalFeatures = ['hasEncryption', 'hasECDH', 'hasRateLimiting'];
+        const missingCritical = criticalFeatures.filter(feature => !this.securityFeatures[feature]);
+        
+        if (missingCritical.length > 0) {
+            this._secureLog('error', '🚨 CRITICAL: Missing critical cryptographic features', {
+                missing: missingCritical,
+                currentFeatures: this.securityFeatures,
+                action: 'Critical features will be forced enabled'
+            });
+
+            missingCritical.forEach(feature => {
+                this.securityFeatures[feature] = true;
+                this._secureLog('warn', `⚠️ Forced enable critical: ${feature} = true`);
+            });
+
+            if (this.onStatusChange) {
+                this.onStatusChange('security_warning', {
+                    type: 'missing_critical_crypto_features',
+                    missing: missingCritical,
+                    message: 'Critical cryptographic features were missing and have been forced enabled'
+                });
+            }
+            
+            return false;
+        }
+
+        const additionalFeatures = ['hasECDSA', 'hasMutualAuth', 'hasMetadataProtection', 'hasEnhancedReplayProtection', 'hasNonExtractableKeys', 'hasEnhancedValidation', 'hasPFS'];
+        const enabledAdditional = additionalFeatures.filter(feature => this.securityFeatures[feature]);
+        
+        this._secureLog('info', '✅ Cryptographic security validation passed', {
+            criticalFeatures: criticalFeatures.length,
+            additionalFeatures: enabledAdditional.length,
+            totalSecurityFeatures: Object.keys(this.securityFeatures).filter(f => this.securityFeatures[f]).length
+        });
+        
+        return true;
+    }
+
+    _syncSecurityFeaturesWithTariff() {
+        if (!this.sessionManager || !this.sessionManager.isFeatureAllowedForSession) {
+            this._secureLog('warn', '⚠️ Session manager not available, using safe default security features');
+
+            this.securityFeatures = {
+                hasEncryption: true,
+                hasECDH: true,
+                hasECDSA: true,      
+                hasMutualAuth: true, 
+                hasMetadataProtection: true,      
+                hasEnhancedReplayProtection: true, 
+                hasNonExtractableKeys: true,      
+                hasRateLimiting: true,
+                hasEnhancedValidation: true,      
+                hasPFS: true,        
+
+                hasNestedEncryption: false,     
+                hasPacketPadding: false,        
+                hasPacketReordering: false,    
+                hasAntiFingerprinting: false,  
+                hasFakeTraffic: false,         
+                hasDecoyChannels: false,       
+                hasMessageChunking: false      
+            };
+            
+            this._secureLog('info', '✅ Default security features applied (session manager unavailable)');
+            return;
+        }
+
+        let sessionType = 'demo'; 
+
+        if (this.sessionManager.isFeatureAllowedForSession('premium', 'hasFakeTraffic')) {
+            sessionType = 'premium';
+        } else if (this.sessionManager.isFeatureAllowedForSession('basic', 'hasECDSA')) {
+            sessionType = 'basic';
+        }
+        
+        this._secureLog('info', '🔒 Syncing security features with tariff plan', { sessionType });
+
+        const allFeatures = [
+            'hasEncryption', 'hasECDH', 'hasECDSA', 'hasMutualAuth',
+            'hasMetadataProtection', 'hasEnhancedReplayProtection',
+            'hasNonExtractableKeys', 'hasRateLimiting', 'hasEnhancedValidation', 'hasPFS',
+            'hasNestedEncryption', 'hasPacketPadding', 'hasPacketReordering',
+            'hasAntiFingerprinting', 'hasFakeTraffic', 'hasDecoyChannels', 'hasMessageChunking'
+        ];
+        
+        allFeatures.forEach(feature => {
+            const isAllowed = this.sessionManager.isFeatureAllowedForSession(sessionType, feature);
+            
+            if (this.securityFeatures[feature] !== isAllowed) {
+                this._secureLog('info', `🔄 Syncing ${feature}: ${this.securityFeatures[feature]} → ${isAllowed}`);
+                this.securityFeatures[feature] = isAllowed;
+            }
+        });
+
+        if (this.onStatusChange) {
+            this.onStatusChange('security_synced', {
+                type: 'tariff_sync',
+                sessionType: sessionType,
+                features: this.securityFeatures,
+                message: `Security features synchronized with ${sessionType} tariff plan`
+            });
+        }
+        
+        this._secureLog('info', '✅ Security features synchronized with tariff plan', {
+            sessionType,
+            enabledFeatures: Object.keys(this.securityFeatures).filter(f => this.securityFeatures[f]).length,
+            totalFeatures: Object.keys(this.securityFeatures).length
+        });
     }
     
     /**
@@ -1436,7 +1591,7 @@ _initializeMutexSystem() {
                 this.onStatusChange('security_breach');
             }
             
-            console.log('🔒 Emergency shutdown completed');
+            this._secureLog('info', '🔒 Emergency shutdown completed');
             
         } catch (error) {
             this._secureLog('error', '❌ Error during emergency shutdown:', { errorType: error?.constructor?.name || 'Unknown' });
@@ -1444,20 +1599,22 @@ _initializeMutexSystem() {
     }
     _finalizeSecureInitialization() {
         this._startKeySecurityMonitoring();
+        
         // Verify API integrity
         if (!this._verifyAPIIntegrity()) {
             this._secureLog('error', '❌ Security initialization failed');
             return;
         }
-        
-        // Start monitoring
+
         this._startSecurityMonitoring();
+        
         // Start periodic log cleanup
         setInterval(() => {
             this._cleanupLogs();
         }, 300000);
         
-        console.log('✅ Secure WebRTC Manager initialization completed');
+        this._secureLog('info', '✅ Secure WebRTC Manager initialization completed');
+        this._secureLog('info', '🔒 Global exposure protection: Monitoring only, no automatic removal');
     }
     /**
      * Start security monitoring
@@ -1467,6 +1624,23 @@ _initializeMutexSystem() {
         setInterval(() => {
             this._verifyAPIIntegrity();
         }, 300000);
+
+        setInterval(() => {
+            if (!this._validateCryptographicSecurity()) {
+                this._secureLog('error', '🚨 CRITICAL: Cryptographic security check failed during monitoring');
+
+                if (this.onStatusChange) {
+                    this.onStatusChange('security_breach', {
+                        type: 'crypto_security_failure',
+                        message: 'Cryptographic security validation failed during monitoring'
+                    });
+                }
+            }
+        }, 600000); 
+
+        setInterval(() => {
+            this._syncSecurityFeaturesWithTariff();
+        }, 300000); 
         
         // In development mode, perform more frequent checks
         if (window.DEBUG_MODE) {
@@ -1742,11 +1916,10 @@ _initializeMutexSystem() {
 
     initializeFileTransfer() {
         try {
-            console.log('🔧 Initializing Enhanced Secure File Transfer system...');
-            
-            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Проверяем, не инициализирована ли уже система
+            this._secureLog('info', '🔧 Initializing Enhanced Secure File Transfer system...');
+
             if (this.fileTransferSystem) {
-                console.log('✅ File transfer system already initialized');
+                this._secureLog('info', '✅ File transfer system already initialized');
                 return;
             }
             
@@ -1756,7 +1929,7 @@ _initializeMutexSystem() {
                 this._secureLog('warn', '⚠️ Data channel not open, deferring file transfer initialization');
                 if (this.dataChannel) {
                     const initHandler = () => {
-                        console.log('🔄 DataChannel opened, initializing file transfer...');
+                        this._secureLog('info', '🔄 DataChannel opened, initializing file transfer...');
                         this.initializeFileTransfer();
                     };
                     this.dataChannel.addEventListener('open', initHandler, { once: true });
@@ -1772,7 +1945,7 @@ _initializeMutexSystem() {
             
             // FIX: Clean up previous system if present
             if (this.fileTransferSystem) {
-                console.log('🧹 Cleaning up existing file transfer system');
+                this._secureLog('info', '🧹 Cleaning up existing file transfer system');
                 this.fileTransferSystem.cleanup();
                 this.fileTransferSystem = null;
             }
@@ -1788,7 +1961,7 @@ _initializeMutexSystem() {
             const safeOnComplete = (summary) => {
                 // Sender: finalize transfer, no Blob handling
                 try {
-                    console.log('🏁 Sender transfer summary:', summary);
+                    this._secureLog('info', '🏁 Sender transfer summary', { summary });
                     // Optionally forward as progress/UI event
                     if (this.onFileProgress) {
                         this.onFileProgress({ type: 'complete', ...summary });
@@ -1806,21 +1979,18 @@ _initializeMutexSystem() {
                 this.onFileReceived || null
             );
             
-            // CRITICAL FIX: Set global references
-            window.FILE_TRANSFER_ACTIVE = true;
-            window.fileTransferSystem = this.fileTransferSystem;
+            this._fileTransferActive = true;
             
-            console.log('✅ Enhanced Secure File Transfer system initialized successfully');
+            this._secureLog('info', '✅ Enhanced Secure File Transfer system initialized successfully');
             
             // Verify the system is ready
             const status = this.fileTransferSystem.getSystemStatus();
-            console.log('🔍 File transfer system status after init:', status);
+            this._secureLog('info', '🔍 File transfer system status after init', { status });
             
         } catch (error) {
             this._secureLog('error', '❌ Failed to initialize file transfer system', { errorType: error.constructor.name });
             this.fileTransferSystem = null;
-            window.FILE_TRANSFER_ACTIVE = false;
-            window.fileTransferSystem = null;
+            this._fileTransferActive = false;
         }
     }
 
@@ -1867,7 +2037,7 @@ _initializeMutexSystem() {
 
     // Security configuration for session type
     configureSecurityForSession(sessionType, securityLevel) {
-        console.log(`🔧 Configuring security for ${sessionType} session (${securityLevel} level)`);
+        this._secureLog('info', `🔧 Configuring security for ${sessionType} session (${securityLevel} level)`);
         
         this.currentSessionType = sessionType;
         this.currentSecurityLevel = securityLevel;
@@ -1881,7 +2051,19 @@ _initializeMutexSystem() {
             
             this.applySessionConstraints();
             
-            console.log(`✅ Security configured for ${sessionType}:`, this.sessionConstraints);
+            this._secureLog('info', `✅ Security configured for ${sessionType}`, { constraints: this.sessionConstraints });
+
+            if (!this._validateCryptographicSecurity()) {
+                this._secureLog('error', '🚨 CRITICAL: Cryptographic security validation failed after session configuration');
+
+                if (this.onStatusChange) {
+                    this.onStatusChange('security_breach', {
+                        type: 'crypto_security_failure',
+                        sessionType: sessionType,
+                        message: 'Cryptographic security validation failed after session configuration'
+                    });
+                }
+            }
             
             this.notifySecurityLevel();
             
@@ -1903,7 +2085,7 @@ _initializeMutexSystem() {
             const allowed = this.sessionConstraints[feature];
             
             if (!allowed && this.securityFeatures[feature]) {
-                console.log(`🔒 Disabling ${feature} for ${this.currentSessionType} session`);
+                this._secureLog('info', `🔒 Disabling ${feature} for ${this.currentSessionType} session`);
                 this.securityFeatures[feature] = false;
                 
                 // Disabling linked configurations
@@ -1928,7 +2110,7 @@ _initializeMutexSystem() {
                         break;
                 }
             } else if (allowed && !this.securityFeatures[feature]) {
-                console.log(`🔓 Enabling ${feature} for ${this.currentSessionType} session`);
+                this._secureLog('info', `🔓 Enabling ${feature} for ${this.currentSessionType} session`);
                 this.securityFeatures[feature] = true;
                 
                 // Enable linked configurations
@@ -1961,7 +2143,7 @@ _initializeMutexSystem() {
     deliverMessageToUI(message, type = 'received') {
         try {
             // Add debug logs
-            console.log('📤 deliverMessageToUI called:', {
+            this._secureLog('debug', '📤 deliverMessageToUI called', {
                 message: message,
                 type: type,
                 messageType: typeof message,
@@ -1987,7 +2169,7 @@ _initializeMutexSystem() {
                 ];
                 if (blockedTypes.includes(message.type)) {
                     if (window.DEBUG_MODE) {
-                        console.log(`🛑 Blocked system/file message from UI: ${message.type}`);
+                        this._secureLog('warn', `🛑 Blocked system/file message from UI: ${message.type}`);
                     }
                     return; // do not show in chat
                 }
@@ -2015,7 +2197,7 @@ _initializeMutexSystem() {
                         ];
                         if (blockedTypes.includes(parsedMessage.type)) {
                             if (window.DEBUG_MODE) {
-                                console.log(`🛑 Blocked system/file message from UI (string): ${parsedMessage.type}`);
+                                this._secureLog('warn', `🛑 Blocked system/file message from UI (string): ${parsedMessage.type}`);
                             }
                             return; // do not show in chat
                         }
@@ -2026,7 +2208,7 @@ _initializeMutexSystem() {
             }
 
             if (this.onMessage) {
-                console.log('📤 Calling this.onMessage callback with:', { message, type });
+                this._secureLog('debug', '📤 Calling this.onMessage callback', { message, type });
                 this.onMessage(message, type);
             } else {
                 this._secureLog('warn', '⚠️ this.onMessage callback is null or undefined');
@@ -2085,7 +2267,7 @@ _initializeMutexSystem() {
         }
         this.decoyChannels.clear();
         
-        console.log('🧹 Decoy channels cleaned up');
+        this._secureLog('info', '🧹 Decoy channels cleaned up');
     }
 
     // ============================================
@@ -2148,7 +2330,7 @@ _initializeMutexSystem() {
         // CRITICAL FIX: Check that the data is actually encrypted with proper IV size
         if (!(data instanceof ArrayBuffer) || data.byteLength < EnhancedSecureWebRTCManager.SIZES.NESTED_ENCRYPTION_IV_SIZE + 16) {
             if (window.DEBUG_MODE) {
-                console.log('📝 Data not encrypted or too short for nested decryption (need IV + minimum encrypted data)');
+                this._secureLog('debug', '📝 Data not encrypted or too short for nested decryption (need IV + minimum encrypted data)');
             }
             return data;
         }
@@ -2161,7 +2343,7 @@ _initializeMutexSystem() {
             // Check that there is data to decrypt
             if (encryptedData.length === 0) {
                 if (window.DEBUG_MODE) {
-                    console.log('📝 No encrypted data found');
+                    this._secureLog('debug', '📝 No encrypted data found');
                 }
                 return data;
             }
@@ -2178,7 +2360,7 @@ _initializeMutexSystem() {
             // FIX: Better error handling
             if (error.name === 'OperationError') {
                 if (window.DEBUG_MODE) {
-                    console.log('📝 Data not encrypted with nested encryption, skipping...');
+                    this._secureLog('debug', '📝 Data not encrypted with nested encryption, skipping...');
                 }
             } else {
                 if (window.DEBUG_MODE) {
@@ -2286,7 +2468,7 @@ _initializeMutexSystem() {
 
         // Prevent multiple fake traffic generators
         if (this.fakeTrafficTimer) {
-            console.log('⚠️ Fake traffic generation already running');
+            this._secureLog('warn', '⚠️ Fake traffic generation already running');
             return;
         }
 
@@ -2358,7 +2540,7 @@ _initializeMutexSystem() {
     // ============================================
 
         emergencyDisableAdvancedFeatures() {
-        console.log('🚨 Emergency disabling advanced security features due to errors');
+                    this._secureLog('error', '🚨 Emergency disabling advanced security features due to errors');
         
         // Disable problematic functions
         this.securityFeatures.hasNestedEncryption = false;
@@ -2375,7 +2557,7 @@ _initializeMutexSystem() {
         // Stopping fake traffic
         this.emergencyDisableFakeTraffic();
         
-        console.log('✅ Advanced features disabled, keeping basic encryption');
+                    this._secureLog('info', '✅ Advanced features disabled, keeping basic encryption');
         
         // Check that advanced-features-disabled notification wasn't already sent
         if (!this.advancedFeaturesDisabledNotificationSent) {
@@ -2431,13 +2613,13 @@ checkFakeTrafficStatus() {
         };
         
         if (window.DEBUG_MODE) {
-            console.log('🎭 Fake Traffic Status:', status);
+            this._secureLog('info', '🎭 Fake Traffic Status', { status });
         }
         return status;
     }
 emergencyDisableFakeTraffic() {
         if (window.DEBUG_MODE) {
-            console.log('🚨 Emergency disabling fake traffic');
+            this._secureLog('error', '🚨 Emergency disabling fake traffic');
         }
         
         this.securityFeatures.hasFakeTraffic = false;
@@ -2445,7 +2627,7 @@ emergencyDisableFakeTraffic() {
         this.stopFakeTrafficGeneration();
         
         if (window.DEBUG_MODE) {
-            console.log('✅ Fake traffic disabled');
+            this._secureLog('info', '✅ Fake traffic disabled');
         }
         
         // Check that fake-traffic-disabled notification wasn't already sent
@@ -2539,7 +2721,7 @@ emergencyDisableFakeTraffic() {
             messageBuffer.chunks[chunkIndex] = chunk;
             messageBuffer.received++;
 
-            console.log(`📦 Received chunk ${chunkIndex + 1}/${totalChunks} for message ${messageId}`);
+                            this._secureLog('debug', `📦 Received chunk ${chunkIndex + 1}/${totalChunks} for message ${messageId}`);
 
             // Check if all chunks received
             if (messageBuffer.received === totalChunks) {
@@ -2559,7 +2741,7 @@ emergencyDisableFakeTraffic() {
                 // Clean up
                 delete this.chunkQueue[messageId];
                 
-                console.log(`📦 Chunked message ${messageId} reassembled and processed`);
+                this._secureLog('info', `📦 Chunked message ${messageId} reassembled and processed`);
             }
         } catch (error) {
             this._secureLog('error', '❌ Chunked message processing failed:', { errorType: error?.constructor?.name || 'Unknown' });
@@ -2577,7 +2759,7 @@ emergencyDisableFakeTraffic() {
 
         // Prevent multiple initializations
         if (this.decoyChannels.size > 0) {
-            console.log('⚠️ Decoy channels already initialized, skipping...');
+            this._secureLog('warn', '⚠️ Decoy channels already initialized, skipping...');
             return;
         }
 
@@ -2599,7 +2781,7 @@ emergencyDisableFakeTraffic() {
             }
 
             if (window.DEBUG_MODE) {
-                console.log(`🎭 Initialized ${numDecoyChannels} decoy channels`);
+                this._secureLog('info', `🎭 Initialized ${numDecoyChannels} decoy channels`);
             }
         } catch (error) {
             if (window.DEBUG_MODE) {
@@ -2611,27 +2793,27 @@ emergencyDisableFakeTraffic() {
     setupDecoyChannel(channel, channelName) {
         channel.onopen = () => {
             if (window.DEBUG_MODE) {
-                console.log(`🎭 Decoy channel "${channelName}" opened`);
+                this._secureLog('debug', `🎭 Decoy channel "${channelName}" opened`);
             }
             this.startDecoyTraffic(channel, channelName);
         };
 
         channel.onmessage = (event) => {
             if (window.DEBUG_MODE) {
-                console.log(`🎭 Received decoy message on "${channelName}": ${event.data?.length || 'undefined'} bytes`);
+                this._secureLog('debug', `🎭 Received decoy message on "${channelName}": ${event.data?.length || 'undefined'} bytes`);
             }
         };
 
         channel.onclose = () => {
             if (window.DEBUG_MODE) {
-                console.log(`🎭 Decoy channel "${channelName}" closed`);
+                this._secureLog('debug', `🎭 Decoy channel "${channelName}" closed`);
             }
             this.stopDecoyTraffic(channelName);
         };
 
         channel.onerror = (error) => {
             if (window.DEBUG_MODE) {
-                console.error(`❌ Decoy channel "${channelName}" error:`, error);
+                this._secureLog('error', `❌ Decoy channel "${channelName}" error`, { error: error.message });
             }
         };
     }
@@ -2653,7 +2835,7 @@ emergencyDisableFakeTraffic() {
                 this.decoyTimers.set(channelName, setTimeout(() => sendDecoyData(), interval));
             } catch (error) {
                 if (window.DEBUG_MODE) {
-                    console.error(`❌ Failed to send decoy data on "${channelName}":`, error);
+                    this._secureLog('error', `❌ Failed to send decoy data on "${channelName}"`, { error: error.message });
                 }
             }
         };
@@ -2799,7 +2981,7 @@ emergencyDisableFakeTraffic() {
             const content = JSON.parse(textData);
             if (content.type === 'fake' || content.isFakeTraffic === true) {
                 if (window.DEBUG_MODE) {
-                    console.log(`🎭 BLOCKED: Reordered fake message: ${content.pattern || 'unknown'}`);
+                    this._secureLog('warn', `🎭 BLOCKED: Reordered fake message: ${content.pattern || 'unknown'}`);
                 }
                 return; 
             }
@@ -2841,7 +3023,7 @@ async processOrderedPackets() {
                     const textData = new TextDecoder().decode(oldestPacket.data);
                     const content = JSON.parse(textData);
                     if (content.type === 'fake' || content.isFakeTraffic === true) {
-                        console.log(`🎭 BLOCKED: Timed out fake message: ${content.pattern || 'unknown'}`);
+                        this._secureLog('warn', `🎭 BLOCKED: Timed out fake message: ${content.pattern || 'unknown'}`);
                         this.packetBuffer.delete(oldestPacket.sequence);
                         this.lastProcessedSequence = oldestPacket.sequence;
                         continue; 
@@ -2860,7 +3042,7 @@ async processOrderedPackets() {
                 const textData = new TextDecoder().decode(packet.data);
                 const content = JSON.parse(textData);
                 if (content.type === 'fake' || content.isFakeTraffic === true) {
-                    console.log(`🎭 BLOCKED: Ordered fake message: ${content.pattern || 'unknown'}`);
+                    this._secureLog('warn', `🎭 BLOCKED: Ordered fake message: ${content.pattern || 'unknown'}`);
                     this.packetBuffer.delete(nextSequence);
                     this.lastProcessedSequence = nextSequence;
                     continue; 
@@ -3048,7 +3230,7 @@ async processOrderedPackets() {
     try {
         const status = this.getSecurityStatus();
         if (window.DEBUG_MODE) {
-            console.log(`🔍 removeSecurityLayers (Stage ${status.stage}):`, {
+            this._secureLog('debug', `🔍 removeSecurityLayers (Stage ${status.stage})`, {
                 dataType: typeof data,
                 dataLength: data?.length || data?.byteLength || 0,
                 activeFeatures: status.activeFeaturesCount
@@ -3070,7 +3252,7 @@ async processOrderedPackets() {
                 // PRIORITY ONE: Filtering out fake messages
                 if (jsonData.type === 'fake') {
                     if (window.DEBUG_MODE) {
-                        console.log(`🎭 Fake message filtered out: ${jsonData.pattern} (size: ${jsonData.size})`);
+                        this._secureLog('debug', `🎭 Fake message filtered out: ${jsonData.pattern} (size: ${jsonData.size})`);
                     }
                     return 'FAKE_MESSAGE_FILTERED'; 
                 }
@@ -3078,7 +3260,7 @@ async processOrderedPackets() {
                 // System messages — do NOT return for re-processing
                 if (jsonData.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'key_rotation_signal', 'key_rotation_ready', 'security_upgrade'].includes(jsonData.type)) {
                     if (window.DEBUG_MODE) {
-                        console.log('🔧 System message detected, blocking from chat:', jsonData.type);
+                        this._secureLog('debug', '🔧 System message detected, blocking from chat', { type: jsonData.type });
                     }
                     return 'SYSTEM_MESSAGE_FILTERED';
                 }
@@ -3086,7 +3268,7 @@ async processOrderedPackets() {
                 // File transfer messages — do NOT return for display
                 if (jsonData.type && ['file_transfer_start', 'file_transfer_response', 'file_chunk', 'chunk_confirmation', 'file_transfer_complete', 'file_transfer_error'].includes(jsonData.type)) {
                     if (window.DEBUG_MODE) {
-                        console.log('📁 File transfer message detected, blocking from chat:', jsonData.type);
+                        this._secureLog('debug', '📁 File transfer message detected, blocking from chat', { type: jsonData.type });
                     }
                     return 'FILE_MESSAGE_FILTERED';
                 }
@@ -3094,7 +3276,7 @@ async processOrderedPackets() {
                 // Regular text messages - extract the actual message text
                 if (jsonData.type === 'message') {
                     if (window.DEBUG_MODE) {
-                        console.log('📝 Regular message detected, extracting text:', jsonData.data);
+                        this._secureLog('debug', '📝 Regular message detected, extracting text', { data: jsonData.data });
                     }
                     return jsonData.data; // Return the actual message text, not the JSON
                 }
@@ -3102,7 +3284,7 @@ async processOrderedPackets() {
                 // Enhanced messages
                 if (jsonData.type === 'enhanced_message' && jsonData.data) {
                     if (window.DEBUG_MODE) {
-                        console.log('🔐 Enhanced message detected, decrypting...');
+                        this._secureLog('debug', '🔐 Enhanced message detected, decrypting...');
                     }
                     
                     if (!this.encryptionKey || !this.macKey || !this.metadataKey) {
@@ -3118,8 +3300,8 @@ async processOrderedPackets() {
                     );
                     
                     if (window.DEBUG_MODE) {
-                        console.log('✅ Enhanced message decrypted, extracting...');
-                        console.log('🔍 decryptedResult:', {
+                        this._secureLog('debug', '✅ Enhanced message decrypted, extracting...');
+                        this._secureLog('debug', '🔍 decryptedResult', {
                             type: typeof decryptedResult,
                             hasMessage: !!decryptedResult?.message,
                             messageType: typeof decryptedResult?.message,
@@ -3133,18 +3315,18 @@ async processOrderedPackets() {
                         const decryptedContent = JSON.parse(decryptedResult.message);
                         if (decryptedContent.type === 'fake' || decryptedContent.isFakeTraffic === true) {
                             if (window.DEBUG_MODE) {
-                                console.log(`🎭 BLOCKED: Encrypted fake message: ${decryptedContent.pattern || 'unknown'}`);
+                                this._secureLog('warn', `🎭 BLOCKED: Encrypted fake message: ${decryptedContent.pattern || 'unknown'}`);
                             }
                             return 'FAKE_MESSAGE_FILTERED';
                         }
                     } catch (e) {
                         if (window.DEBUG_MODE) {
-                            console.log('📝 Decrypted content is not JSON, treating as plain text message');
+                            this._secureLog('debug', '📝 Decrypted content is not JSON, treating as plain text message');
                         }
                     }
                     
                     if (window.DEBUG_MODE) {
-                        console.log('📤 Returning decrypted message:', decryptedResult.message?.substring(0, 50));
+                        this._secureLog('debug', '📤 Returning decrypted message', { message: decryptedResult.message?.substring(0, 50) });
                     }
                     return decryptedResult.message;
                 }
@@ -3152,7 +3334,7 @@ async processOrderedPackets() {
                 // Regular messages
                 if (jsonData.type === 'message' && jsonData.data) {
                     if (window.DEBUG_MODE) {
-                        console.log('📝 Regular message detected, extracting data');
+                        this._secureLog('debug', '📝 Regular message detected, extracting data');
                     }
                     return jsonData.data; // Return the actual message text
                 }
@@ -3160,7 +3342,7 @@ async processOrderedPackets() {
                 // If it's a regular message with type 'message', let it continue processing
                 if (jsonData.type === 'message') {
                     if (window.DEBUG_MODE) {
-                        console.log('📝 Regular message detected, returning for display');
+                        this._secureLog('debug', '📝 Regular message detected, returning for display');
                     }
                     return data; // Return the original JSON string for processing
                 }
@@ -3168,13 +3350,13 @@ async processOrderedPackets() {
                 // If it's not a special type, return the original data for display
                 if (!jsonData.type || (jsonData.type !== 'fake' && !['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'key_rotation_signal', 'key_rotation_ready', 'enhanced_message', 'security_upgrade', 'file_transfer_start', 'file_transfer_response', 'file_chunk', 'chunk_confirmation', 'file_transfer_complete', 'file_transfer_error'].includes(jsonData.type))) {
                     if (window.DEBUG_MODE) {
-                        console.log('📝 Regular message detected, returning for display');
+                        this._secureLog('debug', '📝 Regular message detected, returning for display');
                     }
                     return data;
                 }
             } catch (e) {
                 if (window.DEBUG_MODE) {
-                    console.log('📄 Not JSON, processing as raw data');
+                    this._secureLog('debug', '📄 Not JSON, processing as raw data');
                 }
                 // If it's not JSON, it might be a plain text message - return as-is
                 return data;
@@ -3187,11 +3369,11 @@ async processOrderedPackets() {
                 const base64Regex = /^[A-Za-z0-9+/=]+$/;
                 if (base64Regex.test(processedData.trim())) {
                     if (window.DEBUG_MODE) {
-                        console.log('🔓 Applying standard decryption...');
+                        this._secureLog('debug', '🔓 Applying standard decryption...');
                     }
                     processedData = await window.EnhancedSecureCryptoUtils.decryptData(processedData, this.encryptionKey);
                     if (window.DEBUG_MODE) {
-                        console.log('✅ Standard decryption successful');
+                        this._secureLog('debug', '✅ Standard decryption successful');
                     }
                     
                     // CHECKING FOR FAKE MESSAGES AFTER LEGACY DECRYPTION
@@ -3200,7 +3382,7 @@ async processOrderedPackets() {
                             const legacyContent = JSON.parse(processedData);
                             if (legacyContent.type === 'fake' || legacyContent.isFakeTraffic === true) {
                                 if (window.DEBUG_MODE) {
-                                    console.log(`🎭 BLOCKED: Legacy fake message: ${legacyContent.pattern || 'unknown'}`);
+                                    this._secureLog('warn', `🎭 BLOCKED: Legacy fake message: ${legacyContent.pattern || 'unknown'}`);
                                 }
                                 return 'FAKE_MESSAGE_FILTERED';
                             }
@@ -3232,7 +3414,7 @@ async processOrderedPackets() {
                         const nestedContent = JSON.parse(textData);
                         if (nestedContent.type === 'fake' || nestedContent.isFakeTraffic === true) {
                             if (window.DEBUG_MODE) {
-                                console.log(`🎭 BLOCKED: Nested fake message: ${nestedContent.pattern || 'unknown'}`);
+                                this._secureLog('warn', `🎭 BLOCKED: Nested fake message: ${nestedContent.pattern || 'unknown'}`);
                             }
                             return 'FAKE_MESSAGE_FILTERED';
                         }
@@ -3294,7 +3476,7 @@ async processOrderedPackets() {
                 const finalContent = JSON.parse(processedData);
                 if (finalContent.type === 'fake' || finalContent.isFakeTraffic === true) {
                     if (window.DEBUG_MODE) {
-                        console.log(`🎭 BLOCKED: Final check fake message: ${finalContent.pattern || 'unknown'}`);
+                        this._secureLog('warn', `🎭 BLOCKED: Final check fake message: ${finalContent.pattern || 'unknown'}`);
                     }
                     return 'FAKE_MESSAGE_FILTERED';
                 }
@@ -3468,7 +3650,7 @@ async processOrderedPackets() {
                 timestamp: Date.now()
             });
 
-            console.log('🔧 Sending system message:', messageData.type);
+            this._secureLog('debug', '🔧 Sending system message', { type: messageData.type });
             this.dataChannel.send(systemMessage);
             return true;
         } catch (error) {
@@ -3505,19 +3687,17 @@ async processMessage(data) {
                 ];
 
                 if (parsed.type && fileMessageTypes.includes(parsed.type)) {
-                    console.log('📁 File message detected in processMessage:', parsed.type);
+                    this._secureLog('debug', '📁 File message detected in processMessage', { type: parsed.type });
                     
                     // Process file messages WITHOUT mutex
                     if (this.fileTransferSystem && typeof this.fileTransferSystem.handleFileMessage === 'function') {
-                        console.log('📁 Processing file message directly:', parsed.type);
+                        this._secureLog('debug', '📁 Processing file message directly', { type: parsed.type });
                         await this.fileTransferSystem.handleFileMessage(parsed);
                         return;
                     }
-                    
-                    // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Автоматическая инициализация файловой системы
+
                     this._secureLog('warn', '⚠️ File transfer system not available, attempting automatic initialization...');
                     try {
-                        // Проверяем готовность соединения
                         if (!this.isVerified) {
                             this._secureLog('warn', '⚠️ Connection not verified, cannot initialize file transfer');
                             return;
@@ -3527,20 +3707,18 @@ async processMessage(data) {
                             this._secureLog('warn', '⚠️ Data channel not open, cannot initialize file transfer');
                             return;
                         }
-                        
-                        // Инициализируем файловую систему
+
                         this.initializeFileTransfer();
-                        
-                        // Ждем инициализации
+
                         let attempts = 0;
-                        const maxAttempts = 30; // 3 секунды максимум
+                        const maxAttempts = 30; 
                         while (!this.fileTransferSystem && attempts < maxAttempts) {
                             await new Promise(resolve => setTimeout(resolve, 100));
                             attempts++;
                         }
                         
                         if (this.fileTransferSystem && typeof this.fileTransferSystem.handleFileMessage === 'function') {
-                            console.log('✅ File transfer system initialized, processing message:', parsed.type);
+                            this._secureLog('info', '✅ File transfer system initialized, processing message', { type: parsed.type });
                             await this.fileTransferSystem.handleFileMessage(parsed);
                             return;
                         } else {
@@ -3559,7 +3737,7 @@ async processMessage(data) {
                 // ============================================
                 
                 if (parsed.type === 'message') {
-                    console.log('📝 Regular user message detected in processMessage');
+                    this._secureLog('debug', '📝 Regular user message detected in processMessage');
                     if (this.onMessage && parsed.data) {
                         this.deliverMessageToUI(parsed.data, 'received');
                     }
@@ -3580,7 +3758,7 @@ async processMessage(data) {
                 // ============================================
                 
                 if (parsed.type === 'fake') {
-                    console.log('🎭 Fake message blocked in processMessage:', parsed.pattern);
+                    this._secureLog('warn', '🎭 Fake message blocked in processMessage', { pattern: parsed.pattern });
                     return;
                 }
                 
@@ -3621,7 +3799,7 @@ async processMessage(data) {
                 
                 // SECOND CHECK FOR FILE MESSAGES AFTER DECRYPTION
                 if (message.type && fileMessageTypes.includes(message.type)) {
-                    console.log('📁 File message detected after decryption:', message.type);
+                    this._secureLog('debug', '📁 File message detected after decryption', { type: message.type });
                     if (this.fileTransferSystem) {
                         await this.fileTransferSystem.handleFileMessage(message);
                     }
@@ -3634,7 +3812,7 @@ async processMessage(data) {
                 }
                 
                 if (message.type === 'fake') {
-                    console.log(`🎭 Post-decryption fake message blocked: ${message.pattern}`);
+                    this._secureLog('warn', `🎭 Post-decryption fake message blocked: ${message.pattern}`);
                     return;
                 }
                 
@@ -3661,7 +3839,7 @@ async processMessage(data) {
             try {
                 const finalCheck = JSON.parse(messageText);
                 if (finalCheck.type === 'fake') {
-                    console.log(`�� Final fake message check blocked: ${finalCheck.pattern}`);
+                    this._secureLog('warn', `🎭 Final fake message check blocked: ${finalCheck.pattern}`);
                     return;
                 }
                 
@@ -3674,7 +3852,7 @@ async processMessage(data) {
                 ];
                 
                 if (finalCheck.type && blockedTypes.includes(finalCheck.type)) {
-                    console.log(`📁 Final system/file message check blocked: ${finalCheck.type}`);
+                    this._secureLog('warn', `📁 Final system/file message check blocked: ${finalCheck.type}`);
                     return;
                 }
             } catch (e) {
@@ -3684,7 +3862,7 @@ async processMessage(data) {
 
         // Deliver message to the UI
         if (this.onMessage && messageText) {
-            console.log('📤 Calling message handler with:', messageText.substring(0, 100));
+            this._secureLog('debug', '📤 Calling message handler with', { message: messageText.substring(0, 100) });
             this.deliverMessageToUI(messageText, 'received');
         }
 
@@ -3717,84 +3895,84 @@ async processMessage(data) {
         }, 2000); // Short timeout for crypto operations
     }
 
-notifySecurityUpdate() {
-    try {
-        this._secureLog('debug', '🔒 Notifying about security level update', {
-                isConnected: this.isConnected(),
-                isVerified: this.isVerified,
-                hasKeys: !!(this.encryptionKey && this.macKey && this.metadataKey),
-                hasLastCalculation: !!this.lastSecurityCalculation
-            });
-        
-        // Send an event about security level update
-        document.dispatchEvent(new CustomEvent('security-level-updated', {
-            detail: { 
-                timestamp: Date.now(), 
-                manager: 'webrtc',
-                webrtcManager: this,
-                isConnected: this.isConnected(),
-                isVerified: this.isVerified,
-                hasKeys: !!(this.encryptionKey && this.macKey && this.metadataKey),
-                lastCalculation: this.lastSecurityCalculation
-            }
-        }));
-        
-        // FIX: Force header refresh with correct manager
-        setTimeout(() => {
-            if (window.forceHeaderSecurityUpdate) {
-                window.forceHeaderSecurityUpdate(this);
-            }
-        }, 100);
-        
-        // FIX: Direct update if there is a calculation
-        if (this.lastSecurityCalculation) {
-            document.dispatchEvent(new CustomEvent('real-security-calculated', {
-                detail: {
-                    securityData: this.lastSecurityCalculation,
-                    webrtcManager: this,
-                    timestamp: Date.now()
+        notifySecurityUpdate() {
+            try {
+                this._secureLog('debug', '🔒 Notifying about security level update', {
+                        isConnected: this.isConnected(),
+                        isVerified: this.isVerified,
+                        hasKeys: !!(this.encryptionKey && this.macKey && this.metadataKey),
+                        hasLastCalculation: !!this.lastSecurityCalculation
+                    });
+                
+                // Send an event about security level update
+                document.dispatchEvent(new CustomEvent('security-level-updated', {
+                    detail: { 
+                        timestamp: Date.now(), 
+                        manager: 'webrtc',
+                        webrtcManager: this,
+                        isConnected: this.isConnected(),
+                        isVerified: this.isVerified,
+                        hasKeys: !!(this.encryptionKey && this.macKey && this.metadataKey),
+                        lastCalculation: this.lastSecurityCalculation
+                    }
+                }));
+                
+                // FIX: Force header refresh with correct manager
+                setTimeout(() => {
+                    if (window.forceHeaderSecurityUpdate) {
+                        window.forceHeaderSecurityUpdate(this);
+                    }
+                }, 100);
+                
+                // FIX: Direct update if there is a calculation
+                if (this.lastSecurityCalculation) {
+                    document.dispatchEvent(new CustomEvent('real-security-calculated', {
+                        detail: {
+                            securityData: this.lastSecurityCalculation,
+                            webrtcManager: this,
+                            timestamp: Date.now()
+                        }
+                    }));
                 }
-            }));
+                
+            } catch (error) {
+                this._secureLog('error', '❌ Error in notifySecurityUpdate', {
+                        error: error.message
+                    });
+            }
         }
-        
-    } catch (error) {
-        this._secureLog('error', '❌ Error in notifySecurityUpdate', {
-                error: error.message
-            });
-    }
-}
 
-handleSystemMessage(message) {
-    console.log('🔧 Handling system message:', message.type);
-    
-    switch (message.type) {
-        case 'heartbeat':
-            this.handleHeartbeat();
-            break;
-        case 'verification':
-            this.handleVerificationRequest(message.data);
-            break;
-        case 'verification_response':
-            this.handleVerificationResponse(message.data);
-            break;
-        case 'peer_disconnect':
-            this.handlePeerDisconnectNotification(message);
-            break;
-        case 'key_rotation_signal':
-            console.log('🔄 Key rotation signal received (ignored for stability)');
-            break;
-        case 'key_rotation_ready':
-            console.log('🔄 Key rotation ready signal received (ignored for stability)');
-            break;
-        case 'security_upgrade':
-            console.log('🔒 Security upgrade notification received:', message);
-            // Security upgrade messages are handled internally, not displayed to user
-            // to prevent duplicate system messages
-            break;
-        default:
-            console.log('🔧 Unknown system message type:', message.type);
-    }
-}
+        handleSystemMessage(message) {
+            this._secureLog('debug', '🔧 Handling system message:', { type: message.type });
+            
+            switch (message.type) {
+                case 'heartbeat':
+                    this.handleHeartbeat();
+                    break;
+                case 'verification':
+                    this.handleVerificationRequest(message.data);
+                    break;
+                case 'verification_response':
+                    this.handleVerificationResponse(message.data);
+                    break;
+                case 'peer_disconnect':
+                    this.handlePeerDisconnectNotification(message);
+                    break;
+                case 'key_rotation_signal':
+                    this._secureLog('debug', '🔄 Key rotation signal received (ignored for stability)');
+                    break;
+                case 'key_rotation_ready':
+                    this._secureLog('debug', '🔄 Key rotation ready signal received (ignored for stability)');
+                    break;
+                case 'security_upgrade':
+                    this._secureLog('debug', '🔒 Security upgrade notification received:', { type: message.type });
+                    // Security upgrade messages are handled internally, not displayed to user
+                    // to prevent duplicate system messages
+                    break;
+                default:
+                    this._secureLog('debug', '🔧 Unknown system message type:', { type: message.type });
+            }
+        }
 
         // ============================================
         // FUNCTION MANAGEMENT METHODS
@@ -3826,7 +4004,7 @@ handleSystemMessage(message) {
         // Method to enable Stage 3 features (traffic obfuscation)
         enableStage3Security() {
             if (this.currentSecurityLevel !== 'maximum') {
-                console.log('🔒 Stage 3 features only available for premium sessions');
+                this._secureLog('info', '🔒 Stage 3 features only available for premium sessions');
                 return;
             }
             
@@ -3850,7 +4028,7 @@ handleSystemMessage(message) {
         // Method for enabling Stage 4 functions (maximum safety)
         enableStage4Security() {
             if (this.currentSecurityLevel !== 'maximum') {
-                console.log('🔒 Stage 4 features only available for premium sessions');
+                this._secureLog('info', '🔒 Stage 4 features only available for premium sessions');
                 return;
             }
             
@@ -3942,7 +4120,7 @@ handleSystemMessage(message) {
                         timestamp: Date.now()
                     };
                     
-                    console.log('🔒 Sending security upgrade notification to peer:', securityNotification);
+                    this._secureLog('debug', '🔒 Sending security upgrade notification to peer:', { type: securityNotification.type, stage: securityNotification.stage });
                     this.dataChannel.send(JSON.stringify(securityNotification));
                 } catch (error) {
                     this._secureLog('warn', '⚠️ Failed to send security upgrade notification to peer:', { details: error.message });
@@ -4021,7 +4199,7 @@ handleSystemMessage(message) {
         // Method for automatic feature enablement with stability check
         async autoEnableSecurityFeatures() {
         if (this.currentSessionType === 'demo') {
-            console.log('🔒 Demo session - keeping basic security only');
+            this._secureLog('info', '🔒 Demo session - keeping basic security only');
             await this.calculateAndReportSecurityLevel();
             this.notifySecurityUpgrade(1);
             return;
@@ -4036,7 +4214,7 @@ handleSystemMessage(message) {
             return isStable;
         };
         
-        console.log(`🔒 ${this.currentSessionType} session - starting graduated security activation`);
+        this._secureLog('info', `🔒 ${this.currentSessionType} session - starting graduated security activation`);
         await this.calculateAndReportSecurityLevel();
         this.notifySecurityUpgrade(1);
         
@@ -4324,10 +4502,8 @@ handleSystemMessage(message) {
                     this.onStatusChange('disconnected');
                     setTimeout(() => this.disconnect(), 100);
                 } else {
-                    // Unexpected disconnection — do not auto-reconnect
                     this.onStatusChange('disconnected');
-                    // Do not call cleanupConnection automatically
-                    // to avoid closing the session on connection errors
+
                 }
             } else if (state === 'failed') {
                 // Do not auto-reconnect to avoid closing the session on errors
@@ -4398,8 +4574,7 @@ handleSystemMessage(message) {
             
             try {
                 await this.establishConnection();
-                
-                        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Инициализируем файловую систему для обеих сторон
+
         this.initializeFileTransfer();
                 
             } catch (error) {
@@ -4478,15 +4653,12 @@ handleSystemMessage(message) {
                         
                         if (parsed.type && fileMessageTypes.includes(parsed.type)) {
                             console.log('📁 File message intercepted at WebRTC level:', parsed.type);
-                            
-                            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Инициализируем файловую систему при получении файловых сообщений
+
                             if (!this.fileTransferSystem) {
                                 try {
-                                    // Проверяем готовность соединения
                                     if (this.isVerified && this.dataChannel && this.dataChannel.readyState === 'open') {
                                         this.initializeFileTransfer();
-                                        
-                                        // Ждем инициализации
+
                                         let attempts = 0;
                                         const maxAttempts = 30;
                                         while (!this.fileTransferSystem && attempts < maxAttempts) {
@@ -4498,13 +4670,7 @@ handleSystemMessage(message) {
                                     this._secureLog('error', '❌ Failed to initialize file transfer system for receiver:', { errorType: initError?.constructor?.name || 'Unknown' });
                                 }
                             }
-                            
-                            // Handle directly WITHOUT extra checks
-                            if (window.fileTransferSystem) {
-                                console.log('📁 Forwarding to global file transfer system:', parsed.type);
-                                await window.fileTransferSystem.handleFileMessage(parsed);
-                                return;
-                            }
+
                             if (this.fileTransferSystem) {
                                 console.log('📁 Forwarding to local file transfer system:', parsed.type);
                                 await this.fileTransferSystem.handleFileMessage(parsed);
@@ -4593,119 +4759,119 @@ handleSystemMessage(message) {
             }
         };
     }
-    // FIX 4: New method for processing binary data WITHOUT mutex
-async _processBinaryDataWithoutMutex(data) {
-    try {
-        console.log('🔢 Processing binary data without mutex...');
-        
-        // Apply security layers WITHOUT mutex
-        let processedData = data;
-        
-        // Nested Encryption Removal (if enabled)
-        if (this.securityFeatures.hasNestedEncryption && 
-            this.nestedEncryptionKey && 
-            processedData instanceof ArrayBuffer &&
-            processedData.byteLength > 12) {
+        // FIX 4: New method for processing binary data WITHOUT mutex
+    async _processBinaryDataWithoutMutex(data) {
+        try {
+            console.log('🔢 Processing binary data without mutex...');
             
-            try {
-                processedData = await this.removeNestedEncryption(processedData);
-            } catch (error) {
-                this._secureLog('warn', '⚠️ Nested decryption failed, continuing with original data');
-            }
-        }
-        
-        // Packet Padding Removal (if enabled)
-        if (this.securityFeatures.hasPacketPadding && processedData instanceof ArrayBuffer) {
-            try {
-                processedData = this.removePacketPadding(processedData);
-            } catch (error) {
-                this._secureLog('warn', '⚠️ Packet padding removal failed, continuing with original data');
-            }
-        }
-        
-        // Anti-Fingerprinting Removal (if enabled)
-        if (this.securityFeatures.hasAntiFingerprinting && processedData instanceof ArrayBuffer) {
-            try {
-                processedData = this.removeAntiFingerprinting(processedData);
-            } catch (error) {
-                this._secureLog('warn', '⚠️ Anti-fingerprinting removal failed, continuing with original data');
-            }
-        }
-        
-        // Convert to text
-        if (processedData instanceof ArrayBuffer) {
-            const textData = new TextDecoder().decode(processedData);
+            // Apply security layers WITHOUT mutex
+            let processedData = data;
             
-            // Check for fake messages
-            try {
-                const content = JSON.parse(textData);
-                if (content.type === 'fake' || content.isFakeTraffic === true) {
-                    console.log(`🎭 BLOCKED: Binary fake message: ${content.pattern || 'unknown'}`);
-                    return;
+            // Nested Encryption Removal (if enabled)
+            if (this.securityFeatures.hasNestedEncryption && 
+                this.nestedEncryptionKey && 
+                processedData instanceof ArrayBuffer &&
+                processedData.byteLength > 12) {
+                
+                try {
+                    processedData = await this.removeNestedEncryption(processedData);
+                } catch (error) {
+                    this._secureLog('warn', '⚠️ Nested decryption failed, continuing with original data');
                 }
-            } catch (e) {
-                // Not JSON — fine for plain text
             }
             
-            // Deliver message to user
-            if (this.onMessage) {
-                this.deliverMessageToUI(textData, 'received');
-            }
-        }
-        
-    } catch (error) {
-        this._secureLog('error', '❌ Error processing binary data:', { errorType: error?.constructor?.name || 'Unknown' });
-    }
-}
-    // FIX 3: New method for processing enhanced messages WITHOUT mutex
-async _processEnhancedMessageWithoutMutex(parsedMessage) {
-    try {
-        console.log('🔐 Processing enhanced message without mutex...');
-        
-        if (!this.encryptionKey || !this.macKey || !this.metadataKey) {
-            this._secureLog('error', '❌ Missing encryption keys for enhanced message');
-            return;
-        }
-        
-        const decryptedResult = await window.EnhancedSecureCryptoUtils.decryptMessage(
-            parsedMessage.data,
-            this.encryptionKey,
-            this.macKey,
-            this.metadataKey
-        );
-        
-        if (decryptedResult && decryptedResult.message) {
-            console.log('✅ Enhanced message decrypted successfully');
-            
-            // Try parsing JSON and showing nested text if it's a chat message
-            try {
-                const decryptedContent = JSON.parse(decryptedResult.message);
-                if (decryptedContent.type === 'fake' || decryptedContent.isFakeTraffic === true) {
-                    console.log(`�� BLOCKED: Encrypted fake message: ${decryptedContent.pattern || 'unknown'}`);
-                    return;
+            // Packet Padding Removal (if enabled)
+            if (this.securityFeatures.hasPacketPadding && processedData instanceof ArrayBuffer) {
+                try {
+                    processedData = this.removePacketPadding(processedData);
+                } catch (error) {
+                    this._secureLog('warn', '⚠️ Packet padding removal failed, continuing with original data');
                 }
-                if (decryptedContent && decryptedContent.type === 'message' && typeof decryptedContent.data === 'string') {
-                    if (this.onMessage) {
-                        this.deliverMessageToUI(decryptedContent.data, 'received');
+            }
+            
+            // Anti-Fingerprinting Removal (if enabled)
+            if (this.securityFeatures.hasAntiFingerprinting && processedData instanceof ArrayBuffer) {
+                try {
+                    processedData = this.removeAntiFingerprinting(processedData);
+                } catch (error) {
+                    this._secureLog('warn', '⚠️ Anti-fingerprinting removal failed, continuing with original data');
+                }
+            }
+            
+            // Convert to text
+            if (processedData instanceof ArrayBuffer) {
+                const textData = new TextDecoder().decode(processedData);
+                
+                // Check for fake messages
+                try {
+                    const content = JSON.parse(textData);
+                    if (content.type === 'fake' || content.isFakeTraffic === true) {
+                        console.log(`🎭 BLOCKED: Binary fake message: ${content.pattern || 'unknown'}`);
+                        return;
                     }
-                    return;
+                } catch (e) {
+                    // Not JSON — fine for plain text
                 }
-            } catch (e) {
-                // Not JSON — fine for plain text
+                
+                // Deliver message to user
+                if (this.onMessage) {
+                    this.deliverMessageToUI(textData, 'received');
+                }
             }
             
-            // Otherwise pass as-is
-            if (this.onMessage) {
-                this.deliverMessageToUI(decryptedResult.message, 'received');
-            }
-        } else {
-            this._secureLog('warn', '⚠️ No message content in decrypted result');
+        } catch (error) {
+            this._secureLog('error', '❌ Error processing binary data:', { errorType: error?.constructor?.name || 'Unknown' });
         }
-        
-    } catch (error) {
-        this._secureLog('error', '❌ Error processing enhanced message:', { errorType: error?.constructor?.name || 'Unknown' });
     }
-}
+    // FIX 3: New method for processing enhanced messages WITHOUT mutex
+    async _processEnhancedMessageWithoutMutex(parsedMessage) {
+        try {
+            console.log('🔐 Processing enhanced message without mutex...');
+            
+            if (!this.encryptionKey || !this.macKey || !this.metadataKey) {
+                this._secureLog('error', '❌ Missing encryption keys for enhanced message');
+                return;
+            }
+            
+            const decryptedResult = await window.EnhancedSecureCryptoUtils.decryptMessage(
+                parsedMessage.data,
+                this.encryptionKey,
+                this.macKey,
+                this.metadataKey
+            );
+            
+            if (decryptedResult && decryptedResult.message) {
+                console.log('✅ Enhanced message decrypted successfully');
+                
+                // Try parsing JSON and showing nested text if it's a chat message
+                try {
+                    const decryptedContent = JSON.parse(decryptedResult.message);
+                    if (decryptedContent.type === 'fake' || decryptedContent.isFakeTraffic === true) {
+                        console.log(`�� BLOCKED: Encrypted fake message: ${decryptedContent.pattern || 'unknown'}`);
+                        return;
+                    }
+                    if (decryptedContent && decryptedContent.type === 'message' && typeof decryptedContent.data === 'string') {
+                        if (this.onMessage) {
+                            this.deliverMessageToUI(decryptedContent.data, 'received');
+                        }
+                        return;
+                    }
+                } catch (e) {
+                    // Not JSON — fine for plain text
+                }
+                
+                // Otherwise pass as-is
+                if (this.onMessage) {
+                    this.deliverMessageToUI(decryptedResult.message, 'received');
+                }
+            } else {
+                this._secureLog('warn', '⚠️ No message content in decrypted result');
+            }
+            
+        } catch (error) {
+            this._secureLog('error', '❌ Error processing enhanced message:', { errorType: error?.constructor?.name || 'Unknown' });
+        }
+    }
     /**
      * Creates a unique ID for an operation
      */
@@ -4845,100 +5011,100 @@ async _processEnhancedMessageWithoutMutex(parsedMessage) {
      * Safely execute an operation with a mutex
      */
     async _withMutex(mutexName, operation, timeout = 5000) {
-    const operationId = this._generateOperationId();
-    
-    // Validate before start
-    if (!this._validateMutexSystem()) {
-        this._secureLog('error', '❌ Mutex system not properly initialized', {
-            operationId: operationId,
-            mutexName: mutexName
-        });
-        throw new Error('Mutex system not properly initialized. Call _initializeMutexSystem() first.');
-    }
-    
-    try {
-        await this._acquireMutex(mutexName, operationId, timeout);
+        const operationId = this._generateOperationId();
         
-        // Increment operation counter
-        const counterKey = `${mutexName}Operations`;
-        if (this._operationCounters && this._operationCounters[counterKey] !== undefined) {
-            this._operationCounters[counterKey]++;
+        // Validate before start
+        if (!this._validateMutexSystem()) {
+            this._secureLog('error', '❌ Mutex system not properly initialized', {
+                operationId: operationId,
+                mutexName: mutexName
+            });
+            throw new Error('Mutex system not properly initialized. Call _initializeMutexSystem() first.');
         }
         
-        // Execute the operation
-        const result = await operation(operationId);
-        return result;
-        
-    } catch (error) {
-        this._secureLog('error', '❌ Error in mutex operation', {
-            operationId: operationId,
-            mutexName: mutexName,
-            errorType: error.constructor.name,
-            errorMessage: error.message
-        });
-        throw error;
-    } finally {
-        // Always release the mutex in the finally block
         try {
-            this._releaseMutex(mutexName, operationId);
-        } catch (releaseError) {
-            this._secureLog('error', '❌ Error releasing mutex in finally block', {
+            await this._acquireMutex(mutexName, operationId, timeout);
+            
+            // Increment operation counter
+            const counterKey = `${mutexName}Operations`;
+            if (this._operationCounters && this._operationCounters[counterKey] !== undefined) {
+                this._operationCounters[counterKey]++;
+            }
+            
+            // Execute the operation
+            const result = await operation(operationId);
+            return result;
+            
+        } catch (error) {
+            this._secureLog('error', '❌ Error in mutex operation', {
                 operationId: operationId,
                 mutexName: mutexName,
-                releaseErrorType: releaseError.constructor.name
+                errorType: error.constructor.name,
+                errorMessage: error.message
             });
-        }
-    }
-}
-
-_validateMutexSystem() {
-    const requiredMutexes = ['keyOperation', 'cryptoOperation', 'connectionOperation'];
-    
-    for (const mutexName of requiredMutexes) {
-        const mutexPropertyName = `_${mutexName}Mutex`;
-        const mutex = this[mutexPropertyName];
-        
-        if (!mutex || typeof mutex !== 'object') {
-            this._secureLog('error', `❌ Missing or invalid mutex: ${mutexName}`, {
-                mutexPropertyName: mutexPropertyName,
-                mutexType: typeof mutex
-            });
-            return false;
-        }
-        
-        // Validate mutex structure
-        const requiredProps = ['locked', 'queue', 'lockId', 'lockTimeout'];
-        for (const prop of requiredProps) {
-            if (!(prop in mutex)) {
-                this._secureLog('error', `❌ Mutex ${mutexName} missing property: ${prop}`);
-                return false;
+            throw error;
+        } finally {
+            // Always release the mutex in the finally block
+            try {
+                this._releaseMutex(mutexName, operationId);
+            } catch (releaseError) {
+                this._secureLog('error', '❌ Error releasing mutex in finally block', {
+                    operationId: operationId,
+                    mutexName: mutexName,
+                    releaseErrorType: releaseError.constructor.name
+                });
             }
         }
     }
-    
-    return true;
-}
 
-/**
- * NEW: Emergency recovery of the mutex system
- */
-_emergencyRecoverMutexSystem() {
-    this._secureLog('warn', '🚨 Emergency mutex system recovery initiated');
-    
-    try {
-        // Force re-initialize the system
-        this._initializeMutexSystem();
+    _validateMutexSystem() {
+        const requiredMutexes = ['keyOperation', 'cryptoOperation', 'connectionOperation'];
         
-        this._secureLog('info', '✅ Mutex system recovered successfully');
+        for (const mutexName of requiredMutexes) {
+            const mutexPropertyName = `_${mutexName}Mutex`;
+            const mutex = this[mutexPropertyName];
+            
+            if (!mutex || typeof mutex !== 'object') {
+                this._secureLog('error', `❌ Missing or invalid mutex: ${mutexName}`, {
+                    mutexPropertyName: mutexPropertyName,
+                    mutexType: typeof mutex
+                });
+                return false;
+            }
+            
+            // Validate mutex structure
+            const requiredProps = ['locked', 'queue', 'lockId', 'lockTimeout'];
+            for (const prop of requiredProps) {
+                if (!(prop in mutex)) {
+                    this._secureLog('error', `❌ Mutex ${mutexName} missing property: ${prop}`);
+                    return false;
+                }
+            }
+        }
+        
         return true;
-        
-    } catch (error) {
-        this._secureLog('error', '❌ Failed to recover mutex system', {
-            errorType: error.constructor.name
-        });
-        return false;
     }
-}
+
+    /**
+     * NEW: Emergency recovery of the mutex system
+     */
+    _emergencyRecoverMutexSystem() {
+        this._secureLog('warn', '🚨 Emergency mutex system recovery initiated');
+        
+        try {
+            // Force re-initialize the system
+            this._initializeMutexSystem();
+            
+            this._secureLog('info', '✅ Mutex system recovered successfully');
+            return true;
+            
+        } catch (error) {
+            this._secureLog('error', '❌ Failed to recover mutex system', {
+                errorType: error.constructor.name
+            });
+            return false;
+        }
+    }
 
     /**
      * Secure key generation with mutex
@@ -5014,38 +5180,38 @@ _emergencyRecoverMutexSystem() {
             }
         });
     }
-/**
- * NEW: Diagnostics of the mutex system state
- */
-_getMutexSystemDiagnostics() {
-    const diagnostics = {
-        timestamp: Date.now(),
-        systemValid: this._validateMutexSystem(),
-        mutexes: {},
-        counters: { ...this._operationCounters },
-        keySystemState: { ...this._keySystemState }
-    };
-    
-    const mutexNames = ['keyOperation', 'cryptoOperation', 'connectionOperation'];
-    
-    mutexNames.forEach(mutexName => {
-        const mutexPropertyName = `_${mutexName}Mutex`;
-        const mutex = this[mutexPropertyName];
+    /**
+     * NEW: Diagnostics of the mutex system state
+     */
+    _getMutexSystemDiagnostics() {
+        const diagnostics = {
+            timestamp: Date.now(),
+            systemValid: this._validateMutexSystem(),
+            mutexes: {},
+            counters: { ...this._operationCounters },
+            keySystemState: { ...this._keySystemState }
+        };
         
-        if (mutex) {
-            diagnostics.mutexes[mutexName] = {
-                locked: mutex.locked,
-                lockId: mutex.lockId,
-                queueLength: mutex.queue.length,
-                hasTimeout: !!mutex.lockTimeout
-            };
-        } else {
-            diagnostics.mutexes[mutexName] = { error: 'not_found' };
-        }
-    });
-    
-    return diagnostics;
-}
+        const mutexNames = ['keyOperation', 'cryptoOperation', 'connectionOperation'];
+        
+        mutexNames.forEach(mutexName => {
+            const mutexPropertyName = `_${mutexName}Mutex`;
+            const mutex = this[mutexPropertyName];
+            
+            if (mutex) {
+                diagnostics.mutexes[mutexName] = {
+                    locked: mutex.locked,
+                    lockId: mutex.lockId,
+                    queueLength: mutex.queue.length,
+                    hasTimeout: !!mutex.lockTimeout
+                };
+            } else {
+                diagnostics.mutexes[mutexName] = { error: 'not_found' };
+            }
+        });
+        
+        return diagnostics;
+    }
 
     /**
      * FULLY FIXED createSecureOffer()
@@ -7001,18 +7167,18 @@ _getMutexSystemDiagnostics() {
         this.sequenceNumber = 0;
         this.expectedSequenceNumber = 0;
         
-        // Security flags reset completed
+
         this.securityFeatures = {
-            hasEncryption: false,
-            hasECDH: false,
-            hasECDSA: false,
-            hasMutualAuth: false,
-            hasMetadataProtection: false,
-            hasEnhancedReplayProtection: false,
-            hasNonExtractableKeys: false,
-            hasRateLimiting: false,
-            hasEnhancedValidation: false,
-            hasPFS: false
+            hasEncryption: true,
+            hasECDH: true,
+            hasECDSA: true,  
+            hasMutualAuth: true,  
+            hasMetadataProtection: true,  
+            hasEnhancedReplayProtection: true,  
+            hasNonExtractableKeys: true,  
+            hasRateLimiting: true,  
+            hasEnhancedValidation: true,  
+            hasPFS: true  
         };
         
         // Closing connections
@@ -7240,8 +7406,7 @@ _getMutexSystemDiagnostics() {
                 this.isVerified = true;
                 console.log('✅ Session verified - setting isVerified to true');
             }
-            
-                    // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Инициализируем файловую систему для обеих сторон
+
         setTimeout(() => {
             try {
                 this.initializeFileTransfer();
@@ -7330,11 +7495,10 @@ checkFileTransferReadiness() {
                 hasSessionSalt: !!this.sessionSalt
             },
             fileTransferSystem: null,
-            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Дополнительная диагностика
             globalState: {
-                fileTransferActive: window.FILE_TRANSFER_ACTIVE,
-                hasGlobalFileTransferSystem: !!window.fileTransferSystem,
-                globalFileTransferSystemType: window.fileTransferSystem?.constructor?.name
+                fileTransferActive: this._fileTransferActive || false,
+            hasFileTransferSystem: !!this.fileTransferSystem,
+            fileTransferSystemType: this.fileTransferSystem ? 'EnhancedSecureFileTransfer' : 'none'
             }
         };
         
@@ -7397,19 +7561,14 @@ checkFileTransferReadiness() {
         }
     }
 
-    // CRITICAL FIX: Метод для принудительной инициализации файловой системы
-    // Устранен busy-wait, заменен на асинхронное ожидание
     async forceInitializeFileTransfer(options = {}) {
-        // CRITICAL FIX: Добавляем возможность отмены операции
         const abortController = new AbortController();
         const { signal = abortController.signal, timeout = 6000 } = options;
-        
-        // Связываем внешний signal с внутренним abortController
+
         if (signal && signal !== abortController.signal) {
             signal.addEventListener('abort', () => abortController.abort());
         }
         try {
-            // Проверяем готовность соединения
             if (!this.isVerified) {
                 throw new Error('Connection not verified');
             }
@@ -7421,27 +7580,21 @@ checkFileTransferReadiness() {
             if (!this.encryptionKey || !this.macKey) {
                 throw new Error('Encryption keys not ready');
             }
-            
-            // Очищаем существующую систему
+
             if (this.fileTransferSystem) {
                 this.fileTransferSystem.cleanup();
                 this.fileTransferSystem = null;
             }
-            
-            // Инициализируем новую систему
+
             this.initializeFileTransfer();
-            
-            // CRITICAL FIX: Заменяем busy-wait на асинхронное ожидание
-            // Это предотвращает блокировку UI-потока и DoS-атаки
+
             let attempts = 0;
             const maxAttempts = 50;
-            const checkInterval = 100; // 100ms между проверками
-            const maxWaitTime = maxAttempts * checkInterval; // Максимальное время ожидания
-            
-            // CRITICAL FIX: Используем Promise.race для возможности отмены операции
+            const checkInterval = 100; 
+            const maxWaitTime = maxAttempts * checkInterval; 
+
             const initializationPromise = new Promise((resolve, reject) => {
                 const checkInitialization = () => {
-                    // Проверяем отмену операции
                     if (abortController.signal.aborted) {
                         reject(new Error('Operation cancelled'));
                         return;
@@ -7463,8 +7616,7 @@ checkFileTransferReadiness() {
                 
                 checkInitialization();
             });
-            
-            // CRITICAL FIX: Ждем инициализации с возможностью отмены и таймаутом
+
             await Promise.race([
                 initializationPromise,
                 new Promise((_, reject) => 
@@ -7479,7 +7631,6 @@ checkFileTransferReadiness() {
             }
             
         } catch (error) {
-            // CRITICAL FIX: Улучшенная обработка ошибок
             if (error.name === 'AbortError' || error.message.includes('cancelled')) {
                 this._secureLog('info', '⏹️ File transfer initialization cancelled by user');
                 return { cancelled: true };
@@ -7493,13 +7644,13 @@ checkFileTransferReadiness() {
             return { error: error.message, attempts: attempts };
         }
     }
-    
-    // CRITICAL FIX: Метод для отмены инициализации файловой системы
+
     cancelFileTransferInitialization() {
         try {
             if (this.fileTransferSystem) {
                 this.fileTransferSystem.cleanup();
                 this.fileTransferSystem = null;
+                this._fileTransferActive = false;
                 this._secureLog('info', '⏹️ File transfer initialization cancelled');
                 return true;
             }
@@ -7512,7 +7663,28 @@ checkFileTransferReadiness() {
         }
     }
     
-    // CRITICAL FIX: Validate nested encryption security
+    getFileTransferSystemStatus() {
+        if (!this.fileTransferSystem) {
+            return { available: false, status: 'not_initialized' };
+        }
+        
+        try {
+            const status = this.fileTransferSystem.getSystemStatus();
+            return {
+                available: true,
+                status: status.status || 'unknown',
+                activeTransfers: status.activeTransfers || 0,
+                receivingTransfers: status.receivingTransfers || 0,
+                systemType: 'EnhancedSecureFileTransfer'
+            };
+        } catch (error) {
+            this._secureLog('error', '❌ Failed to get file transfer system status:', { 
+                errorType: error?.constructor?.name || 'Unknown' 
+            });
+            return { available: false, status: 'error', error: error.message };
+        }
+    }
+
     _validateNestedEncryptionSecurity() {
         if (this.securityFeatures.hasNestedEncryption && this.nestedEncryptionKey) {
             // Test that we can generate fresh random IVs
@@ -7547,15 +7719,13 @@ class SecureKeyStorage {
         // Master encryption key for storage encryption
         this._storageMasterKey = null;
         this._initializeStorageMaster();
-        
-            // CRITICAL FIX: Validate storage integrity after initialization
+
         setTimeout(() => {
             if (!this.validateStorageIntegrity()) {
                 console.error('❌ CRITICAL: Key storage integrity check failed');
             }
         }, 100);
         
-        // CRITICAL FIX: Storage integrity validation only (nested encryption validation is in main class)
     }
 
     async _initializeStorageMaster() {
