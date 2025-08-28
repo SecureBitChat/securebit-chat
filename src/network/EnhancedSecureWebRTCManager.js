@@ -448,14 +448,18 @@ _initializeMutexSystem() {
      * Initializes the secure key storage
      */
     _initializeSecureKeyStorage() {
-        this._secureKeyStorage = new Map();
+        // Initialize with the new class
+        this._secureKeyStorage = new SecureKeyStorage();
+        
+        // Keep the stats structure for compatibility
         this._keyStorageStats = {
             totalKeys: 0,
             activeKeys: 0,
             lastAccess: null,
             lastRotation: null,
         };
-        this._secureLog('info', '🔐 Secure key storage initialized');
+        
+        this._secureLog('info', '🔐 Enhanced secure key storage initialized');
     }
 
     // Helper: ensure file transfer system is ready (lazy init on receiver)
@@ -497,35 +501,26 @@ _initializeMutexSystem() {
         }
     }
 
-    /**
-     * Retrieves a key from secure storage
-     * @param {string} keyId - Key identifier
-     * @returns {CryptoKey|null} The key or null if not found
-     */
     _getSecureKey(keyId) {
-        if (!this._secureKeyStorage.has(keyId)) {
-            this._secureLog('warn', `⚠️ Key ${keyId} not found in secure storage`);
-            return null;
-        }
-        this._keyStorageStats.lastAccess = Date.now();
-        return this._secureKeyStorage.get(keyId);
+        return this._secureKeyStorage.retrieveKey(keyId);
     }
 
-    /**
-     * Stores a key in secure storage
-     * @param {string} keyId - Key identifier
-     * @param {CryptoKey} key - Key to store
-     */
-    _setSecureKey(keyId, key) {
+    async _setSecureKey(keyId, key) {
         if (!(key instanceof CryptoKey)) {
-            this._secureLog('error', '❌ Attempt to store non-CryptoKey in secure storage');
-            return;
+            this._secureLog('error', '❌ Attempt to store non-CryptoKey');
+            return false;
         }
-        this._secureKeyStorage.set(keyId, key);
-        this._keyStorageStats.totalKeys++;
-        this._keyStorageStats.activeKeys++;
-        this._keyStorageStats.lastAccess = Date.now();
-        this._secureLog('info', `🔑 Key ${keyId} stored securely`);
+        
+        const success = await this._secureKeyStorage.storeKey(keyId, key, {
+            version: this.currentKeyVersion,
+            type: key.algorithm.name
+        });
+        
+        if (success) {
+            this._secureLog('info', `🔑 Key ${keyId} stored securely with encryption`);
+        }
+        
+        return success;
     }
 
     /**
@@ -540,18 +535,9 @@ _initializeMutexSystem() {
             key.usages.length > 0;
     }
 
-    /**
-     * Securely wipes all keys from storage
-     */
     _secureWipeKeys() {
-        this._secureKeyStorage.clear();
-        this._keyStorageStats = {
-            totalKeys: 0,
-            activeKeys: 0,
-            lastAccess: null,
-            lastRotation: null,
-        };
-        this._secureLog('info', '🧹 All keys securely wiped from storage');
+        this._secureKeyStorage.secureWipeAll();
+        this._secureLog('info', '🧹 All keys securely wiped and encrypted storage cleared');
     }
 
     /**
@@ -559,7 +545,7 @@ _initializeMutexSystem() {
      * @returns {boolean} true if the storage is ready
      */
     _validateKeyStorage() {
-        return this._secureKeyStorage instanceof Map;
+        return this._secureKeyStorage instanceof SecureKeyStorage;
     }
 
     /**
@@ -567,12 +553,13 @@ _initializeMutexSystem() {
      * @returns {object} Storage metrics
      */
     _getKeyStorageStats() {
+        const stats = this._secureKeyStorage.getStorageStats();
         return {
-            totalKeysCount: this._keyStorageStats.totalKeys,
-            activeKeysCount: this._keyStorageStats.activeKeys,
-            hasLastAccess: !!this._keyStorageStats.lastAccess,
+            totalKeysCount: stats.totalKeys,
+            activeKeysCount: stats.totalKeys,
+            hasLastAccess: stats.metadata.some(m => m.lastAccessed),
             hasLastRotation: !!this._keyStorageStats.lastRotation,
-            storageType: 'SecureMap',
+            storageType: 'SecureKeyStorage',
             timestamp: Date.now()
         };
     }
@@ -7409,6 +7396,213 @@ checkFileTransferReadiness() {
             this._secureLog('error', '❌ Force file transfer initialization failed:', { errorType: error?.constructor?.name || 'Unknown' });
             return false;
         }
+    }
+}
+
+class SecureKeyStorage {
+    constructor() {
+        // Use WeakMap for automatic garbage collection of unused keys
+        this._keyStore = new WeakMap();
+        this._keyMetadata = new Map(); // Metadata doesn't need WeakMap
+        this._keyReferences = new Map(); // Strong references for active keys
+        
+        // Master encryption key for storage encryption
+        this._storageMasterKey = null;
+        this._initializeStorageMaster();
+    }
+
+    async _initializeStorageMaster() {
+        // Generate a master key for encrypting stored keys
+        this._storageMasterKey = await crypto.subtle.generateKey(
+            { name: 'AES-GCM', length: 256 },
+            false,
+            ['encrypt', 'decrypt']
+        );
+    }
+
+    async storeKey(keyId, cryptoKey, metadata = {}) {
+        if (!(cryptoKey instanceof CryptoKey)) {
+            throw new Error('Only CryptoKey objects can be stored');
+        }
+
+        try {
+            // For non-extractable keys, we can only store a reference
+            if (!cryptoKey.extractable) {
+                // Store the key reference directly without encryption
+                this._keyReferences.set(keyId, cryptoKey);
+                this._keyMetadata.set(keyId, {
+                    ...metadata,
+                    created: Date.now(),
+                    lastAccessed: Date.now(),
+                    extractable: false,
+                    encrypted: false  // Mark as not encrypted
+                });
+                return true;
+            }
+
+            // For extractable keys, proceed with encryption
+            const keyData = await crypto.subtle.exportKey('jwk', cryptoKey);
+            const encryptedKeyData = await this._encryptKeyData(keyData);
+
+            // Create a storage object
+            const storageObject = {
+                id: keyId,
+                encryptedData: encryptedKeyData,
+                algorithm: cryptoKey.algorithm,
+                usages: cryptoKey.usages,
+                extractable: cryptoKey.extractable,
+                type: cryptoKey.type,
+                timestamp: Date.now()
+            };
+
+            // Use WeakMap with the CryptoKey as the key
+            this._keyStore.set(cryptoKey, storageObject);
+            
+            // Store reference for retrieval by ID
+            this._keyReferences.set(keyId, cryptoKey);
+            
+            // Store metadata separately
+            this._keyMetadata.set(keyId, {
+                ...metadata,
+                created: Date.now(),
+                lastAccessed: Date.now()
+            });
+
+            return true;
+        } catch (error) {
+            console.error('Failed to store key securely:', error);
+            return false;
+        }
+    }
+
+    async retrieveKey(keyId) {
+        const metadata = this._keyMetadata.get(keyId);
+        if (!metadata) {
+            return null;
+        }
+
+        // Update access time
+        metadata.lastAccessed = Date.now();
+
+        // For non-encrypted keys (non-extractable), return directly
+        if (!metadata.encrypted) {
+            return this._keyReferences.get(keyId);
+        }
+
+        // For encrypted keys, decrypt and recreate
+        try {
+            const cryptoKey = this._keyReferences.get(keyId);
+            const storedData = this._keyStore.get(cryptoKey);
+            
+            if (!storedData) {
+                return null;
+            }
+
+            // Decrypt the key data
+            const decryptedKeyData = await this._decryptKeyData(storedData.encryptedData);
+            
+            // Recreate the CryptoKey
+            const recreatedKey = await crypto.subtle.importKey(
+                'jwk',
+                decryptedKeyData,
+                storedData.algorithm,
+                storedData.extractable,
+                storedData.usages
+            );
+            
+            return recreatedKey;
+        } catch (error) {
+            console.error('Failed to retrieve key:', error);
+            return null;
+        }
+    }
+
+    async _encryptKeyData(keyData) {
+        const dataToEncrypt = typeof keyData === 'object' 
+            ? JSON.stringify(keyData) 
+            : keyData;
+        
+        const encoder = new TextEncoder();
+        const data = encoder.encode(dataToEncrypt);
+        
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        
+        const encryptedData = await crypto.subtle.encrypt(
+            { name: 'AES-GCM', iv },
+            this._storageMasterKey,
+            data
+        );
+
+        // Return IV + encrypted data
+        const result = new Uint8Array(iv.length + encryptedData.byteLength);
+        result.set(iv, 0);
+        result.set(new Uint8Array(encryptedData), iv.length);
+        
+        return result;
+    }
+
+    async _decryptKeyData(encryptedData) {
+        const iv = encryptedData.slice(0, 12);
+        const data = encryptedData.slice(12);
+        
+        const decryptedData = await crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv },
+            this._storageMasterKey,
+            data
+        );
+
+        const decoder = new TextDecoder();
+        const jsonString = decoder.decode(decryptedData);
+        
+        try {
+            return JSON.parse(jsonString);
+        } catch {
+            return decryptedData;
+        }
+    }
+
+    secureWipe(keyId) {
+        const cryptoKey = this._keyReferences.get(keyId);
+        
+        if (cryptoKey) {
+            // Remove from WeakMap (will be GC'd)
+            this._keyStore.delete(cryptoKey);
+            // Remove strong reference
+            this._keyReferences.delete(keyId);
+            // Remove metadata
+            this._keyMetadata.delete(keyId);
+        }
+
+        // Overwrite memory locations if possible
+        if (typeof window.gc === 'function') {
+            window.gc();
+        }
+    }
+
+    secureWipeAll() {
+        // Clear all references
+        this._keyReferences.clear();
+        this._keyMetadata.clear();
+        
+        // WeakMap entries will be garbage collected
+        this._keyStore = new WeakMap();
+        
+        // Force garbage collection if available
+        if (typeof window.gc === 'function') {
+            window.gc();
+        }
+    }
+
+    getStorageStats() {
+        return {
+            totalKeys: this._keyReferences.size,
+            metadata: Array.from(this._keyMetadata.entries()).map(([id, meta]) => ({
+                id,
+                created: meta.created,
+                lastAccessed: meta.lastAccessed,
+                age: Date.now() - meta.created
+            }))
+        };
     }
 }
 
