@@ -489,7 +489,10 @@ _initializeMutexSystem() {
             
             return true;
         } catch (e) {
-            console.error('❌ _ensureFileTransferReady failed:', e?.message || e);
+            this._secureLog('error', '❌ _ensureFileTransferReady failed', { 
+                errorType: e?.constructor?.name || 'Unknown',
+                hasMessage: !!e?.message 
+            });
             return false;
         }
     }
@@ -1072,7 +1075,7 @@ _initializeMutexSystem() {
                     }
                     return this.sendMessage(message);
                 } catch (error) {
-                    console.error('❌ Failed to send message through secure API:', error.message);
+                    this._secureLog('error', '❌ Failed to send message through secure API', { errorType: error.constructor.name });
                     throw new Error('Failed to send message');
                 }
             },
@@ -1113,7 +1116,7 @@ _initializeMutexSystem() {
                     }
                     return await this.sendFile(file);
                 } catch (error) {
-                    console.error('❌ Failed to send file through secure API:', error.message);
+                    this._secureLog('error', '❌ Failed to send file through secure API', { errorType: error.constructor.name });
                     throw new Error('Failed to send file');
                 }
             },
@@ -1139,7 +1142,7 @@ _initializeMutexSystem() {
                     this.disconnect();
                     return true;
                 } catch (error) {
-                    console.error('❌ Failed to disconnect through secure API:', error.message);
+                    this._secureLog('error', '❌ Failed to disconnect through secure API', { errorType: error.constructor.name });
                     return false;
                 }
             },
@@ -1173,7 +1176,7 @@ _initializeMutexSystem() {
             
             console.log('🔒 Secure global API established: window.secureBitChat');
         } else {
-            console.warn('⚠️ Global API already exists, skipping setup');
+            this._secureLog('warn', '⚠️ Global API already exists, skipping setup');
         }
         
         // ============================================
@@ -1187,7 +1190,7 @@ _initializeMutexSystem() {
         
         // Console notice
         if (window.DEBUG_MODE) {
-            console.warn('🔒 Security Notice: WebRTC Manager is protected. Use window.secureBitChat for safe access.');
+            this._secureLog('warn', '⚠️ 🔒 Security Notice: WebRTC Manager is protected. Use window.secureBitChat for safe access.');
         }
     }
     /**
@@ -1212,7 +1215,7 @@ _initializeMutexSystem() {
             });
             
             if (exposures.length > 0) {
-                console.warn('🚫 WARNING: Potential security exposure detected:', exposures);
+                this._secureLog('warn', '⚠️ 🚫 WARNING: Potential security exposure detected:', { details: exposures });
                 
                 // In production, remove automatically
                 if (!window.DEBUG_MODE) {
@@ -1221,7 +1224,7 @@ _initializeMutexSystem() {
                             delete window[name];
                             console.log(`🧹 Removed exposure: ${name}`);
                         } catch (error) {
-                            console.error(`❌ Failed to remove: ${name}`);
+                            this._secureLog('error', '❌ Failed to remove: ${name}');
                         }
                     });
                 }
@@ -1253,7 +1256,7 @@ _initializeMutexSystem() {
         
         Object.defineProperty = function(obj, prop, descriptor) {
             if (obj === window && webrtcRelatedNames.includes(prop)) {
-                console.warn(`🚫 Prevented potential global exposure of: ${prop}`);
+                this._secureLog('warn', '⚠️ 🚫 Prevented potential global exposure of: ${prop}');
                 // Do not set the property, only log
                 return obj;
             }
@@ -1266,7 +1269,7 @@ _initializeMutexSystem() {
             set(target, property, value) {
                 if (typeof property === 'string' && webrtcRelatedPatterns.test(property)) {
                     if (value === self || (value && value.constructor === self.constructor)) {
-                        console.warn(`🚫 Prevented global exposure attempt: window.${property}`);
+                        this._secureLog('warn', '⚠️ 🚫 Prevented global exposure attempt: window.${property}');
                         return true; // Pretend we set it, but do not
                     }
                 }
@@ -1286,7 +1289,7 @@ _initializeMutexSystem() {
     _verifyAPIIntegrity() {
         try {
             if (!window.secureBitChat) {
-                console.error('🚨 SECURITY ALERT: Secure API has been removed!');
+                this._secureLog('error', '❌ SECURITY ALERT: Secure API has been removed!');
                 return false;
             }
             
@@ -1296,13 +1299,13 @@ _initializeMutexSystem() {
             );
             
             if (missingMethods.length > 0) {
-                console.error('🚨 SECURITY ALERT: API tampering detected, missing methods:', missingMethods);
+                this._secureLog('error', '❌ SECURITY ALERT: API tampering detected, missing methods:', { errorType: missingMethods?.constructor?.name || 'Unknown' });
                 return false;
             }
             
             return true;
         } catch (error) {
-            console.error('🚨 SECURITY ALERT: API integrity check failed:', error);
+            this._secureLog('error', '❌ SECURITY ALERT: API integrity check failed:', { errorType: error?.constructor?.name || 'Unknown' });
             return false;
         }
     }
@@ -1325,7 +1328,7 @@ _initializeMutexSystem() {
         }
         
         if (dangerousExposures.length > 0) {
-            console.error('🚨 SECURITY ALERT: WebRTC Manager exposed globally:', dangerousExposures);
+            this._secureLog('error', '❌ SECURITY ALERT: WebRTC Manager exposed globally:', { errorType: dangerousExposures?.constructor?.name || 'Unknown' });
             
             // In production mode, remove exposure automatically
             if (!window.DEBUG_MODE) {
@@ -1334,7 +1337,7 @@ _initializeMutexSystem() {
                         delete window[prop];
                         console.log(`🧹 Removed dangerous global exposure: ${prop}`);
                     } catch (error) {
-                        console.error(`❌ Failed to remove exposure: ${prop}`, error);
+                        this._secureLog('error', '❌ Failed to remove exposure: ${prop}', { errorType: error?.constructor?.name || 'Unknown' });
                     }
                 });
             }
@@ -1355,7 +1358,7 @@ _initializeMutexSystem() {
             
             if (exposures.length > 0 && !window.DEBUG_MODE) {
                 // In production, this is a critical issue
-                console.error('🚨 CRITICAL: Unauthorized global exposure detected in production');
+                this._secureLog('error', '❌ CRITICAL: Unauthorized global exposure detected in production');
                 
                 // Could add alert sending or forced shutdown
                 // this.emergencyShutdown();
@@ -1367,7 +1370,7 @@ _initializeMutexSystem() {
      * Emergency shutdown for critical issues
      */
     _emergencyShutdown(reason = 'Security breach') {
-        console.error(`🚨 EMERGENCY SHUTDOWN: ${reason}`);
+        this._secureLog('error', '❌ EMERGENCY SHUTDOWN: ${reason}');
         
         try {
             // Clear critical data
@@ -1400,14 +1403,14 @@ _initializeMutexSystem() {
             console.log('🔒 Emergency shutdown completed');
             
         } catch (error) {
-            console.error('❌ Error during emergency shutdown:', error);
+            this._secureLog('error', '❌ Error during emergency shutdown:', { errorType: error?.constructor?.name || 'Unknown' });
         }
     }
     _finalizeSecureInitialization() {
         this._startKeySecurityMonitoring();
         // Verify API integrity
         if (!this._verifyAPIIntegrity()) {
-            console.error('🚨 Security initialization failed');
+            this._secureLog('error', '❌ Security initialization failed');
             return;
         }
         
@@ -1563,7 +1566,7 @@ _initializeMutexSystem() {
             return operation();
         } catch (error) {
             if (window.DEBUG_MODE) {
-                console.error(`❌ ${errorMessage}:`, error);
+                this._secureLog('error', '❌ ${errorMessage}:', { errorType: error?.constructor?.name || 'Unknown' });
             }
             return fallback;
         }
@@ -1581,7 +1584,7 @@ _initializeMutexSystem() {
             return await operation();
         } catch (error) {
             if (window.DEBUG_MODE) {
-                console.error(`❌ ${errorMessage}:`, error);
+                this._secureLog('error', '❌ ${errorMessage}:', { errorType: error?.constructor?.name || 'Unknown' });
             }
             return fallback;
         }
@@ -1676,7 +1679,7 @@ _initializeMutexSystem() {
         // Override _secureLog to a no-op
         this._secureLog = () => {};
         // Only critical error to console (no payload)
-        console.error('🚨 SECURITY: Logging disabled due to potential data exposure');
+        this._secureLog('error', '❌ SECURITY: Logging disabled due to potential data exposure');
     }
     _auditLogMessage(message, data) {
         if (!data || typeof data !== 'object') return true;
@@ -1693,7 +1696,7 @@ _initializeMutexSystem() {
         for (const pattern of dangerousPatterns) {
             if (dataString.includes(pattern) && !this._safeFieldsWhitelist.has(pattern)) {
                 this._emergencyDisableLogging();
-                console.error(`🚨 SECURITY BREACH: Potential sensitive data in log: ${pattern}`);
+                this._secureLog('error', '❌ SECURITY BREACH: Potential sensitive data in log: ${pattern}');
                 return false;
             }
         }
@@ -1714,7 +1717,7 @@ _initializeMutexSystem() {
             // CRITICAL FIX: Step-by-step readiness check
             const channelReady = !!(this.dataChannel && this.dataChannel.readyState === 'open');
             if (!channelReady) {
-                console.warn('⚠️ Data channel not open, deferring file transfer initialization');
+                this._secureLog('warn', '⚠️ Data channel not open, deferring file transfer initialization');
                 if (this.dataChannel) {
                     const initHandler = () => {
                         console.log('🔄 DataChannel opened, initializing file transfer...');
@@ -1726,7 +1729,7 @@ _initializeMutexSystem() {
             }
 
             if (!this.isVerified) {
-                console.warn('⚠️ Connection not verified yet, deferring file transfer initialization');
+                this._secureLog('warn', '⚠️ Connection not verified yet, deferring file transfer initialization');
                 setTimeout(() => this.initializeFileTransfer(), 500);
                 return;
             }
@@ -1740,7 +1743,7 @@ _initializeMutexSystem() {
             
             // CRITICAL FIX: Ensure encryption keys are present
             if (!this.encryptionKey || !this.macKey) {
-                console.warn('⚠️ Encryption keys not ready, deferring file transfer initialization');
+                this._secureLog('warn', '⚠️ Encryption keys not ready, deferring file transfer initialization');
                 setTimeout(() => this.initializeFileTransfer(), 1000);
                 return;
             }
@@ -1755,7 +1758,7 @@ _initializeMutexSystem() {
                         this.onFileProgress({ type: 'complete', ...summary });
                     }
                 } catch (e) {
-                    console.warn('⚠️ onComplete handler failed:', e.message);
+                    this._secureLog('warn', '⚠️ onComplete handler failed:', { details: e.message });
                 }
             };
 
@@ -1778,7 +1781,7 @@ _initializeMutexSystem() {
             console.log('🔍 File transfer system status after init:', status);
             
         } catch (error) {
-            console.error('❌ Failed to initialize file transfer system:', error);
+            this._secureLog('error', '❌ Failed to initialize file transfer system', { errorType: error.constructor.name });
             this.fileTransferSystem = null;
             window.FILE_TRANSFER_ACTIVE = false;
             window.fileTransferSystem = null;
@@ -1805,7 +1808,7 @@ _initializeMutexSystem() {
             }
 
         } catch (error) {
-            console.error('❌ Failed to initialize enhanced security:', error);
+            this._secureLog('error', '❌ Failed to initialize enhanced security', { errorType: error.constructor.name });
         }
     }
     
@@ -1851,7 +1854,7 @@ _initializeMutexSystem() {
             }, EnhancedSecureWebRTCManager.TIMEOUTS.SECURITY_CALC_DELAY);
             
         } else {
-            console.warn('⚠️ Session manager not available, using default security');
+            this._secureLog('warn', '⚠️ Session manager not available, using default security');
         }
     }
 
@@ -1990,10 +1993,10 @@ _initializeMutexSystem() {
                 console.log('📤 Calling this.onMessage callback with:', { message, type });
                 this.onMessage(message, type);
             } else {
-                console.warn('⚠️ this.onMessage callback is null or undefined');
+                this._secureLog('warn', '⚠️ this.onMessage callback is null or undefined');
             }
         } catch (err) {
-            console.error('❌ Failed to deliver message to UI:', err);
+            this._secureLog('error', '❌ Failed to deliver message to UI:', { errorType: err?.constructor?.name || 'Unknown' });
         }
     }
 
@@ -2067,7 +2070,7 @@ _initializeMutexSystem() {
             this.nestedEncryptionCounter = 0;
             
         } catch (error) {
-            console.error('❌ Failed to generate nested encryption key:', error);
+            this._secureLog('error', '❌ Failed to generate nested encryption key:', { errorType: error?.constructor?.name || 'Unknown' });
             throw error;
         }
     }
@@ -2097,7 +2100,7 @@ _initializeMutexSystem() {
             
             return result.buffer;
         } catch (error) {
-            console.error('❌ Nested encryption failed:', error);
+            this._secureLog('error', '❌ Nested encryption failed:', { errorType: error?.constructor?.name || 'Unknown' });
             return data; // Fallback to original data
         }
     }
@@ -2144,7 +2147,7 @@ _initializeMutexSystem() {
                 }
             } else {
                 if (window.DEBUG_MODE) {
-                    console.warn('⚠️ Nested decryption failed:', error.message);
+                    this._secureLog('warn', '⚠️ Nested decryption failed:', { details: error.message });
                 }
             }
             return data; // Fallback to original data
@@ -2192,7 +2195,7 @@ _initializeMutexSystem() {
             
             return paddedData.buffer;
         } catch (error) {
-            console.error('❌ Packet padding failed:', error);
+            this._secureLog('error', '❌ Packet padding failed:', { errorType: error?.constructor?.name || 'Unknown' });
             return data; // Fallback to original data
         }
     }
@@ -2208,7 +2211,7 @@ _initializeMutexSystem() {
             // Check for minimum data length (4 bytes for size + minimum 1 byte of data)
             if (dataArray.length < 5) {
                 if (window.DEBUG_MODE) {
-                    console.warn('⚠️ Data too short for packet padding removal, skipping');
+                    this._secureLog('warn', '⚠️ Data too short for packet padding removal, skipping');
                 }
                 return data;
             }
@@ -2220,7 +2223,7 @@ _initializeMutexSystem() {
             // Checking the reasonableness of the size
             if (originalSize <= 0 || originalSize > dataArray.length - 4) {
                 if (window.DEBUG_MODE) {
-                    console.warn('⚠️ Invalid packet padding size, skipping removal');
+                    this._secureLog('warn', '⚠️ Invalid packet padding size, skipping removal');
                 }
                 return data;
             }
@@ -2231,7 +2234,7 @@ _initializeMutexSystem() {
             return originalData.buffer;
         } catch (error) {
             if (window.DEBUG_MODE) {
-                console.error('❌ Packet padding removal failed:', error);
+                this._secureLog('error', '❌ Packet padding removal failed:', { errorType: error?.constructor?.name || 'Unknown' });
             }
             return data; // Fallback to original data
         }
@@ -2274,7 +2277,7 @@ _initializeMutexSystem() {
                 this.fakeTrafficTimer = setTimeout(sendFakeMessage, safeInterval);
             } catch (error) {
                 if (window.DEBUG_MODE) {
-                    console.error('❌ Fake traffic generation failed:', error);
+                    this._secureLog('error', '❌ Fake traffic generation failed:', { errorType: error?.constructor?.name || 'Unknown' });
                 }
                 this.stopFakeTrafficGeneration();
             }
@@ -2457,7 +2460,7 @@ emergencyDisableFakeTraffic() {
         return processedData;
         
     } catch (error) {
-        console.error('❌ Error in applySecurityLayersWithoutMutex:', error);
+        this._secureLog('error', '❌ Error in applySecurityLayersWithoutMutex:', { errorType: error?.constructor?.name || 'Unknown' });
         return data; // Return original data on error
     }
 }
@@ -2524,7 +2527,7 @@ emergencyDisableFakeTraffic() {
                 console.log(`📦 Chunked message ${messageId} reassembled and processed`);
             }
         } catch (error) {
-            console.error('❌ Chunked message processing failed:', error);
+            this._secureLog('error', '❌ Chunked message processing failed:', { errorType: error?.constructor?.name || 'Unknown' });
         }
     }
 
@@ -2565,7 +2568,7 @@ emergencyDisableFakeTraffic() {
             }
         } catch (error) {
             if (window.DEBUG_MODE) {
-                console.error('❌ Failed to initialize decoy channels:', error);
+                this._secureLog('error', '❌ Failed to initialize decoy channels:', { errorType: error?.constructor?.name || 'Unknown' });
             }
         }
     }
@@ -2711,7 +2714,7 @@ emergencyDisableFakeTraffic() {
 
             return result.buffer;
         } catch (error) {
-            console.error('❌ Failed to add reordering headers:', error);
+            this._secureLog('error', '❌ Failed to add reordering headers:', { errorType: error?.constructor?.name || 'Unknown' });
             return data;
         }
     }
@@ -2727,7 +2730,7 @@ emergencyDisableFakeTraffic() {
 
         if (dataArray.length < headerSize) {
             if (window.DEBUG_MODE) {
-                console.warn('⚠️ Data too short for reordering headers, processing directly');
+                this._secureLog('warn', '⚠️ Data too short for reordering headers, processing directly');
             }
             return this.processMessage(data);
         }
@@ -2749,7 +2752,7 @@ emergencyDisableFakeTraffic() {
 
         if (dataSize > dataArray.length - headerSize || dataSize <= 0) {
             if (window.DEBUG_MODE) {
-                console.warn('⚠️ Invalid reordered packet data size, processing directly');
+                this._secureLog('warn', '⚠️ Invalid reordered packet data size, processing directly');
             }
             return this.processMessage(data);
         }
@@ -2777,7 +2780,7 @@ emergencyDisableFakeTraffic() {
         await this.processOrderedPackets();
 
     } catch (error) {
-        console.error('❌ Failed to process reordered packet:', error);
+        this._secureLog('error', '❌ Failed to process reordered packet:', { errorType: error?.constructor?.name || 'Unknown' });
         return this.processMessage(data);
     }
 }
@@ -2797,7 +2800,7 @@ async processOrderedPackets() {
         if (!packet) {
             const oldestPacket = this.findOldestPacket();
             if (oldestPacket && (now - oldestPacket.timestamp) > timeout) {
-                console.warn(`⚠️ Packet ${oldestPacket.sequence} timed out, processing out of order`);
+                this._secureLog('warn', '⚠️ Packet ${oldestPacket.sequence} timed out, processing out of order');
                 
                 try {
                     const textData = new TextDecoder().decode(oldestPacket.data);
@@ -2853,7 +2856,7 @@ async processOrderedPackets() {
     cleanupOldPackets(now, timeout) {
         for (const [sequence, packet] of this.packetBuffer.entries()) {
             if ((now - packet.timestamp) > timeout) {
-                console.warn(`🗑️ Removing timed out packet ${sequence}`);
+                this._secureLog('warn', '⚠️ 🗑️ Removing timed out packet ${sequence}');
                 this.packetBuffer.delete(sequence);
             }
         }
@@ -2893,7 +2896,7 @@ async processOrderedPackets() {
 
             return processedData;
         } catch (error) {
-            console.error('❌ Anti-fingerprinting failed:', error);
+            this._secureLog('error', '❌ Anti-fingerprinting failed:', { errorType: error?.constructor?.name || 'Unknown' });
             return data;
         }
     }
@@ -3018,7 +3021,7 @@ async processOrderedPackets() {
         }
 
         if (!data) {
-            console.warn('⚠️ Received empty data');
+            this._secureLog('warn', '⚠️ Received empty data');
             return null;
         }
 
@@ -3068,7 +3071,7 @@ async processOrderedPackets() {
                     }
                     
                     if (!this.encryptionKey || !this.macKey || !this.metadataKey) {
-                        console.error('❌ Missing encryption keys');
+                        this._secureLog('error', '❌ Missing encryption keys');
                         return null;
                     }
                     
@@ -3174,7 +3177,7 @@ async processOrderedPackets() {
                 }
             } catch (error) {
                 if (window.DEBUG_MODE) {
-                    console.warn('⚠️ Standard decryption failed:', error.message);
+                    this._secureLog('warn', '⚠️ Standard decryption failed:', { details: error.message });
                 }
                 return data; 
             }
@@ -3204,7 +3207,7 @@ async processOrderedPackets() {
                 }
             } catch (error) {
                 if (window.DEBUG_MODE) {
-                    console.warn('⚠️ Nested decryption failed - skipping this layer:', error.message);
+                    this._secureLog('warn', '⚠️ Nested decryption failed - skipping this layer:', { details: error.message });
                 }
             }
         }
@@ -3219,7 +3222,7 @@ async processOrderedPackets() {
                 }
             } catch (error) {
                 if (window.DEBUG_MODE) {
-                    console.warn('⚠️ Reordering processing failed - using direct processing:', error.message);
+                    this._secureLog('warn', '⚠️ Reordering processing failed - using direct processing:', { details: error.message });
                 }
             }
         }
@@ -3230,7 +3233,7 @@ async processOrderedPackets() {
                 processedData = this.removePacketPadding(processedData);
             } catch (error) {
                 if (window.DEBUG_MODE) {
-                    console.warn('⚠️ Padding removal failed:', error.message);
+                    this._secureLog('warn', '⚠️ Padding removal failed:', { details: error.message });
                 }
             }
         }
@@ -3241,7 +3244,7 @@ async processOrderedPackets() {
                 processedData = this.removeAntiFingerprinting(processedData);
             } catch (error) {
                 if (window.DEBUG_MODE) {
-                    console.warn('⚠️ Anti-fingerprinting removal failed:', error.message);
+                    this._secureLog('warn', '⚠️ Anti-fingerprinting removal failed:', { details: error.message });
                 }
             }
         }
@@ -3267,7 +3270,7 @@ async processOrderedPackets() {
         return processedData;
 
     } catch (error) {
-        console.error('❌ Critical error in removeSecurityLayers:', error);
+        this._secureLog('error', '❌ Critical error in removeSecurityLayers:', { errorType: error?.constructor?.name || 'Unknown' });
         return data;
     }
 }
@@ -3312,7 +3315,7 @@ async processOrderedPackets() {
             return processedData;
             
         } catch (error) {
-            console.error('❌ Error in applySecurityLayers:', error);
+            this._secureLog('error', '❌ Error in applySecurityLayers:', { errorType: error?.constructor?.name || 'Unknown' });
             return data;
         }
     }
@@ -3411,7 +3414,7 @@ async processOrderedPackets() {
             return processedData;
             
         } catch (error) {
-            console.error('❌ Error in applySecurityLayers:', error);
+            this._secureLog('error', '❌ Error in applySecurityLayers:', { errorType: error?.constructor?.name || 'Unknown' });
             return data;
         }
     }, 3000); // Short timeout for crypto operations
@@ -3419,7 +3422,7 @@ async processOrderedPackets() {
 
     async sendSystemMessage(messageData) {
         if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
-            console.warn('⚠️ Cannot send system message - data channel not ready');
+            this._secureLog('warn', '⚠️ Cannot send system message - data channel not ready');
             return false;
         }
 
@@ -3434,7 +3437,7 @@ async processOrderedPackets() {
             this.dataChannel.send(systemMessage);
             return true;
         } catch (error) {
-            console.error('❌ Failed to send system message:', error);
+            this._secureLog('error', '❌ Failed to send system message:', { errorType: error?.constructor?.name || 'Unknown' });
             return false;
         }
     }
@@ -3477,16 +3480,16 @@ async processMessage(data) {
                     }
                     
                     // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Автоматическая инициализация файловой системы
-                    console.warn('⚠️ File transfer system not available, attempting automatic initialization...');
+                    this._secureLog('warn', '⚠️ File transfer system not available, attempting automatic initialization...');
                     try {
                         // Проверяем готовность соединения
                         if (!this.isVerified) {
-                            console.warn('⚠️ Connection not verified, cannot initialize file transfer');
+                            this._secureLog('warn', '⚠️ Connection not verified, cannot initialize file transfer');
                             return;
                         }
                         
                         if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
-                            console.warn('⚠️ Data channel not open, cannot initialize file transfer');
+                            this._secureLog('warn', '⚠️ Data channel not open, cannot initialize file transfer');
                             return;
                         }
                         
@@ -3506,13 +3509,13 @@ async processMessage(data) {
                             await this.fileTransferSystem.handleFileMessage(parsed);
                             return;
                         } else {
-                            console.error('❌ File transfer system initialization failed');
+                            this._secureLog('error', '❌ File transfer system initialization failed');
                         }
                     } catch (e) {
-                        console.error('❌ Automatic file transfer initialization failed:', e?.message || e);
+                        this._secureLog('error', '❌ Automatic file transfer initialization failed:', { errorType: e?.message || e?.constructor?.name || 'Unknown' });
                     }
                     
-                    console.error('❌ File transfer system not available for:', parsed.type);
+                    this._secureLog('error', '❌ File transfer system not available for:', { errorType: parsed.type?.constructor?.name || 'Unknown' });
                     return; // IMPORTANT: Exit after handling
                 }
                 
@@ -3570,7 +3573,7 @@ async processMessage(data) {
         }
         
         if (!originalData) {
-            console.warn('⚠️ No data returned from removeSecurityLayers');
+            this._secureLog('warn', '⚠️ No data returned from removeSecurityLayers');
             return;
         }
 
@@ -3614,7 +3617,7 @@ async processMessage(data) {
         } else if (originalData && typeof originalData === 'object' && originalData.message) {
             messageText = originalData.message;
         } else {
-            console.warn('⚠️ Unexpected data type after processing:', typeof originalData);
+            this._secureLog('warn', '⚠️ Unexpected data type after processing:', { details: typeof originalData });
             return;
         }
 
@@ -3651,7 +3654,7 @@ async processMessage(data) {
         }
 
     } catch (error) {
-        console.error('❌ Failed to process message:', error);
+        this._secureLog('error', '❌ Failed to process message:', { errorType: error?.constructor?.name || 'Unknown' });
     }
 }
 
@@ -3823,7 +3826,7 @@ handleSystemMessage(message) {
                 try {
                     this.initializeDecoyChannels();
                 } catch (error) {
-                    console.warn('⚠️ Decoy channels initialization failed:', error.message);
+                    this._secureLog('warn', '⚠️ Decoy channels initialization failed:', { details: error.message });
                     this.securityFeatures.hasDecoyChannels = false;
                     this.decoyChannelConfig.enabled = false;
                 }
@@ -3907,7 +3910,7 @@ handleSystemMessage(message) {
                     console.log('🔒 Sending security upgrade notification to peer:', securityNotification);
                     this.dataChannel.send(JSON.stringify(securityNotification));
                 } catch (error) {
-                    console.warn('⚠️ Failed to send security upgrade notification to peer:', error.message);
+                    this._secureLog('warn', '⚠️ Failed to send security upgrade notification to peer:', { details: error.message });
                 }
             }
 
@@ -4052,7 +4055,7 @@ handleSystemMessage(message) {
             }
             
         } catch (error) {
-            console.error('❌ Failed to establish enhanced connection:', error);
+            this._secureLog('error', '❌ Failed to establish enhanced connection:', { errorType: error?.constructor?.name || 'Unknown' });
             // Do not close the connection on setup errors — just log and continue
             this.onStatusChange('disconnected');
             throw error;
@@ -4094,7 +4097,7 @@ handleSystemMessage(message) {
             this.chunkQueue = [];
 
         } catch (error) {
-            console.error('❌ Error during enhanced disconnect:', error);
+            this._secureLog('error', '❌ Error during enhanced disconnect:', { errorType: error?.constructor?.name || 'Unknown' });
         }
     }
 
@@ -4365,7 +4368,7 @@ handleSystemMessage(message) {
         this.initializeFileTransfer();
                 
             } catch (error) {
-                console.error('❌ Error in establishConnection:', error);
+                this._secureLog('error', '❌ Error in establishConnection:', { errorType: error?.constructor?.name || 'Unknown' });
                 // Continue despite errors
             }
                 
@@ -4457,7 +4460,7 @@ handleSystemMessage(message) {
                                         }
                                     }
                                 } catch (initError) {
-                                    console.error('❌ Failed to initialize file transfer system for receiver:', initError);
+                                    this._secureLog('error', '❌ Failed to initialize file transfer system for receiver:', { errorType: initError?.constructor?.name || 'Unknown' });
                                 }
                             }
                             
@@ -4473,7 +4476,7 @@ handleSystemMessage(message) {
                                 return;
                             }
                             // Attempt lazy initialization on receiver side
-                            console.warn('⚠️ File transfer system not ready, attempting lazy init...');
+                            this._secureLog('warn', '⚠️ File transfer system not ready, attempting lazy init...');
                             try {
                                 await this._ensureFileTransferReady();
                                 if (this.fileTransferSystem) {
@@ -4481,9 +4484,9 @@ handleSystemMessage(message) {
                                     return;
                                 }
                             } catch (e) {
-                                console.error('❌ Lazy init of file transfer failed:', e?.message || e);
+                                this._secureLog('error', '❌ Lazy init of file transfer failed:', { errorType: e?.message || e?.constructor?.name || 'Unknown' });
                             }
-                            console.error('❌ No file transfer system available for:', parsed.type);
+                            this._secureLog('error', '❌ No file transfer system available for:', { errorType: parsed.type?.constructor?.name || 'Unknown' });
                             return; // IMPORTANT: Do not process further
                         }
                         
@@ -4551,7 +4554,7 @@ handleSystemMessage(message) {
                 }
                 
             } catch (error) {
-                console.error('❌ Failed to process message in onmessage:', error);
+                this._secureLog('error', '❌ Failed to process message in onmessage:', { errorType: error?.constructor?.name || 'Unknown' });
             }
         };
     }
@@ -4572,7 +4575,7 @@ async _processBinaryDataWithoutMutex(data) {
             try {
                 processedData = await this.removeNestedEncryption(processedData);
             } catch (error) {
-                console.warn('⚠️ Nested decryption failed, continuing with original data');
+                this._secureLog('warn', '⚠️ Nested decryption failed, continuing with original data');
             }
         }
         
@@ -4581,7 +4584,7 @@ async _processBinaryDataWithoutMutex(data) {
             try {
                 processedData = this.removePacketPadding(processedData);
             } catch (error) {
-                console.warn('⚠️ Packet padding removal failed, continuing with original data');
+                this._secureLog('warn', '⚠️ Packet padding removal failed, continuing with original data');
             }
         }
         
@@ -4590,7 +4593,7 @@ async _processBinaryDataWithoutMutex(data) {
             try {
                 processedData = this.removeAntiFingerprinting(processedData);
             } catch (error) {
-                console.warn('⚠️ Anti-fingerprinting removal failed, continuing with original data');
+                this._secureLog('warn', '⚠️ Anti-fingerprinting removal failed, continuing with original data');
             }
         }
         
@@ -4616,7 +4619,7 @@ async _processBinaryDataWithoutMutex(data) {
         }
         
     } catch (error) {
-        console.error('❌ Error processing binary data:', error);
+        this._secureLog('error', '❌ Error processing binary data:', { errorType: error?.constructor?.name || 'Unknown' });
     }
 }
     // FIX 3: New method for processing enhanced messages WITHOUT mutex
@@ -4625,7 +4628,7 @@ async _processEnhancedMessageWithoutMutex(parsedMessage) {
         console.log('🔐 Processing enhanced message without mutex...');
         
         if (!this.encryptionKey || !this.macKey || !this.metadataKey) {
-            console.error('❌ Missing encryption keys for enhanced message');
+            this._secureLog('error', '❌ Missing encryption keys for enhanced message');
             return;
         }
         
@@ -4661,11 +4664,11 @@ async _processEnhancedMessageWithoutMutex(parsedMessage) {
                 this.deliverMessageToUI(decryptedResult.message, 'received');
             }
         } else {
-            console.warn('⚠️ No message content in decrypted result');
+            this._secureLog('warn', '⚠️ No message content in decrypted result');
         }
         
     } catch (error) {
-        console.error('❌ Error processing enhanced message:', error);
+        this._secureLog('error', '❌ Error processing enhanced message:', { errorType: error?.constructor?.name || 'Unknown' });
     }
 }
     /**
@@ -6406,7 +6409,7 @@ _getMutexSystemDiagnostics() {
                         this.notifySecurityUpdate();
                     }
                 } catch (error) {
-                    console.error('❌ Error calculating security after connection:', error);
+                    this._secureLog('error', '❌ Error calculating security after connection:', { errorType: error?.constructor?.name || 'Unknown' });
                 }
             }, 1000);
             setTimeout(async () => {
@@ -6447,7 +6450,7 @@ _getMutexSystemDiagnostics() {
                     console.log('✅ Force security update completed');
                 }
             } catch (error) {
-                console.error('❌ Force security update failed:', error);
+                this._secureLog('error', '❌ Force security update failed:', { errorType: error?.constructor?.name || 'Unknown' });
             }
         }, 100);
     }
@@ -6487,7 +6490,7 @@ _getMutexSystemDiagnostics() {
             
             this.processMessageQueue();
         } catch (error) {
-            console.error('Verification failed:', error);
+            this._secureLog('error', '❌ Verification failed:', { errorType: error?.constructor?.name || 'Unknown' });
             this.deliverMessageToUI('❌ Verification failed', 'system');
         }
     }
@@ -6741,7 +6744,7 @@ _getMutexSystemDiagnostics() {
                         timestamp: Date.now() 
                     }));
                 } catch (error) {
-                    console.error('Heartbeat failed:', error);
+                    this._secureLog('error', '❌ Heartbeat failed:', { errorType: error?.constructor?.name || 'Unknown' });
                 }
             }
         }, EnhancedSecureWebRTCManager.TIMEOUTS.HEARTBEAT_INTERVAL);
@@ -7049,7 +7052,7 @@ _getMutexSystemDiagnostics() {
             console.log('✅ File transfer initiated successfully with ID:', fileId);
             return fileId;
         } catch (error) {
-            console.error('❌ File transfer error:', error);
+            this._secureLog('error', '❌ File transfer error:', { errorType: error?.constructor?.name || 'Unknown' });
             
             // Re-throw with a clearer message
             if (error.message.includes('Connection not ready')) {
@@ -7078,13 +7081,13 @@ _getMutexSystemDiagnostics() {
             if (typeof this.fileTransferSystem.getActiveTransfers === 'function') {
                 sending = this.fileTransferSystem.getActiveTransfers();
             } else {
-                console.warn('⚠️ getActiveTransfers method not available in file transfer system');
+                this._secureLog('warn', '⚠️ getActiveTransfers method not available in file transfer system');
             }
             
             if (typeof this.fileTransferSystem.getReceivingTransfers === 'function') {
                 receiving = this.fileTransferSystem.getReceivingTransfers();
             } else {
-                console.warn('⚠️ getReceivingTransfers method not available in file transfer system');
+                this._secureLog('warn', '⚠️ getReceivingTransfers method not available in file transfer system');
             }
             
             return {
@@ -7092,7 +7095,7 @@ _getMutexSystemDiagnostics() {
                 receiving: receiving || []
             };
         } catch (error) {
-            console.error('❌ Error getting file transfers:', error);
+            this._secureLog('error', '❌ Error getting file transfers:', { errorType: error?.constructor?.name || 'Unknown' });
             return { sending: [], receiving: [] };
         }
     }
@@ -7146,7 +7149,7 @@ _getMutexSystemDiagnostics() {
             this.initializeFileTransfer();
             return true;
         } catch (error) {
-            console.error('❌ Failed to reinitialize file transfer system:', error);
+            this._secureLog('error', '❌ Failed to reinitialize file transfer system:', { errorType: error?.constructor?.name || 'Unknown' });
             return false;
         }
     }
@@ -7208,7 +7211,7 @@ _getMutexSystemDiagnostics() {
             try {
                 this.initializeFileTransfer();
             } catch (error) {
-                console.warn('⚠️ File transfer initialization failed during session activation:', error.message);
+                this._secureLog('warn', '⚠️ File transfer initialization failed during session activation:', { details: error.message });
             }
         }, 1000);
             
@@ -7227,7 +7230,7 @@ _getMutexSystemDiagnostics() {
             }
             
         } catch (error) {
-            console.error('❌ Failed to handle session activation:', error);
+            this._secureLog('error', '❌ Failed to handle session activation:', { errorType: error?.constructor?.name || 'Unknown' });
         }
     }
     // Method to check readiness of file transfers
@@ -7270,7 +7273,7 @@ checkFileTransferReadiness() {
             
             return true;
         } catch (error) {
-            console.error('❌ Failed to force reinitialize file transfer:', error);
+            this._secureLog('error', '❌ Failed to force reinitialize file transfer:', { errorType: error?.constructor?.name || 'Unknown' });
             return false;
         }
     }
@@ -7403,7 +7406,7 @@ checkFileTransferReadiness() {
             }
             
         } catch (error) {
-            console.error('❌ Force file transfer initialization failed:', error);
+            this._secureLog('error', '❌ Force file transfer initialization failed:', { errorType: error?.constructor?.name || 'Unknown' });
             return false;
         }
     }

@@ -1,6 +1,11 @@
 class EnhancedSecureCryptoUtils {
 
     static _keyMetadata = new WeakMap();
+    
+    // Initialize secure logging system
+    static {
+        EnhancedSecureCryptoUtils.secureLog.init();
+    }
 
     // Utility to sort object keys for deterministic serialization
     static sortObjectKeys(obj) {
@@ -69,7 +74,7 @@ class EnhancedSecureCryptoUtils {
             }
             return bytes.buffer;
         } catch (error) {
-            console.error('Base64 to ArrayBuffer conversion failed:', error);
+            EnhancedSecureCryptoUtils.secureLog.log('error', 'Base64 to ArrayBuffer conversion failed', { error: error.message });
             throw new Error(`Base64 conversion error: ${error.message}`);
         }
     }
@@ -122,7 +127,7 @@ class EnhancedSecureCryptoUtils {
             return EnhancedSecureCryptoUtils.arrayBufferToBase64(new TextEncoder().encode(packageString).buffer);
 
         } catch (error) {
-            console.error('Encryption failed:', error);
+            EnhancedSecureCryptoUtils.secureLog.log('error', 'Encryption failed', { error: error.message });
             throw new Error(`Encryption error: ${error.message}`);
         }
     }
@@ -180,7 +185,7 @@ class EnhancedSecureCryptoUtils {
             }
 
         } catch (error) {
-            console.error('Decryption failed:', error);
+            EnhancedSecureCryptoUtils.secureLog.log('error', 'Decryption failed', { error: error.message });
             throw new Error(`Decryption error: ${error.message}`);
         }
     }
@@ -770,6 +775,26 @@ class EnhancedSecureCryptoUtils {
     static secureLog = {
         logs: [],
         maxLogs: 100,
+        isProductionMode: false,
+        
+        // Initialize production mode detection
+        init() {
+            this.isProductionMode = this._detectProductionMode();
+            if (this.isProductionMode) {
+                console.log('[SecureChat] Production mode detected - sensitive logging disabled');
+            }
+        },
+        
+        _detectProductionMode() {
+            return (
+                (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production') ||
+                (!window.DEBUG_MODE && !window.DEVELOPMENT_MODE) ||
+                (window.location.hostname && !window.location.hostname.includes('localhost') && 
+                 !window.location.hostname.includes('127.0.0.1') && 
+                 !window.location.hostname.includes('.local')) ||
+                (typeof window.webpackHotUpdate === 'undefined' && !window.location.search.includes('debug'))
+            );
+        },
         
         log(level, message, context = {}) {
             const sanitizedContext = this.sanitizeContext(context);
@@ -788,21 +813,48 @@ class EnhancedSecureCryptoUtils {
                 this.logs = this.logs.slice(-this.maxLogs);
             }
             
-            // Console output for development
-            if (level === 'error') {
-                console.error(`[SecureChat] ${message}`, sanitizedContext);
-            } else if (level === 'warn') {
-                console.warn(`[SecureChat] ${message}`, sanitizedContext);
+            // Production-safe console output
+            if (this.isProductionMode) {
+                if (level === 'error') {
+                    // В production показываем только код ошибки без деталей
+                    this._secureLog('error', '❌ [SecureChat] ${message} [ERROR_CODE: ${this._generateErrorCode(message)}]');
+                } else if (level === 'warn') {
+                    // В production показываем только предупреждение без контекста
+                    this._secureLog('warn', '⚠️ [SecureChat] ${message}');
+                } else {
+                    // В production не показываем info/debug логи
+                    return;
+                }
             } else {
-                console.log(`[SecureChat] ${message}`, sanitizedContext);
+                // Development mode - показываем все
+                if (level === 'error') {
+                    this._secureLog('error', '❌ [SecureChat] ${message}', { errorType: sanitizedContext?.constructor?.name || 'Unknown' });
+                } else if (level === 'warn') {
+                    this._secureLog('warn', '⚠️ [SecureChat] ${message}', { details: sanitizedContext });
+                } else {
+                    console.log(`[SecureChat] ${message}`, sanitizedContext);
+                }
             }
         },
         
+        // Генерирует безопасный код ошибки для production
+        _generateErrorCode(message) {
+            const hash = message.split('').reduce((a, b) => {
+                a = ((a << 5) - a) + b.charCodeAt(0);
+                return a & a;
+            }, 0);
+            return Math.abs(hash).toString(36).substring(0, 6).toUpperCase();
+        },
+        
         sanitizeContext(context) {
+            if (!context || typeof context !== 'object') {
+                return context;
+            }
+            
             const sensitivePatterns = [
                 /key/i, /secret/i, /password/i, /token/i, /signature/i,
                 /challenge/i, /proof/i, /salt/i, /iv/i, /nonce/i, /hash/i,
-                /fingerprint/i, /mac/i
+                /fingerprint/i, /mac/i, /private/i, /encryption/i, /decryption/i
             ];
             
             const sanitized = {};
@@ -815,6 +867,11 @@ class EnhancedSecureCryptoUtils {
                     sanitized[key] = '[REDACTED]';
                 } else if (typeof value === 'string' && value.length > 100) {
                     sanitized[key] = value.substring(0, 100) + '...[TRUNCATED]';
+                } else if (value instanceof ArrayBuffer || value instanceof Uint8Array) {
+                    sanitized[key] = `[${value.constructor.name}(${value.byteLength || value.length} bytes)]`;
+                } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+                    // Рекурсивная санитизация для объектов
+                    sanitized[key] = this.sanitizeContext(value);
                 } else {
                     sanitized[key] = value;
                 }
@@ -831,6 +888,32 @@ class EnhancedSecureCryptoUtils {
         
         clearLogs() {
             this.logs = [];
+        },
+        
+        // Метод для отправки ошибок на сервер в production
+        async sendErrorToServer(errorCode, message, context = {}) {
+            if (!this.isProductionMode) {
+                return; // В development не отправляем
+            }
+            
+            try {
+                // Отправляем только безопасную информацию
+                const safeErrorData = {
+                    errorCode,
+                    timestamp: Date.now(),
+                    userAgent: navigator.userAgent.substring(0, 100),
+                    url: window.location.href.substring(0, 100)
+                };
+                
+                // Здесь можно добавить отправку на сервер
+                // await fetch('/api/error-log', { method: 'POST', body: JSON.stringify(safeErrorData) });
+                
+                if (window.DEBUG_MODE) {
+                    console.log('[SecureChat] Error logged to server:', safeErrorData);
+                }
+            } catch (e) {
+                // Не логируем ошибки логирования
+            }
         }
     };
 
