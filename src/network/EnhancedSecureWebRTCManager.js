@@ -828,6 +828,245 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         }
     }
 
+    /**
+     * SECURE: Comprehensive input validation to prevent DoS and injection attacks
+     * @param {any} data - Data to validate
+     * @param {string} context - Context for validation (e.g., 'sendMessage', 'sendSecureMessage')
+     * @returns {Object} Validation result with isValid and sanitizedData
+     */
+    _validateInputData(data, context = 'unknown') {
+        const validationResult = {
+            isValid: false,
+            sanitizedData: null,
+            errors: [],
+            warnings: []
+        };
+
+        try {
+            // 1. Basic type validation
+            if (data === null || data === undefined) {
+                validationResult.errors.push('Data cannot be null or undefined');
+                return validationResult;
+            }
+
+            // 2. Size validation for strings
+            if (typeof data === 'string') {
+                if (data.length > this._inputValidationLimits.maxStringLength) {
+                    validationResult.errors.push(`String too long: ${data.length} > ${this._inputValidationLimits.maxStringLength}`);
+                    return validationResult;
+                }
+
+                // 3. Malicious pattern detection for strings
+                for (const pattern of this._maliciousPatterns) {
+                    if (pattern.test(data)) {
+                        validationResult.errors.push(`Malicious pattern detected: ${pattern.source}`);
+                        this._secureLog('warn', '🚨 Malicious pattern detected in input', {
+                            context: context,
+                            pattern: pattern.source,
+                            dataLength: data.length
+                        });
+                        return validationResult;
+                    }
+                }
+
+                // 4. Sanitize string data
+                validationResult.sanitizedData = this._sanitizeInputString(data);
+                validationResult.isValid = true;
+                return validationResult;
+            }
+
+            // 5. Object validation
+            if (typeof data === 'object') {
+                // Check for circular references
+                const seen = new WeakSet();
+                const checkCircular = (obj, path = '') => {
+                    if (obj === null || typeof obj !== 'object') return;
+                    
+                    if (seen.has(obj)) {
+                        validationResult.errors.push(`Circular reference detected at path: ${path}`);
+                        return;
+                    }
+                    
+                    seen.add(obj);
+                    
+                    // Check object depth
+                    if (path.split('.').length > this._inputValidationLimits.maxObjectDepth) {
+                        validationResult.errors.push(`Object too deep: ${path.split('.').length} > ${this._inputValidationLimits.maxObjectDepth}`);
+                        return;
+                    }
+
+                    // Check array length
+                    if (Array.isArray(obj) && obj.length > this._inputValidationLimits.maxArrayLength) {
+                        validationResult.errors.push(`Array too long: ${obj.length} > ${this._inputValidationLimits.maxArrayLength}`);
+                        return;
+                    }
+
+                    // Recursively check all properties
+                    for (const key in obj) {
+                        if (obj.hasOwnProperty(key)) {
+                            checkCircular(obj[key], path ? `${path}.${key}` : key);
+                        }
+                    }
+                };
+
+                checkCircular(data);
+                
+                if (validationResult.errors.length > 0) {
+                    return validationResult;
+                }
+
+                // 6. Check total object size
+                const objectSize = this._calculateObjectSize(data);
+                if (objectSize > this._inputValidationLimits.maxMessageSize) {
+                    validationResult.errors.push(`Object too large: ${objectSize} bytes > ${this._inputValidationLimits.maxMessageSize} bytes`);
+                    return validationResult;
+                }
+
+                // 7. Sanitize object data
+                validationResult.sanitizedData = this._sanitizeInputObject(data);
+                validationResult.isValid = true;
+                return validationResult;
+            }
+
+            // 8. ArrayBuffer validation
+            if (data instanceof ArrayBuffer) {
+                if (data.byteLength > this._inputValidationLimits.maxMessageSize) {
+                    validationResult.errors.push(`ArrayBuffer too large: ${data.byteLength} bytes > ${this._inputValidationLimits.maxMessageSize} bytes`);
+                    return validationResult;
+                }
+                
+                validationResult.sanitizedData = data;
+                validationResult.isValid = true;
+                return validationResult;
+            }
+
+            // 9. Other types are not allowed
+            validationResult.errors.push(`Unsupported data type: ${typeof data}`);
+            return validationResult;
+
+        } catch (error) {
+            validationResult.errors.push(`Validation error: ${error.message}`);
+            this._secureLog('error', '❌ Input validation failed', {
+                context: context,
+                errorType: error?.constructor?.name || 'Unknown',
+                message: error?.message || 'Unknown error'
+            });
+            return validationResult;
+        }
+    }
+
+    /**
+     * SECURE: Calculate approximate object size in bytes
+     * @param {any} obj - Object to calculate size for
+     * @returns {number} Size in bytes
+     */
+    _calculateObjectSize(obj) {
+        try {
+            const jsonString = JSON.stringify(obj);
+            return new TextEncoder().encode(jsonString).length;
+        } catch (error) {
+            // If JSON.stringify fails, estimate size
+            return 1024 * 1024; // Assume 1MB to be safe
+        }
+    }
+
+    /**
+     * SECURE: Sanitize string data for input validation
+     * @param {string} str - String to sanitize
+     * @returns {string} Sanitized string
+     */
+    _sanitizeInputString(str) {
+        if (typeof str !== 'string') return str;
+        
+        // Remove null bytes
+        str = str.replace(/\0/g, '');
+        
+        // Normalize whitespace
+        str = str.replace(/\s+/g, ' ');
+        
+        // Trim
+        str = str.trim();
+        
+        return str;
+    }
+
+    /**
+     * SECURE: Sanitize object data for input validation
+     * @param {any} obj - Object to sanitize
+     * @returns {any} Sanitized object
+     */
+    _sanitizeInputObject(obj) {
+        if (obj === null || typeof obj !== 'object') return obj;
+        
+        if (Array.isArray(obj)) {
+            return obj.map(item => this._sanitizeInputObject(item));
+        }
+        
+        const sanitized = {};
+        for (const key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                const value = obj[key];
+                if (typeof value === 'string') {
+                    sanitized[key] = this._sanitizeInputString(value);
+                } else if (typeof value === 'object') {
+                    sanitized[key] = this._sanitizeInputObject(value);
+                } else {
+                    sanitized[key] = value;
+                }
+            }
+        }
+        
+        return sanitized;
+    }
+
+    /**
+     * SECURE: Rate limiting for message sending
+     * @param {string} context - Context for rate limiting
+     * @returns {boolean} true if rate limit allows
+     */
+    _checkRateLimit(context = 'message') {
+        const now = Date.now();
+        
+        // Initialize rate limiter if not exists
+        if (!this._rateLimiter) {
+            this._rateLimiter = {
+                messageCount: 0,
+                lastReset: now,
+                burstCount: 0,
+                lastBurstReset: now
+            };
+        }
+        
+        // Reset counters if needed
+        if (now - this._rateLimiter.lastReset > 60000) { // 1 minute
+            this._rateLimiter.messageCount = 0;
+            this._rateLimiter.lastReset = now;
+        }
+        
+        if (now - this._rateLimiter.lastBurstReset > 1000) { // 1 second
+            this._rateLimiter.burstCount = 0;
+            this._rateLimiter.lastBurstReset = now;
+        }
+        
+        // Check burst limit
+        if (this._rateLimiter.burstCount >= this._inputValidationLimits.rateLimitBurstSize) {
+            this._secureLog('warn', '⚠️ Rate limit burst exceeded', { context });
+            return false;
+        }
+        
+        // Check overall rate limit
+        if (this._rateLimiter.messageCount >= this._inputValidationLimits.rateLimitMessagesPerMinute) {
+            this._secureLog('warn', '⚠️ Rate limit exceeded', { context });
+            return false;
+        }
+        
+        // Increment counters
+        this._rateLimiter.messageCount++;
+        this._rateLimiter.burstCount++;
+        
+        return true;
+    }
+
     // ============================================
     // SECURE KEY STORAGE MANAGEMENT
     // ============================================
@@ -1025,6 +1264,41 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             ivHistory: this._resourceLimits.maxIVHistory * 0.8,
             processedMessageIds: this._resourceLimits.maxProcessedMessageIds * 0.8
         };
+        
+        // SECURE: Input validation limits to prevent DoS attacks
+        this._inputValidationLimits = {
+            maxStringLength: 100000, // 100KB for strings
+            maxObjectDepth: 10, // Maximum object nesting depth
+            maxArrayLength: 1000, // Maximum array length
+            maxMessageSize: 1024 * 1024, // 1MB total message size
+            maxConcurrentMessages: 10, // Maximum concurrent message processing
+            rateLimitMessagesPerMinute: 60, // Rate limiting
+            rateLimitBurstSize: 10 // Burst size for rate limiting
+        };
+        
+        // SECURE: Malicious pattern detection
+        this._maliciousPatterns = [
+            /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, // Script tags
+            /javascript:/gi, // JavaScript protocol
+            /data:text\/html/gi, // Data URLs with HTML
+            /on\w+\s*=/gi, // Event handlers
+            /eval\s*\(/gi, // eval() calls
+            /document\./gi, // Document object access
+            /window\./gi, // Window object access
+            /localStorage/gi, // LocalStorage access
+            /sessionStorage/gi, // SessionStorage access
+            /fetch\s*\(/gi, // Fetch API calls
+            /XMLHttpRequest/gi, // XHR calls
+            /import\s*\(/gi, // Dynamic imports
+            /require\s*\(/gi, // Require calls
+            /process\./gi, // Process object access
+            /global/gi, // Global object access
+            /__proto__/gi, // Prototype pollution
+            /constructor/gi, // Constructor access
+            /prototype/gi, // Prototype access
+            /toString\s*\(/gi, // toString calls
+            /valueOf\s*\(/gi // valueOf calls
+        ];
 
         // CRITICAL FIX: Comprehensive blacklist with all sensitive patterns
         this._absoluteBlacklist = new Set([
@@ -1743,6 +2017,10 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         
         if (typeof this._emergencyDisableLogging === 'function') {
             safeGlobalAPI.emergency.disableLogging = this._emergencyDisableLogging.bind(this);
+        }
+        
+        if (typeof this._resetLoggingSystem === 'function') {
+            safeGlobalAPI.emergency.resetLogging = this._resetLoggingSystem.bind(this);
         }
         
         // SECURE: Add file transfer system status
@@ -3104,6 +3382,12 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             }
         };
         
+        // CRITICAL FIX: Store original functions before overriding
+        this._originalSanitizeString = this._sanitizeString;
+        this._originalSanitizeLogData = this._sanitizeLogData;
+        this._originalAuditLogMessage = this._auditLogMessage;
+        this._originalContainsSensitiveContent = this._containsSensitiveContent;
+        
         // CRITICAL FIX: Override all logging methods to prevent bypass
         this._sanitizeString = () => '[LOGGING_DISABLED]';
         this._sanitizeLogData = () => ({ error: 'LOGGING_DISABLED' });
@@ -3121,6 +3405,25 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         
         // CRITICAL FIX: Notify about the emergency shutdown
         this._originalConsole?.error?.('🚨 CRITICAL: Secure logging system disabled due to potential data exposure');
+    }
+
+    /**
+     * SECURE: Reset logging system after emergency shutdown
+     * Use this function to restore normal logging functionality
+     */
+    _resetLoggingSystem() {
+        this._secureLog('info', '🔧 Resetting logging system after emergency shutdown');
+        
+        // Restore original sanitize functions
+        this._sanitizeString = this._originalSanitizeString || ((str) => str);
+        this._sanitizeLogData = this._originalSanitizeLogData || ((data) => data);
+        this._auditLogMessage = this._originalAuditLogMessage || (() => true);
+        this._containsSensitiveContent = this._originalContainsSensitiveContent || (() => false);
+        
+        // Reset security violation counters
+        this._logSecurityViolations = 0;
+        
+        this._secureLog('info', '✅ Logging system reset successfully');
     }
     /**
      * CRITICAL FIX: Enhanced audit function for log message security
@@ -4817,61 +5120,83 @@ async processOrderedPackets() {
     }
 
     async sendMessage(data) {
-    if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
-        throw new Error('Data channel not ready');
-    }
+        // SECURE: Comprehensive input validation
+        const validation = this._validateInputData(data, 'sendMessage');
+        if (!validation.isValid) {
+            const errorMessage = `Input validation failed: ${validation.errors.join(', ')}`;
+            this._secureLog('error', '❌ Input validation failed in sendMessage', {
+                errors: validation.errors,
+                dataType: typeof data,
+                dataLength: data?.length || data?.byteLength || 0
+            });
+            throw new Error(errorMessage);
+        }
 
-    try {
-        this._secureLog('debug', 'sendMessage called', {
-            hasDataChannel: !!this.dataChannel,
-            dataChannelReady: this.dataChannel?.readyState === 'open',
-            isInitiator: this.isInitiator,
-            isVerified: this.isVerified,
-            connectionReady: this.peerConnection?.connectionState === 'connected'
-        });
+        // SECURE: Rate limiting check
+        if (!this._checkRateLimit('sendMessage')) {
+            throw new Error('Rate limit exceeded for message sending');
+        }
 
-        this._secureLog('debug', '🔍 sendMessage DEBUG', {
-            dataType: typeof data,
-            isString: typeof data === 'string',
-            isArrayBuffer: data instanceof ArrayBuffer,
-            dataLength: data?.length || data?.byteLength || 0,
-        });
+        // SECURE: Connection validation
+        if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
+            throw new Error('Data channel not ready');
+        }
 
-        // FIX: Check whether this is a file-transfer message
-        if (typeof data === 'string') {
-            try {
-                const parsed = JSON.parse(data);
-                
-                // Send file messages directly without additional encryption
-                if (parsed.type && parsed.type.startsWith('file_')) {
-                    this._secureLog('debug', '📁 Sending file message directly', { type: parsed.type });
-                    this.dataChannel.send(data);
-                    return true;
+        try {
+            this._secureLog('debug', 'sendMessage called', {
+                hasDataChannel: !!this.dataChannel,
+                dataChannelReady: this.dataChannel?.readyState === 'open',
+                isInitiator: this.isInitiator,
+                isVerified: this.isVerified,
+                connectionReady: this.peerConnection?.connectionState === 'connected'
+            });
+
+            this._secureLog('debug', '🔍 sendMessage DEBUG', {
+                dataType: typeof validation.sanitizedData,
+                isString: typeof validation.sanitizedData === 'string',
+                isArrayBuffer: validation.sanitizedData instanceof ArrayBuffer,
+                dataLength: validation.sanitizedData?.length || validation.sanitizedData?.byteLength || 0,
+            });
+
+            // SECURE: Check whether this is a file-transfer message
+            if (typeof validation.sanitizedData === 'string') {
+                try {
+                    const parsed = JSON.parse(validation.sanitizedData);
+                    
+                    // Send file messages directly without additional encryption
+                    if (parsed.type && parsed.type.startsWith('file_')) {
+                        this._secureLog('debug', '📁 Sending file message directly', { type: parsed.type });
+                        this.dataChannel.send(validation.sanitizedData);
+                        return true;
+                    }
+                } catch (jsonError) {
+                    // Not JSON — continue normal handling
                 }
-            } catch (jsonError) {
-                // Not JSON — continue normal handling
             }
-        }
 
-        // For regular text messages, send via secure path
-        if (typeof data === 'string') {
-            return await this.sendSecureMessage({ type: 'message', data, timestamp: Date.now() });
-        }
+            // SECURE: For regular text messages, send via secure path
+            if (typeof validation.sanitizedData === 'string') {
+                return await this.sendSecureMessage({ 
+                    type: 'message', 
+                    data: validation.sanitizedData, 
+                    timestamp: Date.now() 
+                });
+            }
 
-        // For binary data, apply security layers with a limited mutex
-        this._secureLog('debug', '🔐 Applying security layers to non-string data');
-        const securedData = await this._applySecurityLayersWithLimitedMutex(data, false);
-        this.dataChannel.send(securedData);
-        
-        return true;
-    } catch (error) {
-        this._secureLog('error', '❌ Failed to send message', { 
-            error: error.message,
-            errorType: error.constructor.name
-        });
-        throw error;
+            // SECURE: For binary data, apply security layers with a limited mutex
+            this._secureLog('debug', '🔐 Applying security layers to non-string data');
+            const securedData = await this._applySecurityLayersWithLimitedMutex(validation.sanitizedData, false);
+            this.dataChannel.send(securedData);
+            
+            return true;
+        } catch (error) {
+            this._secureLog('error', '❌ Failed to send message', { 
+                error: error.message,
+                errorType: error.constructor.name
+            });
+            throw error;
+        }
     }
-}
 
     // FIX: New method applying security layers with limited mutex use
     async _applySecurityLayersWithLimitedMutex(data, isFakeMessage = false) {
@@ -9115,16 +9440,32 @@ async processMessage(data) {
     }
 
     async sendSecureMessage(message) {
-        // Quick readiness check WITHOUT mutex
+        // SECURE: Comprehensive input validation
+        const validation = this._validateInputData(message, 'sendSecureMessage');
+        if (!validation.isValid) {
+            const errorMessage = `Input validation failed: ${validation.errors.join(', ')}`;
+            this._secureLog('error', '❌ Input validation failed in sendSecureMessage', {
+                errors: validation.errors,
+                messageType: typeof message
+            });
+            throw new Error(errorMessage);
+        }
+
+        // SECURE: Rate limiting check
+        if (!this._checkRateLimit('sendSecureMessage')) {
+            throw new Error('Rate limit exceeded for secure message sending');
+        }
+
+        // SECURE: Quick readiness check WITHOUT mutex
         if (!this.isConnected() || !this.isVerified) {
-            if (message && typeof message === 'object' && message.type && message.type.startsWith('file_')) {
+            if (validation.sanitizedData && typeof validation.sanitizedData === 'object' && validation.sanitizedData.type && validation.sanitizedData.type.startsWith('file_')) {
                 throw new Error('Connection not ready for file transfer. Please ensure the connection is established and verified.');
             }
-            this.messageQueue.push(message);
+            this.messageQueue.push(validation.sanitizedData);
             throw new Error('Connection not ready. Message queued for sending.');
         }
         
-        // FIX: Use mutex ONLY for cryptographic operations
+        // SECURE: Use mutex ONLY for cryptographic operations
         return this._withMutex('cryptoOperation', async (operationId) => {
             // Re-check inside critical section
             if (!this.isConnected() || !this.isVerified) {
@@ -9136,18 +9477,18 @@ async processMessage(data) {
                 throw new Error('Encryption keys not initialized');
             }
             
-            // Rate limiting check
+            // SECURE: Additional rate limiting check
             if (!window.EnhancedSecureCryptoUtils.rateLimiter.checkMessageRate(this.rateLimiterId)) {
                 throw new Error('Message rate limit exceeded (60 messages per minute)');
             }
             
             try {
-                // Accept strings and objects; stringify objects
-                const textToSend = typeof message === 'string' ? message : JSON.stringify(message);
+                // SECURE: Accept strings and objects; stringify objects
+                const textToSend = typeof validation.sanitizedData === 'string' ? validation.sanitizedData : JSON.stringify(validation.sanitizedData);
                 const sanitizedMessage = window.EnhancedSecureCryptoUtils.sanitizeMessage(textToSend);
                 const messageId = `msg_${Date.now()}_${this.messageCounter++}`;
                 
-                // Use enhanced encryption with metadata protection
+                // SECURE: Use enhanced encryption with metadata protection
                 const encryptedData = await window.EnhancedSecureCryptoUtils.encryptMessage(
                     sanitizedMessage,
                     this.encryptionKey,
@@ -9165,9 +9506,9 @@ async processMessage(data) {
                 };
                 
                 this.dataChannel.send(JSON.stringify(payload));
-                // Locally display only plain strings to avoid UI duplication
-                if (typeof message === 'string') {
-                    this.deliverMessageToUI(message, 'sent');
+                // SECURE: Locally display only plain strings to avoid UI duplication
+                if (typeof validation.sanitizedData === 'string') {
+                    this.deliverMessageToUI(validation.sanitizedData, 'sent');
                 }
                 
                 this._secureLog('debug', '📤 Secure message sent successfully', {
