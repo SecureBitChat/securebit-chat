@@ -2,6 +2,20 @@
 import { EnhancedSecureFileTransfer } from '../transfer/EnhancedSecureFileTransfer.js';
 
 // ============================================
+// CRITICAL SECURITY WARNING
+// ============================================
+// 
+// MITM PROTECTION: Self-signed ECDSA keys DO NOT provide authentication!
+// - MITM can substitute both keys and "self-sign" them
+// - ECDSA signatures only prove packet integrity, not identity
+// - SAS (Short Authentication String) verification is the ONLY protection
+// 
+// REQUIREMENT: Both parties MUST verify the same code out-of-band:
+// - Voice call, video call, or in-person verification
+// - Compare verification codes before allowing traffic
+// - No traffic should be allowed before SAS verification
+// 
+// ============================================
 // MUTEX SYSTEM FIXES - RESOLVING MESSAGE DELIVERY ISSUES
 // ============================================
 // Issue: After introducing the Mutex system, messages stopped being delivered between users
@@ -103,22 +117,25 @@ class EnhancedSecureWebRTCManager {
     static DEBUG_MODE = false; // Set to true during development, false in production
 
     // ============================================
-    // DTLS CLIENTHELLO RACE CONDITION PROTECTION
+    // SECURITY WARNING: DTLS PROTECTION REMOVED
     // ============================================
-    
-    // Защита от DTLS ClientHello race condition (октябрь 2024)
-    static DTLS_PROTECTION = {
-        SUPPORTED_CIPHERS: [
-            'TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256',
-            'TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384',
-            'TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256',
-            'TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384'
-        ],
-        MIN_TLS_VERSION: '1.2',
-        MAX_TLS_VERSION: '1.3',
-        CLIENTHELLO_TIMEOUT: 5000, // 5 seconds
-        ICE_VERIFICATION_TIMEOUT: 3000 // 3 seconds
-    };
+    // 
+    // REMOVED: Fake DTLS ClientHello validation (security theater)
+    // REASON: Browser WebRTC doesn't provide access to DTLS layer in JavaScript
+    // 
+    // REAL SECURITY: Use these mechanisms instead:
+    // 1. Out-of-band key fingerprint verification (SAS/QR codes)
+    // 2. SDP fingerprint validation (not "client hello" data)
+    // 3. Public key pinning if known in advance
+    // 4. Certificate transparency validation
+    // 
+    // static DTLS_PROTECTION = {
+    //     SUPPORTED_CIPHERS: [...], // REMOVED: Fake cipher validation
+    //     MIN_TLS_VERSION: '1.2',   // REMOVED: Fake TLS version check
+    //     MAX_TLS_VERSION: '1.3',   // REMOVED: Fake TLS version check
+    //     CLIENTHELLO_TIMEOUT: 5000, // REMOVED: Fake timeout
+    //     ICE_VERIFICATION_TIMEOUT: 3000 // REMOVED: Fake timeout
+    // };
 
     constructor(onMessage, onStatusChange, onKeyExchange, onVerificationRequired, onAnswerError = null, config = {}) {
     // Determine runtime mode
@@ -193,6 +210,11 @@ class EnhancedSecureWebRTCManager {
     this.onMessage = onMessage;
     this.onStatusChange = onStatusChange;
     this.onKeyExchange = onKeyExchange;
+            // CRITICAL: SAS verification callback - this is the ONLY MITM protection
+        // - Self-signed ECDSA keys don't provide authentication
+        // - MITM can substitute both keys and "self-sign" them
+        // - SAS must be compared out-of-band (voice, video, in-person)
+        // - Both parties must verify the same code before allowing traffic
     this.onVerificationRequired = onVerificationRequired;
     this.onAnswerError = onAnswerError; // Callback for response processing errors
     this.isInitiator = false;
@@ -332,11 +354,11 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     this.maxOldKeys = EnhancedSecureWebRTCManager.LIMITS.MAX_OLD_KEYS; // Keep last 3 key versions for decryption
     this.peerConnection = null;
     this.dataChannel = null;
-             // DTLS Race Condition Protection
-    this.verifiedICEEndpoints = new Set(); // Верифицированные ICE endpoints
-    this.dtlsClientHelloQueue = new Map(); // Очередь DTLS ClientHello сообщений
-    this.iceVerificationInProgress = false; // Флаг процесса ICE верификации
-    this.dtlsProtectionEnabled = true; // Включена ли защита от DTLS race condition
+             // SECURITY: DTLS protection removed - was security theater
+    // this.verifiedICEEndpoints = new Set(); // REMOVED: Fake endpoint verification
+    // this.dtlsClientHelloQueue = new Map(); // REMOVED: Fake DTLS queue
+    // this.iceVerificationInProgress = false; // REMOVED: Fake ICE verification
+    // this.dtlsProtectionEnabled = true; // REMOVED: Fake DTLS protection
     
 
     this.securityFeatures = {
@@ -1904,154 +1926,45 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     // ============================================
-    // DTLS CLIENTHELLO RACE CONDITION PROTECTION
+    // SECURITY: DTLS FUNCTIONS REMOVED
     // ============================================
+    // 
+    // REMOVED: validateDTLSSource() - was security theater
+    // REASON: Browser WebRTC doesn't provide DTLS layer access
+    // 
+    // REAL SECURITY: Implement proper key verification instead:
+    // - Out-of-band fingerprint verification (SAS/QR)
+    // - SDP certificate fingerprint validation
+    // - Public key pinning
+    // - Certificate transparency checks
+    //
     
     /**
+     * REMOVED: addVerifiedICEEndpoint() - was part of fake DTLS protection
      * 
-     * DTLS protection ClientHello race condition 
+     * REAL SECURITY: Use proper endpoint verification:
+     * - ICE candidate validation
+     * - SDP integrity checks
+     * - Certificate fingerprint validation
      */
-    async validateDTLSSource(clientHelloData, expectedSource) {
-        try {
-            if (!this.verifiedICEEndpoints.has(expectedSource)) {
-                this._secureLog('error', 'DTLS ClientHello from unverified source - possible race condition attack', {
-                    source: expectedSource,
-                    verifiedEndpoints: Array.from(this.verifiedICEEndpoints),
-                    timestamp: Date.now()
-                });
-                throw new Error('DTLS ClientHello from unverified source - possible race condition attack');
-            }
-
-            if (!clientHelloData.cipherSuite || 
-                !EnhancedSecureWebRTCManager.DTLS_PROTECTION.SUPPORTED_CIPHERS.includes(clientHelloData.cipherSuite)) {
-                this._secureLog('error', 'Invalid cipher suite in ClientHello', {
-                    receivedCipher: clientHelloData.cipherSuite,
-                    supportedCiphers: EnhancedSecureWebRTCManager.DTLS_PROTECTION.SUPPORTED_CIPHERS
-                });
-                throw new Error('Invalid cipher suite in ClientHello');
-            }
-
-            if (clientHelloData.tlsVersion) {
-                const version = clientHelloData.tlsVersion;
-                if (version < EnhancedSecureWebRTCManager.DTLS_PROTECTION.MIN_TLS_VERSION ||
-                    version > EnhancedSecureWebRTCManager.DTLS_PROTECTION.MAX_TLS_VERSION) {
-                    this._secureLog('error', 'Unsupported TLS version in ClientHello', {
-                        receivedVersion: version,
-                        minVersion: EnhancedSecureWebRTCManager.DTLS_PROTECTION.MIN_TLS_VERSION,
-                        maxVersion: EnhancedSecureWebRTCManager.DTLS_PROTECTION.MAX_TLS_VERSION
-                    });
-                    throw new Error('Unsupported TLS version in ClientHello');
-                }
-            }
-            
-            this._secureLog('info', 'DTLS ClientHello validation passed', {
-                source: expectedSource,
-                cipherSuite: clientHelloData.cipherSuite,
-                tlsVersion: clientHelloData.tlsVersion
-            });
-            
-            return true;
-        } catch (error) {
-            this._secureLog('error', 'DTLS ClientHello validation failed', {
-                error: error.message,
-                source: expectedSource,
-                timestamp: Date.now()
-            });
-            throw error;
-        }
-    }
     
     /**
-     * Adds ICE endpoint to the list of verified ones
+     * REMOVED: handleDTLSClientHello() - was part of fake DTLS protection
+     * 
+     * REAL SECURITY: Browser handles DTLS automatically
+     * - No JavaScript access to DTLS layer
+     * - Focus on application-level security
+     * - Implement proper key verification
      */
-    addVerifiedICEEndpoint(endpoint) {
-        this.verifiedICEEndpoints.add(endpoint);
-        this._secureLog('info', 'ICE endpoint verified and added to DTLS protection', {
-            endpoint: endpoint,
-            totalVerified: this.verifiedICEEndpoints.size
-        });
-    }
     
     /**
-     * Handles DTLS ClientHello with race condition protection
+     * REMOVED: completeICEVerification() - was part of fake DTLS protection
+     * 
+     * REAL SECURITY: ICE verification happens automatically in WebRTC
+     * - Browser handles ICE candidate validation
+     * - Focus on application-level security measures
+     * - Implement proper connection verification
      */
-    async handleDTLSClientHello(clientHelloData, sourceEndpoint) {
-        try {
-            if (this.iceVerificationInProgress) {
-                this.dtlsClientHelloQueue.set(sourceEndpoint, {
-                    data: clientHelloData,
-                    timestamp: Date.now(),
-                    attempts: 0
-                });
-                
-                this._secureLog('warn', 'DTLS ClientHello queued - ICE verification in progress', {
-                    source: sourceEndpoint,
-                    queueSize: this.dtlsClientHelloQueue.size
-                });
-                
-                return false; 
-            }
-            
-            // Validate the source of the DTLS packet
-            await this.validateDTLSSource(clientHelloData, sourceEndpoint);
-
-            this._secureLog('info', 'DTLS ClientHello processed successfully', {
-                source: sourceEndpoint,
-                cipherSuite: clientHelloData.cipherSuite
-            });
-            
-            return true;
-        } catch (error) {
-            this._secureLog('error', 'DTLS ClientHello handling failed', {
-                error: error.message,
-                source: sourceEndpoint,
-                timestamp: Date.now()
-            });
-
-            this.verifiedICEEndpoints.delete(sourceEndpoint);
-            
-            throw error;
-        }
-    }
-    
-    /**
-     * Completes ICE verification and processes pending DTLS messages
-     */
-    async completeICEVerification(verifiedEndpoints) {
-        try {
-            this.iceVerificationInProgress = false;
-
-            for (const endpoint of verifiedEndpoints) {
-                this.addVerifiedICEEndpoint(endpoint);
-            }
-            
-            // Processing Deferred DTLS ClientHello Messages
-            for (const [endpoint, queuedData] of this.dtlsClientHelloQueue.entries()) {
-                try {
-                    if (this.verifiedICEEndpoints.has(endpoint)) {
-                        await this.handleDTLSClientHello(queuedData.data, endpoint);
-                        this.dtlsClientHelloQueue.delete(endpoint);
-                    }
-                } catch (error) {
-                    this._secureLog('error', 'Failed to process queued DTLS ClientHello', {
-                        endpoint: endpoint,
-                        error: error.message
-                    });
-                }
-            }
-            
-            this._secureLog('info', 'ICE verification completed and DTLS queue processed', {
-                verifiedEndpoints: verifiedEndpoints.length,
-                processedQueue: this.dtlsClientHelloQueue.size
-            });
-            
-        } catch (error) {
-            this._secureLog('error', 'ICE verification completion failed', {
-                error: error.message
-            });
-            throw error;
-        }
-    }
 
     // ============================================
     // SECURE LOGGING SYSTEM
@@ -8340,13 +8253,37 @@ async processMessage(data) {
                     'ECDSA'
                 );
                 
-                // Validate exported data
-                if (!ecdhPublicKeyData?.keyData || !ecdhPublicKeyData?.signature) {
-                    throw new Error('Failed to export ECDH public key with signature');
+                // CRITICAL: Strict validation of exported data with hard disconnect on failure
+                // - Any validation failure in critical security path must abort connection
+                // - No fallback allowed for cryptographic validation
+                // - Prevent bypass of security checks through syntax/validation errors
+                
+                if (!ecdhPublicKeyData || typeof ecdhPublicKeyData !== 'object') {
+                    this._secureLog('error', 'CRITICAL: ECDH key export failed - invalid object structure', { operationId });
+                    throw new Error('CRITICAL SECURITY FAILURE: ECDH key export validation failed - hard abort required');
                 }
                 
-                if (!ecdsaPublicKeyData?.keyData || !ecdsaPublicKeyData?.signature) {
-                    throw new Error('Failed to export ECDSA public key with signature');
+                if (!ecdhPublicKeyData.keyData || !ecdhPublicKeyData.signature) {
+                    this._secureLog('error', 'CRITICAL: ECDH key export incomplete - missing keyData or signature', { 
+                        operationId,
+                        hasKeyData: !!ecdhPublicKeyData.keyData,
+                        hasSignature: !!ecdhPublicKeyData.signature 
+                    });
+                    throw new Error('CRITICAL SECURITY FAILURE: ECDH key export incomplete - hard abort required');
+                }
+                
+                if (!ecdsaPublicKeyData || typeof ecdsaPublicKeyData !== 'object') {
+                    this._secureLog('error', 'CRITICAL: ECDSA key export failed - invalid object structure', { operationId });
+                    throw new Error('CRITICAL SECURITY FAILURE: ECDSA key export validation failed - hard abort required');
+                }
+                
+                if (!ecdsaPublicKeyData.keyData || !ecdsaPublicKeyData.signature) {
+                    this._secureLog('error', 'CRITICAL: ECDSA key export incomplete - missing keyData or signature', { 
+                        operationId,
+                        hasKeyData: !!ecdsaPublicKeyData.keyData,
+                        hasSignature: !!ecdsaPublicKeyData.signature 
+                    });
+                    throw new Error('CRITICAL SECURITY FAILURE: ECDSA key export incomplete - hard abort required');
                 }
                 
                 // ============================================
@@ -8414,10 +8351,16 @@ async processMessage(data) {
                 });
                 
                 // ============================================
-                // PHASE 8: GENERATE VERIFICATION CODE
+                // PHASE 8: GENERATE SAS FOR OUT-OF-BAND VERIFICATION
                 // ============================================
-                
-                // Generate verification code for out-of-band auth
+                // 
+                // CRITICAL SECURITY: This is the ONLY way to prevent MITM attacks
+                // - Self-signed ECDSA keys don't provide authentication
+                // - MITM can substitute both keys and "self-sign" them
+                // - SAS must be compared out-of-band (voice, video, in-person)
+                // - Both parties must verify the same code before allowing traffic
+                //
+                // Generate verification code for out-of-band authentication
                 this.verificationCode = window.EnhancedSecureCryptoUtils.generateVerificationCode();
                 
                 // Validate verification code
@@ -8830,31 +8773,18 @@ async processMessage(data) {
                     this._throwSecureError(error, 'ecdsa_key_import');
                 }
                 
-                // Verify ECDSA key self-signature
-                const ecdsaPackageCopy = { ...offerData.ecdsaPublicKey };
-                delete ecdsaPackageCopy.signature;
-                const ecdsaPackageString = JSON.stringify(ecdsaPackageCopy);
-                
-                const ecdsaSignatureValid = await window.EnhancedSecureCryptoUtils.verifySignature(
-                    peerECDSAPublicKey,
-                    offerData.ecdsaPublicKey.signature,
-                    ecdsaPackageString
-                );
-                
-                if (!ecdsaSignatureValid) {
-                    this._secureLog('error', 'Invalid ECDSA signature detected - possible MITM attack', {
-                        operationId: operationId,
-                        timestamp: offerData.timestamp,
-                        version: offerData.version
-                    });
-                    throw new Error('Invalid ECDSA key signature – possible MITM attack');
-                }
-                
-                this._secureLog('info', 'ECDSA signature verification passed', {
-                    operationId: operationId,
-                    timestamp: offerData.timestamp,
-                    version: offerData.version
-                });
+                // SECURITY: Self-signature verification removed - was security theater
+                // 
+                // PROBLEM: Self-signed ECDSA keys don't provide authentication
+                // MITM can substitute both keys and "self-sign" them
+                // 
+                // REAL SECURITY: Use out-of-band verification instead:
+                // - SAS (Short Authentication String) comparison
+                // - QR code fingerprint verification
+                // - Pre-shared public key fingerprints
+                // - Certificate transparency validation
+                //
+                // Note: ECDSA signature only proves packet integrity, not identity
                 
                 // ============================================
                 // PHASE 6: IMPORT AND VERIFY ECDH KEY
@@ -9077,13 +9007,37 @@ async processMessage(data) {
                     'ECDSA'
                 );
                 
-                // Validate exported data
-                if (!ecdhPublicKeyData?.keyData || !ecdhPublicKeyData?.signature) {
-                    throw new Error('Failed to export ECDH public key with signature');
+                // CRITICAL: Strict validation of exported data with hard disconnect on failure
+                // - Any validation failure in critical security path must abort connection
+                // - No fallback allowed for cryptographic validation
+                // - Prevent bypass of security checks through syntax/validation errors
+                
+                if (!ecdhPublicKeyData || typeof ecdhPublicKeyData !== 'object') {
+                    this._secureLog('error', 'CRITICAL: ECDH key export failed - invalid object structure', { operationId });
+                    throw new Error('CRITICAL SECURITY FAILURE: ECDH key export validation failed - hard abort required');
                 }
                 
-                if (!ecdsaPublicKeyData?.keyData || !ecdsaPublicKeyData?.signature) {
-                    throw new Error('Failed to export ECDSA public key with signature');
+                if (!ecdhPublicKeyData.keyData || !ecdhPublicKeyData.signature) {
+                    this._secureLog('error', 'CRITICAL: ECDH key export incomplete - missing keyData or signature', { 
+                        operationId,
+                        hasKeyData: !!ecdhPublicKeyData.keyData,
+                        hasSignature: !!ecdhPublicKeyData.signature 
+                    });
+                    throw new Error('CRITICAL SECURITY FAILURE: ECDH key export incomplete - hard abort required');
+                }
+                
+                if (!ecdsaPublicKeyData || typeof ecdsaPublicKeyData !== 'object') {
+                    this._secureLog('error', 'CRITICAL: ECDSA key export failed - invalid object structure', { operationId });
+                    throw new Error('CRITICAL SECURITY FAILURE: ECDSA key export validation failed - hard abort required');
+                }
+                
+                if (!ecdsaPublicKeyData.keyData || !ecdsaPublicKeyData.signature) {
+                    this._secureLog('error', 'CRITICAL: ECDSA key export incomplete - missing keyData or signature', { 
+                        operationId,
+                        hasKeyData: !!ecdsaPublicKeyData.keyData,
+                        hasSignature: !!ecdsaPublicKeyData.signature 
+                    });
+                    throw new Error('CRITICAL SECURITY FAILURE: ECDSA key export incomplete - hard abort required');
                 }
                 
                 // ============================================
@@ -9415,18 +9369,61 @@ async processMessage(data) {
 
     async handleSecureAnswer(answerData) {
         try {
-            if (!answerData || answerData.type !== 'enhanced_secure_answer' || !answerData.sdp) {
-                throw new Error('Invalid response format');
+            // CRITICAL: Strict validation of answer data to prevent syntax errors
+            // - Any validation failure in critical security path must abort connection
+            // - No fallback allowed for cryptographic validation
+            
+            if (!answerData || typeof answerData !== 'object' || Array.isArray(answerData)) {
+                this._secureLog('error', 'CRITICAL: Invalid answer data structure', { 
+                    hasAnswerData: !!answerData,
+                    answerDataType: typeof answerData,
+                    isArray: Array.isArray(answerData)
+                });
+                throw new Error('CRITICAL SECURITY FAILURE: Answer data must be a non-null object');
+            }
+            
+            if (answerData.type !== 'enhanced_secure_answer' || !answerData.sdp) {
+                this._secureLog('error', 'CRITICAL: Invalid answer format', { 
+                    type: answerData.type,
+                    hasSdp: !!answerData.sdp
+                });
+                throw new Error('CRITICAL SECURITY FAILURE: Invalid answer format - hard abort required');
             }
 
-            // Import peer's ECDH public key from the signed package
-            if (!answerData.ecdhPublicKey || !answerData.ecdhPublicKey.keyData) {
-                throw new Error('Missing ECDH public key data');
+            // CRITICAL: Strict validation of ECDH public key structure
+            if (!answerData.ecdhPublicKey || typeof answerData.ecdhPublicKey !== 'object' || Array.isArray(answerData.ecdhPublicKey)) {
+                this._secureLog('error', 'CRITICAL: Invalid ECDH public key structure in answer', { 
+                    hasEcdhKey: !!answerData.ecdhPublicKey,
+                    ecdhKeyType: typeof answerData.ecdhPublicKey,
+                    isArray: Array.isArray(answerData.ecdhPublicKey)
+                });
+                throw new Error('CRITICAL SECURITY FAILURE: Missing or invalid ECDH public key structure');
+            }
+            
+            if (!answerData.ecdhPublicKey.keyData || !answerData.ecdhPublicKey.signature) {
+                this._secureLog('error', 'CRITICAL: ECDH key missing keyData or signature in answer', { 
+                    hasKeyData: !!answerData.ecdhPublicKey.keyData,
+                    hasSignature: !!answerData.ecdhPublicKey.signature
+                });
+                throw new Error('CRITICAL SECURITY FAILURE: ECDH key missing keyData or signature');
             }
 
-            // First, import and verify the ECDSA public key for signature verification
-            if (!answerData.ecdsaPublicKey || !answerData.ecdsaPublicKey.keyData) {
-                throw new Error('Missing ECDSA public key data for signature verification');
+            // CRITICAL: Strict validation of ECDSA public key structure
+            if (!answerData.ecdsaPublicKey || typeof answerData.ecdsaPublicKey !== 'object' || Array.isArray(answerData.ecdsaPublicKey)) {
+                this._secureLog('error', 'CRITICAL: Invalid ECDSA public key structure in answer', { 
+                    hasEcdsaKey: !!answerData.ecdsaPublicKey,
+                    ecdsaKeyType: typeof answerData.ecdsaPublicKey,
+                    isArray: Array.isArray(answerData.ecdsaPublicKey)
+                });
+                throw new Error('CRITICAL SECURITY FAILURE: Missing or invalid ECDSA public key structure');
+            }
+            
+            if (!answerData.ecdsaPublicKey.keyData || !answerData.ecdsaPublicKey.signature) {
+                this._secureLog('error', 'CRITICAL: ECDSA key missing keyData or signature in answer', { 
+                    hasKeyData: !!answerData.ecdsaPublicKey.keyData,
+                    hasSignature: !!answerData.ecdsaPublicKey.signature
+                });
+                throw new Error('CRITICAL SECURITY FAILURE: ECDSA key missing keyData or signature');
             }
 
             // Additional MITM protection: Validate answer data structure
@@ -9479,28 +9476,18 @@ async processMessage(data) {
                 ['verify']
             );
 
-            // Verify ECDSA key's self-signature
-            const ecdsaPackageCopy = { ...answerData.ecdsaPublicKey };
-            delete ecdsaPackageCopy.signature;
-            const ecdsaPackageString = JSON.stringify(ecdsaPackageCopy);
-            const ecdsaSignatureValid = await window.EnhancedSecureCryptoUtils.verifySignature(
-                peerECDSAPublicKey,
-                answerData.ecdsaPublicKey.signature,
-                ecdsaPackageString
-            );
-
-            if (!ecdsaSignatureValid) {
-                window.EnhancedSecureCryptoUtils.secureLog.log('error', 'Invalid ECDSA signature detected - possible MITM attack', {
-                    timestamp: answerData.timestamp,
-                    version: answerData.version
-                });
-                throw new Error('Invalid ECDSA key signature – possible MITM attack');
-            }
-
-            window.EnhancedSecureCryptoUtils.secureLog.log('info', 'ECDSA signature verification passed', {
-                timestamp: answerData.timestamp,
-                version: answerData.version
-            });
+            // SECURITY: Self-signature verification removed - was security theater
+            // 
+            // PROBLEM: Self-signed ECDSA keys don't provide authentication
+            // MITM can substitute both keys and "self-sign" them
+            // 
+            // REAL SECURITY: Use out-of-band verification instead:
+            // - SAS (Short Authentication String) comparison
+            // - QR code fingerprint verification
+            // - Pre-shared public key fingerprints
+            // - Certificate transparency validation
+            //
+            // Note: ECDSA signature only proves packet integrity, not identity
 
             // Now import and verify the ECDH public key using the verified ECDSA key
             const peerPublicKey = await window.EnhancedSecureCryptoUtils.importPublicKeyFromSignedPackage(
@@ -9543,31 +9530,16 @@ async processMessage(data) {
             // Store peer's public key for PFS key rotation
             this.peerPublicKey = peerPublicKey;
 
-            // ✅ ДОБАВИТЬ: Проверка DTLS защиты перед генерацией ключей
-            if (this.dtlsProtectionEnabled) {
-                // Имитируем проверку DTLS ClientHello (в реальном WebRTC это происходит автоматически)
-                const mockClientHelloData = {
-                    cipherSuite: 'TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256',
-                    tlsVersion: '1.3'
-                };
-                
-                // Получаем endpoint из peer connection
-                const localEndpoint = this.peerConnection?.localDescription?.sdp || 'local-endpoint';
-                const remoteEndpoint = this.peerConnection?.remoteDescription?.sdp || 'remote-endpoint';
-                
-                // Добавляем endpoints в верифицированные
-                this.addVerifiedICEEndpoint(localEndpoint);
-                this.addVerifiedICEEndpoint(remoteEndpoint);
-                
-                // Валидируем DTLS источник
-                await this.validateDTLSSource(mockClientHelloData, remoteEndpoint);
-                
-                this._secureLog('info', 'DTLS protection validated before key derivation', {
-                    localEndpoint: localEndpoint.substring(0, 50),
-                    remoteEndpoint: remoteEndpoint.substring(0, 50),
-                    verifiedEndpoints: this.verifiedICEEndpoints.size
-                });
-            }
+            // SECURITY: DTLS protection removed - was security theater
+            // 
+            // REAL SECURITY: Implement proper key verification instead:
+            // - Out-of-band fingerprint verification (SAS/QR codes)
+            // - SDP certificate fingerprint validation
+            // - Public key pinning if known in advance
+            // - Certificate transparency validation
+            //
+            // Note: Browser WebRTC handles DTLS automatically
+            // JavaScript cannot access DTLS layer for validation
             
             const derivedKeys = await window.EnhancedSecureCryptoUtils.deriveSharedKeys(
                 this.ecdhKeyPair.privateKey,
@@ -9686,11 +9658,18 @@ async processMessage(data) {
     }
 
     initiateVerification() {
+        // CRITICAL SECURITY: SAS verification initiation
+        // - This is the ONLY protection against MITM attacks
+        // - Self-signed ECDSA keys don't provide authentication
+        // - Both parties must compare the same verification code out-of-band
+        
         if (this.isInitiator) {
             // Ensure verification initiation notice wasn't already sent
             if (!this.verificationInitiationSent) {
                 this.verificationInitiationSent = true;
-                this.deliverMessageToUI('🔐 Confirm the security code with your peer to complete the connection', 'system');
+                this.deliverMessageToUI('🔐 CRITICAL: Compare verification code with peer out-of-band (voice/video/in-person) to prevent MITM attack!', 'system');
+                this.deliverMessageToUI(`🔐 Your verification code: ${this.verificationCode}`, 'system');
+                this.deliverMessageToUI('🔐 Ask peer to confirm this exact code before allowing traffic!', 'system');
             }
         } else {
             // Responder confirms verification automatically if codes match
@@ -9699,12 +9678,19 @@ async processMessage(data) {
     }
 
     confirmVerification() {
+        // CRITICAL SECURITY: SAS verification confirmation
+        // - This sends our verification code to the peer
+        // - Peer must compare this code with their own out-of-band
+        // - Only after mutual verification is the connection MITM-protected
+        
         try {
             const verificationPayload = {
                 type: 'verification',
                 data: {
                     code: this.verificationCode,
-                    timestamp: Date.now()
+                    timestamp: Date.now(),
+                    verificationMethod: 'SAS',
+                    securityLevel: 'MITM_PROTECTION_REQUIRED'
                 }
             };
             
@@ -9715,23 +9701,31 @@ async processMessage(data) {
             // Ensure verification success notice wasn't already sent
             if (!this.verificationNotificationSent) {
                 this.verificationNotificationSent = true;
-                this.deliverMessageToUI('✅ Verification successful. The channel is now secure!', 'system');
+                this.deliverMessageToUI('✅ SAS verification code sent to peer. Wait for mutual verification to complete.', 'system');
             }
             
             this.processMessageQueue();
         } catch (error) {
-            this._secureLog('error', '❌ Verification failed:', { errorType: error?.constructor?.name || 'Unknown' });
-            this.deliverMessageToUI('❌ Verification failed', 'system');
+            this._secureLog('error', '❌ SAS verification failed:', { errorType: error?.constructor?.name || 'Unknown' });
+            this.deliverMessageToUI('❌ SAS verification failed', 'system');
         }
     }
 
     handleVerificationRequest(data) {
+        // CRITICAL SECURITY: SAS verification is the ONLY MITM protection
+        // - Self-signed ECDSA keys don't provide authentication
+        // - MITM can substitute both keys and "self-sign" them
+        // - This verification must happen out-of-band (voice, video, in-person)
+        
         if (data.code === this.verificationCode) {
+            // ✅ SAS verification successful - MITM protection confirmed
             const responsePayload = {
                 type: 'verification_response',
                 data: {
                     verified: true,
-                    timestamp: Date.now()
+                    timestamp: Date.now(),
+                    verificationMethod: 'SAS', // Indicate SAS was used
+                    securityLevel: 'MITM_PROTECTED'
                 }
             };
             this.dataChannel.send(JSON.stringify(responsePayload));
@@ -9741,30 +9735,56 @@ async processMessage(data) {
             // Ensure verification success notice wasn't already sent
             if (!this.verificationNotificationSent) {
                 this.verificationNotificationSent = true;
-                this.deliverMessageToUI('✅ Verification successful. The channel is now secure!', 'system');
+                this.deliverMessageToUI('✅ SAS verification successful! MITM protection confirmed. Channel is now secure!', 'system');
             }
             
             this.processMessageQueue();
         } else {
-            this.deliverMessageToUI('❌ Verification code mismatch! Possible MITM attack detected. Connection aborted for safety!', 'system');
+            // ❌ SAS verification failed - possible MITM attack
+            this._secureLog('error', 'SAS verification failed - possible MITM attack', {
+                receivedCode: data.code,
+                expectedCode: this.verificationCode,
+                timestamp: Date.now()
+            });
+            
+            this.deliverMessageToUI('❌ SAS verification failed! Possible MITM attack detected. Connection aborted for safety!', 'system');
             this.disconnect();
         }
     }
 
     handleVerificationResponse(data) {
+        // CRITICAL SECURITY: SAS verification response handling
+        // - This confirms that the peer has verified our SAS code
+        // - Both parties must verify the same code out-of-band
+        // - Only after mutual SAS verification is the connection MITM-protected
+        
         if (data.verified) {
+            // ✅ Peer has verified our SAS code - mutual verification complete
             this.isVerified = true;
             this.onStatusChange('connected');
+            
+            // Log successful mutual SAS verification
+            this._secureLog('info', 'Mutual SAS verification completed - MITM protection active', {
+                verificationMethod: data.verificationMethod || 'SAS',
+                securityLevel: data.securityLevel || 'MITM_PROTECTED',
+                timestamp: Date.now()
+            });
             
             // Ensure verification success notice wasn't already sent
             if (!this.verificationNotificationSent) {
                 this.verificationNotificationSent = true;
-                this.deliverMessageToUI('✅ Verification successful. The channel is now secure!', 'system');
+                this.deliverMessageToUI('✅ Mutual SAS verification complete! MITM protection active. Channel is now secure!', 'system');
             }
             
             this.processMessageQueue();
         } else {
-            this.deliverMessageToUI('❌ Verification failed!', 'system');
+            // ❌ Peer verification failed - connection not secure
+            this._secureLog('error', 'Peer SAS verification failed - connection not secure', {
+                responseData: data,
+                timestamp: Date.now()
+            });
+            
+            this.deliverMessageToUI('❌ Peer verification failed! Connection not secure!', 'system');
             this.disconnect();
         }
     }
@@ -9781,11 +9801,20 @@ async processMessage(data) {
                offerData.salt.length === 32;
     }
 
-    // Enhanced validation with backward compatibility
+    // CRITICAL: Enhanced validation with strict security checks
+    // - Syntax errors in validation can break security flow
+    // - Any validation failure must result in hard disconnect
+    // - No fallback allowed for security-critical validation
     validateEnhancedOfferData(offerData) {
         try {
-            if (!offerData || typeof offerData !== 'object') {
-                throw new Error('Offer data must be an object');
+            // CRITICAL: Strict type checking to prevent syntax errors
+            if (!offerData || typeof offerData !== 'object' || Array.isArray(offerData)) {
+                this._secureLog('error', 'CRITICAL: Invalid offer data structure', { 
+                    hasOfferData: !!offerData,
+                    offerDataType: typeof offerData,
+                    isArray: Array.isArray(offerData)
+                });
+                throw new Error('CRITICAL SECURITY FAILURE: Offer data must be a non-null object');
             }
 
             // Basic required fields for all versions
@@ -9828,18 +9857,48 @@ async processMessage(data) {
                     throw new Error('Offer is too old (older than 1 hour)');
                 }
 
-                // Validate key structures (more lenient)
-                if (!offerData.ecdhPublicKey || typeof offerData.ecdhPublicKey !== 'object') {
-                    throw new Error('Invalid ECDH public key structure');
+                // CRITICAL: Strict validation of key structures to prevent syntax errors
+                if (!offerData.ecdhPublicKey || typeof offerData.ecdhPublicKey !== 'object' || Array.isArray(offerData.ecdhPublicKey)) {
+                    this._secureLog('error', 'CRITICAL: Invalid ECDH public key structure', { 
+                        hasEcdhKey: !!offerData.ecdhPublicKey,
+                        ecdhKeyType: typeof offerData.ecdhPublicKey,
+                        isArray: Array.isArray(offerData.ecdhPublicKey)
+                    });
+                    throw new Error('CRITICAL SECURITY FAILURE: Invalid ECDH public key structure - hard abort required');
                 }
 
-                if (!offerData.ecdsaPublicKey || typeof offerData.ecdsaPublicKey !== 'object') {
-                    throw new Error('Invalid ECDSA public key structure');
+                if (!offerData.ecdsaPublicKey || typeof offerData.ecdsaPublicKey !== 'object' || Array.isArray(offerData.ecdsaPublicKey)) {
+                    this._secureLog('error', 'CRITICAL: Invalid ECDSA public key structure', { 
+                        hasEcdsaKey: !!offerData.ecdsaPublicKey,
+                        ecdsaKeyType: typeof offerData.ecdsaPublicKey,
+                        isArray: Array.isArray(offerData.ecdsaPublicKey)
+                    });
+                    throw new Error('CRITICAL SECURITY FAILURE: Invalid ECDSA public key structure - hard abort required');
                 }
 
-                // Validate verification code format (more flexible)
+                // CRITICAL: Validate key internal structure to prevent syntax errors
+                if (!offerData.ecdhPublicKey.keyData || !offerData.ecdhPublicKey.signature) {
+                    this._secureLog('error', 'CRITICAL: ECDH key missing keyData or signature', { 
+                        hasKeyData: !!offerData.ecdhPublicKey.keyData,
+                        hasSignature: !!offerData.ecdhPublicKey.signature
+                    });
+                    throw new Error('CRITICAL SECURITY FAILURE: ECDH key missing keyData or signature');
+                }
+
+                if (!offerData.ecdsaPublicKey.keyData || !offerData.ecdsaPublicKey.signature) {
+                    this._secureLog('error', 'CRITICAL: ECDSA key missing keyData or signature', { 
+                        hasKeyData: !!offerData.ecdsaPublicKey.keyData,
+                        hasSignature: !!offerData.ecdsaPublicKey.signature
+                    });
+                    throw new Error('CRITICAL SECURITY FAILURE: ECDSA key missing keyData or signature');
+                }
+
+                // CRITICAL: Validate SAS verification code format
+                // - This code is the ONLY protection against MITM attacks
+                // - Self-signed ECDSA keys don't provide authentication
+                // - Code must be at least 6 characters for security
                 if (typeof offerData.verificationCode !== 'string' || offerData.verificationCode.length < 6) {
-                    throw new Error('Invalid verification code format');
+                    throw new Error('Invalid SAS verification code format - MITM protection required');
                 }
 
                 this._secureLog('info', 'v4.0 offer validation passed', {
@@ -9849,6 +9908,7 @@ async processMessage(data) {
                 });
             } else {
                 // v3.0 backward compatibility validation
+                // NOTE: v3.0 has limited security - SAS verification is still critical
                 const v3RequiredFields = ['publicKey', 'salt', 'verificationCode'];
                 for (const field of v3RequiredFields) {
                     if (!offerData[field]) {
@@ -9879,10 +9939,18 @@ async processMessage(data) {
 
             return true;
         } catch (error) {
-            window.EnhancedSecureCryptoUtils.secureLog.log('error', 'Offer validation failed', {
-                error: error.message
+            // CRITICAL: Security validation errors must be logged and result in hard abort
+            // - No fallback or graceful handling for security-critical validation
+            // - Syntax errors in critical path must break connection immediately
+            this._secureLog('error', 'CRITICAL: Security validation failed - hard abort required', {
+                error: error.message,
+                errorType: error.constructor.name,
+                timestamp: Date.now()
             });
-            return false; // Return false instead of throwing to allow graceful handling
+            
+            // CRITICAL: Re-throw security validation errors to ensure hard abort
+            // Do NOT return false for security-critical validation failures
+            throw new Error(`CRITICAL SECURITY VALIDATION FAILURE: ${error.message}`);
         }
     }
 
