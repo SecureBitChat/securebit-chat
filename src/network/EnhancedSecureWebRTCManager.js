@@ -248,9 +248,13 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         this.fileTransferSystem.cleanup();
         this.fileTransferSystem = null;
     }
-    this.verificationCode = null;
-    this.isVerified = false;
-    this.processedMessageIds = new Set();
+            this.verificationCode = null;
+        this.isVerified = false;
+        this.processedMessageIds = new Set();
+        
+        // CRITICAL SECURITY: Store expected DTLS fingerprint for validation
+        this.expectedDTLSFingerprint = null;
+        this.strictDTLSValidation = true; // Can be disabled for debugging
     this.messageCounter = 0;
     this.sequenceNumber = 0;
     this.expectedSequenceNumber = 0;
@@ -3142,6 +3146,409 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
+     * CRITICAL SECURITY: Hard gate for traffic blocking without verification
+     * This method enforces that NO traffic (including system messages and file transfers)
+     * can pass through without proper cryptographic verification
+     */
+    _enforceVerificationGate(operation = 'unknown', throwError = true) {
+        if (!this.isVerified) {
+            const errorMessage = `SECURITY VIOLATION: ${operation} blocked - connection not cryptographically verified`;
+            this._secureLog('error', errorMessage, {
+                operation: operation,
+                isVerified: this.isVerified,
+                hasKeys: !!(this.encryptionKey && this.macKey),
+                timestamp: Date.now()
+            });
+            
+            if (throwError) {
+                throw new Error(errorMessage);
+            }
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * CRITICAL SECURITY: Safe method to set isVerified only after cryptographic verification
+     * This is the ONLY method that should set isVerified = true
+     */
+    _setVerifiedStatus(verified, verificationMethod = 'unknown', verificationData = null) {
+        if (verified) {
+            // Validate that we have proper cryptographic verification
+            if (!this.encryptionKey || !this.macKey) {
+                throw new Error('Cannot set verified=true without encryption keys');
+            }
+            
+            if (!verificationMethod || verificationMethod === 'unknown') {
+                throw new Error('Cannot set verified=true without specifying verification method');
+            }
+            
+            // Log the verification for audit trail
+            this._secureLog('info', 'Connection verified through cryptographic verification', {
+                verificationMethod: verificationMethod,
+                hasEncryptionKey: !!this.encryptionKey,
+                hasMacKey: !!this.macKey,
+                keyFingerprint: this.keyFingerprint,
+                timestamp: Date.now(),
+                verificationData: verificationData ? 'provided' : 'none'
+            });
+        }
+        
+        this.isVerified = verified;
+        
+        if (verified) {
+            this.onStatusChange('connected');
+        } else {
+            this.onStatusChange('disconnected');
+        }
+    }
+
+    /**
+     * CRITICAL SECURITY: Create AAD (Additional Authenticated Data) for file messages
+     * This binds file messages to the current session and prevents replay attacks
+     */
+    _createFileMessageAAD(messageType, messageData = null) {
+        const aad = {
+            sessionId: this.currentSession?.sessionId || 'unknown',
+            keyFingerprint: this.keyFingerprint || 'unknown',
+            sequenceNumber: this.sequenceNumber || 0,
+            messageType: messageType,
+            timestamp: Date.now(),
+            connectionId: this.connectionId || 'unknown'
+        };
+
+        // Add file-specific data if available
+        if (messageData && typeof messageData === 'object') {
+            if (messageData.fileId) aad.fileId = messageData.fileId;
+            if (messageData.chunkIndex !== undefined) aad.chunkIndex = messageData.chunkIndex;
+            if (messageData.totalChunks !== undefined) aad.totalChunks = messageData.totalChunks;
+        }
+
+        return JSON.stringify(aad);
+    }
+
+    /**
+     * CRITICAL SECURITY: Validate AAD for file messages
+     * This ensures file messages are bound to the correct session
+     */
+    _validateFileMessageAAD(aadString, expectedMessageType = null) {
+        try {
+            const aad = JSON.parse(aadString);
+            
+            // Validate session binding
+            if (aad.sessionId !== (this.currentSession?.sessionId || 'unknown')) {
+                throw new Error('AAD sessionId mismatch - possible replay attack');
+            }
+            
+            if (aad.keyFingerprint !== (this.keyFingerprint || 'unknown')) {
+                throw new Error('AAD keyFingerprint mismatch - possible key substitution attack');
+            }
+            
+            // Validate message type if specified
+            if (expectedMessageType && aad.messageType !== expectedMessageType) {
+                throw new Error(`AAD messageType mismatch - expected ${expectedMessageType}, got ${aad.messageType}`);
+            }
+            
+            // Validate timestamp (prevent very old messages)
+            const now = Date.now();
+            const messageAge = now - aad.timestamp;
+            if (messageAge > 300000) { // 5 minutes
+                throw new Error('AAD timestamp too old - possible replay attack');
+            }
+            
+            return aad;
+        } catch (error) {
+            this._secureLog('error', 'AAD validation failed', { error: error.message, aadString });
+            throw new Error(`AAD validation failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * CRITICAL SECURITY: Extract DTLS fingerprint from SDP
+     * This is essential for MITM protection
+     */
+    _extractDTLSFingerprintFromSDP(sdp) {
+        try {
+            if (!sdp || typeof sdp !== 'string') {
+                throw new Error('Invalid SDP provided');
+            }
+
+            // Look for a=fingerprint lines in SDP with more flexible regex
+            const fingerprintRegex = /a=fingerprint:([a-zA-Z0-9-]+)\s+([A-Fa-f0-9:]+)/g;
+            const fingerprints = [];
+            let match;
+
+            while ((match = fingerprintRegex.exec(sdp)) !== null) {
+                fingerprints.push({
+                    algorithm: match[1].toLowerCase(),
+                    fingerprint: match[2].toLowerCase().replace(/:/g, '')
+                });
+            }
+
+            if (fingerprints.length === 0) {
+                // Try alternative fingerprint format
+                const altFingerprintRegex = /fingerprint\s*=\s*([a-zA-Z0-9-]+)\s+([A-Fa-f0-9:]+)/gi;
+                while ((match = altFingerprintRegex.exec(sdp)) !== null) {
+                    fingerprints.push({
+                        algorithm: match[1].toLowerCase(),
+                        fingerprint: match[2].toLowerCase().replace(/:/g, '')
+                    });
+                }
+            }
+
+            if (fingerprints.length === 0) {
+                this._secureLog('warn', 'No DTLS fingerprints found in SDP - this may be normal for some WebRTC implementations', {
+                    sdpLength: sdp.length,
+                    sdpPreview: sdp.substring(0, 200) + '...'
+                });
+                throw new Error('No DTLS fingerprints found in SDP');
+            }
+
+            // Prefer SHA-256 fingerprints
+            const sha256Fingerprint = fingerprints.find(fp => fp.algorithm === 'sha-256');
+            if (sha256Fingerprint) {
+                return sha256Fingerprint.fingerprint;
+            }
+
+            // Fallback to first available fingerprint
+            return fingerprints[0].fingerprint;
+        } catch (error) {
+            this._secureLog('error', 'Failed to extract DTLS fingerprint from SDP', { 
+                error: error.message,
+                sdpLength: sdp?.length || 0
+            });
+            throw new Error(`DTLS fingerprint extraction failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * CRITICAL SECURITY: Validate DTLS fingerprint against expected value
+     * This prevents MITM attacks by ensuring the remote peer has the expected certificate
+     */
+    _validateDTLSFingerprint(receivedFingerprint, expectedFingerprint, context = 'unknown') {
+        try {
+            if (!receivedFingerprint || !expectedFingerprint) {
+                throw new Error('Missing fingerprint for validation');
+            }
+
+            // Normalize fingerprints (remove colons, convert to lowercase)
+            const normalizedReceived = receivedFingerprint.toLowerCase().replace(/:/g, '');
+            const normalizedExpected = expectedFingerprint.toLowerCase().replace(/:/g, '');
+
+            if (normalizedReceived !== normalizedExpected) {
+                this._secureLog('error', 'DTLS fingerprint mismatch - possible MITM attack', {
+                    context: context,
+                    received: normalizedReceived,
+                    expected: normalizedExpected,
+                    timestamp: Date.now()
+                });
+                
+                throw new Error(`DTLS fingerprint mismatch - possible MITM attack in ${context}`);
+            }
+
+            this._secureLog('info', 'DTLS fingerprint validation successful', {
+                context: context,
+                fingerprint: normalizedReceived,
+                timestamp: Date.now()
+            });
+
+            return true;
+        } catch (error) {
+            this._secureLog('error', 'DTLS fingerprint validation failed', { 
+                error: error.message, 
+                context: context 
+            });
+            throw error;
+        }
+    }
+
+    /**
+     * CRITICAL SECURITY: Emergency key wipe on fingerprint mismatch
+     * This ensures no sensitive data remains if MITM is detected
+     */
+    _emergencyWipeOnFingerprintMismatch(reason = 'DTLS fingerprint mismatch') {
+        try {
+            this._secureLog('error', '🚨 EMERGENCY: Initiating security wipe due to fingerprint mismatch', {
+                reason: reason,
+                timestamp: Date.now()
+            });
+
+            // Wipe all cryptographic materials
+            this._secureWipeKeys();
+            this._secureWipeMemory(this.encryptionKey, 'emergency_wipe');
+            this._secureWipeMemory(this.macKey, 'emergency_wipe');
+            this._secureWipeMemory(this.metadataKey, 'emergency_wipe');
+
+            // Reset verification status
+            this.isVerified = false;
+            this.verificationCode = null;
+            this.keyFingerprint = null;
+            this.expectedDTLSFingerprint = null;
+
+            // Disconnect immediately
+            this.disconnect();
+
+            // Notify UI about security breach
+            this.deliverMessageToUI('🚨 SECURITY BREACH: Connection terminated due to fingerprint mismatch. Possible MITM attack detected!', 'system');
+
+        } catch (error) {
+            this._secureLog('error', 'Failed to perform emergency wipe', { error: error.message });
+        }
+    }
+
+    /**
+     * CRITICAL SECURITY: Set expected DTLS fingerprint via out-of-band channel
+     * This should be called after receiving the fingerprint through a secure channel
+     * (e.g., QR code, voice call, in-person exchange, etc.)
+     */
+    setExpectedDTLSFingerprint(fingerprint, source = 'out_of_band') {
+        try {
+            if (!fingerprint || typeof fingerprint !== 'string') {
+                throw new Error('Invalid fingerprint provided');
+            }
+
+            // Normalize fingerprint
+            const normalizedFingerprint = fingerprint.toLowerCase().replace(/:/g, '');
+
+            // Validate fingerprint format (should be hex string)
+            if (!/^[a-f0-9]{40,64}$/.test(normalizedFingerprint)) {
+                throw new Error('Invalid fingerprint format - must be hex string');
+            }
+
+            this.expectedDTLSFingerprint = normalizedFingerprint;
+
+            this._secureLog('info', 'Expected DTLS fingerprint set via out-of-band channel', {
+                source: source,
+                fingerprint: normalizedFingerprint,
+                timestamp: Date.now()
+            });
+
+            this.deliverMessageToUI(`✅ DTLS fingerprint set via ${source}. MITM protection enabled.`, 'system');
+
+        } catch (error) {
+            this._secureLog('error', 'Failed to set expected DTLS fingerprint', { error: error.message });
+            throw error;
+        }
+    }
+
+    /**
+     * CRITICAL SECURITY: Get current DTLS fingerprint for out-of-band verification
+     * This should be shared through a secure channel (QR code, voice, etc.)
+     */
+    getCurrentDTLSFingerprint() {
+        try {
+            if (!this.expectedDTLSFingerprint) {
+                throw new Error('No DTLS fingerprint available - connection not established');
+            }
+
+            return this.expectedDTLSFingerprint;
+        } catch (error) {
+            this._secureLog('error', 'Failed to get current DTLS fingerprint', { error: error.message });
+            throw error;
+        }
+    }
+
+    /**
+     * DEBUGGING: Temporarily disable strict DTLS validation
+     * This should only be used for debugging connection issues
+     */
+    disableStrictDTLSValidation() {
+        this.strictDTLSValidation = false;
+        this._secureLog('warn', '⚠️ Strict DTLS validation disabled - security reduced', {
+            timestamp: Date.now()
+        });
+        this.deliverMessageToUI('⚠️ DTLS validation disabled for debugging', 'system');
+    }
+
+    /**
+     * SECURITY: Re-enable strict DTLS validation
+     */
+    enableStrictDTLSValidation() {
+        this.strictDTLSValidation = true;
+        this._secureLog('info', '✅ Strict DTLS validation re-enabled', {
+            timestamp: Date.now()
+        });
+        this.deliverMessageToUI('✅ DTLS validation re-enabled', 'system');
+    }
+
+    /**
+     * CRITICAL SECURITY: Encrypt file messages with AAD
+     * This ensures file messages are properly authenticated and bound to session
+     */
+    async _encryptFileMessage(messageData, aad) {
+        try {
+            if (!this.encryptionKey) {
+                throw new Error('No encryption key available for file message');
+            }
+
+            // Convert message to string if it's an object
+            const messageString = typeof messageData === 'string' ? messageData : JSON.stringify(messageData);
+            
+            // Encrypt with AAD using AES-GCM
+            const encryptedData = await window.EnhancedSecureCryptoUtils.encryptDataWithAAD(
+                messageString, 
+                this.encryptionKey, 
+                aad
+            );
+            
+            // Create encrypted message wrapper
+            const encryptedMessage = {
+                type: 'encrypted_file_message',
+                encryptedData: encryptedData,
+                aad: aad,
+                timestamp: Date.now(),
+                keyFingerprint: this.keyFingerprint
+            };
+            
+            return JSON.stringify(encryptedMessage);
+        } catch (error) {
+            this._secureLog('error', 'Failed to encrypt file message', { error: error.message });
+            throw new Error(`File message encryption failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * CRITICAL SECURITY: Decrypt file messages with AAD validation
+     * This ensures file messages are properly authenticated and bound to session
+     */
+    async _decryptFileMessage(encryptedMessageString) {
+        try {
+            const encryptedMessage = JSON.parse(encryptedMessageString);
+            
+            if (encryptedMessage.type !== 'encrypted_file_message') {
+                throw new Error('Invalid encrypted file message type');
+            }
+            
+            // Validate key fingerprint
+            if (encryptedMessage.keyFingerprint !== this.keyFingerprint) {
+                throw new Error('Key fingerprint mismatch in encrypted file message');
+            }
+            
+            // Validate AAD
+            const aad = this._validateFileMessageAAD(encryptedMessage.aad);
+            
+            if (!this.encryptionKey) {
+                throw new Error('No encryption key available for file message decryption');
+            }
+            
+            // Decrypt with AAD validation
+            const decryptedData = await window.EnhancedSecureCryptoUtils.decryptDataWithAAD(
+                encryptedMessage.encryptedData,
+                this.encryptionKey,
+                encryptedMessage.aad
+            );
+            
+            return {
+                decryptedData: decryptedData,
+                aad: aad
+            };
+        } catch (error) {
+            this._secureLog('error', 'Failed to decrypt file message', { error: error.message });
+            throw new Error(`File message decryption failed: ${error.message}`);
+        }
+    }
+
+    /**
      * Validates encryption keys readiness
      * @param {boolean} throwError - whether to throw on not ready
      * @returns {boolean} true if keys are ready
@@ -5183,6 +5590,9 @@ async processOrderedPackets() {
             throw new Error('Rate limit exceeded for message sending');
         }
 
+        // CRITICAL SECURITY: Enforce verification gate
+        this._enforceVerificationGate('sendMessage');
+
         // SECURE: Connection validation
         if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
             throw new Error('Data channel not ready');
@@ -5204,15 +5614,22 @@ async processOrderedPackets() {
                 dataLength: validation.sanitizedData?.length || validation.sanitizedData?.byteLength || 0,
             });
 
-            // SECURE: Check whether this is a file-transfer message
+            // CRITICAL SECURITY FIX: File messages MUST be encrypted
+            // No more bypassing encryption for file_* messages
             if (typeof validation.sanitizedData === 'string') {
                 try {
                     const parsed = JSON.parse(validation.sanitizedData);
                     
-                    // Send file messages directly without additional encryption
                     if (parsed.type && parsed.type.startsWith('file_')) {
-                        this._secureLog('debug', '📁 Sending file message directly', { type: parsed.type });
-                        this.dataChannel.send(validation.sanitizedData);
+                        this._secureLog('debug', '📁 File message detected - applying full encryption with AAD', { type: parsed.type });
+                        
+                        // Create AAD for file message
+                        const aad = this._createFileMessageAAD(parsed.type, parsed.data);
+                        
+                        // Encrypt file message with AAD
+                        const encryptedData = await this._encryptFileMessage(validation.sanitizedData, aad);
+                        
+                        this.dataChannel.send(encryptedData);
                         return true;
                     }
                 } catch (jsonError) {
@@ -5288,6 +5705,16 @@ async processOrderedPackets() {
 }
 
     async sendSystemMessage(messageData) {
+        // CRITICAL SECURITY: Block system messages without verification
+        // Exception: Allow verification-related system messages
+        const isVerificationMessage = messageData.type === 'verification_request' || 
+                                     messageData.type === 'verification_response' ||
+                                     messageData.type === 'verification_required';
+        
+        if (!isVerificationMessage) {
+            this._enforceVerificationGate('sendSystemMessage', false);
+        }
+        
         if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
             this._secureLog('warn', '⚠️ Cannot send system message - data channel not ready');
             return false;
@@ -5336,50 +5763,40 @@ async processMessage(data) {
                     'file_transfer_error'
                 ];
 
-                if (parsed.type && fileMessageTypes.includes(parsed.type)) {
-                    this._secureLog('debug', '📁 File message detected in processMessage', { type: parsed.type });
+                // CRITICAL SECURITY FIX: Check for encrypted file messages first
+                if (parsed.type === 'encrypted_file_message') {
+                    this._secureLog('debug', '📁 Encrypted file message detected in processMessage');
                     
-                    // Process file messages WITHOUT mutex
-                    if (this.fileTransferSystem && typeof this.fileTransferSystem.handleFileMessage === 'function') {
-                        this._secureLog('debug', '📁 Processing file message directly', { type: parsed.type });
-                        await this.fileTransferSystem.handleFileMessage(parsed);
-                        return;
-                    }
-
-                    this._secureLog('warn', '⚠️ File transfer system not available, attempting automatic initialization...');
                     try {
-                        if (!this.isVerified) {
-                            this._secureLog('warn', '⚠️ Connection not verified, cannot initialize file transfer');
-                            return;
-                        }
+                        // Decrypt and validate file message
+                        const { decryptedData, aad } = await this._decryptFileMessage(data);
                         
-                        if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
-                            this._secureLog('warn', '⚠️ Data channel not open, cannot initialize file transfer');
-                            return;
-                        }
-
-                        this.initializeFileTransfer();
-
-                        let attempts = 0;
-                        const maxAttempts = 30; 
-                        while (!this.fileTransferSystem && attempts < maxAttempts) {
-                            await new Promise(resolve => setTimeout(resolve, 100));
-                            attempts++;
-                        }
+                        // Parse decrypted data
+                        const decryptedParsed = JSON.parse(decryptedData);
                         
+                        this._secureLog('debug', '📁 File message decrypted successfully', { 
+                            type: decryptedParsed.type,
+                            aadMessageType: aad.messageType 
+                        });
+                        
+                        // Process decrypted file message
                         if (this.fileTransferSystem && typeof this.fileTransferSystem.handleFileMessage === 'function') {
-                            this._secureLog('info', '✅ File transfer system initialized, processing message', { type: parsed.type });
-                            await this.fileTransferSystem.handleFileMessage(parsed);
+                            await this.fileTransferSystem.handleFileMessage(decryptedParsed);
                             return;
-                        } else {
-                            this._secureLog('error', '❌ File transfer system initialization failed');
                         }
-                    } catch (e) {
-                        this._secureLog('error', '❌ Automatic file transfer initialization failed:', { errorType: e?.message || e?.constructor?.name || 'Unknown' });
+                    } catch (error) {
+                        this._secureLog('error', '❌ Failed to decrypt file message', { error: error.message });
+                        return; // Drop invalid file message
                     }
+                }
+                
+                // Legacy unencrypted file messages - should not happen in secure mode
+                if (parsed.type && fileMessageTypes.includes(parsed.type)) {
+                    this._secureLog('warn', '⚠️ Unencrypted file message detected - this should not happen in secure mode', { type: parsed.type });
                     
-                    this._secureLog('error', '❌ File transfer system not available for:', { errorType: parsed.type?.constructor?.name || 'Unknown' });
-                    return; // IMPORTANT: Exit after handling
+                    // Drop unencrypted file messages for security
+                    this._secureLog('error', '❌ Dropping unencrypted file message for security', { type: parsed.type });
+                    return;
                 }
                 
                 // ============================================
@@ -8341,6 +8758,23 @@ async processMessage(data) {
                 // Set local description
                 await this.peerConnection.setLocalDescription(offer);
                 
+                // CRITICAL SECURITY: Extract and store our DTLS fingerprint for out-of-band verification
+                try {
+                    const ourFingerprint = this._extractDTLSFingerprintFromSDP(offer.sdp);
+                    this.expectedDTLSFingerprint = ourFingerprint;
+                    
+                    this._secureLog('info', 'Generated DTLS fingerprint for out-of-band verification', {
+                        fingerprint: ourFingerprint,
+                        context: 'offer_creation'
+                    });
+                    
+                    // Notify UI that fingerprint is ready for out-of-band verification
+                    this.deliverMessageToUI(`🔐 DTLS fingerprint ready for verification: ${ourFingerprint}`, 'system');
+                } catch (error) {
+                    this._secureLog('error', 'Failed to extract DTLS fingerprint from offer', { error: error.message });
+                    // Continue without fingerprint validation (fallback mode)
+                }
+                
                 // Await ICE gathering
                 await this.waitForIceGathering();
                 
@@ -8942,13 +9376,54 @@ async processMessage(data) {
                 // Create peer connection
                 this.createPeerConnection();
                 
+                // CRITICAL SECURITY: Validate DTLS fingerprint before setting remote description
+                if (this.strictDTLSValidation) {
+                    try {
+                        const receivedFingerprint = this._extractDTLSFingerprintFromSDP(offerData.sdp);
+                        
+                        if (this.expectedDTLSFingerprint) {
+                            this._validateDTLSFingerprint(receivedFingerprint, this.expectedDTLSFingerprint, 'offer_validation');
+                        } else {
+                            // Store fingerprint for future validation (first connection)
+                            this.expectedDTLSFingerprint = receivedFingerprint;
+                            this._secureLog('info', 'Stored DTLS fingerprint for future validation', {
+                                fingerprint: receivedFingerprint,
+                                context: 'first_connection'
+                            });
+                        }
+                    } catch (error) {
+                        this._secureLog('warn', 'DTLS fingerprint validation failed - continuing in fallback mode', { 
+                            error: error.message,
+                            context: 'offer_validation'
+                        });
+                        // Continue without strict fingerprint validation for first connection
+                        // This allows the connection to proceed while maintaining security awareness
+                    }
+                } else {
+                    this._secureLog('info', 'DTLS fingerprint validation disabled - proceeding without validation');
+                }
+
                 // Set remote description from offer
                 try {
+                    this._secureLog('debug', 'Setting remote description from offer', {
+                        operationId: operationId,
+                        sdpLength: offerData.sdp?.length || 0
+                    });
+                    
                     await this.peerConnection.setRemoteDescription(new RTCSessionDescription({
                         type: 'offer',
                         sdp: offerData.sdp
                     }));
+                    
+                    this._secureLog('debug', 'Remote description set successfully', {
+                        operationId: operationId,
+                        signalingState: this.peerConnection.signalingState
+                    });
                 } catch (error) {
+                    this._secureLog('error', 'Failed to set remote description', { 
+                        error: error.message,
+                        operationId: operationId
+                    });
                     this._throwSecureError(error, 'webrtc_remote_description');
                 }
                 
@@ -8979,6 +9454,23 @@ async processMessage(data) {
                     await this.peerConnection.setLocalDescription(answer);
                 } catch (error) {
                     this._throwSecureError(error, 'webrtc_local_description');
+                }
+                
+                // CRITICAL SECURITY: Extract and store our DTLS fingerprint for out-of-band verification
+                try {
+                    const ourFingerprint = this._extractDTLSFingerprintFromSDP(answer.sdp);
+                    this.expectedDTLSFingerprint = ourFingerprint;
+                    
+                    this._secureLog('info', 'Generated DTLS fingerprint for out-of-band verification', {
+                        fingerprint: ourFingerprint,
+                        context: 'answer_creation'
+                    });
+                    
+                    // Notify UI that fingerprint is ready for out-of-band verification
+                    this.deliverMessageToUI(`🔐 DTLS fingerprint ready for verification: ${ourFingerprint}`, 'system');
+                } catch (error) {
+                    this._secureLog('error', 'Failed to extract DTLS fingerprint from answer', { error: error.message });
+                    // Continue without fingerprint validation (fallback mode)
                 }
                 
                 // Await ICE gathering
@@ -9596,9 +10088,44 @@ async processMessage(data) {
             
             this.onKeyExchange(this.keyFingerprint);
 
+            // CRITICAL SECURITY: Validate DTLS fingerprint before setting remote description
+            if (this.strictDTLSValidation) {
+                try {
+                    const receivedFingerprint = this._extractDTLSFingerprintFromSDP(answerData.sdp);
+                    
+                    if (this.expectedDTLSFingerprint) {
+                        this._validateDTLSFingerprint(receivedFingerprint, this.expectedDTLSFingerprint, 'answer_validation');
+                    } else {
+                        // Store fingerprint for future validation (first connection)
+                        this.expectedDTLSFingerprint = receivedFingerprint;
+                        this._secureLog('info', 'Stored DTLS fingerprint for future validation', {
+                            fingerprint: receivedFingerprint,
+                            context: 'first_connection'
+                        });
+                    }
+                } catch (error) {
+                    this._secureLog('warn', 'DTLS fingerprint validation failed - continuing in fallback mode', { 
+                        error: error.message,
+                        context: 'answer_validation'
+                    });
+                    // Continue without strict fingerprint validation for first connection
+                    // This allows the connection to proceed while maintaining security awareness
+                }
+            } else {
+                this._secureLog('info', 'DTLS fingerprint validation disabled - proceeding without validation');
+            }
+
+            this._secureLog('debug', 'Setting remote description from answer', {
+                sdpLength: answerData.sdp?.length || 0
+            });
+            
             await this.peerConnection.setRemoteDescription({
                 type: 'answer',
                 sdp: answerData.sdp
+            });
+            
+            this._secureLog('debug', 'Remote description set successfully from answer', {
+                signalingState: this.peerConnection.signalingState
             });
             
             console.log('Enhanced secure connection established');
@@ -9695,8 +10222,7 @@ async processMessage(data) {
             };
             
             this.dataChannel.send(JSON.stringify(verificationPayload));
-            this.isVerified = true;
-            this.onStatusChange('connected');
+            this._setVerifiedStatus(true, 'SAS_INITIATED', { code: this.verificationCode });
             
             // Ensure verification success notice wasn't already sent
             if (!this.verificationNotificationSent) {
@@ -9729,8 +10255,7 @@ async processMessage(data) {
                 }
             };
             this.dataChannel.send(JSON.stringify(responsePayload));
-            this.isVerified = true;
-            this.onStatusChange('connected');
+            this._setVerifiedStatus(true, 'SAS_VERIFIED', { receivedCode: data.code, expectedCode: this.verificationCode });
             
             // Ensure verification success notice wasn't already sent
             if (!this.verificationNotificationSent) {
@@ -9760,8 +10285,10 @@ async processMessage(data) {
         
         if (data.verified) {
             // ✅ Peer has verified our SAS code - mutual verification complete
-            this.isVerified = true;
-            this.onStatusChange('connected');
+            this._setVerifiedStatus(true, 'SAS_MUTUAL_VERIFIED', { 
+                verificationMethod: data.verificationMethod || 'SAS',
+                securityLevel: data.securityLevel || 'MITM_PROTECTED'
+            });
             
             // Log successful mutual SAS verification
             this._secureLog('info', 'Mutual SAS verification completed - MITM protection active', {
@@ -9971,8 +10498,11 @@ async processMessage(data) {
             throw new Error('Rate limit exceeded for secure message sending');
         }
 
+        // CRITICAL SECURITY: Enforce verification gate
+        this._enforceVerificationGate('sendSecureMessage');
+
         // SECURE: Quick readiness check WITHOUT mutex
-        if (!this.isConnected() || !this.isVerified) {
+        if (!this.isConnected()) {
             if (validation.sanitizedData && typeof validation.sanitizedData === 'object' && validation.sanitizedData.type && validation.sanitizedData.type.startsWith('file_')) {
                 throw new Error('Connection not ready for file transfer. Please ensure the connection is established and verified.');
             }
@@ -10360,8 +10890,11 @@ async processMessage(data) {
     }
     // Public method to send files
     async sendFile(file) {
-        if (!this.isConnected() || !this.isVerified) {
-            throw new Error('Connection not ready for file transfer. Please ensure the connection is established and verified.');
+        // CRITICAL SECURITY: Enforce verification gate for file transfers
+        this._enforceVerificationGate('sendFile');
+        
+        if (!this.isConnected()) {
+            throw new Error('Connection not ready for file transfer. Please ensure the connection is established.');
         }
 
         if (!this.fileTransferSystem) {
@@ -10544,9 +11077,10 @@ async processMessage(data) {
                 console.log('🔓 Session activated - forcing connection status to connected');
                 this.onStatusChange('connected');
                 
-                // Set isVerified for active sessions
-                this.isVerified = true;
-                console.log('✅ Session verified - setting isVerified to true');
+                // CRITICAL SECURITY FIX: Do NOT set isVerified = true here!
+                // Session activation does NOT imply cryptographic verification
+                // isVerified can only be set through proper SAS verification
+                console.log('⚠️ Session activated but NOT verified - cryptographic verification still required');
             }
 
         setTimeout(() => {

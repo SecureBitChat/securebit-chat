@@ -2417,6 +2417,95 @@ class EnhancedSecureCryptoUtils {
         return result === 0;
     }
     
+    /**
+     * CRITICAL SECURITY: Encrypt data with AAD (Additional Authenticated Data)
+     * This method provides authenticated encryption with additional data binding
+     */
+    static async encryptDataWithAAD(data, key, aad) {
+        try {
+            const dataString = typeof data === 'string' ? data : JSON.stringify(data);
+            const encoder = new TextEncoder();
+            const dataBuffer = encoder.encode(dataString);
+            const aadBuffer = encoder.encode(aad);
+
+            // Generate random IV
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+
+            // Encrypt with AAD
+            const encrypted = await crypto.subtle.encrypt(
+                { 
+                    name: 'AES-GCM', 
+                    iv: iv,
+                    additionalData: aadBuffer
+                },
+                key,
+                dataBuffer
+            );
+
+            // Package encrypted data
+            const encryptedPackage = {
+                version: '1.0',
+                iv: Array.from(iv),
+                data: Array.from(new Uint8Array(encrypted)),
+                aad: aad,
+                timestamp: Date.now()
+            };
+
+            const packageString = JSON.stringify(encryptedPackage);
+            const packageBuffer = encoder.encode(packageString);
+            
+            return EnhancedSecureCryptoUtils.arrayBufferToBase64(packageBuffer);
+        } catch (error) {
+            throw new Error(`AAD encryption failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * CRITICAL SECURITY: Decrypt data with AAD validation
+     * This method provides authenticated decryption with additional data validation
+     */
+    static async decryptDataWithAAD(encryptedData, key, expectedAad) {
+        try {
+            const packageBuffer = EnhancedSecureCryptoUtils.base64ToArrayBuffer(encryptedData);
+            const packageString = new TextDecoder().decode(packageBuffer);
+            const encryptedPackage = JSON.parse(packageString);
+
+            if (!encryptedPackage.version || !encryptedPackage.iv || !encryptedPackage.data || !encryptedPackage.aad) {
+                throw new Error('Invalid encrypted data format');
+            }
+
+            // Validate AAD matches expected
+            if (encryptedPackage.aad !== expectedAad) {
+                throw new Error('AAD mismatch - possible tampering or replay attack');
+            }
+
+            const iv = new Uint8Array(encryptedPackage.iv);
+            const encrypted = new Uint8Array(encryptedPackage.data);
+            const aadBuffer = new TextEncoder().encode(encryptedPackage.aad);
+
+            // Decrypt with AAD validation
+            const decrypted = await crypto.subtle.decrypt(
+                { 
+                    name: 'AES-GCM', 
+                    iv: iv,
+                    additionalData: aadBuffer
+                },
+                key,
+                encrypted
+            );
+
+            const decryptedString = new TextDecoder().decode(decrypted);
+
+            try {
+                return JSON.parse(decryptedString);
+            } catch {
+                return decryptedString;
+            }
+        } catch (error) {
+            throw new Error(`AAD decryption failed: ${error.message}`);
+        }
+    }
+
     // Initialize secure logging system after class definition
     static {
         if (EnhancedSecureCryptoUtils.secureLog && typeof EnhancedSecureCryptoUtils.secureLog.init === 'function') {
