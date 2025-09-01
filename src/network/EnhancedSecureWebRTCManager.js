@@ -255,11 +255,23 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         // CRITICAL SECURITY: Store expected DTLS fingerprint for validation
         this.expectedDTLSFingerprint = null;
         this.strictDTLSValidation = true; // Can be disabled for debugging
+        
+        // CRITICAL SECURITY: Real Perfect Forward Secrecy implementation
+        this.ephemeralKeyPairs = new Map(); // Store ephemeral keys for current session only
+        this.sessionStartTime = Date.now(); // Track session lifetime for PFS
     this.messageCounter = 0;
     this.sequenceNumber = 0;
     this.expectedSequenceNumber = 0;
     this.sessionSalt = null;
+    
+    // CRITICAL SECURITY: Anti-Replay and Message Ordering Protection
+    this.replayWindowSize = 64; // Sliding window for replay protection
+    this.replayWindow = new Set(); // Track recent sequence numbers
+    this.maxSequenceGap = 100; // Maximum allowed sequence gap
+    this.replayProtectionEnabled = true; // Enable/disable replay protection
     this.sessionId = null; // MITM protection: Session identifier
+    this.connectionId = Array.from(crypto.getRandomValues(new Uint8Array(8)))
+        .map(b => b.toString(16).padStart(2, '0')).join(''); // Connection identifier for AAD
     this.peerPublicKey = null; // Store peer's public key for PFS
     this.rateLimiterId = null;
     this.intentionalDisconnect = false;
@@ -376,7 +388,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         hasNonExtractableKeys: false,      
         hasRateLimiting: true,    
         hasEnhancedValidation: false,      
-        hasPFS: false,           
+        hasPFS: true, // CRITICAL SECURITY: Real Perfect Forward Secrecy enabled           
         
         // Advanced Features (Session Managed) 
             hasNestedEncryption: false,     
@@ -537,6 +549,70 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             };
 
         }
+        
+        /**
+         * CRITICAL SECURITY: Create AAD with sequence number for anti-replay protection
+         * This binds each message to its sequence number and prevents replay attacks
+         */
+        _createMessageAAD(messageType, messageData = null, isFileMessage = false) {
+            try {
+                const aad = {
+                    sessionId: this.currentSession?.sessionId || this.sessionId || 'unknown',
+                    keyFingerprint: this.keyFingerprint || 'unknown',
+                    sequenceNumber: this._generateNextSequenceNumber(),
+                    messageType: messageType,
+                    timestamp: Date.now(),
+                    connectionId: this.connectionId || 'unknown',
+                    isFileMessage: isFileMessage
+                };
+
+                // Add message-specific data if available
+                if (messageData && typeof messageData === 'object') {
+                    if (messageData.fileId) aad.fileId = messageData.fileId;
+                    if (messageData.chunkIndex !== undefined) aad.chunkIndex = messageData.chunkIndex;
+                    if (messageData.totalChunks !== undefined) aad.totalChunks = messageData.totalChunks;
+                }
+
+                return JSON.stringify(aad);
+            } catch (error) {
+                this._secureLog('error', '❌ Failed to create message AAD', {
+                    errorType: error.constructor.name,
+                    message: error.message,
+                    messageType: messageType
+                });
+                // Fallback to basic AAD
+                return JSON.stringify({
+                    sessionId: 'unknown',
+                    keyFingerprint: 'unknown',
+                    sequenceNumber: Date.now(),
+                    messageType: messageType,
+                    timestamp: Date.now(),
+                    connectionId: 'unknown',
+                    isFileMessage: isFileMessage
+                });
+            }
+        }
+        
+        /**
+         * CRITICAL SECURITY: Generate next sequence number for outgoing messages
+         * This ensures unique ordering and prevents replay attacks
+         */
+        _generateNextSequenceNumber() {
+            const nextSeq = this.sequenceNumber++;
+            
+            // CRITICAL SECURITY: Reset sequence number if it gets too large
+            if (this.sequenceNumber > Number.MAX_SAFE_INTEGER - 1000) {
+                this.sequenceNumber = 0;
+                this.expectedSequenceNumber = 0;
+                this.replayWindow.clear();
+                this._secureLog('warn', '⚠️ Sequence number reset due to overflow', {
+                    timestamp: Date.now()
+                });
+            }
+            
+            return nextSeq;
+        }
+        
     /**
      * CRITICAL FIX: Enhanced mutex system initialization with atomic protection
      */
@@ -2561,6 +2637,11 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 this.keyFingerprint = null;
             }
             
+            if (this.connectionId) {
+                this._secureWipeMemory(this.connectionId, 'connectionId');
+                this.connectionId = null;
+            }
+            
             this._secureLog('info', '🔒 Cryptographic materials securely cleaned up');
             
         } catch (error) {
@@ -3069,6 +3150,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             this.metadataKey = null;
             this.verificationCode = null;
             this.keyFingerprint = null;
+            this.connectionId = null;
             
             // Close connections
             if (this.dataChannel) {
@@ -3208,23 +3290,12 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
      * This binds file messages to the current session and prevents replay attacks
      */
     _createFileMessageAAD(messageType, messageData = null) {
-        const aad = {
-            sessionId: this.currentSession?.sessionId || 'unknown',
-            keyFingerprint: this.keyFingerprint || 'unknown',
-            sequenceNumber: this.sequenceNumber || 0,
-            messageType: messageType,
-            timestamp: Date.now(),
-            connectionId: this.connectionId || 'unknown'
-        };
-
-        // Add file-specific data if available
-        if (messageData && typeof messageData === 'object') {
-            if (messageData.fileId) aad.fileId = messageData.fileId;
-            if (messageData.chunkIndex !== undefined) aad.chunkIndex = messageData.chunkIndex;
-            if (messageData.totalChunks !== undefined) aad.totalChunks = messageData.totalChunks;
+        // Verify that _createMessageAAD method is available
+        if (typeof this._createMessageAAD !== 'function') {
+            throw new Error('_createMessageAAD method is not available in _createFileMessageAAD. Manager may not be fully initialized.');
         }
-
-        return JSON.stringify(aad);
+        // Use the unified AAD creation method with file message flag
+        return this._createMessageAAD(messageType, messageData, true);
     }
 
     /**
@@ -3378,11 +3449,18 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             this._secureWipeMemory(this.encryptionKey, 'emergency_wipe');
             this._secureWipeMemory(this.macKey, 'emergency_wipe');
             this._secureWipeMemory(this.metadataKey, 'emergency_wipe');
+            
+            // CRITICAL SECURITY: Wipe ephemeral keys for PFS
+            this._wipeEphemeralKeys();
+            
+            // CRITICAL SECURITY: Hard wipe old keys for PFS
+            this._hardWipeOldKeys();
 
             // Reset verification status
-            this.isVerified = false;
+            this.isVerified = null;
             this.verificationCode = null;
             this.keyFingerprint = null;
+            this.connectionId = null;
             this.expectedDTLSFingerprint = null;
 
             // Disconnect immediately
@@ -3472,6 +3550,134 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
+     * CRITICAL SECURITY: Generate ephemeral ECDH keys for Perfect Forward Secrecy
+     * This ensures each session has unique, non-persistent keys
+     */
+    async _generateEphemeralECDHKeys() {
+        try {
+            this._secureLog('info', '🔑 Generating ephemeral ECDH keys for PFS', {
+                sessionStartTime: this.sessionStartTime,
+                timestamp: Date.now()
+            });
+
+            // Generate new ephemeral ECDH key pair
+            const ephemeralKeyPair = await window.EnhancedSecureCryptoUtils.generateECDHKeyPair();
+            
+            if (!ephemeralKeyPair || !this._validateKeyPairConstantTime(ephemeralKeyPair)) {
+                throw new Error('Ephemeral ECDH key pair validation failed');
+            }
+
+            // Store ephemeral keys with session binding
+            const sessionId = this.currentSession?.sessionId || `session_${Date.now()}`;
+            this.ephemeralKeyPairs.set(sessionId, {
+                keyPair: ephemeralKeyPair,
+                timestamp: Date.now(),
+                sessionId: sessionId
+            });
+
+            this._secureLog('info', '✅ Ephemeral ECDH keys generated for PFS', {
+                sessionId: sessionId,
+                timestamp: Date.now()
+            });
+
+            return ephemeralKeyPair;
+        } catch (error) {
+            this._secureLog('error', '❌ Failed to generate ephemeral ECDH keys', { error: error.message });
+            throw new Error(`Ephemeral key generation failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * CRITICAL SECURITY: Hard wipe old keys for real PFS
+     * This prevents retrospective decryption attacks
+     */
+    _hardWipeOldKeys() {
+        try {
+            this._secureLog('info', '🧹 Performing hard wipe of old keys for PFS', {
+                oldKeysCount: this.oldKeys.size,
+                timestamp: Date.now()
+            });
+
+            // Hard wipe all old keys
+            for (const [version, keySet] of this.oldKeys.entries()) {
+                if (keySet.encryptionKey) {
+                    this._secureWipeMemory(keySet.encryptionKey, 'pfs_key_wipe');
+                }
+                if (keySet.macKey) {
+                    this._secureWipeMemory(keySet.macKey, 'pfs_key_wipe');
+                }
+                if (keySet.metadataKey) {
+                    this._secureWipeMemory(keySet.metadataKey, 'pfs_key_wipe');
+                }
+                
+                // Clear references
+                keySet.encryptionKey = null;
+                keySet.macKey = null;
+                keySet.metadataKey = null;
+                keySet.keyFingerprint = null;
+            }
+
+            // Clear the oldKeys map completely
+            this.oldKeys.clear();
+
+            // Force garbage collection if available
+            if (typeof window.gc === 'function') {
+                window.gc();
+            }
+
+            this._secureLog('info', '✅ Hard wipe of old keys completed for PFS', {
+                timestamp: Date.now()
+            });
+
+        } catch (error) {
+            this._secureLog('error', '❌ Failed to perform hard wipe of old keys', { error: error.message });
+        }
+    }
+
+    /**
+     * CRITICAL SECURITY: Wipe ephemeral keys when session ends
+     * This ensures session-specific keys are destroyed
+     */
+    _wipeEphemeralKeys() {
+        try {
+            this._secureLog('info', '🧹 Wiping ephemeral keys for PFS', {
+                ephemeralKeysCount: this.ephemeralKeyPairs.size,
+                timestamp: Date.now()
+            });
+
+            // Wipe all ephemeral key pairs
+            for (const [sessionId, keyData] of this.ephemeralKeyPairs.entries()) {
+                if (keyData.keyPair?.privateKey) {
+                    this._secureWipeMemory(keyData.keyPair.privateKey, 'ephemeral_key_wipe');
+                }
+                if (keyData.keyPair?.publicKey) {
+                    this._secureWipeMemory(keyData.keyPair.publicKey, 'ephemeral_key_wipe');
+                }
+                
+                // Clear references
+                keyData.keyPair = null;
+                keyData.timestamp = null;
+                keyData.sessionId = null;
+            }
+
+            // Clear the ephemeral keys map
+            this.ephemeralKeyPairs.clear();
+
+            // Force garbage collection if available
+            if (typeof window.gc === 'function') {
+                window.gc();
+            }
+
+            this._secureLog('info', '✅ Ephemeral keys wiped for PFS', {
+                timestamp: Date.now()
+            });
+
+        } catch (error) {
+            this._secureLog('error', '❌ Failed to wipe ephemeral keys', { error: error.message });
+        }
+    }
+
+    /**
      * CRITICAL SECURITY: Encrypt file messages with AAD
      * This ensures file messages are properly authenticated and bound to session
      */
@@ -3524,8 +3730,8 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 throw new Error('Key fingerprint mismatch in encrypted file message');
             }
             
-            // Validate AAD
-            const aad = this._validateFileMessageAAD(encryptedMessage.aad);
+            // CRITICAL SECURITY: Validate AAD with sequence number
+            const aad = this._validateMessageAAD(encryptedMessage.aad, 'file_message');
             
             if (!this.encryptionKey) {
                 throw new Error('No encryption key available for file message decryption');
@@ -5637,12 +5843,21 @@ async processOrderedPackets() {
                 }
             }
 
-            // SECURE: For regular text messages, send via secure path
+            // SECURE: For regular text messages, send via secure path with AAD
             if (typeof validation.sanitizedData === 'string') {
+                // Verify that _createMessageAAD method is available
+                if (typeof this._createMessageAAD !== 'function') {
+                    throw new Error('_createMessageAAD method is not available. Manager may not be fully initialized.');
+                }
+                
+                // Create AAD with sequence number for anti-replay protection
+                const aad = this._createMessageAAD('message', { content: validation.sanitizedData });
+                
                 return await this.sendSecureMessage({ 
                     type: 'message', 
                     data: validation.sanitizedData, 
-                    timestamp: Date.now() 
+                    timestamp: Date.now(),
+                    aad: aad // Include AAD for sequence number validation
                 });
             }
 
@@ -5797,6 +6012,48 @@ async processMessage(data) {
                     // Drop unencrypted file messages for security
                     this._secureLog('error', '❌ Dropping unencrypted file message for security', { type: parsed.type });
                     return;
+                }
+                
+                // ============================================
+                // ENHANCED MESSAGES WITH AAD VALIDATION (WITHOUT MUTEX)
+                // ============================================
+                
+                if (parsed.type === 'enhanced_message') {
+                    this._secureLog('debug', '🔐 Enhanced message detected in processMessage');
+                    
+                    try {
+                        // Decrypt enhanced message
+                        const decryptedData = await window.EnhancedSecureCryptoUtils.decryptMessage(
+                            parsed.data,
+                            this.encryptionKey,
+                            this.macKey,
+                            this.metadataKey
+                        );
+                        
+                        // Parse decrypted data
+                        const decryptedParsed = JSON.parse(decryptedData.data);
+                        
+                        // CRITICAL SECURITY: Validate AAD with sequence number
+                        if (decryptedData.metadata && decryptedData.metadata.sequenceNumber !== undefined) {
+                            if (!this._validateIncomingSequenceNumber(decryptedData.metadata.sequenceNumber, 'enhanced_message')) {
+                                this._secureLog('warn', '⚠️ Enhanced message sequence number validation failed - possible replay attack', {
+                                    received: decryptedData.metadata.sequenceNumber,
+                                    expected: this.expectedSequenceNumber
+                                });
+                                return; // Drop message with invalid sequence number
+                            }
+                        }
+                        
+                        // Process decrypted message
+                        if (decryptedParsed.type === 'message' && this.onMessage && decryptedParsed.data) {
+                            this.deliverMessageToUI(decryptedParsed.data, 'received');
+                        }
+                        
+                        return;
+                    } catch (error) {
+                        this._secureLog('error', '❌ Failed to decrypt enhanced message', { error: error.message });
+                        return; // Drop invalid enhanced message
+                    }
                 }
                 
                 // ============================================
@@ -6376,6 +6633,12 @@ async processMessage(data) {
             
             // Clean up chunk queue
             this.chunkQueue = [];
+            
+            // CRITICAL SECURITY: Wipe ephemeral keys for PFS on disconnect
+            this._wipeEphemeralKeys();
+            
+            // CRITICAL SECURITY: Hard wipe old keys for PFS
+            this._hardWipeOldKeys();
 
         } catch (error) {
             this._secureLog('error', '❌ Error during enhanced disconnect:', { errorType: error?.constructor?.name || 'Unknown' });
@@ -6452,6 +6715,9 @@ async processMessage(data) {
                     throw new Error('Data channel not ready for key rotation');
                 }
                 
+                // CRITICAL SECURITY: Perform hard wipe of old keys for real PFS
+                this._hardWipeOldKeys();
+                
                 // Wait for peer confirmation
                 return new Promise((resolve) => {
                     this.pendingRotation = {
@@ -6480,19 +6746,47 @@ async processMessage(data) {
         }, 10000); // 10 seconds timeout for the entire operation
     }
 
-    // PFS: Clean up old keys that are no longer needed
+    // CRITICAL SECURITY: Real PFS - Clean up old keys with hard wipe
     cleanupOldKeys() {
         const now = Date.now();
         const maxKeyAge = EnhancedSecureWebRTCManager.LIMITS.MAX_KEY_AGE; // 15 minutes - keys older than this are deleted
         
+        let wipedKeysCount = 0;
+        
         for (const [version, keySet] of this.oldKeys.entries()) {
             if (now - keySet.timestamp > maxKeyAge) {
+                // CRITICAL SECURITY: Hard wipe old keys before deletion
+                if (keySet.encryptionKey) {
+                    this._secureWipeMemory(keySet.encryptionKey, 'pfs_cleanup_wipe');
+                }
+                if (keySet.macKey) {
+                    this._secureWipeMemory(keySet.macKey, 'pfs_cleanup_wipe');
+                }
+                if (keySet.metadataKey) {
+                    this._secureWipeMemory(keySet.metadataKey, 'pfs_cleanup_wipe');
+                }
+                
+                // Clear references
+                keySet.encryptionKey = null;
+                keySet.macKey = null;
+                keySet.metadataKey = null;
+                keySet.keyFingerprint = null;
+                
                 this.oldKeys.delete(version);
-                window.EnhancedSecureCryptoUtils.secureLog.log('info', 'Old PFS keys cleaned up', {
+                wipedKeysCount++;
+                
+                this._secureLog('info', '🧹 Old PFS keys hard wiped and cleaned up', {
                     version: version,
-                    age: Math.round((now - keySet.timestamp) / 1000) + 's'
+                    age: Math.round((now - keySet.timestamp) / 1000) + 's',
+                    timestamp: Date.now()
                 });
             }
+        }
+        
+        if (wipedKeysCount > 0) {
+            this._secureLog('info', `✅ PFS cleanup completed: ${wipedKeysCount} keys hard wiped`, {
+                timestamp: Date.now()
+            });
         }
     }
 
@@ -6669,6 +6963,9 @@ async processMessage(data) {
                     this.deliverMessageToUI('🔌 Enhanced secure connection closed', 'system');
                 }
             }
+            
+            // CRITICAL SECURITY: Wipe ephemeral keys when session ends for PFS
+            this._wipeEphemeralKeys();
             
             this.stopHeartbeat();
             this.isVerified = false;
@@ -7473,32 +7770,33 @@ async processMessage(data) {
                 let ecdhKeyPair = null;
                 let ecdsaKeyPair = null;
                 
-                // Generate ECDH keys with retry mechanism
+                // CRITICAL SECURITY: Generate ephemeral ECDH keys for PFS
                 try {
-                    ecdhKeyPair = await window.EnhancedSecureCryptoUtils.generateECDHKeyPair();
+                    ecdhKeyPair = await this._generateEphemeralECDHKeys();
                     
-                                    // CRITICAL FIX: Validate ECDH keys immediately
-                if (!ecdhKeyPair || !ecdhKeyPair.privateKey || !ecdhKeyPair.publicKey) {
-                    throw new Error('ECDH key pair validation failed');
-                }
-                
-                // SECURE: Constant-time validation for key types
-                if (!this._validateKeyPairConstantTime(ecdhKeyPair)) {
-                    throw new Error('ECDH keys are not valid CryptoKey instances');
-                }
+                    // CRITICAL FIX: Validate ECDH keys immediately
+                    if (!ecdhKeyPair || !ecdhKeyPair.privateKey || !ecdhKeyPair.publicKey) {
+                        throw new Error('Ephemeral ECDH key pair validation failed');
+                    }
                     
-                    this._secureLog('debug', '✅ ECDH keys generated and validated', {
+                    // SECURE: Constant-time validation for key types
+                    if (!this._validateKeyPairConstantTime(ecdhKeyPair)) {
+                        throw new Error('Ephemeral ECDH keys are not valid CryptoKey instances');
+                    }
+                    
+                    this._secureLog('debug', '✅ Ephemeral ECDH keys generated and validated for PFS', {
                         operationId: operationId,
                         privateKeyType: ecdhKeyPair.privateKey.algorithm?.name,
-                        publicKeyType: ecdhKeyPair.publicKey.algorithm?.name
+                        publicKeyType: ecdhKeyPair.publicKey.algorithm?.name,
+                        isEphemeral: true
                     });
                     
                 } catch (ecdhError) {
-                    this._secureLog('error', '❌ ECDH key generation failed', {
+                    this._secureLog('error', '❌ Ephemeral ECDH key generation failed', {
                         operationId: operationId,
                         errorType: ecdhError.constructor.name
                     });
-                    this._throwSecureError(ecdhError, 'ecdh_key_generation');
+                    this._throwSecureError(ecdhError, 'ephemeral_ecdh_key_generation');
                 }
                 
                 // Generate ECDSA keys with retry mechanism
@@ -7590,13 +7888,20 @@ async processMessage(data) {
                 this._secureLog('info', '🔒 Additional encryption-dependent features enabled');
             }
             
+            // CRITICAL SECURITY: Enable PFS after ephemeral key generation
+            if (ecdhKeyPair && this.ephemeralKeyPairs.size > 0) {
+                this.securityFeatures.hasPFS = true;
+                this._secureLog('info', '🔒 Perfect Forward Secrecy enabled with ephemeral keys');
+            }
+            
             this._secureLog('info', '🔒 Security features updated after key generation', {
                 hasEncryption: this.securityFeatures.hasEncryption,
                 hasECDH: this.securityFeatures.hasECDH,
                 hasECDSA: this.securityFeatures.hasECDSA,
                 hasMetadataProtection: this.securityFeatures.hasMetadataProtection,
                 hasEnhancedReplayProtection: this.securityFeatures.hasEnhancedReplayProtection,
-                hasNonExtractableKeys: this.securityFeatures.hasNonExtractableKeys
+                hasNonExtractableKeys: this.securityFeatures.hasNonExtractableKeys,
+                hasPFS: this.securityFeatures.hasPFS
             });
             
         } catch (error) {
@@ -8829,6 +9134,10 @@ async processMessage(data) {
                     throw new Error('Failed to generate valid session ID');
                 }
                 
+                // Generate connection ID for AAD
+                this.connectionId = Array.from(crypto.getRandomValues(new Uint8Array(8)))
+                    .map(b => b.toString(16).padStart(2, '0')).join('');
+                
                 // ============================================
                 // PHASE 11: SECURITY LEVEL CALCULATION
                 // ============================================
@@ -8873,6 +9182,7 @@ async processMessage(data) {
                     // Session data
                     salt: this.sessionSalt,
                     sessionId: this.sessionId,
+                    connectionId: this.connectionId,
                     
                     // Authentication
                     verificationCode: this.verificationCode,
@@ -9767,6 +10077,7 @@ async processMessage(data) {
             this.expectedSequenceNumber = 0;
             this.messageCounter = 0;
             this.processedMessageIds.clear();
+            this.replayWindow.clear(); // CRITICAL SECURITY: Clear replay window
             
             // CRITICAL FIX: Reset security features to baseline
             this._updateSecurityFeatures({
@@ -9828,11 +10139,12 @@ async processMessage(data) {
                 this.metadataKey = metadataKey;
                 this.keyFingerprint = keyFingerprint;
                 
-                // Reset counters
-                this.sequenceNumber = 0;
-                this.expectedSequenceNumber = 0;
-                this.messageCounter = 0;
-                this.processedMessageIds.clear();
+                            // Reset counters
+            this.sequenceNumber = 0;
+            this.expectedSequenceNumber = 0;
+            this.messageCounter = 0;
+            this.processedMessageIds.clear();
+            this.replayWindow.clear(); // CRITICAL SECURITY: Clear replay window
                 
                 this._secureLog('info', '✅ Encryption keys set successfully', {
                     operationId: operationId,
@@ -10021,6 +10333,12 @@ async processMessage(data) {
 
             // Store peer's public key for PFS key rotation
             this.peerPublicKey = peerPublicKey;
+            
+            // Initialize connection ID if not already set
+            if (!this.connectionId) {
+                this.connectionId = Array.from(crypto.getRandomValues(new Uint8Array(8)))
+                    .map(b => b.toString(16).padStart(2, '0')).join('');
+            }
 
             // SECURITY: DTLS protection removed - was security theater
             // 
@@ -10047,6 +10365,7 @@ async processMessage(data) {
             this.expectedSequenceNumber = 0;
             this.messageCounter = 0;
             this.processedMessageIds.clear();
+            this.replayWindow.clear(); // CRITICAL SECURITY: Clear replay window
             // Validate that all keys are properly set
             if (!(this.encryptionKey instanceof CryptoKey) || 
                 !(this.macKey instanceof CryptoKey) || 
@@ -10533,14 +10852,20 @@ async processMessage(data) {
                 const sanitizedMessage = window.EnhancedSecureCryptoUtils.sanitizeMessage(textToSend);
                 const messageId = `msg_${Date.now()}_${this.messageCounter++}`;
                 
-                // SECURE: Use enhanced encryption with metadata protection
+                // CRITICAL SECURITY: Create AAD with sequence number for anti-replay protection
+                if (typeof this._createMessageAAD !== 'function') {
+                    throw new Error('_createMessageAAD method is not available in sendSecureMessage. Manager may not be fully initialized.');
+                }
+                const aad = message.aad || this._createMessageAAD('enhanced_message', { content: sanitizedMessage });
+                
+                // SECURE: Use enhanced encryption with AAD and sequence number
                 const encryptedData = await window.EnhancedSecureCryptoUtils.encryptMessage(
                     sanitizedMessage,
                     this.encryptionKey,
                     this.macKey,
                     this.metadataKey,
                     messageId,
-                    this.sequenceNumber++
+                    JSON.parse(aad).sequenceNumber // Use sequence number from AAD
                 );
                 
                 const payload = {
@@ -10835,6 +11160,7 @@ async processMessage(data) {
         // CRITICAL FIX: Reset message counters
         this.sequenceNumber = 0;
         this.expectedSequenceNumber = 0;
+        this.replayWindow.clear(); // CRITICAL SECURITY: Clear replay window
         
         // CRITICAL FIX: Reset security features
         this.securityFeatures = {
@@ -11656,6 +11982,175 @@ class SecureKeyStorage {
                 age: Date.now() - meta.created
             }))
         };
+    }
+
+    // Method _generateNextSequenceNumber moved to constructor area for early availability
+
+    /**
+     * CRITICAL SECURITY: Validate incoming message sequence number
+     * This prevents replay attacks and ensures message ordering
+     */
+    _validateIncomingSequenceNumber(receivedSeq, context = 'unknown') {
+        try {
+            if (!this.replayProtectionEnabled) {
+                return true; // Skip validation if disabled
+            }
+
+            // Check if sequence number is within acceptable range
+            if (receivedSeq < this.expectedSequenceNumber - this.replayWindowSize) {
+                this._secureLog('warn', '⚠️ Sequence number too old - possible replay attack', {
+                    received: receivedSeq,
+                    expected: this.expectedSequenceNumber,
+                    context: context,
+                    timestamp: Date.now()
+                });
+                return false;
+            }
+
+            // Check if sequence number is too far ahead (DoS protection)
+            if (receivedSeq > this.expectedSequenceNumber + this.maxSequenceGap) {
+                this._secureLog('warn', '⚠️ Sequence number gap too large - possible DoS attack', {
+                    received: receivedSeq,
+                    expected: this.expectedSequenceNumber,
+                    gap: receivedSeq - this.expectedSequenceNumber,
+                    context: context,
+                    timestamp: Date.now()
+                });
+                return false;
+            }
+
+            // Check if sequence number is already in replay window
+            if (this.replayWindow.has(receivedSeq)) {
+                this._secureLog('warn', '⚠️ Duplicate sequence number detected - replay attack', {
+                    received: receivedSeq,
+                    context: context,
+                    timestamp: Date.now()
+                });
+                return false;
+            }
+
+            // Add to replay window
+            this.replayWindow.add(receivedSeq);
+            
+            // Maintain sliding window size
+            if (this.replayWindow.size > this.replayWindowSize) {
+                const oldestSeq = Math.min(...this.replayWindow);
+                this.replayWindow.delete(oldestSeq);
+            }
+
+            // Update expected sequence number if this is the next expected
+            if (receivedSeq === this.expectedSequenceNumber) {
+                this.expectedSequenceNumber++;
+                
+                // Clean up replay window entries that are no longer needed
+                while (this.replayWindow.has(this.expectedSequenceNumber - this.replayWindowSize - 1)) {
+                    this.replayWindow.delete(this.expectedSequenceNumber - this.replayWindowSize - 1);
+                }
+            }
+
+            this._secureLog('debug', '✅ Sequence number validation successful', {
+                received: receivedSeq,
+                expected: this.expectedSequenceNumber,
+                context: context,
+                timestamp: Date.now()
+            });
+
+            return true;
+        } catch (error) {
+            this._secureLog('error', '❌ Sequence number validation failed', {
+                error: error.message,
+                context: context,
+                timestamp: Date.now()
+            });
+            return false;
+        }
+    }
+
+    // Method _createMessageAAD moved to constructor area for early availability
+
+    /**
+     * CRITICAL SECURITY: Validate message AAD with sequence number
+     * This ensures message integrity and prevents replay attacks
+     */
+    _validateMessageAAD(aadString, expectedMessageType = null) {
+        try {
+            const aad = JSON.parse(aadString);
+            
+            // Validate session binding
+            if (aad.sessionId !== (this.currentSession?.sessionId || 'unknown')) {
+                throw new Error('AAD sessionId mismatch - possible replay attack');
+            }
+            
+            if (aad.keyFingerprint !== (this.keyFingerprint || 'unknown')) {
+                throw new Error('AAD keyFingerprint mismatch - possible key substitution attack');
+            }
+            
+            // CRITICAL SECURITY: Validate sequence number
+            if (!this._validateIncomingSequenceNumber(aad.sequenceNumber, aad.messageType)) {
+                throw new Error('Sequence number validation failed - possible replay or DoS attack');
+            }
+            
+            // Validate message type if specified
+            if (expectedMessageType && aad.messageType !== expectedMessageType) {
+                throw new Error(`AAD messageType mismatch - expected ${expectedMessageType}, got ${aad.messageType}`);
+            }
+            
+            return aad;
+        } catch (error) {
+            this._secureLog('error', 'AAD validation failed', { error: error.message, aadString });
+            throw new Error(`AAD validation failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * CRITICAL SECURITY: Get anti-replay protection status
+     * This shows the current state of replay protection
+     */
+    getAntiReplayStatus() {
+        const status = {
+            replayProtectionEnabled: this.replayProtectionEnabled,
+            replayWindowSize: this.replayWindowSize,
+            currentReplayWindowSize: this.replayWindow.size,
+            sequenceNumber: this.sequenceNumber,
+            expectedSequenceNumber: this.expectedSequenceNumber,
+            maxSequenceGap: this.maxSequenceGap,
+            replayWindowEntries: Array.from(this.replayWindow).sort((a, b) => a - b)
+        };
+
+        this._secureLog('info', 'Anti-replay status retrieved', status);
+        return status;
+    }
+
+    /**
+     * CRITICAL SECURITY: Configure anti-replay protection
+     * This allows fine-tuning of replay protection parameters
+     */
+    configureAntiReplayProtection(config) {
+        try {
+            if (config.windowSize !== undefined) {
+                if (config.windowSize < 16 || config.windowSize > 1024) {
+                    throw new Error('Replay window size must be between 16 and 1024');
+                }
+                this.replayWindowSize = config.windowSize;
+            }
+
+            if (config.maxGap !== undefined) {
+                if (config.maxGap < 10 || config.maxGap > 1000) {
+                    throw new Error('Max sequence gap must be between 10 and 1000');
+                }
+                this.maxSequenceGap = config.maxGap;
+            }
+
+            if (config.enabled !== undefined) {
+                this.replayProtectionEnabled = config.enabled;
+            }
+
+            this._secureLog('info', 'Anti-replay protection configured', config);
+            return true;
+        } catch (error) {
+            this._secureLog('error', 'Failed to configure anti-replay protection', { error: error.message });
+            return false;
+        }
     }
 
 

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Methods</title>
+</head>
+<body>
+    <h1>Testing EnhancedSecureWebRTCManager Methods</h1>
+    <div id="output"></div>
+    
+    <script type="module">
+        import { EnhancedSecureWebRTCManager } from './src/network/EnhancedSecureWebRTCManager.js';
+        
+        const output = document.getElementById('output');
+        
+        try {
+            // Create a mock manager instance
+            const manager = new EnhancedSecureWebRTCManager(
+                () => {}, // onMessage
+                () => {}, // onStatusChange
+                () => {}, // onKeyExchange
+                () => {}  // onVerificationRequired
+            );
+            
+            // Test if _createMessageAAD method exists
+            if (typeof manager._createMessageAAD === 'function') {
+                output.innerHTML += '<p style="color: green;">✅ _createMessageAAD method exists</p>';
+                
+                // Test if it can be called
+                try {
+                    const aad = manager._createMessageAAD('test', { content: 'test' });
+                    output.innerHTML += `<p style="color: green;">✅ _createMessageAAD called successfully: ${aad}</p>`;
+                } catch (error) {
+                    output.innerHTML += `<p style="color: red;">❌ _createMessageAAD call failed: ${error.message}</p>`;
+                }
+            } else {
+                output.innerHTML += '<p style="color: red;">❌ _createMessageAAD method does not exist</p>';
+            }
+            
+            // Test if _generateNextSequenceNumber method exists
+            if (typeof manager._generateNextSequenceNumber === 'function') {
+                output.innerHTML += '<p style="color: green;">✅ _generateNextSequenceNumber method exists</p>';
+            } else {
+                output.innerHTML += '<p style="color: red;">❌ _generateNextSequenceNumber method does not exist</p>';
+            }
+            
+            // Test if sendMessage method exists
+            if (typeof manager.sendMessage === 'function') {
+                output.innerHTML += '<p style="color: green;">✅ sendMessage method exists</p>';
+            } else {
+                output.innerHTML += '<p style="color: red;">❌ sendMessage method does not exist</p>';
+            }
+            
+            // List all methods
+            const methods = Object.getOwnPropertyNames(Object.getPrototypeOf(manager))
+                .filter(name => name.startsWith('_') && typeof manager[name] === 'function');
+            
+            output.innerHTML += '<h3>Available private methods:</h3><ul>';
+            methods.forEach(method => {
+                output.innerHTML += `<li>${method}</li>`;
+            });
+            output.innerHTML += '</ul>';
+            
+        } catch (error) {
+            output.innerHTML += `<p style="color: red;">❌ Error creating manager: ${error.message}</p>`;
+        }
+    </script>
+</body>
+</html>
