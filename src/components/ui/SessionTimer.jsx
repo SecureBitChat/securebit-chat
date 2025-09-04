@@ -1,5 +1,5 @@
-// SessionTimer Component - v4.02.442 - ASN.1 Validated
-const SessionTimer = ({ timeLeft, sessionType, sessionManager }) => {
+// SessionTimer Component - v4.02.985 - ECDH + DTLS + SAS
+const SessionTimer = ({ timeLeft, sessionType, sessionManager, onDisconnect }) => {
     const [currentTime, setCurrentTime] = React.useState(timeLeft || 0);
     const [showExpiredMessage, setShowExpiredMessage] = React.useState(false);
     const [initialized, setInitialized] = React.useState(false);
@@ -141,7 +141,7 @@ const SessionTimer = ({ timeLeft, sessionType, sessionManager }) => {
         };
 
         const handleConnectionCleaned = (event) => {
-            setConnectionBroken(false);
+            setConnectionBroken(true);
             setCurrentTime(0);
             setShowExpiredMessage(false);
             setInitialized(false);
@@ -164,6 +164,14 @@ const SessionTimer = ({ timeLeft, sessionType, sessionManager }) => {
             setLoggedHidden(false);
         };
 
+        const handleDisconnected = (event) => {
+            setConnectionBroken(true);
+            setCurrentTime(0);
+            setShowExpiredMessage(false);
+            setInitialized(false);
+            setLoggedHidden(false);
+        };
+
         document.addEventListener('session-timer-update', handleSessionTimerUpdate);
         document.addEventListener('force-header-update', handleForceHeaderUpdate);
         document.addEventListener('peer-disconnect', handlePeerDisconnect);
@@ -171,6 +179,7 @@ const SessionTimer = ({ timeLeft, sessionType, sessionManager }) => {
         document.addEventListener('connection-cleaned', handleConnectionCleaned);
         document.addEventListener('session-reset', handleSessionReset);
         document.addEventListener('session-cleanup', handleSessionCleanup);
+        document.addEventListener('disconnected', handleDisconnected);
 
         return () => {
             document.removeEventListener('session-timer-update', handleSessionTimerUpdate);
@@ -180,6 +189,7 @@ const SessionTimer = ({ timeLeft, sessionType, sessionManager }) => {
             document.removeEventListener('connection-cleaned', handleConnectionCleaned);
             document.removeEventListener('session-reset', handleSessionReset);
             document.removeEventListener('session-cleanup', handleSessionCleanup);
+            document.removeEventListener('disconnected', handleDisconnected);
         };
     }, [sessionManager]);
 
@@ -277,11 +287,19 @@ const SessionTimer = ({ timeLeft, sessionType, sessionManager }) => {
 
     const timerStyle = getTimerStyle();
     
+    const handleTimerClick = () => {
+        if (onDisconnect && typeof onDisconnect === 'function') {
+            onDisconnect();
+        }
+    };
+
     return React.createElement('div', {
-        className: `session-timer flex items-center space-x-2 px-3 py-1.5 rounded-lg transition-all duration-500 ${
+        className: `session-timer flex items-center space-x-2 px-3 py-1.5 rounded-lg transition-all duration-500 cursor-pointer hover:opacity-80 ${
             isDemo ? 'demo-session' : ''
         } ${timerStyle.shouldPulse ? 'animate-pulse' : ''}`,
-        style: { background: timerStyle.backgroundColor }
+        style: { background: timerStyle.backgroundColor },
+        onClick: handleTimerClick,
+        title: 'Click to disconnect and clear session'
     }, [
         React.createElement('i', {
             key: 'icon',

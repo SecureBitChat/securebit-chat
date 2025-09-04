@@ -1,21 +1,31 @@
-# SecureBit.chat - Enhanced Security Edition
+# SecureBit.chat v4.02.985 - ECDH + DTLS + SAS
 
 <div align="center">
 
 ![SecureBit.chat Logo](logo/favicon.ico)
 
-**The world's first P2P messenger with Lightning Network payments and military-grade cryptography**
+**The world's first P2P messenger with ECDH + DTLS + SAS security, Lightning Network payments and military-grade cryptography**
 
 [![Latest Release](https://img.shields.io/github/v/release/SecureBitChat/securebit-chat?style=for-the-badge&logo=github&color=orange)](https://github.com/SecureBitChat/securebit-chat/releases/latest)
 [![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-Try_Now-success?style=for-the-badge)](https://securebitchat.github.io/securebit-chat/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
-[![Security: Military-Grade](https://img.shields.io/badge/Security-Military_Grade-red.svg?style=for-the-badge)]()
+[![Security: ECDH+DTLS+SAS](https://img.shields.io/badge/Security-ECDH%2BDTLS%2BSAS-red.svg?style=for-the-badge)]()
 
 </div>
 
 ---
 
-## ✨ What's New in v4.02.442
+## ✨ What's New in v4.02.985 - ECDH + DTLS + SAS
+
+### 🛡️ Revolutionary ECDH + DTLS + SAS Security System
+* **Complete PAKE removal** - Eliminated libsodium dependency and PAKE-based authentication
+* **ECDH key exchange** - Elliptic Curve Diffie-Hellman for secure key establishment
+* **DTLS fingerprint verification** - Transport layer security validation using WebRTC certificates
+* **SAS (Short Authentication String)** - 7-digit verification code for MITM attack prevention
+* **Single code generation** - SAS generated once on Offer side and shared with Answer side
+* **Mutual verification** - Both users must confirm the same SAS code to establish connection
+* **Enhanced MITM protection** - Multi-layer defense against man-in-the-middle attacks
+* **Real-time verification** - Immediate feedback on connection security status
 
 ### 🔒 ASN.1 Full Structure Validation (BREAKING CHANGE)
 * **Complete ASN.1 DER parser** for comprehensive key structure verification

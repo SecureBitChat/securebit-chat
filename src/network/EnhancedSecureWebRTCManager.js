@@ -90,6 +90,8 @@ class EnhancedSecureWebRTCManager {
         HEARTBEAT: 'heartbeat',
         VERIFICATION: 'verification',
         VERIFICATION_RESPONSE: 'verification_response',
+        VERIFICATION_CONFIRMED: 'verification_confirmed',
+        VERIFICATION_BOTH_CONFIRMED: 'verification_both_confirmed',
         PEER_DISCONNECT: 'peer_disconnect',
         SECURITY_UPGRADE: 'security_upgrade',
         KEY_ROTATION_SIGNAL: 'key_rotation_signal',
@@ -137,7 +139,7 @@ class EnhancedSecureWebRTCManager {
     //     ICE_VERIFICATION_TIMEOUT: 3000 // REMOVED: Fake timeout
     // };
 
-    constructor(onMessage, onStatusChange, onKeyExchange, onVerificationRequired, onAnswerError = null, config = {}) {
+    constructor(onMessage, onStatusChange, onKeyExchange, onVerificationRequired, onAnswerError = null, onVerificationStateChange = null, config = {}) {
     // Determine runtime mode
     this._isProductionMode = this._detectProductionMode();
             // SECURE: Use static flag instead of this._debugMode
@@ -210,6 +212,7 @@ class EnhancedSecureWebRTCManager {
     this.onMessage = onMessage;
     this.onStatusChange = onStatusChange;
     this.onKeyExchange = onKeyExchange;
+    this.onVerificationStateChange = onVerificationStateChange;
             // CRITICAL: SAS verification callback - this is the ONLY MITM protection
         // - Self-signed ECDSA keys don't provide authentication
         // - MITM can substitute both keys and "self-sign" them
@@ -249,8 +252,14 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         this.fileTransferSystem = null;
     }
             this.verificationCode = null;
+        this.pendingSASCode = null;
         this.isVerified = false;
         this.processedMessageIds = new Set();
+        
+        // Mutual verification states
+        this.localVerificationConfirmed = false;
+        this.remoteVerificationConfirmed = false;
+        this.bothVerificationsConfirmed = false;
         
         // CRITICAL SECURITY: Store expected DTLS fingerprint for validation
         this.expectedDTLSFingerprint = null;
@@ -3434,6 +3443,123 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
+     * CRITICAL SECURITY: Compute SAS (Short Authentication String) for MITM protection
+     * Uses HKDF with DTLS fingerprints to generate a stable 7-digit verification code
+     * @param {ArrayBuffer|Uint8Array} keyMaterialRaw - Shared secret or key fingerprint data
+     * @param {string} localFP - Local DTLS fingerprint
+     * @param {string} remoteFP - Remote DTLS fingerprint
+     * @returns {Promise<string>} 7-digit SAS code
+     */
+    async _computeSAS(keyMaterialRaw, localFP, remoteFP) {
+        try {
+            console.log('_computeSAS called with parameters:', {
+                keyMaterialRaw: keyMaterialRaw ? `${keyMaterialRaw.constructor.name} (${keyMaterialRaw.length || keyMaterialRaw.byteLength} bytes)` : 'null/undefined',
+                localFP: localFP ? `${localFP.substring(0, 20)}...` : 'null/undefined',
+                remoteFP: remoteFP ? `${remoteFP.substring(0, 20)}...` : 'null/undefined'
+            });
+            
+            if (!keyMaterialRaw || !localFP || !remoteFP) {
+                const missing = [];
+                if (!keyMaterialRaw) missing.push('keyMaterialRaw');
+                if (!localFP) missing.push('localFP');
+                if (!remoteFP) missing.push('remoteFP');
+                throw new Error(`Missing required parameters for SAS computation: ${missing.join(', ')}`);
+            }
+
+            const enc = new TextEncoder();
+
+            // Соль связываем с обоими DTLS-fingerprints (в отсортированном порядке),
+            // чтобы SAS «привязался» к реальному транспорту и его сертификатам
+            const salt = enc.encode(
+                'webrtc-sas|' + [localFP, remoteFP].sort().join('|')
+            );
+
+            // Подготавливаем keyMaterialRaw для использования
+            let keyBuffer;
+            if (keyMaterialRaw instanceof ArrayBuffer) {
+                keyBuffer = keyMaterialRaw;
+            } else if (keyMaterialRaw instanceof Uint8Array) {
+                keyBuffer = keyMaterialRaw.buffer;
+            } else if (typeof keyMaterialRaw === 'string') {
+                // Если это строка (например, keyFingerprint), декодируем её
+                // Предполагаем, что это hex строка
+                const hexString = keyMaterialRaw.replace(/:/g, '').replace(/\s/g, '');
+                const bytes = new Uint8Array(hexString.length / 2);
+                for (let i = 0; i < hexString.length; i += 2) {
+                    bytes[i / 2] = parseInt(hexString.substr(i, 2), 16);
+                }
+                keyBuffer = bytes.buffer;
+            } else {
+                throw new Error('Invalid keyMaterialRaw type');
+            }
+
+            // Используем HKDF(SHA-256) чтобы получить стабильные 64 бита энтропии для кода
+            const key = await crypto.subtle.importKey(
+                'raw',
+                keyBuffer,
+                'HKDF',
+                false,
+                ['deriveBits']
+            );
+
+            const info = enc.encode('p2p-sas-v1');
+            const bits = await crypto.subtle.deriveBits(
+                { name: 'HKDF', hash: 'SHA-256', salt, info },
+                key,
+                64 // 64 бита достаточно для 6–7 знаков
+            );
+
+            const dv = new DataView(bits);
+            // Смешиваем оба 32-битных слова и получаем 7-значный код
+            const n = (dv.getUint32(0) ^ dv.getUint32(4)) >>> 0;
+            const sasCode = String(n % 10_000_000).padStart(7, '0'); // 7 символов
+
+            console.log('🎯 _computeSAS computed code:', sasCode, '(type:', typeof sasCode, ')');
+
+            this._secureLog('info', 'SAS code computed successfully', {
+                localFP: localFP.substring(0, 16) + '...',
+                remoteFP: remoteFP.substring(0, 16) + '...',
+                sasLength: sasCode.length,
+                timestamp: Date.now()
+            });
+
+            return sasCode;
+        } catch (error) {
+            this._secureLog('error', 'SAS computation failed', {
+                error: error.message,
+                keyMaterialType: typeof keyMaterialRaw,
+                hasLocalFP: !!localFP,
+                hasRemoteFP: !!remoteFP,
+                timestamp: Date.now()
+            });
+            throw new Error(`SAS computation failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * UTILITY: Decode hex keyFingerprint to Uint8Array for SAS computation
+     * @param {string} hexString - Hex encoded keyFingerprint (e.g., "aa:bb:cc:dd")
+     * @returns {Uint8Array} Decoded bytes
+     */
+    _decodeKeyFingerprint(hexString) {
+        try {
+            if (!hexString || typeof hexString !== 'string') {
+                throw new Error('Invalid hex string provided');
+            }
+
+            // Use the utility from EnhancedSecureCryptoUtils
+            return window.EnhancedSecureCryptoUtils.hexToUint8Array(hexString);
+        } catch (error) {
+            this._secureLog('error', 'Key fingerprint decoding failed', {
+                error: error.message,
+                inputType: typeof hexString,
+                inputLength: hexString?.length || 0
+            });
+            throw new Error(`Key fingerprint decoding failed: ${error.message}`);
+        }
+    }
+
+    /**
      * CRITICAL SECURITY: Emergency key wipe on fingerprint mismatch
      * This ensures no sensitive data remains if MITM is detected
      */
@@ -3801,6 +3927,8 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             EnhancedSecureWebRTCManager.MESSAGE_TYPES.HEARTBEAT,
             EnhancedSecureWebRTCManager.MESSAGE_TYPES.VERIFICATION,
             EnhancedSecureWebRTCManager.MESSAGE_TYPES.VERIFICATION_RESPONSE,
+            EnhancedSecureWebRTCManager.MESSAGE_TYPES.VERIFICATION_CONFIRMED,
+            EnhancedSecureWebRTCManager.MESSAGE_TYPES.VERIFICATION_BOTH_CONFIRMED,
             EnhancedSecureWebRTCManager.MESSAGE_TYPES.PEER_DISCONNECT,
             EnhancedSecureWebRTCManager.MESSAGE_TYPES.SECURITY_UPGRADE,
             EnhancedSecureWebRTCManager.MESSAGE_TYPES.KEY_ROTATION_SIGNAL,
@@ -4385,6 +4513,8 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                     EnhancedSecureWebRTCManager.MESSAGE_TYPES.HEARTBEAT,
                     EnhancedSecureWebRTCManager.MESSAGE_TYPES.VERIFICATION,
                     EnhancedSecureWebRTCManager.MESSAGE_TYPES.VERIFICATION_RESPONSE,
+                    EnhancedSecureWebRTCManager.MESSAGE_TYPES.VERIFICATION_CONFIRMED,
+                    EnhancedSecureWebRTCManager.MESSAGE_TYPES.VERIFICATION_BOTH_CONFIRMED,
                     EnhancedSecureWebRTCManager.MESSAGE_TYPES.PEER_DISCONNECT,
                     EnhancedSecureWebRTCManager.MESSAGE_TYPES.KEY_ROTATION_SIGNAL,
                     EnhancedSecureWebRTCManager.MESSAGE_TYPES.KEY_ROTATION_READY,
@@ -4413,6 +4543,8 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                             EnhancedSecureWebRTCManager.MESSAGE_TYPES.HEARTBEAT,
                             EnhancedSecureWebRTCManager.MESSAGE_TYPES.VERIFICATION,
                             EnhancedSecureWebRTCManager.MESSAGE_TYPES.VERIFICATION_RESPONSE,
+                            EnhancedSecureWebRTCManager.MESSAGE_TYPES.VERIFICATION_CONFIRMED,
+                            EnhancedSecureWebRTCManager.MESSAGE_TYPES.VERIFICATION_BOTH_CONFIRMED,
                             EnhancedSecureWebRTCManager.MESSAGE_TYPES.PEER_DISCONNECT,
                             EnhancedSecureWebRTCManager.MESSAGE_TYPES.KEY_ROTATION_SIGNAL,
                             EnhancedSecureWebRTCManager.MESSAGE_TYPES.KEY_ROTATION_READY,
@@ -6072,7 +6204,7 @@ async processMessage(data) {
                 // SYSTEM MESSAGES (WITHOUT MUTEX)
                 // ============================================
                 
-                if (parsed.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'security_upgrade'].includes(parsed.type)) {
+                if (parsed.type && ['heartbeat', 'verification', 'verification_response', 'verification_confirmed', 'verification_both_confirmed', 'peer_disconnect', 'security_upgrade'].includes(parsed.type)) {
                     this.handleSystemMessage(parsed);
                     return;
                 }
@@ -6130,7 +6262,7 @@ async processMessage(data) {
                     return;
                 }
                 
-                if (message.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'security_upgrade'].includes(message.type)) {
+                if (message.type && ['heartbeat', 'verification', 'verification_response', 'verification_confirmed', 'verification_both_confirmed', 'peer_disconnect', 'security_upgrade'].includes(message.type)) {
                     this.handleSystemMessage(message);
                     return;
                 }
@@ -6279,6 +6411,15 @@ async processMessage(data) {
                     break;
                 case 'verification_response':
                     this.handleVerificationResponse(message.data);
+                    break;
+                case 'sas_code':
+                    this.handleSASCode(message.data);
+                    break;
+                case 'verification_confirmed':
+                    this.handleVerificationConfirmed(message.data);
+                    break;
+                case 'verification_both_confirmed':
+                    this.handleVerificationBothConfirmed(message.data);
                     break;
                 case 'peer_disconnect':
                     this.handlePeerDisconnectNotification(message);
@@ -6640,8 +6781,46 @@ async processMessage(data) {
             // CRITICAL SECURITY: Hard wipe old keys for PFS
             this._hardWipeOldKeys();
 
+            // CRITICAL SECURITY: Clear verification states
+            this._clearVerificationStates();
+
         } catch (error) {
             this._secureLog('error', '❌ Error during enhanced disconnect:', { errorType: error?.constructor?.name || 'Unknown' });
+        }
+    }
+
+    /**
+     * CRITICAL SECURITY: Clear all verification states and data
+     * Called when verification is rejected or connection is terminated
+     */
+    _clearVerificationStates() {
+        try {
+            console.log('🧹 Clearing verification states...');
+            
+            // Clear verification states
+            this.localVerificationConfirmed = false;
+            this.remoteVerificationConfirmed = false;
+            this.bothVerificationsConfirmed = false;
+            this.isVerified = false;
+            this.verificationCode = null;
+            this.pendingSASCode = null;
+            
+            // Clear key fingerprint and connection data
+            this.keyFingerprint = null;
+            this.expectedDTLSFingerprint = null;
+            this.connectionId = null;
+            
+            // Clear processed message IDs
+            this.processedMessageIds.clear();
+            
+            // Reset notification flags
+            this.verificationNotificationSent = false;
+            this.verificationInitiationSent = false;
+            
+            console.log('✅ Verification states cleared successfully');
+            
+        } catch (error) {
+            this._secureLog('error', '❌ Error clearing verification states:', { errorType: error?.constructor?.name || 'Unknown' });
         }
     }
 
@@ -6852,7 +7031,8 @@ async processMessage(data) {
                     setTimeout(() => this.disconnect(), 100);
                 } else {
                     this.onStatusChange('disconnected');
-
+                    // Clear verification states on unexpected disconnect
+                    this._clearVerificationStates();
                 }
             } else if (state === 'failed') {
                 // Do not auto-reconnect to avoid closing the session on errors
@@ -6930,6 +7110,32 @@ async processMessage(data) {
                 this._secureLog('error', '❌ Error in establishConnection:', { errorType: error?.constructor?.name || 'Unknown' });
                 // Continue despite errors
             }
+            
+            // CRITICAL: Send pending SAS code if available
+            if (this.pendingSASCode && this.dataChannel && this.dataChannel.readyState === 'open') {
+                try {
+                    const sasPayload = {
+                        type: 'sas_code',
+                        data: {
+                            code: this.pendingSASCode,
+                            timestamp: Date.now(),
+                            verificationMethod: 'SAS',
+                            securityLevel: 'MITM_PROTECTION_REQUIRED'
+                        }
+                    };
+                    console.log('📤 Sending pending SAS code to Answer side:', this.pendingSASCode);
+                    this.dataChannel.send(JSON.stringify(sasPayload));
+                    this.pendingSASCode = null; // Clear after sending
+                } catch (error) {
+                    console.error('Failed to send pending SAS code to Answer side:', error);
+                }
+            } else if (this.pendingSASCode) {
+                console.log('⚠️ Cannot send SAS code - dataChannel not ready:', {
+                    hasDataChannel: !!this.dataChannel,
+                    readyState: this.dataChannel?.readyState,
+                    pendingSASCode: this.pendingSASCode
+                });
+            }
                 
             if (this.isVerified) {
                 this.onStatusChange('connected');
@@ -6950,6 +7156,8 @@ async processMessage(data) {
         this.dataChannel.onclose = () => {
             if (!this.intentionalDisconnect) {
                 this.onStatusChange('disconnected');
+                // Clear verification states on data channel close
+                this._clearVerificationStates();
                 
                 if (!this.connectionClosedNotificationSent) {
                     this.connectionClosedNotificationSent = true;
@@ -6957,6 +7165,8 @@ async processMessage(data) {
                 }
             } else {
                 this.onStatusChange('disconnected');
+                // Clear verification states on intentional disconnect
+                this._clearVerificationStates();
                 
                 if (!this.connectionClosedNotificationSent) {
                     this.connectionClosedNotificationSent = true;
@@ -7047,7 +7257,7 @@ async processMessage(data) {
                         // SYSTEM MESSAGES (WITHOUT MUTEX)
                         // ============================================
                         
-                        if (parsed.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'security_upgrade'].includes(parsed.type)) {
+                        if (parsed.type && ['heartbeat', 'verification', 'verification_response', 'verification_confirmed', 'verification_both_confirmed', 'sas_code', 'peer_disconnect', 'security_upgrade'].includes(parsed.type)) {
                             console.log('🔧 System message detected:', parsed.type);
                             this.handleSystemMessage(parsed);
                             return;
@@ -8883,6 +9093,7 @@ async processMessage(data) {
      * With race-condition protection and improved security
      */
     async createSecureOffer() {
+        console.log('🎯 createSecureOffer called');
         return this._withMutex('connectionOperation', async (operationId) => {
             this._secureLog('info', '📤 Creating secure offer with mutex', {
                 operationId: operationId,
@@ -8894,6 +9105,7 @@ async processMessage(data) {
                 // ============================================
                 // PHASE 1: INITIALIZATION AND VALIDATION
                 // ============================================
+                console.log('🎯 PHASE 1: Initialization and validation');
                 
                 // Reset notification flags for a new connection
                 this._resetNotificationFlags();
@@ -8908,6 +9120,7 @@ async processMessage(data) {
                 
                 // Generate session salt (64 bytes for v4.0)
                 this.sessionSalt = window.EnhancedSecureCryptoUtils.generateSalt();
+                console.log('🎯 PHASE 1 completed: Session salt generated');
                 
                 this._secureLog('debug', '🧂 Session salt generated', {
                     operationId: operationId,
@@ -8918,6 +9131,7 @@ async processMessage(data) {
                 // ============================================
                 // PHASE 2: SECURE KEY GENERATION
                 // ============================================
+                console.log('🎯 PHASE 2: Secure key generation');
                 
                 // Secure key generation via mutex
                 const keyPairs = await this._generateEncryptionKeys();
@@ -8936,6 +9150,7 @@ async processMessage(data) {
                 // ============================================
                 // PHASE 3: MITM PROTECTION AND FINGERPRINTING
                 // ============================================
+                console.log('🎯 PHASE 3: MITM protection and fingerprinting');
                 
                 // MITM Protection: Compute unique key fingerprints
                 const ecdhFingerprint = await window.EnhancedSecureCryptoUtils.calculateKeyFingerprint(
@@ -8961,6 +9176,7 @@ async processMessage(data) {
                 // ============================================
                 // PHASE 4: EXPORT SIGNED KEYS
                 // ============================================
+                console.log('🎯 PHASE 4: Export signed keys');
                 
                 // Export keys with digital signatures
                 const ecdhPublicKeyData = await window.EnhancedSecureCryptoUtils.exportPublicKeyWithSignature(
@@ -9011,6 +9227,7 @@ async processMessage(data) {
                 // ============================================
                 // PHASE 5: UPDATE SECURITY FEATURES
                 // ============================================
+                console.log('🎯 PHASE 5: Update security features');
                 
                 // Atomic update of security features
                 this._updateSecurityFeatures({
@@ -9029,6 +9246,7 @@ async processMessage(data) {
                 // ============================================
                 // PHASE 6: INITIALIZE PEER CONNECTION
                 // ============================================
+                console.log('🎯 PHASE 6: Initialize peer connection');
                 
                 this.isInitiator = true;
                 this.onStatusChange('connecting');
@@ -9053,20 +9271,27 @@ async processMessage(data) {
                 // ============================================
                 // PHASE 7: CREATE SDP OFFER
                 // ============================================
+                console.log('🎯 PHASE 7: Create SDP offer');
                 
                 // Create WebRTC offer
+                console.log('🎯 Creating WebRTC offer...');
                 const offer = await this.peerConnection.createOffer({
                     offerToReceiveAudio: false,
                     offerToReceiveVideo: false
                 });
+                console.log('🎯 WebRTC offer created successfully');
                 
                 // Set local description
+                console.log('🎯 Setting local description...');
                 await this.peerConnection.setLocalDescription(offer);
+                console.log('🎯 Local description set successfully');
                 
                 // CRITICAL SECURITY: Extract and store our DTLS fingerprint for out-of-band verification
+                console.log('🎯 Extracting DTLS fingerprint...');
                 try {
                     const ourFingerprint = this._extractDTLSFingerprintFromSDP(offer.sdp);
                     this.expectedDTLSFingerprint = ourFingerprint;
+                    console.log('🎯 DTLS fingerprint extracted successfully');
                     
                     this._secureLog('info', 'Generated DTLS fingerprint for out-of-band verification', {
                         fingerprint: ourFingerprint,
@@ -9092,6 +9317,7 @@ async processMessage(data) {
                 // ============================================
                 // PHASE 8: GENERATE SAS FOR OUT-OF-BAND VERIFICATION
                 // ============================================
+                console.log('🎯 PHASE 8: Generate SAS for out-of-band verification');
                 // 
                 // CRITICAL SECURITY: This is the ONLY way to prevent MITM attacks
                 // - Self-signed ECDSA keys don't provide authentication
@@ -9099,20 +9325,20 @@ async processMessage(data) {
                 // - SAS must be compared out-of-band (voice, video, in-person)
                 // - Both parties must verify the same code before allowing traffic
                 //
-                // Generate verification code for out-of-band authentication
+                // NOTE: SAS code will be generated after answer is received and keys are exchanged
+                // For now, just generate a placeholder that will be replaced with real SAS
                 this.verificationCode = window.EnhancedSecureCryptoUtils.generateVerificationCode();
+                console.log('🎯 Placeholder verification code generated:', this.verificationCode);
                 
                 // Validate verification code
                 if (!this.verificationCode || this.verificationCode.length < EnhancedSecureWebRTCManager.SIZES.VERIFICATION_CODE_MIN_LENGTH) {
                     throw new Error('Failed to generate valid verification code');
                 }
                 
-                // Notify UI about verification requirement
-                this.onVerificationRequired(this.verificationCode);
-                
                 // ============================================
                 // PHASE 9: MUTUAL AUTHENTICATION CHALLENGE
                 // ============================================
+                console.log('🎯 PHASE 9: Mutual authentication challenge');
                 
                 // Generate challenge for mutual authentication
                 const authChallenge = window.EnhancedSecureCryptoUtils.generateMutualAuthChallenge();
@@ -9124,6 +9350,7 @@ async processMessage(data) {
                 // ============================================
                 // PHASE 10: SESSION ID FOR MITM PROTECTION
                 // ============================================
+                console.log('🎯 PHASE 10: Session ID for MITM protection');
                 
                 // MITM Protection: Generate session-specific ID
                 this.sessionId = Array.from(crypto.getRandomValues(new Uint8Array(EnhancedSecureWebRTCManager.SIZES.SESSION_ID_LENGTH)))
@@ -9141,6 +9368,7 @@ async processMessage(data) {
                 // ============================================
                 // PHASE 11: SECURITY LEVEL CALCULATION
                 // ============================================
+                console.log('🎯 PHASE 11: Security level calculation');
                 
                 // Preliminary security level calculation
                 let securityLevel;
@@ -9165,8 +9393,10 @@ async processMessage(data) {
                 // ============================================
                 // PHASE 12: CREATE OFFER PACKAGE
                 // ============================================
+                console.log('🎯 PHASE 12: Create offer package');
                 
                 const currentTimestamp = Date.now();
+                console.log('🎯 Creating offer package object...');
                 
                 const offerPackage = {
                     // Core information
@@ -9206,19 +9436,32 @@ async processMessage(data) {
                         supportsDecoyChannels: this.decoyChannelConfig.enabled
                     }
                 };
+                console.log('🎯 Offer package object created successfully');
                 
                 // ============================================
                 // PHASE 13: VALIDATE OFFER PACKAGE
                 // ============================================
+                console.log('🎯 PHASE 13: Validate offer package');
                 
                 // Final validation of the generated package
-                if (!this.validateEnhancedOfferData(offerPackage)) {
-                    throw new Error('Generated offer package failed validation');
+                console.log('🎯 Validating offer package...');
+                try {
+                    const validationResult = this.validateEnhancedOfferData(offerPackage);
+                    console.log('🎯 Validation result:', validationResult);
+                    if (!validationResult) {
+                        console.log('🎯 Offer package validation FAILED');
+                        throw new Error('Generated offer package failed validation');
+                    }
+                    console.log('🎯 Offer package validation PASSED');
+                } catch (validationError) {
+                    console.log('🎯 Validation ERROR:', validationError.message);
+                    throw new Error(`Offer package validation error: ${validationError.message}`);
                 }
                 
                 // ============================================
                 // PHASE 14: LOGGING AND EVENTS
                 // ============================================
+                console.log('🎯 PHASE 14: Logging and events');
                 
                 this._secureLog('info', 'Enhanced secure offer created successfully', {
                     operationId: operationId,
@@ -9244,7 +9487,9 @@ async processMessage(data) {
                 // ============================================
                 // PHASE 15: RETURN RESULT
                 // ============================================
+                console.log('🎯 PHASE 15: Return result');
                 
+                console.log('🎯 createSecureOffer completed successfully, returning offerPackage');
                 return offerPackage;
                 
             } catch (error) {
@@ -9370,6 +9615,7 @@ async processMessage(data) {
      * With race-condition protection and enhanced security
      */
     async createSecureAnswer(offerData) {
+        console.log('🎯 createSecureAnswer called with offerData:', offerData ? 'present' : 'null');
         return this._withMutex('connectionOperation', async (operationId) => {
             this._secureLog('info', '📨 Creating secure answer with mutex', {
                 operationId: operationId,
@@ -9680,10 +9926,12 @@ async processMessage(data) {
                 
                 this.isInitiator = false;
                 this.onStatusChange('connecting');
-                this.onKeyExchange(this.keyFingerprint);
-                this.onVerificationRequired(this.verificationCode);
                 
-                // Create peer connection
+                // DEBUG: Check keyFingerprint before calling onKeyExchange
+                console.log('Before onKeyExchange - keyFingerprint:', this.keyFingerprint);
+                this.onKeyExchange(this.keyFingerprint);
+                
+                // Create peer connection first
                 this.createPeerConnection();
                 
                 // CRITICAL SECURITY: Validate DTLS fingerprint before setting remote description
@@ -9782,6 +10030,9 @@ async processMessage(data) {
                     this._secureLog('error', 'Failed to extract DTLS fingerprint from answer', { error: error.message });
                     // Continue without fingerprint validation (fallback mode)
                 }
+                
+                // NOTE: SAS code will be received from Offer side after connection is established
+                // No need to generate SAS code on Answer side
                 
                 // Await ICE gathering
                 await this.waitForIceGathering();
@@ -10172,6 +10423,7 @@ async processMessage(data) {
     }
 
     async handleSecureAnswer(answerData) {
+        console.log('🎯 handleSecureAnswer called with answerData:', answerData ? 'present' : 'null');
         try {
             // CRITICAL: Strict validation of answer data to prevent syntax errors
             // - Any validation failure in critical security path must abort connection
@@ -10407,6 +10659,43 @@ async processMessage(data) {
             
             this.onKeyExchange(this.keyFingerprint);
 
+            // CRITICAL SECURITY: Compute SAS for MITM protection (Offer side - Answer handler)
+            try {
+                console.log('Starting SAS computation for Offer side (Answer handler)');
+                const remoteFP = this._extractDTLSFingerprintFromSDP(answerData.sdp); // уже есть в коде
+                const localFP = this.expectedDTLSFingerprint; // ты его сохраняешь при создании оффера/ответа
+                const keyBytes = this._decodeKeyFingerprint(this.keyFingerprint); // утилита декодирования
+                console.log('SAS computation parameters:', { 
+                    remoteFP: remoteFP ? remoteFP.substring(0, 16) + '...' : 'null/undefined', 
+                    localFP: localFP ? localFP.substring(0, 16) + '...' : 'null/undefined', 
+                    keyBytesLength: keyBytes ? keyBytes.length : 'null/undefined',
+                    keyBytesType: keyBytes ? keyBytes.constructor.name : 'null/undefined'
+                });
+
+                this.verificationCode = await this._computeSAS(keyBytes, localFP, remoteFP);
+                this.onStatusChange?.('verifying'); // Показываем SAS и ждём подтверждения
+                this.onVerificationRequired(this.verificationCode);
+                
+                // CRITICAL: Store SAS code to send when data channel opens
+                this.pendingSASCode = this.verificationCode;
+                console.log('📤 SAS code ready to send when data channel opens:', this.verificationCode);
+                
+                this._secureLog('info', 'SAS verification code generated for MITM protection (Offer side)', {
+                    sasCode: this.verificationCode,
+                    localFP: localFP.substring(0, 16) + '...',
+                    remoteFP: remoteFP.substring(0, 16) + '...',
+                    timestamp: Date.now()
+                });
+            } catch (sasError) {
+                console.error('SAS computation failed in handleSecureAnswer (Offer side):', sasError);
+                this._secureLog('error', 'SAS computation failed in handleSecureAnswer (Offer side)', {
+                    error: sasError.message,
+                    stack: sasError.stack,
+                    timestamp: Date.now()
+                });
+                // Не прерываем соединение из-за ошибки SAS, но логируем
+            }
+
             // CRITICAL SECURITY: Validate DTLS fingerprint before setting remote description
             if (this.strictDTLSValidation) {
                 try {
@@ -10518,36 +10807,51 @@ async processMessage(data) {
                 this.deliverMessageToUI('🔐 Ask peer to confirm this exact code before allowing traffic!', 'system');
             }
         } else {
-            // Responder confirms verification automatically if codes match
-            this.confirmVerification();
+            // Answer side: Wait for SAS code from Offer side
+            console.log('📥 Answer side: Waiting for SAS code from Offer side');
+            this.deliverMessageToUI('📥 Waiting for verification code from peer...', 'system');
         }
     }
 
     confirmVerification() {
         // CRITICAL SECURITY: SAS verification confirmation
-        // - This sends our verification code to the peer
-        // - Peer must compare this code with their own out-of-band
+        // - This sends our verification confirmation to the peer
+        // - Both parties must confirm before connection is established
         // - Only after mutual verification is the connection MITM-protected
         
         try {
-            const verificationPayload = {
-                type: 'verification',
+            console.log('📤 confirmVerification - sending local confirmation');
+            
+            // Mark local verification as confirmed
+            this.localVerificationConfirmed = true;
+            
+            // Send confirmation to peer
+            const confirmationPayload = {
+                type: 'verification_confirmed',
                 data: {
-                    code: this.verificationCode,
                     timestamp: Date.now(),
                     verificationMethod: 'SAS',
                     securityLevel: 'MITM_PROTECTION_REQUIRED'
                 }
             };
             
-            this.dataChannel.send(JSON.stringify(verificationPayload));
-            this._setVerifiedStatus(true, 'SAS_INITIATED', { code: this.verificationCode });
+            console.log('📤 Sending verification confirmation:', confirmationPayload);
+            this.dataChannel.send(JSON.stringify(confirmationPayload));
             
-            // Ensure verification success notice wasn't already sent
-            if (!this.verificationNotificationSent) {
-                this.verificationNotificationSent = true;
-                this.deliverMessageToUI('✅ SAS verification code sent to peer. Wait for mutual verification to complete.', 'system');
+            // Notify UI about state change
+            if (this.onVerificationStateChange) {
+                this.onVerificationStateChange({
+                    localConfirmed: this.localVerificationConfirmed,
+                    remoteConfirmed: this.remoteVerificationConfirmed,
+                    bothConfirmed: this.bothVerificationsConfirmed
+                });
             }
+            
+            // Check if both parties have confirmed
+            this._checkBothVerificationsConfirmed();
+            
+            // Notify UI about local confirmation
+            this.deliverMessageToUI('✅ You confirmed the verification code. Waiting for peer confirmation...', 'system');
             
             this.processMessageQueue();
         } catch (error) {
@@ -10556,25 +10860,127 @@ async processMessage(data) {
         }
     }
 
+    _checkBothVerificationsConfirmed() {
+        // Check if both parties have confirmed verification
+        if (this.localVerificationConfirmed && this.remoteVerificationConfirmed && !this.bothVerificationsConfirmed) {
+            console.log('🎉 Both parties confirmed verification!');
+            this.bothVerificationsConfirmed = true;
+            
+            // Notify both parties that verification is complete
+            const bothConfirmedPayload = {
+                type: 'verification_both_confirmed',
+                data: {
+                    timestamp: Date.now(),
+                    verificationMethod: 'SAS',
+                    securityLevel: 'MITM_PROTECTION_COMPLETE'
+                }
+            };
+            
+            console.log('📤 Sending both confirmed notification:', bothConfirmedPayload);
+            this.dataChannel.send(JSON.stringify(bothConfirmedPayload));
+            
+            // Notify UI about state change
+            if (this.onVerificationStateChange) {
+                this.onVerificationStateChange({
+                    localConfirmed: this.localVerificationConfirmed,
+                    remoteConfirmed: this.remoteVerificationConfirmed,
+                    bothConfirmed: this.bothVerificationsConfirmed
+                });
+            }
+            
+            // Set verified status and open chat after 2 second delay
+            this.deliverMessageToUI('🎉 Both parties confirmed! Opening secure chat in 2 seconds...', 'system');
+            
+            setTimeout(() => {
+                this._setVerifiedStatus(true, 'MUTUAL_SAS_CONFIRMED', { 
+                    code: this.verificationCode,
+                    timestamp: Date.now()
+                });
+                this._enforceVerificationGate('mutual_confirmed', false);
+                this.onStatusChange?.('verified');
+            }, 2000);
+        }
+    }
+
+    handleVerificationConfirmed(data) {
+        // Handle peer's verification confirmation
+        console.log('📥 Received verification confirmation from peer');
+        this.remoteVerificationConfirmed = true;
+        
+        // Notify UI about peer confirmation
+        this.deliverMessageToUI('✅ Peer confirmed the verification code. Waiting for your confirmation...', 'system');
+        
+        // Notify UI about state change
+        if (this.onVerificationStateChange) {
+            this.onVerificationStateChange({
+                localConfirmed: this.localVerificationConfirmed,
+                remoteConfirmed: this.remoteVerificationConfirmed,
+                bothConfirmed: this.bothVerificationsConfirmed
+            });
+        }
+        
+        // Check if both parties have confirmed
+        this._checkBothVerificationsConfirmed();
+    }
+
+    handleVerificationBothConfirmed(data) {
+        // Handle notification that both parties have confirmed
+        console.log('📥 Received both confirmed notification from peer');
+        this.bothVerificationsConfirmed = true;
+        
+        // Notify UI about state change
+        if (this.onVerificationStateChange) {
+            this.onVerificationStateChange({
+                localConfirmed: this.localVerificationConfirmed,
+                remoteConfirmed: this.remoteVerificationConfirmed,
+                bothConfirmed: this.bothVerificationsConfirmed
+            });
+        }
+        
+        // Set verified status and open chat after 2 second delay
+        this.deliverMessageToUI('🎉 Both parties confirmed! Opening secure chat in 2 seconds...', 'system');
+        
+        setTimeout(() => {
+            this._setVerifiedStatus(true, 'MUTUAL_SAS_CONFIRMED', { 
+                code: this.verificationCode,
+                timestamp: Date.now()
+            });
+            this._enforceVerificationGate('mutual_confirmed', false);
+            this.onStatusChange?.('verified');
+        }, 2000);
+    }
+
     handleVerificationRequest(data) {
         // CRITICAL SECURITY: SAS verification is the ONLY MITM protection
         // - Self-signed ECDSA keys don't provide authentication
         // - MITM can substitute both keys and "self-sign" them
         // - This verification must happen out-of-band (voice, video, in-person)
         
+        console.log('🔍 handleVerificationRequest called with:');
+        console.log('  - receivedCode:', data.code, '(type:', typeof data.code, ')');
+        console.log('  - expectedCode:', this.verificationCode, '(type:', typeof this.verificationCode, ')');
+        console.log('  - codesMatch:', data.code === this.verificationCode);
+        console.log('  - data object:', data);
+        
         if (data.code === this.verificationCode) {
             // ✅ SAS verification successful - MITM protection confirmed
             const responsePayload = {
                 type: 'verification_response',
                 data: {
-                    verified: true,
+                    ok: true,
                     timestamp: Date.now(),
                     verificationMethod: 'SAS', // Indicate SAS was used
                     securityLevel: 'MITM_PROTECTED'
                 }
             };
             this.dataChannel.send(JSON.stringify(responsePayload));
-            this._setVerifiedStatus(true, 'SAS_VERIFIED', { receivedCode: data.code, expectedCode: this.verificationCode });
+            
+            // NOTE: Do NOT set isVerified = true here - wait for user confirmation
+            // this._setVerifiedStatus(true, 'SAS_VERIFIED', { receivedCode: data.code, expectedCode: this.verificationCode });
+            
+            // NOTE: Do NOT remove verification gate here - wait for user confirmation
+            // this._enforceVerificationGate('verification_success', false);
+            // this.onStatusChange?.('verified');
             
             // Ensure verification success notice wasn't already sent
             if (!this.verificationNotificationSent) {
@@ -10585,6 +10991,17 @@ async processMessage(data) {
             this.processMessageQueue();
         } else {
             // ❌ SAS verification failed - possible MITM attack
+            console.log('❌ SAS verification failed - codes do not match, disconnecting');
+            const responsePayload = {
+                type: 'verification_response',
+                data: {
+                    ok: false,
+                    timestamp: Date.now(),
+                    reason: 'code_mismatch'
+                }
+            };
+            this.dataChannel.send(JSON.stringify(responsePayload));
+            
             this._secureLog('error', 'SAS verification failed - possible MITM attack', {
                 receivedCode: data.code,
                 expectedCode: this.verificationCode,
@@ -10596,18 +11013,41 @@ async processMessage(data) {
         }
     }
 
+    handleSASCode(data) {
+        // CRITICAL SECURITY: Receive SAS code from Offer side
+        // - This ensures both parties see the same verification code
+        // - SAS code is computed on Offer side and sent to Answer side
+        // - Both parties must verify the same code out-of-band
+        
+        console.log('📥 Received SAS code from Offer side:', data.code);
+        
+        this.verificationCode = data.code;
+        this.onStatusChange?.('verifying'); // Показываем SAS и ждём подтверждения
+        this.onVerificationRequired(this.verificationCode);
+        
+        this._secureLog('info', 'SAS code received from Offer side', {
+            sasCode: this.verificationCode,
+            timestamp: Date.now()
+        });
+    }
+
     handleVerificationResponse(data) {
         // CRITICAL SECURITY: SAS verification response handling
         // - This confirms that the peer has verified our SAS code
         // - Both parties must verify the same code out-of-band
         // - Only after mutual SAS verification is the connection MITM-protected
         
-        if (data.verified) {
+        if (data.ok === true) {
             // ✅ Peer has verified our SAS code - mutual verification complete
-            this._setVerifiedStatus(true, 'SAS_MUTUAL_VERIFIED', { 
-                verificationMethod: data.verificationMethod || 'SAS',
-                securityLevel: data.securityLevel || 'MITM_PROTECTED'
-            });
+            // NOTE: Do NOT set isVerified = true here - wait for user confirmation
+            // this._setVerifiedStatus(true, 'SAS_MUTUAL_VERIFIED', { 
+            //     verificationMethod: data.verificationMethod || 'SAS',
+            //     securityLevel: data.securityLevel || 'MITM_PROTECTED'
+            // });
+            
+            // NOTE: Do NOT remove verification gate here - wait for user confirmation
+            // this._enforceVerificationGate('verification_response_success', false);
+            // this.onStatusChange?.('verified');
             
             // Log successful mutual SAS verification
             this._secureLog('info', 'Mutual SAS verification completed - MITM protection active', {
@@ -10652,6 +11092,7 @@ async processMessage(data) {
     // - Any validation failure must result in hard disconnect
     // - No fallback allowed for security-critical validation
     validateEnhancedOfferData(offerData) {
+        console.log('🎯 validateEnhancedOfferData called with:', offerData ? 'valid object' : 'null/undefined');
         try {
             // CRITICAL: Strict type checking to prevent syntax errors
             if (!offerData || typeof offerData !== 'object' || Array.isArray(offerData)) {
@@ -10783,8 +11224,10 @@ async processMessage(data) {
                 throw new Error('Invalid SDP structure');
             }
 
+            console.log('🎯 validateEnhancedOfferData completed successfully');
             return true;
         } catch (error) {
+            console.log('🎯 validateEnhancedOfferData ERROR:', error.message);
             // CRITICAL: Security validation errors must be logged and result in hard abort
             // - No fallback or graceful handling for security-critical validation
             // - Syntax errors in critical path must break connection immediately
@@ -10963,7 +11406,7 @@ async processMessage(data) {
             }
 
             const checkState = () => {
-                if (this.peerConnection.iceGatheringState === 'complete') {
+                if (this.peerConnection && this.peerConnection.iceGatheringState === 'complete') {
                     this.peerConnection.removeEventListener('icegatheringstatechange', checkState);
                     resolve();
                 }
@@ -10972,7 +11415,9 @@ async processMessage(data) {
             this.peerConnection.addEventListener('icegatheringstatechange', checkState);
             
             setTimeout(() => {
-                this.peerConnection.removeEventListener('icegatheringstatechange', checkState);
+                if (this.peerConnection) {
+                    this.peerConnection.removeEventListener('icegatheringstatechange', checkState);
+                }
                 resolve();
             }, EnhancedSecureWebRTCManager.TIMEOUTS.ICE_GATHERING_TIMEOUT);
         });

@@ -71,8 +71,41 @@ class EnhancedSecureCryptoUtils {
             }
             return bytes.buffer;
         } catch (error) {
-            EnhancedSecureCryptoUtils.secureLog.log('error', 'Base64 to ArrayBuffer conversion failed', { error: error.message });
+            console.error('Base64 to ArrayBuffer conversion failed:', error.message);
             throw new Error(`Base64 conversion error: ${error.message}`);
+        }
+    }
+
+    // Helper function to convert hex string to Uint8Array
+    static hexToUint8Array(hexString) {
+        try {
+            if (!hexString || typeof hexString !== 'string') {
+                throw new Error('Invalid hex string input: must be a non-empty string');
+            }
+
+            // Remove colons and spaces from hex string (e.g., "aa:bb:cc" -> "aabbcc")
+            const cleanHex = hexString.replace(/:/g, '').replace(/\s/g, '');
+            
+            // Validate hex format
+            if (!/^[0-9a-fA-F]*$/.test(cleanHex)) {
+                throw new Error('Invalid hex format: contains non-hex characters');
+            }
+            
+            // Ensure even length
+            if (cleanHex.length % 2 !== 0) {
+                throw new Error('Invalid hex format: odd length');
+            }
+
+            // Convert hex string to bytes
+            const bytes = new Uint8Array(cleanHex.length / 2);
+            for (let i = 0; i < cleanHex.length; i += 2) {
+                bytes[i / 2] = parseInt(cleanHex.substr(i, 2), 16);
+            }
+            
+            return bytes;
+        } catch (error) {
+            console.error('Hex to Uint8Array conversion failed:', error.message);
+            throw new Error(`Hex conversion error: ${error.message}`);
         }
     }
 
@@ -124,7 +157,7 @@ class EnhancedSecureCryptoUtils {
             return EnhancedSecureCryptoUtils.arrayBufferToBase64(new TextEncoder().encode(packageString).buffer);
 
         } catch (error) {
-            EnhancedSecureCryptoUtils.secureLog.log('error', 'Encryption failed', { error: error.message });
+            console.error('Encryption failed:', error.message);
             throw new Error(`Encryption error: ${error.message}`);
         }
     }
@@ -182,7 +215,7 @@ class EnhancedSecureCryptoUtils {
             }
 
         } catch (error) {
-            EnhancedSecureCryptoUtils.secureLog.log('error', 'Decryption failed', { error: error.message });
+            console.error('Decryption failed:', error.message);
             throw new Error(`Decryption error: ${error.message}`);
         }
     }
@@ -211,7 +244,7 @@ class EnhancedSecureCryptoUtils {
         try {
             // Fallback to basic calculation if securityManager is not fully initialized
             if (!securityManager || !securityManager.securityFeatures) {
-                EnhancedSecureCryptoUtils.secureLog.log('warn', 'Security manager not fully initialized, using fallback calculation');
+                console.warn('Security manager not fully initialized, using fallback calculation');
                 return {
                     level: 'INITIALIZING',
                     score: 0,
@@ -342,7 +375,7 @@ class EnhancedSecureCryptoUtils {
                 maxPossibleScore: isDemoSession ? 50 : 100 // Demo sessions can only get max 50 points (4 checks)
             };
             
-            EnhancedSecureCryptoUtils.secureLog.log('info', 'Real security level calculated', {
+            console.log('Real security level calculated:', {
                 score: percentage,
                 level: result.level,
                 passedChecks: passedChecks,
@@ -353,7 +386,7 @@ class EnhancedSecureCryptoUtils {
             
             return result;
         } catch (error) {
-            EnhancedSecureCryptoUtils.secureLog.log('error', 'Security level calculation failed', { error: error.message });
+            console.error('Security level calculation failed:', error.message);
             return {
                 level: 'UNKNOWN',
                 score: 0,
@@ -392,7 +425,7 @@ class EnhancedSecureCryptoUtils {
             const decryptedText = new TextDecoder().decode(decrypted);
             return decryptedText === testData;
         } catch (error) {
-            EnhancedSecureCryptoUtils.secureLog.log('error', 'Encryption verification failed', { error: error.message });
+            console.error('Encryption verification failed:', error.message);
             return false;
         }
     }
@@ -409,7 +442,7 @@ class EnhancedSecureCryptoUtils {
             
             return keyType === 'ECDH' && (curve === 'P-384' || curve === 'P-256');
         } catch (error) {
-            EnhancedSecureCryptoUtils.secureLog.log('error', 'ECDH verification failed', { error: error.message });
+            console.error('ECDH verification failed:', error.message);
             return false;
         }
     }
@@ -440,14 +473,18 @@ class EnhancedSecureCryptoUtils {
             
             return isValid;
         } catch (error) {
-            EnhancedSecureCryptoUtils.secureLog.log('error', 'ECDSA verification failed', { error: error.message });
+            console.error('ECDSA verification failed:', error.message);
             return false;
         }
     }
     
     static async verifyMessageIntegrity(securityManager) {
         try {
-            if (!securityManager.macKey) return false;
+            // Check if macKey exists and is a valid CryptoKey
+            if (!securityManager.macKey || !(securityManager.macKey instanceof CryptoKey)) {
+                console.warn('MAC key not available or invalid for message integrity verification');
+                return false;
+            }
             
             // Test message integrity with HMAC
             const testData = 'Test message integrity verification';
@@ -469,14 +506,18 @@ class EnhancedSecureCryptoUtils {
             
             return isValid;
         } catch (error) {
-            EnhancedSecureCryptoUtils.secureLog.log('error', 'Message integrity verification failed', { error: error.message });
+            console.error('Message integrity verification failed:', error.message);
             return false;
         }
     }
     
     static async verifyNestedEncryption(securityManager) {
         try {
-            if (!securityManager.nestedEncryptionKey) return false;
+            // Check if nestedEncryptionKey exists and is a valid CryptoKey
+            if (!securityManager.nestedEncryptionKey || !(securityManager.nestedEncryptionKey instanceof CryptoKey)) {
+                console.warn('Nested encryption key not available or invalid');
+                return false;
+            }
             
             // Test nested encryption
             const testData = 'Test nested encryption verification';
@@ -492,7 +533,7 @@ class EnhancedSecureCryptoUtils {
             
             return encrypted && encrypted.byteLength > 0;
         } catch (error) {
-            EnhancedSecureCryptoUtils.secureLog.log('error', 'Nested encryption verification failed', { error: error.message });
+            console.error('Nested encryption verification failed:', error.message);
             return false;
         }
     }
@@ -814,10 +855,10 @@ class EnhancedSecureCryptoUtils {
             if (this.isProductionMode) {
                 if (level === 'error') {
                     // В production показываем только код ошибки без деталей
-                    this._secureLog('error', '❌ [SecureChat] ${message} [ERROR_CODE: ${this._generateErrorCode(message)}]');
+                    console.error(`❌ [SecureChat] ${message} [ERROR_CODE: ${this._generateErrorCode(message)}]`);
                 } else if (level === 'warn') {
                     // В production показываем только предупреждение без контекста
-                    this._secureLog('warn', '⚠️ [SecureChat] ${message}');
+                    console.warn(`⚠️ [SecureChat] ${message}`);
                 } else {
                     // В production не показываем info/debug логи
                     return;
@@ -825,9 +866,9 @@ class EnhancedSecureCryptoUtils {
             } else {
                 // Development mode - показываем все
                 if (level === 'error') {
-                    this._secureLog('error', '❌ [SecureChat] ${message}', { errorType: sanitizedContext?.constructor?.name || 'Unknown' });
+                    console.error(`❌ [SecureChat] ${message}`, { errorType: sanitizedContext?.constructor?.name || 'Unknown' });
                 } else if (level === 'warn') {
-                    this._secureLog('warn', '⚠️ [SecureChat] ${message}', { details: sanitizedContext });
+                    console.warn(`⚠️ [SecureChat] ${message}`, { details: sanitizedContext });
                 } else {
                     console.log(`[SecureChat] ${message}`, sanitizedContext);
                 }

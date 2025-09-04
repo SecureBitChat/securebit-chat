@@ -67,8 +67,8 @@
 
 
     <!-- GitHub Pages SEO -->
-    <meta name="description" content="SecureBit.chat v4.02.442 — P2P messenger with 18-layer military-grade cryptography, complete ASN.1 validation, and Lightning Network payments">
-    <meta name="keywords" content="P2P messenger, encryption, Lightning Network, WebRTC, privacy, ASN.1 validation, military-grade security, 18-layer defense">
+    <meta name="description" content="SecureBit.chat v4.02.985 — P2P messenger with ECDH + DTLS + SAS security, 18-layer military-grade cryptography, and Lightning Network payments">
+    <meta name="keywords" content="P2P messenger, ECDH, DTLS, SAS, encryption, Lightning Network, WebRTC, privacy, ASN.1 validation, military-grade security, 18-layer defense, MITM protection">
     <meta name="author" content="Volodymyr">
     <link rel="canonical" href="https://github.com/SecureBitChat/securebit-chat/">
     
@@ -696,7 +696,7 @@
                 <div className="mt-8 text-center">
                 <div className="inline-flex items-center px-6 py-3 bg-gray-800/50 border border-gray-600/30 rounded-xl">
                     <span className="text-orange-400 mr-2">🚀</span>
-                                            <span className="text-gray-300 text-sm">Enhanced Security Edition v4.02.442 - ASN.1 Validated - </span>
+                                            <span className="text-gray-300 text-sm">Enhanced Security Edition v4.02.985 - ECDH + DTLS + SAS - </span>
                     <span className="text-orange-400 font-semibold text-sm">Active Production Release</span>
                     <span className="text-gray-400 text-sm ml-2"> | Next: v5.0 Post-Quantum</span>
                 </div>
@@ -783,16 +783,18 @@
 
             // current and future phases
             {
-                                  version: "v4.02.442",
+                                  version: "v4.02.985",
                 title: "Enhanced Security Edition",
                 status: "current",
                 date: "Now",
-                description: "Current version with 18-layer military-grade cryptography and complete ASN.1 validation",
+                description: "Current version with ECDH + DTLS + SAS security, 18-layer military-grade cryptography and complete ASN.1 validation",
                 features: [
+                "ECDH + DTLS + SAS triple-layer security",
                 "ECDH P-384 + AES-GCM 256-bit encryption",
-                "ECDSA digital signatures",
+                "DTLS fingerprint verification",
+                "SAS (Short Authentication String) verification",
                 "Perfect Forward Secrecy with key rotation",
-                "Out-of-band MITM verification",
+                "Enhanced MITM attack prevention",
                 "Complete ASN.1 DER validation",
                 "OID and EC point verification",
                 "SPKI structure validation",
@@ -1184,7 +1186,7 @@
         };
 
         // Verification Component
-        const VerificationStep = ({ verificationCode, onConfirm, onReject }) => {
+        const VerificationStep = ({ verificationCode, onConfirm, onReject, localConfirmed, remoteConfirmed, bothConfirmed }) => {
             return React.createElement('div', {
                 className: "card-minimal rounded-xl p-6 border-purple-500/20"
             }, [
@@ -1222,6 +1224,56 @@
                             className: "verification-code text-2xl py-4"
                         }, verificationCode)
                     ]),
+                    // Verification status indicators
+                    React.createElement('div', {
+                        key: 'verification-status',
+                        className: "space-y-2"
+                    }, [
+                        React.createElement('div', {
+                            key: 'local-status',
+                            className: `flex items-center justify-between p-2 rounded-lg ${localConfirmed ? 'bg-green-500/10 border border-green-500/20' : 'bg-gray-500/10 border border-gray-500/20'}`
+                        }, [
+                            React.createElement('span', {
+                                key: 'local-label',
+                                className: "text-sm text-secondary"
+                            }, "Your confirmation:"),
+                            React.createElement('div', {
+                                key: 'local-indicator',
+                                className: "flex items-center"
+                            }, [
+                                React.createElement('i', {
+                                    key: 'local-icon',
+                                    className: `fas ${localConfirmed ? 'fa-check-circle text-green-400' : 'fa-clock text-gray-400'} mr-2`
+                                }),
+                                React.createElement('span', {
+                                    key: 'local-text',
+                                    className: `text-sm ${localConfirmed ? 'text-green-400' : 'text-gray-400'}`
+                                }, localConfirmed ? 'Confirmed' : 'Pending')
+                            ])
+                        ]),
+                        React.createElement('div', {
+                            key: 'remote-status',
+                            className: `flex items-center justify-between p-2 rounded-lg ${remoteConfirmed ? 'bg-green-500/10 border border-green-500/20' : 'bg-gray-500/10 border border-gray-500/20'}`
+                        }, [
+                            React.createElement('span', {
+                                key: 'remote-label',
+                                className: "text-sm text-secondary"
+                            }, "Peer confirmation:"),
+                            React.createElement('div', {
+                                key: 'remote-indicator',
+                                className: "flex items-center"
+                            }, [
+                                React.createElement('i', {
+                                    key: 'remote-icon',
+                                    className: `fas ${remoteConfirmed ? 'fa-check-circle text-green-400' : 'fa-clock text-gray-400'} mr-2`
+                                }),
+                                React.createElement('span', {
+                                    key: 'remote-text',
+                                    className: `text-sm ${remoteConfirmed ? 'text-green-400' : 'text-gray-400'}`
+                                }, remoteConfirmed ? 'Confirmed' : 'Pending')
+                            ])
+                        ])
+                    ]),
                     React.createElement('div', {
                         key: 'warning',
                         className: "p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg"
@@ -1242,12 +1294,13 @@
                         React.createElement('button', {
                             key: 'confirm',
                             onClick: onConfirm,
-                            className: "flex-1 btn-verify text-white py-3 px-4 rounded-lg font-medium transition-all duration-200"
+                            disabled: localConfirmed,
+                            className: `flex-1 py-3 px-4 rounded-lg font-medium transition-all duration-200 ${localConfirmed ? 'bg-gray-500/20 text-gray-400 cursor-not-allowed' : 'btn-verify text-white'}`
                         }, [
                             React.createElement('i', {
-                                className: 'fas fa-check mr-2'
+                                className: `fas ${localConfirmed ? 'fa-check-circle' : 'fa-check'} mr-2`
                             }),
-                            'The codes match'
+                            localConfirmed ? 'Confirmed' : 'The codes match'
                         ]),
                         React.createElement('button', {
                             key: 'reject',
@@ -1361,7 +1414,10 @@
             verificationCode,
             showVerification,
             offerPassword,
-            answerPassword
+            answerPassword,
+            localVerificationConfirmed,
+            remoteVerificationConfirmed,
+            bothVerificationsConfirmed
         }) => {
             const [mode, setMode] = React.useState('select');
 
@@ -1389,7 +1445,10 @@
                         React.createElement(VerificationStep, {
                             verificationCode: verificationCode,
                             onConfirm: handleVerificationConfirm,
-                            onReject: handleVerificationReject
+                            onReject: handleVerificationReject,
+                            localConfirmed: localVerificationConfirmed,
+                            remoteConfirmed: remoteVerificationConfirmed,
+                            bothConfirmed: bothVerificationsConfirmed
                         })
                     ])
                 ]);
@@ -2005,30 +2064,7 @@
                                         React.createElement('i', {
                                             className: 'fas fa-check-circle mr-2'
                                         }),
-                                        'Encrypted invitation created! Send the code and password to your contact:'
-                                    ]),
-                                    offerPassword && React.createElement('div', {
-                                        key: 'password-display',
-                                        className: "mt-3 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg"
-                                    }, [
-                                        React.createElement('p', {
-                                            key: 'password-label',
-                                            className: "text-blue-400 text-sm font-medium mb-2"
-                                        }, '🔑 Decryption password:'),
-                                        React.createElement('div', {
-                                            key: 'password-container',
-                                            className: "flex items-center space-x-2"
-                                        }, [
-                                            React.createElement('code', {
-                                                key: 'password',
-                                                className: "flex-1 p-2 bg-gray-900/50 border border-gray-500/30 rounded font-mono text-sm text-blue-300 font-medium"
-                                            }, offerPassword),
-                                            React.createElement(EnhancedCopyButton, {
-                                                key: 'copy-password',
-                                                text: offerPassword,
-                                                className: "px-3 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30 rounded text-sm"
-                                            }, 'Copy')
-                                        ])
+                                        'Secure invitation created! Send the code to your contact:'
                                     ])
                                 ]),
                                 React.createElement('div', {
@@ -2037,16 +2073,16 @@
                                 }, [
                                     React.createElement('textarea', {
                                         key: 'textarea',
-                                        value: offerData,
+                                        value: typeof offerData === 'object' ? JSON.stringify(offerData, null, 2) : offerData,
                                         readOnly: true,
                                         rows: 8,
                                         className: "w-full p-3 bg-custom-bg border border-gray-500/20 rounded-lg font-mono text-xs text-secondary resize-none custom-scrollbar"
                                     }),
                                     React.createElement(EnhancedCopyButton, {
                                         key: 'copy',
-                                        text: offerData,
+                                        text: typeof offerData === 'object' ? JSON.stringify(offerData, null, 2) : offerData,
                                         className: "w-full px-3 py-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 rounded text-sm font-medium"
-                                    }, 'Copy encrypted code')
+                                    }, 'Copy invitation code')
                                 ])
                             ])
                         ]),
@@ -2250,30 +2286,7 @@
                                     React.createElement('i', {
                                         className: 'fas fa-check-circle mr-2'
                                     }),
-                                    'Encrypted response created! Send this code to the initiator.:'
-                                ]),
-                                answerPassword && React.createElement('div', {
-                                    key: 'password-display',
-                                    className: "mt-3 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg"
-                                }, [
-                                    React.createElement('p', {
-                                        key: 'password-label',
-                                        className: "text-blue-400 text-sm font-medium mb-2"
-                                    }, '🔑 Password for decryption:'),
-                                    React.createElement('div', {
-                                        key: 'password-container',
-                                        className: "flex items-center space-x-2"
-                                    }, [
-                                        React.createElement('code', {
-                                            key: 'password',
-                                            className: "flex-1 p-2 bg-gray-900/50 border border-gray-500/30 rounded font-mono text-sm text-blue-300 font-medium"
-                                        }, answerPassword),
-                                        React.createElement(EnhancedCopyButton, {
-                                            key: 'copy-password',
-                                            text: answerPassword,
-                                            className: "px-3 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30 rounded text-sm"
-                                        }, 'Copy')
-                                    ])
+                                    'Secure response created! Send this code to the initiator:'
                                 ])
                             ]),
                             React.createElement('div', {
@@ -2282,16 +2295,16 @@
                             }, [
                                 React.createElement('textarea', {
                                     key: 'textarea',
-                                    value: answerData,
+                                    value: typeof answerData === 'object' ? JSON.stringify(answerData, null, 2) : answerData,
                                     readOnly: true,
                                     rows: 6,
                                     className: "w-full p-3 bg-custom-bg border border-green-500/20 rounded-lg font-mono text-xs text-secondary resize-none custom-scrollbar"
                                 }),
                                 React.createElement(EnhancedCopyButton, {
                                     key: 'copy',
-                                    text: answerData,
+                                    text: typeof answerData === 'object' ? JSON.stringify(answerData, null, 2) : answerData,
                                     className: "w-full px-3 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 rounded text-sm font-medium"
-                                }, 'Copy the encrypted response')
+                                }, 'Copy response code')
                             ]),
                             React.createElement('div', {
                                 key: 'info',
@@ -2650,15 +2663,12 @@
             const [isVerified, setIsVerified] = React.useState(false);
             const [securityLevel, setSecurityLevel] = React.useState(null);
             
-            // Password modal state
-            const [showPasswordModal, setShowPasswordModal] = React.useState(false);
-            const [passwordInput, setPasswordInput] = React.useState('');
-            const [passwordAction, setPasswordAction] = React.useState(null); // 'offer' or 'answer'
-            const [passwordCallback, setPasswordCallback] = React.useState(null);
+            // Mutual verification states
+            const [localVerificationConfirmed, setLocalVerificationConfirmed] = React.useState(false);
+            const [remoteVerificationConfirmed, setRemoteVerificationConfirmed] = React.useState(false);
+            const [bothVerificationsConfirmed, setBothVerificationsConfirmed] = React.useState(false);
             
-            // Store generated passwords
-            const [offerPassword, setOfferPassword] = React.useState('');
-            const [answerPassword, setAnswerPassword] = React.useState('');
+            // PAKE password states removed - using SAS verification instead
             
             // Pay-per-session state
             const [sessionManager, setSessionManager] = React.useState(null);
@@ -2937,26 +2947,7 @@
                 }
             };
             
-            // Password modal functions
-            const showPasswordPrompt = (action, callback) => {
-                setPasswordAction(action);
-                setPasswordCallback(() => callback);
-                setShowPasswordModal(true);
-                setPasswordInput('');
-            };
-            
-            const handlePasswordSubmit = (password) => {
-                setShowPasswordModal(false);
-                if (passwordCallback) {
-                    passwordCallback(password);
-                }
-            };
-            
-            const handlePasswordCancel = () => {
-                setShowPasswordModal(false);
-                setPasswordInput('');
-                setPasswordCallback(null);
-            };
+            // PAKE password functions removed - using SAS verification instead
 
             React.useEffect(() => {
                 // Prevent multiple initializations
@@ -2980,6 +2971,8 @@
                                 'heartbeat',
                                 'verification',
                                 'verification_response',
+                                'verification_confirmed',
+                                'verification_both_confirmed',
                                 'peer_disconnect',
                                 'key_rotation_signal',
                                 'key_rotation_ready',
@@ -2998,18 +2991,30 @@
                 };
 
                 const handleStatusChange = (status) => {
+                    console.log('handleStatusChange called with status:', status);
                     setConnectionStatus(status);
                     
                     if (status === 'connected') {
                         document.dispatchEvent(new CustomEvent('new-connection'));
                         
-                        setIsVerified(true);
-                        setShowVerification(false);
+                        // Не скрываем верификацию при 'connected' - только при 'verified'
+                        // setIsVerified(true);
+                        // setShowVerification(false);
                         if (!window.isUpdatingSecurity) {
                             updateSecurityLevel().catch(console.error);
                         }
                     } else if (status === 'verifying') {
+                        console.log('Setting showVerification to true for verifying status');
                         setShowVerification(true);
+                        if (!window.isUpdatingSecurity) {
+                            updateSecurityLevel().catch(console.error);
+                        }
+                    } else if (status === 'verified') {
+                        setIsVerified(true);
+                        setShowVerification(false);
+                        setBothVerificationsConfirmed(true);
+                        // CRITICAL: Set connectionStatus to 'connected' to show chat
+                        setConnectionStatus('connected');
                         if (!window.isUpdatingSecurity) {
                             updateSecurityLevel().catch(console.error);
                         }
@@ -3018,17 +3023,52 @@
                             updateSecurityLevel().catch(console.error);
                         }
                     } else if (status === 'disconnected') {
-                        // При ошибках соединения не сбрасываем сессию полностью
-                        // только обновляем статус соединения
+                        // При разрыве соединения очищаем все данные
                         setConnectionStatus('disconnected');
                         setIsVerified(false);
                         setShowVerification(false);
                         
-                        // Не очищаем консоль и не сбрасываем сообщения
-                        // чтобы пользователь мог видеть ошибки
+                        // Dispatch disconnected event for SessionTimer
+                        document.dispatchEvent(new CustomEvent('disconnected'));
                         
-                        // Не сбрасываем сессию при ошибках соединения
-                        // только при намеренном отключении
+                        // Clear verification states
+                        setLocalVerificationConfirmed(false);
+                        setRemoteVerificationConfirmed(false);
+                        setBothVerificationsConfirmed(false);
+                        
+                        // Clear connection data
+                        setOfferData(null);
+                        setAnswerData(null);
+                        setOfferInput('');
+                        setAnswerInput('');
+                        setShowOfferStep(false);
+                        setShowAnswerStep(false);
+                        setKeyFingerprint('');
+                        setVerificationCode('');
+                        setSecurityLevel(null);
+                        
+                        // Reset session and timer
+                        if (sessionManager && sessionManager.hasActiveSession()) {
+                            sessionManager.resetSession();
+                            setSessionTimeLeft(0);
+                            setHasActiveSession(false);
+                        }
+                        
+                        // Return to main page after a short delay
+                        setTimeout(() => {
+                            setConnectionStatus('disconnected');
+                            setShowVerification(false);
+                            setOfferData(null);
+                            setAnswerData(null);
+                            setOfferInput('');
+                            setAnswerInput('');
+                            setShowOfferStep(false);
+                            setShowAnswerStep(false);
+                            setMessages([]);
+                        }, 1000);
+                        
+                        // Не очищаем консоль при разрыве соединения
+                        // чтобы пользователь мог видеть ошибки
                     } else if (status === 'peer_disconnected') {
                         if (sessionManager && sessionManager.hasActiveSession()) {
                             sessionManager.resetSession();
@@ -3046,10 +3086,23 @@
                             setIsVerified(false);
                             setShowVerification(false);
                             setConnectionStatus('disconnected');
+                            
+                            // Clear verification states
+                            setLocalVerificationConfirmed(false);
+                            setRemoteVerificationConfirmed(false);
+                            setBothVerificationsConfirmed(false);
+                            
+                            // Clear connection data
+                            setOfferData(null);
+                            setAnswerData(null);
+                            setOfferInput('');
+                            setAnswerInput('');
+                            setShowOfferStep(false);
+                            setShowAnswerStep(false);
+                            setMessages([]);
 
-                            // Не очищаем сообщения и консоль при отключении пира
+                            // Не очищаем консоль при отключении пира
                             // чтобы сохранить историю соединения
-                            // setMessages([]);
                             // if (typeof console.clear === 'function') {
                             //     console.clear();
                             // }
@@ -3060,19 +3113,32 @@
                 };
 
                 const handleKeyExchange = (fingerprint) => {
+                    console.log('handleKeyExchange called with fingerprint:', fingerprint);
                     if (fingerprint === '') {
                         setKeyFingerprint('');
                     } else {
                         setKeyFingerprint(fingerprint);
+                        console.log('Key fingerprint set in UI:', fingerprint);
                     }
                 };
                 
                 const handleVerificationRequired = (code) => {
+                    console.log('handleVerificationRequired called with code:', code);
                     if (code === '') {
                         setVerificationCode('');
+                        setShowVerification(false);
                     } else {
                         setVerificationCode(code);
+                        setShowVerification(true);
+                        console.log('Verification code set, showing verification UI');
                     }
+                };
+
+                const handleVerificationStateChange = (state) => {
+                    console.log('handleVerificationStateChange called with state:', state);
+                    setLocalVerificationConfirmed(state.localConfirmed);
+                    setRemoteVerificationConfirmed(state.remoteConfirmed);
+                    setBothVerificationsConfirmed(state.bothConfirmed);
                 };
 
                 // Callback for handling response errors
@@ -3118,10 +3184,11 @@
                     handleStatusChange, 
                     handleKeyExchange,
                     handleVerificationRequired,
-                    handleAnswerError
+                    handleAnswerError,
+                    handleVerificationStateChange
                 );
 
-                handleMessage('🚀 SecureBit.chat Enhanced Security Edition v4.02.442 - ASN.1 Validated initialized. Ready to establish a secure connection with ECDH, encrypted exchange, complete ASN.1 validation, and verification.', 'system');
+                handleMessage('🚀 SecureBit.chat Enhanced Security Edition v4.02.985 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.', 'system');
 
                 const handleBeforeUnload = (event) => {
                     if (event.type === 'beforeunload' && !isTabSwitching) {
@@ -3263,22 +3330,19 @@
 
             const handleCreateOffer = async () => {
                 try {
+                    console.log('🎯 handleCreateOffer called');
                     const ok = await ensureActiveSessionOrPurchase();
                     if (!ok) return;
 
                     setOfferData('');
                     setShowOfferStep(false);
                     
+                    console.log('🎯 Calling createSecureOffer...');
                     const offer = await webrtcManagerRef.current.createSecureOffer();
+                    console.log('🎯 createSecureOffer returned:', offer ? 'success' : 'null');
                     
-                    // Generate secure password for encryption
-                    const password = EnhancedSecureCryptoUtils.generateSecurePassword();
-                    
-                    // Encrypt the offer data
-                    const encryptedOffer = await EnhancedSecureCryptoUtils.encryptData(offer, password);
-                    
-                    setOfferData(encryptedOffer);
-                    setOfferPassword(password);
+                    // Store offer data directly (no encryption needed with SAS)
+                    setOfferData(offer);
                     setShowOfferStep(true);
 
                     const existingMessages = messages.filter(m => 
@@ -3295,7 +3359,7 @@
                         }]);
                         
                         setMessages(prev => [...prev, { 
-                            message: '📤 Send the encrypted code and password to your interlocutor via a secure channel (voice call, SMS, etc.)..', 
+                            message: '📤 Send the invitation code to your interlocutor via a secure channel (voice call, SMS, etc.)..', 
                             type: 'system',
                             id: Date.now(),
                             timestamp: Date.now()
@@ -3320,7 +3384,7 @@
                 try {
                     if (!offerInput.trim()) {
                         setMessages(prev => [...prev, { 
-                            message: '⚠️ You need to insert the encrypted invitation code from your interlocutor.', 
+                            message: '⚠️ You need to insert the invitation code from your interlocutor.', 
                             type: 'system',
                             id: Date.now(),
                             timestamp: Date.now()
@@ -3328,36 +3392,24 @@
                         return;
                     }
 
-                    // Show password modal for offer decryption
-                    showPasswordPrompt('offer', async (password) => {
-                        if (!password) {
-                            setMessages(prev => [...prev, { 
-                                message: '❌ Password not entered', 
-                                type: 'system',
-                                id: Date.now(),
-                                timestamp: Date.now()
-                            }]);
-                            return;
-                        }
+                    try {
+                        setMessages(prev => [...prev, { 
+                            message: '🔄 Processing the secure invitation...', 
+                            type: 'system',
+                            id: Date.now(),
+                            timestamp: Date.now()
+                        }]);
 
+                        setAnswerData('');
+                        setShowAnswerStep(false);
+
+                        let offer;
                         try {
-                            setMessages(prev => [...prev, { 
-                                message: '🔄 Decrypting and processing the secure invitation...', 
-                                type: 'system',
-                                id: Date.now(),
-                                timestamp: Date.now()
-                            }]);
-
-                            setAnswerData('');
-                            setShowAnswerStep(false);
-
-                            let offer;
-                            try {
-                                // Decrypt the offer data
-                                offer = await EnhancedSecureCryptoUtils.decryptData(offerInput.trim(), password);
-                            } catch (decryptError) {
-                                throw new Error(`Decryption error: ${decryptError.message}`);
-                            }
+                            // Parse the offer data directly (no decryption needed with SAS)
+                            offer = JSON.parse(offerInput.trim());
+                        } catch (parseError) {
+                            throw new Error(`Invalid invitation format: ${parseError.message}`);
+                        }
 
                             if (!offer || typeof offer !== 'object') {
                                 throw new Error('The invitation must be an object');
@@ -3371,31 +3423,25 @@
                             const answer = await webrtcManagerRef.current.createSecureAnswer(offer);
                             console.log('Secure answer created:', answer);
                             
-                            // Generate new password for answer encryption
-                            const answerPassword = EnhancedSecureCryptoUtils.generateSecurePassword();
-                            
-                            // Encrypt the answer data
-                            const encryptedAnswer = await EnhancedSecureCryptoUtils.encryptData(answer, answerPassword);
-                            
-                            setAnswerData(encryptedAnswer);
-                            setAnswerPassword(answerPassword); // Store the password
+                            // Store answer data directly (no encryption needed with SAS)
+                            setAnswerData(answer);
                             setShowAnswerStep(true);
 
                         const existingResponseMessages = messages.filter(m => 
                             m.type === 'system' && 
-                            (m.message.includes('Secure response created') || m.message.includes('Send the encrypted response'))
+                            (m.message.includes('Secure response created') || m.message.includes('Send the response'))
                         );
                         
                         if (existingResponseMessages.length === 0) {
                             setMessages(prev => [...prev, { 
-                                message: '✅ Secure response created and encrypted!', 
+                                message: '✅ Secure response created!', 
                                 type: 'system',
                                 id: Date.now(),
                                 timestamp: Date.now()
                             }]);
                             
                             setMessages(prev => [...prev, { 
-                                message: '📤 Send the encrypted response code and password to the initiator via a secure channel..', 
+                                message: '📤 Send the response code to the initiator via a secure channel..', 
                                 type: 'system',
                                 id: Date.now(),
                                 timestamp: Date.now()
@@ -3416,9 +3462,6 @@
                                 timestamp: Date.now()
                             }]);
                         }
-                    });
-                    
-                    return; // Exit early, callback will handle the rest
                 } catch (error) {
                     console.error('Error in handleCreateAnswer:', error);
                     setMessages(prev => [...prev, { 
@@ -3434,7 +3477,7 @@
                 try {
                     if (!answerInput.trim()) {
                         setMessages(prev => [...prev, { 
-                            message: '⚠️ You need to insert the encrypted response code from your interlocutor.', 
+                            message: '⚠️ You need to insert the response code from your interlocutor.', 
                             type: 'system',
                             id: Date.now(),
                             timestamp: Date.now()
@@ -3442,33 +3485,21 @@
                         return;
                     }
 
-                    // Show password modal for answer decryption
-                    showPasswordPrompt('answer', async (password) => {
-                        if (!password) {
-                            setMessages(prev => [...prev, { 
-                                message: '❌ Password not entered', 
-                                type: 'system',
-                                id: Date.now(),
-                                timestamp: Date.now()
-                            }]);
-                            return;
-                        }
+                    try {
+                        setMessages(prev => [...prev, { 
+                            message: '🔄 Processing the secure response...', 
+                            type: 'system',
+                            id: Date.now(),
+                            timestamp: Date.now()
+                        }]);
 
+                        let answer;
                         try {
-                            setMessages(prev => [...prev, { 
-                                message: '🔄 Decrypting and processing the secure response...', 
-                                type: 'system',
-                                id: Date.now(),
-                                timestamp: Date.now()
-                            }]);
-
-                            let answer;
-                            try {
-                                // Decrypt the answer data
-                                answer = await EnhancedSecureCryptoUtils.decryptData(answerInput.trim(), password);
-                            } catch (decryptError) {
-                                throw new Error(`Decryption error: ${decryptError.message}`);
-                            }
+                            // Parse the answer data directly (no decryption needed with SAS)
+                            answer = JSON.parse(answerInput.trim());
+                        } catch (parseError) {
+                            throw new Error(`Invalid response format: ${parseError.message}`);
+                        }
 
                             if (!answer || typeof answer !== 'object') {
                                 throw new Error('The response must be an object');
@@ -3523,10 +3554,7 @@
                             if (!error.message.includes('Too old') && !error.message.includes('too old')) {
                                 setPendingSession(null);
                             }
-                        }
-                    });
-                    
-                    return; 
+                        } 
                 } catch (error) {
                     setMessages(prev => [...prev, { 
                         message: `❌ Connection setup error: ${error.message}`, 
@@ -3544,6 +3572,8 @@
             const handleVerifyConnection = (isValid) => {
                 if (isValid) {
                     webrtcManagerRef.current.confirmVerification();
+                    // Mark local verification as confirmed
+                    setLocalVerificationConfirmed(true);
                 } else {
                     setMessages(prev => [...prev, { 
                         message: '❌ Verification rejected. The connection is unsafe! Session reset..', 
@@ -3552,9 +3582,32 @@
                         timestamp: Date.now()
                     }]);
                     
+                    // Clear verification states
+                    setLocalVerificationConfirmed(false);
+                    setRemoteVerificationConfirmed(false);
+                    setBothVerificationsConfirmed(false);
+                    setShowVerification(false);
+                    setVerificationCode('');
+                    
+                    // Reset UI to initial state
+                    setConnectionStatus('disconnected');
+                    setOfferData(null);
+                    setAnswerData(null);
+                    setOfferInput('');
+                    setAnswerInput('');
+                    setShowOfferStep(false);
+                    setShowAnswerStep(false);
+                    setKeyFingerprint('');
+                    setSecurityLevel(null);
+                    setIsVerified(false);
+                    setMessages([]);
+                    
                     sessionManager.resetSession();
                     setSessionTimeLeft(0);
                     setPendingSession(null);
+                    
+                    // Dispatch disconnected event for SessionTimer
+                    document.dispatchEvent(new CustomEvent('disconnected'));
                     
                     handleDisconnect();
                 }
@@ -3605,8 +3658,13 @@
                 setConnectionStatus('disconnected');
                 setMessages([]);
                 setMessageInput('');
-                setOfferPassword(''); 
-                setAnswerPassword(''); 
+                
+                // Clear verification states
+                setLocalVerificationConfirmed(false);
+                setRemoteVerificationConfirmed(false);
+                setBothVerificationsConfirmed(false);
+                
+                // PAKE passwords removed - using SAS verification instead 
                 
                 // Не очищаем консоль при очистке данных
                 // чтобы пользователь мог видеть ошибки
@@ -3648,6 +3706,25 @@
                 setIsVerified(false);
                 setShowVerification(false);
                 setConnectionStatus('disconnected');
+                
+                // Clear verification states
+                setLocalVerificationConfirmed(false);
+                setRemoteVerificationConfirmed(false);
+                setBothVerificationsConfirmed(false);
+
+                // Reset UI to initial state
+                setConnectionStatus('disconnected');
+                setShowVerification(false);
+                setOfferData(null);
+                setAnswerData(null);
+                setOfferInput('');
+                setAnswerInput('');
+                setShowOfferStep(false);
+                setShowAnswerStep(false);
+                setKeyFingerprint('');
+                setVerificationCode('');
+                setSecurityLevel(null);
+                setIsVerified(false);
 
                 setMessages([]);
 
@@ -3658,6 +3735,7 @@
                 // }
 
                 document.dispatchEvent(new CustomEvent('peer-disconnect'));
+                document.dispatchEvent(new CustomEvent('disconnected'));
 
                 document.dispatchEvent(new CustomEvent('session-cleanup', {
                     detail: { 
@@ -3771,21 +3849,14 @@
                             verificationCode: verificationCode,
                             showVerification: showVerification,
                             messages: messages,
-                            offerPassword: offerPassword,
-                            answerPassword: answerPassword
+                            localVerificationConfirmed: localVerificationConfirmed,
+                            remoteVerificationConfirmed: remoteVerificationConfirmed,
+                            bothVerificationsConfirmed: bothVerificationsConfirmed,
+                            // PAKE passwords removed - using SAS verification instead
                         })
                 ),
                 
-                // Password Modal
-                React.createElement(PasswordModal, {
-                    key: 'password-modal',
-                    isOpen: showPasswordModal,
-                    onClose: handlePasswordCancel,
-                    onSubmit: handlePasswordSubmit,
-                    action: passwordAction,
-                    password: passwordInput,
-                    setPassword: setPasswordInput
-                }),
+                // PAKE Password Modal removed - using SAS verification instead
 
                 // Payment Modal
                 React.createElement(PaymentModal, {
@@ -3855,7 +3926,7 @@
         await Promise.all([
             loadReactComponent('./src/components/ui/SessionTimer.jsx', 'SessionTimer'), 
             loadReactComponent('./src/components/ui/Header.jsx', 'EnhancedMinimalHeader'), 
-            loadReactComponent('./src/components/ui/PasswordModal.jsx', 'PasswordModal'), 
+            // PasswordModal removed - using SAS verification instead 
             loadReactComponent('./src/components/ui/SessionTypeSelector.jsx', 'SessionTypeSelector'), 
             loadReactComponent('./src/components/ui/LightningPayment.jsx', 'LightningPayment'), 
             loadReactComponent('./src/components/ui/PaymentModal.jsx', 'PaymentModal'), 
@@ -4050,7 +4121,7 @@ function showUpdateNotification() {
             <i class="fas fa-download text-lg"></i>
             <div class="flex-1">
                 <div class="font-medium">Update Available</div>
-                <div class="text-sm opacity-90">SecureBit.chat v4.02.442 - ASN.1 Validated is ready</div>
+                <div class="text-sm opacity-90">SecureBit.chat v4.02.985 - ECDH + DTLS + SAS is ready</div>
             </div>
             <button onclick="window.location.reload()" 
                     class="bg-white/20 hover:bg-white/30 px-3 py-1 rounded text-sm font-medium transition-colors">

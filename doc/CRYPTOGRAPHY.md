@@ -1,31 +1,138 @@
-# SecureBit.chat Cryptographic Implementation
+# SecureBit.chat Cryptographic Implementation v4.02.985
 
 ## 🔐 Overview
 
-SecureBit.chat implements state-of-the-art cryptographic protocols providing **military-grade security** for peer-to-peer communications. Our cryptographic design prioritizes security, performance, and future-proofing against emerging threats including quantum computing. **Version 4.02.442 introduces complete ASN.1 validation for enhanced key security.**
+SecureBit.chat implements state-of-the-art cryptographic protocols providing **military-grade security** for peer-to-peer communications. Our cryptographic design prioritizes security, performance, and future-proofing against emerging threats including quantum computing. **Version 4.02.985 introduces revolutionary ECDH + DTLS + SAS security system for enhanced MITM protection.**
 
 **Cryptographic Strength:** 256+ bit security level  
 **Quantum Resistance:** Timeline > 2040  
-**Standards Compliance:** NIST, FIPS, NSA Suite B, RFC 5280, RFC 5480  
-**Implementation:** Hardware-accelerated, constant-time algorithms with complete ASN.1 validation
+**Standards Compliance:** NIST, FIPS, NSA Suite B, RFC 5280, RFC 5480, RFC 5763  
+**Implementation:** Hardware-accelerated, constant-time algorithms with ECDH + DTLS + SAS authentication
 
 ---
 
 ## 📋 Table of Contents
 
-1. [Cryptographic Primitives](#cryptographic-primitives)
-2. [Key Management](#key-management)
-3. [Encryption Implementation](#encryption-implementation)
-4. [Production Security Logging](#production-security-logging)
-5. [Digital Signatures](#digital-signatures)
-6. [Mutex Framework](#mutex-framework-race-condition-protection)
-7. [Key Derivation](#key-derivation)
-8. [Perfect Forward Secrecy](#perfect-forward-secrecy)
-9. [Security Analysis](#security-analysis)
-10. [Implementation Details](#implementation-details)
-11. [Performance Optimization](#performance-optimization)
-12. [Compliance and Standards](#compliance-and-standards)
-13. [ASN.1 Validation Framework](#asn1-validation-framework)
+1. [ECDH + DTLS + SAS Security System](#ecdh--dtls--sas-security-system)
+2. [Cryptographic Primitives](#cryptographic-primitives)
+3. [Key Management](#key-management)
+4. [Encryption Implementation](#encryption-implementation)
+5. [Production Security Logging](#production-security-logging)
+6. [Digital Signatures](#digital-signatures)
+7. [Mutex Framework](#mutex-framework-race-condition-protection)
+8. [Key Derivation](#key-derivation)
+9. [Perfect Forward Secrecy](#perfect-forward-secrecy)
+10. [Security Analysis](#security-analysis)
+11. [Implementation Details](#implementation-details)
+12. [Performance Optimization](#performance-optimization)
+13. [Compliance and Standards](#compliance-and-standards)
+14. [ASN.1 Validation Framework](#asn1-validation-framework)
+
+---
+
+## 🛡️ ECDH + DTLS + SAS Security System
+
+### Overview
+
+SecureBit.chat v4.02.985 introduces a revolutionary three-layer security system that eliminates traditional PAKE-based authentication in favor of a more robust and standardized approach:
+
+1. **ECDH (Elliptic Curve Diffie-Hellman)** - Secure key exchange
+2. **DTLS Fingerprint Verification** - Transport layer security validation  
+3. **SAS (Short Authentication String)** - MITM attack prevention
+
+### ECDH Key Exchange
+
+**Purpose:** Establish a shared secret between two parties without prior knowledge
+
+**Implementation:**
+- **Curve:** P-384 (secp384r1) for maximum security
+- **Key Generation:** Cryptographically secure random key pairs
+- **Shared Secret:** Derived using ECDH protocol
+- **Key Material:** Used for subsequent encryption and authentication
+
+**Security Properties:**
+- **Forward Secrecy:** Each session uses unique key pairs
+- **Perfect Forward Secrecy:** Past sessions cannot be compromised
+- **MITM Resistance:** Requires knowledge of both private keys
+
+### DTLS Fingerprint Verification
+
+**Purpose:** Verify the authenticity of the WebRTC transport layer
+
+**Implementation:**
+- **Certificate Extraction:** From WebRTC SDP offers/answers
+- **Fingerprint Generation:** SHA-256 hash of the certificate
+- **Verification:** Both parties verify each other's DTLS fingerprints
+- **Transport Security:** Ensures connection is not intercepted
+
+**Security Properties:**
+- **Transport Integrity:** Prevents connection hijacking
+- **Certificate Validation:** Ensures authentic WebRTC certificates
+- **MITM Detection:** Detects man-in-the-middle at transport layer
+
+### SAS (Short Authentication String)
+
+**Purpose:** Provide out-of-band verification to prevent MITM attacks
+
+**Implementation:**
+- **Generation:** HKDF-based derivation from shared secret and DTLS fingerprints
+- **Format:** 7-digit numeric code (0000000-9999999)
+- **Sharing:** Generated once on Offer side, shared with Answer side
+- **Verification:** Both users must confirm the same code
+
+**Security Properties:**
+- **MITM Prevention:** Requires attacker to know the shared secret
+- **User Verification:** Human-readable verification step
+- **Standard Compliance:** Follows RFC 5763 recommendations
+
+### Security Flow
+
+```
+1. ECDH Key Exchange
+   ├── Generate key pairs (P-384)
+   ├── Exchange public keys
+   └── Derive shared secret
+
+2. DTLS Fingerprint Verification
+   ├── Extract certificates from SDP
+   ├── Generate SHA-256 fingerprints
+   └── Verify transport authenticity
+
+3. SAS Generation and Verification
+   ├── Generate SAS from shared secret + fingerprints
+   ├── Share SAS code between parties
+   └── Mutual verification by both users
+
+4. Connection Establishment
+   ├── All three layers verified
+   ├── Secure channel established
+   └── Communication begins
+```
+
+### Advantages Over PAKE
+
+| Aspect | PAKE (Previous) | ECDH + DTLS + SAS (Current) |
+|--------|-----------------|------------------------------|
+| **Dependencies** | libsodium required | Native Web Crypto API |
+| **Standards** | Custom implementation | RFC-compliant protocols |
+| **MITM Protection** | Single layer | Triple-layer defense |
+| **User Experience** | Password-based | Code-based verification |
+| **Security** | Good | Military-grade |
+| **Maintenance** | Complex | Simplified |
+
+### Implementation Details
+
+**Key Components:**
+- `_computeSAS()` - SAS generation using HKDF
+- `_extractDTLSFingerprintFromSDP()` - Certificate extraction
+- `_decodeKeyFingerprint()` - Key material processing
+- `confirmVerification()` - Mutual verification handling
+
+**Security Considerations:**
+- **Timing Attacks:** Constant-time operations
+- **Side Channels:** No information leakage
+- **Replay Protection:** Unique session identifiers
+- **Forward Secrecy:** Session-specific keys
 
 ---
 

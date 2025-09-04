@@ -1,7 +1,7 @@
 {
-  "name": "SecureBit.chat - Enhanced Security Edition",
+  "name": "SecureBit.chat v4.02.985 - ECDH + DTLS + SAS",
   "short_name": "SecureBit",
-  "description": "P2P messenger with military-grade cryptography and Lightning Network payments",
+  "description": "P2P messenger with ECDH + DTLS + SAS security, military-grade cryptography and Lightning Network payments",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#1a1a1a",

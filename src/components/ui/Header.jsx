@@ -258,7 +258,15 @@ const EnhancedMinimalHeader = ({
     // SECURITY INDICATOR CLICK HANDLER
     // ============================================
 
-    const handleSecurityClick = () => {
+    const handleSecurityClick = (event) => {
+        // Check if it's a right-click or Ctrl+click to disconnect
+        if (event && (event.button === 2 || event.ctrlKey || event.metaKey)) {
+            if (onDisconnect && typeof onDisconnect === 'function') {
+                onDisconnect();
+                return;
+            }
+        }
+
         if (!realSecurityLevel) {
             alert('Security verification in progress...\nPlease wait for real-time cryptographic verification to complete.');
             return;
@@ -421,13 +429,13 @@ const EnhancedMinimalHeader = ({
         
         if (isRealData) {
             return {
-                tooltip: `${baseTooltip} - Real-time verification ✅`,
+                tooltip: `${baseTooltip} - Real-time verification ✅\nRight-click or Ctrl+click to disconnect`,
                 isVerified: true,
                 dataSource: 'real'
             };
         } else {
             return {
-                tooltip: `${baseTooltip} - Estimated (connection establishing...)`,
+                tooltip: `${baseTooltip} - Estimated (connection establishing...)\nRight-click or Ctrl+click to disconnect`,
                 isVerified: false,
                 dataSource: 'estimated'
             };
@@ -497,7 +505,7 @@ const EnhancedMinimalHeader = ({
                         React.createElement('p', {
                             key: 'subtitle',
                             className: 'text-xs sm:text-sm text-muted hidden sm:block'
-                        }, 'End-to-end freedom v4.02.442')
+                        }, 'End-to-end freedom v4.02.985')
                     ])
                 ]),
 
@@ -511,13 +519,20 @@ const EnhancedMinimalHeader = ({
                         key: 'session-timer',
                         timeLeft: currentTimeLeft,
                         sessionType: sessionType,
-                        sessionManager: sessionManager
+                        sessionManager: sessionManager,
+                        onDisconnect: onDisconnect
                     }),
 
                     displaySecurityLevel && React.createElement('div', {
                         key: 'security-level',
                         className: 'hidden md:flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity duration-200',
                         onClick: handleSecurityClick,
+                        onContextMenu: (e) => {
+                            e.preventDefault();
+                            if (onDisconnect && typeof onDisconnect === 'function') {
+                                onDisconnect();
+                            }
+                        },
                         title: securityDetails.tooltip
                     }, [
                         React.createElement('div', {
@@ -583,7 +598,13 @@ const EnhancedMinimalHeader = ({
                                 displaySecurityLevel.color === 'yellow' ? 'bg-yellow-500/20' : 'bg-red-500/20'
                             } ${securityDetails.isVerified ? '' : 'animate-pulse'}`,
                             title: securityDetails.tooltip,
-                            onClick: handleSecurityClick
+                            onClick: handleSecurityClick,
+                            onContextMenu: (e) => {
+                                e.preventDefault();
+                                if (onDisconnect && typeof onDisconnect === 'function') {
+                                    onDisconnect();
+                                }
+                            }
                         }, [
                             React.createElement('i', {
                                 className: `fas fa-shield-alt text-sm ${
