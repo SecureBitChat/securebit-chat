@@ -5009,10 +5009,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       this._originalConsole?.error?.("\u{1F6A8} CRITICAL: Logging system disabled due to security violations");
     }
   }
-  /**
-   *   Shim to redirect arbitrary console.log calls to _secureLog('info', ...)
-   * Fixed syntax errors and improved error handling
-   */
   _secureLogShim(...args) {
     try {
       if (!Array.isArray(args) || args.length === 0) {
@@ -5041,10 +5037,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       }
     }
   }
-  /**
-   *   Redirects global console.log to this instance's secure logger
-   * Improved error handling and validation
-   */
   /**
    *   Setup own logger without touching global console
    */

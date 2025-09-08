@@ -593,6 +593,96 @@ SecureBit.chat:
 
 ---
 
+## 🔧 Development Workflow
+
+### Making Changes and Recompiling
+
+When you make changes to the source code, you need to recompile the assets. Here's the proper workflow:
+
+#### 1. **CSS Changes** (Tailwind classes, styles)
+```bash
+# Rebuild only CSS
+npm run build:css
+
+# Or watch for changes during development
+npm run watch
+```
+
+#### 2. **JavaScript/JSX Changes** (React components, logic)
+```bash
+# Rebuild only JavaScript
+npm run build:js
+
+# Or rebuild everything
+npm run build
+```
+
+#### 3. **Full Rebuild** (recommended after major changes)
+```bash
+# Complete rebuild of all assets
+npm run build
+```
+
+#### 4. **Development with Live Server**
+```bash
+# Build and start development server
+npm run dev
+
+# Or use custom server
+npm run serve
+```
+
+### File Structure After Build
+
+```
+├── assets/
+│   ├── tailwind.css          # ← Generated from src/styles/tw-input.css
+│   ├── fontawesome/          # ← Local Font Awesome assets
+│   └── fonts/                # ← Local Google Fonts
+├── dist/
+│   ├── app.js               # ← Generated from src/app.jsx
+│   ├── app-boot.js          # ← Generated from src/scripts/app-boot.js
+│   └── qr-local.js          # ← Generated from src/scripts/qr-local.js
+└── src/                     # ← Source files (edit these)
+    ├── app.jsx
+    ├── scripts/
+    ├── styles/
+    └── components/
+```
+
+### Important Notes
+
+- **Always rebuild after changes** to see them in the browser
+- **CSS changes** require `npm run build:css`
+- **JS/JSX changes** require `npm run build:js`
+- **Source files** are in `src/` directory
+- **Generated files** are in `assets/` and `dist/` directories
+- **Never edit** files in `assets/` or `dist/` directly
+
+### Troubleshooting Build Issues
+
+#### CSS not updating?
+```bash
+# Clear cache and rebuild
+rm assets/tailwind.css
+npm run build:css
+```
+
+#### JavaScript errors?
+```bash
+# Check for syntax errors in source files
+npm run build:js
+```
+
+#### All changes not showing?
+```bash
+# Hard refresh browser (Ctrl+F5) or clear browser cache
+# Then rebuild everything
+npm run build
+```
+
+---
+
 <div align="center">
 
 **SecureBit.chat Security Team**
