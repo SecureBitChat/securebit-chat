@@ -1580,10 +1580,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             this._originalConsole?.error?.('🚨 CRITICAL: Logging system disabled due to security violations');
         }
     }
-    /**
-     *   Shim to redirect arbitrary console.log calls to _secureLog('info', ...)
-     * Fixed syntax errors and improved error handling
-     */
+
     _secureLogShim(...args) {
         try {
             // Validate arguments array
@@ -1622,10 +1619,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             }
         }
     }
-    /**
-     *   Redirects global console.log to this instance's secure logger
-     * Improved error handling and validation
-     */
+
     /**
      *   Setup own logger without touching global console
      */
@@ -3378,13 +3372,10 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
 
             const enc = new TextEncoder();
 
-            // Соль связываем с обоими DTLS-fingerprints (в отсортированном порядке),
-            // чтобы SAS «привязался» к реальному транспорту и его сертификатам
             const salt = enc.encode(
                 'webrtc-sas|' + [localFP, remoteFP].sort().join('|')
             );
 
-            // Подготавливаем keyMaterialRaw для использования
             let keyBuffer;
             if (keyMaterialRaw instanceof ArrayBuffer) {
                 keyBuffer = keyMaterialRaw;
@@ -3420,9 +3411,8 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             );
 
             const dv = new DataView(bits);
-            // Смешиваем оба 32-битных слова и получаем 7-значный код
             const n = (dv.getUint32(0) ^ dv.getUint32(4)) >>> 0;
-            const sasCode = String(n % 10_000_000).padStart(7, '0'); // 7 символов
+            const sasCode = String(n % 10_000_000).padStart(7, '0'); 
 
             console.log('🎯 _computeSAS computed code:', sasCode, '(type:', typeof sasCode, ')');
 
@@ -6947,14 +6937,7 @@ async processMessage(data) {
             } else if (state === 'failed') {
                 // Do not auto-reconnect to avoid closing the session on errors
                 this.onStatusChange('disconnected');
-                // if (!this.intentionalDisconnect && this.connectionAttempts < this.maxConnectionAttempts) {
-                //     this.connectionAttempts++;
-                //     setTimeout(() => this.retryConnection(), 2000);
-                // } else {
-                //     this.onStatusChange('disconnected');
-                //     // Do not call cleanupConnection automatically for 'failed'
-                //     // to avoid closing the session on connection errors
-                // }
+
             } else {
                 this.onStatusChange(state);
             }
@@ -9100,11 +9083,7 @@ async processMessage(data) {
                     this.ecdsaKeyPair.privateKey,
                     'ECDSA'
                 );
-                
-                // CRITICAL: Strict validation of exported data with hard disconnect on failure
-                // - Any validation failure in critical security path must abort connection
-                // - No fallback allowed for cryptographic validation
-                // - Prevent bypass of security checks through syntax/validation errors
+
                 
                 if (!ecdhPublicKeyData || typeof ecdhPublicKeyData !== 'object') {
                     this._secureLog('error', 'CRITICAL: ECDH key export failed - invalid object structure', { operationId });

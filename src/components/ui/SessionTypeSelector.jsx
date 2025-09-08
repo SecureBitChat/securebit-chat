@@ -179,9 +179,11 @@ const SessionTypeSelector = ({ onSelectType, onCancel, sessionManager }) => {
                 return React.createElement('div', {
                     key: type.id,
                     onClick: () => !isDisabled && handleTypeSelect(type.id),
-                    className: `relative card-minimal rounded-lg p-5 border-2 transition-all ${
-                        selectedType === type.id ? 'border-orange-500 bg-orange-500/10' : 'border-gray-600 hover:border-orange-400'
-                    } ${type.popular ? 'ring-2 ring-orange-500/30' : ''} ${
+                    className: `relative card-minimal ${selectedType === type.id ? 'card-minimal--selected' : ''} rounded-lg p-5 border-2 transition-all ${
+                        selectedType === type.id
+                            ? 'border-orange-500 bg-orange-500/15 ring-2 ring-orange-400 ring-offset-2 ring-offset-black/30'
+                            : 'border-gray-600 hover:border-orange-400'
+                    } ${type.popular && selectedType !== type.id ? 'ring-2 ring-orange-500/30' : ''} ${
                         isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                     }`
                 }, [

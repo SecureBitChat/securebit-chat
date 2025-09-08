@@ -1063,7 +1063,7 @@ class PWAOfflineManager {
 // Singleton pattern
 let instance = null;
 
-const PWAOfflineManager = {
+const PWAOfflineManagerAPI = {
     getInstance() {
         if (!instance) {
             instance = new PWAOfflineManager();
@@ -1078,9 +1078,9 @@ const PWAOfflineManager = {
 
 // Export for module use
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = PWAOfflineManager;
+    module.exports = PWAOfflineManagerAPI;
 } else if (typeof window !== 'undefined' && !window.PWAOfflineManager) {
-    window.PWAOfflineManager = PWAOfflineManager;
+    window.PWAOfflineManager = PWAOfflineManagerAPI;
 }
 
 // Auto-initialize when DOM is ready
@@ -1088,12 +1088,12 @@ if (typeof window !== 'undefined' && !window.pwaOfflineManager) {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
             if (!window.pwaOfflineManager) {
-                window.pwaOfflineManager = PWAOfflineManager.init();
+                window.pwaOfflineManager = PWAOfflineManagerAPI.init();
             }
         });
     } else {
         if (!window.pwaOfflineManager) {
-            window.pwaOfflineManager = PWAOfflineManager.init();
+            window.pwaOfflineManager = PWAOfflineManagerAPI.init();
         }
     }
 }

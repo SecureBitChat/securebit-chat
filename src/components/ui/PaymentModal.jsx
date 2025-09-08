@@ -211,8 +211,14 @@ const PaymentModal = ({ isOpen, onClose, sessionManager, onSessionPurchased }) =
             setInvoice(createdInvoice);
             setPaymentStatus('created');
 
-            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(createdInvoice.paymentRequest)}`;
-            setQrCodeUrl(qrUrl);
+            try {
+                const dataUrl = await window.generateQRCode(createdInvoice.paymentRequest, { size: 300, margin: 2, errorCorrectionLevel: 'M' });
+                setQrCodeUrl(dataUrl);
+            } catch (e) {
+                console.warn('QR local generation failed, showing placeholder');
+                const dataUrl = await window.generateQRCode(createdInvoice.paymentRequest, { size: 300 });
+                setQrCodeUrl(dataUrl);
+            }
 
             const expirationTime = 15 * 60 * 1000;
             setTimeLeft(expirationTime);

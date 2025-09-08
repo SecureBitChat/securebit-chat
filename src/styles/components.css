@@ -201,6 +201,12 @@ main {
     border: 1px solid rgba(75, 85, 99, 0.2);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
+/* Selected state override (higher precedence than Tailwind bg-*) */
+.card-minimal--selected {
+    background: rgba(249, 115, 22, 0.15) !important; /* orange-500 @ 0.15 */
+    border-color: rgba(249, 115, 22, 1) !important;   /* border-orange-500 */
+    box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.3) !important; /* soft ring */
+}
 /* .card-minimal:hover {
     border-color: rgba(249, 115, 22, 0.3);
     transform: translateY(-1px);
