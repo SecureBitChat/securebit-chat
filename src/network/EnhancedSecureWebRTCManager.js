@@ -1,21 +1,6 @@
 // Import EnhancedSecureFileTransfer
 import { EnhancedSecureFileTransfer } from '../transfer/EnhancedSecureFileTransfer.js';
 
-// ============================================
-// CRITICAL SECURITY WARNING
-// ============================================
-// 
-// MITM PROTECTION: Self-signed ECDSA keys DO NOT provide authentication!
-// - MITM can substitute both keys and "self-sign" them
-// - ECDSA signatures only prove packet integrity, not identity
-// - SAS (Short Authentication String) verification is the ONLY protection
-// 
-// REQUIREMENT: Both parties MUST verify the same code out-of-band:
-// - Voice call, video call, or in-person verification
-// - Compare verification codes before allowing traffic
-// - No traffic should be allowed before SAS verification
-// 
-// ============================================
 // MUTEX SYSTEM FIXES - RESOLVING MESSAGE DELIVERY ISSUES
 // ============================================
 // Issue: After introducing the Mutex system, messages stopped being delivered between users
@@ -115,37 +100,17 @@ class EnhancedSecureWebRTCManager {
         SYSTEM_MESSAGE: 'SYSTEM_MESSAGE_FILTERED'
     };
 
-    // SECURE: Static debug flag instead of this._debugMode
+    //   Static debug flag instead of this._debugMode
     static DEBUG_MODE = false; // Set to true during development, false in production
 
-    // ============================================
-    // SECURITY WARNING: DTLS PROTECTION REMOVED
-    // ============================================
-    // 
-    // REMOVED: Fake DTLS ClientHello validation (security theater)
-    // REASON: Browser WebRTC doesn't provide access to DTLS layer in JavaScript
-    // 
-    // REAL SECURITY: Use these mechanisms instead:
-    // 1. Out-of-band key fingerprint verification (SAS/QR codes)
-    // 2. SDP fingerprint validation (not "client hello" data)
-    // 3. Public key pinning if known in advance
-    // 4. Certificate transparency validation
-    // 
-    // static DTLS_PROTECTION = {
-    //     SUPPORTED_CIPHERS: [...], // REMOVED: Fake cipher validation
-    //     MIN_TLS_VERSION: '1.2',   // REMOVED: Fake TLS version check
-    //     MAX_TLS_VERSION: '1.3',   // REMOVED: Fake TLS version check
-    //     CLIENTHELLO_TIMEOUT: 5000, // REMOVED: Fake timeout
-    //     ICE_VERIFICATION_TIMEOUT: 3000 // REMOVED: Fake timeout
-    // };
 
     constructor(onMessage, onStatusChange, onKeyExchange, onVerificationRequired, onAnswerError = null, onVerificationStateChange = null, config = {}) {
     // Determine runtime mode
     this._isProductionMode = this._detectProductionMode();
-            // SECURE: Use static flag instead of this._debugMode
+            //   Use static flag instead of this._debugMode
         this._debugMode = !this._isProductionMode && EnhancedSecureWebRTCManager.DEBUG_MODE;
         
-        // SECURE: Configuration from constructor parameters instead of global flags
+        //   Configuration from constructor parameters instead of global flags
         this._config = {
             fakeTraffic: {
                 enabled: config.fakeTraffic?.enabled ?? true,
@@ -179,15 +144,15 @@ class EnhancedSecureWebRTCManager {
             }
         };
 
-            // SECURE: Initialize own logging system
+            //   Initialize own logging system
         this._initializeSecureLogging();
         this._setupOwnLogger();
         this._setupProductionLogging();
         
-        // SECURE: Store important methods first
+        //   Store important methods first
         this._storeImportantMethods();
         
-        // SECURE: Setup global API after storing methods
+        //   Setup global API after storing methods
         this._setupSecureGlobalAPI();
     if (!window.EnhancedSecureCryptoUtils) {
         throw new Error('EnhancedSecureCryptoUtils is not loaded. Please ensure the module is loaded first.');
@@ -213,11 +178,7 @@ class EnhancedSecureWebRTCManager {
     this.onStatusChange = onStatusChange;
     this.onKeyExchange = onKeyExchange;
     this.onVerificationStateChange = onVerificationStateChange;
-            // CRITICAL: SAS verification callback - this is the ONLY MITM protection
-        // - Self-signed ECDSA keys don't provide authentication
-        // - MITM can substitute both keys and "self-sign" them
-        // - SAS must be compared out-of-band (voice, video, in-person)
-        // - Both parties must verify the same code before allowing traffic
+
     this.onVerificationRequired = onVerificationRequired;
     this.onAnswerError = onAnswerError; // Callback for response processing errors
     this.isInitiator = false;
@@ -261,11 +222,11 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         this.remoteVerificationConfirmed = false;
         this.bothVerificationsConfirmed = false;
         
-        // CRITICAL SECURITY: Store expected DTLS fingerprint for validation
+        //   Store expected DTLS fingerprint for validation
         this.expectedDTLSFingerprint = null;
         this.strictDTLSValidation = true; // Can be disabled for debugging
         
-        // CRITICAL SECURITY: Real Perfect Forward Secrecy implementation
+        //   Real Perfect Forward Secrecy implementation
         this.ephemeralKeyPairs = new Map(); // Store ephemeral keys for current session only
         this.sessionStartTime = Date.now(); // Track session lifetime for PFS
     this.messageCounter = 0;
@@ -273,7 +234,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     this.expectedSequenceNumber = 0;
     this.sessionSalt = null;
     
-    // CRITICAL SECURITY: Anti-Replay and Message Ordering Protection
+    //   Anti-Replay and Message Ordering Protection
     this.replayWindowSize = 64; // Sliding window for replay protection
     this.replayWindow = new Set(); // Track recent sequence numbers
     this.maxSequenceGap = 100; // Maximum allowed sequence gap
@@ -308,9 +269,9 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     this.onFileProgress = null;
     
     // ============================================
-    // CRITICAL FIX: IV REUSE PREVENTION SYSTEM
+    //   IV REUSE PREVENTION SYSTEM
     // ============================================
-    // SECURE: IV REUSE PREVENTION SYSTEM WITH LIMITS
+    //   IV REUSE PREVENTION SYSTEM WITH LIMITS
     // ============================================
     this._ivTrackingSystem = {
         usedIVs: new Set(), // Track all used IVs to prevent reuse
@@ -332,11 +293,11 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         emergencyMode: false // Emergency mode if IV reuse detected
     };
     
-    // CRITICAL FIX: IV cleanup tracking
+    //   IV cleanup tracking
     this._lastIVCleanupTime = null;
     
     // ============================================
-    // CRITICAL FIX: SECURE ERROR HANDLING SYSTEM
+    //   SECURE ERROR HANDLING SYSTEM
     // ============================================
     this._secureErrorHandler = {
         errorCategories: {
@@ -354,7 +315,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     };
     
     // ============================================
-    // CRITICAL FIX: SECURE MEMORY MANAGEMENT SYSTEM
+    //   SECURE MEMORY MANAGEMENT SYSTEM
     // ============================================
     this._secureMemoryManager = {
         sensitiveData: new WeakMap(), // Track sensitive data for secure cleanup
@@ -379,11 +340,6 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     this.maxOldKeys = EnhancedSecureWebRTCManager.LIMITS.MAX_OLD_KEYS; // Keep last 3 key versions for decryption
     this.peerConnection = null;
     this.dataChannel = null;
-             // SECURITY: DTLS protection removed - was security theater
-    // this.verifiedICEEndpoints = new Set(); // REMOVED: Fake endpoint verification
-    // this.dtlsClientHelloQueue = new Map(); // REMOVED: Fake DTLS queue
-    // this.iceVerificationInProgress = false; // REMOVED: Fake ICE verification
-    // this.dtlsProtectionEnabled = true; // REMOVED: Fake DTLS protection
     
 
     this.securityFeatures = {
@@ -397,7 +353,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         hasNonExtractableKeys: false,      
         hasRateLimiting: true,    
         hasEnhancedValidation: false,      
-        hasPFS: true, // CRITICAL SECURITY: Real Perfect Forward Secrecy enabled           
+        hasPFS: true, //   Real Perfect Forward Secrecy enabled           
         
         // Advanced Features (Session Managed) 
             hasNestedEncryption: false,     
@@ -410,7 +366,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         };
         this._secureLog('info', '🔒 Enhanced WebRTC Manager initialized with tiered security');
         
-        // SECURE: Log configuration for debugging
+        //   Log configuration for debugging
         this._secureLog('info', '🔒 Configuration loaded from constructor parameters', {
             fakeTraffic: this._config.fakeTraffic.enabled,
             decoyChannels: this._config.decoyChannels.enabled,
@@ -418,10 +374,10 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             antiFingerprinting: this._config.antiFingerprinting.enabled
         });
         
-        // SECURE: XSS Hardening - replace all window.DEBUG_MODE references
+        //   XSS Hardening - replace all window.DEBUG_MODE references
         this._hardenDebugModeReferences();
         
-        // SECURE: Initialize unified scheduler for all maintenance tasks
+        //   Initialize unified scheduler for all maintenance tasks
         this._initializeUnifiedScheduler();
         
         this._syncSecurityFeaturesWithTariff();
@@ -436,7 +392,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         
         // 1. Nested Encryption Layer
             this.nestedEncryptionKey = null;
-                    // CRITICAL FIX: Removed nestedEncryptionIV and nestedEncryptionCounter
+                    //   Removed nestedEncryptionIV and nestedEncryptionCounter
         // Each nested encryption now generates fresh random IV for maximum security
                 
             // 2. Packet Padding
@@ -560,7 +516,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         }
         
         /**
-         * CRITICAL SECURITY: Create AAD with sequence number for anti-replay protection
+         *   Create AAD with sequence number for anti-replay protection
          * This binds each message to its sequence number and prevents replay attacks
          */
         _createMessageAAD(messageType, messageData = null, isFileMessage = false) {
@@ -603,13 +559,13 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         }
         
         /**
-         * CRITICAL SECURITY: Generate next sequence number for outgoing messages
+         *   Generate next sequence number for outgoing messages
          * This ensures unique ordering and prevents replay attacks
          */
         _generateNextSequenceNumber() {
             const nextSeq = this.sequenceNumber++;
             
-            // CRITICAL SECURITY: Reset sequence number if it gets too large
+            //   Reset sequence number if it gets too large
             if (this.sequenceNumber > Number.MAX_SAFE_INTEGER - 1000) {
                 this.sequenceNumber = 0;
                 this.expectedSequenceNumber = 0;
@@ -623,10 +579,10 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         }
         
     /**
-     * CRITICAL FIX: Enhanced mutex system initialization with atomic protection
+     *   Enhanced mutex system initialization with atomic protection
      */
     _initializeMutexSystem() {
-        // CRITICAL FIX: Initialize standard mutexes with enhanced state tracking
+        //   Initialize standard mutexes with enhanced state tracking
         this._keyOperationMutex = {
             locked: false,
             queue: [],
@@ -654,7 +610,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             operationCount: 0
         };
 
-        // CRITICAL FIX: Enhanced key system state with atomic operation tracking
+        //   Enhanced key system state with atomic operation tracking
         this._keySystemState = {
             isInitializing: false,
             isRotating: false,
@@ -666,7 +622,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             maxConcurrentOperations: 1
         };
 
-        // CRITICAL FIX: Operation counters with atomic increments
+        //   Operation counters with atomic increments
         this._operationCounters = {
             keyOperations: 0,
             cryptoOperations: 0,
@@ -683,39 +639,33 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * SECURE: XSS Hardening - Debug mode references validation
+     *   XSS Hardening - Debug mode references validation
      * This method is called during initialization to ensure XSS hardening
      */
     _hardenDebugModeReferences() {
-        // SECURE: Log that we're hardening debug mode references
+        //   Log that we're hardening debug mode references
         this._secureLog('info', '🔒 XSS Hardening: Debug mode references already replaced');
-        
-        // SECURE: All debug mode checks now use this._debugMode instead of window.DEBUG_MODE
-        // This prevents XSS attacks through global variable manipulation
-        
-        // SECURE: Note: This function is called during initialization
-        // All window.DEBUG_MODE references have been replaced by the build process
     }
 
     /**
-     * SECURE: Unified scheduler for all maintenance tasks
+     *   Unified scheduler for all maintenance tasks
      * Replaces multiple setInterval calls with a single, controlled scheduler
      */
     _initializeUnifiedScheduler() {
-        // SECURE: Single scheduler interval for all maintenance tasks
+        //   Single scheduler interval for all maintenance tasks
         this._maintenanceScheduler = setInterval(() => {
             this._executeMaintenanceCycle();
         }, 300000); // Every 5 minutes
         
-        // SECURE: Log scheduler initialization
+        //   Log scheduler initialization
         this._secureLog('info', '🔧 Unified maintenance scheduler initialized (5-minute cycle)');
         
-        // SECURE: Store scheduler reference for cleanup
+        //   Store scheduler reference for cleanup
         this._activeTimers = new Set([this._maintenanceScheduler]);
     }
 
     /**
-     * SECURE: Execute all maintenance tasks in a single cycle
+     *   Execute all maintenance tasks in a single cycle
      */
     _executeMaintenanceCycle() {
         try {
@@ -757,13 +707,13 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 message: error?.message || 'Unknown error'
             });
             
-            // SECURE: Emergency cleanup on failure
+            //   Emergency cleanup on failure
             this._emergencyCleanup();
         }
     }
 
     /**
-     * SECURE: Enforce hard resource limits with emergency cleanup
+     *   Enforce hard resource limits with emergency cleanup
      */
     _enforceResourceLimits() {
         const violations = [];
@@ -816,7 +766,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * SECURE: Emergency cleanup when resource limits are exceeded
+     *   Emergency cleanup when resource limits are exceeded
      */
     _emergencyCleanup() {
         this._secureLog('warn', '🚨 EMERGENCY: Resource limits exceeded, performing emergency cleanup');
@@ -879,7 +829,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             this._secureMemoryManager.cleanupQueue.length = 0;
             this._secureMemoryManager.memoryStats.lastCleanup = Date.now();
             
-            // SECURE: Force multiple garbage collection cycles
+            //   Force multiple garbage collection cycles
             if (typeof window.gc === 'function') {
                 try {
                     // Multiple GC cycles for thorough cleanup
@@ -909,13 +859,13 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 message: error?.message || 'Unknown error'
             });
             
-            // SECURE: Rollback mechanism (simplified)
+            //   Rollback mechanism (simplified)
             this._secureMemoryManager.isCleaning = false;
         }
     }
 
     /**
-     * SECURE: Validate emergency cleanup success
+     *   Validate emergency cleanup success
      * @param {Object} originalState - Original state before cleanup
      * @returns {Object} Validation results
      */
@@ -947,7 +897,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * SECURE: Cleanup resources based on age and usage
+     *   Cleanup resources based on age and usage
      */
     _cleanupResources() {
         const now = Date.now();
@@ -975,7 +925,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * SECURE: Monitor key security (replaces _startKeySecurityMonitoring)
+     *   Monitor key security (replaces _startKeySecurityMonitoring)
      */
     _monitorKeySecurity() {
         if (this._keyStorageStats.activeKeys > 10) {
@@ -988,7 +938,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * SECURE: Send heartbeat message (called by unified scheduler)
+     *   Send heartbeat message (called by unified scheduler)
      */
     _sendHeartbeat() {
         try {
@@ -1010,7 +960,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * SECURE: Comprehensive input validation to prevent DoS and injection attacks
+     *   Comprehensive input validation to prevent DoS and injection attacks
      * @param {any} data - Data to validate
      * @param {string} context - Context for validation (e.g., 'sendMessage', 'sendSecureMessage')
      * @returns {Object} Validation result with isValid and sanitizedData
@@ -1137,7 +1087,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * SECURE: Calculate approximate object size in bytes
+     *   Calculate approximate object size in bytes
      * @param {any} obj - Object to calculate size for
      * @returns {number} Size in bytes
      */
@@ -1152,7 +1102,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * SECURE: Sanitize string data for input validation
+     *   Sanitize string data for input validation
      * @param {string} str - String to sanitize
      * @returns {string} Sanitized string
      */
@@ -1172,7 +1122,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * SECURE: Sanitize object data for input validation
+     *   Sanitize object data for input validation
      * @param {any} obj - Object to sanitize
      * @returns {any} Sanitized object
      */
@@ -1201,7 +1151,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * SECURE: Rate limiting for message sending
+     *   Rate limiting for message sending
      * @param {string} context - Context for rate limiting
      * @returns {boolean} true if rate limit allows
      */
@@ -1396,7 +1346,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
      * @deprecated Use unified scheduler instead
      */
     _startKeySecurityMonitoring() {
-        // SECURE: Functionality moved to unified scheduler
+        //   Functionality moved to unified scheduler
         this._secureLog('info', '🔧 Key security monitoring moved to unified scheduler');
     }
 
@@ -1405,12 +1355,12 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     // HELPER METHODS
     // ============================================
     /**
-     * SECURE: Constant-time key validation to prevent timing attacks
+     *   Constant-time key validation to prevent timing attacks
      * @param {CryptoKey} key - Key to validate
      * @returns {boolean} true if key is valid
      */
     _validateKeyConstantTime(key) {
-        // SECURE: Constant-time validation to prevent timing attacks
+        //   Constant-time validation to prevent timing attacks
         let isValid = 0;
         
         // Check if key is CryptoKey instance (constant-time)
@@ -1450,7 +1400,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * SECURE: Constant-time key pair validation
+     *   Constant-time key pair validation
      * @param {Object} keyPair - Key pair to validate
      * @returns {boolean} true if key pair is valid
      */
@@ -1465,7 +1415,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * CRITICAL FIX: Enhanced secure logging system initialization
+     *   Enhanced secure logging system initialization
      */
     _initializeSecureLogging() {
         // Logging levels
@@ -1477,16 +1427,16 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             trace: 4
         };
         
-        // CRITICAL FIX: Ultra-strict levels for production
+        //   Ultra-strict levels for production
         this._currentLogLevel = this._isProductionMode ? 
             this._logLevels.error : // In production, ONLY critical errors
             this._logLevels.info;   // In development, up to info
         
-        // CRITICAL FIX: Reduced log limits to prevent data accumulation
+        //   Reduced log limits to prevent data accumulation
         this._logCounts = new Map();
         this._maxLogCount = this._isProductionMode ? 5 : 50; // Reduced limits
         
-        // SECURE: Hard resource limits to prevent memory leaks
+        //   Hard resource limits to prevent memory leaks
         this._resourceLimits = {
             maxLogEntries: this._isProductionMode ? 100 : 1000,
             maxMessageQueue: 1000,
@@ -1498,7 +1448,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             maxPacketBuffer: 1000
         };
         
-        // SECURE: Emergency cleanup thresholds
+        //   Emergency cleanup thresholds
         this._emergencyThresholds = {
             logEntries: this._resourceLimits.maxLogEntries * 0.8, // 80%
             messageQueue: this._resourceLimits.maxMessageQueue * 0.8,
@@ -1506,7 +1456,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             processedMessageIds: this._resourceLimits.maxProcessedMessageIds * 0.8
         };
         
-        // SECURE: Input validation limits to prevent DoS attacks
+        //   Input validation limits to prevent DoS attacks
         this._inputValidationLimits = {
             maxStringLength: 100000, // 100KB for strings
             maxObjectDepth: 10, // Maximum object nesting depth
@@ -1517,7 +1467,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             rateLimitBurstSize: 10 // Burst size for rate limiting
         };
         
-        // SECURE: Malicious pattern detection
+        //   Malicious pattern detection
         this._maliciousPatterns = [
             /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, // Script tags
             /javascript:/gi, // JavaScript protocol
@@ -1541,7 +1491,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             /valueOf\s*\(/gi // valueOf calls
         ];
 
-        // CRITICAL FIX: Comprehensive blacklist with all sensitive patterns
+        //   Comprehensive blacklist with all sensitive patterns
         this._absoluteBlacklist = new Set([
             // Cryptographic keys
             'encryptionKey', 'macKey', 'metadataKey', 'privateKey', 'publicKey',
@@ -1566,7 +1516,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             'fileHash', 'fileSignature', 'transferKey', 'chunkKey'
         ]);
 
-        // CRITICAL FIX: Minimal whitelist with strict validation
+        //   Minimal whitelist with strict validation
         this._safeFieldsWhitelist = new Set([
             // Basic status fields
             'timestamp', 'type', 'status', 'state', 'level',
@@ -1585,23 +1535,23 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             'errorType', 'errorCode', 'phase', 'attempt'
         ]);
         
-        // CRITICAL FIX: Initialize security monitoring
+        //   Initialize security monitoring
         this._initializeLogSecurityMonitoring();
         
         this._secureLog('info', `🔧 Enhanced secure logging initialized (Production: ${this._isProductionMode})`);
     }
 
     /**
-     * CRITICAL FIX: Initialize security monitoring for logging system
+     *   Initialize security monitoring for logging system
      */
     _initializeLogSecurityMonitoring() {
-        // SECURE: Security monitoring moved to unified scheduler
+        //   Security monitoring moved to unified scheduler
         this._logSecurityViolations = 0;
         this._maxLogSecurityViolations = 3;
     }
 
     /**
-     * CRITICAL FIX: Audit logging system security
+     *   Audit logging system security
      */
     _auditLoggingSystemSecurity() {
         let violations = 0;
@@ -1631,7 +1581,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         }
     }
     /**
-     * CRITICAL FIX: Shim to redirect arbitrary console.log calls to _secureLog('info', ...)
+     *   Shim to redirect arbitrary console.log calls to _secureLog('info', ...)
      * Fixed syntax errors and improved error handling
      */
     _secureLogShim(...args) {
@@ -1641,7 +1591,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 return;
             }
             
-            // CRITICAL FIX: Proper destructuring with fallback
+            //   Proper destructuring with fallback
             const message = args[0];
             const restArgs = args.slice(1);
             
@@ -1656,13 +1606,13 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 return;
             }
             
-            // CRITICAL FIX: Proper object structure for multiple args
+            //   Proper object structure for multiple args
             this._secureLog('info', String(message || ''), { 
                 additionalArgs: restArgs,
                 argCount: restArgs.length 
             });
         } catch (error) {
-            // CRITICAL FIX: Better error handling - fallback to original console if available
+            //   Better error handling - fallback to original console if available
             try {
                 if (this._originalConsole?.log) {
                     this._originalConsole.log(...args);
@@ -1673,14 +1623,14 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         }
     }
     /**
-     * CRITICAL FIX: Redirects global console.log to this instance's secure logger
+     *   Redirects global console.log to this instance's secure logger
      * Improved error handling and validation
      */
     /**
-     * SECURE: Setup own logger without touching global console
+     *   Setup own logger without touching global console
      */
     _setupOwnLogger() {
-        // SECURE: Create own logger without touching global console
+        //   Create own logger without touching global console
         this.logger = {
             log: (message, data) => this._secureLog('info', message, data),
             info: (message, data) => this._secureLog('info', message, data),
@@ -1689,7 +1639,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             debug: (message, data) => this._secureLog('debug', message, data)
         };
         
-        // SECURE: In development, log to console; in production, use secure logging only
+        //   In development, log to console; in production, use secure logging only
         if (EnhancedSecureWebRTCManager.DEBUG_MODE) {
             this._secureLog('info', '🔒 Own logger created - development mode');
         } else {
@@ -1697,10 +1647,10 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         }
     }
     /**
-     * SECURE: Production logging - use own logger with minimal output
+     *   Production logging - use own logger with minimal output
      */
     _setupProductionLogging() {
-        // SECURE: In production, own logger becomes minimal
+        //   In production, own logger becomes minimal
         if (this._isProductionMode) {
             this.logger = {
                 log: () => {}, // No-op in production
@@ -1714,15 +1664,15 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         }
     }
     /**
-     * CRITICAL FIX: Secure logging with enhanced data protection
+     *   Secure logging with enhanced data protection
      * @param {string} level - Log level (error, warn, info, debug, trace)
      * @param {string} message - Message
      * @param {object} data - Optional payload (will be sanitized)
      */
     _secureLog(level, message, data = null) {
-        // CRITICAL FIX: Pre-sanitization audit to prevent data leakage
+        //   Pre-sanitization audit to prevent data leakage
         if (data && !this._auditLogMessage(message, data)) {
-            // CRITICAL FIX: Log the attempt but block the actual data
+            //   Log the attempt but block the actual data
             this._originalConsole?.error?.('🚨 SECURITY: Logging blocked due to potential data leakage');
             return;
         }
@@ -1732,7 +1682,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             return;
         }
         
-        // CRITICAL FIX: Prevent log spam with better key generation
+        //   Prevent log spam with better key generation
         const logKey = `${level}:${message.substring(0, 50)}`;
         const currentCount = this._logCounts.get(logKey) || 0;
         
@@ -1742,7 +1692,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         
         this._logCounts.set(logKey, currentCount + 1);
         
-        // CRITICAL FIX: Enhanced sanitization with multiple passes
+        //   Enhanced sanitization with multiple passes
         let sanitizedData = null;
         if (data) {
             // First pass: basic sanitization
@@ -1755,14 +1705,14 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             }
         }
         
-        // CRITICAL FIX: Production mode security - only log essential errors
+        //   Production mode security - only log essential errors
         if (this._isProductionMode) {
             if (level === 'error') {
-                // CRITICAL FIX: In production, only log error messages without sensitive data
+                //   In production, only log error messages without sensitive data
                 const safeMessage = this._sanitizeString(message);
                 this._originalConsole?.error?.(safeMessage);
             }
-            // CRITICAL FIX: Block all other log levels in production
+            //   Block all other log levels in production
             return;
         }
         
@@ -1775,10 +1725,10 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         }
     }
     /**
-     * CRITICAL FIX: Enhanced sanitization for log data with multiple security layers
+     *   Enhanced sanitization for log data with multiple security layers
      */
     _sanitizeLogData(data) {
-        // CRITICAL FIX: Pre-check for sensitive content before processing
+        //   Pre-check for sensitive content before processing
         if (typeof data === 'string') {
             return this._sanitizeString(data);
         }
@@ -1792,7 +1742,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         for (const [key, value] of Object.entries(data)) {
             const lowerKey = key.toLowerCase();
             
-            // CRITICAL FIX: Enhanced blacklist with more comprehensive patterns
+            //   Enhanced blacklist with more comprehensive patterns
             const blacklistPatterns = [
                 'key', 'secret', 'token', 'password', 'credential', 'auth',
                 'fingerprint', 'salt', 'signature', 'private', 'encryption',
@@ -1808,9 +1758,9 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 continue;
             }
             
-            // CRITICAL FIX: Enhanced whitelist with strict validation
+            //   Enhanced whitelist with strict validation
             if (this._safeFieldsWhitelist.has(key)) {
-                // CRITICAL FIX: Even whitelisted fields get sanitized if they contain sensitive data
+                //   Even whitelisted fields get sanitized if they contain sensitive data
                 if (typeof value === 'string') {
                     sanitized[key] = this._sanitizeString(value);
                 } else {
@@ -1819,16 +1769,16 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 continue;
             }
             
-            // CRITICAL FIX: Enhanced type handling with security checks
+            //   Enhanced type handling with security checks
             if (typeof value === 'boolean' || typeof value === 'number') {
                 sanitized[key] = value;
             } else if (typeof value === 'string') {
                 sanitized[key] = this._sanitizeString(value);
             } else if (value instanceof ArrayBuffer || value instanceof Uint8Array) {
-                // CRITICAL FIX: Don't reveal actual byte lengths for security
+                //   Don't reveal actual byte lengths for security
                 sanitized[key] = `[${value.constructor.name}(<REDACTED> bytes)]`;
             } else if (value && typeof value === 'object') {
-                // CRITICAL FIX: Recursive sanitization with depth limit and security check
+                //   Recursive sanitization with depth limit and security check
                 try {
                     sanitized[key] = this._sanitizeLogData(value);
                 } catch (error) {
@@ -1839,7 +1789,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             }
         }
         
-        // CRITICAL FIX: Final security check on sanitized data
+        //   Final security check on sanitized data
         const sanitizedString = JSON.stringify(sanitized);
         if (this._containsSensitiveContent(sanitizedString)) {
             return { error: 'SANITIZATION_FAILED_SENSITIVE_CONTENT_DETECTED' };
@@ -1848,14 +1798,14 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         return sanitized;
     }
     /**
-     * CRITICAL FIX: Enhanced sanitization for strings with comprehensive pattern detection
+     *   Enhanced sanitization for strings with comprehensive pattern detection
      */
     _sanitizeString(str) {
         if (typeof str !== 'string' || str.length === 0) {
             return str;
         }
         
-        // CRITICAL FIX: Comprehensive sensitive pattern detection
+        //   Comprehensive sensitive pattern detection
         const sensitivePatterns = [
             // Hex patterns (various lengths)
             /[a-f0-9]{16,}/i,                    // 16+ hex chars (covers short keys)
@@ -1909,20 +1859,20 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             /(session|auth|jwt|bearer)[\s]*[:=][\s]*[A-Za-z0-9\-_]{8,}/i,
         ];
         
-        // CRITICAL FIX: Check for sensitive patterns with early return
+        //   Check for sensitive patterns with early return
         for (const pattern of sensitivePatterns) {
             if (pattern.test(str)) {
-                // CRITICAL FIX: Always fully hide sensitive data
+                //   Always fully hide sensitive data
                 return '[SENSITIVE_DATA_REDACTED]';
             }
         }
         
-        // CRITICAL FIX: Check for suspicious entropy (high randomness indicates keys)
+        //   Check for suspicious entropy (high randomness indicates keys)
         if (this._hasHighEntropy(str)) {
             return '[HIGH_ENTROPY_DATA_REDACTED]';
         }
         
-        // CRITICAL FIX: Check for suspicious character distributions
+        //   Check for suspicious character distributions
         if (this._hasSuspiciousDistribution(str)) {
             return '[SUSPICIOUS_DATA_REDACTED]';
         }
@@ -1935,7 +1885,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         return str;
     }
     /**
-     * CRITICAL FIX: Enhanced sensitive content detection
+     *   Enhanced sensitive content detection
      */
     _containsSensitiveContent(str) {
         if (typeof str !== 'string') return false;
@@ -1958,7 +1908,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * CRITICAL FIX: Check for high entropy strings (likely cryptographic keys)
+     *   Check for high entropy strings (likely cryptographic keys)
      */
     _hasHighEntropy(str) {
         if (str.length < 8) return false;
@@ -1983,7 +1933,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * CRITICAL FIX: Check for suspicious character distributions
+     *   Check for suspicious character distributions
      */
     _hasSuspiciousDistribution(str) {
         if (str.length < 8) return false;
@@ -2014,46 +1964,6 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         return false;
     }
 
-    // ============================================
-    // SECURITY: DTLS FUNCTIONS REMOVED
-    // ============================================
-    // 
-    // REMOVED: validateDTLSSource() - was security theater
-    // REASON: Browser WebRTC doesn't provide DTLS layer access
-    // 
-    // REAL SECURITY: Implement proper key verification instead:
-    // - Out-of-band fingerprint verification (SAS/QR)
-    // - SDP certificate fingerprint validation
-    // - Public key pinning
-    // - Certificate transparency checks
-    //
-    
-    /**
-     * REMOVED: addVerifiedICEEndpoint() - was part of fake DTLS protection
-     * 
-     * REAL SECURITY: Use proper endpoint verification:
-     * - ICE candidate validation
-     * - SDP integrity checks
-     * - Certificate fingerprint validation
-     */
-    
-    /**
-     * REMOVED: handleDTLSClientHello() - was part of fake DTLS protection
-     * 
-     * REAL SECURITY: Browser handles DTLS automatically
-     * - No JavaScript access to DTLS layer
-     * - Focus on application-level security
-     * - Implement proper key verification
-     */
-    
-    /**
-     * REMOVED: completeICEVerification() - was part of fake DTLS protection
-     * 
-     * REAL SECURITY: ICE verification happens automatically in WebRTC
-     * - Browser handles ICE candidate validation
-     * - Focus on application-level security measures
-     * - Implement proper connection verification
-     */
 
     // ============================================
     // SECURE LOGGING SYSTEM
@@ -2085,25 +1995,25 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
      * Sets up a secure global API with limited access
      */
     _setupSecureGlobalAPI() {
-        // SECURE: Log that we're starting API setup
+        //   Log that we're starting API setup
         this._secureLog('info', '🔒 Starting secure global API setup');
         
-        // SECURE: Create simple public API with safety checks
+        //   Create simple public API with safety checks
         const secureAPI = {};
         
-        // SECURE: Only bind methods that exist
+        //   Only bind methods that exist
         if (typeof this.sendMessage === 'function') {
             secureAPI.sendMessage = this.sendMessage.bind(this);
         }
         
-        // SECURE: Create simple getConnectionStatus method
+        //   Create simple getConnectionStatus method
         secureAPI.getConnectionStatus = () => ({
             isConnected: this.isConnected ? this.isConnected() : false,
             isVerified: this.isVerified || false,
             connectionState: this.peerConnection?.connectionState || 'disconnected'
         });
         
-        // SECURE: Create simple getSecurityStatus method
+        //   Create simple getSecurityStatus method
         secureAPI.getSecurityStatus = () => ({
             securityLevel: this.currentSecurityLevel || 'basic',
             stage: 'initialized',
@@ -2114,7 +2024,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             secureAPI.sendFile = this.sendFile.bind(this);
         }
         
-        // SECURE: Create simple getFileTransferStatus method
+        //   Create simple getFileTransferStatus method
         secureAPI.getFileTransferStatus = () => ({
             initialized: !!this.fileTransferSystem,
             status: 'ready',
@@ -2126,7 +2036,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             secureAPI.disconnect = this.disconnect.bind(this);
         }
         
-        // SECURE: Create simple API object with safety checks
+        //   Create simple API object with safety checks
         const safeGlobalAPI = {
             ...secureAPI, // Spread only existing methods
             getConfiguration: () => ({
@@ -2138,7 +2048,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             emergency: {}
         };
         
-        // SECURE: Only add emergency methods that exist
+        //   Only add emergency methods that exist
         if (typeof this._emergencyUnlockAllMutexes === 'function') {
             safeGlobalAPI.emergency.unlockAllMutexes = this._emergencyUnlockAllMutexes.bind(this);
         }
@@ -2155,7 +2065,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             safeGlobalAPI.emergency.resetLogging = this._resetLoggingSystem.bind(this);
         }
         
-        // SECURE: Add file transfer system status
+        //   Add file transfer system status
         safeGlobalAPI.getFileTransferSystemStatus = () => ({
             initialized: !!this.fileTransferSystem,
             status: 'ready',
@@ -2163,7 +2073,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             receivingTransfers: 0
         });
         
-        // SECURE: Log available methods for debugging
+        //   Log available methods for debugging
         this._secureLog('info', '🔒 API methods available', {
             sendMessage: !!secureAPI.sendMessage,
             getConnectionStatus: !!secureAPI.getConnectionStatus,
@@ -2175,27 +2085,27 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             emergencyMethods: Object.keys(safeGlobalAPI.emergency).length
         });
 
-        // SECURE: Apply Object.freeze to prevent modification
+        //   Apply Object.freeze to prevent modification
         Object.freeze(safeGlobalAPI);
         Object.freeze(safeGlobalAPI.emergency);
 
-        // SECURE: Export API once without monitoring
+        //   Export API once without monitoring
         this._createProtectedGlobalAPI(safeGlobalAPI);
         
-        // SECURE: Setup minimal protection
+        //   Setup minimal protection
         this._setupMinimalGlobalProtection();
         
-        // SECURE: Log that API setup is complete
+        //   Log that API setup is complete
         this._secureLog('info', '🔒 Secure global API setup completed successfully');
     }
     /**
-     * SECURE: Create simple global API export
+     *   Create simple global API export
      */
     _createProtectedGlobalAPI(safeGlobalAPI) {
-        // SECURE: Log that we're creating protected global API
+        //   Log that we're creating protected global API
         this._secureLog('info', '🔒 Creating protected global API');
         
-        // SECURE: Simple API export without proxy or monitoring
+        //   Simple API export without proxy or monitoring
         if (!window.secureBitChat) {
             this._exportAPI(safeGlobalAPI);
         } else {
@@ -2204,13 +2114,13 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
     
     /**
-     * SECURE: Simple API export without monitoring
+     *   Simple API export without monitoring
      */
     _exportAPI(apiObject) {
-        // SECURE: Log that we're exporting API
+        //   Log that we're exporting API
         this._secureLog('info', '🔒 Exporting API to window.secureBitChat');
         
-        // SECURE: Check if important methods are available
+        //   Check if important methods are available
         if (!this._importantMethods || !this._importantMethods.defineProperty) {
             this._secureLog('error', '❌ Important methods not available for API export, using fallback');
             // Fallback to direct Object.defineProperty
@@ -2221,7 +2131,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 enumerable: true
             });
         } else {
-            // SECURE: One-time export with immutable properties
+            //   One-time export with immutable properties
             this._importantMethods.defineProperty(window, 'secureBitChat', {
                 value: apiObject,
                 writable: false,
@@ -2234,20 +2144,20 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
     
     /**
-     * SECURE: Setup minimal global protection
+     *   Setup minimal global protection
      */
     _setupMinimalGlobalProtection() {
-        // SECURE: Simple protection without monitoring (methods already stored)
+        //   Simple protection without monitoring (methods already stored)
         this._protectGlobalAPI();
         
         this._secureLog('info', '🔒 Minimal global protection activated');
     }
     
     /**
-     * SECURE: Store important methods in closure for local use
+     *   Store important methods in closure for local use
      */
     _storeImportantMethods() {
-        // SECURE: Store references to important methods locally
+        //   Store references to important methods locally
         this._importantMethods = {
             defineProperty: Object.defineProperty,
             getOwnPropertyDescriptor: Object.getOwnPropertyDescriptor,
@@ -2265,20 +2175,20 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * SECURE: Simple protection without monitoring
+     *   Simple protection without monitoring
      */
     _setupSimpleProtection() {
         this._secureLog('info', '🔒 Simple protection activated - no monitoring');
     }
 
     /**
-     * SECURE: No global exposure prevention needed
+     *   No global exposure prevention needed
      */
     _preventGlobalExposure() {
         this._secureLog('info', '🔒 No global exposure prevention - using secure API export only');
     }
     /**
-     * SECURE: API integrity check - only at initialization
+     *   API integrity check - only at initialization
      */
     _verifyAPIIntegrity() {
         try {
@@ -2308,24 +2218,24 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     // ============================================
     
     /**
-     * SECURE: Simple global exposure check - only at initialization
+     *   Simple global exposure check - only at initialization
      */
     _auditGlobalExposure() {
-        // SECURE: Only check once at initialization, no periodic scanning
+        //   Only check once at initialization, no periodic scanning
         this._secureLog('info', '🔒 Global exposure check completed at initialization');
         return [];
     }
     
     /**
-     * SECURE: No periodic security audits - only at initialization
+     *   No periodic security audits - only at initialization
      */
     _startSecurityAudit() {
-        // SECURE: Only audit once at initialization, no periodic checks
+        //   Only audit once at initialization, no periodic checks
         this._secureLog('info', '🔒 Security audit completed at initialization - no periodic monitoring');
     }
     
     /**
-     * SECURE: Simple global API protection
+     *   Simple global API protection
      */
     _protectGlobalAPI() {
         if (!window.secureBitChat) {
@@ -2334,7 +2244,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         }
 
         try {
-            // SECURE: Validate API integrity once
+            //   Validate API integrity once
             if (this._validateAPIIntegrityOnce()) {
                 this._secureLog('info', '🔒 Global API protection verified');
             }
@@ -2348,11 +2258,11 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
     
     /**
-     * SECURE: Validate API integrity once at initialization
+     *   Validate API integrity once at initialization
      */
     _validateAPIIntegrityOnce() {
         try {
-            // SECURE: Check if API is properly configured
+            //   Check if API is properly configured
             if (!this._importantMethods || !this._importantMethods.getOwnPropertyDescriptor) {
                 // Fallback to direct Object.getOwnPropertyDescriptor
                 const descriptor = Object.getOwnPropertyDescriptor(window, 'secureBitChat');
@@ -2381,13 +2291,13 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
     
     /**
-     * CRITICAL FIX: Secure memory wipe for sensitive data
+     *   Secure memory wipe for sensitive data
      */
     _secureWipeMemory(data, context = 'unknown') {
         if (!data) return;
         
         try {
-            // CRITICAL FIX: Different handling for different data types
+            //   Different handling for different data types
             if (data instanceof ArrayBuffer) {
                 this._secureWipeArrayBuffer(data, context);
             } else if (data instanceof Uint8Array) {
@@ -2415,7 +2325,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
     
     /**
-     * CRITICAL FIX: Secure wipe for ArrayBuffer
+     *   Secure wipe for ArrayBuffer
      */
     _secureWipeArrayBuffer(buffer, context) {
         if (!buffer || buffer.byteLength === 0) return;
@@ -2423,16 +2333,16 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         try {
             const view = new Uint8Array(buffer);
             
-            // CRITICAL FIX: Overwrite with random data first
+            //   Overwrite with random data first
             crypto.getRandomValues(view);
             
-            // CRITICAL FIX: Overwrite with zeros
+            //   Overwrite with zeros
             view.fill(0);
             
-            // CRITICAL FIX: Overwrite with ones
+            //   Overwrite with ones
             view.fill(255);
             
-            // CRITICAL FIX: Final zero overwrite
+            //   Final zero overwrite
             view.fill(0);
             
             this._secureLog('debug', '🔒 ArrayBuffer securely wiped', {
@@ -2449,22 +2359,22 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
     
     /**
-     * CRITICAL FIX: Secure wipe for Uint8Array
+     *   Secure wipe for Uint8Array
      */
     _secureWipeUint8Array(array, context) {
         if (!array || array.length === 0) return;
         
         try {
-            // CRITICAL FIX: Overwrite with random data first
+            //   Overwrite with random data first
             crypto.getRandomValues(array);
             
-            // CRITICAL FIX: Overwrite with zeros
+            //   Overwrite with zeros
             array.fill(0);
             
-            // CRITICAL FIX: Overwrite with ones
+            //   Overwrite with ones
             array.fill(255);
             
-            // CRITICAL FIX: Final zero overwrite
+            //   Final zero overwrite
             array.fill(0);
             
             this._secureLog('debug', '🔒 Uint8Array securely wiped', {
@@ -2481,20 +2391,20 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
     
     /**
-     * CRITICAL FIX: Secure wipe for arrays
+     *   Secure wipe for arrays
      */
     _secureWipeArray(array, context) {
         if (!Array.isArray(array) || array.length === 0) return;
         
         try {
-            // CRITICAL FIX: Recursively wipe each element
+            //   Recursively wipe each element
             array.forEach((item, index) => {
                 if (item !== null && item !== undefined) {
                     this._secureWipeMemory(item, `${context}[${index}]`);
                 }
             });
             
-            // CRITICAL FIX: Fill with nulls
+            //   Fill with nulls
             array.fill(null);
             
             this._secureLog('debug', '🔒 Array securely wiped', {
@@ -2511,10 +2421,10 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
     
     /**
-     * SECURE: No string wiping - strings are immutable in JS
+     *   No string wiping - strings are immutable in JS
      */
     _secureWipeString(str, context) {
-        // SECURE: Strings are immutable in JavaScript, no need to wipe
+        //   Strings are immutable in JavaScript, no need to wipe
         // Just remove the reference
         this._secureLog('debug', '🔒 String reference removed (strings are immutable)', {
             context: context,
@@ -2523,18 +2433,18 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
     
     /**
-     * SECURE: CryptoKey cleanup - store in WeakMap for proper GC
+     *   CryptoKey cleanup - store in WeakMap for proper GC
      */
     _secureWipeCryptoKey(key, context) {
         if (!key || !(key instanceof CryptoKey)) return;
         
         try {
-            // SECURE: Store in WeakMap for proper garbage collection
+            //   Store in WeakMap for proper garbage collection
             if (!this._cryptoKeyStorage) {
                 this._cryptoKeyStorage = new WeakMap();
             }
             
-            // SECURE: Store reference for cleanup tracking
+            //   Store reference for cleanup tracking
             this._cryptoKeyStorage.set(key, {
                 context: context,
                 timestamp: Date.now(),
@@ -2555,18 +2465,18 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
     
     /**
-     * CRITICAL FIX: Secure wipe for objects
+     *   Secure wipe for objects
      */
     _secureWipeObject(obj, context) {
         if (!obj || typeof obj !== 'object') return;
         
         try {
-            // CRITICAL FIX: Recursively wipe all properties
+            //   Recursively wipe all properties
             for (const [key, value] of Object.entries(obj)) {
                 if (value !== null && value !== undefined) {
                     this._secureWipeMemory(value, `${context}.${key}`);
                 }
-                // CRITICAL FIX: Set property to null
+                //   Set property to null
                 obj[key] = null;
             }
             
@@ -2584,11 +2494,11 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
     
     /**
-     * CRITICAL FIX: Secure cleanup of cryptographic materials
+     *   Secure cleanup of cryptographic materials
      */
     _secureCleanupCryptographicMaterials() {
         try {
-            // CRITICAL FIX: Secure wipe of key pairs
+            //   Secure wipe of key pairs
             if (this.ecdhKeyPair) {
                 this._secureWipeMemory(this.ecdhKeyPair, 'ecdhKeyPair');
                 this.ecdhKeyPair = null;
@@ -2599,7 +2509,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 this.ecdsaKeyPair = null;
             }
             
-            // CRITICAL FIX: Secure wipe of derived keys
+            //   Secure wipe of derived keys
             if (this.encryptionKey) {
                 this._secureWipeMemory(this.encryptionKey, 'encryptionKey');
                 this.encryptionKey = null;
@@ -2620,7 +2530,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 this.nestedEncryptionKey = null;
             }
             
-            // CRITICAL FIX: Secure wipe of session data
+            //   Secure wipe of session data
             if (this.sessionSalt) {
                 this._secureWipeMemory(this.sessionSalt, 'sessionSalt');
                 this.sessionSalt = null;
@@ -2662,11 +2572,11 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
     
     /**
-     * CRITICAL FIX: Force garbage collection if available
+     *   Force garbage collection if available
      */
     _forceGarbageCollection() {
         try {
-            // CRITICAL FIX: Try to force garbage collection if available
+            //   Try to force garbage collection if available
             if (typeof window.gc === 'function') {
                 window.gc();
                 this._secureLog('debug', '🔒 Garbage collection forced');
@@ -2684,16 +2594,16 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
     
     /**
-     * CRITICAL FIX: Perform periodic memory cleanup
+     *   Perform periodic memory cleanup
      */
     _performPeriodicMemoryCleanup() {
         try {
             this._secureMemoryManager.isCleaning = true;
             
-            // CRITICAL FIX: Clean up any remaining sensitive data
+            //   Clean up any remaining sensitive data
             this._secureCleanupCryptographicMaterials();
             
-            // CRITICAL FIX: Clean up message queue if it's too large
+            //   Clean up message queue if it's too large
             if (this.messageQueue && this.messageQueue.length > 100) {
                 const excessMessages = this.messageQueue.splice(0, this.messageQueue.length - 50);
                 excessMessages.forEach((message, index) => {
@@ -2701,12 +2611,12 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 });
             }
             
-            // CRITICAL FIX: Clean up processed message IDs if too many
+            //   Clean up processed message IDs if too many
             if (this.processedMessageIds && this.processedMessageIds.size > 1000) {
                 this.processedMessageIds.clear();
             }
             
-            // CRITICAL FIX: Force garbage collection
+            //   Force garbage collection
             this._forceGarbageCollection();
             
             this._secureLog('debug', '🔒 Periodic memory cleanup completed');
@@ -2722,17 +2632,17 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
     
     /**
-     * CRITICAL FIX: Create secure error message without information disclosure
+     *   Create secure error message without information disclosure
      */
     _createSecureErrorMessage(originalError, context = 'unknown') {
         try {
-            // CRITICAL FIX: Categorize error for appropriate handling
+            //   Categorize error for appropriate handling
             const category = this._categorizeError(originalError);
             
-            // CRITICAL FIX: Generate safe error message based on category
+            //   Generate safe error message based on category
             const safeMessage = this._getSafeErrorMessage(category, context);
             
-            // CRITICAL FIX: Log detailed error internally for debugging
+            //   Log detailed error internally for debugging
             this._secureLog('error', 'Internal error occurred', {
                 category: category,
                 context: context,
@@ -2740,13 +2650,13 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 timestamp: Date.now()
             });
             
-            // CRITICAL FIX: Track error frequency
+            //   Track error frequency
             this._trackErrorFrequency(category);
             
             return safeMessage;
             
         } catch (error) {
-            // CRITICAL FIX: Fallback to generic error if error handling fails
+            //   Fallback to generic error if error handling fails
             this._secureLog('error', 'Error handling failed', {
                 originalError: originalError?.message || 'Unknown',
                 handlingError: error.message
@@ -2756,7 +2666,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
     
     /**
-     * CRITICAL FIX: Categorize error for appropriate handling
+     *   Categorize error for appropriate handling
      */
     _categorizeError(error) {
         if (!error || !error.message) {
@@ -2765,7 +2675,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         
         const message = error.message.toLowerCase();
         
-        // CRITICAL FIX: Cryptographic errors
+        //   Cryptographic errors
         if (message.includes('crypto') || 
             message.includes('key') || 
             message.includes('encrypt') || 
@@ -2777,7 +2687,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             return this._secureErrorHandler.errorCategories.CRYPTOGRAPHIC;
         }
         
-        // CRITICAL FIX: Network errors
+        //   Network errors
         if (message.includes('network') || 
             message.includes('connection') || 
             message.includes('timeout') ||
@@ -2786,7 +2696,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             return this._secureErrorHandler.errorCategories.NETWORK;
         }
         
-        // CRITICAL FIX: Validation errors
+        //   Validation errors
         if (message.includes('invalid') || 
             message.includes('validation') || 
             message.includes('format') ||
@@ -2794,7 +2704,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             return this._secureErrorHandler.errorCategories.VALIDATION;
         }
         
-        // CRITICAL FIX: System errors
+        //   System errors
         if (message.includes('system') || 
             message.includes('internal') || 
             message.includes('memory') ||
@@ -2806,7 +2716,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
     
     /**
-     * CRITICAL FIX: Get safe error message based on category
+     *   Get safe error message based on category
      */
     _getSafeErrorMessage(category, context) {
         const safeMessages = {
@@ -2845,7 +2755,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         
         const categoryMessages = safeMessages[category] || safeMessages[this._secureErrorHandler.errorCategories.UNKNOWN];
         
-        // CRITICAL FIX: Determine specific context for more precise message
+        //   Determine specific context for more precise message
         let specificContext = 'default';
         if (context.includes('key') || context.includes('crypto')) {
             specificContext = category === this._secureErrorHandler.errorCategories.CRYPTOGRAPHIC ? 'key_generation' : 'default';
@@ -2859,22 +2769,22 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
     
     /**
-     * CRITICAL FIX: Track error frequency for security monitoring
+     *   Track error frequency for security monitoring
      */
     _trackErrorFrequency(category) {
         const now = Date.now();
         
-        // CRITICAL FIX: Clean old error counts
+        //   Clean old error counts
         if (now - this._secureErrorHandler.lastErrorTime > 60000) { // 1 minute
             this._secureErrorHandler.errorCounts.clear();
         }
         
-        // CRITICAL FIX: Increment error count
+        //   Increment error count
         const currentCount = this._secureErrorHandler.errorCounts.get(category) || 0;
         this._secureErrorHandler.errorCounts.set(category, currentCount + 1);
         this._secureErrorHandler.lastErrorTime = now;
         
-        // CRITICAL FIX: Check if we're exceeding error threshold
+        //   Check if we're exceeding error threshold
         const totalErrors = Array.from(this._secureErrorHandler.errorCounts.values()).reduce((sum, count) => sum + count, 0);
         
         if (totalErrors > this._secureErrorHandler.errorThreshold) {
@@ -2887,7 +2797,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
     
     /**
-     * CRITICAL FIX: Throw secure error without information disclosure
+     *   Throw secure error without information disclosure
      */
     _throwSecureError(originalError, context = 'unknown') {
         const secureMessage = this._createSecureErrorMessage(originalError, context);
@@ -2895,7 +2805,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
     
     /**
-     * CRITICAL FIX: Get error handling statistics
+     *   Get error handling statistics
      */
     _getErrorHandlingStats() {
         return {
@@ -2907,7 +2817,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
     
     /**
-     * CRITICAL FIX: Reset error handling system
+     *   Reset error handling system
      */
     _resetErrorHandlingSystem() {
         this._secureErrorHandler.errorCounts.clear();
@@ -2918,7 +2828,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
     
     /**
-     * CRITICAL FIX: Get memory management statistics
+     *   Get memory management statistics
      */
     _getMemoryManagementStats() {
         return {
@@ -2931,17 +2841,17 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
     
     /**
-     * CRITICAL FIX: Validate API integrity and security
+     *   Validate API integrity and security
      */
     _validateAPIIntegrity() {
         try {
-            // CRITICAL FIX: Check if API exists
+            //   Check if API exists
             if (!window.secureBitChat) {
                 this._secureLog('error', '❌ Global API not found during integrity validation');
                 return false;
             }
             
-            // CRITICAL FIX: Validate required methods exist
+            //   Validate required methods exist
             const requiredMethods = ['sendMessage', 'getConnectionStatus', 'getSecurityStatus', 'sendFile', 'disconnect'];
             const missingMethods = requiredMethods.filter(method => 
                 !window.secureBitChat[method] || typeof window.secureBitChat[method] !== 'function'
@@ -2954,7 +2864,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 return false;
             }
             
-            // CRITICAL FIX: Test method binding integrity
+            //   Test method binding integrity
             const testContext = { test: true };
             const boundMethods = requiredMethods.map(method => {
                 try {
@@ -2972,7 +2882,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 return false;
             }
             
-            // CRITICAL FIX: Test API immutability
+            //   Test API immutability
             try {
                 const testProp = '_integrity_test_' + Date.now();
                 Object.defineProperty(window.secureBitChat, testProp, {
@@ -3003,7 +2913,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     _validateCryptographicSecurity() {
-        // SECURE: Check if basic security features are available
+        //   Check if basic security features are available
         const criticalFeatures = ['hasRateLimiting'];
         const missingCritical = criticalFeatures.filter(feature => !this.securityFeatures[feature]);
         
@@ -3020,7 +2930,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             });
         }
 
-        // SECURE: Log current security state
+        //   Log current security state
         const availableFeatures = Object.keys(this.securityFeatures).filter(f => this.securityFeatures[f]);
         const encryptionFeatures = ['hasEncryption', 'hasECDH', 'hasECDSA'].filter(f => this.securityFeatures[f]);
         
@@ -3045,7 +2955,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         if (!this.sessionManager || !this.sessionManager.isFeatureAllowedForSession) {
             this._secureLog('warn', '⚠️ Session manager not available, using safe default security features');
 
-            // SECURE: Keep existing features, only add new ones
+            //   Keep existing features, only add new ones
             // Don't override hasEncryption and hasECDH if they're already true
             if (this.securityFeatures.hasEncryption === undefined) {
                 this.securityFeatures.hasEncryption = false; // Will be set to true only after key generation
@@ -3211,7 +3121,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
      * @deprecated Use unified scheduler instead
      */
     _startSecurityMonitoring() {
-        // SECURE: All security monitoring moved to unified scheduler
+        //   All security monitoring moved to unified scheduler
         this._secureLog('info', '🔧 Security monitoring moved to unified scheduler');
     }
     /**
@@ -3237,7 +3147,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * CRITICAL SECURITY: Hard gate for traffic blocking without verification
+     *   Hard gate for traffic blocking without verification
      * This method enforces that NO traffic (including system messages and file transfers)
      * can pass through without proper cryptographic verification
      */
@@ -3260,7 +3170,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * CRITICAL SECURITY: Safe method to set isVerified only after cryptographic verification
+     *   Safe method to set isVerified only after cryptographic verification
      * This is the ONLY method that should set isVerified = true
      */
     _setVerifiedStatus(verified, verificationMethod = 'unknown', verificationData = null) {
@@ -3295,7 +3205,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * CRITICAL SECURITY: Create AAD (Additional Authenticated Data) for file messages
+     *   Create AAD (Additional Authenticated Data) for file messages
      * This binds file messages to the current session and prevents replay attacks
      */
     _createFileMessageAAD(messageType, messageData = null) {
@@ -3308,7 +3218,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * CRITICAL SECURITY: Validate AAD for file messages
+     *   Validate AAD for file messages
      * This ensures file messages are bound to the correct session
      */
     _validateFileMessageAAD(aadString, expectedMessageType = null) {
@@ -3344,7 +3254,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * CRITICAL SECURITY: Extract DTLS fingerprint from SDP
+     *   Extract DTLS fingerprint from SDP
      * This is essential for MITM protection
      */
     _extractDTLSFingerprintFromSDP(sdp) {
@@ -3402,7 +3312,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * CRITICAL SECURITY: Validate DTLS fingerprint against expected value
+     *   Validate DTLS fingerprint against expected value
      * This prevents MITM attacks by ensuring the remote peer has the expected certificate
      */
     _validateDTLSFingerprint(receivedFingerprint, expectedFingerprint, context = 'unknown') {
@@ -3443,7 +3353,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * CRITICAL SECURITY: Compute SAS (Short Authentication String) for MITM protection
+     *   Compute SAS (Short Authentication String) for MITM protection
      * Uses HKDF with DTLS fingerprints to generate a stable 7-digit verification code
      * @param {ArrayBuffer|Uint8Array} keyMaterialRaw - Shared secret or key fingerprint data
      * @param {string} localFP - Local DTLS fingerprint
@@ -3560,7 +3470,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * CRITICAL SECURITY: Emergency key wipe on fingerprint mismatch
+     *   Emergency key wipe on fingerprint mismatch
      * This ensures no sensitive data remains if MITM is detected
      */
     _emergencyWipeOnFingerprintMismatch(reason = 'DTLS fingerprint mismatch') {
@@ -3576,10 +3486,10 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             this._secureWipeMemory(this.macKey, 'emergency_wipe');
             this._secureWipeMemory(this.metadataKey, 'emergency_wipe');
             
-            // CRITICAL SECURITY: Wipe ephemeral keys for PFS
+            //   Wipe ephemeral keys for PFS
             this._wipeEphemeralKeys();
             
-            // CRITICAL SECURITY: Hard wipe old keys for PFS
+            //   Hard wipe old keys for PFS
             this._hardWipeOldKeys();
 
             // Reset verification status
@@ -3601,7 +3511,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * CRITICAL SECURITY: Set expected DTLS fingerprint via out-of-band channel
+     *   Set expected DTLS fingerprint via out-of-band channel
      * This should be called after receiving the fingerprint through a secure channel
      * (e.g., QR code, voice call, in-person exchange, etc.)
      */
@@ -3636,7 +3546,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * CRITICAL SECURITY: Get current DTLS fingerprint for out-of-band verification
+     *   Get current DTLS fingerprint for out-of-band verification
      * This should be shared through a secure channel (QR code, voice, etc.)
      */
     getCurrentDTLSFingerprint() {
@@ -3676,7 +3586,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * CRITICAL SECURITY: Generate ephemeral ECDH keys for Perfect Forward Secrecy
+     *   Generate ephemeral ECDH keys for Perfect Forward Secrecy
      * This ensures each session has unique, non-persistent keys
      */
     async _generateEphemeralECDHKeys() {
@@ -3714,7 +3624,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * CRITICAL SECURITY: Hard wipe old keys for real PFS
+     *   Hard wipe old keys for real PFS
      * This prevents retrospective decryption attacks
      */
     _hardWipeOldKeys() {
@@ -3761,7 +3671,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * CRITICAL SECURITY: Wipe ephemeral keys when session ends
+     *   Wipe ephemeral keys when session ends
      * This ensures session-specific keys are destroyed
      */
     _wipeEphemeralKeys() {
@@ -3804,7 +3714,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * CRITICAL SECURITY: Encrypt file messages with AAD
+     *   Encrypt file messages with AAD
      * This ensures file messages are properly authenticated and bound to session
      */
     async _encryptFileMessage(messageData, aad) {
@@ -3840,7 +3750,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
-     * CRITICAL SECURITY: Decrypt file messages with AAD validation
+     *   Decrypt file messages with AAD validation
      * This ensures file messages are properly authenticated and bound to session
      */
     async _decryptFileMessage(encryptedMessageString) {
@@ -3856,7 +3766,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 throw new Error('Key fingerprint mismatch in encrypted file message');
             }
             
-            // CRITICAL SECURITY: Validate AAD with sequence number
+            //   Validate AAD with sequence number
             const aad = this._validateMessageAAD(encryptedMessage.aad, 'file_message');
             
             if (!this.encryptionKey) {
@@ -4070,20 +3980,20 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         return filteredResults.includes(result);
     }
     /**
-     * CRITICAL FIX: Enhanced log cleanup with security checks
+     *   Enhanced log cleanup with security checks
      */
     _cleanupLogs() {
-        // CRITICAL FIX: More aggressive cleanup to prevent data accumulation
+        //   More aggressive cleanup to prevent data accumulation
         if (this._logCounts.size > 500) {
             this._logCounts.clear();
             this._secureLog('debug', '🧹 Log counts cleared due to size limit');
         }
         
-        // CRITICAL FIX: Clean up old log entries to prevent memory leaks
+        //   Clean up old log entries to prevent memory leaks
         const now = Date.now();
         const maxAge = 300000; // 5 minutes
         
-        // CRITICAL FIX: Check for suspicious log patterns
+        //   Check for suspicious log patterns
         let suspiciousCount = 0;
         for (const [key, count] of this._logCounts.entries()) {
             if (count > 10) {
@@ -4091,24 +4001,24 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             }
         }
         
-        // CRITICAL FIX: Emergency cleanup if too many suspicious patterns
+        //   Emergency cleanup if too many suspicious patterns
         if (suspiciousCount > 20) {
             this._logCounts.clear();
             this._secureLog('warn', '🚨 Emergency log cleanup due to suspicious patterns');
         }
         
-        // CRITICAL FIX: Reset security violation counter if system is stable
+        //   Reset security violation counter if system is stable
         if (this._logSecurityViolations > 0 && suspiciousCount < 5) {
             this._logSecurityViolations = Math.max(0, this._logSecurityViolations - 1);
         }
         
-        // CRITICAL FIX: Clean up old IVs periodically
+        //   Clean up old IVs periodically
         if (!this._lastIVCleanupTime || Date.now() - this._lastIVCleanupTime > 300000) { // Every 5 minutes
             this._cleanupOldIVs();
             this._lastIVCleanupTime = Date.now();
         }
         
-        // CRITICAL FIX: Periodic secure memory cleanup
+        //   Periodic secure memory cleanup
         if (!this._secureMemoryManager.memoryStats.lastCleanup || 
             Date.now() - this._secureMemoryManager.memoryStats.lastCleanup > 600000) { // Every 10 minutes
             this._performPeriodicMemoryCleanup();
@@ -4116,10 +4026,10 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         }
     }
     /**
-     * CRITICAL FIX: Secure logging stats with sensitive data protection
+     *   Secure logging stats with sensitive data protection
      */
     _getLoggingStats() {
-        // CRITICAL FIX: Only return safe statistics
+        //   Only return safe statistics
         const stats = {
             isProductionMode: this._isProductionMode,
             debugMode: this._debugMode,
@@ -4131,7 +4041,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             systemStatus: this._currentLogLevel === -1 ? 'DISABLED' : 'ACTIVE'
         };
         
-        // CRITICAL FIX: Sanitize any potentially sensitive data
+        //   Sanitize any potentially sensitive data
         const sanitizedStats = {};
         for (const [key, value] of Object.entries(stats)) {
             if (typeof value === 'string' && this._containsSensitiveContent(value)) {
@@ -4144,41 +4054,41 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         return sanitizedStats;
     }
     /**
-     * CRITICAL FIX: Enhanced emergency logging disable with cleanup
+     *   Enhanced emergency logging disable with cleanup
      */
     _emergencyDisableLogging() {
-        // CRITICAL FIX: Immediately disable all logging levels
+        //   Immediately disable all logging levels
         this._currentLogLevel = -1;
         
-        // CRITICAL FIX: Clear all log data to prevent memory leaks
+        //   Clear all log data to prevent memory leaks
         this._logCounts.clear();
         
-        // CRITICAL FIX: Clear any cached sensitive data
+        //   Clear any cached sensitive data
         if (this._logSecurityViolations) {
             this._logSecurityViolations = 0;
         }
         
-        // CRITICAL FIX: Override _secureLog to a secure no-op
+        //   Override _secureLog to a secure no-op
         this._secureLog = () => {
-            // CRITICAL FIX: Only allow emergency console errors
+            //   Only allow emergency console errors
             if (arguments[0] === 'error' && this._originalConsole?.error) {
                 this._originalConsole.error('🚨 SECURITY: Logging system disabled - potential data exposure prevented');
             }
         };
         
-        // CRITICAL FIX: Store original functions before overriding
+        //   Store original functions before overriding
         this._originalSanitizeString = this._sanitizeString;
         this._originalSanitizeLogData = this._sanitizeLogData;
         this._originalAuditLogMessage = this._auditLogMessage;
         this._originalContainsSensitiveContent = this._containsSensitiveContent;
         
-        // CRITICAL FIX: Override all logging methods to prevent bypass
+        //   Override all logging methods to prevent bypass
         this._sanitizeString = () => '[LOGGING_DISABLED]';
         this._sanitizeLogData = () => ({ error: 'LOGGING_DISABLED' });
         this._auditLogMessage = () => false;
         this._containsSensitiveContent = () => true; // Block everything
         
-        // CRITICAL FIX: Force garbage collection if available
+        //   Force garbage collection if available
         if (typeof window.gc === 'function') {
             try {
                 window.gc();
@@ -4187,12 +4097,12 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             }
         }
         
-        // CRITICAL FIX: Notify about the emergency shutdown
+        //   Notify about the emergency shutdown
         this._originalConsole?.error?.('🚨 CRITICAL: Secure logging system disabled due to potential data exposure');
     }
 
     /**
-     * SECURE: Reset logging system after emergency shutdown
+     *   Reset logging system after emergency shutdown
      * Use this function to restore normal logging functionality
      */
     _resetLoggingSystem() {
@@ -4210,29 +4120,29 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         this._secureLog('info', '✅ Logging system reset successfully');
     }
     /**
-     * CRITICAL FIX: Enhanced audit function for log message security
+     *   Enhanced audit function for log message security
      */
     _auditLogMessage(message, data) {
         if (!data || typeof data !== 'object') return true;
         
-        // CRITICAL FIX: Convert to string and check for sensitive content
+        //   Convert to string and check for sensitive content
         const dataString = JSON.stringify(data);
         
-        // CRITICAL FIX: Check message itself for sensitive content
+        //   Check message itself for sensitive content
         if (this._containsSensitiveContent(message)) {
             this._emergencyDisableLogging();
             this._originalConsole?.error?.('🚨 SECURITY BREACH: Sensitive content detected in log message');
             return false;
         }
         
-        // CRITICAL FIX: Check data string for sensitive content
+        //   Check data string for sensitive content
         if (this._containsSensitiveContent(dataString)) {
             this._emergencyDisableLogging();
             this._originalConsole?.error?.('🚨 SECURITY BREACH: Sensitive content detected in log data');
             return false;
         }
         
-        // CRITICAL FIX: Enhanced dangerous pattern detection
+        //   Enhanced dangerous pattern detection
         const dangerousPatterns = [
             'secret', 'token', 'password', 'credential', 'auth',
             'fingerprint', 'salt', 'signature', 'private_key', 'api_key', 'private',
@@ -4250,7 +4160,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             }
         }
         
-        // CRITICAL FIX: Check for high entropy values in data
+        //   Check for high entropy values in data
         for (const [key, value] of Object.entries(data)) {
             if (typeof value === 'string' && this._hasHighEntropy(value)) {
                 this._emergencyDisableLogging();
@@ -4271,7 +4181,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 return;
             }
             
-            // CRITICAL FIX: Step-by-step readiness check
+            //   Step-by-step readiness check
             const channelReady = !!(this.dataChannel && this.dataChannel.readyState === 'open');
             if (!channelReady) {
                 this._secureLog('warn', '⚠️ Data channel not open, deferring file transfer initialization');
@@ -4298,7 +4208,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 this.fileTransferSystem = null;
             }
             
-            // CRITICAL FIX: Ensure encryption keys are present
+            //   Ensure encryption keys are present
             if (!this.encryptionKey || !this.macKey) {
                 this._secureLog('warn', '⚠️ Encryption keys not ready, deferring file transfer initialization');
                 setTimeout(() => this.initializeFileTransfer(), 1000);
@@ -4366,9 +4276,9 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         }
     }
     
-    // SECURE: Generate fingerprint mask for anti-fingerprinting with enhanced randomization
+    //   Generate fingerprint mask for anti-fingerprinting with enhanced randomization
     generateFingerprintMask() {
-        // SECURE: Enhanced randomization to prevent side-channel attacks
+        //   Enhanced randomization to prevent side-channel attacks
         const cryptoRandom = crypto.getRandomValues(new Uint8Array(128));
         
         const mask = {
@@ -4639,7 +4549,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             );
             
             // Generate random IV for nested encryption
-                    // CRITICAL FIX: No need for base IV or counter - each encryption gets fresh random IV
+                    //   No need for base IV or counter - each encryption gets fresh random IV
         // This ensures maximum entropy and prevents IV reuse attacks
             
         } catch (error) {
@@ -4654,7 +4564,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         }
 
         try {
-            // CRITICAL FIX: Generate cryptographically secure IV with reuse prevention
+            //   Generate cryptographically secure IV with reuse prevention
             const uniqueIV = this._generateSecureIV(
                 EnhancedSecureWebRTCManager.SIZES.NESTED_ENCRYPTION_IV_SIZE, 
                 'nestedEncryption'
@@ -4685,7 +4595,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 errorMessage: error?.message || 'Unknown error'
             });
             
-            // CRITICAL FIX: If IV generation failed due to emergency mode, disable nested encryption
+            //   If IV generation failed due to emergency mode, disable nested encryption
             if (error.message.includes('emergency mode')) {
                 this.securityFeatures.hasNestedEncryption = false;
                 this._secureLog('warn', '⚠️ Nested encryption disabled due to IV emergency mode');
@@ -4700,7 +4610,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             return data;
         }
 
-        // CRITICAL FIX: Check that the data is actually encrypted with proper IV size
+        //   Check that the data is actually encrypted with proper IV size
         if (!(data instanceof ArrayBuffer) || data.byteLength < EnhancedSecureWebRTCManager.SIZES.NESTED_ENCRYPTION_IV_SIZE + 16) {
             if (this._debugMode) {
                 this._secureLog('debug', '📝 Data not encrypted or too short for nested decryption (need IV + minimum encrypted data)');
@@ -5911,7 +5821,7 @@ async processOrderedPackets() {
     }
 
     async sendMessage(data) {
-        // SECURE: Comprehensive input validation
+        //   Comprehensive input validation
         const validation = this._validateInputData(data, 'sendMessage');
         if (!validation.isValid) {
             const errorMessage = `Input validation failed: ${validation.errors.join(', ')}`;
@@ -5923,15 +5833,15 @@ async processOrderedPackets() {
             throw new Error(errorMessage);
         }
 
-        // SECURE: Rate limiting check
+        //   Rate limiting check
         if (!this._checkRateLimit('sendMessage')) {
             throw new Error('Rate limit exceeded for message sending');
         }
 
-        // CRITICAL SECURITY: Enforce verification gate
+        //   Enforce verification gate
         this._enforceVerificationGate('sendMessage');
 
-        // SECURE: Connection validation
+        //   Connection validation
         if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
             throw new Error('Data channel not ready');
         }
@@ -5975,7 +5885,7 @@ async processOrderedPackets() {
                 }
             }
 
-            // SECURE: For regular text messages, send via secure path with AAD
+            //   For regular text messages, send via secure path with AAD
             if (typeof validation.sanitizedData === 'string') {
                 // Verify that _createMessageAAD method is available
                 if (typeof this._createMessageAAD !== 'function') {
@@ -5993,7 +5903,7 @@ async processOrderedPackets() {
                 });
             }
 
-            // SECURE: For binary data, apply security layers with a limited mutex
+            //   For binary data, apply security layers with a limited mutex
             this._secureLog('debug', '🔐 Applying security layers to non-string data');
             const securedData = await this._applySecurityLayersWithLimitedMutex(validation.sanitizedData, false);
             this.dataChannel.send(securedData);
@@ -6052,7 +5962,7 @@ async processOrderedPackets() {
 }
 
     async sendSystemMessage(messageData) {
-        // CRITICAL SECURITY: Block system messages without verification
+        //   Block system messages without verification
         // Exception: Allow verification-related system messages
         const isVerificationMessage = messageData.type === 'verification_request' || 
                                      messageData.type === 'verification_response' ||
@@ -6165,7 +6075,7 @@ async processMessage(data) {
                         // Parse decrypted data
                         const decryptedParsed = JSON.parse(decryptedData.data);
                         
-                        // CRITICAL SECURITY: Validate AAD with sequence number
+                        //   Validate AAD with sequence number
                         if (decryptedData.metadata && decryptedData.metadata.sequenceNumber !== undefined) {
                             if (!this._validateIncomingSequenceNumber(decryptedData.metadata.sequenceNumber, 'enhanced_message')) {
                                 this._secureLog('warn', '⚠️ Enhanced message sequence number validation failed - possible replay attack', {
@@ -6375,7 +6285,7 @@ async processMessage(data) {
                 
                 // FIX: Force header refresh with correct manager
                 setTimeout(() => {
-                    // SECURE: Removed global callback - use event system instead
+                    //   Removed global callback - use event system instead
                     // if (window.forceHeaderSecurityUpdate) {
                     //     window.forceHeaderSecurityUpdate(this);
                     // }
@@ -6775,13 +6685,13 @@ async processMessage(data) {
             // Clean up chunk queue
             this.chunkQueue = [];
             
-            // CRITICAL SECURITY: Wipe ephemeral keys for PFS on disconnect
+            //   Wipe ephemeral keys for PFS on disconnect
             this._wipeEphemeralKeys();
             
-            // CRITICAL SECURITY: Hard wipe old keys for PFS
+            //   Hard wipe old keys for PFS
             this._hardWipeOldKeys();
 
-            // CRITICAL SECURITY: Clear verification states
+            //   Clear verification states
             this._clearVerificationStates();
 
         } catch (error) {
@@ -6790,7 +6700,7 @@ async processMessage(data) {
     }
 
     /**
-     * CRITICAL SECURITY: Clear all verification states and data
+     *   Clear all verification states and data
      * Called when verification is rejected or connection is terminated
      */
     _clearVerificationStates() {
@@ -6826,7 +6736,7 @@ async processMessage(data) {
 
     // Start periodic cleanup for rate limiting and security
     startPeriodicCleanup() {
-        // SECURE: Cleanup moved to unified scheduler
+        //   Cleanup moved to unified scheduler
         this._secureLog('info', '🔧 Periodic cleanup moved to unified scheduler');
     }
 
@@ -6894,7 +6804,7 @@ async processMessage(data) {
                     throw new Error('Data channel not ready for key rotation');
                 }
                 
-                // CRITICAL SECURITY: Perform hard wipe of old keys for real PFS
+                //   Perform hard wipe of old keys for real PFS
                 this._hardWipeOldKeys();
                 
                 // Wait for peer confirmation
@@ -6925,7 +6835,7 @@ async processMessage(data) {
         }, 10000); // 10 seconds timeout for the entire operation
     }
 
-    // CRITICAL SECURITY: Real PFS - Clean up old keys with hard wipe
+    //   Real PFS - Clean up old keys with hard wipe
     cleanupOldKeys() {
         const now = Date.now();
         const maxKeyAge = EnhancedSecureWebRTCManager.LIMITS.MAX_KEY_AGE; // 15 minutes - keys older than this are deleted
@@ -6934,7 +6844,7 @@ async processMessage(data) {
         
         for (const [version, keySet] of this.oldKeys.entries()) {
             if (now - keySet.timestamp > maxKeyAge) {
-                // CRITICAL SECURITY: Hard wipe old keys before deletion
+                //   Hard wipe old keys before deletion
                 if (keySet.encryptionKey) {
                     this._secureWipeMemory(keySet.encryptionKey, 'pfs_cleanup_wipe');
                 }
@@ -7174,7 +7084,7 @@ async processMessage(data) {
                 }
             }
             
-            // CRITICAL SECURITY: Wipe ephemeral keys when session ends for PFS
+            //   Wipe ephemeral keys when session ends for PFS
             this._wipeEphemeralKeys();
             
             this.stopHeartbeat();
@@ -7442,10 +7352,10 @@ async processMessage(data) {
     }
 
     /**
-     * CRITICAL FIX: Atomic mutex acquisition with enhanced race condition protection
+     *   Atomic mutex acquisition with enhanced race condition protection
      */
     async _acquireMutex(mutexName, operationId, timeout = 5000) {
-        // CRITICAL FIX: Build correct mutex property name
+        //   Build correct mutex property name
         const mutexPropertyName = `_${mutexName}Mutex`;
         const mutex = this[mutexPropertyName];
         
@@ -7458,15 +7368,15 @@ async processMessage(data) {
             throw new Error(`Unknown mutex: ${mutexName}. Available: ${this._getAvailableMutexes().join(', ')}`);
         }
         
-        // CRITICAL FIX: Validate operation ID
+        //   Validate operation ID
         if (!operationId || typeof operationId !== 'string') {
             throw new Error('Invalid operation ID for mutex acquisition');
         }
         
         return new Promise((resolve, reject) => {
-            // CRITICAL FIX: Atomic lock attempt with immediate state check
+            //   Atomic lock attempt with immediate state check
             const attemptLock = () => {
-                // CRITICAL FIX: Check if mutex is already locked by this operation
+                //   Check if mutex is already locked by this operation
                 if (mutex.lockId === operationId) {
                     this._secureLog('warn', `⚠️ Mutex '${mutexName}' already locked by same operation`, {
                         operationId: operationId
@@ -7475,9 +7385,9 @@ async processMessage(data) {
                     return;
                 }
                 
-                // CRITICAL FIX: Atomic check and lock operation
+                //   Atomic check and lock operation
                 if (!mutex.locked) {
-                    // CRITICAL FIX: Set lock state atomically
+                    //   Set lock state atomically
                     mutex.locked = true;
                     mutex.lockId = operationId;
                     mutex.lockTime = Date.now();
@@ -7487,22 +7397,22 @@ async processMessage(data) {
                         lockTime: mutex.lockTime
                     });
                     
-                    // CRITICAL FIX: Set timeout for automatic release with enhanced validation
+                    //   Set timeout for automatic release with enhanced validation
                     mutex.lockTimeout = setTimeout(() => {
-                        // CRITICAL FIX: Enhanced timeout handling with state validation
+                        //   Enhanced timeout handling with state validation
                         this._handleMutexTimeout(mutexName, operationId, timeout);
                     }, timeout);
                     
                     resolve();
                 } else {
-                    // CRITICAL FIX: Add to queue with timeout
+                    //   Add to queue with timeout
                     const queueItem = { 
                         resolve, 
                         reject, 
                         operationId,
                         timestamp: Date.now(),
                         timeout: setTimeout(() => {
-                            // CRITICAL FIX: Remove from queue on timeout
+                            //   Remove from queue on timeout
                             const index = mutex.queue.findIndex(item => item.operationId === operationId);
                             if (index !== -1) {
                                 mutex.queue.splice(index, 1);
@@ -7521,16 +7431,16 @@ async processMessage(data) {
                 }
             };
             
-            // CRITICAL FIX: Execute lock attempt immediately
+            //   Execute lock attempt immediately
             attemptLock();
         });
     }
 
     /**
-     * CRITICAL FIX: Enhanced mutex release with strict validation and error handling
+     *   Enhanced mutex release with strict validation and error handling
      */
     _releaseMutex(mutexName, operationId) {
-        // CRITICAL FIX: Validate input parameters
+        //   Validate input parameters
         if (!mutexName || typeof mutexName !== 'string') {
             throw new Error('Invalid mutex name provided for release');
         }
@@ -7539,7 +7449,7 @@ async processMessage(data) {
             throw new Error('Invalid operation ID provided for mutex release');
         }
         
-        // CRITICAL FIX: Build correct mutex property name
+        //   Build correct mutex property name
         const mutexPropertyName = `_${mutexName}Mutex`;
         const mutex = this[mutexPropertyName];
         
@@ -7552,7 +7462,7 @@ async processMessage(data) {
             throw new Error(`Unknown mutex for release: ${mutexName}`);
         }
         
-        // CRITICAL FIX: Strict validation of lock ownership
+        //   Strict validation of lock ownership
         if (mutex.lockId !== operationId) {
             this._secureLog('error', `❌ CRITICAL: Invalid mutex release attempt - potential race condition`, {
                 mutexName: mutexName,
@@ -7565,11 +7475,11 @@ async processMessage(data) {
                 }
             });
             
-            // CRITICAL FIX: Throw error instead of silent failure
+            //   Throw error instead of silent failure
             throw new Error(`Invalid mutex release attempt for '${mutexName}': expected '${mutex.lockId}', got '${operationId}'`);
         }
         
-        // CRITICAL FIX: Validate mutex is actually locked
+        //   Validate mutex is actually locked
         if (!mutex.locked) {
             this._secureLog('error', `❌ CRITICAL: Attempting to release unlocked mutex`, {
                 mutexName: mutexName,
@@ -7584,16 +7494,16 @@ async processMessage(data) {
         }
         
         try {
-            // CRITICAL FIX: Clear timeout first
+            //   Clear timeout first
             if (mutex.lockTimeout) {
                 clearTimeout(mutex.lockTimeout);
                 mutex.lockTimeout = null;
             }
             
-            // CRITICAL FIX: Calculate lock duration for monitoring
+            //   Calculate lock duration for monitoring
             const lockDuration = mutex.lockTime ? Date.now() - mutex.lockTime : 0;
             
-            // CRITICAL FIX: Atomic release with state validation
+            //   Atomic release with state validation
             mutex.locked = false;
             mutex.lockId = null;
             mutex.lockTime = null;
@@ -7604,11 +7514,11 @@ async processMessage(data) {
                 queueLength: mutex.queue.length
             });
             
-            // CRITICAL FIX: Process next in queue with enhanced error handling
+            //   Process next in queue with enhanced error handling
             this._processNextInQueue(mutexName);
             
         } catch (error) {
-            // CRITICAL FIX: If queue processing fails, ensure mutex is still released
+            //   If queue processing fails, ensure mutex is still released
             this._secureLog('error', `❌ Error during mutex release queue processing`, {
                 mutexName: mutexName,
                 operationId: operationId,
@@ -7616,7 +7526,7 @@ async processMessage(data) {
                 errorMessage: error.message
             });
             
-            // CRITICAL FIX: Ensure mutex is released even if queue processing fails
+            //   Ensure mutex is released even if queue processing fails
             mutex.locked = false;
             mutex.lockId = null;
             mutex.lockTime = null;
@@ -7627,7 +7537,7 @@ async processMessage(data) {
     }
 
     /**
-     * CRITICAL FIX: Enhanced queue processing with comprehensive error handling
+     *   Enhanced queue processing with comprehensive error handling
      */
     _processNextInQueue(mutexName) {
         const mutex = this[`_${mutexName}Mutex`];
@@ -7641,7 +7551,7 @@ async processMessage(data) {
             return;
         }
         
-        // CRITICAL FIX: Validate mutex state before processing queue
+        //   Validate mutex state before processing queue
         if (mutex.locked) {
             this._secureLog('warn', `⚠️ Mutex '${mutexName}' is still locked, skipping queue processing`, {
                 lockId: mutex.lockId,
@@ -7650,7 +7560,7 @@ async processMessage(data) {
             return;
         }
         
-        // CRITICAL FIX: Get next item from queue atomically with validation
+        //   Get next item from queue atomically with validation
         const nextItem = mutex.queue.shift();
         
         if (!nextItem) {
@@ -7658,7 +7568,7 @@ async processMessage(data) {
             return;
         }
         
-        // CRITICAL FIX: Validate queue item structure
+        //   Validate queue item structure
         if (!nextItem.operationId || !nextItem.resolve || !nextItem.reject) {
             this._secureLog('error', `❌ Invalid queue item structure for mutex '${mutexName}'`, {
                 hasOperationId: !!nextItem.operationId,
@@ -7669,19 +7579,19 @@ async processMessage(data) {
         }
         
         try {
-            // CRITICAL FIX: Clear timeout for this item
+            //   Clear timeout for this item
             if (nextItem.timeout) {
                 clearTimeout(nextItem.timeout);
             }
             
-            // CRITICAL FIX: Attempt to acquire lock for next item
+            //   Attempt to acquire lock for next item
             this._secureLog('debug', `🔄 Processing next operation in queue for mutex '${mutexName}'`, {
                 operationId: nextItem.operationId,
                 queueRemaining: mutex.queue.length,
                 timestamp: Date.now()
             });
             
-            // CRITICAL FIX: Retry lock acquisition for queued operation with enhanced error handling
+            //   Retry lock acquisition for queued operation with enhanced error handling
             setTimeout(async () => {
                 try {
                     await this._acquireMutex(mutexName, nextItem.operationId, 5000);
@@ -7701,10 +7611,10 @@ async processMessage(data) {
                         timestamp: Date.now()
                     });
                     
-                    // CRITICAL FIX: Reject with detailed error information
+                    //   Reject with detailed error information
                     nextItem.reject(new Error(`Queue processing failed for '${mutexName}': ${error.message}`));
                     
-                    // CRITICAL FIX: Continue processing queue even if one item fails
+                    //   Continue processing queue even if one item fails
                     setTimeout(() => {
                         this._processNextInQueue(mutexName);
                     }, 50);
@@ -7718,7 +7628,7 @@ async processMessage(data) {
                 errorMessage: error.message
             });
             
-            // CRITICAL FIX: Reject the operation and continue processing
+            //   Reject the operation and continue processing
             try {
                 nextItem.reject(new Error(`Queue processing critical error: ${error.message}`));
             } catch (rejectError) {
@@ -7728,7 +7638,7 @@ async processMessage(data) {
                 });
             }
             
-            // CRITICAL FIX: Continue processing remaining queue items
+            //   Continue processing remaining queue items
             setTimeout(() => {
                 this._processNextInQueue(mutexName);
             }, 100);
@@ -7751,12 +7661,12 @@ async processMessage(data) {
     }
 
     /**
-     * CRITICAL FIX: Enhanced mutex execution with atomic operations
+     *   Enhanced mutex execution with atomic operations
      */
     async _withMutex(mutexName, operation, timeout = 5000) {
         const operationId = this._generateOperationId();
         
-        // CRITICAL FIX: Validate mutex system before operation
+        //   Validate mutex system before operation
         if (!this._validateMutexSystem()) {
             this._secureLog('error', '❌ Mutex system not properly initialized', {
                 operationId: operationId,
@@ -7765,7 +7675,7 @@ async processMessage(data) {
             throw new Error('Mutex system not properly initialized. Call _initializeMutexSystem() first.');
         }
         
-        // CRITICAL FIX: Get mutex reference with validation
+        //   Get mutex reference with validation
         const mutex = this[`_${mutexName}Mutex`];
         if (!mutex) {
             throw new Error(`Mutex '${mutexName}' not found`);
@@ -7774,20 +7684,20 @@ async processMessage(data) {
         let mutexAcquired = false;
         
         try {
-            // CRITICAL FIX: Atomic mutex acquisition with timeout
+            //   Atomic mutex acquisition with timeout
             await this._acquireMutex(mutexName, operationId, timeout);
             mutexAcquired = true;
             
-            // CRITICAL FIX: Increment operation counter atomically
+            //   Increment operation counter atomically
             const counterKey = `${mutexName}Operations`;
             if (this._operationCounters && this._operationCounters[counterKey] !== undefined) {
                 this._operationCounters[counterKey]++;
             }
             
-            // CRITICAL FIX: Execute operation with enhanced error handling
+            //   Execute operation with enhanced error handling
             const result = await operation(operationId);
             
-            // CRITICAL FIX: Validate result before returning
+            //   Validate result before returning
             if (result === undefined && operation.name !== 'cleanup') {
                 this._secureLog('warn', '⚠️ Mutex operation returned undefined result', {
                     operationId: operationId,
@@ -7799,7 +7709,7 @@ async processMessage(data) {
             return result;
             
         } catch (error) {
-            // CRITICAL FIX: Enhanced error logging with context
+            //   Enhanced error logging with context
             this._secureLog('error', '❌ Error in mutex operation', {
                 operationId: operationId,
                 mutexName: mutexName,
@@ -7813,24 +7723,24 @@ async processMessage(data) {
                 } : 'null'
             });
             
-                    // CRITICAL FIX: If this is a key operation error, trigger emergency recovery
+                    //   If this is a key operation error, trigger emergency recovery
         if (mutexName === 'keyOperation') {
             this._handleKeyOperationError(error, operationId);
         }
         
-        // CRITICAL FIX: Trigger emergency unlock for critical mutex errors
+        //   Trigger emergency unlock for critical mutex errors
         if (error.message.includes('timeout') || error.message.includes('race condition')) {
             this._emergencyUnlockAllMutexes('errorHandler');
         }
             
             throw error;
         } finally {
-            // CRITICAL FIX: Always release mutex in finally block with validation
+            //   Always release mutex in finally block with validation
             if (mutexAcquired) {
                 try {
                     await this._releaseMutex(mutexName, operationId);
                     
-                    // CRITICAL FIX: Verify mutex was properly released
+                    //   Verify mutex was properly released
                     if (mutex.locked && mutex.lockId === operationId) {
                         this._secureLog('error', '❌ Mutex release verification failed', {
                             operationId: operationId,
@@ -7850,7 +7760,7 @@ async processMessage(data) {
                         releaseErrorMessage: releaseError.message
                     });
                     
-                    // CRITICAL FIX: Force release on error
+                    //   Force release on error
                     mutex.locked = false;
                     mutex.lockId = null;
                     mutex.lockTimeout = null;
@@ -7888,19 +7798,19 @@ async processMessage(data) {
     }
 
     /**
-     * CRITICAL FIX: Enhanced emergency recovery of the mutex system
+     *   Enhanced emergency recovery of the mutex system
      */
     _emergencyRecoverMutexSystem() {
         this._secureLog('warn', '🚨 Emergency mutex system recovery initiated');
         
         try {
-            // CRITICAL FIX: Emergency unlock all mutexes first
+            //   Emergency unlock all mutexes first
             this._emergencyUnlockAllMutexes('emergencyRecovery');
             
-            // CRITICAL FIX: Force re-initialize the system
+            //   Force re-initialize the system
             this._initializeMutexSystem();
             
-            // CRITICAL FIX: Validate recovery success
+            //   Validate recovery success
             if (!this._validateMutexSystem()) {
                 throw new Error('Mutex system validation failed after recovery');
             }
@@ -7914,7 +7824,7 @@ async processMessage(data) {
                 errorMessage: error.message
             });
             
-            // CRITICAL FIX: Last resort - force re-initialization
+            //   Last resort - force re-initialization
             try {
                 this._initializeMutexSystem();
                 this._secureLog('warn', '⚠️ Forced mutex system re-initialization completed');
@@ -7930,7 +7840,7 @@ async processMessage(data) {
     }
 
     /**
-     * CRITICAL FIX: Atomic key generation with race condition protection
+     *   Atomic key generation with race condition protection
      */
     async _generateEncryptionKeys() {
         return this._withMutex('keyOperation', async (operationId) => {
@@ -7938,10 +7848,10 @@ async processMessage(data) {
                 operationId: operationId
             });
             
-            // CRITICAL FIX: Atomic state check and update using mutex lock
+            //   Atomic state check and update using mutex lock
             const currentState = this._keySystemState;
             
-            // CRITICAL FIX: Atomic check - if already initializing, wait or fail
+            //   Atomic check - if already initializing, wait or fail
             if (currentState.isInitializing) {
                 this._secureLog('warn', '⚠️ Key generation already in progress, waiting for completion', {
                     operationId: operationId,
@@ -7963,9 +7873,9 @@ async processMessage(data) {
                 }
             }
             
-            // CRITICAL FIX: Atomic state update within mutex protection
+            //   Atomic state update within mutex protection
             try {
-                // CRITICAL FIX: Set state atomically within mutex
+                //   Set state atomically within mutex
                 currentState.isInitializing = true;
                 currentState.lastOperation = 'generation';
                 currentState.lastOperationTime = Date.now();
@@ -7976,20 +7886,20 @@ async processMessage(data) {
                     timestamp: currentState.lastOperationTime
                 });
                 
-                // CRITICAL FIX: Generate keys with individual error handling
+                //   Generate keys with individual error handling
                 let ecdhKeyPair = null;
                 let ecdsaKeyPair = null;
                 
-                // CRITICAL SECURITY: Generate ephemeral ECDH keys for PFS
+                //   Generate ephemeral ECDH keys for PFS
                 try {
                     ecdhKeyPair = await this._generateEphemeralECDHKeys();
                     
-                    // CRITICAL FIX: Validate ECDH keys immediately
+                    //   Validate ECDH keys immediately
                     if (!ecdhKeyPair || !ecdhKeyPair.privateKey || !ecdhKeyPair.publicKey) {
                         throw new Error('Ephemeral ECDH key pair validation failed');
                     }
                     
-                    // SECURE: Constant-time validation for key types
+                    //   Constant-time validation for key types
                     if (!this._validateKeyPairConstantTime(ecdhKeyPair)) {
                         throw new Error('Ephemeral ECDH keys are not valid CryptoKey instances');
                     }
@@ -8013,12 +7923,12 @@ async processMessage(data) {
                 try {
                     ecdsaKeyPair = await window.EnhancedSecureCryptoUtils.generateECDSAKeyPair();
                     
-                                    // CRITICAL FIX: Validate ECDSA keys immediately
+                                    //   Validate ECDSA keys immediately
                 if (!ecdsaKeyPair || !ecdsaKeyPair.privateKey || !ecdsaKeyPair.publicKey) {
                     throw new Error('ECDSA key pair validation failed');
                 }
                 
-                // SECURE: Constant-time validation for key types
+                //   Constant-time validation for key types
                 if (!this._validateKeyPairConstantTime(ecdsaKeyPair)) {
                     throw new Error('ECDSA keys are not valid CryptoKey instances');
                 }
@@ -8037,12 +7947,12 @@ async processMessage(data) {
                     this._throwSecureError(ecdsaError, 'ecdsa_key_generation');
                 }
                 
-                // CRITICAL FIX: Final validation of both key pairs
+                //   Final validation of both key pairs
                 if (!ecdhKeyPair || !ecdsaKeyPair) {
                     throw new Error('One or both key pairs failed to generate');
                 }
                 
-                // SECURE: Enable security features after successful key generation
+                //   Enable security features after successful key generation
                 this._enableSecurityFeaturesAfterKeyGeneration(ecdhKeyPair, ecdsaKeyPair);
                 
                 this._secureLog('info', '✅ Encryption keys generated successfully with atomic protection', {
@@ -8055,14 +7965,14 @@ async processMessage(data) {
                 return { ecdhKeyPair, ecdsaKeyPair };
                 
             } catch (error) {
-                // CRITICAL FIX: Ensure state is reset on any error
+                //   Ensure state is reset on any error
                 this._secureLog('error', '❌ Key generation failed, resetting state', {
                     operationId: operationId,
                     errorType: error.constructor.name
                 });
                 throw error;
             } finally {
-                // CRITICAL FIX: Always reset state in finally block
+                //   Always reset state in finally block
                 currentState.isInitializing = false;
                 currentState.operationId = null;
                 
@@ -8074,11 +7984,11 @@ async processMessage(data) {
     }
 
     /**
-     * SECURE: Enable security features after successful key generation
+     *   Enable security features after successful key generation
      */
     _enableSecurityFeaturesAfterKeyGeneration(ecdhKeyPair, ecdsaKeyPair) {
         try {
-            // SECURE: Enable encryption features based on available keys
+            //   Enable encryption features based on available keys
             if (ecdhKeyPair && ecdhKeyPair.privateKey && ecdhKeyPair.publicKey) {
                 this.securityFeatures.hasEncryption = true;
                 this.securityFeatures.hasECDH = true;
@@ -8090,7 +8000,7 @@ async processMessage(data) {
                 this._secureLog('info', '🔒 ECDSA signature features enabled');
             }
             
-            // SECURE: Enable additional features that depend on encryption
+            //   Enable additional features that depend on encryption
             if (this.securityFeatures.hasEncryption) {
                 this.securityFeatures.hasMetadataProtection = true;
                 this.securityFeatures.hasEnhancedReplayProtection = true;
@@ -8098,7 +8008,7 @@ async processMessage(data) {
                 this._secureLog('info', '🔒 Additional encryption-dependent features enabled');
             }
             
-            // CRITICAL SECURITY: Enable PFS after ephemeral key generation
+            //   Enable PFS after ephemeral key generation
             if (ecdhKeyPair && this.ephemeralKeyPairs.size > 0) {
                 this.securityFeatures.hasPFS = true;
                 this._secureLog('info', '🔒 Perfect Forward Secrecy enabled with ephemeral keys');
@@ -8123,10 +8033,10 @@ async processMessage(data) {
     }
 
     /**
-     * CRITICAL FIX: Enhanced emergency mutex unlocking with authorization and validation
+     *   Enhanced emergency mutex unlocking with authorization and validation
      */
     _emergencyUnlockAllMutexes(callerContext = 'unknown') {
-        // CRITICAL FIX: Validate caller authorization
+        //   Validate caller authorization
         const authorizedCallers = [
             'keyOperation', 'cryptoOperation', 'connectionOperation',
             'emergencyRecovery', 'systemShutdown', 'errorHandler'
@@ -8155,12 +8065,12 @@ async processMessage(data) {
             const mutex = this[`_${mutexName}Mutex`];
             if (mutex) {
                 try {
-                    // CRITICAL FIX: Clear timeout first
+                    //   Clear timeout first
                     if (mutex.lockTimeout) {
                         clearTimeout(mutex.lockTimeout);
                     }
                     
-                    // CRITICAL FIX: Log mutex state before emergency unlock
+                    //   Log mutex state before emergency unlock
                     const previousState = {
                         locked: mutex.locked,
                         lockId: mutex.lockId,
@@ -8168,13 +8078,13 @@ async processMessage(data) {
                         queueLength: mutex.queue.length
                     };
                     
-                    // CRITICAL FIX: Reset mutex state atomically
+                    //   Reset mutex state atomically
                     mutex.locked = false;
                     mutex.lockId = null;
                     mutex.lockTimeout = null;
                     mutex.lockTime = null;
                     
-                    // CRITICAL FIX: Clear queue with proper error handling and logging
+                    //   Clear queue with proper error handling and logging
                     let queueRejectCount = 0;
                     mutex.queue.forEach(item => {
                         try {
@@ -8190,7 +8100,7 @@ async processMessage(data) {
                         }
                     });
                     
-                    // CRITICAL FIX: Clear queue array
+                    //   Clear queue array
                     mutex.queue = [];
                     
                     unlockedCount++;
@@ -8212,7 +8122,7 @@ async processMessage(data) {
             }
         });
         
-        // CRITICAL FIX: Reset key system state with validation
+        //   Reset key system state with validation
         if (this._keySystemState) {
             try {
                 const previousKeyState = { ...this._keySystemState };
@@ -8237,7 +8147,7 @@ async processMessage(data) {
             }
         }
         
-        // CRITICAL FIX: Log emergency unlock summary
+        //   Log emergency unlock summary
         this._secureLog('info', `🚨 Emergency mutex unlock completed`, {
             callerContext: callerContext,
             unlockedCount: unlockedCount,
@@ -8246,14 +8156,14 @@ async processMessage(data) {
             timestamp: Date.now()
         });
         
-        // CRITICAL FIX: Trigger system validation after emergency unlock
+        //   Trigger system validation after emergency unlock
         setTimeout(() => {
             this._validateMutexSystemAfterEmergencyUnlock();
         }, 100);
     }
 
     /**
-     * CRITICAL FIX: Handle key operation errors with recovery mechanisms
+     *   Handle key operation errors with recovery mechanisms
      */
     _handleKeyOperationError(error, operationId) {
         this._secureLog('error', '🚨 Key operation error detected, initiating recovery', {
@@ -8262,7 +8172,7 @@ async processMessage(data) {
             errorMessage: error.message
         });
         
-        // CRITICAL FIX: Reset key system state immediately
+        //   Reset key system state immediately
         if (this._keySystemState) {
             this._keySystemState.isInitializing = false;
             this._keySystemState.isRotating = false;
@@ -8270,14 +8180,14 @@ async processMessage(data) {
             this._keySystemState.operationId = null;
         }
         
-        // CRITICAL FIX: Clear any partial key data
+        //   Clear any partial key data
         this.ecdhKeyPair = null;
         this.ecdsaKeyPair = null;
         this.encryptionKey = null;
         this.macKey = null;
         this.metadataKey = null;
         
-        // CRITICAL FIX: Trigger emergency recovery if needed
+        //   Trigger emergency recovery if needed
         if (error.message.includes('timeout') || error.message.includes('race condition')) {
             this._secureLog('warn', '⚠️ Race condition or timeout detected, triggering emergency recovery');
             this._emergencyRecoverMutexSystem();
@@ -8285,10 +8195,10 @@ async processMessage(data) {
     }
 
     /**
-     * CRITICAL FIX: Generate cryptographically secure IV with reuse prevention
+     *   Generate cryptographically secure IV with reuse prevention
      */
     _generateSecureIV(ivSize = 12, context = 'general') {
-        // CRITICAL FIX: Check if we're in emergency mode
+        //   Check if we're in emergency mode
         if (this._ivTrackingSystem.emergencyMode) {
             this._secureLog('error', '🚨 CRITICAL: IV generation blocked - emergency mode active due to IV reuse');
             throw new Error('IV generation blocked - emergency mode active');
@@ -8300,13 +8210,13 @@ async processMessage(data) {
         while (attempts < maxAttempts) {
             attempts++;
             
-            // CRITICAL FIX: Generate fresh IV with crypto.getRandomValues
+            //   Generate fresh IV with crypto.getRandomValues
             const iv = crypto.getRandomValues(new Uint8Array(ivSize));
             
-            // CRITICAL FIX: Convert IV to string for tracking
+            //   Convert IV to string for tracking
             const ivString = Array.from(iv).map(b => b.toString(16).padStart(2, '0')).join('');
             
-            // CRITICAL FIX: Check for IV reuse
+            //   Check for IV reuse
             if (this._ivTrackingSystem.usedIVs.has(ivString)) {
                 this._ivTrackingSystem.collisionCount++;
                 this._secureLog('error', `🚨 CRITICAL: IV reuse detected!`, {
@@ -8316,7 +8226,7 @@ async processMessage(data) {
                     ivString: ivString.substring(0, 16) + '...' // Log partial IV for debugging
                 });
                 
-                // CRITICAL FIX: If too many collisions, trigger emergency mode
+                //   If too many collisions, trigger emergency mode
                 if (this._ivTrackingSystem.collisionCount > 5) {
                     this._ivTrackingSystem.emergencyMode = true;
                     this._secureLog('error', '🚨 CRITICAL: Emergency mode activated due to excessive IV reuse');
@@ -8326,7 +8236,7 @@ async processMessage(data) {
                 continue; // Try again
             }
             
-            // CRITICAL FIX: Validate IV entropy
+            //   Validate IV entropy
             if (!this._validateIVEntropy(iv)) {
                 this._ivTrackingSystem.entropyValidation.entropyFailures++;
                 this._secureLog('warn', `⚠️ Low entropy IV detected`, {
@@ -8335,7 +8245,7 @@ async processMessage(data) {
                     entropyFailures: this._ivTrackingSystem.entropyValidation.entropyFailures
                 });
                 
-                // CRITICAL FIX: If too many entropy failures, trigger emergency mode
+                //   If too many entropy failures, trigger emergency mode
                 if (this._ivTrackingSystem.entropyValidation.entropyFailures > 10) {
                     this._ivTrackingSystem.emergencyMode = true;
                     this._secureLog('error', '🚨 CRITICAL: Emergency mode activated due to low entropy IVs');
@@ -8345,7 +8255,7 @@ async processMessage(data) {
                 continue; // Try again
             }
             
-            // CRITICAL FIX: Track IV usage
+            //   Track IV usage
             this._ivTrackingSystem.usedIVs.add(ivString);
             this._ivTrackingSystem.ivHistory.set(ivString, {
                 timestamp: Date.now(),
@@ -8353,7 +8263,7 @@ async processMessage(data) {
                 attempt: attempts
             });
             
-            // CRITICAL FIX: Track per-session IVs
+            //   Track per-session IVs
             if (this.sessionId) {
                 if (!this._ivTrackingSystem.sessionIVs.has(this.sessionId)) {
                     this._ivTrackingSystem.sessionIVs.set(this.sessionId, new Set());
@@ -8361,7 +8271,7 @@ async processMessage(data) {
                 this._ivTrackingSystem.sessionIVs.get(this.sessionId).add(ivString);
             }
             
-            // CRITICAL FIX: Validate RNG periodically
+            //   Validate RNG periodically
             this._validateRNGQuality();
             
             this._secureLog('debug', `✅ Secure IV generated`, {
@@ -8374,7 +8284,7 @@ async processMessage(data) {
             return iv;
         }
         
-        // CRITICAL FIX: If we can't generate a unique IV after max attempts
+        //   If we can't generate a unique IV after max attempts
         this._secureLog('error', `❌ Failed to generate unique IV after ${maxAttempts} attempts`, {
             context: context,
             totalIVs: this._ivTrackingSystem.usedIVs.size
@@ -8383,18 +8293,18 @@ async processMessage(data) {
     }
     
     /**
-     * CRITICAL FIX: Validate IV entropy to detect weak RNG
+     *   Validate IV entropy to detect weak RNG
      */
     _validateIVEntropy(iv) {
         this._ivTrackingSystem.entropyValidation.entropyTests++;
         
-        // CRITICAL FIX: Calculate byte distribution
+        //   Calculate byte distribution
         const byteCounts = new Array(256).fill(0);
         for (let i = 0; i < iv.length; i++) {
             byteCounts[iv[i]]++;
         }
         
-        // SECURE: Multi-dimensional entropy analysis
+        //   Multi-dimensional entropy analysis
         const entropyResults = {
             shannon: 0,
             min: 0,
@@ -8438,10 +8348,10 @@ async processMessage(data) {
         // 5. Quantum-resistant entropy analysis
         entropyResults.quantum = this._calculateQuantumResistantEntropy(iv);
         
-        // SECURE: Enhanced suspicious pattern detection
+        //   Enhanced suspicious pattern detection
         const hasSuspiciousPatterns = this._detectAdvancedSuspiciousPatterns(iv);
         
-        // SECURE: Multi-criteria validation
+        //   Multi-criteria validation
         const minEntropyThreshold = this._ivTrackingSystem.entropyValidation.minEntropy;
         const isValid = (
             entropyResults.shannon >= minEntropyThreshold &&
@@ -8468,7 +8378,7 @@ async processMessage(data) {
     }
     
     /**
-     * SECURE: Estimate compressed length for entropy calculation
+     *   Estimate compressed length for entropy calculation
      * @param {string} data - Data to estimate compression
      * @returns {number} Estimated compressed length
      */
@@ -8506,7 +8416,7 @@ async processMessage(data) {
     }
 
     /**
-     * SECURE: Calculate quantum-resistant entropy
+     *   Calculate quantum-resistant entropy
      * @param {Uint8Array} data - Data to analyze
      * @returns {number} Quantum-resistant entropy score
      */
@@ -8533,7 +8443,7 @@ async processMessage(data) {
     }
 
     /**
-     * SECURE: Detect quantum-vulnerable patterns
+     *   Detect quantum-vulnerable patterns
      * @param {Uint8Array} data - Data to analyze
      * @returns {boolean} true if quantum-vulnerable patterns found
      */
@@ -8563,7 +8473,7 @@ async processMessage(data) {
     }
 
     /**
-     * SECURE: Analyze bit distribution
+     *   Analyze bit distribution
      * @param {Uint8Array} data - Data to analyze
      * @returns {Object} Bit distribution analysis
      */
@@ -8586,7 +8496,7 @@ async processMessage(data) {
     }
 
     /**
-     * SECURE: Detect periodicity in data
+     *   Detect periodicity in data
      * @param {Uint8Array} data - Data to analyze
      * @returns {number} Periodicity score (0-1)
      */
@@ -8617,7 +8527,7 @@ async processMessage(data) {
     }
 
     /**
-     * SECURE: Enhanced suspicious pattern detection
+     *   Enhanced suspicious pattern detection
      * @param {Uint8Array} iv - IV to check
      * @returns {boolean} true if suspicious patterns found
      */
@@ -8658,7 +8568,7 @@ async processMessage(data) {
     }
 
     /**
-     * SECURE: Calculate local entropy for pattern detection
+     *   Calculate local entropy for pattern detection
      * @param {Uint8Array} data - Data to analyze
      * @returns {Array} Array of local entropy values
      */
@@ -8687,10 +8597,10 @@ async processMessage(data) {
     }
 
     /**
-     * CRITICAL FIX: Detect suspicious patterns in IVs
+     *   Detect suspicious patterns in IVs
      */
     _detectSuspiciousIVPatterns(iv) {
-        // CRITICAL FIX: Check for all zeros or all ones
+        //   Check for all zeros or all ones
         const allZeros = iv.every(byte => byte === 0);
         const allOnes = iv.every(byte => byte === 255);
         
@@ -8698,7 +8608,7 @@ async processMessage(data) {
             return true;
         }
         
-        // CRITICAL FIX: Check for sequential patterns
+        //   Check for sequential patterns
         let sequentialCount = 0;
         for (let i = 1; i < iv.length; i++) {
             if (iv[i] === iv[i-1] + 1 || iv[i] === iv[i-1] - 1) {
@@ -8712,7 +8622,7 @@ async processMessage(data) {
             }
         }
         
-        // CRITICAL FIX: Check for repeated patterns
+        //   Check for repeated patterns
         for (let patternLength = 2; patternLength <= Math.floor(iv.length / 2); patternLength++) {
             for (let start = 0; start <= iv.length - patternLength * 2; start++) {
                 const pattern1 = iv.slice(start, start + patternLength);
@@ -8728,7 +8638,7 @@ async processMessage(data) {
     }
     
     /**
-     * SECURE: Clean up old IVs with strict limits
+     *   Clean up old IVs with strict limits
      */
     _cleanupOldIVs() {
         const now = Date.now();
@@ -8736,7 +8646,7 @@ async processMessage(data) {
         let cleanedCount = 0;
         const cleanupBatch = [];
         
-        // SECURE: Aggressive cleanup with quantum-resistant patterns
+        //   Aggressive cleanup with quantum-resistant patterns
         // Enforce maximum IV history size with batch processing
         if (this._ivTrackingSystem.ivHistory.size > this._ivTrackingSystem.maxIVHistorySize) {
             const ivArray = Array.from(this._ivTrackingSystem.ivHistory.entries());
@@ -8754,7 +8664,7 @@ async processMessage(data) {
             }
         }
         
-        // SECURE: Clean up old IVs from history by age with enhanced security
+        //   Clean up old IVs from history by age with enhanced security
         for (const [ivString, metadata] of this._ivTrackingSystem.ivHistory.entries()) {
             if (now - metadata.timestamp > maxAge) {
                 cleanupBatch.push(ivString);
@@ -8773,7 +8683,7 @@ async processMessage(data) {
             this._processCleanupBatch(cleanupBatch);
         }
         
-        // SECURE: Enhanced session IV cleanup with entropy preservation
+        //   Enhanced session IV cleanup with entropy preservation
         for (const [sessionId, sessionIVs] of this._ivTrackingSystem.sessionIVs.entries()) {
             if (sessionIVs.size > this._ivTrackingSystem.maxSessionIVs) {
                 const ivArray = Array.from(sessionIVs);
@@ -8788,7 +8698,7 @@ async processMessage(data) {
             }
         }
         
-        // SECURE: Force garbage collection if available and significant cleanup occurred
+        //   Force garbage collection if available and significant cleanup occurred
         if (typeof window.gc === 'function' && cleanedCount > 50) {
             try {
                 window.gc();
@@ -8808,11 +8718,11 @@ async processMessage(data) {
     }
     
     /**
-     * SECURE: Process cleanup batch with constant-time operations
+     *   Process cleanup batch with constant-time operations
      * @param {Array} batch - Batch of items to clean up
      */
     _processCleanupBatch(batch) {
-        // SECURE: Constant-time batch processing
+        //   Constant-time batch processing
         for (const item of batch) {
             this._ivTrackingSystem.usedIVs.delete(item);
             this._ivTrackingSystem.ivHistory.delete(item);
@@ -8820,7 +8730,7 @@ async processMessage(data) {
     }
 
     /**
-     * SECURE: Calculate memory pressure for adaptive cleanup
+     *   Calculate memory pressure for adaptive cleanup
      * @returns {number} Memory pressure score (0-100)
      */
     _calculateMemoryPressure() {
@@ -8831,7 +8741,7 @@ async processMessage(data) {
     }
 
     /**
-     * CRITICAL FIX: Get IV tracking system statistics
+     *   Get IV tracking system statistics
      */
     _getIVTrackingStats() {
         return {
@@ -8848,7 +8758,7 @@ async processMessage(data) {
     }
     
     /**
-     * CRITICAL FIX: Reset IV tracking system (for testing or emergency recovery)
+     *   Reset IV tracking system (for testing or emergency recovery)
      */
     _resetIVTrackingSystem() {
         this._secureLog('warn', '🔄 Resetting IV tracking system');
@@ -8867,21 +8777,21 @@ async processMessage(data) {
     }
     
     /**
-     * CRITICAL FIX: Validate RNG quality
+     *   Validate RNG quality
      */
     _validateRNGQuality() {
         const now = Date.now();
         
-        // CRITICAL FIX: Validate RNG every 1000 IV generations
+        //   Validate RNG every 1000 IV generations
         if (this._ivTrackingSystem.rngValidation.testsPerformed % 1000 === 0) {
             try {
-                // CRITICAL FIX: Generate test IVs and validate
+                //   Generate test IVs and validate
                 const testIVs = [];
                 for (let i = 0; i < 100; i++) {
                     testIVs.push(crypto.getRandomValues(new Uint8Array(12)));
                 }
                 
-                // CRITICAL FIX: Check for duplicates in test set
+                //   Check for duplicates in test set
                 const testIVStrings = testIVs.map(iv => Array.from(iv).map(b => b.toString(16).padStart(2, '0')).join(''));
                 const uniqueTestIVs = new Set(testIVStrings);
                 
@@ -8906,7 +8816,7 @@ async processMessage(data) {
     }
     
     /**
-     * CRITICAL FIX: Handle mutex timeout with enhanced state validation
+     *   Handle mutex timeout with enhanced state validation
      */
     _handleMutexTimeout(mutexName, operationId, timeout) {
         const mutex = this[`_${mutexName}Mutex`];
@@ -8916,7 +8826,7 @@ async processMessage(data) {
             return;
         }
         
-        // CRITICAL FIX: Validate timeout conditions
+        //   Validate timeout conditions
         if (mutex.lockId !== operationId) {
             this._secureLog('warn', `⚠️ Timeout for different operation ID on mutex '${mutexName}'`, {
                 expectedOperationId: operationId,
@@ -8934,7 +8844,7 @@ async processMessage(data) {
         }
         
         try {
-            // CRITICAL FIX: Calculate lock duration for monitoring
+            //   Calculate lock duration for monitoring
             const lockDuration = mutex.lockTime ? Date.now() - mutex.lockTime : 0;
             
             this._secureLog('warn', `⚠️ Mutex '${mutexName}' auto-released due to timeout`, {
@@ -8944,13 +8854,13 @@ async processMessage(data) {
                 queueLength: mutex.queue.length
             });
             
-            // CRITICAL FIX: Atomic release with state validation
+            //   Atomic release with state validation
             mutex.locked = false;
             mutex.lockId = null;
             mutex.lockTimeout = null;
             mutex.lockTime = null;
             
-            // CRITICAL FIX: Process next in queue with error handling
+            //   Process next in queue with error handling
             setTimeout(() => {
                 try {
                     this._processNextInQueue(mutexName);
@@ -8969,7 +8879,7 @@ async processMessage(data) {
                 errorMessage: error.message
             });
             
-            // CRITICAL FIX: Force emergency unlock if timeout handling fails
+            //   Force emergency unlock if timeout handling fails
             try {
                 this._emergencyUnlockAllMutexes('timeoutHandler');
             } catch (emergencyError) {
@@ -8982,7 +8892,7 @@ async processMessage(data) {
     }
 
     /**
-     * CRITICAL FIX: Validate mutex system after emergency unlock
+     *   Validate mutex system after emergency unlock
      */
     _validateMutexSystemAfterEmergencyUnlock() {
         const mutexes = ['keyOperation', 'cryptoOperation', 'connectionOperation'];
@@ -8999,7 +8909,7 @@ async processMessage(data) {
                 return;
             }
             
-            // CRITICAL FIX: Validate mutex state consistency
+            //   Validate mutex state consistency
             if (mutex.locked) {
                 validationErrors++;
                 this._secureLog('error', `❌ Mutex '${mutexName}' still locked after emergency unlock`, {
@@ -9028,7 +8938,7 @@ async processMessage(data) {
             }
         });
         
-        // CRITICAL FIX: Validate key system state
+        //   Validate key system state
         if (this._keySystemState) {
             if (this._keySystemState.isInitializing || 
                 this._keySystemState.isRotating || 
@@ -9049,7 +8959,7 @@ async processMessage(data) {
                 validationErrors: validationErrors
             });
             
-            // CRITICAL FIX: Force re-initialization if validation fails
+            //   Force re-initialization if validation fails
             setTimeout(() => {
                 this._emergencyRecoverMutexSystem();
             }, 1000);
@@ -9286,7 +9196,7 @@ async processMessage(data) {
                 await this.peerConnection.setLocalDescription(offer);
                 console.log('🎯 Local description set successfully');
                 
-                // CRITICAL SECURITY: Extract and store our DTLS fingerprint for out-of-band verification
+                //   Extract and store our DTLS fingerprint for out-of-band verification
                 console.log('🎯 Extracting DTLS fingerprint...');
                 try {
                     const ourFingerprint = this._extractDTLSFingerprintFromSDP(offer.sdp);
@@ -9318,15 +9228,7 @@ async processMessage(data) {
                 // PHASE 8: GENERATE SAS FOR OUT-OF-BAND VERIFICATION
                 // ============================================
                 console.log('🎯 PHASE 8: Generate SAS for out-of-band verification');
-                // 
-                // CRITICAL SECURITY: This is the ONLY way to prevent MITM attacks
-                // - Self-signed ECDSA keys don't provide authentication
-                // - MITM can substitute both keys and "self-sign" them
-                // - SAS must be compared out-of-band (voice, video, in-person)
-                // - Both parties must verify the same code before allowing traffic
-                //
-                // NOTE: SAS code will be generated after answer is received and keys are exchanged
-                // For now, just generate a placeholder that will be replaced with real SAS
+
                 this.verificationCode = window.EnhancedSecureCryptoUtils.generateVerificationCode();
                 console.log('🎯 Placeholder verification code generated:', this.verificationCode);
                 
@@ -9537,30 +9439,30 @@ async processMessage(data) {
     }
 
     /**
-     * CRITICAL FIX: Secure cleanup state after failed offer creation
+     *   Secure cleanup state after failed offer creation
      */
     _cleanupFailedOfferCreation() {
         try {
-            // CRITICAL FIX: Secure wipe of cryptographic materials
+            //   Secure wipe of cryptographic materials
             this._secureCleanupCryptographicMaterials();
             
-            // CRITICAL FIX: Close peer connection if it was created
+            //   Close peer connection if it was created
             if (this.peerConnection) {
                 this.peerConnection.close();
                 this.peerConnection = null;
             }
             
-            // CRITICAL FIX: Clear data channel
+            //   Clear data channel
             if (this.dataChannel) {
                 this.dataChannel.close();
                 this.dataChannel = null;
             }
             
-            // CRITICAL FIX: Reset flags
+            //   Reset flags
             this.isInitiator = false;
             this.isVerified = false;
             
-            // CRITICAL FIX: Reset security features to baseline
+            //   Reset security features to baseline
             this._updateSecurityFeatures({
                 hasEncryption: false,
                 hasECDH: false,
@@ -9573,7 +9475,7 @@ async processMessage(data) {
                 hasPFS: false
             });
             
-            // CRITICAL FIX: Force garbage collection
+            //   Force garbage collection
             this._forceGarbageCollection();
             
             this._secureLog('debug', '🔒 Failed offer creation cleanup completed with secure memory wipe');
@@ -9763,19 +9665,6 @@ async processMessage(data) {
                     this._throwSecureError(error, 'ecdsa_key_import');
                 }
                 
-                // SECURITY: Self-signature verification removed - was security theater
-                // 
-                // PROBLEM: Self-signed ECDSA keys don't provide authentication
-                // MITM can substitute both keys and "self-sign" them
-                // 
-                // REAL SECURITY: Use out-of-band verification instead:
-                // - SAS (Short Authentication String) comparison
-                // - QR code fingerprint verification
-                // - Pre-shared public key fingerprints
-                // - Certificate transparency validation
-                //
-                // Note: ECDSA signature only proves packet integrity, not identity
-                
                 // ============================================
                 // PHASE 6: IMPORT AND VERIFY ECDH KEY
                 // ============================================
@@ -9934,7 +9823,7 @@ async processMessage(data) {
                 // Create peer connection first
                 this.createPeerConnection();
                 
-                // CRITICAL SECURITY: Validate DTLS fingerprint before setting remote description
+                //   Validate DTLS fingerprint before setting remote description
                 if (this.strictDTLSValidation) {
                     try {
                         const receivedFingerprint = this._extractDTLSFingerprintFromSDP(offerData.sdp);
@@ -10014,7 +9903,7 @@ async processMessage(data) {
                     this._throwSecureError(error, 'webrtc_local_description');
                 }
                 
-                // CRITICAL SECURITY: Extract and store our DTLS fingerprint for out-of-band verification
+                //   Extract and store our DTLS fingerprint for out-of-band verification
                 try {
                     const ourFingerprint = this._extractDTLSFingerprintFromSDP(answer.sdp);
                     this.expectedDTLSFingerprint = ourFingerprint;
@@ -10031,8 +9920,6 @@ async processMessage(data) {
                     // Continue without fingerprint validation (fallback mode)
                 }
                 
-                // NOTE: SAS code will be received from Offer side after connection is established
-                // No need to generate SAS code on Answer side
                 
                 // Await ICE gathering
                 await this.waitForIceGathering();
@@ -10059,11 +9946,6 @@ async processMessage(data) {
                     this.ecdsaKeyPair.privateKey,
                     'ECDSA'
                 );
-                
-                // CRITICAL: Strict validation of exported data with hard disconnect on failure
-                // - Any validation failure in critical security path must abort connection
-                // - No fallback allowed for cryptographic validation
-                // - Prevent bypass of security checks through syntax/validation errors
                 
                 if (!ecdhPublicKeyData || typeof ecdhPublicKeyData !== 'object') {
                     this._secureLog('error', 'CRITICAL: ECDH key export failed - invalid object structure', { operationId });
@@ -10297,40 +10179,40 @@ async processMessage(data) {
      * HELPER: Cleanup state after failed answer creation
      */
     /**
-     * CRITICAL FIX: Secure cleanup state after failed answer creation
+     *   Secure cleanup state after failed answer creation
      */
     _cleanupFailedAnswerCreation() {
         try {
-            // CRITICAL FIX: Secure wipe of cryptographic materials
+            //   Secure wipe of cryptographic materials
             this._secureCleanupCryptographicMaterials();
             
-            // CRITICAL FIX: Secure wipe of PFS key versions
+            //   Secure wipe of PFS key versions
             this.currentKeyVersion = 0;
             this.keyVersions.clear();
             this.oldKeys.clear();
             
-            // CRITICAL FIX: Close peer connection if created
+            //   Close peer connection if created
             if (this.peerConnection) {
                 this.peerConnection.close();
                 this.peerConnection = null;
             }
             
-            // CRITICAL FIX: Clear data channel
+            //   Clear data channel
             if (this.dataChannel) {
                 this.dataChannel.close();
                 this.dataChannel = null;
             }
             
-            // CRITICAL FIX: Reset flags and counters
+            //   Reset flags and counters
             this.isInitiator = false;
             this.isVerified = false;
             this.sequenceNumber = 0;
             this.expectedSequenceNumber = 0;
             this.messageCounter = 0;
             this.processedMessageIds.clear();
-            this.replayWindow.clear(); // CRITICAL SECURITY: Clear replay window
+            this.replayWindow.clear(); //   Clear replay window
             
-            // CRITICAL FIX: Reset security features to baseline
+            //   Reset security features to baseline
             this._updateSecurityFeatures({
                 hasEncryption: false,
                 hasECDH: false,
@@ -10343,7 +10225,7 @@ async processMessage(data) {
                 hasPFS: false
             });
             
-            // CRITICAL FIX: Force garbage collection
+            //   Force garbage collection
             this._forceGarbageCollection();
             
             this._secureLog('debug', '🔒 Failed answer creation cleanup completed with secure memory wipe');
@@ -10395,7 +10277,7 @@ async processMessage(data) {
             this.expectedSequenceNumber = 0;
             this.messageCounter = 0;
             this.processedMessageIds.clear();
-            this.replayWindow.clear(); // CRITICAL SECURITY: Clear replay window
+            this.replayWindow.clear(); //   Clear replay window
                 
                 this._secureLog('info', '✅ Encryption keys set successfully', {
                     operationId: operationId,
@@ -10425,9 +10307,6 @@ async processMessage(data) {
     async handleSecureAnswer(answerData) {
         console.log('🎯 handleSecureAnswer called with answerData:', answerData ? 'present' : 'null');
         try {
-            // CRITICAL: Strict validation of answer data to prevent syntax errors
-            // - Any validation failure in critical security path must abort connection
-            // - No fallback allowed for cryptographic validation
             
             if (!answerData || typeof answerData !== 'object' || Array.isArray(answerData)) {
                 this._secureLog('error', 'CRITICAL: Invalid answer data structure', { 
@@ -10532,18 +10411,6 @@ async processMessage(data) {
                 ['verify']
             );
 
-            // SECURITY: Self-signature verification removed - was security theater
-            // 
-            // PROBLEM: Self-signed ECDSA keys don't provide authentication
-            // MITM can substitute both keys and "self-sign" them
-            // 
-            // REAL SECURITY: Use out-of-band verification instead:
-            // - SAS (Short Authentication String) comparison
-            // - QR code fingerprint verification
-            // - Pre-shared public key fingerprints
-            // - Certificate transparency validation
-            //
-            // Note: ECDSA signature only proves packet integrity, not identity
 
             // Now import and verify the ECDH public key using the verified ECDSA key
             const peerPublicKey = await window.EnhancedSecureCryptoUtils.importPublicKeyFromSignedPackage(
@@ -10592,16 +10459,6 @@ async processMessage(data) {
                     .map(b => b.toString(16).padStart(2, '0')).join('');
             }
 
-            // SECURITY: DTLS protection removed - was security theater
-            // 
-            // REAL SECURITY: Implement proper key verification instead:
-            // - Out-of-band fingerprint verification (SAS/QR codes)
-            // - SDP certificate fingerprint validation
-            // - Public key pinning if known in advance
-            // - Certificate transparency validation
-            //
-            // Note: Browser WebRTC handles DTLS automatically
-            // JavaScript cannot access DTLS layer for validation
             
             const derivedKeys = await window.EnhancedSecureCryptoUtils.deriveSharedKeys(
                 this.ecdhKeyPair.privateKey,
@@ -10617,7 +10474,7 @@ async processMessage(data) {
             this.expectedSequenceNumber = 0;
             this.messageCounter = 0;
             this.processedMessageIds.clear();
-            this.replayWindow.clear(); // CRITICAL SECURITY: Clear replay window
+            this.replayWindow.clear(); //   Clear replay window
             // Validate that all keys are properly set
             if (!(this.encryptionKey instanceof CryptoKey) || 
                 !(this.macKey instanceof CryptoKey) || 
@@ -10659,7 +10516,7 @@ async processMessage(data) {
             
             this.onKeyExchange(this.keyFingerprint);
 
-            // CRITICAL SECURITY: Compute SAS for MITM protection (Offer side - Answer handler)
+            //   Compute SAS for MITM protection (Offer side - Answer handler)
             try {
                 console.log('Starting SAS computation for Offer side (Answer handler)');
                 const remoteFP = this._extractDTLSFingerprintFromSDP(answerData.sdp); // уже есть в коде
@@ -10693,10 +10550,9 @@ async processMessage(data) {
                     stack: sasError.stack,
                     timestamp: Date.now()
                 });
-                // Не прерываем соединение из-за ошибки SAS, но логируем
             }
 
-            // CRITICAL SECURITY: Validate DTLS fingerprint before setting remote description
+            //   Validate DTLS fingerprint before setting remote description
             if (this.strictDTLSValidation) {
                 try {
                     const receivedFingerprint = this._extractDTLSFingerprintFromSDP(answerData.sdp);
@@ -10716,8 +10572,7 @@ async processMessage(data) {
                         error: error.message,
                         context: 'answer_validation'
                     });
-                    // Continue without strict fingerprint validation for first connection
-                    // This allows the connection to proceed while maintaining security awareness
+
                 }
             } else {
                 this._secureLog('info', 'DTLS fingerprint validation disabled - proceeding without validation');
@@ -10793,10 +10648,6 @@ async processMessage(data) {
     }
 
     initiateVerification() {
-        // CRITICAL SECURITY: SAS verification initiation
-        // - This is the ONLY protection against MITM attacks
-        // - Self-signed ECDSA keys don't provide authentication
-        // - Both parties must compare the same verification code out-of-band
         
         if (this.isInitiator) {
             // Ensure verification initiation notice wasn't already sent
@@ -10814,10 +10665,6 @@ async processMessage(data) {
     }
 
     confirmVerification() {
-        // CRITICAL SECURITY: SAS verification confirmation
-        // - This sends our verification confirmation to the peer
-        // - Both parties must confirm before connection is established
-        // - Only after mutual verification is the connection MITM-protected
         
         try {
             console.log('📤 confirmVerification - sending local confirmation');
@@ -10951,10 +10798,6 @@ async processMessage(data) {
     }
 
     handleVerificationRequest(data) {
-        // CRITICAL SECURITY: SAS verification is the ONLY MITM protection
-        // - Self-signed ECDSA keys don't provide authentication
-        // - MITM can substitute both keys and "self-sign" them
-        // - This verification must happen out-of-band (voice, video, in-person)
         
         console.log('🔍 handleVerificationRequest called with:');
         console.log('  - receivedCode:', data.code, '(type:', typeof data.code, ')');
@@ -10974,13 +10817,6 @@ async processMessage(data) {
                 }
             };
             this.dataChannel.send(JSON.stringify(responsePayload));
-            
-            // NOTE: Do NOT set isVerified = true here - wait for user confirmation
-            // this._setVerifiedStatus(true, 'SAS_VERIFIED', { receivedCode: data.code, expectedCode: this.verificationCode });
-            
-            // NOTE: Do NOT remove verification gate here - wait for user confirmation
-            // this._enforceVerificationGate('verification_success', false);
-            // this.onStatusChange?.('verified');
             
             // Ensure verification success notice wasn't already sent
             if (!this.verificationNotificationSent) {
@@ -11014,10 +10850,6 @@ async processMessage(data) {
     }
 
     handleSASCode(data) {
-        // CRITICAL SECURITY: Receive SAS code from Offer side
-        // - This ensures both parties see the same verification code
-        // - SAS code is computed on Offer side and sent to Answer side
-        // - Both parties must verify the same code out-of-band
         
         console.log('📥 Received SAS code from Offer side:', data.code);
         
@@ -11032,22 +10864,8 @@ async processMessage(data) {
     }
 
     handleVerificationResponse(data) {
-        // CRITICAL SECURITY: SAS verification response handling
-        // - This confirms that the peer has verified our SAS code
-        // - Both parties must verify the same code out-of-band
-        // - Only after mutual SAS verification is the connection MITM-protected
         
         if (data.ok === true) {
-            // ✅ Peer has verified our SAS code - mutual verification complete
-            // NOTE: Do NOT set isVerified = true here - wait for user confirmation
-            // this._setVerifiedStatus(true, 'SAS_MUTUAL_VERIFIED', { 
-            //     verificationMethod: data.verificationMethod || 'SAS',
-            //     securityLevel: data.securityLevel || 'MITM_PROTECTED'
-            // });
-            
-            // NOTE: Do NOT remove verification gate here - wait for user confirmation
-            // this._enforceVerificationGate('verification_response_success', false);
-            // this.onStatusChange?.('verified');
             
             // Log successful mutual SAS verification
             this._secureLog('info', 'Mutual SAS verification completed - MITM protection active', {
@@ -11087,10 +10905,6 @@ async processMessage(data) {
                offerData.salt.length === 32;
     }
 
-    // CRITICAL: Enhanced validation with strict security checks
-    // - Syntax errors in validation can break security flow
-    // - Any validation failure must result in hard disconnect
-    // - No fallback allowed for security-critical validation
     validateEnhancedOfferData(offerData) {
         console.log('🎯 validateEnhancedOfferData called with:', offerData ? 'valid object' : 'null/undefined');
         try {
@@ -11180,10 +10994,6 @@ async processMessage(data) {
                     throw new Error('CRITICAL SECURITY FAILURE: ECDSA key missing keyData or signature');
                 }
 
-                // CRITICAL: Validate SAS verification code format
-                // - This code is the ONLY protection against MITM attacks
-                // - Self-signed ECDSA keys don't provide authentication
-                // - Code must be at least 6 characters for security
                 if (typeof offerData.verificationCode !== 'string' || offerData.verificationCode.length < 6) {
                     throw new Error('Invalid SAS verification code format - MITM protection required');
                 }
@@ -11228,23 +11038,18 @@ async processMessage(data) {
             return true;
         } catch (error) {
             console.log('🎯 validateEnhancedOfferData ERROR:', error.message);
-            // CRITICAL: Security validation errors must be logged and result in hard abort
-            // - No fallback or graceful handling for security-critical validation
-            // - Syntax errors in critical path must break connection immediately
             this._secureLog('error', 'CRITICAL: Security validation failed - hard abort required', {
                 error: error.message,
                 errorType: error.constructor.name,
                 timestamp: Date.now()
             });
-            
-            // CRITICAL: Re-throw security validation errors to ensure hard abort
-            // Do NOT return false for security-critical validation failures
+
             throw new Error(`CRITICAL SECURITY VALIDATION FAILURE: ${error.message}`);
         }
     }
 
     async sendSecureMessage(message) {
-        // SECURE: Comprehensive input validation
+        //   Comprehensive input validation
         const validation = this._validateInputData(message, 'sendSecureMessage');
         if (!validation.isValid) {
             const errorMessage = `Input validation failed: ${validation.errors.join(', ')}`;
@@ -11255,15 +11060,15 @@ async processMessage(data) {
             throw new Error(errorMessage);
         }
 
-        // SECURE: Rate limiting check
+        //   Rate limiting check
         if (!this._checkRateLimit('sendSecureMessage')) {
             throw new Error('Rate limit exceeded for secure message sending');
         }
 
-        // CRITICAL SECURITY: Enforce verification gate
+        //   Enforce verification gate
         this._enforceVerificationGate('sendSecureMessage');
 
-        // SECURE: Quick readiness check WITHOUT mutex
+        //   Quick readiness check WITHOUT mutex
         if (!this.isConnected()) {
             if (validation.sanitizedData && typeof validation.sanitizedData === 'object' && validation.sanitizedData.type && validation.sanitizedData.type.startsWith('file_')) {
                 throw new Error('Connection not ready for file transfer. Please ensure the connection is established and verified.');
@@ -11272,7 +11077,7 @@ async processMessage(data) {
             throw new Error('Connection not ready. Message queued for sending.');
         }
         
-        // SECURE: Use mutex ONLY for cryptographic operations
+        //   Use mutex ONLY for cryptographic operations
         return this._withMutex('cryptoOperation', async (operationId) => {
             // Re-check inside critical section
             if (!this.isConnected() || !this.isVerified) {
@@ -11284,24 +11089,24 @@ async processMessage(data) {
                 throw new Error('Encryption keys not initialized');
             }
             
-            // SECURE: Additional rate limiting check
+            //   Additional rate limiting check
             if (!window.EnhancedSecureCryptoUtils.rateLimiter.checkMessageRate(this.rateLimiterId)) {
                 throw new Error('Message rate limit exceeded (60 messages per minute)');
             }
             
             try {
-                // SECURE: Accept strings and objects; stringify objects
+                //   Accept strings and objects; stringify objects
                 const textToSend = typeof validation.sanitizedData === 'string' ? validation.sanitizedData : JSON.stringify(validation.sanitizedData);
                 const sanitizedMessage = window.EnhancedSecureCryptoUtils.sanitizeMessage(textToSend);
                 const messageId = `msg_${Date.now()}_${this.messageCounter++}`;
                 
-                // CRITICAL SECURITY: Create AAD with sequence number for anti-replay protection
+                //   Create AAD with sequence number for anti-replay protection
                 if (typeof this._createMessageAAD !== 'function') {
                     throw new Error('_createMessageAAD method is not available in sendSecureMessage. Manager may not be fully initialized.');
                 }
                 const aad = message.aad || this._createMessageAAD('enhanced_message', { content: sanitizedMessage });
                 
-                // SECURE: Use enhanced encryption with AAD and sequence number
+                //   Use enhanced encryption with AAD and sequence number
                 const encryptedData = await window.EnhancedSecureCryptoUtils.encryptMessage(
                     sanitizedMessage,
                     this.encryptionKey,
@@ -11319,7 +11124,7 @@ async processMessage(data) {
                 };
                 
                 this.dataChannel.send(JSON.stringify(payload));
-                // SECURE: Locally display only plain strings to avoid UI duplication
+                //   Locally display only plain strings to avoid UI duplication
                 if (typeof validation.sanitizedData === 'string') {
                     this.deliverMessageToUI(validation.sanitizedData, 'sent');
                 }
@@ -11348,7 +11153,7 @@ async processMessage(data) {
     }
 
     startHeartbeat() {
-        // SECURE: Heartbeat moved to unified scheduler with connection validation
+        //   Heartbeat moved to unified scheduler with connection validation
         this._secureLog('info', '🔧 Heartbeat moved to unified scheduler');
         
         // Store heartbeat configuration for scheduler
@@ -11360,14 +11165,14 @@ async processMessage(data) {
     }
 
     stopHeartbeat() {
-        // SECURE: Heartbeat stopped via unified scheduler
+        //   Heartbeat stopped via unified scheduler
         if (this._heartbeatConfig) {
             this._heartbeatConfig.enabled = false;
         }
     }
 
     /**
-     * SECURE: Stop all active timers and cleanup scheduler
+     *   Stop all active timers and cleanup scheduler
      */
     _stopAllTimers() {
         this._secureLog('info', '🔧 Stopping all timers and cleanup scheduler');
@@ -11450,7 +11255,7 @@ async processMessage(data) {
     }
 
     disconnect() {
-        // SECURE: Stop all timers first
+        //   Stop all timers first
         this._stopAllTimers();
         
         if (this.fileTransferSystem) {
@@ -11498,12 +11303,6 @@ async processMessage(data) {
             }
         }));
 
-        // Do not auto-reconnect to avoid closing the session on errors
-        // setTimeout(() => {
-        //     if (!this.intentionalDisconnect) {
-        //         this.attemptReconnection();
-        //     }
-        // }, 3000);
     }
     
     sendDisconnectNotification() {
@@ -11545,8 +11344,7 @@ async processMessage(data) {
             this.reconnectionFailedNotificationSent = true;
             this.deliverMessageToUI('❌ Unable to reconnect. A new connection is required.', 'system');
         }
-        // Do not call cleanupConnection automatically to avoid closing the session on errors
-        // this.disconnect();
+
     }
     
     handlePeerDisconnectNotification(data) {
@@ -11585,7 +11383,7 @@ async processMessage(data) {
     }
     
     /**
-     * CRITICAL FIX: Secure disconnect with complete memory cleanup
+     *   Secure disconnect with complete memory cleanup
      */
     disconnect() {
         this.stopHeartbeat();
@@ -11593,21 +11391,21 @@ async processMessage(data) {
         this.processedMessageIds.clear();
         this.messageCounter = 0;
         
-        // CRITICAL FIX: Secure cleanup of cryptographic materials
+        //   Secure cleanup of cryptographic materials
         this._secureCleanupCryptographicMaterials();
         
-        // CRITICAL FIX: Secure wipe of PFS key versions
+        //   Secure wipe of PFS key versions
         this.keyVersions.clear();
         this.oldKeys.clear();
         this.currentKeyVersion = 0;
         this.lastKeyRotation = Date.now();
         
-        // CRITICAL FIX: Reset message counters
+        //   Reset message counters
         this.sequenceNumber = 0;
         this.expectedSequenceNumber = 0;
-        this.replayWindow.clear(); // CRITICAL SECURITY: Clear replay window
+        this.replayWindow.clear(); //   Clear replay window
         
-        // CRITICAL FIX: Reset security features
+        //   Reset security features
         this.securityFeatures = {
             hasEncryption: true,
             hasECDH: true,
@@ -11621,7 +11419,7 @@ async processMessage(data) {
             hasPFS: true  
         };
         
-        // CRITICAL FIX: Close connections
+        //   Close connections
         if (this.dataChannel) {
             this.dataChannel.close();
             this.dataChannel = null;
@@ -11631,7 +11429,7 @@ async processMessage(data) {
             this.peerConnection = null;
         }
         
-        // CRITICAL FIX: Secure wipe of message queue
+        //   Secure wipe of message queue
         if (this.messageQueue && this.messageQueue.length > 0) {
             this.messageQueue.forEach((message, index) => {
                 this._secureWipeMemory(message, `messageQueue[${index}]`);
@@ -11639,7 +11437,7 @@ async processMessage(data) {
             this.messageQueue = [];
         }
         
-        // CRITICAL FIX: Force garbage collection
+        //   Force garbage collection
         this._forceGarbageCollection();
         
         document.dispatchEvent(new CustomEvent('connection-cleaned', {
@@ -11649,19 +11447,19 @@ async processMessage(data) {
             }
         }));
 
-        // CRITICAL FIX: Notify UI about complete cleanup
+        //   Notify UI about complete cleanup
         this.onStatusChange('disconnected');
         this.onKeyExchange('');
         this.onVerificationRequired('');
         
         this._secureLog('info', '🔒 Connection securely cleaned up with complete memory wipe');
         
-        // CRITICAL FIX: Reset the intentional disconnect flag
+        //   Reset the intentional disconnect flag
         this.intentionalDisconnect = false;
     }
     // Public method to send files
     async sendFile(file) {
-        // CRITICAL SECURITY: Enforce verification gate for file transfers
+        //   Enforce verification gate for file transfers
         this._enforceVerificationGate('sendFile');
         
         if (!this.isConnected()) {
@@ -11680,7 +11478,7 @@ async processMessage(data) {
             }
         }
 
-        // CRITICAL FIX: Verify key readiness
+        //   Verify key readiness
         if (!this.encryptionKey || !this.macKey) {
             throw new Error('Encryption keys not ready. Please wait for connection to be fully established.');
         }
@@ -11848,9 +11646,6 @@ async processMessage(data) {
                 console.log('🔓 Session activated - forcing connection status to connected');
                 this.onStatusChange('connected');
                 
-                // CRITICAL SECURITY FIX: Do NOT set isVerified = true here!
-                // Session activation does NOT imply cryptographic verification
-                // isVerified can only be set through proper SAS verification
                 console.log('⚠️ Session activated but NOT verified - cryptographic verification still required');
             }
 
@@ -12134,18 +11929,18 @@ checkFileTransferReadiness() {
 
     _validateNestedEncryptionSecurity() {
         if (this.securityFeatures.hasNestedEncryption && this.nestedEncryptionKey) {
-            // CRITICAL FIX: Test secure IV generation with reuse prevention
+            //   Test secure IV generation with reuse prevention
             try {
                 const testIV1 = this._generateSecureIV(EnhancedSecureWebRTCManager.SIZES.NESTED_ENCRYPTION_IV_SIZE, 'securityTest1');
                 const testIV2 = this._generateSecureIV(EnhancedSecureWebRTCManager.SIZES.NESTED_ENCRYPTION_IV_SIZE, 'securityTest2');
                 
-                // CRITICAL FIX: Verify IVs are different and properly tracked
+                //   Verify IVs are different and properly tracked
                 if (testIV1.every((byte, index) => byte === testIV2[index])) {
                     this._secureLog('error', '❌ CRITICAL: Nested encryption security validation failed - IVs are identical!');
                     return false;
                 }
                 
-                // CRITICAL FIX: Verify IV tracking system is working
+                //   Verify IV tracking system is working
                 const stats = this._getIVTrackingStats();
                 if (stats.totalIVs < 2) {
                     this._secureLog('error', '❌ CRITICAL: IV tracking system not working properly');
@@ -12218,7 +12013,7 @@ class SecureKeyStorage {
             const keyData = await crypto.subtle.exportKey('jwk', cryptoKey);
             const encryptedKeyData = await this._encryptKeyData(keyData);
             
-            // CRITICAL FIX: Validate that extractable keys are properly encrypted
+            //   Validate that extractable keys are properly encrypted
             if (!encryptedKeyData || encryptedKeyData.byteLength === 0) {
                 throw new Error('Failed to encrypt extractable key data');
             }
@@ -12246,7 +12041,7 @@ class SecureKeyStorage {
                 created: Date.now(),
                 lastAccessed: Date.now(),
                 extractable: true,
-                encrypted: true  // CRITICAL FIX: Mark extractable keys as encrypted
+                encrypted: true  //   Mark extractable keys as encrypted
             });
 
             return true;
@@ -12267,7 +12062,7 @@ class SecureKeyStorage {
 
         // For non-encrypted keys (non-extractable), return directly
         if (!metadata.encrypted) {
-            // CRITICAL FIX: Only non-extractable keys should be non-encrypted
+            //   Only non-extractable keys should be non-encrypted
             if (metadata.extractable === false) {
                 return this._keyReferences.get(keyId);
             } else {
@@ -12385,7 +12180,7 @@ class SecureKeyStorage {
         }
     }
 
-    // CRITICAL FIX: Validate storage integrity
+    //   Validate storage integrity
     validateStorageIntegrity() {
         const violations = [];
         
@@ -12432,7 +12227,7 @@ class SecureKeyStorage {
     // Method _generateNextSequenceNumber moved to constructor area for early availability
 
     /**
-     * CRITICAL SECURITY: Validate incoming message sequence number
+     *   Validate incoming message sequence number
      * This prevents replay attacks and ensures message ordering
      */
     _validateIncomingSequenceNumber(receivedSeq, context = 'unknown') {
@@ -12514,7 +12309,7 @@ class SecureKeyStorage {
     // Method _createMessageAAD moved to constructor area for early availability
 
     /**
-     * CRITICAL SECURITY: Validate message AAD with sequence number
+     *   Validate message AAD with sequence number
      * This ensures message integrity and prevents replay attacks
      */
     _validateMessageAAD(aadString, expectedMessageType = null) {
@@ -12530,7 +12325,7 @@ class SecureKeyStorage {
                 throw new Error('AAD keyFingerprint mismatch - possible key substitution attack');
             }
             
-            // CRITICAL SECURITY: Validate sequence number
+            //   Validate sequence number
             if (!this._validateIncomingSequenceNumber(aad.sequenceNumber, aad.messageType)) {
                 throw new Error('Sequence number validation failed - possible replay or DoS attack');
             }
@@ -12548,7 +12343,7 @@ class SecureKeyStorage {
     }
 
     /**
-     * CRITICAL SECURITY: Get anti-replay protection status
+     *   Get anti-replay protection status
      * This shows the current state of replay protection
      */
     getAntiReplayStatus() {
@@ -12567,7 +12362,7 @@ class SecureKeyStorage {
     }
 
     /**
-     * CRITICAL SECURITY: Configure anti-replay protection
+     *   Configure anti-replay protection
      * This allows fine-tuning of replay protection parameters
      */
     configureAntiReplayProtection(config) {
