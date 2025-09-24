@@ -12,12 +12,6 @@
                     description: "Revolutionary defense system with ECDH P-384 + AES-GCM 256 + ECDSA + Complete ASN.1 Validation. Enhanced Security Edition provides military-grade protection exceeding government standards with complete key structure verification."
                 },
                 {
-                    icon: "fas fa-bolt",
-                    color: "yellow",
-                    title: "Lightning Network Payments",
-                    description: "First messenger with Lightning Network integration. Pay-per-session with satoshis via WebLN. Sustainable economic model without ads or data harvesting."
-                },
-                {
                     icon: "fas fa-network-wired",
                     color: "purple",
                     title: "Pure P2P WebRTC Architecture",
@@ -74,7 +68,7 @@
                     React.createElement('p', {
                         key: 'subtitle',
                         className: "text-secondary max-w-2xl mx-auto"
-                    }, 'The only messenger with military-grade cryptography and Lightning payments')
+                    }, 'The only messenger with military-grade cryptography')
                 ]),
         
                 React.createElement('div', {
@@ -509,19 +503,13 @@
                             </h4>
                             <p className="text-secondary leading-relaxed text-lg mb-4">
                             SecureBit.chat dominates in 11 out of 15 security categories, establishing itself as the most secure P2P messenger available.
-                            The Enhanced Security Edition introduces revolutionary 18-layer defense architecture with complete ASN.1 validation, Lightning Network integration, and military-grade cryptography that exceeds government and enterprise standards.
+                            The Enhanced Security Edition introduces revolutionary 18-layer defense architecture with complete ASN.1 validation, and military-grade cryptography that exceeds government and enterprise standards.
                             </p>
                             <div className="grid md:grid-cols-2 gap-4 mt-6">
                             <div className="p-4 bg-orange-500/5 border border-orange-500/10 rounded-lg">
                                 <h5 className="text-orange-400 font-semibold mb-2">🔐 Cryptographic Superiority</h5>
                                 <p className="text-sm text-gray-300">
                                 ECDH P-384 + AES-GCM 256 + ECDSA P-384 + Complete ASN.1 Validation with non-extractable keys and 18-layer defense system
-                                </p>
-                            </div>
-                            <div className="p-4 bg-orange-500/5 border border-orange-500/10 rounded-lg">
-                                <h5 className="text-orange-400 font-semibold mb-2">⚡ Lightning Integration</h5>
-                                <p className="text-sm text-gray-300">
-                                First messenger with Lightning Network payments - sustainable economic model with instant satoshi transactions
                                 </p>
                             </div>
                             <div className="p-4 bg-orange-500/5 border border-orange-500/10 rounded-lg">
@@ -646,7 +634,6 @@
                         "Complete ASN.1 DER validation",
                         "OID and EC point verification",
                         "SPKI structure validation",
-                        "Lightning Network payments",
                         "P2P WebRTC architecture",
                         "Metadata protection",
                         "100% open source code"
@@ -698,7 +685,6 @@
                         "Signal Double Ratchet for groups",
                         "Anonymous groups without metadata",
                         "Ephemeral groups (disappear after session)",
-                        "Group Lightning payments",
                         "Cryptographic group administration",
                         "Group member auditing"
                         ]
@@ -1487,350 +1473,8 @@
                                         React.createElement('h4', { key: 'title', className: "text-xs sm:text-sm font-medium text-primary mb-1" }, "ECDSA P-384 Signatures"),
                                         React.createElement('p', { key: 'desc', className: "text-xs text-muted leading-tight" }, "Digital signatures for message integrity")
                                     ]),
-                                    React.createElement('div', { key: 'feature6', className: "text-center p-3 sm:p-4" }, [
-                                        React.createElement('div', { key: 'icon', className: "w-10 h-10 sm:w-12 sm:h-12 bg-yellow-500/10 border border-yellow-500/20 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
-                                            React.createElement('i', { className: 'fas fa-bolt accent-yellow' })
-                                        ]),
-                                        React.createElement('h4', { key: 'title', className: "text-xs sm:text-sm font-medium text-primary mb-1" }, "Lightning Payments"),
-                                        React.createElement('p', { key: 'desc', className: "text-xs text-muted leading-tight" }, "Pay-per-session via WebLN")
-                                    ])
                                 ]),
         
-                                // Wallet Logos Section
-                                React.createElement('div', {
-                                    key: 'wallet-logos-section',
-                                    className: "mt-8"
-                                }, [
-                                    React.createElement('div', {
-                                        key: 'wallet-logos-header',
-                                        className: "text-center mb-4"
-                                    }, [
-                                        React.createElement('h3', {
-                                            key: 'title',
-                                            className: "text-lg font-medium text-primary mb-2"
-                                        }, "Supported Lightning wallets"),
-                                        React.createElement('p', {
-                                            key: 'subtitle',
-                                            className: "text-secondary text-sm"
-                                        }, "To pay for sessions, use any of the popular wallets.")
-                                    ]),
-                                    React.createElement('div', {
-                                        key: 'wallet-logos-container',
-                                        className: "wallet-logos-container"
-                                        }, [
-                                            React.createElement('div', {
-                                                key: 'wallet-logos-track',
-                                                className: "wallet-logos-track"
-                                            }, [
-                                                // First set of logos
-                                                React.createElement('a', { 
-                                                    key: 'alby1-link', 
-                                                    href: "https://getalby.com", 
-                                                    target: "_blank", 
-                                                    rel: "noindex nofollow",
-                                                    className: "wallet-logo alby"
-                                                }, [
-                                                React.createElement('img', {
-                                                    key: 'alby-img1',
-                                                    src: "logo/alby.svg",
-                                                    alt: "Alby Lightning Wallet",
-                                                    className: "wallet-logo-img"
-                                                    })
-                                                ]),
-                                                React.createElement('a', { 
-                                                    key: 'zeus1-link', 
-                                                    href: "https://zeusln.app", 
-                                                    target: "_blank", 
-                                                    rel: "noindex nofollow",
-                                                    className: "wallet-logo zeus"
-                                                }, [
-                                                React.createElement('img', {
-                                                    key: 'zeus-img1',
-                                                    src: "logo/zeus.svg",
-                                                    alt: "Zeus Lightning Wallet",
-                                                    className: "wallet-logo-img"
-                                                    })
-                                                ]),
-                                                React.createElement('a', { 
-                                                    key: 'wos1-link', 
-                                                    href: "https://www.walletofsatoshi.com", 
-                                                    target: "_blank", 
-                                                    rel: "noindex nofollow",
-                                                    className: "wallet-logo wos"
-                                                }, [
-                                                React.createElement('img', {
-                                                    key: 'wos-img1',
-                                                    src: "logo/wos.svg",
-                                                    alt: "Wallet of Satoshi",
-                                                    className: "wallet-logo-img"
-                                                    })
-                                                ]),
-                                                React.createElement('a', { 
-                                                    key: 'muun1-link', 
-                                                    href: "https://muun.com", 
-                                                    target: "_blank", 
-                                                    rel: "noindex nofollow",
-                                                    className: "wallet-logo muun"
-                                                }, [
-                                                React.createElement('img', {
-                                                    key: 'muun-img1',
-                                                    src: "logo/muun.svg",
-                                                    alt: "Muun Wallet",
-                                                    className: "wallet-logo-img"
-                                                    })
-                                                ]),
-                                                React.createElement('a', { 
-                                                    key: 'atomic1-link', 
-                                                    href: "https://atomicwallet.io", 
-                                                    target: "_blank", 
-                                                    rel: "noindex nofollow",
-                                                    className: "wallet-logo atomic"
-                                                }, [
-                                                React.createElement('img', {
-                                                    key: 'atomic-img1',
-                                                    src: "logo/atomic.svg",
-                                                    alt: "Atomic Wallet",
-                                                        className: "wallet-logo-img"
-                                                    })
-                                                ]),
-                                                React.createElement('a', { 
-                                                    key: 'breez1-link', 
-                                                    href: "https://breez.technology/mobile/", 
-                                                    target: "_blank", 
-                                                    rel: "noindex nofollow",
-                                                    className: "wallet-logo breez"
-                                                }, [
-                                                React.createElement('img', {
-                                                    key: 'breez-img1',
-                                                    src: "logo/breez.svg",
-                                                    alt: "Breez Lightning Wallet",
-                                                    })
-                                                ]),
-                                                React.createElement('a', { 
-                                                    key: 'lightning-labs1-link', 
-                                                    href: "https://lightning.engineering", 
-                                                    target: "_blank", 
-                                                    rel: "noindex nofollow",
-                                                    className: "wallet-logo lightning-labs"
-                                                }, [
-                                                React.createElement('img', {
-                                                    key: 'lightning-labs-img1',
-                                                    src: "logo/lightning-labs.svg",
-                                                    alt: "Lightning Labs",
-                                                    })
-                                                ]),
-                                                React.createElement('a', { 
-                                                    key: 'lnbits1-link', 
-                                                    href: "https://lnbits.com", 
-                                                    target: "_blank", 
-                                                    rel: "noindex nofollow",
-                                                    className: "wallet-logo lnbits"
-                                                }, [
-                                                React.createElement('img', {
-                                                    key: 'lnbits-img1',
-                                                    src: "logo/lnbits.svg",
-                                                    alt: "LNbits",
-                                                    className: "wallet-logo-img"
-                                                    })
-                                                ]),
-                                                React.createElement('a', { 
-                                                    key: 'strike1-link', 
-                                                    href: "https://strike.me", 
-                                                    target: "_blank", 
-                                                    rel: "noindex nofollow",
-                                                    className: "wallet-logo strike"
-                                                }, [
-                                                React.createElement('img', {
-                                                    key: 'strike-img1',
-                                                    src: "logo/strike.svg",
-                                                    alt: "Strike",
-                                                    className: "wallet-logo-img"
-                                                    })
-                                                ]),
-                                                React.createElement('a', { 
-                                                    key: 'impervious1-link', 
-                                                    href: "https://impervious.ai", 
-                                                    target: "_blank", 
-                                                    rel: "noindex nofollow",
-                                                    className: "wallet-logo impervious"
-                                                }, [
-                                                React.createElement('img', {
-                                                    key: 'impervious-img1',
-                                                    src: "logo/impervious.svg",
-                                                    alt: "Impervious",
-                                                    className: "wallet-logo-img"
-                                                    })
-                                                ]),
-                                                React.createElement('a', { 
-                                                    key: 'bitcoin-lightning1-link', 
-                                                    href: "https://www.blink.sv/", 
-                                                    target: "_blank", 
-                                                    rel: "noindex nofollow",
-                                                    className: "wallet-logo bitcoin-lightning"
-                                                }, [
-                                                React.createElement('img', {
-                                                    key: 'blink-img1',
-                                                    src: "logo/blink.svg",
-                                                    alt: "Blink Wallet",
-                                                    className: "wallet-logo-img"
-                                                })
-                                            ]),
-                                            // Second set of logos
-                                            React.createElement('a', { 
-                                                    key: 'alby2-link', 
-                                                    href: "https://getalby.com", 
-                                                    target: "_blank", 
-                                                    rel: "noindex nofollow",
-                                                    className: "wallet-logo alby"
-                                                }, [
-                                                React.createElement('img', {
-                                                    key: 'alby-img2',
-                                                    src: "logo/alby.svg",
-                                                    alt: "Alby Lightning Wallet",
-                                                    className: "wallet-logo-img"
-                                                    })
-                                                ]),
-                                                React.createElement('a', { 
-                                                    key: 'zeus2-link', 
-                                                    href: "https://zeusln.app", 
-                                                    target: "_blank", 
-                                                    rel: "noindex nofollow",
-                                                    className: "wallet-logo zeus"
-                                                }, [
-                                                React.createElement('img', {
-                                                    key: 'zeus-img2',
-                                                    src: "logo/zeus.svg",
-                                                    alt: "Zeus Lightning Wallet",
-                                                    className: "wallet-logo-img"
-                                                    })
-                                                ]),
-                                                React.createElement('a', { 
-                                                    key: 'wos2-link', 
-                                                    href: "https://www.walletofsatoshi.com", 
-                                                    target: "_blank", 
-                                                    rel: "noindex nofollow",
-                                                    className: "wallet-logo wos"
-                                                }, [
-                                                React.createElement('img', {
-                                                    key: 'wos-img2',
-                                                    src: "logo/wos.svg",
-                                                    alt: "Wallet of Satoshi",
-                                                    className: "wallet-logo-img"
-                                                    })
-                                                ]),
-                                                React.createElement('a', { 
-                                                    key: 'muun2-link', 
-                                                    href: "https://muun.com", 
-                                                    target: "_blank", 
-                                                    rel: "noindex nofollow",
-                                                    className: "wallet-logo muun"
-                                                }, [
-                                                React.createElement('img', {
-                                                    key: 'muun-img2',
-                                                    src: "logo/muun.svg",
-                                                    alt: "Muun Wallet",
-                                                    className: "wallet-logo-img"
-                                                    })
-                                                ]),
-                                                React.createElement('a', { 
-                                                    key: 'atomic2-link', 
-                                                    href: "https://atomicwallet.io", 
-                                                    target: "_blank", 
-                                                    rel: "noindex nofollow",
-                                                    className: "wallet-logo atomic"
-                                                }, [
-                                                React.createElement('img', {
-                                                    key: 'atomic-img2',
-                                                    src: "logo/atomic.svg",
-                                                    alt: "Atomic Wallet",
-                                                        className: "wallet-logo-img"
-                                                    })
-                                                ]),
-                                                React.createElement('a', { 
-                                                    key: 'breez2-link', 
-                                                    href: "https://breez.technology/mobile/", 
-                                                    target: "_blank", 
-                                                    rel: "noindex nofollow",
-                                                    className: "wallet-logo breez"
-                                                }, [
-                                                React.createElement('img', {
-                                                    key: 'breez-img2',
-                                                    src: "logo/breez.svg",
-                                                    alt: "Breez Lightning Wallet",
-                                                    })
-                                                ]),
-                                                React.createElement('a', { 
-                                                    key: 'lightning-labs2-link', 
-                                                    href: "https://lightning.engineering", 
-                                                    target: "_blank", 
-                                                    rel: "noindex nofollow",
-                                                    className: "wallet-logo lightning-labs"
-                                                }, [
-                                                React.createElement('img', {
-                                                    key: 'lightning-labs-img2',
-                                                    src: "logo/lightning-labs.svg",
-                                                    alt: "Lightning Labs",
-                                                    })
-                                                ]),
-                                                React.createElement('a', { 
-                                                    key: 'lnbits2-link', 
-                                                    href: "https://lnbits.com", 
-                                                    target: "_blank", 
-                                                    rel: "noindex nofollow",
-                                                    className: "wallet-logo lnbits"
-                                                }, [
-                                                React.createElement('img', {
-                                                    key: 'lnbits-img2',
-                                                    src: "logo/lnbits.svg",
-                                                    alt: "LNbits",
-                                                    className: "wallet-logo-img"
-                                                    })
-                                                ]),
-                                                React.createElement('a', { 
-                                                    key: 'strike2-link', 
-                                                    href: "https://strike.me", 
-                                                    target: "_blank", 
-                                                    rel: "noindex nofollow",
-                                                    className: "wallet-logo strike"
-                                                }, [
-                                                React.createElement('img', {
-                                                    key: 'strike-img2',
-                                                    src: "logo/strike.svg",
-                                                    alt: "Strike",
-                                                    className: "wallet-logo-img"
-                                                    })
-                                                ]),
-                                                React.createElement('a', { 
-                                                    key: 'impervious2-link', 
-                                                    href: "https://impervious.ai", 
-                                                    target: "_blank", 
-                                                    rel: "noindex nofollow",
-                                                    className: "wallet-logo impervious"
-                                                }, [
-                                                React.createElement('img', {
-                                                    key: 'impervious-img2',
-                                                    src: "logo/impervious.svg",
-                                                    alt: "Impervious",
-                                                    className: "wallet-logo-img"
-                                                    })
-                                                ]),
-                                                React.createElement('a', { 
-                                                    key: 'bitcoin-lightning2-link', 
-                                                    href: "https://www.blink.sv/", 
-                                                    target: "_blank", 
-                                                    rel: "noindex nofollow",
-                                                    className: "wallet-logo bitcoin-lightning"
-                                                }, [
-                                                React.createElement('img', {
-                                                    key: 'blink-img2',
-                                                    src: "logo/blink.svg",
-                                                    alt: "Blink Wallet",
-                                                    className: "wallet-logo-img"
-                                                })
-                                            ])
-                                        ])
-                                    ])
-                                ]),
                                 React.createElement(UniqueFeatureSlider, { key: 'unique-features-slider' }),
         
                                 React.createElement(DownloadApps, { key: 'download-apps' }),

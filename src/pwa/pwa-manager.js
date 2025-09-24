@@ -962,7 +962,6 @@ class PWAOfflineManager {
                         </h4>
                         <ul class="space-y-2 ml-6">
                             <li>• P2P connections (WebRTC)</li>
-                            <li>• Lightning Network payments</li>
                             <li>• Real-time messaging</li>
                             <li>• Session verification</li>
                             <li>• Key exchange with new peers</li>

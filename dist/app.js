@@ -9,12 +9,6 @@ var UniqueFeatureSlider = () => {
       description: "Revolutionary defense system with ECDH P-384 + AES-GCM 256 + ECDSA + Complete ASN.1 Validation. Enhanced Security Edition provides military-grade protection exceeding government standards with complete key structure verification."
     },
     {
-      icon: "fas fa-bolt",
-      color: "yellow",
-      title: "Lightning Network Payments",
-      description: "First messenger with Lightning Network integration. Pay-per-session with satoshis via WebLN. Sustainable economic model without ads or data harvesting."
-    },
-    {
       icon: "fas fa-network-wired",
       color: "purple",
       title: "Pure P2P WebRTC Architecture",
@@ -68,7 +62,7 @@ var UniqueFeatureSlider = () => {
       React.createElement("p", {
         key: "subtitle",
         className: "text-secondary max-w-2xl mx-auto"
-      }, "The only messenger with military-grade cryptography and Lightning payments")
+      }, "The only messenger with military-grade cryptography")
     ]),
     React.createElement("div", {
       key: "slider-container",
@@ -320,7 +314,7 @@ var ComparisonTable = () => {
       /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("span", { className: `${getStatusIcon(feature.threema.status).color} text-2xl` }, getStatusIcon(feature.threema.status).icon)),
       /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("span", { className: `${getStatusIcon(feature.session.status).color} text-2xl` }, getStatusIcon(feature.session.status).icon))
     ), selectedFeature === featureIndex && /* @__PURE__ */ React.createElement("tr", { className: "border-b border-gray-700/30 bg-gradient-to-r from-gray-800/20 to-gray-900/20" }, /* @__PURE__ */ React.createElement("td", { className: "p-4 text-xs text-gray-400 font-medium" }, "Technical Details:"), /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs text-orange-300 font-medium leading-relaxed max-w-32" }, feature.lockbit.detail)), /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs text-blue-300 leading-relaxed max-w-32" }, feature.signal.detail)), /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs text-green-300 leading-relaxed max-w-32" }, feature.threema.detail)), /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs text-cyan-300 leading-relaxed max-w-32" }, feature.session.detail))))))
-  )), /* @__PURE__ */ React.createElement("div", { className: "mt-8 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl hover:bg-yellow-500/20 transition-colors" }, /* @__PURE__ */ React.createElement("span", { className: "text-yellow-400 mr-2 text-xl" }, "\u{1F3C6}"), /* @__PURE__ */ React.createElement("span", { className: "text-yellow-300 text-sm font-bold" }, "Category Leader")), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-green-500/10 border border-green-500/20 rounded-xl hover:bg-green-500/20 transition-colors" }, /* @__PURE__ */ React.createElement("span", { className: "text-green-400 mr-2 text-xl" }, "\u2705"), /* @__PURE__ */ React.createElement("span", { className: "text-green-300 text-sm font-bold" }, "Excellent")), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl hover:bg-yellow-500/20 transition-colors" }, /* @__PURE__ */ React.createElement("span", { className: "text-yellow-400 mr-2 text-xl" }, "\u26A0\uFE0F"), /* @__PURE__ */ React.createElement("span", { className: "text-yellow-300 text-sm font-bold" }, "Partial/Limited")), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-red-500/10 border border-red-500/20 rounded-xl hover:bg-red-500/20 transition-colors" }, /* @__PURE__ */ React.createElement("span", { className: "text-red-400 mr-2 text-xl" }, "\u274C"), /* @__PURE__ */ React.createElement("span", { className: "text-red-300 text-sm font-bold" }, "Not Available"))), /* @__PURE__ */ React.createElement("div", { className: "mt-10 space-y-6 max-w-6xl mx-auto" }, /* @__PURE__ */ React.createElement("div", { className: "p-6 bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border border-orange-500/20 rounded-xl" }, /* @__PURE__ */ React.createElement("h4", { className: "text-xl font-bold text-orange-400 mb-4 flex items-center" }, /* @__PURE__ */ React.createElement("i", { className: "fas fa-trophy mr-3" }), "SecureBit.chat Enhanced Security Edition Summary"), /* @__PURE__ */ React.createElement("p", { className: "text-secondary leading-relaxed text-lg mb-4" }, "SecureBit.chat dominates in 11 out of 15 security categories, establishing itself as the most secure P2P messenger available. The Enhanced Security Edition introduces revolutionary 18-layer defense architecture with complete ASN.1 validation, Lightning Network integration, and military-grade cryptography that exceeds government and enterprise standards."), /* @__PURE__ */ React.createElement("div", { className: "grid md:grid-cols-2 gap-4 mt-6" }, /* @__PURE__ */ React.createElement("div", { className: "p-4 bg-orange-500/5 border border-orange-500/10 rounded-lg" }, /* @__PURE__ */ React.createElement("h5", { className: "text-orange-400 font-semibold mb-2" }, "\u{1F510} Cryptographic Superiority"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-gray-300" }, "ECDH P-384 + AES-GCM 256 + ECDSA P-384 + Complete ASN.1 Validation with non-extractable keys and 18-layer defense system")), /* @__PURE__ */ React.createElement("div", { className: "p-4 bg-orange-500/5 border border-orange-500/10 rounded-lg" }, /* @__PURE__ */ React.createElement("h5", { className: "text-orange-400 font-semibold mb-2" }, "\u26A1 Lightning Integration"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-gray-300" }, "First messenger with Lightning Network payments - sustainable economic model with instant satoshi transactions")), /* @__PURE__ */ React.createElement("div", { className: "p-4 bg-orange-500/5 border border-orange-500/10 rounded-lg" }, /* @__PURE__ */ React.createElement("h5", { className: "text-orange-400 font-semibold mb-2" }, "\u{1F310} True P2P Architecture"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-gray-300" }, "Pure WebRTC connections with zero servers, impossible to censor or shutdown, complete anonymity")), /* @__PURE__ */ React.createElement("div", { className: "p-4 bg-orange-500/5 border border-orange-500/10 rounded-lg" }, /* @__PURE__ */ React.createElement("h5", { className: "text-orange-400 font-semibold mb-2" }, "\u{1F3AD} Traffic Obfuscation"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-gray-300" }, "Advanced fake traffic generation, packet padding, and pattern masking defeat traffic analysis"))))), /* @__PURE__ */ React.createElement("div", { className: "mt-8 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "inline-flex items-center px-6 py-3 bg-gray-800/50 border border-gray-600/30 rounded-xl" }, /* @__PURE__ */ React.createElement("span", { className: "text-orange-400 mr-2" }, "\u{1F680}"), /* @__PURE__ */ React.createElement("span", { className: "text-gray-300 text-sm" }, "Enhanced Security Edition v4.02.985 - ECDH + DTLS + SAS - "), /* @__PURE__ */ React.createElement("span", { className: "text-orange-400 font-semibold text-sm" }, "Active Production Release"), /* @__PURE__ */ React.createElement("span", { className: "text-gray-400 text-sm ml-2" }, " | Next: v5.0 Post-Quantum")))));
+  )), /* @__PURE__ */ React.createElement("div", { className: "mt-8 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl hover:bg-yellow-500/20 transition-colors" }, /* @__PURE__ */ React.createElement("span", { className: "text-yellow-400 mr-2 text-xl" }, "\u{1F3C6}"), /* @__PURE__ */ React.createElement("span", { className: "text-yellow-300 text-sm font-bold" }, "Category Leader")), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-green-500/10 border border-green-500/20 rounded-xl hover:bg-green-500/20 transition-colors" }, /* @__PURE__ */ React.createElement("span", { className: "text-green-400 mr-2 text-xl" }, "\u2705"), /* @__PURE__ */ React.createElement("span", { className: "text-green-300 text-sm font-bold" }, "Excellent")), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl hover:bg-yellow-500/20 transition-colors" }, /* @__PURE__ */ React.createElement("span", { className: "text-yellow-400 mr-2 text-xl" }, "\u26A0\uFE0F"), /* @__PURE__ */ React.createElement("span", { className: "text-yellow-300 text-sm font-bold" }, "Partial/Limited")), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-red-500/10 border border-red-500/20 rounded-xl hover:bg-red-500/20 transition-colors" }, /* @__PURE__ */ React.createElement("span", { className: "text-red-400 mr-2 text-xl" }, "\u274C"), /* @__PURE__ */ React.createElement("span", { className: "text-red-300 text-sm font-bold" }, "Not Available"))), /* @__PURE__ */ React.createElement("div", { className: "mt-10 space-y-6 max-w-6xl mx-auto" }, /* @__PURE__ */ React.createElement("div", { className: "p-6 bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border border-orange-500/20 rounded-xl" }, /* @__PURE__ */ React.createElement("h4", { className: "text-xl font-bold text-orange-400 mb-4 flex items-center" }, /* @__PURE__ */ React.createElement("i", { className: "fas fa-trophy mr-3" }), "SecureBit.chat Enhanced Security Edition Summary"), /* @__PURE__ */ React.createElement("p", { className: "text-secondary leading-relaxed text-lg mb-4" }, "SecureBit.chat dominates in 11 out of 15 security categories, establishing itself as the most secure P2P messenger available. The Enhanced Security Edition introduces revolutionary 18-layer defense architecture with complete ASN.1 validation, and military-grade cryptography that exceeds government and enterprise standards."), /* @__PURE__ */ React.createElement("div", { className: "grid md:grid-cols-2 gap-4 mt-6" }, /* @__PURE__ */ React.createElement("div", { className: "p-4 bg-orange-500/5 border border-orange-500/10 rounded-lg" }, /* @__PURE__ */ React.createElement("h5", { className: "text-orange-400 font-semibold mb-2" }, "\u{1F510} Cryptographic Superiority"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-gray-300" }, "ECDH P-384 + AES-GCM 256 + ECDSA P-384 + Complete ASN.1 Validation with non-extractable keys and 18-layer defense system")), /* @__PURE__ */ React.createElement("div", { className: "p-4 bg-orange-500/5 border border-orange-500/10 rounded-lg" }, /* @__PURE__ */ React.createElement("h5", { className: "text-orange-400 font-semibold mb-2" }, "\u{1F310} True P2P Architecture"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-gray-300" }, "Pure WebRTC connections with zero servers, impossible to censor or shutdown, complete anonymity")), /* @__PURE__ */ React.createElement("div", { className: "p-4 bg-orange-500/5 border border-orange-500/10 rounded-lg" }, /* @__PURE__ */ React.createElement("h5", { className: "text-orange-400 font-semibold mb-2" }, "\u{1F3AD} Traffic Obfuscation"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-gray-300" }, "Advanced fake traffic generation, packet padding, and pattern masking defeat traffic analysis"))))), /* @__PURE__ */ React.createElement("div", { className: "mt-8 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "inline-flex items-center px-6 py-3 bg-gray-800/50 border border-gray-600/30 rounded-xl" }, /* @__PURE__ */ React.createElement("span", { className: "text-orange-400 mr-2" }, "\u{1F680}"), /* @__PURE__ */ React.createElement("span", { className: "text-gray-300 text-sm" }, "Enhanced Security Edition v4.02.985 - ECDH + DTLS + SAS - "), /* @__PURE__ */ React.createElement("span", { className: "text-orange-400 font-semibold text-sm" }, "Active Production Release"), /* @__PURE__ */ React.createElement("span", { className: "text-gray-400 text-sm ml-2" }, " | Next: v5.0 Post-Quantum")))));
 };
 function Roadmap() {
   const [selectedPhase, setSelectedPhase] = React.useState(null);
@@ -413,7 +407,6 @@ function Roadmap() {
         "Complete ASN.1 DER validation",
         "OID and EC point verification",
         "SPKI structure validation",
-        "Lightning Network payments",
         "P2P WebRTC architecture",
         "Metadata protection",
         "100% open source code"
@@ -465,7 +458,6 @@ function Roadmap() {
         "Signal Double Ratchet for groups",
         "Anonymous groups without metadata",
         "Ephemeral groups (disappear after session)",
-        "Group Lightning payments",
         "Cryptographic group administration",
         "Group member auditing"
       ]
@@ -1218,348 +1210,6 @@ var EnhancedConnectionSetup = ({
             ]),
             React.createElement("h4", { key: "title", className: "text-xs sm:text-sm font-medium text-primary mb-1" }, "ECDSA P-384 Signatures"),
             React.createElement("p", { key: "desc", className: "text-xs text-muted leading-tight" }, "Digital signatures for message integrity")
-          ]),
-          React.createElement("div", { key: "feature6", className: "text-center p-3 sm:p-4" }, [
-            React.createElement("div", { key: "icon", className: "w-10 h-10 sm:w-12 sm:h-12 bg-yellow-500/10 border border-yellow-500/20 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
-              React.createElement("i", { className: "fas fa-bolt accent-yellow" })
-            ]),
-            React.createElement("h4", { key: "title", className: "text-xs sm:text-sm font-medium text-primary mb-1" }, "Lightning Payments"),
-            React.createElement("p", { key: "desc", className: "text-xs text-muted leading-tight" }, "Pay-per-session via WebLN")
-          ])
-        ]),
-        // Wallet Logos Section
-        React.createElement("div", {
-          key: "wallet-logos-section",
-          className: "mt-8"
-        }, [
-          React.createElement("div", {
-            key: "wallet-logos-header",
-            className: "text-center mb-4"
-          }, [
-            React.createElement("h3", {
-              key: "title",
-              className: "text-lg font-medium text-primary mb-2"
-            }, "Supported Lightning wallets"),
-            React.createElement("p", {
-              key: "subtitle",
-              className: "text-secondary text-sm"
-            }, "To pay for sessions, use any of the popular wallets.")
-          ]),
-          React.createElement("div", {
-            key: "wallet-logos-container",
-            className: "wallet-logos-container"
-          }, [
-            React.createElement("div", {
-              key: "wallet-logos-track",
-              className: "wallet-logos-track"
-            }, [
-              // First set of logos
-              React.createElement("a", {
-                key: "alby1-link",
-                href: "https://getalby.com",
-                target: "_blank",
-                rel: "noindex nofollow",
-                className: "wallet-logo alby"
-              }, [
-                React.createElement("img", {
-                  key: "alby-img1",
-                  src: "logo/alby.svg",
-                  alt: "Alby Lightning Wallet",
-                  className: "wallet-logo-img"
-                })
-              ]),
-              React.createElement("a", {
-                key: "zeus1-link",
-                href: "https://zeusln.app",
-                target: "_blank",
-                rel: "noindex nofollow",
-                className: "wallet-logo zeus"
-              }, [
-                React.createElement("img", {
-                  key: "zeus-img1",
-                  src: "logo/zeus.svg",
-                  alt: "Zeus Lightning Wallet",
-                  className: "wallet-logo-img"
-                })
-              ]),
-              React.createElement("a", {
-                key: "wos1-link",
-                href: "https://www.walletofsatoshi.com",
-                target: "_blank",
-                rel: "noindex nofollow",
-                className: "wallet-logo wos"
-              }, [
-                React.createElement("img", {
-                  key: "wos-img1",
-                  src: "logo/wos.svg",
-                  alt: "Wallet of Satoshi",
-                  className: "wallet-logo-img"
-                })
-              ]),
-              React.createElement("a", {
-                key: "muun1-link",
-                href: "https://muun.com",
-                target: "_blank",
-                rel: "noindex nofollow",
-                className: "wallet-logo muun"
-              }, [
-                React.createElement("img", {
-                  key: "muun-img1",
-                  src: "logo/muun.svg",
-                  alt: "Muun Wallet",
-                  className: "wallet-logo-img"
-                })
-              ]),
-              React.createElement("a", {
-                key: "atomic1-link",
-                href: "https://atomicwallet.io",
-                target: "_blank",
-                rel: "noindex nofollow",
-                className: "wallet-logo atomic"
-              }, [
-                React.createElement("img", {
-                  key: "atomic-img1",
-                  src: "logo/atomic.svg",
-                  alt: "Atomic Wallet",
-                  className: "wallet-logo-img"
-                })
-              ]),
-              React.createElement("a", {
-                key: "breez1-link",
-                href: "https://breez.technology/mobile/",
-                target: "_blank",
-                rel: "noindex nofollow",
-                className: "wallet-logo breez"
-              }, [
-                React.createElement("img", {
-                  key: "breez-img1",
-                  src: "logo/breez.svg",
-                  alt: "Breez Lightning Wallet"
-                })
-              ]),
-              React.createElement("a", {
-                key: "lightning-labs1-link",
-                href: "https://lightning.engineering",
-                target: "_blank",
-                rel: "noindex nofollow",
-                className: "wallet-logo lightning-labs"
-              }, [
-                React.createElement("img", {
-                  key: "lightning-labs-img1",
-                  src: "logo/lightning-labs.svg",
-                  alt: "Lightning Labs"
-                })
-              ]),
-              React.createElement("a", {
-                key: "lnbits1-link",
-                href: "https://lnbits.com",
-                target: "_blank",
-                rel: "noindex nofollow",
-                className: "wallet-logo lnbits"
-              }, [
-                React.createElement("img", {
-                  key: "lnbits-img1",
-                  src: "logo/lnbits.svg",
-                  alt: "LNbits",
-                  className: "wallet-logo-img"
-                })
-              ]),
-              React.createElement("a", {
-                key: "strike1-link",
-                href: "https://strike.me",
-                target: "_blank",
-                rel: "noindex nofollow",
-                className: "wallet-logo strike"
-              }, [
-                React.createElement("img", {
-                  key: "strike-img1",
-                  src: "logo/strike.svg",
-                  alt: "Strike",
-                  className: "wallet-logo-img"
-                })
-              ]),
-              React.createElement("a", {
-                key: "impervious1-link",
-                href: "https://impervious.ai",
-                target: "_blank",
-                rel: "noindex nofollow",
-                className: "wallet-logo impervious"
-              }, [
-                React.createElement("img", {
-                  key: "impervious-img1",
-                  src: "logo/impervious.svg",
-                  alt: "Impervious",
-                  className: "wallet-logo-img"
-                })
-              ]),
-              React.createElement("a", {
-                key: "bitcoin-lightning1-link",
-                href: "https://www.blink.sv/",
-                target: "_blank",
-                rel: "noindex nofollow",
-                className: "wallet-logo bitcoin-lightning"
-              }, [
-                React.createElement("img", {
-                  key: "blink-img1",
-                  src: "logo/blink.svg",
-                  alt: "Blink Wallet",
-                  className: "wallet-logo-img"
-                })
-              ]),
-              // Second set of logos
-              React.createElement("a", {
-                key: "alby2-link",
-                href: "https://getalby.com",
-                target: "_blank",
-                rel: "noindex nofollow",
-                className: "wallet-logo alby"
-              }, [
-                React.createElement("img", {
-                  key: "alby-img2",
-                  src: "logo/alby.svg",
-                  alt: "Alby Lightning Wallet",
-                  className: "wallet-logo-img"
-                })
-              ]),
-              React.createElement("a", {
-                key: "zeus2-link",
-                href: "https://zeusln.app",
-                target: "_blank",
-                rel: "noindex nofollow",
-                className: "wallet-logo zeus"
-              }, [
-                React.createElement("img", {
-                  key: "zeus-img2",
-                  src: "logo/zeus.svg",
-                  alt: "Zeus Lightning Wallet",
-                  className: "wallet-logo-img"
-                })
-              ]),
-              React.createElement("a", {
-                key: "wos2-link",
-                href: "https://www.walletofsatoshi.com",
-                target: "_blank",
-                rel: "noindex nofollow",
-                className: "wallet-logo wos"
-              }, [
-                React.createElement("img", {
-                  key: "wos-img2",
-                  src: "logo/wos.svg",
-                  alt: "Wallet of Satoshi",
-                  className: "wallet-logo-img"
-                })
-              ]),
-              React.createElement("a", {
-                key: "muun2-link",
-                href: "https://muun.com",
-                target: "_blank",
-                rel: "noindex nofollow",
-                className: "wallet-logo muun"
-              }, [
-                React.createElement("img", {
-                  key: "muun-img2",
-                  src: "logo/muun.svg",
-                  alt: "Muun Wallet",
-                  className: "wallet-logo-img"
-                })
-              ]),
-              React.createElement("a", {
-                key: "atomic2-link",
-                href: "https://atomicwallet.io",
-                target: "_blank",
-                rel: "noindex nofollow",
-                className: "wallet-logo atomic"
-              }, [
-                React.createElement("img", {
-                  key: "atomic-img2",
-                  src: "logo/atomic.svg",
-                  alt: "Atomic Wallet",
-                  className: "wallet-logo-img"
-                })
-              ]),
-              React.createElement("a", {
-                key: "breez2-link",
-                href: "https://breez.technology/mobile/",
-                target: "_blank",
-                rel: "noindex nofollow",
-                className: "wallet-logo breez"
-              }, [
-                React.createElement("img", {
-                  key: "breez-img2",
-                  src: "logo/breez.svg",
-                  alt: "Breez Lightning Wallet"
-                })
-              ]),
-              React.createElement("a", {
-                key: "lightning-labs2-link",
-                href: "https://lightning.engineering",
-                target: "_blank",
-                rel: "noindex nofollow",
-                className: "wallet-logo lightning-labs"
-              }, [
-                React.createElement("img", {
-                  key: "lightning-labs-img2",
-                  src: "logo/lightning-labs.svg",
-                  alt: "Lightning Labs"
-                })
-              ]),
-              React.createElement("a", {
-                key: "lnbits2-link",
-                href: "https://lnbits.com",
-                target: "_blank",
-                rel: "noindex nofollow",
-                className: "wallet-logo lnbits"
-              }, [
-                React.createElement("img", {
-                  key: "lnbits-img2",
-                  src: "logo/lnbits.svg",
-                  alt: "LNbits",
-                  className: "wallet-logo-img"
-                })
-              ]),
-              React.createElement("a", {
-                key: "strike2-link",
-                href: "https://strike.me",
-                target: "_blank",
-                rel: "noindex nofollow",
-                className: "wallet-logo strike"
-              }, [
-                React.createElement("img", {
-                  key: "strike-img2",
-                  src: "logo/strike.svg",
-                  alt: "Strike",
-                  className: "wallet-logo-img"
-                })
-              ]),
-              React.createElement("a", {
-                key: "impervious2-link",
-                href: "https://impervious.ai",
-                target: "_blank",
-                rel: "noindex nofollow",
-                className: "wallet-logo impervious"
-              }, [
-                React.createElement("img", {
-                  key: "impervious-img2",
-                  src: "logo/impervious.svg",
-                  alt: "Impervious",
-                  className: "wallet-logo-img"
-                })
-              ]),
-              React.createElement("a", {
-                key: "bitcoin-lightning2-link",
-                href: "https://www.blink.sv/",
-                target: "_blank",
-                rel: "noindex nofollow",
-                className: "wallet-logo bitcoin-lightning"
-              }, [
-                React.createElement("img", {
-                  key: "blink-img2",
-                  src: "logo/blink.svg",
-                  alt: "Blink Wallet",
-                  className: "wallet-logo-img"
-                })
-              ])
-            ])
           ])
         ]),
         React.createElement(UniqueFeatureSlider, { key: "unique-features-slider" }),

@@ -2,7 +2,7 @@
 
 🎉 **Thank you for your interest in contributing to SecureBit.chat!** 
 
-We're building the most secure P2P messenger with Lightning Network integration, and we need your help to make it even better. **Version 4.02.442 introduces complete ASN.1 validation for enhanced key security.**
+ **Version 4.02.442 introduces complete ASN.1 validation for enhanced key security.**
 
 ## 🌟 Ways to Contribute
 

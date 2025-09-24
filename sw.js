@@ -17,7 +17,6 @@ const STATIC_ASSETS = [
     '/src/components/ui/Header.jsx',
     '/src/components/ui/PasswordModal.jsx',
     '/src/components/ui/SessionTypeSelector.jsx',
-    '/src/components/ui/LightningPayment.jsx',
     '/src/components/ui/PaymentModal.jsx',
     '/src/components/ui/DownloadApps.jsx',
     '/src/styles/main.css',
@@ -42,8 +41,7 @@ const NETWORK_FIRST_PATTERNS = [
     /\.js$/,
     /\.jsx$/,
     /\/src\//,
-    /api/,
-    /lightning/
+    /api/
 ];
 
 // Cache first patterns (static assets)

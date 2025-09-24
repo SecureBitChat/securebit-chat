@@ -4,7 +4,7 @@
 
 ![SecureBit.chat Logo](logo/favicon.ico)
 
-**The world's first P2P messenger with ECDH + DTLS + SAS security, Lightning Network payments and military-grade cryptography**
+**The world's first P2P messenger with ECDH + DTLS + SAS security and military-grade cryptography**
 
 [![Latest Release](https://img.shields.io/github/v/release/SecureBitChat/securebit-chat?style=for-the-badge&logo=github&color=orange)](https://github.com/SecureBitChat/securebit-chat/releases/latest)
 [![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-Try_Now-success?style=for-the-badge)](https://securebitchat.github.io/securebit-chat/)
@@ -103,17 +103,12 @@
 ### 🏆 Industry Leader
 
 * **Dominates in 11/15 security categories** vs Signal, Threema, Session
-* **First messenger** with Lightning Network integration
+* **First messenger** with enhanced ECDH + DTLS + SAS security
 * **Military-grade cryptography** exceeding government standards
 * **Zero servers** — truly decentralized P2P architecture
 * **PWA technology** — install like native apps without app stores
 
-### ⚡ Lightning Network Pioneer
-
-* **Instant satoshi payments** for secure sessions
-* **Pay-per-session model** — no ads, no data harvesting
-* **WebLN integration** with all major Lightning wallets
-* **Sustainable economics** for private communication
+ 
 
 ### 🔐 15-Layer Military Security
 
@@ -152,14 +147,14 @@
 | Feature                     | **SecureBit.chat**            | Signal                       | Threema               | Session                |
 | --------------------------- | ----------------------------- | ---------------------------- | --------------------- | ---------------------- |
 | **Architecture**            | 🏆 Pure P2P WebRTC            | ❌ Centralized servers        | ❌ Centralized servers | ⚠️ Onion network       |
-| **Payment Integration**     | 🏆 Lightning Network          | ❌ None                       | ❌ None                | ❌ None                 |
+| **Payment Integration**     | ❌ None                      | ❌ None                       | ❌ None                | ❌ None                 |
 | **File Transfer**           | 🏆 P2P encrypted + chunked    | ✅ Encrypted via servers     | ✅ Encrypted via servers | ✅ Encrypted via servers |
 | **PWA Support**             | 🏆 Full PWA installation      | ❌ None                       | ❌ None                | ❌ None                 |
 | **Registration**            | 🏆 Anonymous                  | ❌ Phone required             | ✅ ID generated        | ✅ Random ID            |
 | **Traffic Obfuscation**     | 🏆 Advanced fake traffic      | ❌ None                       | ❌ None                | ✅ Onion routing        |
 | **Censorship Resistance**   | 🏆 Hard to block              | ⚠️ Blocked in some countries | ⚠️ May be blocked     | ✅ Onion routing        |
 | **Data Storage**            | 🏆 Zero storage               | ⚠️ Local database            | ⚠️ Local + backup     | ⚠️ Local database      |
-| **Economic Model**          | 🏆 Pay‑per‑session            | ⚠️ Donations dependent       | ✅ One‑time purchase   | ⚠️ Donations dependent |
+| **Economic Model**          | ✅ Open-source                | ⚠️ Donations dependent       | ✅ One‑time purchase   | ⚠️ Donations dependent |
 | **Metadata Protection**     | 🏆 Full encryption            | ⚠️ Sealed Sender (partial)   | ⚠️ Minimal metadata   | ✅ Onion routing        |
 | **Key Security**            | 🏆 Non‑extractable + hardware | ✅ Secure storage             | ✅ Local storage       | ✅ Secure storage       |
 | **Perfect Forward Secrecy** | 🏆 Auto rotation (5 min)      | ✅ Double Ratchet             | ⚠️ Partial (groups)   | ✅ Session Ratchet      |
@@ -178,7 +173,7 @@
 2. **Install PWA:** Click "Install" button for native app experience
 3. **Choose:** *Create Channel* or *Join Channel*
 4. **Complete:** Secure key exchange with verification
-5. **Select:** Session type (Demo / Basic / Premium)
+5. **Verify:** Security codes and start a secure chat
 6. **Communicate:** With military‑grade encryption + secure file transfers
 
 ### Option 2: Self‑Host
@@ -227,26 +222,7 @@ open http://localhost:8000
 
 ---
 
-## ⚡ Lightning Network Integration
-
-### Session Types
-
-* **🎮 Demo:** 6 minutes free (testing)
-* **⚡ Basic:** 1 hour for 50 satoshis
-* **💎 Premium:** 6 hours for 200 satoshis
-
-### Supported Wallets
-
-| Wallet            | WebLN | Mobile | Desktop |
-| ----------------- | :---: | :----: | :-----: |
-| Alby              |   ✅   |    ✅   |    ✅    |
-| Zeus              |   ✅   |    ✅   |    ✅    |
-| Wallet of Satoshi |   ✅   |    ✅   |    ❌    |
-| Muun              |   ⚠️  |    ✅   |    ❌    |
-| Breez             |   ✅   |    ✅   |    ❌    |
-| Strike            |   ✅   |    ✅   |    ✅    |
-
-*And many more WebLN‑compatible wallets.*
+ 
 
 ---
 
@@ -260,7 +236,7 @@ open http://localhost:8000
 🔑 Key Exchange:         ECDH P-384 (Perfect Forward Secrecy)
 🛡️ Transport Layer:      WebRTC DTLS 1.2
 🌐 Network Layer:        P2P WebRTC Data Channels
-⚡ Payment Layer:        Lightning Network + WebLN
+ 
 📱 PWA Layer:            Service Workers + Cache API
 🔒 ASN.1 Layer:          Complete DER parsing and validation
 ```
@@ -280,7 +256,7 @@ open http://localhost:8000
 * Modern browser with WebRTC support (Chrome 60+, Firefox 60+, Safari 12+)
 * HTTPS connection (required for WebRTC and PWA)
 * JavaScript enabled
-* Lightning wallet with WebLN (for payments)
+ 
 * Service Worker support for PWA features
 
 ---
@@ -322,7 +298,7 @@ open http://localhost:8000
 
 * P2P group chats (up to 8 participants)
 * Mesh networking topology
-* Group Lightning payments
+ 
 * Anonymous group administration
 * Group file sharing
 
@@ -482,7 +458,7 @@ We welcome contributions from the community!
 
 * 🔐 Cryptography — Security improvements and audits
 * 🌐 Network — P2P optimization and reliability
-* ⚡ Lightning — Payment integration enhancements
+ 
 * 📂 File Transfer — EnhancedSecureFileTransfer improvements
 * 📱 PWA — Install prompts, offline management, and PWA lifecycle
 * 🎨 UI/UX — Interface improvements, FileTransfer and DownloadApps components
@@ -524,7 +500,7 @@ While SecureBit.chat implements military-grade cryptography and follows security
 * Always verify security codes out-of-band
 * Keep devices and browsers updated
 * Be aware of endpoint security risks
-* Use reputable Lightning wallets
+ 
 * **File transfers are protected with the same military-grade cryptography as chat messages**
 * **All cryptographic keys now undergo complete ASN.1 structure validation**
 
@@ -533,7 +509,7 @@ This software is provided "as is" for educational and research purposes. Users a
 
 * Cryptographic software usage
 * Private communications
-* Bitcoin/Lightning Network transactions
+ 
 * File sharing and transfer
 
 ### Privacy Statement
@@ -558,12 +534,7 @@ SecureBit.chat:
 * **Secure P2P file sharing without servers**
 * **Complete ASN.1 validation for cryptographic keys**
 
-### For Bitcoin/Lightning Users
-
-* Native Lightning Network integration
-* Sustainable pay-per-session model
-* Support for all major Lightning wallets
-* No KYC or account requirements
+ 
 
 ### For Mobile Users
 

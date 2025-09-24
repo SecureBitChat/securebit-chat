@@ -153,8 +153,7 @@ We maintain a hall of fame for security researchers who help improve SecureBit.c
 2. **Use Official Source:** Only use https://SecureBit.chat
 3. **Keep Updated:** Use version 4.02.x for complete ASN.1 validation
 4. **Secure Environment:** Use updated browsers on secure devices
-5. **Lightning Wallets:** Use reputable Lightning wallets (Alby, Zeus, etc.)
-6. **Monitor Security Status:** Check for "MAXIMUM SECURITY" indicator in chat
+5. **Monitor Security Status:** Check for "MAXIMUM SECURITY" indicator in chat
 
 ### Security Indicators:
 - ✅ **Green Shield:** MAXIMUM SECURITY (Stage 5) active
@@ -168,6 +167,13 @@ We maintain a hall of fame for security researchers who help improve SecureBit.c
 - ❌ Requests for private keys or seed phrases
 - ❌ Unofficial domains or mirrors
 - ❌ Missing security layer notifications
+
+### Research Ethics
+- **No Disruption:** Don't interfere with live users
+- **Responsible Disclosure:** Follow our disclosure timeline
+- **No Data Harvesting:** Don't collect user communications
+- **Legal Compliance:** Follow all applicable laws
+- **Respect Privacy:** Don't attempt to break active encrypted sessions
 
 ## 🔬 Security Research Guidelines
 
@@ -191,15 +197,7 @@ We maintain a hall of fame for security researchers who help improve SecureBit.c
 - ❌ Physical attacks on user devices
 - ❌ DoS attacks on user connections
 - ❌ Issues requiring physical access
-- ❌ Lightning Network protocol issues
 - ❌ Browser security vulnerabilities
-
-### Research Ethics
-- **No Disruption:** Don't interfere with live users
-- **Responsible Disclosure:** Follow our disclosure timeline
-- **No Data Harvesting:** Don't collect user communications
-- **Legal Compliance:** Follow all applicable laws
-- **Respect Privacy:** Don't attempt to break active encrypted sessions
 
 ## 🔄 Recent Security Updates (Version 4.02)
 
