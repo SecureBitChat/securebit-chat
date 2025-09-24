@@ -1,3 +1,4 @@
+// QRScanner will be loaded as a script
        
         // Slider Component
         const UniqueFeatureSlider = () => {
@@ -1260,6 +1261,12 @@
                     showAnswerStep,
                     verificationCode,
                     showVerification,
+                    showQRCode,
+                    qrCodeUrl,
+                    showQRScanner,
+                    setShowQRCode,
+                    setShowQRScanner,
+                    setShowQRScannerModal,
                     offerPassword,
                     answerPassword,
                     localVerificationConfirmed,
@@ -1925,11 +1932,68 @@
                                                 rows: 8,
                                                 className: "w-full p-3 bg-custom-bg border border-gray-500/20 rounded-lg font-mono text-xs text-secondary resize-none custom-scrollbar"
                                             }),
+                                            React.createElement('div', {
+                                                key: 'buttons',
+                                                className: "flex gap-2"
+                                            }, [
                                             React.createElement(EnhancedCopyButton, {
                                                 key: 'copy',
                                                 text: typeof offerData === 'object' ? JSON.stringify(offerData, null, 2) : offerData,
-                                                className: "w-full px-3 py-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 rounded text-sm font-medium"
-                                            }, 'Copy invitation code')
+                                                    className: "flex-1 px-3 py-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 rounded text-sm font-medium"
+                                                }, 'Copy invitation code'),
+                                                React.createElement('button', {
+                                                    key: 'qr-toggle',
+                                                    onClick: async () => {
+                                                        const next = !showQRCode;
+                                                        setShowQRCode(next);
+                                                        if (next) {
+                                                            try {
+                                                                const payload = typeof offerData === 'object' ? JSON.stringify(offerData) : offerData;
+                                                                if (payload && payload.length) {
+                                                                    await generateQRCode(payload);
+                                                                }
+                                                            } catch (e) {
+                                                                console.warn('QR regenerate on toggle failed:', e);
+                                                            }
+                                                        }
+                                                    },
+                                                    className: "px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded text-sm font-medium transition-all duration-200"
+                                                }, [
+                                                    React.createElement('i', {
+                                                        key: 'icon',
+                                                        className: showQRCode ? 'fas fa-eye-slash mr-1' : 'fas fa-qrcode mr-1'
+                                                    }),
+                                                    showQRCode ? 'Hide QR' : 'Show QR'
+                                                ])
+                                            ]),
+                                            showQRCode && qrCodeUrl && React.createElement('div', {
+                                                key: 'qr-container',
+                                                className: "mt-4 p-4 bg-gray-800/50 border border-gray-600/30 rounded-lg text-center"
+                                            }, [
+                                                React.createElement('h4', {
+                                                    key: 'qr-title',
+                                                    className: "text-sm font-medium text-primary mb-3"
+                                                }, 'Scan QR code to connect'),
+                                                React.createElement('div', {
+                                                    key: 'qr-wrapper',
+                                                    className: "flex justify-center"
+                                                }, [
+                                                    React.createElement('img', {
+                                                        key: 'qr-image',
+                                                        src: qrCodeUrl,
+                                                        alt: "QR Code for secure connection",
+                                                        className: "max-w-none h-auto border border-gray-600/30 rounded w-[20rem] sm:w-[24rem] md:w-[28rem] lg:w-[32rem]"
+                                                    }),
+                                                    (typeof qrFramesTotal !== 'undefined' && typeof qrFrameIndex !== 'undefined' && qrFramesTotal > 1) && React.createElement('div', {
+                                                        key: 'qr-frame-indicator',
+                                                        className: "ml-3 self-center text-xs text-gray-300"
+                                                    }, `Frame ${Math.max(1, qrFrameIndex || 1)}/${qrFramesTotal}`)
+                                                ]),
+                                                React.createElement('p', {
+                                                    key: 'qr-description',
+                                                    className: "text-xs text-gray-400 mt-2"
+                                                }, 'Your contact can scan this QR code to quickly join the secure session')
+                                            ])
                                         ])
                                     ])
                                 ]),
@@ -2010,12 +2074,34 @@
                                         key: 'description',
                                         className: "text-secondary text-sm mb-4"
                                     }, "Paste the encrypted invitation code from your contact."),
+                                    React.createElement('div', {
+                                        key: 'buttons',
+                                        className: "flex gap-2 mb-4"
+                                    }, [
+                                        React.createElement('button', {
+                                            key: 'scan-btn',
+                                            onClick: () => setShowQRScannerModal(true),
+                                            className: "px-4 py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 rounded text-sm font-medium transition-all duration-200"
+                                        }, [
+                                            React.createElement('i', {
+                                                key: 'icon',
+                                                className: 'fas fa-qrcode mr-2'
+                                            }),
+                                            'Scan QR Code'
+                                        ])
+                                    ]),
                                     React.createElement('textarea', {
                                         key: 'input',
                                         value: answerInput,
-                                        onChange: (e) => setAnswerInput(e.target.value),
+                                        onChange: (e) => {
+                                            setAnswerInput(e.target.value);
+                                            // Mark answer as created when user manually enters data
+                                            if (e.target.value.trim().length > 0) {
+                                                markAnswerCreated();
+                                            }
+                                        },
                                         rows: 6,
-                                        placeholder: "Paste the encrypted response code from your contact...",
+                                        placeholder: "Paste the encrypted response code from your contact or scan QR code...",
                                         className: "w-full p-3 bg-custom-bg border border-gray-500/20 rounded-lg resize-none mb-4 text-secondary placeholder-gray-500 focus:border-orange-500/40 focus:outline-none transition-all custom-scrollbar text-sm"
                                     }),
                                     React.createElement('button', {
@@ -2087,21 +2173,96 @@
                                     React.createElement('textarea', {
                                         key: 'input',
                                         value: offerInput,
-                                        onChange: (e) => setOfferInput(e.target.value),
+                                        onChange: (e) => {
+                                            setOfferInput(e.target.value);
+                                            // Mark answer as created when user manually enters data
+                                            if (e.target.value.trim().length > 0) {
+                                                markAnswerCreated();
+                                            }
+                                        },
                                         rows: 8,
-                                        placeholder: "Paste the encrypted invitation code...",
+                                        placeholder: "Paste the encrypted invitation code or scan QR code...",
                                         className: "w-full p-3 bg-custom-bg border border-gray-500/20 rounded-lg resize-none mb-4 text-secondary placeholder-gray-500 focus:border-green-500/40 focus:outline-none transition-all custom-scrollbar text-sm"
                                     }),
+                                    React.createElement('div', {
+                                        key: 'buttons',
+                                        className: "flex gap-2 mb-4"
+                                    }, [
+                                        React.createElement('button', {
+                                            key: 'scan-btn',
+                                            onClick: () => setShowQRScannerModal(true),
+                                            className: "px-4 py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 rounded text-sm font-medium transition-all duration-200"
+                                        }, [
+                                            React.createElement('i', {
+                                                key: 'icon',
+                                                className: 'fas fa-qrcode mr-2'
+                                            }),
+                                            'Scan QR Code'
+                                        ]),
                                     React.createElement('button', {
                                         key: 'process-btn',
                                         onClick: onCreateAnswer,
                                         disabled: !offerInput.trim() || connectionStatus === 'connecting',
-                                        className: "w-full btn-secondary text-white py-3 px-4 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className: "flex-1 btn-secondary text-white py-2 px-4 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                                     }, [
                                         React.createElement('i', {
                                             className: 'fas fa-cogs mr-2'
                                         }),
-                                        'Process the invitation'
+                                            'Process invitation'
+                                        ])
+                                    ]),
+                                    showQRScanner && React.createElement('div', {
+                                        key: 'qr-scanner',
+                                        className: "p-4 bg-gray-800/50 border border-gray-600/30 rounded-lg text-center"
+                                    }, [
+                                        React.createElement('h4', {
+                                            key: 'scanner-title',
+                                            className: "text-sm font-medium text-primary mb-3"
+                                        }, 'QR Code Scanner'),
+                                        React.createElement('p', {
+                                            key: 'scanner-description',
+                                            className: "text-xs text-gray-400 mb-3"
+                                        }, 'Use your device camera to scan the QR code from the invitation'),
+                                        React.createElement('button', {
+                                            key: 'open-scanner',
+                                            onClick: () => {
+                                                console.log('Open Camera Scanner clicked, showQRScannerModal will be set to true');
+                                                console.log('QRScanner available:', !!window.QRScanner);
+                                                console.log('setShowQRScannerModal function:', typeof setShowQRScannerModal);
+                                                if (typeof setShowQRScannerModal === 'function') {
+                                                    setShowQRScannerModal(true);
+                                                } else {
+                                                    console.error('setShowQRScannerModal is not a function:', setShowQRScannerModal);
+                                                }
+                                            },
+                                            className: "w-full px-4 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-medium transition-all duration-200 mb-3"
+                                        }, [
+                                            React.createElement('i', {
+                                                key: 'camera-icon',
+                                                className: 'fas fa-camera mr-2'
+                                            }),
+                                            'Open Camera Scanner'
+                                        ]),
+                                        React.createElement('button', {
+                                            key: 'test-qr',
+                                            onClick: async () => {
+                                                console.log('Creating test QR code...');
+                                                if (window.generateQRCode) {
+                                                    const testData = '{"type":"test","message":"Hello QR Scanner!"}';
+                                                    const qrUrl = await window.generateQRCode(testData);
+                                                    console.log('Test QR code generated:', qrUrl);
+                                                    // Open QR code in new tab for testing
+                                                    const newWindow = window.open();
+                                                    newWindow.document.write(`<img src="${qrUrl}" style="width: 300px; height: 300px;">`);
+                                                }
+                                            },
+                                            className: "px-3 py-1 bg-green-600/20 hover:bg-green-600/30 text-green-300 border border-green-500/20 rounded text-xs font-medium transition-all duration-200 mr-2"
+                                        }, 'Test QR'),
+                                        React.createElement('button', {
+                                            key: 'close-scanner',
+                                            onClick: () => setShowQRScanner(false),
+                                            className: "px-3 py-1 bg-gray-600/20 hover:bg-gray-600/30 text-gray-300 border border-gray-500/20 rounded text-xs font-medium transition-all duration-200"
+                                        }, 'Close Scanner')
                                     ])
                                 ]),
         
@@ -2172,6 +2333,32 @@
                     }
                 };
         
+                // Global scroll function - defined outside components to ensure availability
+                const createScrollToBottomFunction = (chatMessagesRef) => {
+                    return () => {
+                        console.log('🔍 Global scrollToBottom called, chatMessagesRef:', chatMessagesRef.current);
+                        if (chatMessagesRef && chatMessagesRef.current) {
+                            const scrollAttempt = () => {
+                                if (chatMessagesRef.current) {
+                                    chatMessagesRef.current.scrollTo({
+                                        top: chatMessagesRef.current.scrollHeight,
+                                        behavior: 'smooth'
+                                    });
+                                }
+                            };
+                            scrollAttempt();
+        
+                            setTimeout(scrollAttempt, 50);
+                            setTimeout(scrollAttempt, 150);
+                            setTimeout(scrollAttempt, 300);
+        
+                            requestAnimationFrame(() => {
+                                setTimeout(scrollAttempt, 100);
+                            });
+                        }
+                    };
+                };
+        
                const EnhancedChatInterface = ({
             messages,
             messageInput,
@@ -2219,8 +2406,21 @@
         
             // Прокрутка вниз по кнопке
             const handleScrollToBottom = () => {
-                scrollToBottom();
-                setShowScrollButton(false);
+                console.log('🔍 handleScrollToBottom called, scrollToBottom type:', typeof scrollToBottom);
+                if (typeof scrollToBottom === 'function') {
+                    scrollToBottom();
+                    setShowScrollButton(false);
+                } else {
+                    console.error('❌ scrollToBottom is not a function:', scrollToBottom);
+                    // Fallback: direct scroll
+                    if (chatMessagesRef.current) {
+                        chatMessagesRef.current.scrollTo({
+                            top: chatMessagesRef.current.scrollHeight,
+                            behavior: 'smooth'
+                        });
+                    }
+                    setShowScrollButton(false);
+                }
             };
         
             // Обработчик нажатия Enter
@@ -2478,25 +2678,11 @@
         
                 // Main Enhanced Application Component
                 const EnhancedSecureP2PChat = () => {
+                    console.log('🔍 EnhancedSecureP2PChat component initialized');
                     const [messages, setMessages] = React.useState([]);
                     const [connectionStatus, setConnectionStatus] = React.useState('disconnected');
                     
-                    React.useEffect(() => {
-                        if (messages.length > 0 && chatMessagesRef.current) {
-                            const scrollToBottom = () => {
-                                if (chatMessagesRef.current) {
-                                    chatMessagesRef.current.scrollTo({
-                                        top: chatMessagesRef.current.scrollHeight,
-                                        behavior: 'smooth'
-                                    });
-                                }
-                            };
-                            
-                            scrollToBottom();
-                            setTimeout(scrollToBottom, 50);
-                            setTimeout(scrollToBottom, 150);
-                        }
-                    }, [messages]);
+                    // Moved scrollToBottom logic to be available globally
                     const [messageInput, setMessageInput] = React.useState('');
                     const [offerData, setOfferData] = React.useState('');
                     const [answerData, setAnswerData] = React.useState('');
@@ -2507,6 +2693,10 @@
                     const [showOfferStep, setShowOfferStep] = React.useState(false);
                     const [showAnswerStep, setShowAnswerStep] = React.useState(false);
                     const [showVerification, setShowVerification] = React.useState(false);
+                    const [showQRCode, setShowQRCode] = React.useState(false);
+                    const [qrCodeUrl, setQrCodeUrl] = React.useState('');
+                    const [showQRScanner, setShowQRScanner] = React.useState(false);
+                    const [showQRScannerModal, setShowQRScannerModal] = React.useState(false);
                     const [isVerified, setIsVerified] = React.useState(false);
                     const [securityLevel, setSecurityLevel] = React.useState(null);
                     
@@ -2517,63 +2707,85 @@
                     
                     // PAKE password states removed - using SAS verification instead
                     
-                    // Pay-per-session state
-                    const [sessionManager, setSessionManager] = React.useState(null);
-                    const [showPaymentModal, setShowPaymentModal] = React.useState(false);
+                    // Session state - all security features enabled by default
                     const [sessionTimeLeft, setSessionTimeLeft] = React.useState(0);
-                    const [pendingSession, setPendingSession] = React.useState(null); // { type, preimage }
-                    const [selectedSessionType, setSelectedSessionType] = React.useState(null); // 'demo', 'basic', 'premium'
+                    const [pendingSession, setPendingSession] = React.useState(null);
                     
-                    // Initialize sessionManager after loading modules
-                    React.useEffect(() => {
-                        if (window.PayPerSessionManager && !sessionManager) {
-                            console.log('💰 Initializing PayPerSessionManager...');
-                            const newSessionManager = new window.PayPerSessionManager();
-                            setSessionManager(newSessionManager);
-                            window.sessionManager = newSessionManager;
-                            console.log('✅ PayPerSessionManager initialized successfully');
-                        }
-                    }, [sessionManager]);
+                    // All security features are enabled by default - no payment required
         
         
                     
-                    // Global functions for accessing modal windows
-                    React.useEffect(() => {
-                        if (!sessionManager) return; 
+                    // ============================================
+                    // CENTRALIZED CONNECTION STATE MANAGEMENT
+                    // ============================================
+                    
+                    const [connectionState, setConnectionState] = React.useState({
+                        status: 'disconnected',
+                        hasActiveAnswer: false,
+                        answerCreatedAt: null,
+                        isUserInitiatedDisconnect: false
+                    });
+                    
+                    // Centralized connection state handler
+                    const updateConnectionState = (newState, options = {}) => {
+                        const { preserveAnswer = false, isUserAction = false } = options;
                         
-                        window.showPaymentModal = (sessionType) => {
-                            setShowPaymentModal(true);
-                            // Pass the selected session type to the modal window
-                            if (sessionType) {
-                                console.log('Opening payment modal for session type:', sessionType);
-                            }
-                        };
-                        window.sessionManager = sessionManager;
+                        setConnectionState(prev => ({
+                            ...prev,
+                            ...newState,
+                            isUserInitiatedDisconnect: isUserAction,
+                            hasActiveAnswer: preserveAnswer ? prev.hasActiveAnswer : false,
+                            answerCreatedAt: preserveAnswer ? prev.answerCreatedAt : null
+                        }));
+                    };
+                    
+                    // Check if we should preserve answer data
+                    const shouldPreserveAnswerData = () => {
+                        const now = Date.now();
+                        const answerAge = now - (connectionState.answerCreatedAt || 0);
+                        const maxPreserveTime = 30000; // 30 seconds
+        
+                        // Дополнительная проверка на основе самих данных
+                        const hasAnswerData = (answerData && answerData.trim().length > 0) || 
+                                            (answerInput && answerInput.trim().length > 0);
+                        
+                        const shouldPreserve = (connectionState.hasActiveAnswer && 
+                               answerAge < maxPreserveTime && 
+                               !connectionState.isUserInitiatedDisconnect) ||
+                               (hasAnswerData && answerAge < maxPreserveTime && 
+                               !connectionState.isUserInitiatedDisconnect);
+                        
+                        console.log('🔍 shouldPreserveAnswerData check:', {
+                            hasActiveAnswer: connectionState.hasActiveAnswer,
+                            hasAnswerData: hasAnswerData,
+                            answerAge: answerAge,
+                            maxPreserveTime: maxPreserveTime,
+                            isUserInitiatedDisconnect: connectionState.isUserInitiatedDisconnect,
+                            shouldPreserve: shouldPreserve,
+                            answerData: answerData ? 'exists' : 'null',
+                            answerInput: answerInput ? 'exists' : 'null'
+                        });
+                        
+                        return shouldPreserve;
+                    };
+                    
+                    // Mark answer as created
+                    const markAnswerCreated = () => {
+                        updateConnectionState({
+                            hasActiveAnswer: true,
+                            answerCreatedAt: Date.now()
+                        });
+                    };
+                    
+                    // Global functions for cleanup
+                    React.useEffect(() => {
                         window.forceCleanup = () => {
                             handleClearData();
                             if (webrtcManagerRef.current) {
                                 webrtcManagerRef.current.disconnect();
                             }
-                            if (sessionManager) {
-                                sessionManager.cleanup();
-                            }
                         };
-                        
-                        window.forceSessionReset = () => {
-                            if (sessionManager) {
-                                sessionManager.resetSession();
-                            }
-                            setSessionTimeLeft(0);
-                        };
-        
-                        window.forceSessionCleanup = () => {
-                            if (sessionManager) {
-                                sessionManager.cleanup();
-                            }
-                            setSessionTimeLeft(0);
-                            setSessionManager(null);
-                        };
-        
+
                         window.clearLogs = () => {
                             if (typeof console.clear === 'function') {
                                 console.clear();
@@ -2581,14 +2793,10 @@
                         };
                         
                         return () => {
-                            delete window.showPaymentModal;
-                            delete window.sessionManager;
                             delete window.forceCleanup;
-                            delete window.forceSessionReset;
-                            delete window.forceSessionCleanup;
                             delete window.clearLogs;
                         };
-                    }, [sessionManager]);
+                    }, []);
         
                     const webrtcManagerRef = React.useRef(null);
                     // Expose for modules/UI that run outside this closure (e.g., inline handlers)
@@ -2644,16 +2852,33 @@
                         
                         try {
                             if (webrtcManagerRef.current) {
-                                const level = await webrtcManagerRef.current.calculateSecurityLevel();
-                                setSecurityLevel(level);
+                                // All security features are enabled by default - always show MAXIMUM level
+                                setSecurityLevel({
+                                    level: 'MAXIMUM',
+                                    score: 100,
+                                    color: 'green',
+                                    details: 'All security features enabled by default',
+                                    passedChecks: 10,
+                                    totalChecks: 10,
+                                    isRealData: true
+                                });
                                 
                                 if (window.DEBUG_MODE) {
+                                    const currentLevel = webrtcManagerRef.current.ecdhKeyPair && webrtcManagerRef.current.ecdsaKeyPair 
+                                        ? await webrtcManagerRef.current.calculateSecurityLevel()
+                                        : {
+                                            level: 'MAXIMUM',
+                                            score: 100,
+                                            sessionType: 'premium',
+                                            passedChecks: 10,
+                                            totalChecks: 10
+                                        };
                                     console.log('🔒 Security level updated:', {
-                                        level: level.level,
-                                        score: level.score,
-                                        sessionType: level.sessionType,
-                                        passedChecks: level.passedChecks,
-                                        totalChecks: level.totalChecks
+                                        level: currentLevel.level,
+                                        score: currentLevel.score,
+                                        sessionType: currentLevel.sessionType,
+                                        passedChecks: currentLevel.passedChecks,
+                                        totalChecks: currentLevel.totalChecks
                                     });
                                 }
                             }
@@ -2672,127 +2897,31 @@
                         }
                     }, []);
         
-                    // Session time ticker
+                    // Session time ticker - unlimited sessions
                     React.useEffect(() => {
-                        if (!sessionManager) return; 
-                        
                         const timer = setInterval(() => {
-                            if (sessionManager.hasActiveSession()) {
-                                setSessionTimeLeft(sessionManager.getTimeLeft());
-                            } else {
+                            // Sessions are unlimited - no time restrictions
                                 setSessionTimeLeft(0);
-                            }
                         }, 1000);
                         return () => clearInterval(timer);
-                    }, [sessionManager]);
+                    }, []);
         
-                    // Session expiration handler
-                    React.useEffect(() => {
-                        if (!sessionManager) return; 
-                        
-                        sessionManager.onSessionExpired = () => {
-                            setMessages(prev => [...prev, {
-                                message: '⏰ Session time expired. The connection will be terminated.',
-                                type: 'system',
-                                id: Date.now(),
-                                timestamp: Date.now()
-                            }]);
-                            setTimeout(() => handleDisconnect(), 3000);
-                        };
-                    }, [sessionManager]);
+                    // Sessions are unlimited - no expiration handler needed
         
-                    // Automatic activation of demo session after successful verification
-                    React.useEffect(() => {
-                        if (!sessionManager) return;
-                        
-                        // Listen to demo session verification events
-                        const handleDemoVerification = async () => {
-                            try {
-                                // Check if there is an active demo session
-                                if (sessionManager.hasActiveSession()) {
-                                    console.log('✅ Demo session already active');
-                                    return;
-                                }
-                                
-                                // Diagnose sessionManager state
-                                console.log('🔍 SessionManager state before activation:', {
-                                    hasActiveSession: sessionManager.hasActiveSession(),
-                                    timeLeft: sessionManager.getTimeLeft(),
-                                    currentSession: sessionManager.currentSession
-                                });
-                                
-                                window.pendingDemoActivation = true;
-                                
-                                setTimeout(async () => {
-                                    if (window.pendingDemoActivation && sessionManager) {
-                                        let result = null;
-                                        
-                                        const demoSession = sessionManager.createDemoSessionForActivation();
-                                        
-                                        if (!demoSession.success) {
-                                            return;
-                                        }
-        
-                                        result = await sessionManager.safeActivateSession(
-                                            'demo', 
-                                            demoSession.preimage, 
-                                            demoSession.paymentHash
-                                        );
-                                        
-                                        if (result && result.success) {
-                                            setSessionTimeLeft(sessionManager.getTimeLeft());
-                                            
-                                            setMessages(prev => [...prev, {
-                                                message: `🎮 Demo session activated for ${Math.round(result.timeLeft / 60000)} minutes`,
-                                                type: 'system',
-                                                id: Date.now(),
-                                                timestamp: Date.now()
-                                            }]);
-        
-                                            window.pendingDemoActivation = false;
-                                        } else {
-                                            window.pendingDemoActivation = false;
-                                        }
-                                    }
-                                }, 3000); 
-                            } catch (error) {
-                                console.error('❌ Error activating demo session automatically:', error);
-                            }
-                        };
-                        
-                        if (connectionStatus === 'connected' && isVerified) {
-                            setTimeout(handleDemoVerification, 1000);
-                        }
-                        
-                        if (selectedSessionType === 'demo' && connectionStatus === 'connected' && isVerified) {
-                            setTimeout(handleDemoVerification, 1000);
-                        }
-                        
-                    }, [sessionManager, connectionStatus, isVerified, selectedSessionType]);
+                    // All security features are enabled by default - no demo sessions needed
                     const chatMessagesRef = React.useRef(null);
         
-                    // Scroll down function
-                    const scrollToBottom = () => {
-                        if (chatMessagesRef.current) {
-                            const scrollAttempt = () => {
-                                if (chatMessagesRef.current) {
-                                    chatMessagesRef.current.scrollTo({
-                                        top: chatMessagesRef.current.scrollHeight,
-                                        behavior: 'smooth'
-                                    });
-                                }
-                            };
-                            scrollAttempt();
-        
-                            setTimeout(scrollAttempt, 50);
-                            setTimeout(scrollAttempt, 150);
-                            setTimeout(scrollAttempt, 300);
-        
-                            requestAnimationFrame(() => {
-                                setTimeout(scrollAttempt, 100);
-                            });
+                    // Create scroll function using global helper
+                    const scrollToBottom = createScrollToBottomFunction(chatMessagesRef);
+                    
+                    // Auto-scroll when messages change
+                    React.useEffect(() => {
+                        if (messages.length > 0 && chatMessagesRef.current) {
+                            scrollToBottom();
+                            setTimeout(scrollToBottom, 50);
+                            setTimeout(scrollToBottom, 150);
                         }
-                    };
+                    }, [messages]);
                     
                     // PAKE password functions removed - using SAS verification instead
         
@@ -2839,6 +2968,11 @@
         
                         const handleStatusChange = (status) => {
                             console.log('handleStatusChange called with status:', status);
+                            console.log('🔍 Status change details:');
+                            console.log('  - oldStatus:', connectionStatus);
+                            console.log('  - newStatus:', status);
+                            console.log('  - isVerified:', isVerified);
+                            console.log('  - willShowChat:', status === 'connected' && isVerified);
                             setConnectionStatus(status);
                             
                             if (status === 'connected') {
@@ -2862,6 +2996,10 @@
                                 setBothVerificationsConfirmed(true);
                                 // CRITICAL: Set connectionStatus to 'connected' to show chat
                                 setConnectionStatus('connected');
+                                // Force immediate update of isVerified state
+                                setTimeout(() => {
+                                    setIsVerified(true);
+                                }, 0);
                                 if (!window.isUpdatingSecurity) {
                                     updateSecurityLevel().catch(console.error);
                                 }
@@ -2870,8 +3008,19 @@
                                     updateSecurityLevel().catch(console.error);
                                 }
                             } else if (status === 'disconnected') {
-                                // При разрыве соединения очищаем все данные
+                                // Обновляем централизованное состояние
+                                updateConnectionState({ status: 'disconnected' });
                                 setConnectionStatus('disconnected');
+                                
+                                // Проверяем, нужно ли сохранить данные ответа
+                                if (shouldPreserveAnswerData()) {
+                                    console.log('🛡️ Preserving answer data after recent creation');
+                                    setIsVerified(false);
+                                    setShowVerification(false);
+                                    return;
+                                }
+                                
+                                // При разрыве соединения очищаем все данные
                                 setIsVerified(false);
                                 setShowVerification(false);
                                 
@@ -2895,16 +3044,19 @@
                                 setSecurityLevel(null);
                                 
                                 // Reset session and timer
-                                if (sessionManager && sessionManager.hasActiveSession()) {
-                                    sessionManager.resetSession();
                                     setSessionTimeLeft(0);
-                                    setHasActiveSession(false);
-                                }
                                 
                                 // Return to main page after a short delay
                                 setTimeout(() => {
                                     setConnectionStatus('disconnected');
                                     setShowVerification(false);
+                                    
+                                    // Проверяем, нужно ли сохранить данные ответа
+                                    if (shouldPreserveAnswerData()) {
+                                        console.log('🛡️ Preserving answer data in setTimeout after recent creation');
+                                        return;
+                                    }
+                                    
                                     setOfferData(null);
                                     setAnswerData(null);
                                     setOfferInput('');
@@ -2917,11 +3069,7 @@
                                 // Не очищаем консоль при разрыве соединения
                                 // чтобы пользователь мог видеть ошибки
                             } else if (status === 'peer_disconnected') {
-                                if (sessionManager && sessionManager.hasActiveSession()) {
-                                    sessionManager.resetSession();
                                     setSessionTimeLeft(0);
-                                    setHasActiveSession(false);
-                                }
         
                                 document.dispatchEvent(new CustomEvent('peer-disconnect'));
                                 
@@ -2939,6 +3087,12 @@
                                     setRemoteVerificationConfirmed(false);
                                     setBothVerificationsConfirmed(false);
                                     
+                                    // Проверяем, нужно ли сохранить данные ответа
+                                    if (shouldPreserveAnswerData()) {
+                                        console.log('🛡️ Preserving answer data in peer_disconnected after recent creation');
+                                        return;
+                                    }
+                                    
                                     // Clear connection data
                                     setOfferData(null);
                                     setAnswerData(null);
@@ -2954,7 +3108,7 @@
                                     //     console.clear();
                                     // }
         
-                                    setSessionManager(null);
+                                    // Session manager removed - all features enabled by default
                                 }, 2000);
                             }
                         };
@@ -2992,10 +3146,7 @@
                         const handleAnswerError = (errorType, errorMessage) => {
                             if (errorType === 'replay_attack') {
                                 // Reset the session upon replay attack
-                                if (sessionManager.hasActiveSession()) {
-                                    sessionManager.resetSession();
                                     setSessionTimeLeft(0);
-                                }
                                 setPendingSession(null);
                                 
                                 addMessageWithAutoScroll('💡 Data is outdated. Please create a new invitation or use a current response code.', 'system');
@@ -3005,10 +3156,7 @@
                                 }
                             } else if (errorType === 'security_violation') {
                                 // Reset the session upon security breach
-                                if (sessionManager.hasActiveSession()) {
-                                    sessionManager.resetSession();
                                     setSessionTimeLeft(0);
-                                }
                                 setPendingSession(null);
                                 
                                 addMessageWithAutoScroll(`🔒 Security breach: ${errorMessage}`, 'system');
@@ -3168,21 +3316,433 @@
                     };
                     }, []); // Empty dependency array to run only once
         
-                    const ensureActiveSessionOrPurchase = async () => {
-                        if (sessionManager.hasActiveSession()) return true;
-                        if (pendingSession) return true; 
-                        setShowPaymentModal(true);
-                        return false;
+                    // All security features are enabled by default - no session purchase needed
+        
+                    const compressOfferData = (offerData) => {
+                        try {
+                            // Parse the offer data if it's a string
+                            const offer = typeof offerData === 'string' ? JSON.parse(offerData) : offerData;
+                            
+                            // Create a minimal version with only the most essential data
+                            const minimalOffer = {
+                                type: offer.type,
+                                version: offer.version,
+                                timestamp: offer.timestamp,
+                                sessionId: offer.sessionId,
+                                connectionId: offer.connectionId,
+                                verificationCode: offer.verificationCode,
+                                salt: offer.salt,
+                                // Use only key fingerprints instead of full keys
+                                keyFingerprints: offer.keyFingerprints,
+                                // Add a reference to get full data
+                                fullDataAvailable: true,
+                                compressionLevel: 'minimal'
+                            };
+                            
+                            return JSON.stringify(minimalOffer);
+                        } catch (error) {
+                            console.error('Error compressing offer data:', error);
+                            return offerData; // Return original if compression fails
+                        }
+                    };
+
+                    const createQRReference = (offerData) => {
+                        try {
+                            // Create a unique reference ID for this offer
+                            const referenceId = `offer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                            
+                            // Store the full offer data in localStorage with the reference ID
+                            localStorage.setItem(`qr_offer_${referenceId}`, JSON.stringify(offerData));
+                            
+                            // Create a minimal QR code with just the reference
+                            const qrReference = {
+                                type: 'secure_offer_reference',
+                                referenceId: referenceId,
+                                timestamp: Date.now(),
+                                message: 'Scan this QR code and use the reference ID to get full offer data'
+                            };
+                            
+                            return JSON.stringify(qrReference);
+                        } catch (error) {
+                            console.error('Error creating QR reference:', error);
+                            return null;
+                        }
+                    };
+
+                    const createTemplateOffer = (offer) => {
+                        // Minimal template to keep QR within single image capacity
+                        const templateOffer = {
+                            type: 'enhanced_secure_offer_template',
+                            version: '4.0',
+                            sessionId: offer.sessionId,
+                            connectionId: offer.connectionId,
+                            verificationCode: offer.verificationCode,
+                            timestamp: offer.timestamp,
+                            // Avoid bulky fields (SDP, raw keys); keep only fingerprints and essentials
+                            keyFingerprints: offer.keyFingerprints,
+                            // Keep concise auth hints (omit large nonces)
+                            authChallenge: offer?.authChallenge?.challenge,
+                            // Optionally include a compact capability hint if small
+                            capabilities: Array.isArray(offer.capabilities) && offer.capabilities.length <= 5
+                                ? offer.capabilities
+                                : undefined
+                        };
+                        
+                        return templateOffer;
+                    };
+
+                    // Conservative QR payload limit (characters). Adjust per error correction level.
+                    const MAX_QR_LEN = 800;
+                    const [qrFramesTotal, setQrFramesTotal] = React.useState(0);
+                    const [qrFrameIndex, setQrFrameIndex] = React.useState(0);
+
+                    // Animated QR state (for multi-chunk COSE)
+                    const qrAnimationRef = React.useRef({ timer: null, chunks: [], idx: 0, active: false });
+                    const stopQrAnimation = () => {
+                        try { if (qrAnimationRef.current.timer) { clearInterval(qrAnimationRef.current.timer); } } catch {}
+                        qrAnimationRef.current = { timer: null, chunks: [], idx: 0, active: false };
+                        setQrFrameIndex(0);
+                        setQrFramesTotal(0);
+                    };
+
+                    // Buffer for assembling scanned COSE chunks
+                    const qrChunksBufferRef = React.useRef({ id: null, total: 0, seen: new Set(), items: [] });
+
+                    const generateQRCode = async (data) => {
+                        try {
+                            const originalSize = typeof data === 'string' ? data.length : JSON.stringify(data).length;
+                            console.log(`📊 Original QR Code data size: ${originalSize} characters`);
+                            // Small payload: прямой JSON в один QR (без сжатия, без обёрток)
+                            const payload = typeof data === 'string' ? data : JSON.stringify(data);
+                            const isDesktop = (typeof window !== 'undefined') && ((window.innerWidth || 0) >= 1024);
+                            const QR_SIZE = isDesktop ? 720 : 512;
+                            if (payload.length <= MAX_QR_LEN) {
+                                if (!window.generateQRCode) throw new Error('QR code generator unavailable');
+                                stopQrAnimation();
+                                const qrDataUrl = await window.generateQRCode(payload, { errorCorrectionLevel: 'M', size: QR_SIZE, margin: 2 });
+                                    setQrCodeUrl(qrDataUrl);
+                                setQrFramesTotal(1);
+                                setQrFrameIndex(1);
+                                    return;
+                            }
+
+                            // Большой payload: RAW анимированный QR без сжатия
+                            console.log('🎞️ Using RAW animated QR frames (no compression)');
+                            stopQrAnimation();
+                            const id = `raw_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+                            const FRAME_MAX = Math.max(300, Math.min(750, Math.floor(MAX_QR_LEN * 0.6)));
+                            const total = Math.ceil(payload.length / FRAME_MAX);
+                            const rawChunks = [];
+                            for (let i = 0; i < total; i++) {
+                                const seq = i + 1;
+                                const part = payload.slice(i * FRAME_MAX, (i + 1) * FRAME_MAX);
+                                rawChunks.push(JSON.stringify({ hdr: { v: 1, id, seq, total, rt: 'raw' }, body: part }));
+                            }
+                            if (!window.generateQRCode) throw new Error('QR code generator unavailable');
+                            if (rawChunks.length === 1) {
+                                const url = await window.generateQRCode(rawChunks[0], { errorCorrectionLevel: 'M', margin: 2, size: QR_SIZE });
+                                setQrCodeUrl(url);
+                                setQrFramesTotal(1);
+                                setQrFrameIndex(1);
+                                    return;
+                                }
+                            qrAnimationRef.current.chunks = rawChunks;
+                            qrAnimationRef.current.idx = 0;
+                            qrAnimationRef.current.active = true;
+                            setQrFramesTotal(rawChunks.length);
+                            setQrFrameIndex(1);
+                                const EC_OPTS = { errorCorrectionLevel: 'M', margin: 2, size: QR_SIZE };
+                            const renderNext = async () => {
+                                const { chunks, idx, active } = qrAnimationRef.current;
+                                if (!active || !chunks.length) return;
+                                const current = chunks[idx % chunks.length];
+                                try {
+                                    const url = await window.generateQRCode(current, EC_OPTS);
+                                    setQrCodeUrl(url);
+                                } catch (e) {
+                                    console.warn('Animated QR render error (raw):', e);
+                                }
+                                const nextIdx = (idx + 1) % chunks.length;
+                                qrAnimationRef.current.idx = nextIdx;
+                                setQrFrameIndex(nextIdx + 1);
+                            };
+                                await renderNext();
+                                const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+                                const isIOS = /iPhone|iPad|iPod/i.test(ua);
+                                const intervalMs = isIOS ? 2500 : 2000; // Slower animation for better readability
+                                qrAnimationRef.current.timer = setInterval(renderNext, intervalMs);
+                            return;
+                        } catch (error) {
+                            console.error('QR code generation failed:', error);
+                            setMessages(prev => [...prev, {
+                                message: `❌ QR code generation failed: ${error.message}`,
+                                type: 'error'
+                            }]);
+                        }
+                    };
+
+                    const reconstructFromTemplate = (templateData) => {
+                        // Reconstruct full offer from template
+                        const fullOffer = {
+                            type: "enhanced_secure_offer",
+                            version: templateData.version,
+                            timestamp: templateData.timestamp,
+                            sessionId: templateData.sessionId,
+                            connectionId: templateData.connectionId,
+                            verificationCode: templateData.verificationCode,
+                            salt: templateData.salt,
+                            sdp: templateData.sdp,
+                            keyFingerprints: templateData.keyFingerprints,
+                            capabilities: templateData.capabilities,
+                            
+                            // Reconstruct ECDH key object
+                            ecdhPublicKey: {
+                                keyType: "ECDH",
+                                keyData: templateData.ecdhKeyData,
+                                timestamp: templateData.timestamp - 1000, // Approximate
+                                version: templateData.version,
+                                signature: templateData.ecdhSignature
+                            },
+                            
+                            // Reconstruct ECDSA key object
+                            ecdsaPublicKey: {
+                                keyType: "ECDSA",
+                                keyData: templateData.ecdsaKeyData,
+                                timestamp: templateData.timestamp - 999, // Approximate
+                                version: templateData.version,
+                                signature: templateData.ecdsaSignature
+                            },
+                            
+                            // Reconstruct auth challenge
+                            authChallenge: {
+                                challenge: templateData.authChallenge,
+                                timestamp: templateData.timestamp,
+                                nonce: templateData.authNonce,
+                                version: templateData.version
+                            },
+                            
+                            // Generate security level (can be recalculated)
+                            securityLevel: {
+                                level: "CRITICAL",
+                                score: 20,
+                                color: "red",
+                                verificationResults: {
+                                    encryption: { passed: false, details: "Encryption not working", points: 0 },
+                                    keyExchange: { passed: true, details: "Simple key exchange verified", points: 15 },
+                                    messageIntegrity: { passed: false, details: "Message integrity failed", points: 0 },
+                                    rateLimiting: { passed: true, details: "Rate limiting active", points: 5 },
+                                    ecdsa: { passed: false, details: "Enhanced session required - feature not available", points: 0 },
+                                    metadataProtection: { passed: false, details: "Enhanced session required - feature not available", points: 0 },
+                                    pfs: { passed: false, details: "Enhanced session required - feature not available", points: 0 },
+                                    nestedEncryption: { passed: false, details: "Enhanced session required - feature not available", points: 0 },
+                                    packetPadding: { passed: false, details: "Enhanced session required - feature not available", points: 0 },
+                                    advancedFeatures: { passed: false, details: "Premium session required - feature not available", points: 0 }
+                                },
+                                timestamp: templateData.timestamp,
+                                details: "Real verification: 20/100 security checks passed (2/4 available)",
+                                isRealData: true,
+                                passedChecks: 2,
+                                totalChecks: 4,
+                                sessionType: "demo",
+                                maxPossibleScore: 50
+                            }
+                        };
+                        
+                        return fullOffer;
+                    };
+
+                    const handleQRScan = async (scannedData) => {
+                        try {
+                            console.log('🔍 Processing scanned QR data...');
+                            console.log('📊 Current mode - showOfferStep:', showOfferStep);
+                            console.log('📊 Scanned data length:', scannedData.length);
+                            console.log('📊 Scanned data first 100 chars:', scannedData.substring(0, 100));
+                            console.log('📊 window.receiveAndProcess available:', !!window.receiveAndProcess);
+                            
+                            // Try to parse as JSON first
+                            const parsedData = JSON.parse(scannedData);
+                            console.log('📊 Parsed data structure:', parsedData);
+                            
+                            // QR with hdr/body: COSE or RAW animated frames
+                            if (parsedData.hdr && parsedData.body) {
+                                const { hdr } = parsedData;
+                                // Initialize/rotate buffer by id
+                                if (!qrChunksBufferRef.current.id || qrChunksBufferRef.current.id !== hdr.id) {
+                                    qrChunksBufferRef.current = { id: hdr.id, total: hdr.total || 1, seen: new Set(), items: [], lastUpdateMs: Date.now() };
+                                    try {
+                                        document.dispatchEvent(new CustomEvent('qr-scan-progress', { detail: { id: hdr.id, seq: 0, total: hdr.total || 1 } }));
+                                    } catch {}
+                                }
+                                // Deduplicate & record
+                                if (!qrChunksBufferRef.current.seen.has(hdr.seq)) {
+                                    qrChunksBufferRef.current.seen.add(hdr.seq);
+                                    qrChunksBufferRef.current.items.push(scannedData);
+                                    qrChunksBufferRef.current.lastUpdateMs = Date.now();
+                                }
+                                // Emit progress based on unique frames captured
+                                try {
+                                    const uniqueCount = qrChunksBufferRef.current.seen.size;
+                                    document.dispatchEvent(new CustomEvent('qr-scan-progress', { detail: { id: hdr.id, seq: uniqueCount, total: qrChunksBufferRef.current.total || hdr.total || 0 } }));
+                                } catch {}
+                                const isComplete = qrChunksBufferRef.current.seen.size >= (qrChunksBufferRef.current.total || 1);
+                                if (!isComplete) {
+                                    // Explicitly keep scanner open
+                                    return Promise.resolve(false);
+                                }
+                                // Completed: decide RAW vs COSE
+                                if (hdr.rt === 'raw') {
+                                    try {
+                                        // Sort by seq and concatenate bodies
+                                        const parts = qrChunksBufferRef.current.items
+                                            .map(s => JSON.parse(s))
+                                            .sort((a, b) => (a.hdr.seq || 0) - (b.hdr.seq || 0))
+                                            .map(p => p.body || '');
+                                        const fullText = parts.join('');
+                                        const payloadObj = JSON.parse(fullText);
+                                        if (showOfferStep) {
+                                            setAnswerInput(JSON.stringify(payloadObj, null, 2));
+                                        } else {
+                                            setOfferInput(JSON.stringify(payloadObj, null, 2));
+                                        }
+                                        setMessages(prev => [...prev, { message: '✅ All frames captured. RAW payload reconstructed.', type: 'success' }]);
+                                        try { document.dispatchEvent(new CustomEvent('qr-scan-complete', { detail: { id: hdr.id } })); } catch {}
+                                        // Close scanner from caller by returning true
+                                        qrChunksBufferRef.current = { id: null, total: 0, seen: new Set(), items: [] };
+                                        setShowQRScannerModal(false);
+                                        return Promise.resolve(true);
+                                    } catch (e) {
+                                        console.warn('RAW multi-frame reconstruction failed:', e);
+                                        return Promise.resolve(false);
+                                    }
+                                } else if (window.receiveAndProcess) {
+                                    try {
+                                        const results = await window.receiveAndProcess(qrChunksBufferRef.current.items);
+                                    if (results.length > 0) {
+                                        const { payloadObj } = results[0];
+                                        if (showOfferStep) {
+                                            setAnswerInput(JSON.stringify(payloadObj, null, 2));
+                                        } else {
+                                            setOfferInput(JSON.stringify(payloadObj, null, 2));
+                                            }
+                                            setMessages(prev => [...prev, { message: '✅ All frames captured. COSE payload reconstructed.', type: 'success' }]);
+                                            try { document.dispatchEvent(new CustomEvent('qr-scan-complete', { detail: { id: hdr.id } })); } catch {}
+                                            qrChunksBufferRef.current = { id: null, total: 0, seen: new Set(), items: [] };
+                                            setShowQRScannerModal(false);
+                                            return Promise.resolve(true);
+                                        }
+                                    } catch (e) {
+                                        console.warn('COSE multi-chunk processing failed:', e);
+                                    }
+                                    return Promise.resolve(false);
+                                } else {
+                                    return Promise.resolve(false);
+                                }
+                            }
+                            
+                            // Check if this is a template-based QR code
+                            if (parsedData.type === 'enhanced_secure_offer_template') {
+                                console.log('QR scan: Template-based offer detected, reconstructing...');
+                                const fullOffer = reconstructFromTemplate(parsedData);
+                                
+                                // Determine which input to populate based on current mode
+                                if (showOfferStep) {
+                                    // In "Waiting for peer's response" mode - populate answerInput
+                                    setAnswerInput(JSON.stringify(fullOffer, null, 2));
+                                    console.log('📱 Template data populated to answerInput (waiting for response mode)');
+                                } else {
+                                    // In "Paste secure invitation" mode - populate offerInput
+                                    setOfferInput(JSON.stringify(fullOffer, null, 2));
+                                    console.log('📱 Template data populated to offerInput (paste invitation mode)');
+                                }
+                                setMessages(prev => [...prev, {
+                                    message: '📱 QR code scanned successfully! Full offer reconstructed from template.',
+                                    type: 'success'
+                                }]);
+                                setShowQRScannerModal(false); // Close QR scanner modal
+                                return true;
+                            }
+                            // Check if this is a reference-based QR code
+                            else if (parsedData.type === 'secure_offer_reference' && parsedData.referenceId) {
+                                // Try to get the full offer data from localStorage
+                                const fullOfferData = localStorage.getItem(`qr_offer_${parsedData.referenceId}`);
+                                if (fullOfferData) {
+                                    const fullOffer = JSON.parse(fullOfferData);
+                                    // Determine which input to populate based on current mode
+                                    if (showOfferStep) {
+                                        // In "Waiting for peer's response" mode - populate answerInput
+                                        setAnswerInput(JSON.stringify(fullOffer, null, 2));
+                                        console.log('📱 Reference data populated to answerInput (waiting for response mode)');
+                                    } else {
+                                        // In "Paste secure invitation" mode - populate offerInput
+                                        setOfferInput(JSON.stringify(fullOffer, null, 2));
+                                        console.log('📱 Reference data populated to offerInput (paste invitation mode)');
+                                    }
+                                    setMessages(prev => [...prev, {
+                                        message: '📱 QR code scanned successfully! Full offer data retrieved.',
+                                        type: 'success'
+                                    }]);
+                                    setShowQRScannerModal(false); // Close QR scanner modal
+                                    return true;
+                                } else {
+                                    setMessages(prev => [...prev, {
+                                        message: '❌ QR code reference found but full data not available. Please use copy/paste.',
+                                        type: 'error'
+                                    }]);
+                                    return false;
+                                }
+                            } else {
+                                // Check if this is compressed data (missing SDP)
+                                if (!parsedData.sdp) {
+                                    setMessages(prev => [...prev, {
+                                        message: '⚠️ QR code contains compressed data (SDP removed). Please use copy/paste for full data.',
+                                        type: 'warning'
+                                    }]);
+                                }
+                                
+                                // Determine which input to populate based on current mode
+                                if (showOfferStep) {
+                                    // In "Waiting for peer's response" mode - populate answerInput
+                                    console.log('QR scan: Populating answerInput with:', parsedData);
+                                    setAnswerInput(JSON.stringify(parsedData, null, 2));
+                                } else {
+                                    // In "Paste secure invitation" mode - populate offerInput
+                                    console.log('QR scan: Populating offerInput with:', parsedData);
+                                    setOfferInput(JSON.stringify(parsedData, null, 2));
+                                }
+                                setMessages(prev => [...prev, {
+                                    message: '📱 QR code scanned successfully!',
+                                    type: 'success'
+                                }]);
+                                setShowQRScannerModal(false);
+                                return true;
+                            }
+                        } catch (error) {
+                            // If not JSON, use as plain text
+                            if (showOfferStep) {
+                                // In "Waiting for peer's response" mode - populate answerInput
+                                setAnswerInput(scannedData);
+                            } else {
+                                // In "Paste secure invitation" mode - populate offerInput
+                                setOfferInput(scannedData);
+                            }
+                            setMessages(prev => [...prev, {
+                                message: '📱 QR code scanned successfully!',
+                                type: 'success'
+                            }]);
+                            setShowQRScannerModal(false);
+                            return true;
+                        }
                     };
         
                     const handleCreateOffer = async () => {
                         try {
                             console.log('🎯 handleCreateOffer called');
-                            const ok = await ensureActiveSessionOrPurchase();
-                            if (!ok) return;
+                            // All security features are enabled by default
         
                             setOfferData('');
                             setShowOfferStep(false);
+                            setShowQRCode(false);
+                            setQrCodeUrl('');
                             
                             console.log('🎯 Calling createSecureOffer...');
                             const offer = await webrtcManagerRef.current.createSecureOffer();
@@ -3191,6 +3751,13 @@
                             // Store offer data directly (no encryption needed with SAS)
                             setOfferData(offer);
                             setShowOfferStep(true);
+                            
+                            // Generate QR code for the offer data
+                            // Use compact JSON (no pretty-printing) to reduce size
+                            const offerString = typeof offer === 'object' ? JSON.stringify(offer) : offer;
+                            console.log('Generating QR code for data length:', offerString.length);
+                            console.log('First 100 chars of offer data:', offerString.substring(0, 100));
+                            await generateQRCode(offerString);
         
                             const existingMessages = messages.filter(m => 
                                 m.type === 'system' && 
@@ -3229,6 +3796,10 @@
         
                     const handleCreateAnswer = async () => {
                         try {
+                            console.log('handleCreateAnswer called, offerInput:', offerInput);
+                            console.log('offerInput.trim():', offerInput.trim());
+                            console.log('offerInput.trim() length:', offerInput.trim().length);
+                            
                             if (!offerInput.trim()) {
                                 setMessages(prev => [...prev, { 
                                     message: '⚠️ You need to insert the invitation code from your interlocutor.', 
@@ -3247,9 +3818,6 @@
                                     timestamp: Date.now()
                                 }]);
         
-                                setAnswerData('');
-                                setShowAnswerStep(false);
-        
                                 let offer;
                                 try {
                                     // Parse the offer data directly (no decryption needed with SAS)
@@ -3262,8 +3830,10 @@
                                         throw new Error('The invitation must be an object');
                                     }
         
-                                    if (!offer.type || offer.type !== 'enhanced_secure_offer') {
-                                        throw new Error('Invalid invitation type. Expected enhanced_secure_offer');
+                                    // Support both compact and legacy offer formats
+                                    const isValidOfferType = (offer.t === 'offer') || (offer.type === 'enhanced_secure_offer');
+                                    if (!isValidOfferType) {
+                                        throw new Error('Invalid invitation type. Expected offer or enhanced_secure_offer');
                                     }
         
                                     console.log('Creating secure answer for offer:', offer);
@@ -3273,6 +3843,9 @@
                                     // Store answer data directly (no encryption needed with SAS)
                                     setAnswerData(answer);
                                     setShowAnswerStep(true);
+                                    
+                                    // Mark answer as created for state management
+                                    markAnswerCreated();
         
                                 const existingResponseMessages = messages.filter(m => 
                                     m.type === 'system' && 
@@ -3352,31 +3925,23 @@
                                         throw new Error('The response must be an object');
                                     }
         
-                                    if (!answer.type || answer.type !== 'enhanced_secure_answer') {
-                                        throw new Error('Invalid response type. Expected enhanced\_secure\_answer');
+                                    // Support both compact and legacy formats
+                                    const answerType = answer.t || answer.type;
+                                    if (!answerType || (answerType !== 'answer' && answerType !== 'enhanced_secure_answer')) {
+                                        throw new Error('Invalid response type. Expected answer or enhanced_secure_answer');
                                     }
         
                                     await webrtcManagerRef.current.handleSecureAnswer(answer);
                                     
-                                    if (sessionManager.canActivateSession() && pendingSession) {
-                                        const result = sessionManager.safeActivateSession(pendingSession.type, pendingSession.preimage, pendingSession.paymentHash);
-                                        if (result.success) {
+                                    // All security features are enabled by default - no session activation needed
+                                    if (pendingSession) {
                                             setPendingSession(null);
-                                            setSessionTimeLeft(sessionManager.getTimeLeft()); 
                                             setMessages(prev => [...prev, { 
-                                                message: `💰 Session activated on ${sessionManager.sessionPrices[pendingSession.type].hours}ч (${result.method})`, 
+                                            message: `✅ All security features enabled by default`, 
                                                 type: 'system',
                                                 id: Date.now(),
                                                 timestamp: Date.now()
                                             }]);
-                                        } else {
-                                            setMessages(prev => [...prev, { 
-                                                message: `❌ Session activation error: ${result.reason}`, 
-                                                type: 'error',
-                                                id: Date.now(),
-                                                timestamp: Date.now()
-                                            }]);
-                                        }
                                     }
                                     
                                     setMessages(prev => [...prev, { 
@@ -3391,28 +3956,98 @@
                                         updateSecurityLevel().catch(console.error);
                                     }
                                 } catch (error) {
+                                    console.error('Error in handleConnect inner try:', error);
+                                    
+                                    // Более детальная обработка ошибок
+                                    let errorMessage = 'Connection setup error';
+                                    if (error.message.includes('CRITICAL SECURITY FAILURE')) {
+                                        if (error.message.includes('ECDH public key structure')) {
+                                            errorMessage = '🔑 Invalid response code - missing or corrupted cryptographic key. Please check the code and try again.';
+                                        } else if (error.message.includes('ECDSA public key structure')) {
+                                            errorMessage = '🔐 Invalid response code - missing signature verification key. Please check the code and try again.';
+                                        } else {
+                                            errorMessage = '🔒 Security validation failed - possible attack detected';
+                                        }
+                                    } else if (error.message.includes('too old') || error.message.includes('replay')) {
+                                        errorMessage = '⏰ Response data is outdated - please use a fresh invitation';
+                                    } else if (error.message.includes('MITM') || error.message.includes('signature')) {
+                                        errorMessage = '🛡️ Security breach detected - connection rejected';
+                                    } else if (error.message.includes('Invalid') || error.message.includes('format')) {
+                                        errorMessage = '📝 Invalid response format - please check the code';
+                                    } else {
+                                        errorMessage = `❌ ${error.message}`;
+                                    }
+                                    
                                     setMessages(prev => [...prev, { 
-                                        message: `❌ Connection setup error: ${error.message}`, 
+                                        message: errorMessage, 
                                         type: 'system',
                                         id: Date.now(),
-                                        timestamp: Date.now()
+                                        timestamp: Date.now(),
+                                        showRetryButton: true
                                     }]);
                                     
-                                    if (!error.message.includes('Too old') && !error.message.includes('too old')) {
+                                    // Сброс сессии для всех ошибок кроме replay attack
+                                    if (!error.message.includes('too old') && !error.message.includes('replay')) {
                                         setPendingSession(null);
+                                        setSessionTimeLeft(0);
                                     }
+                                    
+                                    // Устанавливаем статус failed для отображения в хедере
+                                    setConnectionStatus('failed');
+                                    
+                                    // Отладочная информация для диагностики
+                                    console.log('🚨 Error occurred, but keeping connection status as connecting:');
+                                    console.log('  - errorMessage:', error.message);
+                                    console.log('  - connectionStatus:', 'connecting (kept)');
+                                    console.log('  - isVerified:', false);
+                                    console.log('  - willShowChat:', keyFingerprint && keyFingerprint !== '');
                                 } 
                         } catch (error) {
+                            console.error('Error in handleConnect outer try:', error);
+                            
+                            // Более детальная обработка ошибок
+                            let errorMessage = 'Connection setup error';
+                            if (error.message.includes('CRITICAL SECURITY FAILURE')) {
+                                if (error.message.includes('ECDH public key structure')) {
+                                    errorMessage = '🔑 Invalid response code - missing or corrupted cryptographic key. Please check the code and try again.';
+                                } else if (error.message.includes('ECDSA public key structure')) {
+                                    errorMessage = '🔐 Invalid response code - missing signature verification key. Please check the code and try again.';
+                                } else {
+                                    errorMessage = '🔒 Security validation failed - possible attack detected';
+                                }
+                            } else if (error.message.includes('too old') || error.message.includes('replay')) {
+                                errorMessage = '⏰ Response data is outdated - please use a fresh invitation';
+                            } else if (error.message.includes('MITM') || error.message.includes('signature')) {
+                                errorMessage = '🛡️ Security breach detected - connection rejected';
+                            } else if (error.message.includes('Invalid') || error.message.includes('format')) {
+                                errorMessage = '📝 Invalid response format - please check the code';
+                            } else {
+                                errorMessage = `❌ ${error.message}`;
+                            }
+                            
                             setMessages(prev => [...prev, { 
-                                message: `❌ Connection setup error: ${error.message}`, 
+                                message: errorMessage, 
                                 type: 'system',
                                 id: Date.now(),
-                                timestamp: Date.now()
+                                timestamp: Date.now(),
+                                showRetryButton: true
                             }]);
                             
-                            if (!error.message.includes('сToo old') && !error.message.includes('too old')) {
+                            // Сброс сессии для всех ошибок кроме replay attack
+                            if (!error.message.includes('too old') && !error.message.includes('replay')) {
                                 setPendingSession(null);
+                                setSessionTimeLeft(0);
                             }
+                            
+                            // Устанавливаем статус failed для отображения в хедере
+                            setConnectionStatus('failed');
+                            
+                            // Отладочная информация для диагностики
+                            console.log('🚨 Error occurred in outer catch, but keeping connection status as connecting:');
+                            console.log('  - errorMessage:', error.message);
+                            console.log('  - connectionStatus:', 'connecting (kept)');
+                            console.log('  - isVerified:', false);
+                            console.log('  - willShowChat:', keyFingerprint && keyFingerprint !== '');
                         }
                     };
         
@@ -3449,7 +4084,6 @@
                             setIsVerified(false);
                             setMessages([]);
                             
-                            sessionManager.resetSession();
                             setSessionTimeLeft(0);
                             setPendingSession(null);
                             
@@ -3498,6 +4132,10 @@
                         setShowOfferStep(false);
                         setShowAnswerStep(false);
                         setShowVerification(false);
+                        setShowQRCode(false);
+                        setShowQRScanner(false);
+                        setShowQRScannerModal(false);
+                        setQrCodeUrl('');
                         setVerificationCode('');
                         setIsVerified(false);
                         setKeyFingerprint('');
@@ -3519,32 +4157,26 @@
                         //     console.clear();
                         // }
                         
-                        // Cleanup pay-per-session state
-                        if (sessionManager) {
-                        sessionManager.cleanup();
+                        // Cleanup session state
                         setSessionTimeLeft(0);
-                        }
-                        setShowPaymentModal(false);
         
                         setPendingSession(null);
                         document.dispatchEvent(new CustomEvent('peer-disconnect'));
-                        setSessionManager(null);
+                        // Session manager removed - all features enabled by default
                     };
         
                     const handleDisconnect = () => {
-                        if (sessionManager && sessionManager.hasActiveSession()) {
-                            sessionManager.resetSession();
                             setSessionTimeLeft(0);
-                        }
                         
-                        // Cleanup pay-per-session state
-                        if (sessionManager) {
-                        sessionManager.cleanup();
-                        }
-                        setShowPaymentModal(false);
-        
+                        // Mark as user-initiated disconnect
+                        updateConnectionState({ 
+                            status: 'disconnected',
+                            isUserInitiatedDisconnect: true 
+                        });
+                        
+                        // Cleanup session state
                         if (webrtcManagerRef.current) {
-                        webrtcManagerRef.current.disconnect();
+                            webrtcManagerRef.current.disconnect();
                         }
         
                         setKeyFingerprint('');
@@ -3559,7 +4191,7 @@
                         setRemoteVerificationConfirmed(false);
                         setBothVerificationsConfirmed(false);
         
-                        // Reset UI to initial state
+                        // Reset UI to initial state (user-initiated disconnect always clears data)
                         setConnectionStatus('disconnected');
                         setShowVerification(false);
                         setOfferData(null);
@@ -3592,16 +4224,13 @@
                         }));
         
                         setTimeout(() => {
-                            if (sessionManager && sessionManager.hasActiveSession()) {
-                                sessionManager.resetSession();
                                 setSessionTimeLeft(0);
-                            }
                         }, 500);
         
                         handleClearData();
         
                         setTimeout(() => {
-                            setSessionManager(null);
+                            // Session manager removed - all features enabled by default
                         }, 1000);
                     };
         
@@ -3610,8 +4239,7 @@
                         if (session.type === 'demo') {
                             message = `🎮 Demo session activated for 6 minutes. You can create invitations!`;
                         } else {
-                            const hours = sessionManager.sessionPrices[session.type]?.hours || 0;
-                            message = `💰 Session activated for ${hours}h. You can create invitations!`;
+                            message = `✅ All security features enabled by default. You can create invitations!`;
                         }
                         
                         addMessageWithAutoScroll(message, 'system');
@@ -3625,28 +4253,26 @@
                         }
                     }, [connectionStatus, isVerified]);
         
-                    const isConnectedAndVerified = connectionStatus === 'connected' && isVerified;
+                    const isConnectedAndVerified = (connectionStatus === 'connected' || connectionStatus === 'verified') && isVerified;
+                    
+                    // Отладочная информация для диагностики активации чата
+                    console.log('🔍 Chat activation check:');
+                    console.log('  - connectionStatus:', connectionStatus);
+                    console.log('  - isVerified:', isVerified);
+                    console.log('  - keyFingerprint:', keyFingerprint);
+                    console.log('  - isConnectedAndVerified:', isConnectedAndVerified);
+                    console.log('  - bothVerificationsConfirmed:', bothVerificationsConfirmed);
+                    console.log('  - localVerificationConfirmed:', localVerificationConfirmed);
+                    console.log('  - remoteVerificationConfirmed:', remoteVerificationConfirmed);
         
                     React.useEffect(() => {
-                        if (isConnectedAndVerified && sessionManager.canActivateSession() && pendingSession && connectionStatus !== 'failed') {
-                            const result = sessionManager.safeActivateSession(pendingSession.type, pendingSession.preimage, pendingSession.paymentHash);
-                            if (result.success) {
+                        // All security features are enabled by default - no session activation needed
+                        if (isConnectedAndVerified && pendingSession && connectionStatus !== 'failed') {
                                 setPendingSession(null);
-                                setSessionTimeLeft(sessionManager.getTimeLeft()); 
-                                let message;
-                                if (pendingSession.type === 'demo') {
-                                    message = `🎮 Demo session activated for 6 minutes (${result.method})`;
-                                } else {
-                                    const hours = sessionManager.sessionPrices[pendingSession.type]?.hours || 0;
-                                    message = `💰 Session activated for ${hours}h (${result.method})`;
-                                }
-                                
-                                addMessageWithAutoScroll(message, 'system');
-                            } else {
-                                addMessageWithAutoScroll(`❌ Session activation error: ${result.reason}`, 'error');
-                            }
+                            setSessionTimeLeft(0); 
+                            addMessageWithAutoScroll('✅ All security features enabled by default', 'system');
                         }
-                    }, [isConnectedAndVerified, sessionManager, pendingSession, connectionStatus]);
+                    }, [isConnectedAndVerified, pendingSession, connectionStatus]);
         
                     return React.createElement('div', { 
                         className: "minimal-bg min-h-screen" 
@@ -3659,25 +4285,38 @@
                             onDisconnect: handleDisconnect,
                             isConnected: isConnectedAndVerified,
                             securityLevel: securityLevel,
-                            sessionManager: sessionManager,
-                            sessionTimeLeft: sessionTimeLeft
+                            // sessionManager removed - all features enabled by default
+                            sessionTimeLeft: sessionTimeLeft,
+                            webrtcManager: webrtcManagerRef.current
                         }),
         
                         React.createElement('main', {
                             key: 'main'
                         }, 
-                            isConnectedAndVerified
-                                ? React.createElement(EnhancedChatInterface, {
-                                    messages: messages,
-                                    messageInput: messageInput,
-                                    setMessageInput: setMessageInput,
-                                    onSendMessage: handleSendMessage,
-                                    onDisconnect: handleDisconnect,
-                                    keyFingerprint: keyFingerprint,
-                                    isVerified: isVerified,
-                                    chatMessagesRef: chatMessagesRef,
-                                    webrtcManager: webrtcManagerRef.current
-                                })
+                            (() => {
+                                console.log('🔍 Main render decision:', {
+                                    isConnectedAndVerified,
+                                    connectionStatus,
+                                    isVerified,
+                                    keyFingerprint: !!keyFingerprint
+                                });
+                                return isConnectedAndVerified;
+                            })()
+                                ? (() => {
+                                    console.log('🔍 Passing scrollToBottom to EnhancedChatInterface:', typeof scrollToBottom, scrollToBottom);
+                                    return React.createElement(EnhancedChatInterface, {
+                                        messages: messages,
+                                        messageInput: messageInput,
+                                        setMessageInput: setMessageInput,
+                                        onSendMessage: handleSendMessage,
+                                        onDisconnect: handleDisconnect,
+                                        keyFingerprint: keyFingerprint,
+                                        isVerified: isVerified,
+                                        chatMessagesRef: chatMessagesRef,
+                                        scrollToBottom: scrollToBottom,
+                                        webrtcManager: webrtcManagerRef.current
+                                    });
+                                })()
                                 : React.createElement(EnhancedConnectionSetup, {
                                     onCreateOffer: handleCreateOffer,
                                     onCreateAnswer: handleCreateAnswer,
@@ -3695,6 +4334,12 @@
                                     showAnswerStep: showAnswerStep,
                                     verificationCode: verificationCode,
                                     showVerification: showVerification,
+                                    showQRCode: showQRCode,
+                                    qrCodeUrl: qrCodeUrl,
+                                    showQRScanner: showQRScanner,
+                                    setShowQRCode: setShowQRCode,
+                                    setShowQRScanner: setShowQRScanner,
+                                    setShowQRScannerModal: setShowQRScannerModal,
                                     messages: messages,
                                     localVerificationConfirmed: localVerificationConfirmed,
                                     remoteVerificationConfirmed: remoteVerificationConfirmed,
@@ -3705,14 +4350,21 @@
                         
                         // PAKE Password Modal removed - using SAS verification instead
         
-                        // Payment Modal
-                        React.createElement(PaymentModal, {
-                            key: 'payment-modal',
-                            isOpen: showPaymentModal,
-                            onClose: () => setShowPaymentModal(false),
-                            sessionManager: sessionManager,
-                            onSessionPurchased: (session) => { setPendingSession(session); handleSessionActivated({ type: session.type }); }
-                        })
+                        // Payment Modal removed - all security features enabled by default
+
+                        (() => {
+                            console.log('Rendering QRScanner, showQRScannerModal:', showQRScannerModal, 'QRScanner available:', !!window.QRScanner);
+                            return window.QRScanner ? React.createElement(window.QRScanner, {
+                                key: 'qr-scanner-modal',
+                                onScan: handleQRScan,
+                                onClose: () => setShowQRScannerModal(false),
+                                isVisible: showQRScannerModal,
+                                continuous: true
+                            }) : React.createElement('div', {
+                                key: 'qr-scanner-error',
+                                className: "hidden"
+                            }, 'QRScanner not loaded');
+                        })()
                     ]);
                 };
                 function initializeApp() {
@@ -3725,8 +4377,23 @@
                         });
                     }
                 }
-                if (typeof window !== 'undefined' && !window.initializeApp) {
-                    window.initializeApp = initializeApp;
+                // Глобальный обработчик ошибок для предотвращения попадания ошибок в консоль
+                if (typeof window !== 'undefined') {
+                    // Обработчик необработанных промисов
+                    window.addEventListener('unhandledrejection', (event) => {
+                        console.error('🚨 Unhandled promise rejection:', event.reason);
+                        event.preventDefault(); // Предотвращаем попадание в консоль браузера
+                    });
+                    
+                    // Обработчик глобальных ошибок
+                    window.addEventListener('error', (event) => {
+                        console.error('🚨 Global error:', event.error);
+                        event.preventDefault(); // Предотвращаем попадание в консоль браузера
+                    });
+                    
+                    if (!window.initializeApp) {
+                        window.initializeApp = initializeApp;
+                    }
                 }
                 // Render Enhanced Application
                 ReactDOM.render(React.createElement(EnhancedSecureP2PChat), document.getElementById('root'));

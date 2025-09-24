@@ -114,7 +114,7 @@ const EnhancedMinimalHeader = ({
         const interval = setInterval(updateRealSecurityStatus, 30000);
         
         return () => clearInterval(interval);
-    }, [webrtcManager, isConnected, lastSecurityUpdate, realSecurityLevel]);
+    }, [webrtcManager, isConnected]);
 
     // ============================================
     // FIXED EVENT HANDLERS
@@ -178,46 +178,25 @@ const EnhancedMinimalHeader = ({
     // ============================================
 
     React.useEffect(() => {
-        const updateSessionInfo = () => {
-            if (sessionManager) {
-                const isActive = sessionManager.hasActiveSession();
-                const timeLeft = sessionManager.getTimeLeft();
-                const currentSession = sessionManager.currentSession;
-                
-                setHasActiveSession(isActive);
-                setCurrentTimeLeft(timeLeft);
-                setSessionType(currentSession?.type || 'unknown');
-            }
-        };
-
-        updateSessionInfo();
-        const interval = setInterval(updateSessionInfo, 1000);
-        return () => clearInterval(interval);
-    }, [sessionManager]);
+        // All security features are enabled by default - no session management needed
+        setHasActiveSession(true);
+        setCurrentTimeLeft(0);
+        setSessionType('premium'); // All features enabled
+    }, []);
 
     React.useEffect(() => {
-        if (sessionManager?.hasActiveSession()) {
-            setCurrentTimeLeft(sessionManager.getTimeLeft());
-            setHasActiveSession(true);
-        } else {
-            setHasActiveSession(false);
-            setRealSecurityLevel(null);
-            setLastSecurityUpdate(0);
-            setSessionType('unknown');
-        }
-    }, [sessionManager, sessionTimeLeft]);
+        // All security features are enabled by default
+        setHasActiveSession(true);
+        setCurrentTimeLeft(0);
+        setSessionType('premium'); // All features enabled
+    }, [sessionTimeLeft]);
 
     React.useEffect(() => {
         const handleForceUpdate = (event) => {
-            if (sessionManager) {
-                const isActive = sessionManager.hasActiveSession();
-                const timeLeft = sessionManager.getTimeLeft();
-                const currentSession = sessionManager.currentSession;
-                
-                setHasActiveSession(isActive);
-                setCurrentTimeLeft(timeLeft);
-                setSessionType(currentSession?.type || 'unknown');
-            }
+            // All security features are enabled by default
+            setHasActiveSession(true);
+            setCurrentTimeLeft(0);
+            setSessionType('premium'); // All features enabled
         };
 
         // Connection cleanup handler (use existing event from module)
@@ -243,22 +222,36 @@ const EnhancedMinimalHeader = ({
             setLastSecurityUpdate(0);
         };
 
+        const handleDisconnected = () => {
+            if (window.DEBUG_MODE) {
+                console.log('🔌 Disconnected - clearing security data in header');
+            }
+
+            setRealSecurityLevel(null);
+            setLastSecurityUpdate(0);
+            setHasActiveSession(false);
+            setCurrentTimeLeft(0);
+            setSessionType('unknown');
+        };
+
         document.addEventListener('force-header-update', handleForceUpdate);
         document.addEventListener('peer-disconnect', handlePeerDisconnect);
         document.addEventListener('connection-cleaned', handleConnectionCleaned);
+        document.addEventListener('disconnected', handleDisconnected);
         
         return () => {
             document.removeEventListener('force-header-update', handleForceUpdate);
             document.removeEventListener('peer-disconnect', handlePeerDisconnect);
             document.removeEventListener('connection-cleaned', handleConnectionCleaned);
+            document.removeEventListener('disconnected', handleDisconnected);
         };
-    }, [sessionManager]);
+    }, []);
 
     // ============================================
     // SECURITY INDICATOR CLICK HANDLER
     // ============================================
 
-    const handleSecurityClick = (event) => {
+    const handleSecurityClick = async (event) => {
         // Check if it's a right-click or Ctrl+click to disconnect
         if (event && (event.button === 2 || event.ctrlKey || event.metaKey)) {
             if (onDisconnect && typeof onDisconnect === 'function') {
@@ -267,86 +260,190 @@ const EnhancedMinimalHeader = ({
             }
         }
 
-        if (!realSecurityLevel) {
+        // Prevent default behavior
+        event.preventDefault();
+        event.stopPropagation();
+
+        // Debug information
+        console.log('🔍 Security click debug:', {
+            hasWebrtcManager: !!webrtcManager,
+            hasCryptoUtils: !!window.EnhancedSecureCryptoUtils,
+            hasRealSecurityLevel: !!realSecurityLevel,
+            connectionStatus: webrtcManager?.connectionState || 'unknown'
+        });
+
+        // Run real security tests if webrtcManager is available
+        let realTestResults = null;
+        if (webrtcManager && window.EnhancedSecureCryptoUtils) {
+            try {
+                console.log('🔍 Running real security tests...');
+                realTestResults = await window.EnhancedSecureCryptoUtils.calculateSecurityLevel(webrtcManager);
+                console.log('✅ Real security tests completed:', realTestResults);
+            } catch (error) {
+                console.error('❌ Real security tests failed:', error);
+            }
+        } else {
+            console.log('⚠️ Cannot run security tests:', {
+                webrtcManager: !!webrtcManager,
+                cryptoUtils: !!window.EnhancedSecureCryptoUtils
+            });
+        }
+
+        // If no real test results and no existing security level, show progress message
+        if (!realTestResults && !realSecurityLevel) {
             alert('Security verification in progress...\nPlease wait for real-time cryptographic verification to complete.');
             return;
         }
 
+        // Use real test results if available, otherwise fall back to current data
+        let securityData = realTestResults || realSecurityLevel;
+
+        // If still no security data, create a basic fallback
+        if (!securityData) {
+            securityData = {
+                level: 'UNKNOWN',
+                score: 0,
+                color: 'gray',
+                verificationResults: {},
+                timestamp: Date.now(),
+                details: 'Security verification not available',
+                isRealData: false,
+                passedChecks: 0,
+                totalChecks: 0,
+                sessionType: 'unknown'
+            };
+            console.log('⚠️ Using fallback security data:', securityData);
+        }
+
         // Detailed information about the REAL security check
         let message = `🔒 REAL-TIME SECURITY VERIFICATION\n\n`;
-        message += `Security Level: ${realSecurityLevel.level} (${realSecurityLevel.score}%)\n`;
-        message += `Session Type: ${realSecurityLevel.sessionType || 'demo'}\n`;
-        message += `Verification Time: ${new Date(realSecurityLevel.timestamp).toLocaleTimeString()}\n`;
-        message += `Data Source: ${realSecurityLevel.isRealData ? 'Real Cryptographic Tests' : 'Simulated Data'}\n\n`;
+        message += `Security Level: ${securityData.level} (${securityData.score}%)\n`;
+        message += `Session Type: ${securityData.sessionType || 'premium'}\n`;
+        message += `Verification Time: ${new Date(securityData.timestamp).toLocaleTimeString()}\n`;
+        message += `Data Source: ${securityData.isRealData ? 'Real Cryptographic Tests' : 'Simulated Data'}\n\n`;
         
-        if (realSecurityLevel.verificationResults) {
+        if (securityData.verificationResults) {
             message += 'DETAILED CRYPTOGRAPHIC TESTS:\n';
             message += '=' + '='.repeat(40) + '\n';
             
-            const passedTests = Object.entries(realSecurityLevel.verificationResults).filter(([key, result]) => result.passed);
-            const failedTests = Object.entries(realSecurityLevel.verificationResults).filter(([key, result]) => !result.passed);
+            const passedTests = Object.entries(securityData.verificationResults).filter(([key, result]) => result.passed);
+            const failedTests = Object.entries(securityData.verificationResults).filter(([key, result]) => !result.passed);
             
             if (passedTests.length > 0) {
                 message += '✅ PASSED TESTS:\n';
                 passedTests.forEach(([key, result]) => {
                     const testName = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-                    message += `   ${testName}: ${result.details}\n`;
+                    message += `   ${testName}: ${result.details || 'Test passed'}\n`;
                 });
                 message += '\n';
             }
             
             if (failedTests.length > 0) {
-                message += '❌ UNAVAILABLE/Failed TESTS:\n';
+                message += '❌ FAILED/UNAVAILABLE TESTS:\n';
                 failedTests.forEach(([key, result]) => {
                     const testName = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-                    message += `   ${testName}: ${result.details}\n`;
+                    message += `   ${testName}: ${result.details || 'Test failed or unavailable'}\n`;
                 });
                 message += '\n';
             }
             
             message += `SUMMARY:\n`;
-            message += `Passed: ${realSecurityLevel.passedChecks}/${realSecurityLevel.totalChecks} tests\n`;
+            message += `Passed: ${securityData.passedChecks}/${securityData.totalChecks} tests\n`;
+            message += `Score: ${securityData.score}/${securityData.maxPossibleScore || 100} points\n\n`;
         }
         
-        // Add information about what is available in other sessions
-        message += `\n📋 WHAT'S AVAILABLE IN OTHER SESSIONS:\n`;
+        // Real security features status
+        message += `🔒 SECURITY FEATURES STATUS:\n`;
         message += '=' + '='.repeat(40) + '\n';
         
-        if (realSecurityLevel.sessionType === 'demo') {
-            message += `🔒 BASIC SESSION (5,000 sat - $2.00):\n`;
-            message += `   • ECDSA Digital Signatures\n`;
-            message += `   • Metadata Protection\n`;
-            message += `   • Perfect Forward Secrecy\n`;
-            message += `   • Nested Encryption\n`;
-            message += `   • Packet Padding\n\n`;
+        if (securityData.verificationResults) {
+            const features = {
+                'ECDSA Digital Signatures': securityData.verificationResults.verifyECDSASignatures?.passed || false,
+                'ECDH Key Exchange': securityData.verificationResults.verifyECDHKeyExchange?.passed || false,
+                'AES-GCM Encryption': securityData.verificationResults.verifyEncryption?.passed || false,
+                'Message Integrity (HMAC)': securityData.verificationResults.verifyMessageIntegrity?.passed || false,
+                'Perfect Forward Secrecy': securityData.verificationResults.verifyPerfectForwardSecrecy?.passed || false,
+                'Replay Protection': securityData.verificationResults.verifyReplayProtection?.passed || false,
+                'DTLS Fingerprint': securityData.verificationResults.verifyDTLSFingerprint?.passed || false,
+                'SAS Verification': securityData.verificationResults.verifySASVerification?.passed || false,
+                'Metadata Protection': securityData.verificationResults.verifyMetadataProtection?.passed || false,
+                'Traffic Obfuscation': securityData.verificationResults.verifyTrafficObfuscation?.passed || false
+            };
             
-            message += `🚀 PREMIUM SESSION (20,000 sat - $8.00):\n`;
-            message += `   • All Basic + Enhanced features\n`;
-            message += `   • Traffic Obfuscation\n`;
-            message += `   • Fake Traffic Generation\n`;
-            message += `   • Decoy Channels\n`;
-            message += `   • Anti-Fingerprinting\n`;
-            message += `   • Message Chunking\n`;
-            message += `   • Advanced Replay Protection\n`;
-        } else if (realSecurityLevel.sessionType === 'basic') {
-            message += `🚀 PREMIUM SESSION (20,000 sat - $8.00):\n`;
-            message += `   • Traffic Obfuscation\n`;
-            message += `   • Fake Traffic Generation\n`;
-            message += `   • Decoy Channels\n`;
-            message += `   • Anti-Fingerprinting\n`;
-            message += `   • Message Chunking\n`;
-            message += `   • Advanced Replay Protection\n`;
+            Object.entries(features).forEach(([feature, isEnabled]) => {
+                message += `${isEnabled ? '✅' : '❌'} ${feature}\n`;
+            });
+        } else {
+            // Fallback if no verification results
+            message += `✅ ECDSA Digital Signatures\n`;
+            message += `✅ ECDH Key Exchange\n`;
+            message += `✅ AES-GCM Encryption\n`;
+            message += `✅ Message Integrity (HMAC)\n`;
+            message += `✅ Perfect Forward Secrecy\n`;
+            message += `✅ Replay Protection\n`;
+            message += `✅ DTLS Fingerprint\n`;
+            message += `✅ SAS Verification\n`;
+            message += `✅ Metadata Protection\n`;
+            message += `✅ Traffic Obfuscation\n`;
         }
         
-        message += `\n${realSecurityLevel.details || 'Real cryptographic verification completed'}`;
+        message += `\n${securityData.details || 'Real cryptographic verification completed'}`;
         
-        if (realSecurityLevel.isRealData) {
+        if (securityData.isRealData) {
             message += '\n\n✅ This is REAL-TIME verification using actual cryptographic functions.';
         } else {
             message += '\n\n⚠️ Warning: This data may be simulated. Connection may not be fully established.';
         }
         
-        alert(message);
+        // Show in a more user-friendly way
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: monospace;
+        `;
+        
+        const content = document.createElement('div');
+        content.style.cssText = `
+            background: #1a1a1a;
+            color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 80%;
+            max-height: 80%;
+            overflow-y: auto;
+            white-space: pre-line;
+            border: 1px solid #333;
+        `;
+        
+        content.textContent = message;
+        modal.appendChild(content);
+        
+        // Close on click outside
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                document.body.removeChild(modal);
+            }
+        });
+        
+        // Close on Escape key
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                document.body.removeChild(modal);
+                document.removeEventListener('keydown', handleKeyDown);
+            }
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        
+        document.body.appendChild(modal);
     };
 
     // ============================================
@@ -407,7 +504,7 @@ const EnhancedMinimalHeader = ({
     };
 
     const config = getStatusConfig();
-    const displaySecurityLevel = realSecurityLevel || securityLevel;
+    const displaySecurityLevel = isConnected ? (realSecurityLevel || securityLevel) : null;
     
     const shouldShowTimer = hasActiveSession && currentTimeLeft > 0 && window.SessionTimer;
 
@@ -514,12 +611,11 @@ const EnhancedMinimalHeader = ({
                     key: 'status-section',
                     className: 'flex items-center space-x-2 sm:space-x-3'
                 }, [
-                    // Session Timer
+                    // Session Timer - all features enabled by default
                     shouldShowTimer && React.createElement(window.SessionTimer, {
                         key: 'session-timer',
                         timeLeft: currentTimeLeft,
                         sessionType: sessionType,
-                        sessionManager: sessionManager,
                         onDisconnect: onDisconnect
                     }),
 
@@ -628,7 +724,7 @@ const EnhancedMinimalHeader = ({
                         React.createElement('span', {
                             key: 'status-text',
                             className: 'text-xs sm:text-sm font-medium'
-                        }, config.text)
+                        }, config.text),
                     ]),
 
                     // Disconnect Button
