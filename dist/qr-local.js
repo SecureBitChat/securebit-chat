@@ -36171,7 +36171,8 @@ async function packSecurePayload(payloadObj, senderEcdsaPrivKey = null, recipien
     const compressed = deflate_1(cborFinal);
     const encoded = toBase64Url(compressed);
     console.log(`\u{1F4CA} Compressed size: ${encoded.length} characters (${Math.round((1 - encoded.length / payloadJson.length) * 100)}% reduction)`);
-    const QR_MAX = 900;
+    const TARGET_CHUNKS = 10;
+    const QR_MAX = Math.max(200, Math.floor(encoded.length / TARGET_CHUNKS));
     const chunks = [];
     if (encoded.length <= QR_MAX) {
       chunks.push(JSON.stringify({
@@ -36181,6 +36182,7 @@ async function packSecurePayload(payloadObj, senderEcdsaPrivKey = null, recipien
     } else {
       const id = generateUUID();
       const totalChunks = Math.ceil(encoded.length / QR_MAX);
+      console.log(`\u{1F4CA} COSE: Splitting ${encoded.length} chars into ${totalChunks} chunks (max ${QR_MAX} chars per chunk)`);
       for (let i = 0, seq = 1; i < encoded.length; i += QR_MAX, seq++) {
         const part = encoded.slice(i, i + QR_MAX);
         chunks.push(JSON.stringify({

@@ -139,8 +139,9 @@ export async function packSecurePayload(payloadObj, senderEcdsaPrivKey = null, r
         
         console.log(`📊 Compressed size: ${encoded.length} characters (${Math.round((1 - encoded.length/payloadJson.length) * 100)}% reduction)`);
         
-        // 5. Chunking for QR codes
-        const QR_MAX = 900; // Conservative per chunk length
+        // 5. Chunking for QR codes - улучшенное разбиение для лучшего сканирования
+        const TARGET_CHUNKS = 10; // Целевое количество частей
+        const QR_MAX = Math.max(200, Math.floor(encoded.length / TARGET_CHUNKS)); // Динамический размер части
         const chunks = [];
         
         if (encoded.length <= QR_MAX) {
@@ -150,9 +151,11 @@ export async function packSecurePayload(payloadObj, senderEcdsaPrivKey = null, r
                 body: encoded
             }));
         } else {
-            // Multiple chunks
+            // Multiple chunks - разбиваем на больше частей для лучшего сканирования
             const id = generateUUID();
             const totalChunks = Math.ceil(encoded.length / QR_MAX);
+            
+            console.log(`📊 COSE: Splitting ${encoded.length} chars into ${totalChunks} chunks (max ${QR_MAX} chars per chunk)`);
             
             for (let i = 0, seq = 1; i < encoded.length; i += QR_MAX, seq++) {
                 const part = encoded.slice(i, i + QR_MAX);

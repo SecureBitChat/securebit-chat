@@ -1257,7 +1257,14 @@
                     answerPassword,
                     localVerificationConfirmed,
                     remoteVerificationConfirmed,
-                    bothVerificationsConfirmed
+                    bothVerificationsConfirmed,
+                    // QR control props
+                    qrFramesTotal,
+                    qrFrameIndex,
+                    qrManualMode,
+                    toggleQrManualMode,
+                    nextQrFrame,
+                    prevQrFrame
                 }) => {
                     const [mode, setMode] = React.useState('select');
         
@@ -1627,11 +1634,44 @@
                                                         src: qrCodeUrl,
                                                         alt: "QR Code for secure connection",
                                                         className: "max-w-none h-auto border border-gray-600/30 rounded w-[20rem] sm:w-[24rem] md:w-[28rem] lg:w-[32rem]"
-                                                    }),
-                                                    (typeof qrFramesTotal !== 'undefined' && typeof qrFrameIndex !== 'undefined' && qrFramesTotal > 1) && React.createElement('div', {
-                                                        key: 'qr-frame-indicator',
-                                                        className: "ml-3 self-center text-xs text-gray-300"
-                                                    }, `Frame ${Math.max(1, qrFrameIndex || 1)}/${qrFramesTotal}`)
+                                                    })
+                                                ]),
+                                                
+                                                // Переключатель управления ниже QR кода
+                                                ((qrFramesTotal || 0) >= 1) && React.createElement('div', {
+                                                    key: 'qr-controls-below',
+                                                    className: "mt-4 flex flex-col items-center gap-2"
+                                                }, [
+                                                    React.createElement('div', {
+                                                        key: 'frame-indicator',
+                                                        className: "text-xs text-gray-300"
+                                                    }, `Frame ${Math.max(1, (qrFrameIndex || 1))}/${qrFramesTotal || 1}`),
+                                                    React.createElement('div', {
+                                                        key: 'control-buttons',
+                                                        className: "flex gap-1"
+                                                    }, [
+                                                        // Кнопки навигации показываем только если больше 1 части
+                                                        (qrFramesTotal || 0) > 1 && React.createElement('button', {
+                                                            key: 'prev-frame',
+                                                            onClick: prevQrFrame,
+                                                            className: "w-6 h-6 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs flex items-center justify-center"
+                                                        }, '◀'),
+                                                        React.createElement('button', {
+                                                            key: 'toggle-manual',
+                                                            onClick: toggleQrManualMode,
+                                                            className: `px-2 py-1 rounded text-xs font-medium ${
+                                                                (qrManualMode || false)
+                                                                    ? 'bg-blue-500 text-white' 
+                                                                    : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                                                            }`
+                                                        }, (qrManualMode || false) ? 'Manual' : 'Auto'),
+                                                        // Кнопки навигации показываем только если больше 1 части
+                                                        (qrFramesTotal || 0) > 1 && React.createElement('button', {
+                                                            key: 'next-frame',
+                                                            onClick: nextQrFrame,
+                                                            className: "w-6 h-6 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs flex items-center justify-center"
+                                                        }, '▶')
+                                                    ])
                                                 ]),
                                                 React.createElement('p', {
                                                     key: 'qr-description',
@@ -1957,6 +1997,68 @@
                                             text: typeof answerData === 'object' ? JSON.stringify(answerData, null, 2) : answerData,
                                             className: "w-full px-3 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 rounded text-sm font-medium"
                                         }, 'Copy response code')
+                                    ]),
+                                    // QR Code section for answer
+                                    qrCodeUrl && React.createElement('div', {
+                                        key: 'qr-container',
+                                        className: "mt-4 p-4 bg-gray-800/50 border border-gray-600/30 rounded-lg text-center"
+                                    }, [
+                                        React.createElement('h4', {
+                                            key: 'qr-title',
+                                            className: "text-sm font-medium text-primary mb-3"
+                                        }, 'Scan QR code to complete connection'),
+                                        React.createElement('div', {
+                                            key: 'qr-wrapper',
+                                            className: "flex justify-center"
+                                        }, [
+                                            React.createElement('img', {
+                                                key: 'qr-image',
+                                                src: qrCodeUrl,
+                                                alt: "QR Code for secure response",
+                                                className: "max-w-none h-auto border border-gray-600/30 rounded w-[20rem] sm:w-[24rem] md:w-[28rem] lg:w-[32rem]"
+                                            })
+                                        ]),
+                                        
+                                        // Переключатель управления ниже QR кода
+                                        ((qrFramesTotal || 0) >= 1) && React.createElement('div', {
+                                            key: 'qr-controls-below',
+                                            className: "mt-4 flex flex-col items-center gap-2"
+                                        }, [
+                                            React.createElement('div', {
+                                                key: 'frame-indicator',
+                                                className: "text-xs text-gray-300"
+                                            }, `Frame ${Math.max(1, (qrFrameIndex || 1))}/${qrFramesTotal || 1}`),
+                                            React.createElement('div', {
+                                                key: 'control-buttons',
+                                                className: "flex gap-1"
+                                            }, [
+                                                // Кнопки навигации показываем только если больше 1 части
+                                                (qrFramesTotal || 0) > 1 && React.createElement('button', {
+                                                    key: 'prev-frame',
+                                                    onClick: prevQrFrame,
+                                                    className: "w-6 h-6 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs flex items-center justify-center"
+                                                }, '◀'),
+                                                React.createElement('button', {
+                                                    key: 'toggle-manual',
+                                                    onClick: toggleQrManualMode,
+                                                    className: `px-2 py-1 rounded text-xs font-medium ${
+                                                        qrManualMode 
+                                                            ? 'bg-blue-500 text-white' 
+                                                            : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                                                    }`
+                                                }, qrManualMode ? 'Manual' : 'Auto'),
+                                                // Кнопки навигации показываем только если больше 1 части
+                                                (qrFramesTotal || 0) > 1 && React.createElement('button', {
+                                                    key: 'next-frame',
+                                                    onClick: nextQrFrame,
+                                                    className: "w-6 h-6 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs flex items-center justify-center"
+                                                }, '▶')
+                                            ])
+                                        ]),
+                                        React.createElement('p', {
+                                            key: 'qr-description',
+                                            className: "text-xs text-gray-400 mt-2"
+                                        }, 'The initiator can scan this QR code to complete the secure connection')
                                     ]),
                                     React.createElement('div', {
                                         key: 'info',
@@ -2323,6 +2425,7 @@
                 // Main Enhanced Application Component
                 const EnhancedSecureP2PChat = () => {
                     console.log('🔍 EnhancedSecureP2PChat component initialized');
+                    console.log('🎮 QR Manual Control Features Loaded!');
                     const [messages, setMessages] = React.useState([]);
                     const [connectionStatus, setConnectionStatus] = React.useState('disconnected');
                     
@@ -2387,27 +2490,34 @@
                     const shouldPreserveAnswerData = () => {
                         const now = Date.now();
                         const answerAge = now - (connectionState.answerCreatedAt || 0);
-                        const maxPreserveTime = 30000; // 30 seconds
+                        const maxPreserveTime = 300000; // 5 minutes (увеличиваем время для QR кода)
         
                         // Дополнительная проверка на основе самих данных
                         const hasAnswerData = (answerData && answerData.trim().length > 0) || 
                                             (answerInput && answerInput.trim().length > 0);
                         
+                        // Проверяем наличие QR кода ответа
+                        const hasAnswerQR = qrCodeUrl && qrCodeUrl.trim().length > 0;
+                        
                         const shouldPreserve = (connectionState.hasActiveAnswer && 
                                answerAge < maxPreserveTime && 
                                !connectionState.isUserInitiatedDisconnect) ||
                                (hasAnswerData && answerAge < maxPreserveTime && 
+                               !connectionState.isUserInitiatedDisconnect) ||
+                               (hasAnswerQR && answerAge < maxPreserveTime && 
                                !connectionState.isUserInitiatedDisconnect);
                         
                         console.log('🔍 shouldPreserveAnswerData check:', {
                             hasActiveAnswer: connectionState.hasActiveAnswer,
                             hasAnswerData: hasAnswerData,
+                            hasAnswerQR: hasAnswerQR,
                             answerAge: answerAge,
                             maxPreserveTime: maxPreserveTime,
                             isUserInitiatedDisconnect: connectionState.isUserInitiatedDisconnect,
                             shouldPreserve: shouldPreserve,
                             answerData: answerData ? 'exists' : 'null',
-                            answerInput: answerInput ? 'exists' : 'null'
+                            answerInput: answerInput ? 'exists' : 'null',
+                            qrCodeUrl: qrCodeUrl ? 'exists' : 'null'
                         });
                         
                         return shouldPreserve;
@@ -3039,6 +3149,7 @@
                     const MAX_QR_LEN = 800;
                     const [qrFramesTotal, setQrFramesTotal] = React.useState(0);
                     const [qrFrameIndex, setQrFrameIndex] = React.useState(0);
+                    const [qrManualMode, setQrManualMode] = React.useState(false);
 
                     // Animated QR state (for multi-chunk COSE)
                     const qrAnimationRef = React.useRef({ timer: null, chunks: [], idx: 0, active: false });
@@ -3047,6 +3158,55 @@
                         qrAnimationRef.current = { timer: null, chunks: [], idx: 0, active: false };
                         setQrFrameIndex(0);
                         setQrFramesTotal(0);
+                        setQrManualMode(false);
+                    };
+
+                    // Функции для ручного управления QR анимацией
+                    const toggleQrManualMode = () => {
+                        const newManualMode = !qrManualMode;
+                        setQrManualMode(newManualMode);
+                        
+                        if (newManualMode) {
+                            // Останавливаем автопрокрутку
+                            if (qrAnimationRef.current.timer) {
+                                clearInterval(qrAnimationRef.current.timer);
+                                qrAnimationRef.current.timer = null;
+                            }
+                            console.log('QR Manual mode enabled - auto-scroll stopped');
+                        } else {
+                            // Возобновляем автопрокрутку
+                            if (qrAnimationRef.current.chunks.length > 1 && qrAnimationRef.current.active) {
+                                const intervalMs = 4000;
+                                qrAnimationRef.current.timer = setInterval(renderNext, intervalMs);
+                            }
+                            console.log('QR Manual mode disabled - auto-scroll resumed');
+                        }
+                    };
+
+                    const nextQrFrame = () => {
+                        console.log('🎮 nextQrFrame called, qrFramesTotal:', qrFramesTotal, 'qrAnimationRef.current:', qrAnimationRef.current);
+                        if (qrAnimationRef.current.chunks.length > 1) {
+                            const nextIdx = (qrAnimationRef.current.idx + 1) % qrAnimationRef.current.chunks.length;
+                            qrAnimationRef.current.idx = nextIdx;
+                            setQrFrameIndex(nextIdx + 1);
+                            console.log('🎮 Next frame index:', nextIdx + 1);
+                            renderNext();
+                        } else {
+                            console.log('🎮 No multiple frames to navigate');
+                        }
+                    };
+
+                    const prevQrFrame = () => {
+                        console.log('🎮 prevQrFrame called, qrFramesTotal:', qrFramesTotal, 'qrAnimationRef.current:', qrAnimationRef.current);
+                        if (qrAnimationRef.current.chunks.length > 1) {
+                            const prevIdx = (qrAnimationRef.current.idx - 1 + qrAnimationRef.current.chunks.length) % qrAnimationRef.current.chunks.length;
+                            qrAnimationRef.current.idx = prevIdx;
+                            setQrFrameIndex(prevIdx + 1);
+                            console.log('🎮 Previous frame index:', prevIdx + 1);
+                            renderNext();
+                        } else {
+                            console.log('🎮 No multiple frames to navigate');
+                        }
                     };
 
                     // Buffer for assembling scanned COSE chunks
@@ -3074,8 +3234,13 @@
                             console.log('🎞️ Using RAW animated QR frames (no compression)');
                             stopQrAnimation();
                             const id = `raw_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-                            const FRAME_MAX = Math.max(300, Math.min(750, Math.floor(MAX_QR_LEN * 0.6)));
+                            
+                            // Принудительно разбиваем на 10 частей для лучшего сканирования
+                            const TARGET_CHUNKS = 10;
+                            const FRAME_MAX = Math.max(200, Math.floor(payload.length / TARGET_CHUNKS));
                             const total = Math.ceil(payload.length / FRAME_MAX);
+                            
+                            console.log(`📊 Splitting ${payload.length} chars into ${total} chunks (max ${FRAME_MAX} chars per chunk)`);
                             const rawChunks = [];
                             for (let i = 0; i < total; i++) {
                                 const seq = i + 1;
@@ -3111,10 +3276,14 @@
                                 setQrFrameIndex(nextIdx + 1);
                             };
                                 await renderNext();
-                                const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
-                                const isIOS = /iPhone|iPad|iPod/i.test(ua);
-                                const intervalMs = isIOS ? 2500 : 2000; // Slower animation for better readability
-                                qrAnimationRef.current.timer = setInterval(renderNext, intervalMs);
+                                
+                                // Запускаем автопрокрутку только если не в ручном режиме
+                                if (!qrManualMode) {
+                                    const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+                                    const isIOS = /iPhone|iPad|iPod/i.test(ua);
+                                    const intervalMs = 4000; // 4 seconds per frame for better readability
+                                    qrAnimationRef.current.timer = setInterval(renderNext, intervalMs);
+                                }
                             return;
                         } catch (error) {
                             console.error('QR code generation failed:', error);
@@ -3488,6 +3657,12 @@
                                     setAnswerData(answer);
                                     setShowAnswerStep(true);
                                     
+                                    // Generate QR code for the answer data
+                                    const answerString = typeof answer === 'object' ? JSON.stringify(answer) : answer;
+                                    console.log('Generating QR code for answer data length:', answerString.length);
+                                    console.log('First 100 chars of answer data:', answerString.substring(0, 100));
+                                    await generateQRCode(answerString);
+                                    
                                     // Mark answer as created for state management
                                     markAnswerCreated();
         
@@ -3505,7 +3680,7 @@
                                     }]);
                                     
                                     setMessages(prev => [...prev, { 
-                                        message: '📤 Send the response code to the initiator via a secure channel..', 
+                                        message: '📤 Send the response code to the initiator via a secure channel or let them scan the QR code below.', 
                                         type: 'system',
                                         id: Date.now(),
                                         timestamp: Date.now()
@@ -3774,12 +3949,23 @@
                         setOfferInput('');
                         setAnswerInput('');
                         setShowOfferStep(false);
-                        setShowAnswerStep(false);
+                        
+                        // Сохраняем showAnswerStep если есть QR код ответа
+                        if (!shouldPreserveAnswerData()) {
+                            setShowAnswerStep(false);
+                        }
+                        
                         setShowVerification(false);
                         setShowQRCode(false);
                         setShowQRScanner(false);
                         setShowQRScannerModal(false);
-                        setQrCodeUrl('');
+                        
+                        // Сохраняем QR код ответа, если он был создан
+                        // (не сбрасываем qrCodeUrl если есть активный ответ)
+                        if (!shouldPreserveAnswerData()) {
+                            setQrCodeUrl('');
+                        }
+                        
                         setVerificationCode('');
                         setIsVerified(false);
                         setKeyFingerprint('');
@@ -3988,6 +4174,13 @@
                                     localVerificationConfirmed: localVerificationConfirmed,
                                     remoteVerificationConfirmed: remoteVerificationConfirmed,
                                     bothVerificationsConfirmed: bothVerificationsConfirmed,
+                                    // QR control props
+                                    qrFramesTotal: qrFramesTotal,
+                                    qrFrameIndex: qrFrameIndex,
+                                    qrManualMode: qrManualMode,
+                                    toggleQrManualMode: toggleQrManualMode,
+                                    nextQrFrame: nextQrFrame,
+                                    prevQrFrame: prevQrFrame,
                                     // PAKE passwords removed - using SAS verification instead
                                 })
                         ),

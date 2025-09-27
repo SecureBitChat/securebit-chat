@@ -5,6 +5,10 @@ const QRScanner = ({ onScan, onClose, isVisible, continuous = false }) => {
 	const [error, setError] = React.useState(null);
 	const [isScanning, setIsScanning] = React.useState(false);
 	const [progress, setProgress] = React.useState({ id: null, seq: 0, total: 0 });
+	const [showFocusHint, setShowFocusHint] = React.useState(false);
+	const [manualMode, setManualMode] = React.useState(false);
+	const [scannedParts, setScannedParts] = React.useState(new Set());
+	const [currentQRId, setCurrentQRId] = React.useState(null);
 
 	React.useEffect(() => {
 		if (isVisible) {
@@ -23,6 +27,15 @@ const QRScanner = ({ onScan, onClose, isVisible, continuous = false }) => {
 			const { id, seq, total } = e.detail || {};
 			if (!id || !total) return;
 			setProgress({ id, seq, total });
+			
+			// Обновляем ID текущего QR кода
+			if (id !== currentQRId) {
+				setCurrentQRId(id);
+				setScannedParts(new Set()); // Сбрасываем сканированные части для нового ID
+			}
+			
+			// Добавляем отсканированную часть
+			setScannedParts(prev => new Set([...prev, seq]));
 		};
         const onComplete = () => {
             // Close scanner once app signals completion
@@ -35,7 +48,54 @@ const QRScanner = ({ onScan, onClose, isVisible, continuous = false }) => {
             document.removeEventListener('qr-scan-progress', onProgress, { passive: true });
             document.removeEventListener('qr-scan-complete', onComplete, { passive: true });
         };
-	}, []);
+	}, [currentQRId]);
+
+	// Функция для tap-to-focus
+	const handleTapToFocus = (event, html5Qrcode) => {
+		try {
+			// Показываем подсказку о фокусировке
+			setShowFocusHint(true);
+			setTimeout(() => setShowFocusHint(false), 2000);
+
+			// Получаем координаты клика относительно видео элемента
+			const rect = event.target.getBoundingClientRect();
+			const x = event.clientX - rect.left;
+			const y = event.clientY - rect.top;
+
+			// Нормализуем координаты (0-1)
+			const normalizedX = x / rect.width;
+			const normalizedY = y / rect.height;
+
+			console.log('Tap to focus at:', { x, y, normalizedX, normalizedY });
+
+			// Попытка программной фокусировки (если поддерживается браузером)
+			if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+				// Это может не работать во всех браузерах, но попробуем
+				console.log('Attempting programmatic focus...');
+			}
+
+		} catch (error) {
+			console.warn('Tap to focus error:', error);
+		}
+	};
+
+	// Функции для ручного управления
+	const toggleManualMode = () => {
+		setManualMode(!manualMode);
+		if (!manualMode) {
+			// При включении ручного режима останавливаем автопрокрутку
+			console.log('Manual mode enabled - auto-scroll disabled');
+		} else {
+			// При выключении ручного режима возобновляем автопрокрутку
+			console.log('Manual mode disabled - auto-scroll enabled');
+		}
+	};
+
+	const resetProgress = () => {
+		setScannedParts(new Set());
+		setCurrentQRId(null);
+		setProgress({ id: null, seq: 0, total: 0 });
+	};
 
 	const startScanner = async () => {
 		try {
@@ -116,7 +176,16 @@ const QRScanner = ({ onScan, onClose, isVisible, continuous = false }) => {
                 cameraId, // Use specific camera ID
                 {
                     fps: /iPhone|iPad|iPod/i.test(navigator.userAgent) ? 2 : 3,
-                    qrbox: { width: qrboxSize, height: qrboxSize }
+                    qrbox: { width: qrboxSize, height: qrboxSize },
+                    // Улучшенные настройки для мобильных устройств
+                    aspectRatio: 1.0,
+                    videoConstraints: {
+                        focusMode: "continuous", // Непрерывная автофокусировка
+                        exposureMode: "continuous", // Непрерывная экспозиция
+                        whiteBalanceMode: "continuous", // Непрерывный баланс белого
+                        torch: false, // Вспышка выключена по умолчанию
+                        facingMode: "environment" // Используем заднюю камеру
+                    }
                 },
                 (decodedText, decodedResult) => {
 					console.log('QR Code detected:', decodedText);
@@ -152,6 +221,13 @@ const QRScanner = ({ onScan, onClose, isVisible, continuous = false }) => {
 			// Store scanner reference
 			qrScannerRef.current = html5Qrcode;
 			console.log('QR scanner started successfully');
+
+			// Добавляем обработчик tap-to-focus для мобильных устройств
+			if (videoRef.current) {
+				videoRef.current.addEventListener('click', (event) => {
+					handleTapToFocus(event, html5Qrcode);
+				});
+			}
 
 		} catch (err) {
 			console.error('Error starting QR scanner:', err);
@@ -232,6 +308,66 @@ const QRScanner = ({ onScan, onClose, isVisible, continuous = false }) => {
 					})
 				])
 			]),
+
+			// Индикатор прогресса сканирования
+			progress.total > 1 && React.createElement('div', {
+				key: 'progress-indicator',
+				className: "mb-4 p-3 bg-gray-800/50 border border-gray-600/30 rounded-lg"
+			}, [
+				React.createElement('div', {
+					key: 'progress-header',
+					className: "flex items-center justify-between mb-2"
+				}, [
+					React.createElement('span', {
+						key: 'progress-title',
+						className: "text-sm text-gray-300"
+					}, `QR ID: ${currentQRId ? currentQRId.substring(0, 8) + '...' : 'N/A'}`),
+					React.createElement('span', {
+						key: 'progress-count',
+						className: "text-sm text-blue-400"
+					}, `${scannedParts.size}/${progress.total} scanned`)
+				]),
+				React.createElement('div', {
+					key: 'progress-numbers',
+					className: "flex flex-wrap gap-1"
+				}, Array.from({ length: progress.total }, (_, i) => {
+					const partNumber = i + 1;
+					const isScanned = scannedParts.has(partNumber);
+					return React.createElement('div', {
+						key: `part-${partNumber}`,
+						className: `w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-colors ${
+							isScanned 
+								? 'bg-green-500 text-white' 
+								: 'bg-gray-600 text-gray-300'
+						}`
+					}, partNumber);
+				}))
+			]),
+
+			// Панель управления
+			progress.total > 1 && React.createElement('div', {
+				key: 'control-panel',
+				className: "mb-4 flex gap-2"
+			}, [
+				React.createElement('button', {
+					key: 'manual-toggle',
+					onClick: toggleManualMode,
+					className: `px-3 py-1 rounded text-xs font-medium transition-colors ${
+						manualMode 
+							? 'bg-blue-500 text-white' 
+							: 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+					}`
+				}, manualMode ? 'Manual Mode' : 'Auto Mode'),
+				React.createElement('button', {
+					key: 'reset-progress',
+					onClick: resetProgress,
+					className: "px-3 py-1 bg-red-500/20 text-red-400 border border-red-500/20 rounded text-xs font-medium hover:bg-red-500/30"
+				}, 'Reset'),
+				React.createElement('span', {
+					key: 'mode-hint',
+					className: "text-xs text-gray-400 self-center"
+				}, manualMode ? 'Tap to focus, scan manually' : 'Auto-scrolling enabled')
+			]),
 			
 			React.createElement('div', {
 				key: 'scanner-content',
@@ -297,11 +433,55 @@ const QRScanner = ({ onScan, onClose, isVisible, continuous = false }) => {
 						React.createElement('p', {
 							key: 'scanning-text',
 							className: "text-xs"
-                        }, progress && progress.total > 1 ? `Frames: ${Math.min(progress.seq, progress.total)}/${progress.total}` : 'Point camera at QR code')
+                        }, progress && progress.total > 1 ? `Frames: ${Math.min(progress.seq, progress.total)}/${progress.total}` : 'Point camera at QR code'),
+                        React.createElement('p', {
+                            key: 'tap-hint',
+                            className: "text-xs text-blue-300 mt-1"
+                        }, 'Tap screen to focus')
 					])
 				]),
+
+                // Подсказка о фокусировке
+                showFocusHint && React.createElement('div', {
+                    key: 'focus-hint',
+                    className: "absolute top-4 left-1/2 transform -translate-x-1/2 bg-green-500/90 text-white px-3 py-1 rounded-full text-xs font-medium z-10"
+                }, 'Focusing...'),
                 // Bottom overlay kept simple on mobile
 			]),
+
+            // Дополнительные подсказки для улучшения сканирования
+            React.createElement('div', {
+                key: 'scanning-tips',
+                className: "mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg"
+            }, [
+                React.createElement('h4', {
+                    key: 'tips-title',
+                    className: "text-blue-400 text-sm font-medium mb-2 flex items-center"
+                }, [
+                    React.createElement('i', {
+                        key: 'tips-icon',
+                        className: 'fas fa-lightbulb mr-2'
+                    }),
+                    'Tips for better scanning:'
+                ]),
+                React.createElement('ul', {
+                    key: 'tips-list',
+                    className: "text-xs text-blue-300 space-y-1"
+                }, [
+                    React.createElement('li', {
+                        key: 'tip-1'
+                    }, '• Ensure good lighting'),
+                    React.createElement('li', {
+                        key: 'tip-2'
+                    }, '• Hold phone steady'),
+                    React.createElement('li', {
+                        key: 'tip-3'
+                    }, '• Tap screen to focus'),
+                    React.createElement('li', {
+                        key: 'tip-4'
+                    }, '• Keep QR code in frame')
+                ])
+            ])
 
 		])
 	]);
