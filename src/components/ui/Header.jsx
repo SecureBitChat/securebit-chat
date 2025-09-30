@@ -602,7 +602,7 @@ const EnhancedMinimalHeader = ({
                         React.createElement('p', {
                             key: 'subtitle',
                             className: 'text-xs sm:text-sm text-muted hidden sm:block'
-                        }, 'End-to-end freedom v4.02.985')
+                        }, 'End-to-end freedom v4.2.12')
                     ])
                 ]),
 

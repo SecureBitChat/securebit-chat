@@ -14148,7 +14148,7 @@ Right-click or Ctrl+click to disconnect`,
             React.createElement("p", {
               key: "subtitle",
               className: "text-xs sm:text-sm text-muted hidden sm:block"
-            }, "End-to-end freedom v4.02.985")
+            }, "End-to-end freedom v4.2.12")
           ])
         ]),
         // Status and Controls - Responsive
@@ -14273,7 +14273,7 @@ window.EnhancedMinimalHeader = EnhancedMinimalHeader;
 var DownloadApps = () => {
   const apps = [
     { id: "web", name: "Web App", subtitle: "Browser Version", icon: "fas fa-globe", platform: "Web", isActive: true, url: "https://securebitchat.github.io/securebit-chat/", color: "green" },
-    { id: "windows", name: "Windows", subtitle: "Desktop App", icon: "fab fa-windows", platform: "Desktop", isActive: false, url: "#", color: "blue" },
+    { id: "windows", name: "Windows", subtitle: "Desktop App", icon: "fab fa-windows", platform: "Desktop", isActive: true, url: "https://securebit.chat/download/windows/SecureBit%20Chat%20Setup%204.1.222.exe", color: "blue" },
     { id: "macos", name: "macOS", subtitle: "Desktop App", icon: "fab fa-apple", platform: "Desktop", isActive: false, url: "#", color: "gray" },
     { id: "linux", name: "Linux", subtitle: "Desktop App", icon: "fab fa-linux", platform: "Desktop", isActive: false, url: "#", color: "orange" },
     { id: "ios", name: "iOS", subtitle: "iPhone & iPad", icon: "fab fa-apple", platform: "Mobile", isActive: false, url: "https://apps.apple.com/app/securebit-chat/", color: "blue" },

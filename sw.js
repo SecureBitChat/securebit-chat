@@ -1,9 +1,9 @@
 // SecureBit.chat Service Worker
-// Enhanced Security Edition v4.02.985 - ECDH + DTLS + SAS
+// Enhanced Security Edition v4.2.12 - ECDH + DTLS + SAS
 
-const CACHE_NAME = 'securebit-v4.02.985';
-const STATIC_CACHE = 'securebit-static-v4.02.985';
-const DYNAMIC_CACHE = 'securebit-dynamic-v4.02.985';
+const CACHE_NAME = 'securebit-v4.2.12';
+const STATIC_CACHE = 'securebit-static-v4.2.12';
+const DYNAMIC_CACHE = 'securebit-dynamic-v4.2.12';
 
 // Files to cache for offline functionality (excluding external CDNs that may have CORS issues)
 const STATIC_ASSETS = [
@@ -368,4 +368,4 @@ self.addEventListener('unhandledrejection', (event) => {
     console.error('❌ Service Worker unhandled rejection:', event.reason);
 });
 
-console.log('🔧 SecureBit.chat Service Worker loaded - Enhanced Security Edition v4.02.985 - ECDH + DTLS + SAS');
+console.log('🔧 SecureBit.chat Service Worker loaded - Enhanced Security Edition v4.2.12 - ECDH + DTLS + SAS');

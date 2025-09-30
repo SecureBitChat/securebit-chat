@@ -1,4 +1,4 @@
-# SecureBit.chat v4.02.985 - ECDH + DTLS + SAS
+# SecureBit.chat v4.2.12 - ECDH + DTLS + SAS
 
 <div align="center">
 

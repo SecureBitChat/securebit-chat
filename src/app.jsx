@@ -532,7 +532,7 @@
                         <div className="mt-8 text-center">
                         <div className="inline-flex items-center px-6 py-3 bg-gray-800/50 border border-gray-600/30 rounded-xl">
                             <span className="text-orange-400 mr-2">🚀</span>
-                                                    <span className="text-gray-300 text-sm">Enhanced Security Edition v4.02.985 - ECDH + DTLS + SAS - </span>
+                                                    <span className="text-gray-300 text-sm">Enhanced Security Edition v4.2.12 - ECDH + DTLS + SAS - </span>
                             <span className="text-orange-400 font-semibold text-sm">Active Production Release</span>
                             <span className="text-gray-400 text-sm ml-2"> | Next: v5.0 Post-Quantum</span>
                         </div>
@@ -619,7 +619,7 @@
         
                     // current and future phases
                     {
-                                          version: "v4.02.985",
+                                          version: "v4.2.12",
                         title: "Enhanced Security Edition",
                         status: "current",
                         date: "Now",
@@ -2937,7 +2937,7 @@
                             handleVerificationStateChange
                         );
         
-                        handleMessage('🚀 SecureBit.chat Enhanced Security Edition v4.02.985 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.', 'system');
+                        handleMessage('🚀 SecureBit.chat Enhanced Security Edition v4.2.12 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.', 'system');
         
                         const handleBeforeUnload = (event) => {
                             if (event.type === 'beforeunload' && !isTabSwitching) {
