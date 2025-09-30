@@ -15,7 +15,7 @@
 
 ---
 
-## ✨ What's New in v4.02.985 - ECDH + DTLS + SAS
+## ✨ What's New in v4.2.12 - ECDH + DTLS + SAS
 
 ### 🛡️ Revolutionary ECDH + DTLS + SAS Security System
 * **Complete PAKE removal** - Eliminated libsodium dependency and PAKE-based authentication
