@@ -153,8 +153,8 @@
                         onClick: () => goToSlide(index),
                         className: `relative group transition-all duration-300 ${
                             index === currentSlide
-                                ? 'w-12 h-4 bg-orange-500 rounded-full'
-                                : 'w-4 h-4 bg-gray-600 hover:bg-gray-500 rounded-full hover:scale-125'
+                                ? 'w-12 h-2 bg-orange-500 rounded-full'
+                                : 'w-4 h-2 bg-gray-600 hover:bg-gray-500 rounded-full hover:scale-125'
                         }`
                     }, [
                         // Tooltip on hover
@@ -167,11 +167,9 @@
             ]);
         };
         
-        
-        
                 const ComparisonTable = () => {
                 const [selectedFeature, setSelectedFeature] = React.useState(null);
-        
+
                 const messengers = [
                     {
                     name: "SecureBit.chat",
@@ -222,166 +220,161 @@
                     color: "cyan",
                     },
                 ];
-        
+
                 const features = [
                     {
                     name: "Security Architecture",
-                    lockbit: { status: "🏆", detail: "18-layer military-grade defense system with complete ASN.1 validation" },
-                    signal: { status: "✅", detail: "Signal Protocol with double ratchet" },
-                    threema: { status: "✅", detail: "Standard security implementation" },
-                    session: { status: "✅", detail: "Modified Signal Protocol + Onion routing" },
+                    lockbit: { status: "trophy", detail: "18-layer military-grade defense system with complete ASN.1 validation" },
+                    signal: { status: "check", detail: "Signal Protocol with double ratchet" },
+                    threema: { status: "check", detail: "Standard security implementation" },
+                    session: { status: "check", detail: "Modified Signal Protocol + Onion routing" },
                     },
                     {
                     name: "Cryptography",
-                    lockbit: { status: "🏆", detail: "ECDH P-384 + AES-GCM 256 + ECDSA P-384" },
-                    signal: { status: "✅", detail: "Signal Protocol + Double Ratchet" },
-                    threema: { status: "✅", detail: "NaCl + XSalsa20 + Poly1305" },
-                    session: { status: "✅", detail: "Modified Signal Protocol" },
+                    lockbit: { status: "trophy", detail: "ECDH P-384 + AES-GCM 256 + ECDSA P-384" },
+                    signal: { status: "check", detail: "Signal Protocol + Double Ratchet" },
+                    threema: { status: "check", detail: "NaCl + XSalsa20 + Poly1305" },
+                    session: { status: "check", detail: "Modified Signal Protocol" },
                     },
                     {
                     name: "Perfect Forward Secrecy",
-                    lockbit: { status: "🏆", detail: "Auto rotation every 5 minutes or 100 messages" },
-                    signal: { status: "✅", detail: "Double Ratchet algorithm" },
-                    threema: { status: "⚠️", detail: "Partial (group chats)" },
-                    session: { status: "✅", detail: "Session Ratchet algorithm" },
+                    lockbit: { status: "trophy", detail: "Auto rotation every 5 minutes or 100 messages" },
+                    signal: { status: "check", detail: "Double Ratchet algorithm" },
+                    threema: { status: "warning", detail: "Partial (group chats)" },
+                    session: { status: "check", detail: "Session Ratchet algorithm" },
                     },
                     {
                     name: "Architecture",
-                    lockbit: { status: "🏆", detail: "Pure P2P WebRTC without servers" },
-                    signal: { status: "❌", detail: "Centralized Signal servers" },
-                    threema: { status: "❌", detail: "Threema servers in Switzerland" },
-                    session: { status: "⚠️", detail: "Onion routing via network nodes" },
+                    lockbit: { status: "trophy", detail: "Pure P2P WebRTC without servers" },
+                    signal: { status: "times", detail: "Centralized Signal servers" },
+                    threema: { status: "times", detail: "Threema servers in Switzerland" },
+                    session: { status: "warning", detail: "Onion routing via network nodes" },
                     },
                     {
                     name: "Registration Anonymity",
-                    lockbit: { status: "🏆", detail: "No registration required, instant anonymous channels" },
-                    signal: { status: "❌", detail: "Phone number required" },
-                    threema: { status: "✅", detail: "ID generated locally" },
-                    session: { status: "✅", detail: "Random session ID" },
+                    lockbit: { status: "trophy", detail: "No registration required, instant anonymous channels" },
+                    signal: { status: "times", detail: "Phone number required" },
+                    threema: { status: "check", detail: "ID generated locally" },
+                    session: { status: "check", detail: "Random session ID" },
                     },
                     {
                     name: "Payment Integration",
-                    lockbit: { status: "🏆", detail: "Lightning Network satoshis per session + WebLN" },
-                    signal: { status: "❌", detail: "No payment system" },
-                    threema: { status: "❌", detail: "No payment system" },
-                    session: { status: "❌", detail: "No payment system" },
+                    lockbit: { status: "trophy", detail: "Lightning Network satoshis per session + WebLN" },
+                    signal: { status: "times", detail: "No payment system" },
+                    threema: { status: "times", detail: "No payment system" },
+                    session: { status: "times", detail: "No payment system" },
                     },
                     {
                     name: "Metadata Protection",
-                    lockbit: { status: "🏆", detail: "Full metadata encryption + traffic obfuscation" },
-                    signal: { status: "⚠️", detail: "Sealed Sender (partial)" },
-                    threema: { status: "⚠️", detail: "Minimal metadata" },
-                    session: { status: "✅", detail: "Onion routing hides metadata" },
+                    lockbit: { status: "trophy", detail: "Full metadata encryption + traffic obfuscation" },
+                    signal: { status: "warning", detail: "Sealed Sender (partial)" },
+                    threema: { status: "warning", detail: "Minimal metadata" },
+                    session: { status: "check", detail: "Onion routing hides metadata" },
                     },
                     {
                     name: "Traffic Obfuscation",
-                    lockbit: { status: "🏆", detail: "Fake traffic + pattern masking + packet padding" },
-                    signal: { status: "❌", detail: "No traffic obfuscation" },
-                    threema: { status: "❌", detail: "No traffic obfuscation" },
-                    session: { status: "✅", detail: "Onion routing provides obfuscation" },
+                    lockbit: { status: "trophy", detail: "Fake traffic + pattern masking + packet padding" },
+                    signal: { status: "times", detail: "No traffic obfuscation" },
+                    threema: { status: "times", detail: "No traffic obfuscation" },
+                    session: { status: "check", detail: "Onion routing provides obfuscation" },
                     },
                     {
                     name: "Open Source",
-                    lockbit: { status: "🏆", detail: "100% open + auditable + MIT license" },
-                    signal: { status: "✅", detail: "Fully open" },
-                    threema: { status: "⚠️", detail: "Only clients open" },
-                    session: { status: "✅", detail: "Fully open" },
+                    lockbit: { status: "trophy", detail: "100% open + auditable + MIT license" },
+                    signal: { status: "check", detail: "Fully open" },
+                    threema: { status: "warning", detail: "Only clients open" },
+                    session: { status: "check", detail: "Fully open" },
                     },
                     {
                     name: "MITM Protection",
-                    lockbit: { status: "🏆", detail: "Out-of-band verification + mutual auth + ECDSA" },
-                    signal: { status: "✅", detail: "Safety numbers verification" },
-                    threema: { status: "✅", detail: "QR code scanning" },
-                    session: { status: "⚠️", detail: "Basic key verification" },
+                    lockbit: { status: "trophy", detail: "Out-of-band verification + mutual auth + ECDSA" },
+                    signal: { status: "check", detail: "Safety numbers verification" },
+                    threema: { status: "check", detail: "QR code scanning" },
+                    session: { status: "warning", detail: "Basic key verification" },
                     },
                     {
                     name: "Economic Model",
-                    lockbit: { status: "🏆", detail: "Sustainable pay-per-session model" },
-                    signal: { status: "⚠️", detail: "Donations and grants dependency" },
-                    threema: { status: "✅", detail: "One-time app purchase" },
-                    session: { status: "⚠️", detail: "Donations dependency" },
+                    lockbit: { status: "trophy", detail: "Sustainable pay-per-session model" },
+                    signal: { status: "warning", detail: "Donations and grants dependency" },
+                    threema: { status: "check", detail: "One-time app purchase" },
+                    session: { status: "warning", detail: "Donations dependency" },
                     },
                     {
                     name: "Censorship Resistance",
-                    lockbit: { status: "🏆", detail: "Impossible to block P2P + no servers to target" },
-                    signal: { status: "⚠️", detail: "Blocked in authoritarian countries" },
-                    threema: { status: "⚠️", detail: "May be blocked" },
-                    session: { status: "✅", detail: "Onion routing bypasses blocks" },
+                    lockbit: { status: "trophy", detail: "Impossible to block P2P + no servers to target" },
+                    signal: { status: "warning", detail: "Blocked in authoritarian countries" },
+                    threema: { status: "warning", detail: "May be blocked" },
+                    session: { status: "check", detail: "Onion routing bypasses blocks" },
                     },
                     {
                     name: "Data Storage",
-                    lockbit: { status: "🏆", detail: "Zero data storage - only in browser memory" },
-                    signal: { status: "⚠️", detail: "Local database storage" },
-                    threema: { status: "⚠️", detail: "Local + optional backup" },
-                    session: { status: "⚠️", detail: "Local database storage" },
+                    lockbit: { status: "trophy", detail: "Zero data storage - only in browser memory" },
+                    signal: { status: "warning", detail: "Local database storage" },
+                    threema: { status: "warning", detail: "Local + optional backup" },
+                    session: { status: "warning", detail: "Local database storage" },
                     },
                     {
                     name: "Key Security",
-                    lockbit: { status: "🏆", detail: "Non-extractable keys + hardware protection" },
-                    signal: { status: "✅", detail: "Secure key storage" },
-                    threema: { status: "✅", detail: "Local key storage" },
-                    session: { status: "✅", detail: "Secure key storage" },
+                    lockbit: { status: "trophy", detail: "Non-extractable keys + hardware protection" },
+                    signal: { status: "check", detail: "Secure key storage" },
+                    threema: { status: "check", detail: "Local key storage" },
+                    session: { status: "check", detail: "Secure key storage" },
                     },
                     {
                     name: "Post-Quantum Roadmap",
-                    lockbit: { status: "✅", detail: "Planned v5.0 - CRYSTALS-Kyber/Dilithium" },
-                    signal: { status: "⚠️", detail: "PQXDH in development" },
-                    threema: { status: "❌", detail: "Not announced" },
-                    session: { status: "❌", detail: "Not announced" },
+                    lockbit: { status: "check", detail: "Planned v5.0 - CRYSTALS-Kyber/Dilithium" },
+                    signal: { status: "warning", detail: "PQXDH in development" },
+                    threema: { status: "times", detail: "Not announced" },
+                    session: { status: "times", detail: "Not announced" },
                     },
                 ];
-        
+
                 const getStatusIcon = (status) => {
                     const statusMap = {
-                    "🏆": { icon: "🏆", color: "text-yellow-400" },
-                    "✅": { icon: "✅", color: "text-green-400" },
-                    "⚠️": { icon: "⚠️", color: "text-yellow-400" },
-                    "❌": { icon: "❌", color: "text-red-400" },
+                    "trophy": { icon: "fa-trophy", color: "accent-orange" },
+                    "check": { icon: "fa-check", color: "text-green-300" },
+                    "warning": { icon: "fa-exclamation-triangle", color: "text-yellow-300" },
+                    "times": { icon: "fa-times", color: "text-red-300" },
                     };
-                    return statusMap[status] || { icon: status, color: "text-gray-400" };
+                    return statusMap[status] || { icon: "fa-question", color: "text-gray-400" };
                 };
-        
+
                 const toggleFeatureDetail = (index) => {
                     setSelectedFeature(selectedFeature === index ? null : index);
                 };
-        
+
                 return (
                     <div className="mt-16">
                     {/* Title */}
                     <div className="text-center mb-8">
-                        <h3 className="text-3xl font-bold text-primary mb-3">
+                        <h3 className="text-3xl font-bold text-white mb-3">
                         Enhanced Security Edition Comparison
                         </h3>
-                        <p className="text-secondary max-w-2xl mx-auto mb-4">
+                        <p className="text-gray-400 max-w-2xl mx-auto mb-4">
                         Enhanced Security Edition vs leading secure messengers
                         </p>
-                        <div className="inline-flex items-center px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                        <span className="text-yellow-400 mr-2">🏆</span>
-                        <span className="text-yellow-300 text-sm font-medium">
-                            Category Leader - Military-Grade Security
-                        </span>
-                        </div>
                     </div>
-        
+
                     {/* Table container */}
                     <div className="max-w-7xl mx-auto">
                         {/* Mobile Alert */}
                         <div className="md:hidden p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg mb-4">
                         <p className="text-yellow-400 text-sm text-center">
-                            💡 Rotate your device horizontally for better viewing
+                            <i className="fas fa-lightbulb mr-2"></i>
+                            Rotate your device horizontally for better viewing
                         </p>
                         </div>
-        
+
                         {/* Table */}
-                        <div className="overflow-x-auto custom-scrollbar">
+                        <div className="overflow-x-auto">
                         <table
                             className="w-full border-collapse rounded-xl overflow-hidden shadow-2xl"
                             style={{ backgroundColor: "rgba(42, 43, 42, 0.9)" }}
                         >
                             {/* Table Header */}
                             <thead>
-                            <tr className="bg-my">
-                                <th className="text-left p-4 border-b border-gray-600 text-primary font-bold min-w-[240px]">
+                            <tr className="bg-black-table">
+                                <th className="text-left p-4 border-b border-gray-600 text-white font-bold min-w-[240px]">
                                 Security Criterion
                                 </th>
                                 {messengers.map((messenger, index) => (
@@ -403,66 +396,58 @@
                                 ))}
                             </tr>
                             </thead>
-        
-                            {/* Table body*/}
+
+                            {/* Table body */}
                             <tbody>
                             {features.map((feature, featureIndex) => (
                                 <React.Fragment key={`feature-${featureIndex}`}>
                                 <tr
-                                    className={`border-b border-gray-700/30 hover:bg-gray-800/30 transition-all duration-200 cursor-pointer ${
-                                    selectedFeature === featureIndex ? 'bg-gray-800/50' : ''
-                                    }`}
-                                    onClick={() => toggleFeatureDetail(featureIndex)}
+                                className={`border-b border-gray-700/30 transition-all duration-200 cursor-pointer hover:bg-[rgb(20_20_20_/30%)] ${
+                                    selectedFeature === featureIndex ? 'bg-[rgb(20_20_20_/50%)]' : ''
+                                }`}
+                                onClick={() => toggleFeatureDetail(featureIndex)}
                                 >
-                                    <td className="p-4 text-primary font-semibold">
+                                    <td className="p-4 text-white font-semibold">
                                     <div className="flex items-center justify-between">
                                         <span>{feature.name}</span>
                                         <i className={`fas fa-chevron-${selectedFeature === featureIndex ? 'up' : 'down'} text-xs text-gray-400 opacity-60 transition-all duration-200`} />
                                     </div>
                                     </td>
                                     <td className="p-4 text-center">
-                                    <span className={`${getStatusIcon(feature.lockbit.status).color} text-2xl`}>
-                                        {getStatusIcon(feature.lockbit.status).icon}
-                                    </span>
+                                    <i className={`fas ${getStatusIcon(feature.lockbit.status).icon} ${getStatusIcon(feature.lockbit.status).color} text-2xl`} />
                                     </td>
                                     <td className="p-4 text-center">
-                                    <span className={`${getStatusIcon(feature.signal.status).color} text-2xl`}>
-                                        {getStatusIcon(feature.signal.status).icon}
-                                    </span>
+                                    <i className={`fas ${getStatusIcon(feature.signal.status).icon} ${getStatusIcon(feature.signal.status).color} text-2xl`} />
                                     </td>
                                     <td className="p-4 text-center">
-                                    <span className={`${getStatusIcon(feature.threema.status).color} text-2xl`}>
-                                        {getStatusIcon(feature.threema.status).icon}
-                                    </span>
+                                    <i className={`fas ${getStatusIcon(feature.threema.status).icon} ${getStatusIcon(feature.threema.status).color} text-2xl`} />
                                     </td>
                                     <td className="p-4 text-center">
-                                    <span className={`${getStatusIcon(feature.session.status).color} text-2xl`}>
-                                        {getStatusIcon(feature.session.status).icon}
-                                    </span>
+                                    <i className={`fas ${getStatusIcon(feature.session.status).icon} ${getStatusIcon(feature.session.status).color} text-2xl`} />
                                     </td>
                                 </tr>
-        
+
                                 {/* Details */}
                                 {selectedFeature === featureIndex && (
                                     <tr className="border-b border-gray-700/30 bg-gradient-to-r from-gray-800/20 to-gray-900/20">
                                     <td className="p-4 text-xs text-gray-400 font-medium">Technical Details:</td>
                                     <td className="p-4 text-center">
-                                        <div className="text-xs text-orange-300 font-medium leading-relaxed max-w-32">
+                                        <div className="text-xs text-orange-300 font-medium leading-relaxed">
                                         {feature.lockbit.detail}
                                         </div>
                                     </td>
                                     <td className="p-4 text-center">
-                                        <div className="text-xs text-blue-300 leading-relaxed max-w-32">
+                                        <div className="text-xs text-blue-300 leading-relaxed">
                                         {feature.signal.detail}
                                         </div>
                                     </td>
                                     <td className="p-4 text-center">
-                                        <div className="text-xs text-green-300 leading-relaxed max-w-32">
+                                        <div className="text-xs text-green-300 leading-relaxed">
                                         {feature.threema.detail}
                                         </div>
                                     </td>
                                     <td className="p-4 text-center">
-                                        <div className="text-xs text-cyan-300 leading-relaxed max-w-32">
+                                        <div className="text-xs text-cyan-300 leading-relaxed">
                                         {feature.session.detail}
                                         </div>
                                     </td>
@@ -473,74 +458,32 @@
                             </tbody>
                         </table>
                         </div>
-        
+
                         {/* Legend */}
                         <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto">
-                        <div className="flex items-center justify-center p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl hover:bg-yellow-500/20 transition-colors">
-                            <span className="text-yellow-400 mr-2 text-xl">🏆</span>
-                            <span className="text-yellow-300 text-sm font-bold">Category Leader</span>
+                        <div className="flex items-center justify-center p-4 bg-orange-500/10 rounded-xl hover:bg-orange-500/40 transition-colors">
+                            <i className="fas fa-trophy text-orange-400 mr-2 text-xl"></i>
+                            <span className="text-orange-300 text-sm font-bold">Category Leader</span>
                         </div>
-                        <div className="flex items-center justify-center p-4 bg-green-500/10 border border-green-500/20 rounded-xl hover:bg-green-500/20 transition-colors">
-                            <span className="text-green-400 mr-2 text-xl">✅</span>
-                            <span className="text-green-300 text-sm font-bold">Excellent</span>
+
+                        <div className="flex items-center justify-center p-4 bg-green-500/10 rounded-xl hover:bg-green-600/40 transition-colors">
+                            <i className="fas fa-check text-green-300 mr-2 text-xl"></i>
+                            <span className="text-green-200 text-sm font-bold">Excellent</span>
                         </div>
-                        <div className="flex items-center justify-center p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl hover:bg-yellow-500/20 transition-colors">
-                            <span className="text-yellow-400 mr-2 text-xl">⚠️</span>
-                            <span className="text-yellow-300 text-sm font-bold">Partial/Limited</span>
+                        <div className="flex items-center justify-center p-4 bg-yellow-500/10 rounded-xl hover:bg-yellow-600/40 transition-colors">
+                            <i className="fas fa-exclamation-triangle text-yellow-300 mr-2 text-xl"></i>
+                            <span className="text-yellow-200 text-sm font-bold">Partial/Limited</span>
                         </div>
-                        <div className="flex items-center justify-center p-4 bg-red-500/10 border border-red-500/20 rounded-xl hover:bg-red-500/20 transition-colors">
-                            <span className="text-red-400 mr-2 text-xl">❌</span>
-                            <span className="text-red-300 text-sm font-bold">Not Available</span>
-                        </div>
-                        </div>
-        
-                        {/* Legend */}
-                        <div className="mt-10 space-y-6 max-w-6xl mx-auto">
-                        <div className="p-6 bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border border-orange-500/20 rounded-xl">
-                            <h4 className="text-xl font-bold text-orange-400 mb-4 flex items-center">
-                            <i className="fas fa-trophy mr-3" />
-                            SecureBit.chat Enhanced Security Edition Summary
-                            </h4>
-                            <p className="text-secondary leading-relaxed text-lg mb-4">
-                            SecureBit.chat dominates in 11 out of 15 security categories, establishing itself as the most secure P2P messenger available.
-                            The Enhanced Security Edition introduces revolutionary 18-layer defense architecture with complete ASN.1 validation, and military-grade cryptography that exceeds government and enterprise standards.
-                            </p>
-                            <div className="grid md:grid-cols-2 gap-4 mt-6">
-                            <div className="p-4 bg-orange-500/5 border border-orange-500/10 rounded-lg">
-                                <h5 className="text-orange-400 font-semibold mb-2">🔐 Cryptographic Superiority</h5>
-                                <p className="text-sm text-gray-300">
-                                ECDH P-384 + AES-GCM 256 + ECDSA P-384 + Complete ASN.1 Validation with non-extractable keys and 18-layer defense system
-                                </p>
-                            </div>
-                            <div className="p-4 bg-orange-500/5 border border-orange-500/10 rounded-lg">
-                                <h5 className="text-orange-400 font-semibold mb-2">🌐 True P2P Architecture</h5>
-                                <p className="text-sm text-gray-300">
-                                Pure WebRTC connections with zero servers, impossible to censor or shutdown, complete anonymity
-                                </p>
-                            </div>
-                            <div className="p-4 bg-orange-500/5 border border-orange-500/10 rounded-lg">
-                                <h5 className="text-orange-400 font-semibold mb-2">🎭 Traffic Obfuscation</h5>
-                                <p className="text-sm text-gray-300">
-                                Advanced fake traffic generation, packet padding, and pattern masking defeat traffic analysis
-                                </p>
-                            </div>
-                            </div>
-                        </div>
-                        </div>
-        
-                        {/* Version information */}
-                        <div className="mt-8 text-center">
-                        <div className="inline-flex items-center px-6 py-3 bg-gray-800/50 border border-gray-600/30 rounded-xl">
-                            <span className="text-orange-400 mr-2">🚀</span>
-                                                    <span className="text-gray-300 text-sm">Enhanced Security Edition v4.2.12 - ECDH + DTLS + SAS - </span>
-                            <span className="text-orange-400 font-semibold text-sm">Active Production Release</span>
-                            <span className="text-gray-400 text-sm ml-2"> | Next: v5.0 Post-Quantum</span>
+                        <div className="flex items-center justify-center p-4 bg-red-500/10 rounded-xl hover:bg-red-600/40 transition-colors">
+                            <i className="fas fa-times text-red-300 mr-2 text-xl"></i>
+                            <span className="text-red-200 text-sm font-bold">Not Available</span>
                         </div>
                         </div>
                     </div>
                     </div>
                 );
                 };
+
         
                 function Roadmap() {
                   const [selectedPhase, setSelectedPhase] = React.useState(null);
@@ -792,15 +735,6 @@
                         <p key="subtitle" className="text-secondary max-w-2xl mx-auto mb-6">
                           Evolution of SecureBit.chat : from initial development to quantum-resistant decentralized network with complete ASN.1 validation
                         </p>
-                        <div
-                          key="roadmap-note"
-                          className="inline-flex items-center px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-lg"
-                        >
-                          <i key="icon" className="fas fa-rocket text-blue-400 mr-2" />
-                          <span key="text" className="text-blue-300 text-sm font-medium">
-                            Click on a version for details
-                          </span>
-                        </div>
                       </div>
                 
                       <div key="roadmap-container" className="max-w-6xl mx-auto">
@@ -1325,13 +1259,13 @@
         
                                 React.createElement('div', {
                                     key: 'options',
-                                    className: "grid md:grid-cols-2 gap-6 max-w-3xl mx-auto"
+                                    className: "flex flex-col md:flex-row items-center justify-center gap-6 max-w-3xl mx-auto"
                                 }, [
                                     // Create Connection
                                     React.createElement('div', {
                                         key: 'create',
                                         onClick: () => setMode('create'),
-                                        className: "card-minimal rounded-xl p-6 cursor-pointer group"
+                                        className: "card-minimal rounded-xl p-6 cursor-pointer group flex-1 create"
                                     }, [
                                         React.createElement('div', {
                                             key: 'icon',
@@ -1348,7 +1282,7 @@
                                         React.createElement('p', {
                                             key: 'description',
                                             className: "text-secondary text-center text-sm mb-4"
-                                        }, "Initiate a new secure connection with encrypted exchange"),
+                                        }, "Initiate a new secure connection"),
                                         React.createElement('div', {
                                             key: 'features',
                                             className: "space-y-2"
@@ -1382,12 +1316,28 @@
                                             ])
                                         ])
                                     ]),
-        
+                                    React.createElement('div', {
+                                        key: 'divider',
+                                        className: "flex flex-row md:flex-col items-center gap-4 px-4 w-full md:w-auto"
+                                    }, [
+                                        React.createElement('div', {
+                                        key: 'line-a',
+                                        className: "h-px flex-1 bg-gradient-to-r from-transparent via-zinc-700 to-transparent md:h-32 md:w-px md:flex-none md:bg-gradient-to-b"
+                                        }),
+                                        React.createElement('div', {
+                                        key: 'or-text',
+                                        className: "text-zinc-600 text-sm font-medium px-3"
+                                        }, "OR"),
+                                        React.createElement('div', {
+                                        key: 'line-b',
+                                        className: "h-px flex-1 bg-gradient-to-r from-transparent via-zinc-700 to-transparent md:h-32 md:w-px md:flex-none md:bg-gradient-to-b"
+                                        })
+                                    ]),
                                     // Join Connection
                                     React.createElement('div', {
                                         key: 'join',
                                         onClick: () => setMode('join'),
-                                        className: "card-minimal rounded-xl p-6 cursor-pointer group"
+                                        className: "card-minimal rounded-xl p-6 cursor-pointer group flex-1 join"
                                     }, [
                                         React.createElement('div', {
                                             key: 'icon',
@@ -1446,39 +1396,46 @@
                                     className: "grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 max-w-6xl mx-auto mt-8"
                                 }, [
                                     React.createElement('div', { key: 'feature1', className: "text-center p-3 sm:p-4" }, [
-                                        React.createElement('div', { key: 'icon', className: "w-10 h-10 sm:w-12 sm:h-12 bg-green-500/10 border border-green-500/20 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
+                                        React.createElement('div', { key: 'icon', className: "w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
                                             React.createElement('i', { className: 'fas fa-key accent-green' })
                                         ]),
                                         React.createElement('h4', { key: 'title', className: "text-xs sm:text-sm font-medium text-primary mb-1" }, "ECDH P-384 Key Exchange"),
                                         React.createElement('p', { key: 'desc', className: "text-xs text-muted leading-tight" }, "Military-grade elliptic curve key exchange")
                                     ]),
                                     React.createElement('div', { key: 'feature2', className: "text-center p-3 sm:p-4" }, [
-                                        React.createElement('div', { key: 'icon', className: "w-10 h-10 sm:w-12 sm:h-12 bg-purple-500/10 border border-purple-500/20 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
+                                        React.createElement('div', { key: 'icon', className: "w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
                                             React.createElement('i', { className: 'fas fa-user-shield accent-purple' })
                                         ]),
                                         React.createElement('h4', { key: 'title', className: "text-xs sm:text-sm font-medium text-primary mb-1" }, "MITM Protection"),
                                         React.createElement('p', { key: 'desc', className: "text-xs text-muted leading-tight" }, "Out-of-band verification against attacks")
                                     ]),
                                     React.createElement('div', { key: 'feature3', className: "text-center p-3 sm:p-4" }, [
-                                        React.createElement('div', { key: 'icon', className: "w-10 h-10 sm:w-12 sm:h-12 bg-orange-500/10 border border-orange-500/20 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
+                                        React.createElement('div', { key: 'icon', className: "w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
                                             React.createElement('i', { className: 'fas fa-lock accent-orange' })
                                         ]),
                                         React.createElement('h4', { key: 'title', className: "text-xs sm:text-sm font-medium text-primary mb-1" }, "AES-GCM 256 Encryption"),
                                         React.createElement('p', { key: 'desc', className: "text-xs text-muted leading-tight" }, "Authenticated encryption standard")
                                     ]),
                                     React.createElement('div', { key: 'feature4', className: "text-center p-3 sm:p-4" }, [
-                                        React.createElement('div', { key: 'icon', className: "w-10 h-10 sm:w-12 sm:h-12 bg-cyan-500/10 border border-cyan-500/20 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
+                                        React.createElement('div', { key: 'icon', className: "w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
                                             React.createElement('i', { className: 'fas fa-sync-alt accent-cyan' })
                                         ]),
                                         React.createElement('h4', { key: 'title', className: "text-xs sm:text-sm font-medium text-primary mb-1" }, "Perfect Forward Secrecy"),
                                         React.createElement('p', { key: 'desc', className: "text-xs text-muted leading-tight" }, "Automatic key rotation every 5 minutes")
                                     ]),
                                     React.createElement('div', { key: 'feature5', className: "text-center p-3 sm:p-4" }, [
-                                        React.createElement('div', { key: 'icon', className: "w-10 h-10 sm:w-12 sm:h-12 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
+                                        React.createElement('div', { key: 'icon', className: "w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
                                             React.createElement('i', { className: 'fas fa-signature accent-blue' })
                                         ]),
                                         React.createElement('h4', { key: 'title', className: "text-xs sm:text-sm font-medium text-primary mb-1" }, "ECDSA P-384 Signatures"),
                                         React.createElement('p', { key: 'desc', className: "text-xs text-muted leading-tight" }, "Digital signatures for message integrity")
+                                    ]),
+                                    React.createElement('div', { key: 'feature6', className: "text-center p-3 sm:p-4" }, [
+                                        React.createElement('div', { key: 'icon', className: "w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
+                                            React.createElement('i', { className: 'fas fa-shield-alt accent-red' }) 
+                                        ]),
+                                        React.createElement('h4', { key: 'title', className: "text-xs sm:text-sm font-medium text-primary mb-1" }, "SAS Security"),
+                                        React.createElement('p', { key: 'desc', className: "text-xs text-muted leading-tight" }, "Revolutionary key exchange & MITM protection")
                                     ]),
                                 ]),
         

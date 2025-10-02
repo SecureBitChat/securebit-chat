@@ -27,10 +27,23 @@ body {
     min-height: 100vh;
 }
 
+.card-minimal.rounded-xl.p-6.cursor-pointer.group.flex-1.create {
+    background-color: #60a5fa08;
+}
+
+.card-minimal.rounded-xl.p-6.cursor-pointer.group.flex-1.join {
+    background-color: #34d39908;
+}
+
+tr.bg-black-table {
+    background-color: #1c1c1c;
+}
+
+
 /* Text styles */
 .text-primary { color: #f1f5f9; }
-.text-secondary { color: #9ca3af; }
-.text-muted { color: #6b7280; }
+.text-secondary { color: #b6b6b6; }
+.text-muted { color: #818080; }
 
 /* Accent colors */
 .accent-orange { color: #fb923c; }

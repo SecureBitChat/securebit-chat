@@ -175,13 +175,13 @@ class PWAInstallPrompt {
         const buttonIcon = this.isIOSSafari() ? 'fas fa-share' : 'fas fa-download';
         
         this.installButton.innerHTML = `
-            <i class="${buttonIcon} transition-transform group-hover:scale-110"></i>
-            <span class="font-medium">${buttonText}</span>
-            <div class="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-            <button class="close-btn absolute -top-2 -left-2 w-6 h-6 bg-red-500 hover:bg-red-600 rounded-full text-white text-xs flex items-center justify-center transition-colors">
-                ×
-            </button>
+        <i class="${buttonIcon} transition-transform group-hover:scale-110"></i>
+        <span class="font-medium">${buttonText}</span>
+        <button class="close-btn absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 rounded-full text-white text-xs flex items-center justify-center transition-colors">
+            ×
+        </button>
         `;
+
 
         this.installButton.addEventListener('click', (e) => {
             if (!e.target.classList.contains('close-btn')) {

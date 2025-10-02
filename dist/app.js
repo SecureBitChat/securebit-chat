@@ -133,7 +133,7 @@ var UniqueFeatureSlider = () => {
       (slide, index) => React.createElement("button", {
         key: index,
         onClick: () => goToSlide(index),
-        className: `relative group transition-all duration-300 ${index === currentSlide ? "w-12 h-4 bg-orange-500 rounded-full" : "w-4 h-4 bg-gray-600 hover:bg-gray-500 rounded-full hover:scale-125"}`
+        className: `relative group transition-all duration-300 ${index === currentSlide ? "w-12 h-2 bg-orange-500 rounded-full" : "w-4 h-2 bg-gray-600 hover:bg-gray-500 rounded-full hover:scale-125"}`
       }, [
         // Tooltip on hover
         React.createElement("div", {
@@ -179,142 +179,142 @@ var ComparisonTable = () => {
   const features = [
     {
       name: "Security Architecture",
-      lockbit: { status: "\u{1F3C6}", detail: "18-layer military-grade defense system with complete ASN.1 validation" },
-      signal: { status: "\u2705", detail: "Signal Protocol with double ratchet" },
-      threema: { status: "\u2705", detail: "Standard security implementation" },
-      session: { status: "\u2705", detail: "Modified Signal Protocol + Onion routing" }
+      lockbit: { status: "trophy", detail: "18-layer military-grade defense system with complete ASN.1 validation" },
+      signal: { status: "check", detail: "Signal Protocol with double ratchet" },
+      threema: { status: "check", detail: "Standard security implementation" },
+      session: { status: "check", detail: "Modified Signal Protocol + Onion routing" }
     },
     {
       name: "Cryptography",
-      lockbit: { status: "\u{1F3C6}", detail: "ECDH P-384 + AES-GCM 256 + ECDSA P-384" },
-      signal: { status: "\u2705", detail: "Signal Protocol + Double Ratchet" },
-      threema: { status: "\u2705", detail: "NaCl + XSalsa20 + Poly1305" },
-      session: { status: "\u2705", detail: "Modified Signal Protocol" }
+      lockbit: { status: "trophy", detail: "ECDH P-384 + AES-GCM 256 + ECDSA P-384" },
+      signal: { status: "check", detail: "Signal Protocol + Double Ratchet" },
+      threema: { status: "check", detail: "NaCl + XSalsa20 + Poly1305" },
+      session: { status: "check", detail: "Modified Signal Protocol" }
     },
     {
       name: "Perfect Forward Secrecy",
-      lockbit: { status: "\u{1F3C6}", detail: "Auto rotation every 5 minutes or 100 messages" },
-      signal: { status: "\u2705", detail: "Double Ratchet algorithm" },
-      threema: { status: "\u26A0\uFE0F", detail: "Partial (group chats)" },
-      session: { status: "\u2705", detail: "Session Ratchet algorithm" }
+      lockbit: { status: "trophy", detail: "Auto rotation every 5 minutes or 100 messages" },
+      signal: { status: "check", detail: "Double Ratchet algorithm" },
+      threema: { status: "warning", detail: "Partial (group chats)" },
+      session: { status: "check", detail: "Session Ratchet algorithm" }
     },
     {
       name: "Architecture",
-      lockbit: { status: "\u{1F3C6}", detail: "Pure P2P WebRTC without servers" },
-      signal: { status: "\u274C", detail: "Centralized Signal servers" },
-      threema: { status: "\u274C", detail: "Threema servers in Switzerland" },
-      session: { status: "\u26A0\uFE0F", detail: "Onion routing via network nodes" }
+      lockbit: { status: "trophy", detail: "Pure P2P WebRTC without servers" },
+      signal: { status: "times", detail: "Centralized Signal servers" },
+      threema: { status: "times", detail: "Threema servers in Switzerland" },
+      session: { status: "warning", detail: "Onion routing via network nodes" }
     },
     {
       name: "Registration Anonymity",
-      lockbit: { status: "\u{1F3C6}", detail: "No registration required, instant anonymous channels" },
-      signal: { status: "\u274C", detail: "Phone number required" },
-      threema: { status: "\u2705", detail: "ID generated locally" },
-      session: { status: "\u2705", detail: "Random session ID" }
+      lockbit: { status: "trophy", detail: "No registration required, instant anonymous channels" },
+      signal: { status: "times", detail: "Phone number required" },
+      threema: { status: "check", detail: "ID generated locally" },
+      session: { status: "check", detail: "Random session ID" }
     },
     {
       name: "Payment Integration",
-      lockbit: { status: "\u{1F3C6}", detail: "Lightning Network satoshis per session + WebLN" },
-      signal: { status: "\u274C", detail: "No payment system" },
-      threema: { status: "\u274C", detail: "No payment system" },
-      session: { status: "\u274C", detail: "No payment system" }
+      lockbit: { status: "trophy", detail: "Lightning Network satoshis per session + WebLN" },
+      signal: { status: "times", detail: "No payment system" },
+      threema: { status: "times", detail: "No payment system" },
+      session: { status: "times", detail: "No payment system" }
     },
     {
       name: "Metadata Protection",
-      lockbit: { status: "\u{1F3C6}", detail: "Full metadata encryption + traffic obfuscation" },
-      signal: { status: "\u26A0\uFE0F", detail: "Sealed Sender (partial)" },
-      threema: { status: "\u26A0\uFE0F", detail: "Minimal metadata" },
-      session: { status: "\u2705", detail: "Onion routing hides metadata" }
+      lockbit: { status: "trophy", detail: "Full metadata encryption + traffic obfuscation" },
+      signal: { status: "warning", detail: "Sealed Sender (partial)" },
+      threema: { status: "warning", detail: "Minimal metadata" },
+      session: { status: "check", detail: "Onion routing hides metadata" }
     },
     {
       name: "Traffic Obfuscation",
-      lockbit: { status: "\u{1F3C6}", detail: "Fake traffic + pattern masking + packet padding" },
-      signal: { status: "\u274C", detail: "No traffic obfuscation" },
-      threema: { status: "\u274C", detail: "No traffic obfuscation" },
-      session: { status: "\u2705", detail: "Onion routing provides obfuscation" }
+      lockbit: { status: "trophy", detail: "Fake traffic + pattern masking + packet padding" },
+      signal: { status: "times", detail: "No traffic obfuscation" },
+      threema: { status: "times", detail: "No traffic obfuscation" },
+      session: { status: "check", detail: "Onion routing provides obfuscation" }
     },
     {
       name: "Open Source",
-      lockbit: { status: "\u{1F3C6}", detail: "100% open + auditable + MIT license" },
-      signal: { status: "\u2705", detail: "Fully open" },
-      threema: { status: "\u26A0\uFE0F", detail: "Only clients open" },
-      session: { status: "\u2705", detail: "Fully open" }
+      lockbit: { status: "trophy", detail: "100% open + auditable + MIT license" },
+      signal: { status: "check", detail: "Fully open" },
+      threema: { status: "warning", detail: "Only clients open" },
+      session: { status: "check", detail: "Fully open" }
     },
     {
       name: "MITM Protection",
-      lockbit: { status: "\u{1F3C6}", detail: "Out-of-band verification + mutual auth + ECDSA" },
-      signal: { status: "\u2705", detail: "Safety numbers verification" },
-      threema: { status: "\u2705", detail: "QR code scanning" },
-      session: { status: "\u26A0\uFE0F", detail: "Basic key verification" }
+      lockbit: { status: "trophy", detail: "Out-of-band verification + mutual auth + ECDSA" },
+      signal: { status: "check", detail: "Safety numbers verification" },
+      threema: { status: "check", detail: "QR code scanning" },
+      session: { status: "warning", detail: "Basic key verification" }
     },
     {
       name: "Economic Model",
-      lockbit: { status: "\u{1F3C6}", detail: "Sustainable pay-per-session model" },
-      signal: { status: "\u26A0\uFE0F", detail: "Donations and grants dependency" },
-      threema: { status: "\u2705", detail: "One-time app purchase" },
-      session: { status: "\u26A0\uFE0F", detail: "Donations dependency" }
+      lockbit: { status: "trophy", detail: "Sustainable pay-per-session model" },
+      signal: { status: "warning", detail: "Donations and grants dependency" },
+      threema: { status: "check", detail: "One-time app purchase" },
+      session: { status: "warning", detail: "Donations dependency" }
     },
     {
       name: "Censorship Resistance",
-      lockbit: { status: "\u{1F3C6}", detail: "Impossible to block P2P + no servers to target" },
-      signal: { status: "\u26A0\uFE0F", detail: "Blocked in authoritarian countries" },
-      threema: { status: "\u26A0\uFE0F", detail: "May be blocked" },
-      session: { status: "\u2705", detail: "Onion routing bypasses blocks" }
+      lockbit: { status: "trophy", detail: "Impossible to block P2P + no servers to target" },
+      signal: { status: "warning", detail: "Blocked in authoritarian countries" },
+      threema: { status: "warning", detail: "May be blocked" },
+      session: { status: "check", detail: "Onion routing bypasses blocks" }
     },
     {
       name: "Data Storage",
-      lockbit: { status: "\u{1F3C6}", detail: "Zero data storage - only in browser memory" },
-      signal: { status: "\u26A0\uFE0F", detail: "Local database storage" },
-      threema: { status: "\u26A0\uFE0F", detail: "Local + optional backup" },
-      session: { status: "\u26A0\uFE0F", detail: "Local database storage" }
+      lockbit: { status: "trophy", detail: "Zero data storage - only in browser memory" },
+      signal: { status: "warning", detail: "Local database storage" },
+      threema: { status: "warning", detail: "Local + optional backup" },
+      session: { status: "warning", detail: "Local database storage" }
     },
     {
       name: "Key Security",
-      lockbit: { status: "\u{1F3C6}", detail: "Non-extractable keys + hardware protection" },
-      signal: { status: "\u2705", detail: "Secure key storage" },
-      threema: { status: "\u2705", detail: "Local key storage" },
-      session: { status: "\u2705", detail: "Secure key storage" }
+      lockbit: { status: "trophy", detail: "Non-extractable keys + hardware protection" },
+      signal: { status: "check", detail: "Secure key storage" },
+      threema: { status: "check", detail: "Local key storage" },
+      session: { status: "check", detail: "Secure key storage" }
     },
     {
       name: "Post-Quantum Roadmap",
-      lockbit: { status: "\u2705", detail: "Planned v5.0 - CRYSTALS-Kyber/Dilithium" },
-      signal: { status: "\u26A0\uFE0F", detail: "PQXDH in development" },
-      threema: { status: "\u274C", detail: "Not announced" },
-      session: { status: "\u274C", detail: "Not announced" }
+      lockbit: { status: "check", detail: "Planned v5.0 - CRYSTALS-Kyber/Dilithium" },
+      signal: { status: "warning", detail: "PQXDH in development" },
+      threema: { status: "times", detail: "Not announced" },
+      session: { status: "times", detail: "Not announced" }
     }
   ];
   const getStatusIcon = (status) => {
     const statusMap = {
-      "\u{1F3C6}": { icon: "\u{1F3C6}", color: "text-yellow-400" },
-      "\u2705": { icon: "\u2705", color: "text-green-400" },
-      "\u26A0\uFE0F": { icon: "\u26A0\uFE0F", color: "text-yellow-400" },
-      "\u274C": { icon: "\u274C", color: "text-red-400" }
+      "trophy": { icon: "fa-trophy", color: "accent-orange" },
+      "check": { icon: "fa-check", color: "text-green-300" },
+      "warning": { icon: "fa-exclamation-triangle", color: "text-yellow-300" },
+      "times": { icon: "fa-times", color: "text-red-300" }
     };
-    return statusMap[status] || { icon: status, color: "text-gray-400" };
+    return statusMap[status] || { icon: "fa-question", color: "text-gray-400" };
   };
   const toggleFeatureDetail = (index) => {
     setSelectedFeature(selectedFeature === index ? null : index);
   };
-  return /* @__PURE__ */ React.createElement("div", { className: "mt-16" }, /* @__PURE__ */ React.createElement("div", { className: "text-center mb-8" }, /* @__PURE__ */ React.createElement("h3", { className: "text-3xl font-bold text-primary mb-3" }, "Enhanced Security Edition Comparison"), /* @__PURE__ */ React.createElement("p", { className: "text-secondary max-w-2xl mx-auto mb-4" }, "Enhanced Security Edition vs leading secure messengers"), /* @__PURE__ */ React.createElement("div", { className: "inline-flex items-center px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg" }, /* @__PURE__ */ React.createElement("span", { className: "text-yellow-400 mr-2" }, "\u{1F3C6}"), /* @__PURE__ */ React.createElement("span", { className: "text-yellow-300 text-sm font-medium" }, "Category Leader - Military-Grade Security"))), /* @__PURE__ */ React.createElement("div", { className: "max-w-7xl mx-auto" }, /* @__PURE__ */ React.createElement("div", { className: "md:hidden p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg mb-4" }, /* @__PURE__ */ React.createElement("p", { className: "text-yellow-400 text-sm text-center" }, "\u{1F4A1} Rotate your device horizontally for better viewing")), /* @__PURE__ */ React.createElement("div", { className: "overflow-x-auto custom-scrollbar" }, /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { className: "mt-16" }, /* @__PURE__ */ React.createElement("div", { className: "text-center mb-8" }, /* @__PURE__ */ React.createElement("h3", { className: "text-3xl font-bold text-white mb-3" }, "Enhanced Security Edition Comparison"), /* @__PURE__ */ React.createElement("p", { className: "text-gray-400 max-w-2xl mx-auto mb-4" }, "Enhanced Security Edition vs leading secure messengers")), /* @__PURE__ */ React.createElement("div", { className: "max-w-7xl mx-auto" }, /* @__PURE__ */ React.createElement("div", { className: "md:hidden p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg mb-4" }, /* @__PURE__ */ React.createElement("p", { className: "text-yellow-400 text-sm text-center" }, /* @__PURE__ */ React.createElement("i", { className: "fas fa-lightbulb mr-2" }), "Rotate your device horizontally for better viewing")), /* @__PURE__ */ React.createElement("div", { className: "overflow-x-auto" }, /* @__PURE__ */ React.createElement(
     "table",
     {
       className: "w-full border-collapse rounded-xl overflow-hidden shadow-2xl",
       style: { backgroundColor: "rgba(42, 43, 42, 0.9)" }
     },
-    /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { className: "bg-my" }, /* @__PURE__ */ React.createElement("th", { className: "text-left p-4 border-b border-gray-600 text-primary font-bold min-w-[240px]" }, "Security Criterion"), messengers.map((messenger, index) => /* @__PURE__ */ React.createElement("th", { key: `messenger-${index}`, className: "text-center p-4 border-b border-gray-600 min-w-[160px]" }, /* @__PURE__ */ React.createElement("div", { className: "flex flex-col items-center" }, /* @__PURE__ */ React.createElement("div", { className: "mb-2" }, messenger.logo), /* @__PURE__ */ React.createElement("div", { className: `text-sm font-bold ${messenger.color === "orange" ? "text-orange-400" : messenger.color === "blue" ? "text-blue-400" : messenger.color === "green" ? "text-green-400" : "text-cyan-400"}` }, messenger.name), /* @__PURE__ */ React.createElement("div", { className: "text-xs text-gray-400" }, messenger.type), /* @__PURE__ */ React.createElement("div", { className: "text-xs text-gray-500 mt-1" }, messenger.version)))))),
+    /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { className: "bg-black-table" }, /* @__PURE__ */ React.createElement("th", { className: "text-left p-4 border-b border-gray-600 text-white font-bold min-w-[240px]" }, "Security Criterion"), messengers.map((messenger, index) => /* @__PURE__ */ React.createElement("th", { key: `messenger-${index}`, className: "text-center p-4 border-b border-gray-600 min-w-[160px]" }, /* @__PURE__ */ React.createElement("div", { className: "flex flex-col items-center" }, /* @__PURE__ */ React.createElement("div", { className: "mb-2" }, messenger.logo), /* @__PURE__ */ React.createElement("div", { className: `text-sm font-bold ${messenger.color === "orange" ? "text-orange-400" : messenger.color === "blue" ? "text-blue-400" : messenger.color === "green" ? "text-green-400" : "text-cyan-400"}` }, messenger.name), /* @__PURE__ */ React.createElement("div", { className: "text-xs text-gray-400" }, messenger.type), /* @__PURE__ */ React.createElement("div", { className: "text-xs text-gray-500 mt-1" }, messenger.version)))))),
     /* @__PURE__ */ React.createElement("tbody", null, features.map((feature, featureIndex) => /* @__PURE__ */ React.createElement(React.Fragment, { key: `feature-${featureIndex}` }, /* @__PURE__ */ React.createElement(
       "tr",
       {
-        className: `border-b border-gray-700/30 hover:bg-gray-800/30 transition-all duration-200 cursor-pointer ${selectedFeature === featureIndex ? "bg-gray-800/50" : ""}`,
+        className: `border-b border-gray-700/30 transition-all duration-200 cursor-pointer hover:bg-[rgb(20_20_20_/30%)] ${selectedFeature === featureIndex ? "bg-[rgb(20_20_20_/50%)]" : ""}`,
         onClick: () => toggleFeatureDetail(featureIndex)
       },
-      /* @__PURE__ */ React.createElement("td", { className: "p-4 text-primary font-semibold" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between" }, /* @__PURE__ */ React.createElement("span", null, feature.name), /* @__PURE__ */ React.createElement("i", { className: `fas fa-chevron-${selectedFeature === featureIndex ? "up" : "down"} text-xs text-gray-400 opacity-60 transition-all duration-200` }))),
-      /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("span", { className: `${getStatusIcon(feature.lockbit.status).color} text-2xl` }, getStatusIcon(feature.lockbit.status).icon)),
-      /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("span", { className: `${getStatusIcon(feature.signal.status).color} text-2xl` }, getStatusIcon(feature.signal.status).icon)),
-      /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("span", { className: `${getStatusIcon(feature.threema.status).color} text-2xl` }, getStatusIcon(feature.threema.status).icon)),
-      /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("span", { className: `${getStatusIcon(feature.session.status).color} text-2xl` }, getStatusIcon(feature.session.status).icon))
-    ), selectedFeature === featureIndex && /* @__PURE__ */ React.createElement("tr", { className: "border-b border-gray-700/30 bg-gradient-to-r from-gray-800/20 to-gray-900/20" }, /* @__PURE__ */ React.createElement("td", { className: "p-4 text-xs text-gray-400 font-medium" }, "Technical Details:"), /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs text-orange-300 font-medium leading-relaxed max-w-32" }, feature.lockbit.detail)), /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs text-blue-300 leading-relaxed max-w-32" }, feature.signal.detail)), /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs text-green-300 leading-relaxed max-w-32" }, feature.threema.detail)), /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs text-cyan-300 leading-relaxed max-w-32" }, feature.session.detail))))))
-  )), /* @__PURE__ */ React.createElement("div", { className: "mt-8 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl hover:bg-yellow-500/20 transition-colors" }, /* @__PURE__ */ React.createElement("span", { className: "text-yellow-400 mr-2 text-xl" }, "\u{1F3C6}"), /* @__PURE__ */ React.createElement("span", { className: "text-yellow-300 text-sm font-bold" }, "Category Leader")), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-green-500/10 border border-green-500/20 rounded-xl hover:bg-green-500/20 transition-colors" }, /* @__PURE__ */ React.createElement("span", { className: "text-green-400 mr-2 text-xl" }, "\u2705"), /* @__PURE__ */ React.createElement("span", { className: "text-green-300 text-sm font-bold" }, "Excellent")), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl hover:bg-yellow-500/20 transition-colors" }, /* @__PURE__ */ React.createElement("span", { className: "text-yellow-400 mr-2 text-xl" }, "\u26A0\uFE0F"), /* @__PURE__ */ React.createElement("span", { className: "text-yellow-300 text-sm font-bold" }, "Partial/Limited")), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-red-500/10 border border-red-500/20 rounded-xl hover:bg-red-500/20 transition-colors" }, /* @__PURE__ */ React.createElement("span", { className: "text-red-400 mr-2 text-xl" }, "\u274C"), /* @__PURE__ */ React.createElement("span", { className: "text-red-300 text-sm font-bold" }, "Not Available"))), /* @__PURE__ */ React.createElement("div", { className: "mt-10 space-y-6 max-w-6xl mx-auto" }, /* @__PURE__ */ React.createElement("div", { className: "p-6 bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border border-orange-500/20 rounded-xl" }, /* @__PURE__ */ React.createElement("h4", { className: "text-xl font-bold text-orange-400 mb-4 flex items-center" }, /* @__PURE__ */ React.createElement("i", { className: "fas fa-trophy mr-3" }), "SecureBit.chat Enhanced Security Edition Summary"), /* @__PURE__ */ React.createElement("p", { className: "text-secondary leading-relaxed text-lg mb-4" }, "SecureBit.chat dominates in 11 out of 15 security categories, establishing itself as the most secure P2P messenger available. The Enhanced Security Edition introduces revolutionary 18-layer defense architecture with complete ASN.1 validation, and military-grade cryptography that exceeds government and enterprise standards."), /* @__PURE__ */ React.createElement("div", { className: "grid md:grid-cols-2 gap-4 mt-6" }, /* @__PURE__ */ React.createElement("div", { className: "p-4 bg-orange-500/5 border border-orange-500/10 rounded-lg" }, /* @__PURE__ */ React.createElement("h5", { className: "text-orange-400 font-semibold mb-2" }, "\u{1F510} Cryptographic Superiority"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-gray-300" }, "ECDH P-384 + AES-GCM 256 + ECDSA P-384 + Complete ASN.1 Validation with non-extractable keys and 18-layer defense system")), /* @__PURE__ */ React.createElement("div", { className: "p-4 bg-orange-500/5 border border-orange-500/10 rounded-lg" }, /* @__PURE__ */ React.createElement("h5", { className: "text-orange-400 font-semibold mb-2" }, "\u{1F310} True P2P Architecture"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-gray-300" }, "Pure WebRTC connections with zero servers, impossible to censor or shutdown, complete anonymity")), /* @__PURE__ */ React.createElement("div", { className: "p-4 bg-orange-500/5 border border-orange-500/10 rounded-lg" }, /* @__PURE__ */ React.createElement("h5", { className: "text-orange-400 font-semibold mb-2" }, "\u{1F3AD} Traffic Obfuscation"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-gray-300" }, "Advanced fake traffic generation, packet padding, and pattern masking defeat traffic analysis"))))), /* @__PURE__ */ React.createElement("div", { className: "mt-8 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "inline-flex items-center px-6 py-3 bg-gray-800/50 border border-gray-600/30 rounded-xl" }, /* @__PURE__ */ React.createElement("span", { className: "text-orange-400 mr-2" }, "\u{1F680}"), /* @__PURE__ */ React.createElement("span", { className: "text-gray-300 text-sm" }, "Enhanced Security Edition v4.2.12 - ECDH + DTLS + SAS - "), /* @__PURE__ */ React.createElement("span", { className: "text-orange-400 font-semibold text-sm" }, "Active Production Release"), /* @__PURE__ */ React.createElement("span", { className: "text-gray-400 text-sm ml-2" }, " | Next: v5.0 Post-Quantum")))));
+      /* @__PURE__ */ React.createElement("td", { className: "p-4 text-white font-semibold" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between" }, /* @__PURE__ */ React.createElement("span", null, feature.name), /* @__PURE__ */ React.createElement("i", { className: `fas fa-chevron-${selectedFeature === featureIndex ? "up" : "down"} text-xs text-gray-400 opacity-60 transition-all duration-200` }))),
+      /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("i", { className: `fas ${getStatusIcon(feature.lockbit.status).icon} ${getStatusIcon(feature.lockbit.status).color} text-2xl` })),
+      /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("i", { className: `fas ${getStatusIcon(feature.signal.status).icon} ${getStatusIcon(feature.signal.status).color} text-2xl` })),
+      /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("i", { className: `fas ${getStatusIcon(feature.threema.status).icon} ${getStatusIcon(feature.threema.status).color} text-2xl` })),
+      /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("i", { className: `fas ${getStatusIcon(feature.session.status).icon} ${getStatusIcon(feature.session.status).color} text-2xl` }))
+    ), selectedFeature === featureIndex && /* @__PURE__ */ React.createElement("tr", { className: "border-b border-gray-700/30 bg-gradient-to-r from-gray-800/20 to-gray-900/20" }, /* @__PURE__ */ React.createElement("td", { className: "p-4 text-xs text-gray-400 font-medium" }, "Technical Details:"), /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs text-orange-300 font-medium leading-relaxed" }, feature.lockbit.detail)), /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs text-blue-300 leading-relaxed" }, feature.signal.detail)), /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs text-green-300 leading-relaxed" }, feature.threema.detail)), /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs text-cyan-300 leading-relaxed" }, feature.session.detail))))))
+  )), /* @__PURE__ */ React.createElement("div", { className: "mt-8 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-orange-500/10 rounded-xl hover:bg-orange-500/40 transition-colors" }, /* @__PURE__ */ React.createElement("i", { className: "fas fa-trophy text-orange-400 mr-2 text-xl" }), /* @__PURE__ */ React.createElement("span", { className: "text-orange-300 text-sm font-bold" }, "Category Leader")), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-green-500/10 rounded-xl hover:bg-green-600/40 transition-colors" }, /* @__PURE__ */ React.createElement("i", { className: "fas fa-check text-green-300 mr-2 text-xl" }), /* @__PURE__ */ React.createElement("span", { className: "text-green-200 text-sm font-bold" }, "Excellent")), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-yellow-500/10 rounded-xl hover:bg-yellow-600/40 transition-colors" }, /* @__PURE__ */ React.createElement("i", { className: "fas fa-exclamation-triangle text-yellow-300 mr-2 text-xl" }), /* @__PURE__ */ React.createElement("span", { className: "text-yellow-200 text-sm font-bold" }, "Partial/Limited")), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-red-500/10 rounded-xl hover:bg-red-600/40 transition-colors" }, /* @__PURE__ */ React.createElement("i", { className: "fas fa-times text-red-300 mr-2 text-xl" }), /* @__PURE__ */ React.createElement("span", { className: "text-red-200 text-sm font-bold" }, "Not Available")))));
 };
 function Roadmap() {
   const [selectedPhase, setSelectedPhase] = React.useState(null);
@@ -552,15 +552,7 @@ function Roadmap() {
   const togglePhaseDetail = (index) => {
     setSelectedPhase(selectedPhase === index ? null : index);
   };
-  return /* @__PURE__ */ React.createElement("div", { key: "roadmap-section", className: "mt-16 px-4 sm:px-0" }, /* @__PURE__ */ React.createElement("div", { key: "section-header", className: "text-center mb-12" }, /* @__PURE__ */ React.createElement("h3", { key: "title", className: "text-2xl font-semibold text-primary mb-3" }, "Development Roadmap"), /* @__PURE__ */ React.createElement("p", { key: "subtitle", className: "text-secondary max-w-2xl mx-auto mb-6" }, "Evolution of SecureBit.chat : from initial development to quantum-resistant decentralized network with complete ASN.1 validation"), /* @__PURE__ */ React.createElement(
-    "div",
-    {
-      key: "roadmap-note",
-      className: "inline-flex items-center px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-lg"
-    },
-    /* @__PURE__ */ React.createElement("i", { key: "icon", className: "fas fa-rocket text-blue-400 mr-2" }),
-    /* @__PURE__ */ React.createElement("span", { key: "text", className: "text-blue-300 text-sm font-medium" }, "Click on a version for details")
-  )), /* @__PURE__ */ React.createElement("div", { key: "roadmap-container", className: "max-w-6xl mx-auto" }, /* @__PURE__ */ React.createElement("div", { key: "timeline", className: "relative" }, /* @__PURE__ */ React.createElement("div", { key: "phases", className: "space-y-8" }, phases.map((phase, index) => {
+  return /* @__PURE__ */ React.createElement("div", { key: "roadmap-section", className: "mt-16 px-4 sm:px-0" }, /* @__PURE__ */ React.createElement("div", { key: "section-header", className: "text-center mb-12" }, /* @__PURE__ */ React.createElement("h3", { key: "title", className: "text-2xl font-semibold text-primary mb-3" }, "Development Roadmap"), /* @__PURE__ */ React.createElement("p", { key: "subtitle", className: "text-secondary max-w-2xl mx-auto mb-6" }, "Evolution of SecureBit.chat : from initial development to quantum-resistant decentralized network with complete ASN.1 validation")), /* @__PURE__ */ React.createElement("div", { key: "roadmap-container", className: "max-w-6xl mx-auto" }, /* @__PURE__ */ React.createElement("div", { key: "timeline", className: "relative" }, /* @__PURE__ */ React.createElement("div", { key: "phases", className: "space-y-8" }, phases.map((phase, index) => {
     const statusConfig = getStatusConfig(phase.status);
     const isExpanded = selectedPhase === index;
     return /* @__PURE__ */ React.createElement("div", { key: `phase-${index}`, className: "relative" }, /* @__PURE__ */ React.createElement(
@@ -1066,13 +1058,13 @@ var EnhancedConnectionSetup = ({
         ]),
         React.createElement("div", {
           key: "options",
-          className: "grid md:grid-cols-2 gap-6 max-w-3xl mx-auto"
+          className: "flex flex-col md:flex-row items-center justify-center gap-6 max-w-3xl mx-auto"
         }, [
           // Create Connection
           React.createElement("div", {
             key: "create",
             onClick: () => setMode("create"),
-            className: "card-minimal rounded-xl p-6 cursor-pointer group"
+            className: "card-minimal rounded-xl p-6 cursor-pointer group flex-1 create"
           }, [
             React.createElement("div", {
               key: "icon",
@@ -1089,7 +1081,7 @@ var EnhancedConnectionSetup = ({
             React.createElement("p", {
               key: "description",
               className: "text-secondary text-center text-sm mb-4"
-            }, "Initiate a new secure connection with encrypted exchange"),
+            }, "Initiate a new secure connection"),
             React.createElement("div", {
               key: "features",
               className: "space-y-2"
@@ -1123,11 +1115,28 @@ var EnhancedConnectionSetup = ({
               ])
             ])
           ]),
+          React.createElement("div", {
+            key: "divider",
+            className: "flex flex-row md:flex-col items-center gap-4 px-4 w-full md:w-auto"
+          }, [
+            React.createElement("div", {
+              key: "line-a",
+              className: "h-px flex-1 bg-gradient-to-r from-transparent via-zinc-700 to-transparent md:h-32 md:w-px md:flex-none md:bg-gradient-to-b"
+            }),
+            React.createElement("div", {
+              key: "or-text",
+              className: "text-zinc-600 text-sm font-medium px-3"
+            }, "OR"),
+            React.createElement("div", {
+              key: "line-b",
+              className: "h-px flex-1 bg-gradient-to-r from-transparent via-zinc-700 to-transparent md:h-32 md:w-px md:flex-none md:bg-gradient-to-b"
+            })
+          ]),
           // Join Connection
           React.createElement("div", {
             key: "join",
             onClick: () => setMode("join"),
-            className: "card-minimal rounded-xl p-6 cursor-pointer group"
+            className: "card-minimal rounded-xl p-6 cursor-pointer group flex-1 join"
           }, [
             React.createElement("div", {
               key: "icon",
@@ -1184,39 +1193,46 @@ var EnhancedConnectionSetup = ({
           className: "grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 max-w-6xl mx-auto mt-8"
         }, [
           React.createElement("div", { key: "feature1", className: "text-center p-3 sm:p-4" }, [
-            React.createElement("div", { key: "icon", className: "w-10 h-10 sm:w-12 sm:h-12 bg-green-500/10 border border-green-500/20 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
+            React.createElement("div", { key: "icon", className: "w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
               React.createElement("i", { className: "fas fa-key accent-green" })
             ]),
             React.createElement("h4", { key: "title", className: "text-xs sm:text-sm font-medium text-primary mb-1" }, "ECDH P-384 Key Exchange"),
             React.createElement("p", { key: "desc", className: "text-xs text-muted leading-tight" }, "Military-grade elliptic curve key exchange")
           ]),
           React.createElement("div", { key: "feature2", className: "text-center p-3 sm:p-4" }, [
-            React.createElement("div", { key: "icon", className: "w-10 h-10 sm:w-12 sm:h-12 bg-purple-500/10 border border-purple-500/20 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
+            React.createElement("div", { key: "icon", className: "w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
               React.createElement("i", { className: "fas fa-user-shield accent-purple" })
             ]),
             React.createElement("h4", { key: "title", className: "text-xs sm:text-sm font-medium text-primary mb-1" }, "MITM Protection"),
             React.createElement("p", { key: "desc", className: "text-xs text-muted leading-tight" }, "Out-of-band verification against attacks")
           ]),
           React.createElement("div", { key: "feature3", className: "text-center p-3 sm:p-4" }, [
-            React.createElement("div", { key: "icon", className: "w-10 h-10 sm:w-12 sm:h-12 bg-orange-500/10 border border-orange-500/20 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
+            React.createElement("div", { key: "icon", className: "w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
               React.createElement("i", { className: "fas fa-lock accent-orange" })
             ]),
             React.createElement("h4", { key: "title", className: "text-xs sm:text-sm font-medium text-primary mb-1" }, "AES-GCM 256 Encryption"),
             React.createElement("p", { key: "desc", className: "text-xs text-muted leading-tight" }, "Authenticated encryption standard")
           ]),
           React.createElement("div", { key: "feature4", className: "text-center p-3 sm:p-4" }, [
-            React.createElement("div", { key: "icon", className: "w-10 h-10 sm:w-12 sm:h-12 bg-cyan-500/10 border border-cyan-500/20 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
+            React.createElement("div", { key: "icon", className: "w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
               React.createElement("i", { className: "fas fa-sync-alt accent-cyan" })
             ]),
             React.createElement("h4", { key: "title", className: "text-xs sm:text-sm font-medium text-primary mb-1" }, "Perfect Forward Secrecy"),
             React.createElement("p", { key: "desc", className: "text-xs text-muted leading-tight" }, "Automatic key rotation every 5 minutes")
           ]),
           React.createElement("div", { key: "feature5", className: "text-center p-3 sm:p-4" }, [
-            React.createElement("div", { key: "icon", className: "w-10 h-10 sm:w-12 sm:h-12 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
+            React.createElement("div", { key: "icon", className: "w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
               React.createElement("i", { className: "fas fa-signature accent-blue" })
             ]),
             React.createElement("h4", { key: "title", className: "text-xs sm:text-sm font-medium text-primary mb-1" }, "ECDSA P-384 Signatures"),
             React.createElement("p", { key: "desc", className: "text-xs text-muted leading-tight" }, "Digital signatures for message integrity")
+          ]),
+          React.createElement("div", { key: "feature6", className: "text-center p-3 sm:p-4" }, [
+            React.createElement("div", { key: "icon", className: "w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
+              React.createElement("i", { className: "fas fa-shield-alt accent-red" })
+            ]),
+            React.createElement("h4", { key: "title", className: "text-xs sm:text-sm font-medium text-primary mb-1" }, "SAS Security"),
+            React.createElement("p", { key: "desc", className: "text-xs text-muted leading-tight" }, "Revolutionary key exchange & MITM protection")
           ])
         ]),
         React.createElement(UniqueFeatureSlider, { key: "unique-features-slider" }),
