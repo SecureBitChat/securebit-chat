@@ -5,7 +5,7 @@ const SecurityFeatures = () => {
     { id: 'feature3', color: '#ff8800', icon: 'fas fa-lock accent-orange', title: 'AES-GCM 256 Encryption', desc: 'Authenticated encryption standard' },
     { id: 'feature4', color: '#00ffff', icon: 'fas fa-sync-alt accent-cyan', title: 'Perfect Forward Secrecy', desc: 'Automatic key rotation every 5 minutes' },
     { id: 'feature5', color: '#0088ff', icon: 'fas fa-signature accent-blue', title: 'ECDSA P-384 Signatures', desc: 'Digital signatures for message integrity' },
-    { id: 'feature6', color: '#ff0044', icon: 'fas fa-shield-alt accent-red', title: 'SAS Security', desc: 'Revolutionary key exchange & MITM protection' }
+    { id: 'feature6', color: '#f87171', icon: 'fas fa-shield-alt accent-red', title: 'SAS Security', desc: 'Revolutionary key exchange & MITM protection' }
   ];
 
   React.useEffect(() => {

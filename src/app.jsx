@@ -474,6 +474,8 @@
         
                                            
                                 React.createElement(SecurityFeatures, { key: 'security-features' }),
+
+                                React.createElement(Testimonials, { key: 'testimonials' }),
         
                                 React.createElement(UniqueFeatureSlider, { key: 'unique-features-slider' }),
         

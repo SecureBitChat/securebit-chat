@@ -22,6 +22,7 @@ const STATIC_ASSETS = [
     '/src/components/ui/ComparisonTable.jsx',
     '/src/components/ui/UniqueFeatureSlider.jsx',
     '/src/components/ui/SecurityFeatures.jsx',
+    '/src/components/ui/Testimonials.jsx',
     '/src/components/ui/Roadmap.jsx',
     '/src/styles/main.css',
     '/src/styles/animations.css',

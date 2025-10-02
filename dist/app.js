@@ -453,6 +453,7 @@ var EnhancedConnectionSetup = ({
           ])
         ]),
         React.createElement(SecurityFeatures, { key: "security-features" }),
+        React.createElement(Testimonials, { key: "testimonials" }),
         React.createElement(UniqueFeatureSlider, { key: "unique-features-slider" }),
         React.createElement(DownloadApps, { key: "download-apps" }),
         React.createElement(ComparisonTable, { key: "comparison-table" }),

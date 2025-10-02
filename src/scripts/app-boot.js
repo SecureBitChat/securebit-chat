@@ -8,6 +8,7 @@ import '../components/ui/Header.jsx';
 import '../components/ui/DownloadApps.jsx';
 import '../components/ui/UniqueFeatureSlider.jsx';
 import '../components/ui/SecurityFeatures.jsx';
+import '../components/ui/Testimonials.jsx';
 import '../components/ui/ComparisonTable.jsx';
 import '../components/ui/Roadmap.jsx';
 import '../components/ui/FileTransfer.jsx';
