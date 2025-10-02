@@ -101,7 +101,7 @@ class EnhancedSecureWebRTCManager {
     };
 
     //   Static debug flag instead of this._debugMode
-    static DEBUG_MODE = false; // Set to true during development, false in production
+    static DEBUG_MODE = true; // Set to true during development, false in production
 
 
     constructor(onMessage, onStatusChange, onKeyExchange, onVerificationRequired, onAnswerError = null, onVerificationStateChange = null, config = {}) {
@@ -577,6 +577,255 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             
             return nextSeq;
         }
+
+        /**
+         * Create a safe hash for logging sensitive data
+         * Returns only the first 4 bytes (8 hex chars) of SHA-256 hash
+         * @param {any} sensitiveData - The sensitive data to hash
+         * @param {string} context - Context for error logging
+         * @returns {Promise<string>} - Short hash (8 hex chars) or 'hash_error'
+         */
+        async _createSafeLogHash(sensitiveData, context = 'unknown') {
+            try {
+                let dataToHash;
+                
+                // Convert different data types to consistent format for hashing
+                if (sensitiveData instanceof ArrayBuffer) {
+                    dataToHash = new Uint8Array(sensitiveData);
+                } else if (sensitiveData instanceof Uint8Array) {
+                    dataToHash = sensitiveData;
+                } else if (sensitiveData instanceof CryptoKey) {
+                    // For CryptoKey, use its type and algorithm info (not the key material)
+                    const keyInfo = `${sensitiveData.type}_${sensitiveData.algorithm?.name || 'unknown'}_${sensitiveData.extractable}`;
+                    dataToHash = new TextEncoder().encode(keyInfo);
+                } else if (typeof sensitiveData === 'string') {
+                    dataToHash = new TextEncoder().encode(sensitiveData);
+                } else if (typeof sensitiveData === 'object' && sensitiveData !== null) {
+                    // For objects (like JWK), stringify without sensitive fields
+                    const safeObj = { type: sensitiveData.kty || 'unknown', use: sensitiveData.use || 'unknown' };
+                    dataToHash = new TextEncoder().encode(JSON.stringify(safeObj));
+                } else {
+                    // Fallback for other types
+                    dataToHash = new TextEncoder().encode(String(sensitiveData));
+                }
+                
+                // Create SHA-256 hash
+                const hashBuffer = await crypto.subtle.digest('SHA-256', dataToHash);
+                const hashArray = new Uint8Array(hashBuffer);
+                
+                // Return only first 4 bytes as hex (8 characters)
+                return Array.from(hashArray.slice(0, 4))
+                    .map(b => b.toString(16).padStart(2, '0'))
+                    .join('');
+                    
+            } catch (error) {
+                // Never log the actual error details to avoid leaking sensitive data
+                return 'hash_error';
+            }
+        }
+
+        /**
+         * Async sleep helper - replaces busy-wait
+         */
+        async _asyncSleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        /**
+         * Async cleanup helper - replaces immediate heavy operations
+         */
+        async _scheduleAsyncCleanup(cleanupFn, delay = 0) {
+            return new Promise((resolve) => {
+                setTimeout(async () => {
+                    try {
+                        await cleanupFn();
+                        resolve(true);
+                    } catch (error) {
+                        this._secureLog('error', 'Async cleanup failed', {
+                            errorType: error?.constructor?.name || 'Unknown'
+                        });
+                        resolve(false);
+                    }
+                }, delay);
+            });
+        }
+
+        /**
+         * Batch async operations to prevent UI blocking
+         */
+        async _batchAsyncOperation(items, batchSize = 10, delayBetweenBatches = 5) {
+            const results = [];
+            
+            for (let i = 0; i < items.length; i += batchSize) {
+                const batch = items.slice(i, i + batchSize);
+                const batchResults = await Promise.all(batch);
+                results.push(...batchResults);
+                
+                // Small delay between batches to prevent UI blocking
+                if (i + batchSize < items.length) {
+                    await this._asyncSleep(delayBetweenBatches);
+                }
+            }
+            
+            return results;
+        }
+
+        /**
+         * Memory cleanup without window.gc() - uses natural garbage collection
+         */
+        async _performNaturalCleanup() {
+            // Clear references and let JS engine handle GC naturally
+            // This is more reliable than forcing GC
+            
+            // Schedule cleanup in next event loop cycle
+            await this._asyncSleep(0);
+            
+            // Allow multiple event loop cycles for natural GC
+            for (let i = 0; i < 3; i++) {
+                await this._asyncSleep(10);
+            }
+        }
+
+        /**
+         * Heavy cleanup operations using WebWorker (if available)
+         */
+        async _performHeavyCleanup(cleanupData) {
+            // Try to use WebWorker for heavy operations
+            if (typeof Worker !== 'undefined') {
+                try {
+                    return await this._cleanupWithWorker(cleanupData);
+                } catch (error) {
+                    this._secureLog('warn', 'WebWorker cleanup failed, falling back to main thread', {
+                        errorType: error?.constructor?.name || 'Unknown'
+                    });
+                }
+            }
+            
+            // Fallback to main thread with async batching
+            return await this._cleanupInMainThread(cleanupData);
+        }
+
+        /**
+         * Cleanup using WebWorker
+         */
+        async _cleanupWithWorker(cleanupData) {
+            return new Promise((resolve, reject) => {
+                // Create inline worker for cleanup operations
+                const workerCode = `
+                    self.onmessage = function(e) {
+                        const { type, data } = e.data;
+                        
+                        try {
+                            switch (type) {
+                                case 'cleanup_arrays':
+                                    // Simulate heavy array cleanup
+                                    let processed = 0;
+                                    for (let i = 0; i < data.count; i++) {
+                                        // Simulate work
+                                        processed++;
+                                        if (processed % 1000 === 0) {
+                                            // Yield control periodically
+                                            setTimeout(() => {}, 0);
+                                        }
+                                    }
+                                    self.postMessage({ success: true, processed });
+                                    break;
+                                    
+                                case 'cleanup_objects':
+                                    // Simulate object cleanup
+                                    const cleaned = data.objects.map(() => null);
+                                    self.postMessage({ success: true, cleaned: cleaned.length });
+                                    break;
+                                    
+                                default:
+                                    self.postMessage({ success: true, message: 'Unknown cleanup type' });
+                            }
+                        } catch (error) {
+                            self.postMessage({ success: false, error: error.message });
+                        }
+                    };
+                `;
+                
+                const blob = new Blob([workerCode], { type: 'application/javascript' });
+                const worker = new Worker(URL.createObjectURL(blob));
+                
+                const timeout = setTimeout(() => {
+                    worker.terminate();
+                    reject(new Error('Worker cleanup timeout'));
+                }, 5000); // 5 second timeout
+                
+                worker.onmessage = (e) => {
+                    clearTimeout(timeout);
+                    worker.terminate();
+                    URL.revokeObjectURL(blob);
+                    
+                    if (e.data.success) {
+                        resolve(e.data);
+                    } else {
+                        reject(new Error(e.data.error));
+                    }
+                };
+                
+                worker.onerror = (error) => {
+                    clearTimeout(timeout);
+                    worker.terminate();
+                    URL.revokeObjectURL(blob);
+                    reject(error);
+                };
+                
+                worker.postMessage(cleanupData);
+            });
+        }
+
+        /**
+         * Cleanup in main thread with async batching
+         */
+        async _cleanupInMainThread(cleanupData) {
+            const { type, data } = cleanupData;
+            
+            switch (type) {
+                case 'cleanup_arrays':
+                    // Process in batches to avoid blocking
+                    let processed = 0;
+                    const batchSize = 100;
+                    
+                    while (processed < data.count) {
+                        const batchEnd = Math.min(processed + batchSize, data.count);
+                        
+                        // Process batch
+                        for (let i = processed; i < batchEnd; i++) {
+                            // Simulate cleanup work
+                        }
+                        
+                        processed = batchEnd;
+                        
+                        // Yield control to prevent UI blocking
+                        await this._asyncSleep(1);
+                    }
+                    
+                    return { success: true, processed };
+                    
+                case 'cleanup_objects':
+                    // Clean objects in batches
+                    const objects = data.objects || [];
+                    const batches = [];
+                    
+                    for (let i = 0; i < objects.length; i += 50) {
+                        batches.push(objects.slice(i, i + 50));
+                    }
+                    
+                    let cleaned = 0;
+                    for (const batch of batches) {
+                        batch.forEach(() => cleaned++);
+                        await this._asyncSleep(1);
+                    }
+                    
+                    return { success: true, cleaned };
+                    
+                default:
+                    return { success: true, message: 'Unknown cleanup type' };
+            }
+        }
         
     /**
      *   Enhanced mutex system initialization with atomic protection
@@ -708,7 +957,11 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             });
             
             //   Emergency cleanup on failure
-            this._emergencyCleanup();
+            this._emergencyCleanup().catch(error => {
+                this._secureLog('error', 'Emergency cleanup failed', {
+                    errorType: error?.constructor?.name || 'Unknown'
+                });
+            });
         }
     }
 
@@ -761,14 +1014,18 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         // If violations detected, trigger emergency cleanup
         if (violations.length > 0) {
             this._secureLog('warn', '⚠️ Resource limit violations detected', { violations });
-            this._emergencyCleanup();
+            this._emergencyCleanup().catch(error => {
+                this._secureLog('error', 'Emergency cleanup failed', {
+                    errorType: error?.constructor?.name || 'Unknown'
+                });
+            });
         }
     }
 
     /**
      *   Emergency cleanup when resource limits are exceeded
      */
-    _emergencyCleanup() {
+    async _emergencyCleanup() {
         this._secureLog('warn', '🚨 EMERGENCY: Resource limits exceeded, performing emergency cleanup');
         
         try {
@@ -829,25 +1086,20 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             this._secureMemoryManager.cleanupQueue.length = 0;
             this._secureMemoryManager.memoryStats.lastCleanup = Date.now();
             
-            //   Force multiple garbage collection cycles
-            if (typeof window.gc === 'function') {
-                try {
-                    // Multiple GC cycles for thorough cleanup
-                    for (let i = 0; i < 3; i++) {
-                        window.gc();
-                        this._secureLog('info', `🧹 Enhanced Emergency: Garbage collection cycle ${i + 1}/3`);
-                        // Small delay between cycles
-                        if (i < 2) {
-                            const start = Date.now();
-                            while (Date.now() - start < 10) {
-                                // Busy wait for 10ms
-                            }
-                        }
-                    }
-                } catch (e) {
-                    // Ignore GC errors
+            //   Perform natural cleanup without forcing GC
+            await this._scheduleAsyncCleanup(async () => {
+                this._secureLog('info', '🧹 Enhanced Emergency: Starting natural memory cleanup');
+                
+                // Natural cleanup cycles with async delays
+                for (let i = 0; i < 3; i++) {
+                    this._secureLog('info', `🧹 Enhanced Emergency: Cleanup cycle ${i + 1}/3`);
+                    
+                    // Allow natural garbage collection between cycles
+                    await this._performNaturalCleanup();
                 }
-            }
+                
+                this._secureLog('info', '🧹 Enhanced Emergency: Natural cleanup completed');
+            }, 0);
             
             this._secureMemoryManager.isCleaning = false;
             
@@ -1206,8 +1458,11 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
      * Initializes the secure key storage
      */
     _initializeSecureKeyStorage() {
-        // Initialize with the new class
-        this._secureKeyStorage = new SecureKeyStorage();
+        // Initialize master key manager
+        this._masterKeyManager = new SecureMasterKeyManager();
+        
+        // Initialize with the new class and pass master key manager
+        this._secureKeyStorage = new SecureKeyStorage(this._masterKeyManager);
         
         // Keep the stats structure for compatibility
         this._keyStorageStats = {
@@ -1218,6 +1473,47 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         };
         
         this._secureLog('info', '🔐 Enhanced secure key storage initialized');
+    }
+    
+    /**
+     * Set password callback for master key
+     */
+    setMasterKeyPasswordCallback(callback) {
+        if (this._masterKeyManager) {
+            this._masterKeyManager.setPasswordRequiredCallback(callback);
+        }
+    }
+    
+    /**
+     * Set session expired callback for master key
+     */
+    setMasterKeySessionExpiredCallback(callback) {
+        if (this._masterKeyManager) {
+            this._masterKeyManager.setSessionExpiredCallback(callback);
+        }
+    }
+    
+    /**
+     * Lock master key manually
+     */
+    lockMasterKey() {
+        if (this._masterKeyManager) {
+            this._masterKeyManager.lock();
+        }
+    }
+    
+    /**
+     * Check if master key is unlocked
+     */
+    isMasterKeyUnlocked() {
+        return this._masterKeyManager ? this._masterKeyManager.isUnlocked() : false;
+    }
+    
+    /**
+     * Get master key session status
+     */
+    getMasterKeySessionStatus() {
+        return this._masterKeyManager ? this._masterKeyManager.getSessionStatus() : null;
     }
 
     // Helper: ensure file transfer system is ready (lazy init on receiver)
@@ -1295,6 +1591,12 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
 
     _secureWipeKeys() {
         this._secureKeyStorage.secureWipeAll();
+        
+        // Also lock the master key
+        if (this._masterKeyManager) {
+            this._masterKeyManager.lock();
+        }
+        
         this._secureLog('info', '🧹 All keys securely wiped and encrypted storage cleared');
     }
 
@@ -2568,20 +2870,13 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     /**
      *   Force garbage collection if available
      */
-    _forceGarbageCollection() {
+    async _forceGarbageCollection() {
         try {
-            //   Try to force garbage collection if available
-            if (typeof window.gc === 'function') {
-                window.gc();
-                this._secureLog('debug', '🔒 Garbage collection forced');
-            } else if (typeof global.gc === 'function') {
-                global.gc();
-                this._secureLog('debug', '🔒 Garbage collection forced (global)');
-            } else {
-                this._secureLog('debug', '⚠️ Garbage collection not available');
-            }
+            //   Use natural cleanup instead of forcing GC
+            await this._performNaturalCleanup();
+            this._secureLog('debug', '🔒 Natural memory cleanup performed');
         } catch (error) {
-            this._secureLog('error', '❌ Failed to force garbage collection', {
+            this._secureLog('error', '❌ Failed to perform natural cleanup', {
                 errorType: error.constructor.name
             });
         }
@@ -2590,7 +2885,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     /**
      *   Perform periodic memory cleanup
      */
-    _performPeriodicMemoryCleanup() {
+    async _performPeriodicMemoryCleanup() {
         try {
             this._secureMemoryManager.isCleaning = true;
             
@@ -2610,8 +2905,8 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 this.processedMessageIds.clear();
             }
             
-            //   Force garbage collection
-            this._forceGarbageCollection();
+            //   Natural cleanup
+            await this._forceGarbageCollection();
             
             this._secureLog('debug', '🔒 Periodic memory cleanup completed');
             
@@ -3229,7 +3524,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
      *   Validate DTLS fingerprint against expected value
      * This prevents MITM attacks by ensuring the remote peer has the expected certificate
      */
-    _validateDTLSFingerprint(receivedFingerprint, expectedFingerprint, context = 'unknown') {
+    async _validateDTLSFingerprint(receivedFingerprint, expectedFingerprint, context = 'unknown') {
         try {
             if (!receivedFingerprint || !expectedFingerprint) {
                 throw new Error('Missing fingerprint for validation');
@@ -3242,8 +3537,8 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             if (normalizedReceived !== normalizedExpected) {
                 this._secureLog('error', 'DTLS fingerprint mismatch - possible MITM attack', {
                     context: context,
-                    received: normalizedReceived,
-                    expected: normalizedExpected,
+                    receivedHash: await this._createSafeLogHash(normalizedReceived, 'dtls_fingerprint'),
+                    expectedHash: await this._createSafeLogHash(normalizedExpected, 'dtls_fingerprint'),
                     timestamp: Date.now()
                 });
                 
@@ -3252,7 +3547,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
 
             this._secureLog('info', 'DTLS fingerprint validation successful', {
                 context: context,
-                fingerprint: normalizedReceived,
+                fingerprintHash: await this._createSafeLogHash(normalizedReceived, 'dtls_fingerprint'),
                 timestamp: Date.now()
             });
 
@@ -3516,7 +3811,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             });
 
             this._secureLog('info', '✅ Ephemeral ECDH keys generated for PFS', {
-                sessionId: sessionId,
+                sessionIdHash: await this._createSafeLogHash(sessionId, 'session_id'),
                 timestamp: Date.now()
             });
 
@@ -3531,7 +3826,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
      *   Hard wipe old keys for real PFS
      * This prevents retrospective decryption attacks
      */
-    _hardWipeOldKeys() {
+    async _hardWipeOldKeys() {
         try {
             this._secureLog('info', '🧹 Performing hard wipe of old keys for PFS', {
                 oldKeysCount: this.oldKeys.size,
@@ -3560,10 +3855,8 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             // Clear the oldKeys map completely
             this.oldKeys.clear();
 
-            // Force garbage collection if available
-            if (typeof window.gc === 'function') {
-                window.gc();
-            }
+            // Schedule natural cleanup
+            await this._performNaturalCleanup();
 
             this._secureLog('info', '✅ Hard wipe of old keys completed for PFS', {
                 timestamp: Date.now()
@@ -3578,7 +3871,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
      *   Wipe ephemeral keys when session ends
      * This ensures session-specific keys are destroyed
      */
-    _wipeEphemeralKeys() {
+    async _wipeEphemeralKeys() {
         try {
             this._secureLog('info', '🧹 Wiping ephemeral keys for PFS', {
                 ephemeralKeysCount: this.ephemeralKeyPairs.size,
@@ -3603,10 +3896,8 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             // Clear the ephemeral keys map
             this.ephemeralKeyPairs.clear();
 
-            // Force garbage collection if available
-            if (typeof window.gc === 'function') {
-                window.gc();
-            }
+            // Schedule natural cleanup
+            await this._performNaturalCleanup();
 
             this._secureLog('info', '✅ Ephemeral keys wiped for PFS', {
                 timestamp: Date.now()
@@ -3918,7 +4209,12 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         //   Periodic secure memory cleanup
         if (!this._secureMemoryManager.memoryStats.lastCleanup || 
             Date.now() - this._secureMemoryManager.memoryStats.lastCleanup > 600000) { // Every 10 minutes
-            this._performPeriodicMemoryCleanup();
+            // Schedule async cleanup without blocking
+            this._performPeriodicMemoryCleanup().catch(error => {
+                this._secureLog('error', 'Periodic cleanup failed', {
+                    errorType: error?.constructor?.name || 'Unknown'
+                });
+            });
             this._secureMemoryManager.memoryStats.lastCleanup = Date.now();
         }
     }
@@ -3953,7 +4249,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     /**
      *   Enhanced emergency logging disable with cleanup
      */
-    _emergencyDisableLogging() {
+    async _emergencyDisableLogging() {
         //   Immediately disable all logging levels
         this._currentLogLevel = -1;
         
@@ -3985,14 +4281,8 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         this._auditLogMessage = () => false;
         this._containsSensitiveContent = () => true; // Block everything
         
-        //   Force garbage collection if available
-        if (typeof window.gc === 'function') {
-            try {
-                window.gc();
-            } catch (e) {
-                // Ignore GC errors
-            }
-        }
+        //   Schedule natural cleanup
+        await this._performNaturalCleanup();
         
         //   Notify about the emergency shutdown
         this._originalConsole?.error?.('🚨 CRITICAL: Secure logging system disabled due to potential data exposure');
@@ -4451,6 +4741,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             result.set(new Uint8Array(encrypted), EnhancedSecureWebRTCManager.SIZES.NESTED_ENCRYPTION_IV_SIZE);
             
             this._secureLog('debug', '✅ Nested encryption applied with secure IV', {
+                ivHash: await this._createSafeLogHash(uniqueIV, 'nestedEncryption'),
                 ivSize: uniqueIV.length,
                 dataSize: data.byteLength,
                 encryptedSize: encrypted.byteLength
@@ -7690,6 +7981,8 @@ async processMessage(data) {
                     
                     this._secureLog('debug', 'Ephemeral ECDH keys generated and validated for PFS', {
                         operationId: operationId,
+                        privateKeyHash: await this._createSafeLogHash(ecdhKeyPair.privateKey, 'ecdh_private'),
+                        publicKeyHash: await this._createSafeLogHash(ecdhKeyPair.publicKey, 'ecdh_public'),
                         privateKeyType: ecdhKeyPair.privateKey.algorithm?.name,
                         publicKeyType: ecdhKeyPair.publicKey.algorithm?.name,
                         isEphemeral: true
@@ -7719,6 +8012,8 @@ async processMessage(data) {
                     
                     this._secureLog('debug', 'ECDSA keys generated and validated', {
                         operationId: operationId,
+                        privateKeyHash: await this._createSafeLogHash(ecdsaKeyPair.privateKey, 'ecdsa_private'),
+                        publicKeyHash: await this._createSafeLogHash(ecdsaKeyPair.publicKey, 'ecdsa_public'),
                         privateKeyType: ecdsaKeyPair.privateKey.algorithm?.name,
                         publicKeyType: ecdsaKeyPair.publicKey.algorithm?.name
                     });
@@ -8424,7 +8719,7 @@ async processMessage(data) {
     /**
      *   Clean up old IVs with strict limits
      */
-    _cleanupOldIVs() {
+    async _cleanupOldIVs() {
         const now = Date.now();
         const maxAge = 1800000; // Reduced to 30 minutes for better security
         let cleanedCount = 0;
@@ -8482,13 +8777,9 @@ async processMessage(data) {
             }
         }
         
-        //   Force garbage collection if available and significant cleanup occurred
-        if (typeof window.gc === 'function' && cleanedCount > 50) {
-            try {
-                window.gc();
-            } catch (e) {
-                // Ignore GC errors
-            }
+        //   Schedule natural cleanup if significant cleanup occurred
+        if (cleanedCount > 50) {
+            await this._performNaturalCleanup();
         }
         
         if (cleanedCount > 0) {
@@ -9197,8 +9488,12 @@ async processMessage(data) {
                 hasPFS: false
             });
             
-            //   Force garbage collection
-            this._forceGarbageCollection();
+            //   Schedule natural cleanup
+            this._forceGarbageCollection().catch(error => {
+                this._secureLog('error', 'Cleanup failed during offer cleanup', {
+                    errorType: error?.constructor?.name || 'Unknown'
+                });
+            });
             
             this._secureLog('debug', 'Failed offer creation cleanup completed with secure memory wipe');
             
@@ -9553,7 +9848,7 @@ async processMessage(data) {
                         const receivedFingerprint = this._extractDTLSFingerprintFromSDP(offerData.sdp);
                         
                         if (this.expectedDTLSFingerprint) {
-                            this._validateDTLSFingerprint(receivedFingerprint, this.expectedDTLSFingerprint, 'offer_validation');
+                            await this._validateDTLSFingerprint(receivedFingerprint, this.expectedDTLSFingerprint, 'offer_validation');
                         } else {
                             // Store fingerprint for future validation (first connection)
                             this.expectedDTLSFingerprint = receivedFingerprint;
@@ -9934,8 +10229,12 @@ async processMessage(data) {
                 hasPFS: false
             });
             
-            //   Force garbage collection
-            this._forceGarbageCollection();
+            //   Schedule natural cleanup
+            this._forceGarbageCollection().catch(error => {
+                this._secureLog('error', 'Cleanup failed during answer cleanup', {
+                    errorType: error?.constructor?.name || 'Unknown'
+                });
+            });
             
             this._secureLog('debug', 'Failed answer creation cleanup completed with secure memory wipe');
             
@@ -10090,8 +10389,8 @@ async processMessage(data) {
             // MITM Protection: Verify session ID if present (for enhanced security)
             if (answerData.sessionId && this.sessionId && answerData.sessionId !== this.sessionId) {
                 window.EnhancedSecureCryptoUtils.secureLog.log('error', 'Session ID mismatch detected - possible MITM attack', {
-                    expectedSessionId: this.sessionId,
-                    receivedSessionId: answerData.sessionId
+                    expectedSessionIdHash: await this._createSafeLogHash(this.sessionId, 'session_id'),
+                    receivedSessionIdHash: await this._createSafeLogHash(answerData.sessionId, 'session_id')
                 });
                 throw new Error('Session ID mismatch – possible MITM attack');
             }
@@ -10257,7 +10556,9 @@ async processMessage(data) {
                     timestamp: Date.now()
                 });
             } catch (sasError) {
-                console.error('SAS computation failed in handleSecureAnswer (Offer side):', sasError);
+                this._secureLog('error', 'SAS computation failed in handleSecureAnswer (Offer side)', {
+                    errorType: sasError?.constructor?.name || 'Unknown'
+                });
                 this._secureLog('error', 'SAS computation failed in handleSecureAnswer (Offer side)', {
                     error: sasError.message,
                     stack: sasError.stack,
@@ -10271,7 +10572,7 @@ async processMessage(data) {
                     const receivedFingerprint = this._extractDTLSFingerprintFromSDP(answerData.sdp || answerData.s);
                     
                     if (this.expectedDTLSFingerprint) {
-                        this._validateDTLSFingerprint(receivedFingerprint, this.expectedDTLSFingerprint, 'answer_validation');
+                        await this._validateDTLSFingerprint(receivedFingerprint, this.expectedDTLSFingerprint, 'answer_validation');
                     } else {
                         // Store fingerprint for future validation (first connection)
                         this.expectedDTLSFingerprint = receivedFingerprint;
@@ -10957,7 +11258,10 @@ async processMessage(data) {
     }
 
     retryConnection() {
-        console.log(`Retrying connection (attempt ${this.connectionAttempts}/${this.maxConnectionAttempts})`);
+        this._secureLog('info', 'Retrying connection', {
+            attempt: this.connectionAttempts,
+            maxAttempts: this.maxConnectionAttempts
+        });
         this.onStatusChange('retrying');
     }
 
@@ -11164,8 +11468,12 @@ async processMessage(data) {
             this.messageQueue = [];
         }
         
-        //   Force garbage collection
-        this._forceGarbageCollection();
+        //   Schedule natural cleanup
+        this._forceGarbageCollection().catch(error => {
+            this._secureLog('error', 'Cleanup failed during disconnect', {
+                errorType: error?.constructor?.name || 'Unknown'
+            });
+        });
         
         document.dispatchEvent(new CustomEvent('connection-cleaned', {
             detail: { 
@@ -11293,7 +11601,7 @@ async processMessage(data) {
     // Force cleanup of file transfer system
     cleanupFileTransferSystem() {
         if (this.fileTransferSystem) {
-            console.log('🧹 Force cleaning up file transfer system...');
+            this._secureLog('info', '🧹 Force cleaning up file transfer system');
             this.fileTransferSystem.cleanup();
             this.fileTransferSystem = null;
             return true;
@@ -11656,31 +11964,75 @@ checkFileTransferReadiness() {
 }
 
 class SecureKeyStorage {
-    constructor() {
+    constructor(masterKeyManager = null) {
         // Use WeakMap for automatic garbage collection of unused keys
         this._keyStore = new WeakMap();
         this._keyMetadata = new Map(); // Metadata doesn't need WeakMap
         this._keyReferences = new Map(); // Strong references for active keys
         
-        // Master encryption key for storage encryption
-        this._storageMasterKey = null;
-        this._initializeStorageMaster();
+        // Use secure master key manager instead of global key
+        this._masterKeyManager = masterKeyManager || new SecureMasterKeyManager();
+        
+        // Initialize persistent storage for extractable keys
+        this._persistentStorage = new SecurePersistentKeyStorage(this._masterKeyManager);
+        
+        // Setup master key manager callbacks
+        this._setupMasterKeyCallbacks();
 
         setTimeout(() => {
             if (!this.validateStorageIntegrity()) {
-                console.error('CRITICAL: Key storage integrity check failed');
+                this._secureLog('error', 'CRITICAL: Key storage integrity check failed');
             }
         }, 100);
         
     }
 
-    async _initializeStorageMaster() {
-        // Generate a master key for encrypting stored keys
-        this._storageMasterKey = await crypto.subtle.generateKey(
-            { name: 'AES-GCM', length: 256 },
-            false,
-            ['encrypt', 'decrypt']
-        );
+    /**
+     * Setup callbacks for master key manager
+     */
+    _setupMasterKeyCallbacks() {
+        // Set default password callback (can be overridden)
+        this._masterKeyManager.setPasswordRequiredCallback((isRetry, callback) => {
+            // Default implementation - should be overridden by application
+            const password = prompt(isRetry ? 
+                'Incorrect password. Please enter your master password:' : 
+                'Please enter your master password to unlock secure storage:'
+            );
+            callback(password);
+        });
+        
+        this._masterKeyManager.setSessionExpiredCallback((reason) => {
+            console.warn(`Master key session expired: ${reason}`);
+            // Application should handle this event
+        });
+        
+        this._masterKeyManager.setUnlockedCallback(() => {
+            console.log('Master key unlocked successfully');
+        });
+    }
+    
+    /**
+     * Set custom password callback
+     */
+    setPasswordCallback(callback) {
+        this._masterKeyManager.setPasswordRequiredCallback(callback);
+    }
+    
+    /**
+     * Set custom session expired callback
+     */
+    setSessionExpiredCallback(callback) {
+        this._masterKeyManager.setSessionExpiredCallback(callback);
+    }
+    
+    /**
+     * Get master key (with automatic unlock if needed)
+     */
+    async _getMasterKey() {
+        if (!this._masterKeyManager.isUnlocked()) {
+            await this._masterKeyManager.unlock();
+        }
+        return this._masterKeyManager.getMasterKey();
     }
 
     async storeKey(keyId, cryptoKey, metadata = {}) {
@@ -11689,111 +12041,79 @@ class SecureKeyStorage {
         }
 
         try {
-            // For non-extractable keys, we can only store a reference
+            // For non-extractable keys, store only in-memory reference
             if (!cryptoKey.extractable) {
-                // Store the key reference directly without encryption
                 this._keyReferences.set(keyId, cryptoKey);
                 this._keyMetadata.set(keyId, {
                     ...metadata,
                     created: Date.now(),
                     lastAccessed: Date.now(),
                     extractable: false,
-                    encrypted: false  // Mark as not encrypted
+                    persistent: false,
+                    encrypted: false
                 });
                 return true;
             }
 
-            // For extractable keys, proceed with encryption
-            const keyData = await crypto.subtle.exportKey('jwk', cryptoKey);
-            const encryptedKeyData = await this._encryptKeyData(keyData);
+            // For extractable keys, use persistent storage with encryption
+            await this._persistentStorage.storeExtractableKey(keyId, cryptoKey, metadata);
             
-            //   Validate that extractable keys are properly encrypted
-            if (!encryptedKeyData || encryptedKeyData.byteLength === 0) {
-                throw new Error('Failed to encrypt extractable key data');
-            }
-
-            // Create a storage object
-            const storageObject = {
-                id: keyId,
-                encryptedData: encryptedKeyData,
-                algorithm: cryptoKey.algorithm,
-                usages: cryptoKey.usages,
-                extractable: cryptoKey.extractable,
-                type: cryptoKey.type,
-                timestamp: Date.now()
-            };
-
-            // Use WeakMap with the CryptoKey as the key
-            this._keyStore.set(cryptoKey, storageObject);
-            
-            // Store reference for retrieval by ID
+            // Also store in memory for immediate access
             this._keyReferences.set(keyId, cryptoKey);
-            
-            // Store metadata separately
             this._keyMetadata.set(keyId, {
                 ...metadata,
                 created: Date.now(),
                 lastAccessed: Date.now(),
                 extractable: true,
-                encrypted: true  //   Mark extractable keys as encrypted
+                persistent: true,
+                encrypted: true
             });
 
             return true;
+            
         } catch (error) {
-            console.error('Failed to store key securely:', error);
+            this._secureLog('error', 'Failed to store key securely', {
+                errorType: error?.constructor?.name || 'Unknown'
+            });
             return false;
         }
     }
 
     async retrieveKey(keyId) {
-        const metadata = this._keyMetadata.get(keyId);
-        if (!metadata) {
-            return null;
-        }
-
-        // Update access time
-        metadata.lastAccessed = Date.now();
-
-        // For non-encrypted keys (non-extractable), return directly
-        if (!metadata.encrypted) {
-            //   Only non-extractable keys should be non-encrypted
-            if (metadata.extractable === false) {
-                return this._keyReferences.get(keyId);
-            } else {
-                // This should never happen - extractable keys must be encrypted
-                this._secureLog('error', 'SECURITY VIOLATION: Extractable key marked as non-encrypted', {
-                    keyId,
-                    extractable: metadata.extractable,
-                    encrypted: metadata.encrypted
-                });
-                return null;
-            }
-        }
-
-        // For encrypted keys, decrypt and recreate
         try {
-            const cryptoKey = this._keyReferences.get(keyId);
-            const storedData = this._keyStore.get(cryptoKey);
-            
-            if (!storedData) {
-                return null;
+            // Check if key is in memory first
+            if (this._keyReferences.has(keyId)) {
+                const metadata = this._keyMetadata.get(keyId);
+                if (metadata) {
+                    metadata.lastAccessed = Date.now();
+                }
+                return this._keyReferences.get(keyId);
             }
-
-            // Decrypt the key data
-            const decryptedKeyData = await this._decryptKeyData(storedData.encryptedData);
             
-            // Recreate the CryptoKey
-            const recreatedKey = await crypto.subtle.importKey(
-                'jwk',
-                decryptedKeyData,
-                storedData.algorithm,
-                storedData.extractable,
-                storedData.usages
-            );
+            // Try to restore from persistent storage
+            const restoredKey = await this._persistentStorage.retrieveKey(keyId);
+            if (restoredKey) {
+                // Update memory cache
+                this._keyReferences.set(keyId, restoredKey);
+                
+                // Update or create metadata
+                const existingMetadata = this._keyMetadata.get(keyId);
+                this._keyMetadata.set(keyId, {
+                    ...existingMetadata,
+                    lastAccessed: Date.now(),
+                    restoredFromPersistent: true
+                });
+                
+                return restoredKey;
+            }
             
-            return recreatedKey;
+            return null;
+            
         } catch (error) {
-            console.error('Failed to retrieve key:', error);
+            this._secureLog('error', 'Failed to retrieve key', {
+                keyIdHash: await this._createSafeLogHash(keyId, 'key_id'),
+                errorType: error?.constructor?.name || 'Unknown'
+            });
             return null;
         }
     }
@@ -11808,9 +12128,10 @@ class SecureKeyStorage {
         
         const iv = crypto.getRandomValues(new Uint8Array(12));
         
+        const masterKey = await this._getMasterKey();
         const encryptedData = await crypto.subtle.encrypt(
             { name: 'AES-GCM', iv },
-            this._storageMasterKey,
+            masterKey,
             data
         );
 
@@ -11826,9 +12147,10 @@ class SecureKeyStorage {
         const iv = encryptedData.slice(0, 12);
         const data = encryptedData.slice(12);
         
+        const masterKey = await this._getMasterKey();
         const decryptedData = await crypto.subtle.decrypt(
             { name: 'AES-GCM', iv },
-            this._storageMasterKey,
+            masterKey,
             data
         );
 
@@ -11842,7 +12164,7 @@ class SecureKeyStorage {
         }
     }
 
-    secureWipe(keyId) {
+    async secureWipe(keyId) {
         const cryptoKey = this._keyReferences.get(keyId);
         
         if (cryptoKey) {
@@ -11854,13 +12176,20 @@ class SecureKeyStorage {
             this._keyMetadata.delete(keyId);
         }
 
-        // Overwrite memory locations if possible
-        if (typeof window.gc === 'function') {
-            window.gc();
-        }
+        // Schedule natural cleanup
+        await this._performNaturalCleanup();
     }
 
-    secureWipeAll() {
+    async secureWipeAll() {
+        // Clear persistent storage
+        try {
+            await this._persistentStorage.clearAll();
+        } catch (error) {
+            this._secureLog('error', 'Failed to clear persistent storage', {
+                errorType: error?.constructor?.name || 'Unknown'
+            });
+        }
+        
         // Clear all references
         this._keyReferences.clear();
         this._keyMetadata.clear();
@@ -11868,10 +12197,8 @@ class SecureKeyStorage {
         // WeakMap entries will be garbage collected
         this._keyStore = new WeakMap();
         
-        // Force garbage collection if available
-        if (typeof window.gc === 'function') {
-            window.gc();
-        }
+        // Schedule natural cleanup
+        await this._performNaturalCleanup();
     }
 
     //   Validate storage integrity
@@ -11899,23 +12226,90 @@ class SecureKeyStorage {
         }
         
         if (violations.length > 0) {
-            console.error('Storage integrity violations detected:', violations);
+            this._secureLog('error', 'Storage integrity violations detected', {
+                violationCount: violations.length
+            });
             return false;
         }
         
         return true;
     }
 
-    getStorageStats() {
+    async getStorageStats() {
+        const persistentStats = await this._persistentStorage.getStorageStats();
+        
         return {
             totalKeys: this._keyReferences.size,
+            memoryKeys: this._keyReferences.size,
+            persistentKeys: persistentStats.persistentKeys,
             metadata: Array.from(this._keyMetadata.entries()).map(([id, meta]) => ({
                 id,
                 created: meta.created,
                 lastAccessed: meta.lastAccessed,
-                age: Date.now() - meta.created
-            }))
+                age: Date.now() - meta.created,
+                persistent: meta.persistent || false
+            })),
+            persistent: persistentStats
         };
+    }
+    
+    /**
+     * List all stored keys (memory + persistent)
+     */
+    async listAllKeys() {
+        try {
+            const memoryKeys = Array.from(this._keyMetadata.entries()).map(([keyId, metadata]) => ({
+                keyId,
+                ...metadata,
+                location: 'memory'
+            }));
+            
+            const persistentKeys = await this._persistentStorage.listStoredKeys();
+            const persistentKeysFormatted = persistentKeys.map(key => ({
+                ...key,
+                location: 'persistent'
+            }));
+            
+            return {
+                memoryKeys,
+                persistentKeys: persistentKeysFormatted,
+                totalCount: memoryKeys.length + persistentKeysFormatted.length
+            };
+            
+        } catch (error) {
+            this._secureLog('error', 'Failed to list keys', {
+                errorType: error?.constructor?.name || 'Unknown'
+            });
+            return {
+                memoryKeys: [],
+                persistentKeys: [],
+                totalCount: 0,
+                error: error.message
+            };
+        }
+    }
+    
+    /**
+     * Delete key from both memory and persistent storage
+     */
+    async deleteKey(keyId) {
+        try {
+            // Remove from memory
+            this._keyReferences.delete(keyId);
+            this._keyMetadata.delete(keyId);
+            
+            // Remove from persistent storage
+            await this._persistentStorage.deleteKey(keyId);
+            
+            return true;
+            
+        } catch (error) {
+            this._secureLog('error', 'Failed to delete key', {
+                keyIdHash: await this._createSafeLogHash(keyId, 'key_id'),
+                errorType: error?.constructor?.name || 'Unknown'
+            });
+            return false;
+        }
     }
 
     // Method _generateNextSequenceNumber moved to constructor area for early availability
@@ -12130,4 +12524,885 @@ class SecureKeyStorage {
 
 }
 
-export { EnhancedSecureWebRTCManager };
+/**
+ * Secure IndexedDB Wrapper for Encrypted Key Storage
+ * Provides secure persistent storage with encryption
+ */
+class SecureIndexedDBWrapper {
+    constructor(dbName = 'SecureKeyStorage', version = 1) {
+        this.dbName = dbName;
+        this.version = version;
+        this.db = null;
+        
+        // Store names
+        this.KEYS_STORE = 'encrypted_keys';
+        this.METADATA_STORE = 'key_metadata';
+        this.SALT_STORE = 'master_salt';
+    }
+    
+    /**
+     * Initialize IndexedDB connection
+     */
+    async initialize() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(this.dbName, this.version);
+            
+            request.onerror = () => {
+                reject(new Error(`Failed to open IndexedDB: ${request.error}`));
+            };
+            
+            request.onsuccess = () => {
+                this.db = request.result;
+                resolve();
+            };
+            
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                
+                // Create encrypted keys store
+                if (!db.objectStoreNames.contains(this.KEYS_STORE)) {
+                    const keysStore = db.createObjectStore(this.KEYS_STORE, { keyPath: 'keyId' });
+                    keysStore.createIndex('timestamp', 'timestamp', { unique: false });
+                    keysStore.createIndex('algorithm', 'algorithm', { unique: false });
+                }
+                
+                // Create metadata store
+                if (!db.objectStoreNames.contains(this.METADATA_STORE)) {
+                    const metadataStore = db.createObjectStore(this.METADATA_STORE, { keyPath: 'keyId' });
+                    metadataStore.createIndex('created', 'created', { unique: false });
+                    metadataStore.createIndex('lastAccessed', 'lastAccessed', { unique: false });
+                }
+                
+                // Create salt store
+                if (!db.objectStoreNames.contains(this.SALT_STORE)) {
+                    db.createObjectStore(this.SALT_STORE, { keyPath: 'id' });
+                }
+            };
+        });
+    }
+    
+    /**
+     * Store encrypted key data
+     */
+    async storeEncryptedKey(keyId, encryptedData, iv, algorithm, usages, type, metadata = {}) {
+        if (!this.db) {
+            throw new Error('Database not initialized');
+        }
+        
+        const transaction = this.db.transaction([this.KEYS_STORE, this.METADATA_STORE], 'readwrite');
+        
+        const keyRecord = {
+            keyId: keyId,
+            encryptedData: Array.from(new Uint8Array(encryptedData)), // Convert to array for storage
+            iv: Array.from(new Uint8Array(iv)),
+            algorithm: algorithm,
+            usages: usages,
+            type: type,
+            timestamp: Date.now()
+        };
+        
+        const metadataRecord = {
+            keyId: keyId,
+            ...metadata,
+            created: Date.now(),
+            lastAccessed: Date.now(),
+            extractable: true,
+            persistent: true
+        };
+        
+        return new Promise((resolve, reject) => {
+            const keysRequest = transaction.objectStore(this.KEYS_STORE).put(keyRecord);
+            const metadataRequest = transaction.objectStore(this.METADATA_STORE).put(metadataRecord);
+            
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(new Error(`Failed to store key: ${transaction.error}`));
+        });
+    }
+    
+    /**
+     * Retrieve encrypted key data
+     */
+    async getEncryptedKey(keyId) {
+        if (!this.db) {
+            throw new Error('Database not initialized');
+        }
+        
+        const transaction = this.db.transaction([this.KEYS_STORE], 'readonly');
+        const store = transaction.objectStore(this.KEYS_STORE);
+        
+        return new Promise((resolve, reject) => {
+            const request = store.get(keyId);
+            
+            request.onsuccess = () => {
+                const result = request.result;
+                if (result) {
+                    // Convert arrays back to Uint8Array
+                    result.encryptedData = new Uint8Array(result.encryptedData);
+                    result.iv = new Uint8Array(result.iv);
+                }
+                resolve(result);
+            };
+            
+            request.onerror = () => reject(new Error(`Failed to retrieve key: ${request.error}`));
+        });
+    }
+    
+    /**
+     * Update key metadata (e.g., last accessed time)
+     */
+    async updateKeyMetadata(keyId, updates) {
+        if (!this.db) {
+            throw new Error('Database not initialized');
+        }
+        
+        const transaction = this.db.transaction([this.METADATA_STORE], 'readwrite');
+        const store = transaction.objectStore(this.METADATA_STORE);
+        
+        return new Promise((resolve, reject) => {
+            const getRequest = store.get(keyId);
+            
+            getRequest.onsuccess = () => {
+                const metadata = getRequest.result;
+                if (metadata) {
+                    Object.assign(metadata, updates);
+                    const putRequest = store.put(metadata);
+                    
+                    putRequest.onsuccess = () => resolve();
+                    putRequest.onerror = () => reject(new Error(`Failed to update metadata: ${putRequest.error}`));
+                } else {
+                    reject(new Error(`Key metadata not found: ${keyId}`));
+                }
+            };
+            
+            getRequest.onerror = () => reject(new Error(`Failed to get metadata: ${getRequest.error}`));
+        });
+    }
+    
+    /**
+     * Delete key and its metadata
+     */
+    async deleteKey(keyId) {
+        if (!this.db) {
+            throw new Error('Database not initialized');
+        }
+        
+        const transaction = this.db.transaction([this.KEYS_STORE, this.METADATA_STORE], 'readwrite');
+        
+        return new Promise((resolve, reject) => {
+            const keysRequest = transaction.objectStore(this.KEYS_STORE).delete(keyId);
+            const metadataRequest = transaction.objectStore(this.METADATA_STORE).delete(keyId);
+            
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(new Error(`Failed to delete key: ${transaction.error}`));
+        });
+    }
+    
+    /**
+     * List all stored keys
+     */
+    async listKeys() {
+        if (!this.db) {
+            throw new Error('Database not initialized');
+        }
+        
+        const transaction = this.db.transaction([this.METADATA_STORE], 'readonly');
+        const store = transaction.objectStore(this.METADATA_STORE);
+        
+        return new Promise((resolve, reject) => {
+            const request = store.getAll();
+            
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(new Error(`Failed to list keys: ${request.error}`));
+        });
+    }
+    
+    /**
+     * Store master key salt
+     */
+    async storeMasterSalt(salt) {
+        if (!this.db) {
+            throw new Error('Database not initialized');
+        }
+        
+        const transaction = this.db.transaction([this.SALT_STORE], 'readwrite');
+        const store = transaction.objectStore(this.SALT_STORE);
+        
+        const saltRecord = {
+            id: 'master_salt',
+            salt: Array.from(new Uint8Array(salt)),
+            created: Date.now()
+        };
+        
+        return new Promise((resolve, reject) => {
+            const request = store.put(saltRecord);
+            
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(new Error(`Failed to store salt: ${request.error}`));
+        });
+    }
+    
+    /**
+     * Retrieve master key salt
+     */
+    async getMasterSalt() {
+        if (!this.db) {
+            throw new Error('Database not initialized');
+        }
+        
+        const transaction = this.db.transaction([this.SALT_STORE], 'readonly');
+        const store = transaction.objectStore(this.SALT_STORE);
+        
+        return new Promise((resolve, reject) => {
+            const request = store.get('master_salt');
+            
+            request.onsuccess = () => {
+                const result = request.result;
+                if (result) {
+                    resolve(new Uint8Array(result.salt));
+                } else {
+                    resolve(null);
+                }
+            };
+            
+            request.onerror = () => reject(new Error(`Failed to retrieve salt: ${request.error}`));
+        });
+    }
+    
+    /**
+     * Clear all data (for security wipe)
+     */
+    async clearAll() {
+        if (!this.db) {
+            throw new Error('Database not initialized');
+        }
+        
+        const transaction = this.db.transaction([this.KEYS_STORE, this.METADATA_STORE, this.SALT_STORE], 'readwrite');
+        
+        return new Promise((resolve, reject) => {
+            const keysRequest = transaction.objectStore(this.KEYS_STORE).clear();
+            const metadataRequest = transaction.objectStore(this.METADATA_STORE).clear();
+            const saltRequest = transaction.objectStore(this.SALT_STORE).clear();
+            
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(new Error(`Failed to clear database: ${transaction.error}`));
+        });
+    }
+    
+    /**
+     * Close database connection
+     */
+    close() {
+        if (this.db) {
+            this.db.close();
+            this.db = null;
+        }
+    }
+}
+
+/**
+ * Secure Persistent Key Storage with Key Wrapping
+ * Implements secure storage of extractable keys using AES-GCM encryption
+ */
+class SecurePersistentKeyStorage {
+    constructor(masterKeyManager, indexedDBWrapper = null) {
+        this._masterKeyManager = masterKeyManager;
+        this._indexedDB = indexedDBWrapper || new SecureIndexedDBWrapper();
+        this._dbInitialized = false;
+        
+        // In-memory cache for restored keys (WeakMap for automatic cleanup)
+        this._keyCache = new WeakMap();
+        this._keyReferences = new Map(); // Strong references for active keys
+    }
+    
+    /**
+     * Initialize IndexedDB if not already done
+     */
+    async _ensureDBInitialized() {
+        if (!this._dbInitialized) {
+            await this._indexedDB.initialize();
+            this._dbInitialized = true;
+        }
+    }
+    
+    /**
+     * Store extractable key with encryption
+     */
+    async storeExtractableKey(keyId, cryptoKey, metadata = {}) {
+        if (!(cryptoKey instanceof CryptoKey)) {
+            throw new Error('Only CryptoKey objects can be stored');
+        }
+        
+        if (!cryptoKey.extractable) {
+            throw new Error('Key must be extractable for persistent storage');
+        }
+        
+        try {
+            await this._ensureDBInitialized();
+            
+            // Export key to JWK
+            const jwkData = await crypto.subtle.exportKey('jwk', cryptoKey);
+            
+            // Get master key for encryption
+            const masterKey = this._masterKeyManager.getMasterKey();
+            
+            // Encrypt JWK data
+            const { encryptedData, iv } = await this._encryptKeyData(jwkData, masterKey);
+            
+            // Store encrypted data in IndexedDB
+            await this._indexedDB.storeEncryptedKey(
+                keyId,
+                encryptedData,
+                iv,
+                cryptoKey.algorithm,
+                cryptoKey.usages,
+                cryptoKey.type,
+                metadata
+            );
+            
+            // Store non-extractable reference in memory cache
+            const nonExtractableKey = await this._importAsNonExtractable(jwkData, cryptoKey.algorithm, cryptoKey.usages);
+            this._keyReferences.set(keyId, nonExtractableKey);
+            
+            return true;
+            
+        } catch (error) {
+            throw new Error(`Failed to store extractable key: ${error.message}`);
+        }
+    }
+    
+    /**
+     * Retrieve and restore key from persistent storage
+     */
+    async retrieveKey(keyId) {
+        try {
+            // Check if key is already in memory cache
+            if (this._keyReferences.has(keyId)) {
+                return this._keyReferences.get(keyId);
+            }
+            
+            await this._ensureDBInitialized();
+            
+            // Get encrypted key data from IndexedDB
+            const keyRecord = await this._indexedDB.getEncryptedKey(keyId);
+            if (!keyRecord) {
+                return null;
+            }
+            
+            // Get master key for decryption
+            const masterKey = this._masterKeyManager.getMasterKey();
+            
+            // Decrypt JWK data
+            const jwkData = await this._decryptKeyData(keyRecord.encryptedData, keyRecord.iv, masterKey);
+            
+            // Import as non-extractable key
+            const restoredKey = await this._importAsNonExtractable(jwkData, keyRecord.algorithm, keyRecord.usages);
+            
+            // Cache in memory
+            this._keyReferences.set(keyId, restoredKey);
+            
+            // Update last accessed time
+            await this._indexedDB.updateKeyMetadata(keyId, { lastAccessed: Date.now() });
+            
+            return restoredKey;
+            
+        } catch (error) {
+            throw new Error(`Failed to retrieve key: ${error.message}`);
+        }
+    }
+    
+    /**
+     * Delete key from persistent storage
+     */
+    async deleteKey(keyId) {
+        try {
+            await this._ensureDBInitialized();
+            
+            // Remove from IndexedDB
+            await this._indexedDB.deleteKey(keyId);
+            
+            // Remove from memory cache
+            this._keyReferences.delete(keyId);
+            
+            return true;
+            
+        } catch (error) {
+            throw new Error(`Failed to delete key: ${error.message}`);
+        }
+    }
+    
+    /**
+     * List all stored keys
+     */
+    async listStoredKeys() {
+        try {
+            await this._ensureDBInitialized();
+            return await this._indexedDB.listKeys();
+        } catch (error) {
+            throw new Error(`Failed to list keys: ${error.message}`);
+        }
+    }
+    
+    /**
+     * Clear all persistent storage
+     */
+    async clearAll() {
+        try {
+            await this._ensureDBInitialized();
+            
+            // Clear IndexedDB
+            await this._indexedDB.clearAll();
+            
+            // Clear memory cache
+            this._keyReferences.clear();
+            
+            return true;
+            
+        } catch (error) {
+            throw new Error(`Failed to clear storage: ${error.message}`);
+        }
+    }
+    
+    /**
+     * Encrypt key data using master key
+     */
+    async _encryptKeyData(jwkData, masterKey) {
+        // Convert JWK to JSON string and then to bytes
+        const jsonString = JSON.stringify(jwkData);
+        const data = new TextEncoder().encode(jsonString);
+        
+        // Generate random IV
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        
+        // Encrypt with AES-GCM
+        const encryptedData = await crypto.subtle.encrypt(
+            { name: 'AES-GCM', iv },
+            masterKey,
+            data
+        );
+        
+        return {
+            encryptedData: new Uint8Array(encryptedData),
+            iv: iv
+        };
+    }
+    
+    /**
+     * Decrypt key data using master key
+     */
+    async _decryptKeyData(encryptedData, iv, masterKey) {
+        // Decrypt with AES-GCM
+        const decryptedData = await crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv },
+            masterKey,
+            encryptedData
+        );
+        
+        // Convert back to JWK
+        const jsonString = new TextDecoder().decode(decryptedData);
+        return JSON.parse(jsonString);
+    }
+    
+    /**
+     * Import JWK as non-extractable key
+     */
+    async _importAsNonExtractable(jwkData, algorithm, usages) {
+        return await crypto.subtle.importKey(
+            'jwk',
+            jwkData,
+            algorithm,
+            false, // non-extractable for security
+            usages
+        );
+    }
+    
+    /**
+     * Get storage statistics
+     */
+    async getStorageStats() {
+        try {
+            await this._ensureDBInitialized();
+            const keys = await this._indexedDB.listKeys();
+            
+            return {
+                totalKeys: keys.length,
+                memoryKeys: this._keyReferences.size,
+                persistentKeys: keys.length,
+                lastAccessed: keys.reduce((latest, key) => 
+                    Math.max(latest, key.lastAccessed || 0), 0)
+            };
+            
+        } catch (error) {
+            return {
+                totalKeys: 0,
+                memoryKeys: this._keyReferences.size,
+                persistentKeys: 0,
+                lastAccessed: 0,
+                error: error.message
+            };
+        }
+    }
+}
+
+/**
+ * Secure Master Key Manager with Password-Based Derivation
+ * Implements PBKDF2-based key derivation and session management
+ */
+class SecureMasterKeyManager {
+    constructor(indexedDBWrapper = null) {
+        // Session state
+        this._masterKey = null;
+        this._isUnlocked = false;
+        this._sessionTimeout = null;
+        this._lastActivity = null;
+        
+        // Configuration
+        this._sessionTimeoutMs = 15 * 60 * 1000; // 15 minutes
+        this._inactivityTimeoutMs = 5 * 60 * 1000; // 5 minutes
+        
+        // PBKDF2 parameters
+        this._pbkdf2Iterations = 100000; // 100k iterations
+        this._saltSize = 32; // 256 bits
+        
+        // IndexedDB wrapper for persistent salt storage
+        this._indexedDB = indexedDBWrapper || new SecureIndexedDBWrapper();
+        this._dbInitialized = false;
+        
+        // Event handlers
+        this._onPasswordRequired = null;
+        this._onSessionExpired = null;
+        this._onUnlocked = null;
+        
+        // Setup event listeners
+        this._setupEventListeners();
+    }
+    
+    /**
+     * Set callback for password requests
+     */
+    setPasswordRequiredCallback(callback) {
+        this._onPasswordRequired = callback;
+    }
+    
+    /**
+     * Set callback for session expiration
+     */
+    setSessionExpiredCallback(callback) {
+        this._onSessionExpired = callback;
+    }
+    
+    /**
+     * Set callback for successful unlock
+     */
+    setUnlockedCallback(callback) {
+        this._onUnlocked = callback;
+    }
+    
+    /**
+     * Setup event listeners for session management
+     */
+    _setupEventListeners() {
+        // Handle page visibility changes
+        if (typeof document !== 'undefined') {
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    this._handleFocusOut();
+                } else {
+                    this._handleFocusIn();
+                }
+            });
+            
+            // Handle window focus/blur
+            window.addEventListener('blur', () => this._handleFocusOut());
+            window.addEventListener('focus', () => this._handleFocusIn());
+            
+            // Handle user activity
+            ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'].forEach(event => {
+                document.addEventListener(event, () => this._updateActivity(), { passive: true });
+            });
+        }
+    }
+    
+    /**
+     * Handle focus out - start inactivity timer
+     */
+    _handleFocusOut() {
+        if (this._isUnlocked) {
+            // Start shorter timeout when window loses focus
+            this._startInactivityTimer(this._inactivityTimeoutMs);
+        }
+    }
+    
+    /**
+     * Handle focus in - reset timers
+     */
+    _handleFocusIn() {
+        if (this._isUnlocked) {
+            this._resetSessionTimer();
+        }
+    }
+    
+    /**
+     * Update last activity timestamp
+     */
+    _updateActivity() {
+        this._lastActivity = Date.now();
+        if (this._isUnlocked) {
+            this._resetSessionTimer();
+        }
+    }
+    
+    /**
+     * Start session timer
+     */
+    _startSessionTimer() {
+        this._clearTimers();
+        this._sessionTimeout = setTimeout(() => {
+            this._expireSession('timeout');
+        }, this._sessionTimeoutMs);
+    }
+    
+    /**
+     * Start inactivity timer
+     */
+    _startInactivityTimer(timeout) {
+        this._clearTimers();
+        this._sessionTimeout = setTimeout(() => {
+            this._expireSession('inactivity');
+        }, timeout);
+    }
+    
+    /**
+     * Reset session timer
+     */
+    _resetSessionTimer() {
+        if (this._isUnlocked) {
+            this._startSessionTimer();
+        }
+    }
+    
+    /**
+     * Clear all timers
+     */
+    _clearTimers() {
+        if (this._sessionTimeout) {
+            clearTimeout(this._sessionTimeout);
+            this._sessionTimeout = null;
+        }
+    }
+    
+    /**
+     * Expire the current session
+     */
+    _expireSession(reason = 'unknown') {
+        if (this._isUnlocked) {
+            this._secureWipeMasterKey();
+            this._isUnlocked = false;
+            
+            if (this._onSessionExpired) {
+                this._onSessionExpired(reason);
+            }
+        }
+    }
+    
+    /**
+     * Initialize IndexedDB if not already done
+     */
+    async _ensureDBInitialized() {
+        if (!this._dbInitialized) {
+            await this._indexedDB.initialize();
+            this._dbInitialized = true;
+        }
+    }
+    
+    /**
+     * Generate salt for PBKDF2
+     */
+    _generateSalt() {
+        return crypto.getRandomValues(new Uint8Array(this._saltSize));
+    }
+    
+    /**
+     * Get or create persistent salt
+     */
+    async _getOrCreateSalt() {
+        await this._ensureDBInitialized();
+        
+        // Try to get existing salt
+        let salt = await this._indexedDB.getMasterSalt();
+        
+        if (!salt) {
+            // Generate new salt and store it
+            salt = this._generateSalt();
+            await this._indexedDB.storeMasterSalt(salt);
+        }
+        
+        return salt;
+    }
+    
+    /**
+     * Derive master key from password using PBKDF2
+     */
+    async _deriveKeyFromPassword(password, salt) {
+        try {
+            // Import password as key material
+            const passwordKey = await crypto.subtle.importKey(
+                'raw',
+                new TextEncoder().encode(password),
+                'PBKDF2',
+                false,
+                ['deriveKey']
+            );
+            
+            // Derive AES-GCM key using PBKDF2
+            const derivedKey = await crypto.subtle.deriveKey(
+                {
+                    name: 'PBKDF2',
+                    salt: salt,
+                    iterations: this._pbkdf2Iterations,
+                    hash: 'SHA-256'
+                },
+                passwordKey,
+                {
+                    name: 'AES-GCM',
+                    length: 256
+                },
+                false, // non-extractable for security
+                ['encrypt', 'decrypt', 'wrapKey', 'unwrapKey']
+            );
+            
+            return derivedKey;
+        } catch (error) {
+            throw new Error(`Key derivation failed: ${error.message}`);
+        }
+    }
+    
+    /**
+     * Request password from user
+     */
+    async _requestPassword(isRetry = false) {
+        if (!this._onPasswordRequired) {
+            throw new Error('Password callback not set');
+        }
+        
+        return new Promise((resolve, reject) => {
+            this._onPasswordRequired(isRetry, (password) => {
+                if (password) {
+                    resolve(password);
+                } else {
+                    reject(new Error('Password not provided'));
+                }
+            });
+        });
+    }
+    
+    /**
+     * Unlock the master key with password
+     */
+    async unlock(password = null) {
+        try {
+            // Request password if not provided
+            if (!password) {
+                password = await this._requestPassword(false);
+            }
+            
+            // Get or create persistent salt
+            const salt = await this._getOrCreateSalt();
+            
+            // Derive master key
+            this._masterKey = await this._deriveKeyFromPassword(password, salt);
+            
+            // Mark as unlocked
+            this._isUnlocked = true;
+            this._lastActivity = Date.now();
+            
+            // Start session timer
+            this._startSessionTimer();
+            
+            // Securely wipe password from memory
+            password = null;
+            
+            if (this._onUnlocked) {
+                this._onUnlocked();
+            }
+            
+            return { success: true };
+            
+        } catch (error) {
+            // Securely wipe password on error
+            password = null;
+            throw error;
+        }
+    }
+    
+    /**
+     * Lock the master key
+     */
+    lock() {
+        this._expireSession('manual');
+    }
+    
+    /**
+     * Get master key (only if unlocked)
+     */
+    getMasterKey() {
+        if (!this._isUnlocked || !this._masterKey) {
+            throw new Error('Master key is locked');
+        }
+        
+        this._updateActivity();
+        return this._masterKey;
+    }
+    
+    /**
+     * Check if master key is unlocked
+     */
+    isUnlocked() {
+        return this._isUnlocked && this._masterKey !== null;
+    }
+    
+    /**
+     * Get session status
+     */
+    getSessionStatus() {
+        return {
+            isUnlocked: this._isUnlocked,
+            lastActivity: this._lastActivity,
+            sessionTimeoutMs: this._sessionTimeoutMs,
+            inactivityTimeoutMs: this._inactivityTimeoutMs
+        };
+    }
+    
+    /**
+     * Securely wipe master key from memory
+     */
+    _secureWipeMasterKey() {
+        if (this._masterKey) {
+            // CryptoKey objects are automatically garbage collected
+            // but we clear the reference immediately
+            this._masterKey = null;
+        }
+        this._clearTimers();
+    }
+    
+    /**
+     * Cleanup on destruction
+     */
+    destroy() {
+        this._secureWipeMasterKey();
+        this._isUnlocked = false;
+        
+        // Remove event listeners
+        if (typeof document !== 'undefined') {
+            document.removeEventListener('visibilitychange', this._handleFocusOut);
+            window.removeEventListener('blur', this._handleFocusOut);
+            window.removeEventListener('focus', this._handleFocusIn);
+        }
+    }
+}
+
+export { 
+    EnhancedSecureWebRTCManager, 
+    SecureMasterKeyManager, 
+    SecureIndexedDBWrapper, 
+    SecurePersistentKeyStorage 
+};
