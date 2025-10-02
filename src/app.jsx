@@ -473,53 +473,7 @@
                                 ]),
         
                                            
-                                React.createElement('div', {
-                                    key: 'security-features',
-                                    className: "grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 max-w-6xl mx-auto mt-8"
-                                }, [
-                                    React.createElement('div', { key: 'feature1', className: "text-center p-3 sm:p-4" }, [
-                                        React.createElement('div', { key: 'icon', className: "w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
-                                            React.createElement('i', { className: 'fas fa-key accent-green' })
-                                        ]),
-                                        React.createElement('h4', { key: 'title', className: "text-xs sm:text-sm font-medium text-primary mb-1" }, "ECDH P-384 Key Exchange"),
-                                        React.createElement('p', { key: 'desc', className: "text-xs text-muted leading-tight" }, "Military-grade elliptic curve key exchange")
-                                    ]),
-                                    React.createElement('div', { key: 'feature2', className: "text-center p-3 sm:p-4" }, [
-                                        React.createElement('div', { key: 'icon', className: "w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
-                                            React.createElement('i', { className: 'fas fa-user-shield accent-purple' })
-                                        ]),
-                                        React.createElement('h4', { key: 'title', className: "text-xs sm:text-sm font-medium text-primary mb-1" }, "MITM Protection"),
-                                        React.createElement('p', { key: 'desc', className: "text-xs text-muted leading-tight" }, "Out-of-band verification against attacks")
-                                    ]),
-                                    React.createElement('div', { key: 'feature3', className: "text-center p-3 sm:p-4" }, [
-                                        React.createElement('div', { key: 'icon', className: "w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
-                                            React.createElement('i', { className: 'fas fa-lock accent-orange' })
-                                        ]),
-                                        React.createElement('h4', { key: 'title', className: "text-xs sm:text-sm font-medium text-primary mb-1" }, "AES-GCM 256 Encryption"),
-                                        React.createElement('p', { key: 'desc', className: "text-xs text-muted leading-tight" }, "Authenticated encryption standard")
-                                    ]),
-                                    React.createElement('div', { key: 'feature4', className: "text-center p-3 sm:p-4" }, [
-                                        React.createElement('div', { key: 'icon', className: "w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
-                                            React.createElement('i', { className: 'fas fa-sync-alt accent-cyan' })
-                                        ]),
-                                        React.createElement('h4', { key: 'title', className: "text-xs sm:text-sm font-medium text-primary mb-1" }, "Perfect Forward Secrecy"),
-                                        React.createElement('p', { key: 'desc', className: "text-xs text-muted leading-tight" }, "Automatic key rotation every 5 minutes")
-                                    ]),
-                                    React.createElement('div', { key: 'feature5', className: "text-center p-3 sm:p-4" }, [
-                                        React.createElement('div', { key: 'icon', className: "w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
-                                            React.createElement('i', { className: 'fas fa-signature accent-blue' })
-                                        ]),
-                                        React.createElement('h4', { key: 'title', className: "text-xs sm:text-sm font-medium text-primary mb-1" }, "ECDSA P-384 Signatures"),
-                                        React.createElement('p', { key: 'desc', className: "text-xs text-muted leading-tight" }, "Digital signatures for message integrity")
-                                    ]),
-                                    React.createElement('div', { key: 'feature6', className: "text-center p-3 sm:p-4" }, [
-                                        React.createElement('div', { key: 'icon', className: "w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3" }, [
-                                            React.createElement('i', { className: 'fas fa-shield-alt accent-red' }) 
-                                        ]),
-                                        React.createElement('h4', { key: 'title', className: "text-xs sm:text-sm font-medium text-primary mb-1" }, "SAS Security"),
-                                        React.createElement('p', { key: 'desc', className: "text-xs text-muted leading-tight" }, "Revolutionary key exchange & MITM protection")
-                                    ]),
-                                ]),
+                                React.createElement(SecurityFeatures, { key: 'security-features' }),
         
                                 React.createElement(UniqueFeatureSlider, { key: 'unique-features-slider' }),
         

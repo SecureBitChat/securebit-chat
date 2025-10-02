@@ -127,3 +127,43 @@ tr.bg-black-table {
         padding-right: 16px;
     }
 }
+
+.card {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: transform 0.3s ease;
+}
+
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  padding: 2px; 
+  background: radial-gradient(
+    circle at var(--x, 50%) var(--y, 50%),
+    var(--color),
+    transparent 80%
+  );
+  opacity: 0;
+  transition: opacity 0.4s;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+}
+
+.card.active-glow::before {
+  opacity: 1;
+}
+
+.card::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 10px;
+  z-index: 1;
+}

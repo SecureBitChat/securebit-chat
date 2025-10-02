@@ -36,6 +36,7 @@
       loadReactComponent('../components/ui/DownloadApps.jsx'),
       loadReactComponent('../components/ui/ComparisonTable.jsx'),
       loadReactComponent('../components/ui/UniqueFeatureSlider.jsx'),
+      loadReactComponent('../components/ui/SecurityFeatures.jsx'),
       loadReactComponent('../components/ui/Roadmap.jsx'),
       loadReactComponent('../components/ui/FileTransfer.jsx'),
     ]);
