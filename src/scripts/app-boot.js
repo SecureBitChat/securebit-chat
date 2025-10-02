@@ -6,6 +6,9 @@ import { EnhancedSecureFileTransfer } from '../transfer/EnhancedSecureFileTransf
 import '../components/ui/SessionTimer.jsx';
 import '../components/ui/Header.jsx';
 import '../components/ui/DownloadApps.jsx';
+import '../components/ui/UniqueFeatureSlider.jsx';
+import '../components/ui/ComparisonTable.jsx';
+import '../components/ui/Roadmap.jsx';
 import '../components/ui/FileTransfer.jsx';
 
 // Expose to global for legacy usage inside app code

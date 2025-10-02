@@ -19,6 +19,9 @@ const STATIC_ASSETS = [
     '/src/components/ui/SessionTypeSelector.jsx',
     '/src/components/ui/PaymentModal.jsx',
     '/src/components/ui/DownloadApps.jsx',
+    '/src/components/ui/ComparisonTable.jsx',
+    '/src/components/ui/UniqueFeatureSlider.jsx',
+    '/src/components/ui/Roadmap.jsx',
     '/src/styles/main.css',
     '/src/styles/animations.css',
     '/src/styles/components.css',
@@ -66,12 +69,10 @@ self.addEventListener('message', (event) => {
 });
 // Install event - cache static assets with better error handling
 self.addEventListener('install', (event) => {
-    console.log('🔧 Service Worker installing...');
     
     event.waitUntil(
         caches.open(STATIC_CACHE)
             .then(async (cache) => {
-                console.log('📦 Caching static assets...');
                 
                 // Cache assets one by one to handle failures gracefully
                 const cachePromises = STATIC_ASSETS.map(async (url) => {
@@ -82,7 +83,6 @@ self.addEventListener('install', (event) => {
                         }
                         
                         await cache.add(url);
-                        console.log(`✅ Cached: ${url}`);
                     } catch (error) {
                         console.warn(`⚠️ Failed to cache ${url}:`, error.message);
                         // Continue with other assets even if one fails
@@ -90,7 +90,6 @@ self.addEventListener('install', (event) => {
                 });
                 
                 await Promise.allSettled(cachePromises);
-                console.log('✅ Static assets caching completed');
                 
                 // Force activation of new service worker
                 return self.skipWaiting();
@@ -105,7 +104,6 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches and notify about updates
 self.addEventListener('activate', (event) => {
-    console.log('🚀 Service Worker activating...');
     
     event.waitUntil(
         caches.keys().then(cacheNames => {
@@ -119,7 +117,6 @@ self.addEventListener('activate', (event) => {
                 })
             );
         }).then(() => {
-            console.log('✅ Service Worker activated and old caches cleaned');
             
             // Notify all clients about the update
             return self.clients.claim().then(() => {
@@ -288,27 +285,16 @@ async function handleOffline(request) {
 
 // Background sync for failed requests
 self.addEventListener('sync', (event) => {
-    console.log('🔄 Background sync triggered:', event.tag);
     
     if (event.tag === 'retry-failed-requests') {
         event.waitUntil(retryFailedRequests());
     }
 });
 
-// Retry failed requests when back online
-async function retryFailedRequests() {
-    console.log('🔄 Retrying failed requests...');
-}
 
-// Push notification handler
-self.addEventListener('push', (event) => {
-    console.log('📨 Push notification received');
-
-});
 
 // Notification click handler
 self.addEventListener('notificationclick', (event) => {
-    console.log('🔔 Notification clicked');
     event.notification.close();
     
     event.waitUntil(
@@ -318,7 +304,6 @@ self.addEventListener('notificationclick', (event) => {
 
 // Message handler for communication with main thread
 self.addEventListener('message', (event) => {
-    console.log('💬 Message from main thread:', event.data);
     
     if (event.data && event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
@@ -341,7 +326,6 @@ async function clearCaches() {
     await Promise.all(
         cacheNames.map(cacheName => caches.delete(cacheName))
     );
-    console.log('🗑️ All caches cleared');
 }
 
 // Get cache status
@@ -367,5 +351,3 @@ self.addEventListener('error', (event) => {
 self.addEventListener('unhandledrejection', (event) => {
     console.error('❌ Service Worker unhandled rejection:', event.reason);
 });
-
-console.log('🔧 SecureBit.chat Service Worker loaded - Enhanced Security Edition v4.2.12 - ECDH + DTLS + SAS');

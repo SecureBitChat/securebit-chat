@@ -1,741 +1,4 @@
 // src/app.jsx
-var UniqueFeatureSlider = () => {
-  const [currentSlide, setCurrentSlide] = React.useState(0);
-  const slides = [
-    {
-      icon: "fas fa-shield-halved",
-      color: "orange",
-      title: "18-Layer Military Security",
-      description: "Revolutionary defense system with ECDH P-384 + AES-GCM 256 + ECDSA + Complete ASN.1 Validation. Enhanced Security Edition provides military-grade protection exceeding government standards with complete key structure verification."
-    },
-    {
-      icon: "fas fa-network-wired",
-      color: "purple",
-      title: "Pure P2P WebRTC Architecture",
-      description: "Direct peer-to-peer connections without any servers. Impossible to censor, block, or monitor. Complete decentralization with zero infrastructure."
-    },
-    {
-      icon: "fas fa-sync-alt",
-      color: "green",
-      title: "Perfect Forward Secrecy",
-      description: "Automatic key rotation every 5 minutes or 100 messages. Non-extractable keys with hardware protection ensure past messages remain secure."
-    },
-    {
-      icon: "fas fa-user-secret",
-      color: "cyan",
-      title: "Advanced Traffic Obfuscation",
-      description: "Fake traffic generation, packet padding, and pattern masking make communication indistinguishable from random noise. Defeats traffic analysis."
-    },
-    {
-      icon: "fas fa-eye-slash",
-      color: "blue",
-      title: "Zero Data Collection",
-      description: "No registration, no servers, no logs. Messages exist only in browser memory. Complete anonymity with instant anonymous channels."
-    },
-    {
-      icon: "fas fa-code",
-      color: "emerald",
-      title: "100% Open Source Security",
-      description: "All code is open for audit under MIT license. Uses only standard WebCrypto APIs. Cryptography runs directly in browser without server dependencies."
-    }
-  ];
-  const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % slides.length);
-  const prevSlide = () => setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
-  const goToSlide = (index) => setCurrentSlide(index);
-  React.useEffect(() => {
-    const timer = setInterval(() => {
-      nextSlide();
-    }, 15e3);
-    return () => clearInterval(timer);
-  }, []);
-  return React.createElement("div", {
-    className: "mt-12"
-  }, [
-    React.createElement("div", {
-      key: "header",
-      className: "text-center mb-8"
-    }, [
-      React.createElement("h3", {
-        key: "title",
-        className: "text-2xl font-semibold text-primary mb-3"
-      }, "Why SecureBit.chat is unique"),
-      React.createElement("p", {
-        key: "subtitle",
-        className: "text-secondary max-w-2xl mx-auto"
-      }, "The only messenger with military-grade cryptography")
-    ]),
-    React.createElement("div", {
-      key: "slider-container",
-      className: "relative max-w-4xl mx-auto"
-    }, [
-      React.createElement("div", {
-        key: "slider-wrapper",
-        className: "overflow-hidden rounded-xl"
-      }, [
-        React.createElement("div", {
-          key: "slides",
-          className: "flex transition-transform duration-500 ease-in-out",
-          style: { transform: `translateX(-${currentSlide * 100}%)` }
-        }, slides.map(
-          (slide, index) => React.createElement("div", {
-            key: index,
-            className: "w-full flex-shrink-0 px-4"
-          }, [
-            React.createElement("div", {
-              key: "slide-content",
-              className: "card-minimal rounded-xl p-8 text-center min-h-[300px] flex flex-col justify-center relative overflow-hidden"
-            }, [
-              // Background icon
-              React.createElement("i", {
-                key: "bg-icon",
-                className: `${slide.icon} absolute right-[-100px] top-1/2 -translate-y-1/2 opacity-10 text-[300px] pointer-events-none ${slide.color === "orange" ? "text-orange-500" : slide.color === "yellow" ? "text-yellow-500" : slide.color === "purple" ? "text-purple-500" : slide.color === "green" ? "text-green-500" : slide.color === "cyan" ? "text-cyan-500" : slide.color === "blue" ? "text-blue-500" : "text-emerald-500"}`
-              }),
-              // Content
-              React.createElement("h4", {
-                key: "slide-title",
-                className: "text-xl font-semibold text-primary mb-4 relative z-10"
-              }, slide.title),
-              React.createElement("p", {
-                key: "slide-description",
-                className: "text-secondary leading-relaxed max-w-2xl mx-auto relative z-10"
-              }, slide.description)
-            ])
-          ])
-        ))
-      ]),
-      // Navigation
-      React.createElement("button", {
-        key: "prev-btn",
-        onClick: prevSlide,
-        className: "absolute left-2 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-gray-600/80 hover:bg-gray-500/80 text-white rounded-full flex items-center justify-center transition-all duration-200 z-10"
-      }, [
-        React.createElement("i", {
-          key: "prev-icon",
-          className: "fas fa-chevron-left"
-        })
-      ]),
-      React.createElement("button", {
-        key: "next-btn",
-        onClick: nextSlide,
-        className: "absolute right-2 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-gray-600/80 hover:bg-gray-500/80 text-white rounded-full flex items-center justify-center transition-all duration-200 z-10"
-      }, [
-        React.createElement("i", {
-          key: "next-icon",
-          className: "fas fa-chevron-right"
-        })
-      ])
-    ]),
-    // Enhanced dots navigation (оставляем улучшенные точки)
-    React.createElement("div", {
-      key: "dots-container",
-      className: "flex justify-center space-x-3 mt-6"
-    }, slides.map(
-      (slide, index) => React.createElement("button", {
-        key: index,
-        onClick: () => goToSlide(index),
-        className: `relative group transition-all duration-300 ${index === currentSlide ? "w-12 h-2 bg-orange-500 rounded-full" : "w-4 h-2 bg-gray-600 hover:bg-gray-500 rounded-full hover:scale-125"}`
-      }, [
-        // Tooltip on hover
-        React.createElement("div", {
-          key: "tooltip",
-          className: "absolute -top-10 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none"
-        }, slide.title)
-      ])
-    ))
-  ]);
-};
-var ComparisonTable = () => {
-  const [selectedFeature, setSelectedFeature] = React.useState(null);
-  const messengers = [
-    {
-      name: "SecureBit.chat",
-      logo: /* @__PURE__ */ React.createElement("div", { className: "w-8 h-8 bg-orange-500/10 border border-orange-500/20 rounded-lg flex items-center justify-center" }, /* @__PURE__ */ React.createElement("i", { className: "fas fa-shield-halved text-orange-400" })),
-      type: "P2P WebRTC",
-      version: "Latest",
-      color: "orange"
-    },
-    {
-      name: "Signal",
-      logo: /* @__PURE__ */ React.createElement("svg", { className: "w-8 h-8", viewBox: "0 0 122.88 122.31", xmlns: "http://www.w3.org/2000/svg" }, /* @__PURE__ */ React.createElement("path", { className: "fill-blue-500", d: "M27.75,0H95.13a27.83,27.83,0,0,1,27.75,27.75V94.57a27.83,27.83,0,0,1-27.75,27.74H27.75A27.83,27.83,0,0,1,0,94.57V27.75A27.83,27.83,0,0,1,27.75,0Z" }), /* @__PURE__ */ React.createElement("path", { className: "fill-white", d: "M61.44,25.39A35.76,35.76,0,0,0,31.18,80.18L27.74,94.86l14.67-3.44a35.77,35.77,0,1,0,19-66Z" })),
-      type: "Centralized",
-      version: "Latest",
-      color: "blue"
-    },
-    {
-      name: "Threema",
-      logo: /* @__PURE__ */ React.createElement("svg", { className: "w-8 h-8", viewBox: "0 0 122.88 122.88", xmlns: "http://www.w3.org/2000/svg" }, /* @__PURE__ */ React.createElement("rect", { width: "122.88", height: "122.88", rx: "18.43", fill: "#474747" }), /* @__PURE__ */ React.createElement("path", { fill: "#FFFFFF", d: "M44.26,78.48l-19.44,4.8l4.08-16.56c-4.08-5.28-6.48-12-6.48-18.96c0-18.96,17.52-34.32,39.12-34.32c21.6,0,39.12,15.36,39.12,34.32c0,18.96-17.52,34.32-39.12,34.32c-6,0-12-1.2-17.04-3.36L44.26,78.48z M50.26,44.64h-0.48c-0.96,0-1.68,0.72-1.44,1.68v15.6c0,0.96,0.72,1.68,1.68,1.68l23.04,0c0.96,0,1.68-0.72,1.68-1.68v-15.6c0-0.96-0.72-1.68-1.68-1.68h-0.48v-4.32c0-6-5.04-11.04-11.04-11.04S50.5,34.32,50.5,40.32v4.32H50.26z M68.02,44.64h-13.2v-4.32c0-3.6,2.88-6.72,6.72-6.72c3.6,0,6.72,2.88,6.72,6.72v4.32H68.02z" }), /* @__PURE__ */ React.createElement("circle", { cx: "37.44", cy: "97.44", r: "6.72", fill: "#3fe669" }), /* @__PURE__ */ React.createElement("circle", { cx: "61.44", cy: "97.44", r: "6.72", fill: "#3fe669" }), /* @__PURE__ */ React.createElement("circle", { cx: "85.44", cy: "97.44", r: "6.72", fill: "#3fe669" })),
-      type: "Centralized",
-      version: "Latest",
-      color: "green"
-    },
-    {
-      name: "Session",
-      logo: /* @__PURE__ */ React.createElement("svg", { className: "w-8 h-8", viewBox: "0 0 1024 1024", xmlns: "http://www.w3.org/2000/svg" }, /* @__PURE__ */ React.createElement("rect", { width: "1024", height: "1024", fill: "#333132" }), /* @__PURE__ */ React.createElement("path", { fill: "#00f782", d: "M431 574.8c-.8-7.4-6.7-8.2-10.8-10.6-13.6-7.9-27.5-15.4-41.3-23l-22.5-12.3c-8.5-4.7-17.1-9.2-25.6-14.1-10.5-6-21-11.9-31.1-18.6-18.9-12.5-33.8-29.1-46.3-48.1-8.3-12.6-14.8-26.1-19.2-40.4-6.7-21.7-10.8-44.1-7.8-66.8 1.8-14 4.6-28 9.7-41.6 7.8-20.8 19.3-38.8 34.2-54.8 9.8-10.6 21.2-19.1 33.4-26.8 14.7-9.3 30.7-15.4 47.4-19 13.8-3 28.1-4.3 42.2-4.4 89.9-.4 179.7-.3 269.6 0 12.6 0 25.5 1 37.7 4.1 24.3 6.2 45.7 18.2 63 37 11.2 12.2 20.4 25.8 25.8 41.2 7.3 20.7 12.3 42.1 6.7 64.4-2.1 8.5-2.7 17.5-6.1 25.4-4.7 10.9-10.8 21.2-17.2 31.2-8.7 13.5-20.5 24.3-34.4 32.2-10.1 5.7-21 10.2-32 14.3-18.1 6.7-37.2 5-56.1 5.2-17.2.2-34.5 0-51.7.1-1.7 0-3.4 1.2-5.1 1.9 1.3 1.8 2.1 4.3 3.9 5.3 13.5 7.8 27.2 15.4 40.8 22.9 11 6 22.3 11.7 33.2 17.9 15.2 8.5 30.2 17.4 45.3 26.1 19.3 11.1 34.8 26.4 47.8 44.3 9.7 13.3 17.2 27.9 23 43.5 6.1 16.6 9.2 33.8 10.4 51.3.6 9.1-.7 18.5-1.9 27.6-1.2 9.1-2.7 18.4-5.6 27.1-3.3 10.2-7.4 20.2-12.4 29.6-8.4 15.7-19.6 29.4-32.8 41.4-12.7 11.5-26.8 20.6-42.4 27.6-22.9 10.3-46.9 14.4-71.6 14.5-89.7.3-179.4.2-269.1-.1-12.6 0-25.5-1-37.7-3.9-24.5-5.7-45.8-18-63.3-36.4-11.6-12.3-20.2-26.5-26.6-41.9-2.7-6.4-4.1-13.5-5.4-20.4-1.5-8.1-2.8-16.3-3.1-24.5-.6-15.7 2.8-30.9 8.2-45.4 8.2-22 21.7-40.6 40.2-55.2 10-7.9 21.3-13.7 33.1-18.8 16.6-7.2 34-8.1 51.4-8.5 21.9-.5 43.9-.1 65.9-.1 1.9-.1 3.9-.3 6.2-.4zm96.3-342.4c0 .1 0 .1 0 0-48.3.1-96.6-.6-144.9.5-13.5.3-27.4 3.9-40.1 8.7-14.9 5.6-28.1 14.6-39.9 25.8-20.2 19-32.2 42.2-37.2 68.9-3.6 19-1.4 38.1 4.1 56.5 4.1 13.7 10.5 26.4 18.5 38.4 14.8 22.2 35.7 36.7 58.4 49.2 11 6.1 22.2 11.9 33.2 18 13.5 7.5 26.9 15.1 40.4 22.6 13.1 7.3 26.2 14.5 39.2 21.7 9.7 5.3 19.4 10.7 29.1 16.1 2.9 1.6 4.1.2 4.5-2.4.3-2 .3-4 .3-6.1v-58.8c0-19.9.1-39.9 0-59.8 0-6.6 1.7-12.8 7.6-16.1 3.5-2 8.2-2.8 12.4-2.8 50.3-.2 100.7-.2 151-.1 19.8 0 38.3-4.4 55.1-15.1 23.1-14.8 36.3-36.3 40.6-62.9 3.4-20.8-1-40.9-12.4-58.5-17.8-27.5-43.6-43-76.5-43.6-47.8-.8-95.6-.2-143.4-.2zm-30.6 559.7c45.1 0 90.2-.2 135.3.1 18.9.1 36.6-3.9 53.9-11.1 18.4-7.7 33.6-19.8 46.3-34.9 9.1-10.8 16.2-22.9 20.8-36.5 4.2-12.4 7.4-24.7 7.3-37.9-.1-10.3.2-20.5-3.4-30.5-2.6-7.2-3.4-15.2-6.4-22.1-3.9-8.9-8.9-17.3-14-25.5-12.9-20.8-31.9-34.7-52.8-46.4-10.6-5.9-21.2-11.6-31.8-17.5-10.3-5.7-20.4-11.7-30.7-17.4-11.2-6.1-22.5-11.9-33.7-18-16.6-9.1-33.1-18.4-49.8-27.5-4.9-2.7-6.1-1.9-6.4 3.9-.1 2-.1 4.1-.1 6.1v114.5c0 14.8-5.6 20.4-20.4 20.4-47.6.1-95.3-.1-142.9.2-10.5.1-21.1 1.4-31.6 2.8-16.5 2.2-30.5 9.9-42.8 21-17 15.5-27 34.7-29.4 57.5-1.1 10.9-.4 21.7 2.9 32.5 3.7 12.3 9.2 23.4 17.5 33 19.2 22.1 43.4 33.3 72.7 33.3 46.6.1 93 0 139.5 0z" })),
-      type: "Onion Network",
-      version: "Latest",
-      color: "cyan"
-    }
-  ];
-  const features = [
-    {
-      name: "Security Architecture",
-      lockbit: { status: "trophy", detail: "18-layer military-grade defense system with complete ASN.1 validation" },
-      signal: { status: "check", detail: "Signal Protocol with double ratchet" },
-      threema: { status: "check", detail: "Standard security implementation" },
-      session: { status: "check", detail: "Modified Signal Protocol + Onion routing" }
-    },
-    {
-      name: "Cryptography",
-      lockbit: { status: "trophy", detail: "ECDH P-384 + AES-GCM 256 + ECDSA P-384" },
-      signal: { status: "check", detail: "Signal Protocol + Double Ratchet" },
-      threema: { status: "check", detail: "NaCl + XSalsa20 + Poly1305" },
-      session: { status: "check", detail: "Modified Signal Protocol" }
-    },
-    {
-      name: "Perfect Forward Secrecy",
-      lockbit: { status: "trophy", detail: "Auto rotation every 5 minutes or 100 messages" },
-      signal: { status: "check", detail: "Double Ratchet algorithm" },
-      threema: { status: "warning", detail: "Partial (group chats)" },
-      session: { status: "check", detail: "Session Ratchet algorithm" }
-    },
-    {
-      name: "Architecture",
-      lockbit: { status: "trophy", detail: "Pure P2P WebRTC without servers" },
-      signal: { status: "times", detail: "Centralized Signal servers" },
-      threema: { status: "times", detail: "Threema servers in Switzerland" },
-      session: { status: "warning", detail: "Onion routing via network nodes" }
-    },
-    {
-      name: "Registration Anonymity",
-      lockbit: { status: "trophy", detail: "No registration required, instant anonymous channels" },
-      signal: { status: "times", detail: "Phone number required" },
-      threema: { status: "check", detail: "ID generated locally" },
-      session: { status: "check", detail: "Random session ID" }
-    },
-    {
-      name: "Payment Integration",
-      lockbit: { status: "trophy", detail: "Lightning Network satoshis per session + WebLN" },
-      signal: { status: "times", detail: "No payment system" },
-      threema: { status: "times", detail: "No payment system" },
-      session: { status: "times", detail: "No payment system" }
-    },
-    {
-      name: "Metadata Protection",
-      lockbit: { status: "trophy", detail: "Full metadata encryption + traffic obfuscation" },
-      signal: { status: "warning", detail: "Sealed Sender (partial)" },
-      threema: { status: "warning", detail: "Minimal metadata" },
-      session: { status: "check", detail: "Onion routing hides metadata" }
-    },
-    {
-      name: "Traffic Obfuscation",
-      lockbit: { status: "trophy", detail: "Fake traffic + pattern masking + packet padding" },
-      signal: { status: "times", detail: "No traffic obfuscation" },
-      threema: { status: "times", detail: "No traffic obfuscation" },
-      session: { status: "check", detail: "Onion routing provides obfuscation" }
-    },
-    {
-      name: "Open Source",
-      lockbit: { status: "trophy", detail: "100% open + auditable + MIT license" },
-      signal: { status: "check", detail: "Fully open" },
-      threema: { status: "warning", detail: "Only clients open" },
-      session: { status: "check", detail: "Fully open" }
-    },
-    {
-      name: "MITM Protection",
-      lockbit: { status: "trophy", detail: "Out-of-band verification + mutual auth + ECDSA" },
-      signal: { status: "check", detail: "Safety numbers verification" },
-      threema: { status: "check", detail: "QR code scanning" },
-      session: { status: "warning", detail: "Basic key verification" }
-    },
-    {
-      name: "Economic Model",
-      lockbit: { status: "trophy", detail: "Sustainable pay-per-session model" },
-      signal: { status: "warning", detail: "Donations and grants dependency" },
-      threema: { status: "check", detail: "One-time app purchase" },
-      session: { status: "warning", detail: "Donations dependency" }
-    },
-    {
-      name: "Censorship Resistance",
-      lockbit: { status: "trophy", detail: "Impossible to block P2P + no servers to target" },
-      signal: { status: "warning", detail: "Blocked in authoritarian countries" },
-      threema: { status: "warning", detail: "May be blocked" },
-      session: { status: "check", detail: "Onion routing bypasses blocks" }
-    },
-    {
-      name: "Data Storage",
-      lockbit: { status: "trophy", detail: "Zero data storage - only in browser memory" },
-      signal: { status: "warning", detail: "Local database storage" },
-      threema: { status: "warning", detail: "Local + optional backup" },
-      session: { status: "warning", detail: "Local database storage" }
-    },
-    {
-      name: "Key Security",
-      lockbit: { status: "trophy", detail: "Non-extractable keys + hardware protection" },
-      signal: { status: "check", detail: "Secure key storage" },
-      threema: { status: "check", detail: "Local key storage" },
-      session: { status: "check", detail: "Secure key storage" }
-    },
-    {
-      name: "Post-Quantum Roadmap",
-      lockbit: { status: "check", detail: "Planned v5.0 - CRYSTALS-Kyber/Dilithium" },
-      signal: { status: "warning", detail: "PQXDH in development" },
-      threema: { status: "times", detail: "Not announced" },
-      session: { status: "times", detail: "Not announced" }
-    }
-  ];
-  const getStatusIcon = (status) => {
-    const statusMap = {
-      "trophy": { icon: "fa-trophy", color: "accent-orange" },
-      "check": { icon: "fa-check", color: "text-green-300" },
-      "warning": { icon: "fa-exclamation-triangle", color: "text-yellow-300" },
-      "times": { icon: "fa-times", color: "text-red-300" }
-    };
-    return statusMap[status] || { icon: "fa-question", color: "text-gray-400" };
-  };
-  const toggleFeatureDetail = (index) => {
-    setSelectedFeature(selectedFeature === index ? null : index);
-  };
-  return /* @__PURE__ */ React.createElement("div", { className: "mt-16" }, /* @__PURE__ */ React.createElement("div", { className: "text-center mb-8" }, /* @__PURE__ */ React.createElement("h3", { className: "text-3xl font-bold text-white mb-3" }, "Enhanced Security Edition Comparison"), /* @__PURE__ */ React.createElement("p", { className: "text-gray-400 max-w-2xl mx-auto mb-4" }, "Enhanced Security Edition vs leading secure messengers")), /* @__PURE__ */ React.createElement("div", { className: "max-w-7xl mx-auto" }, /* @__PURE__ */ React.createElement("div", { className: "md:hidden p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg mb-4" }, /* @__PURE__ */ React.createElement("p", { className: "text-yellow-400 text-sm text-center" }, /* @__PURE__ */ React.createElement("i", { className: "fas fa-lightbulb mr-2" }), "Rotate your device horizontally for better viewing")), /* @__PURE__ */ React.createElement("div", { className: "overflow-x-auto" }, /* @__PURE__ */ React.createElement(
-    "table",
-    {
-      className: "w-full border-collapse rounded-xl overflow-hidden shadow-2xl",
-      style: { backgroundColor: "rgba(42, 43, 42, 0.9)" }
-    },
-    /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { className: "bg-black-table" }, /* @__PURE__ */ React.createElement("th", { className: "text-left p-4 border-b border-gray-600 text-white font-bold min-w-[240px]" }, "Security Criterion"), messengers.map((messenger, index) => /* @__PURE__ */ React.createElement("th", { key: `messenger-${index}`, className: "text-center p-4 border-b border-gray-600 min-w-[160px]" }, /* @__PURE__ */ React.createElement("div", { className: "flex flex-col items-center" }, /* @__PURE__ */ React.createElement("div", { className: "mb-2" }, messenger.logo), /* @__PURE__ */ React.createElement("div", { className: `text-sm font-bold ${messenger.color === "orange" ? "text-orange-400" : messenger.color === "blue" ? "text-blue-400" : messenger.color === "green" ? "text-green-400" : "text-cyan-400"}` }, messenger.name), /* @__PURE__ */ React.createElement("div", { className: "text-xs text-gray-400" }, messenger.type), /* @__PURE__ */ React.createElement("div", { className: "text-xs text-gray-500 mt-1" }, messenger.version)))))),
-    /* @__PURE__ */ React.createElement("tbody", null, features.map((feature, featureIndex) => /* @__PURE__ */ React.createElement(React.Fragment, { key: `feature-${featureIndex}` }, /* @__PURE__ */ React.createElement(
-      "tr",
-      {
-        className: `border-b border-gray-700/30 transition-all duration-200 cursor-pointer hover:bg-[rgb(20_20_20_/30%)] ${selectedFeature === featureIndex ? "bg-[rgb(20_20_20_/50%)]" : ""}`,
-        onClick: () => toggleFeatureDetail(featureIndex)
-      },
-      /* @__PURE__ */ React.createElement("td", { className: "p-4 text-white font-semibold" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between" }, /* @__PURE__ */ React.createElement("span", null, feature.name), /* @__PURE__ */ React.createElement("i", { className: `fas fa-chevron-${selectedFeature === featureIndex ? "up" : "down"} text-xs text-gray-400 opacity-60 transition-all duration-200` }))),
-      /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("i", { className: `fas ${getStatusIcon(feature.lockbit.status).icon} ${getStatusIcon(feature.lockbit.status).color} text-2xl` })),
-      /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("i", { className: `fas ${getStatusIcon(feature.signal.status).icon} ${getStatusIcon(feature.signal.status).color} text-2xl` })),
-      /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("i", { className: `fas ${getStatusIcon(feature.threema.status).icon} ${getStatusIcon(feature.threema.status).color} text-2xl` })),
-      /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("i", { className: `fas ${getStatusIcon(feature.session.status).icon} ${getStatusIcon(feature.session.status).color} text-2xl` }))
-    ), selectedFeature === featureIndex && /* @__PURE__ */ React.createElement("tr", { className: "border-b border-gray-700/30 bg-gradient-to-r from-gray-800/20 to-gray-900/20" }, /* @__PURE__ */ React.createElement("td", { className: "p-4 text-xs text-gray-400 font-medium" }, "Technical Details:"), /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs text-orange-300 font-medium leading-relaxed" }, feature.lockbit.detail)), /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs text-blue-300 leading-relaxed" }, feature.signal.detail)), /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs text-green-300 leading-relaxed" }, feature.threema.detail)), /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs text-cyan-300 leading-relaxed" }, feature.session.detail))))))
-  )), /* @__PURE__ */ React.createElement("div", { className: "mt-8 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-orange-500/10 rounded-xl hover:bg-orange-500/40 transition-colors" }, /* @__PURE__ */ React.createElement("i", { className: "fas fa-trophy text-orange-400 mr-2 text-xl" }), /* @__PURE__ */ React.createElement("span", { className: "text-orange-300 text-sm font-bold" }, "Category Leader")), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-green-500/10 rounded-xl hover:bg-green-600/40 transition-colors" }, /* @__PURE__ */ React.createElement("i", { className: "fas fa-check text-green-300 mr-2 text-xl" }), /* @__PURE__ */ React.createElement("span", { className: "text-green-200 text-sm font-bold" }, "Excellent")), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-yellow-500/10 rounded-xl hover:bg-yellow-600/40 transition-colors" }, /* @__PURE__ */ React.createElement("i", { className: "fas fa-exclamation-triangle text-yellow-300 mr-2 text-xl" }), /* @__PURE__ */ React.createElement("span", { className: "text-yellow-200 text-sm font-bold" }, "Partial/Limited")), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-red-500/10 rounded-xl hover:bg-red-600/40 transition-colors" }, /* @__PURE__ */ React.createElement("i", { className: "fas fa-times text-red-300 mr-2 text-xl" }), /* @__PURE__ */ React.createElement("span", { className: "text-red-200 text-sm font-bold" }, "Not Available")))));
-};
-function Roadmap() {
-  const [selectedPhase, setSelectedPhase] = React.useState(null);
-  const phases = [
-    {
-      version: "v1.0",
-      title: "Start of Development",
-      status: "done",
-      date: "Early 2025",
-      description: "Idea, prototype, and infrastructure setup",
-      features: [
-        "Concept and requirements formation",
-        "Stack selection: WebRTC, P2P, cryptography",
-        "First messaging prototypes",
-        "Repository creation and CI",
-        "Basic encryption architecture",
-        "UX/UI design"
-      ]
-    },
-    {
-      version: "v1.5",
-      title: "Alpha Release",
-      status: "done",
-      date: "Spring 2025",
-      description: "First public alpha: basic chat and key exchange",
-      features: [
-        "Basic P2P messaging via WebRTC",
-        "Simple E2E encryption (demo scheme)",
-        "Stable signaling and reconnection",
-        "Minimal UX for testing",
-        "Feedback collection from early testers"
-      ]
-    },
-    {
-      version: "v2.0",
-      title: "Security Hardened",
-      status: "done",
-      date: "Summer 2025",
-      description: "Security strengthening and stable branch release",
-      features: [
-        "ECDH/ECDSA implementation in production",
-        "Perfect Forward Secrecy and key rotation",
-        "Improved authentication checks",
-        "File encryption and large payload transfers",
-        "Audit of basic cryptoprocesses"
-      ]
-    },
-    {
-      version: "v3.0",
-      title: "Scaling & Stability",
-      status: "done",
-      date: "Fall 2025",
-      description: "Network scaling and stability improvements",
-      features: [
-        "Optimization of P2P connections and NAT traversal",
-        "Reconnection mechanisms and message queues",
-        "Reduced battery consumption on mobile",
-        "Support for multi-device synchronization",
-        "Monitoring and logging tools for developers"
-      ]
-    },
-    {
-      version: "v3.5",
-      title: "Privacy-first Release",
-      status: "done",
-      date: "Winter 2025",
-      description: "Focus on privacy: minimizing metadata",
-      features: [
-        "Metadata protection and fingerprint reduction",
-        "Experiments with onion routing and DHT",
-        "Options for anonymous connections",
-        "Preparation for open code audit",
-        "Improved user verification processes"
-      ]
-    },
-    // current and future phases
-    {
-      version: "v4.2.12",
-      title: "Enhanced Security Edition",
-      status: "current",
-      date: "Now",
-      description: "Current version with ECDH + DTLS + SAS security, 18-layer military-grade cryptography and complete ASN.1 validation",
-      features: [
-        "ECDH + DTLS + SAS triple-layer security",
-        "ECDH P-384 + AES-GCM 256-bit encryption",
-        "DTLS fingerprint verification",
-        "SAS (Short Authentication String) verification",
-        "Perfect Forward Secrecy with key rotation",
-        "Enhanced MITM attack prevention",
-        "Complete ASN.1 DER validation",
-        "OID and EC point verification",
-        "SPKI structure validation",
-        "P2P WebRTC architecture",
-        "Metadata protection",
-        "100% open source code"
-      ]
-    },
-    {
-      version: "v4.5",
-      title: "Mobile & Desktop Edition",
-      status: "development",
-      date: "Q2 2025",
-      description: "Native apps for all platforms",
-      features: [
-        "PWA app for mobile",
-        "Electron app for desktop",
-        "Real-time notifications",
-        "Automatic reconnection",
-        "Battery optimization",
-        "Cross-device synchronization",
-        "Improved UX/UI",
-        "Support for files up to 100MB"
-      ]
-    },
-    {
-      version: "v5.0",
-      title: "Quantum-Resistant Edition",
-      status: "planned",
-      date: "Q4 2025",
-      description: "Protection against quantum computers",
-      features: [
-        "Post-quantum cryptography CRYSTALS-Kyber",
-        "SPHINCS+ digital signatures",
-        "Hybrid scheme: classic + PQ",
-        "Quantum-safe key exchange",
-        "Updated hashing algorithms",
-        "Migration of existing sessions",
-        "Compatibility with v4.x",
-        "Quantum-resistant protocols"
-      ]
-    },
-    {
-      version: "v5.5",
-      title: "Group Communications",
-      status: "planned",
-      date: "Q2 2026",
-      description: "Group chats with preserved privacy",
-      features: [
-        "P2P group connections up to 8 participants",
-        "Mesh networking for groups",
-        "Signal Double Ratchet for groups",
-        "Anonymous groups without metadata",
-        "Ephemeral groups (disappear after session)",
-        "Cryptographic group administration",
-        "Group member auditing"
-      ]
-    },
-    {
-      version: "v6.0",
-      title: "Decentralized Network",
-      status: "research",
-      date: "2027",
-      description: "Fully decentralized network",
-      features: [
-        "LockBit node mesh network",
-        "DHT for peer discovery",
-        "Built-in onion routing",
-        "Tokenomics and node incentives",
-        "Governance via DAO",
-        "Interoperability with other networks",
-        "Cross-platform compatibility",
-        "Self-healing network"
-      ]
-    },
-    {
-      version: "v7.0",
-      title: "AI Privacy Assistant",
-      status: "research",
-      date: "2028+",
-      description: "AI for privacy and security",
-      features: [
-        "Local AI threat analysis",
-        "Automatic MITM detection",
-        "Adaptive cryptography",
-        "Personalized security recommendations",
-        "Zero-knowledge machine learning",
-        "Private AI assistant",
-        "Predictive security",
-        "Autonomous attack protection"
-      ]
-    }
-  ];
-  const getStatusConfig = (status) => {
-    switch (status) {
-      case "current":
-        return {
-          color: "green",
-          bgClass: "bg-green-500/10 border-green-500/20",
-          textClass: "text-green-400",
-          icon: "fas fa-check-circle",
-          label: "Current Version"
-        };
-      case "development":
-        return {
-          color: "orange",
-          bgClass: "bg-orange-500/10 border-orange-500/20",
-          textClass: "text-orange-400",
-          icon: "fas fa-code",
-          label: "In Development"
-        };
-      case "planned":
-        return {
-          color: "blue",
-          bgClass: "bg-blue-500/10 border-blue-500/20",
-          textClass: "text-blue-400",
-          icon: "fas fa-calendar-alt",
-          label: "Planned"
-        };
-      case "research":
-        return {
-          color: "purple",
-          bgClass: "bg-purple-500/10 border-purple-500/20",
-          textClass: "text-purple-400",
-          icon: "fas fa-flask",
-          label: "Research"
-        };
-      case "done":
-        return {
-          color: "gray",
-          bgClass: "bg-gray-500/10 border-gray-500/20",
-          textClass: "text-gray-300",
-          icon: "fas fa-flag-checkered",
-          label: "Released"
-        };
-      default:
-        return {
-          color: "gray",
-          bgClass: "bg-gray-500/10 border-gray-500/20",
-          textClass: "text-gray-400",
-          icon: "fas fa-question",
-          label: "Unknown"
-        };
-    }
-  };
-  const togglePhaseDetail = (index) => {
-    setSelectedPhase(selectedPhase === index ? null : index);
-  };
-  return /* @__PURE__ */ React.createElement("div", { key: "roadmap-section", className: "mt-16 px-4 sm:px-0" }, /* @__PURE__ */ React.createElement("div", { key: "section-header", className: "text-center mb-12" }, /* @__PURE__ */ React.createElement("h3", { key: "title", className: "text-2xl font-semibold text-primary mb-3" }, "Development Roadmap"), /* @__PURE__ */ React.createElement("p", { key: "subtitle", className: "text-secondary max-w-2xl mx-auto mb-6" }, "Evolution of SecureBit.chat : from initial development to quantum-resistant decentralized network with complete ASN.1 validation")), /* @__PURE__ */ React.createElement("div", { key: "roadmap-container", className: "max-w-6xl mx-auto" }, /* @__PURE__ */ React.createElement("div", { key: "timeline", className: "relative" }, /* @__PURE__ */ React.createElement("div", { key: "phases", className: "space-y-8" }, phases.map((phase, index) => {
-    const statusConfig = getStatusConfig(phase.status);
-    const isExpanded = selectedPhase === index;
-    return /* @__PURE__ */ React.createElement("div", { key: `phase-${index}`, className: "relative" }, /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        type: "button",
-        "aria-expanded": isExpanded,
-        onClick: () => togglePhaseDetail(index),
-        key: `phase-button-${index}`,
-        className: `card-minimal rounded-xl p-4 text-left w-full transition-all duration-300 ${isExpanded ? "ring-2 ring-" + statusConfig.color + "-500/30" : ""}`
-      },
-      /* @__PURE__ */ React.createElement(
-        "div",
-        {
-          key: "phase-header",
-          className: "flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 space-y-2 sm:space-y-0"
-        },
-        /* @__PURE__ */ React.createElement(
-          "div",
-          {
-            key: "phase-info",
-            className: "flex flex-col sm:flex-row sm:items-center sm:space-x-4"
-          },
-          /* @__PURE__ */ React.createElement(
-            "div",
-            {
-              key: "version-badge",
-              className: `px-3 py-1 ${statusConfig.bgClass} border rounded-lg mb-2 sm:mb-0`
-            },
-            /* @__PURE__ */ React.createElement(
-              "span",
-              {
-                key: "version",
-                className: `${statusConfig.textClass} font-bold text-sm`
-              },
-              phase.version
-            )
-          ),
-          /* @__PURE__ */ React.createElement("div", { key: "title-section" }, /* @__PURE__ */ React.createElement(
-            "h4",
-            {
-              key: "title",
-              className: "text-lg font-semibold text-primary"
-            },
-            phase.title
-          ), /* @__PURE__ */ React.createElement(
-            "p",
-            {
-              key: "description",
-              className: "text-secondary text-sm"
-            },
-            phase.description
-          ))
-        ),
-        /* @__PURE__ */ React.createElement(
-          "div",
-          {
-            key: "phase-meta",
-            className: "flex items-center space-x-3 text-sm text-gray-400 font-medium"
-          },
-          /* @__PURE__ */ React.createElement(
-            "div",
-            {
-              key: "status-badge",
-              className: `flex items-center px-3 py-1 ${statusConfig.bgClass} border rounded-lg`
-            },
-            /* @__PURE__ */ React.createElement(
-              "i",
-              {
-                key: "status-icon",
-                className: `${statusConfig.icon} ${statusConfig.textClass} mr-2 text-xs`
-              }
-            ),
-            /* @__PURE__ */ React.createElement(
-              "span",
-              {
-                key: "status-text",
-                className: `${statusConfig.textClass} text-xs font-medium`
-              },
-              statusConfig.label
-            )
-          ),
-          /* @__PURE__ */ React.createElement("div", { key: "date" }, phase.date),
-          /* @__PURE__ */ React.createElement(
-            "i",
-            {
-              key: "expand-icon",
-              className: `fas fa-chevron-${isExpanded ? "up" : "down"} text-gray-400 text-sm`
-            }
-          )
-        )
-      ),
-      isExpanded && /* @__PURE__ */ React.createElement(
-        "div",
-        {
-          key: "features-section",
-          className: "mt-6 pt-6 border-t border-gray-700/30"
-        },
-        /* @__PURE__ */ React.createElement(
-          "h5",
-          {
-            key: "features-title",
-            className: "text-primary font-medium mb-4 flex items-center"
-          },
-          /* @__PURE__ */ React.createElement(
-            "i",
-            {
-              key: "features-icon",
-              className: "fas fa-list-ul mr-2 text-sm"
-            }
-          ),
-          "Key features:"
-        ),
-        /* @__PURE__ */ React.createElement(
-          "div",
-          {
-            key: "features-grid",
-            className: "grid md:grid-cols-2 gap-3"
-          },
-          phase.features.map((feature, featureIndex) => /* @__PURE__ */ React.createElement(
-            "div",
-            {
-              key: `feature-${featureIndex}`,
-              className: "flex items-center space-x-3 p-3 bg-custom-bg rounded-lg"
-            },
-            /* @__PURE__ */ React.createElement(
-              "div",
-              {
-                className: `w-2 h-2 rounded-full ${statusConfig.textClass.replace(
-                  "text-",
-                  "bg-"
-                )}`
-              }
-            ),
-            /* @__PURE__ */ React.createElement("span", { className: "text-secondary text-sm" }, feature)
-          ))
-        )
-      )
-    ));
-  })))), /* @__PURE__ */ React.createElement("div", { key: "cta-section", className: "mt-12 text-center" }, /* @__PURE__ */ React.createElement(
-    "div",
-    {
-      key: "cta-card",
-      className: "card-minimal rounded-xl p-8 max-w-2xl mx-auto"
-    },
-    /* @__PURE__ */ React.createElement(
-      "h4",
-      {
-        key: "cta-title",
-        className: "text-xl font-semibold text-primary mb-3"
-      },
-      "Join the future of privacy"
-    ),
-    /* @__PURE__ */ React.createElement("p", { key: "cta-description", className: "text-secondary mb-6" }, "SecureBit.chat grows thanks to the community. Your ideas and feedback help shape the future of secure communication with complete ASN.1 validation."),
-    /* @__PURE__ */ React.createElement(
-      "div",
-      {
-        key: "cta-buttons",
-        className: "flex flex-col sm:flex-row gap-4 justify-center"
-      },
-      /* @__PURE__ */ React.createElement(
-        "a",
-        {
-          key: "github-link",
-          href: "https://github.com/SecureBitChat/securebit-chat/",
-          className: "btn-primary text-white py-3 px-6 rounded-lg font-medium transition-all duration-200 flex items-center justify-center"
-        },
-        /* @__PURE__ */ React.createElement("i", { key: "github-icon", className: "fab fa-github mr-2" }),
-        "GitHub Repository"
-      ),
-      /* @__PURE__ */ React.createElement(
-        "a",
-        {
-          key: "feedback-link",
-          href: "mailto:lockbitchat@tutanota.com",
-          className: "btn-secondary text-white py-3 px-6 rounded-lg font-medium transition-all duration-200 flex items-center justify-center"
-        },
-        /* @__PURE__ */ React.createElement("i", { key: "feedback-icon", className: "fas fa-comments mr-2" }),
-        "Feedback"
-      )
-    )
-  )));
-}
 var EnhancedCopyButton = ({ text, className = "", children }) => {
   const [copied, setCopied] = React.useState(false);
   const handleCopy = async () => {
@@ -1003,7 +266,8 @@ var EnhancedConnectionSetup = ({
   qrManualMode,
   toggleQrManualMode,
   nextQrFrame,
-  prevQrFrame
+  prevQrFrame,
+  markAnswerCreated
 }) => {
   const [mode, setMode] = React.useState("select");
   const resetToSelect = () => {
@@ -1350,8 +614,8 @@ var EnhancedConnectionSetup = ({
                         if (payload && payload.length) {
                           await generateQRCode(payload);
                         }
-                      } catch (e) {
-                        console.warn("QR regenerate on toggle failed:", e);
+                      } catch (e2) {
+                        console.warn("QR regenerate on toggle failed:", e2);
                       }
                     }
                   },
@@ -1383,7 +647,6 @@ var EnhancedConnectionSetup = ({
                     className: "max-w-none h-auto border border-gray-600/30 rounded w-[20rem] sm:w-[24rem] md:w-[28rem] lg:w-[32rem]"
                   })
                 ]),
-                // Переключатель управления ниже QR кода
                 (qrFramesTotal || 0) >= 1 && React.createElement("div", {
                   key: "qr-controls-below",
                   className: "mt-4 flex flex-col items-center gap-2"
@@ -1396,7 +659,6 @@ var EnhancedConnectionSetup = ({
                     key: "control-buttons",
                     className: "flex gap-1"
                   }, [
-                    // Кнопки навигации показываем только если больше 1 части
                     (qrFramesTotal || 0) > 1 && React.createElement("button", {
                       key: "prev-frame",
                       onClick: prevQrFrame,
@@ -1407,7 +669,6 @@ var EnhancedConnectionSetup = ({
                       onClick: toggleQrManualMode,
                       className: `px-2 py-1 rounded text-xs font-medium ${qrManualMode || false ? "bg-blue-500 text-white" : "bg-gray-600 text-gray-300 hover:bg-gray-500"}`
                     }, qrManualMode || false ? "Manual" : "Auto"),
-                    // Кнопки навигации показываем только если больше 1 части
                     (qrFramesTotal || 0) > 1 && React.createElement("button", {
                       key: "next-frame",
                       onClick: nextQrFrame,
@@ -1515,10 +776,12 @@ var EnhancedConnectionSetup = ({
           React.createElement("textarea", {
             key: "input",
             value: answerInput,
-            onChange: (e) => {
-              setAnswerInput(e.target.value);
-              if (e.target.value.trim().length > 0) {
-                markAnswerCreated();
+            onChange: (e2) => {
+              setAnswerInput(e2.target.value);
+              if (e2.target.value.trim().length > 0) {
+                if (typeof markAnswerCreated === "function") {
+                  markAnswerCreated();
+                }
               }
             },
             rows: 6,
@@ -1592,10 +855,12 @@ var EnhancedConnectionSetup = ({
           React.createElement("textarea", {
             key: "input",
             value: offerInput,
-            onChange: (e) => {
-              setOfferInput(e.target.value);
-              if (e.target.value.trim().length > 0) {
-                markAnswerCreated();
+            onChange: (e2) => {
+              setOfferInput(e2.target.value);
+              if (e2.target.value.trim().length > 0) {
+                if (typeof markAnswerCreated === "function") {
+                  markAnswerCreated();
+                }
               }
             },
             rows: 8,
@@ -1644,9 +909,6 @@ var EnhancedConnectionSetup = ({
             React.createElement("button", {
               key: "open-scanner",
               onClick: () => {
-                console.log("Open Camera Scanner clicked, showQRScannerModal will be set to true");
-                console.log("QRScanner available:", !!window.QRScanner);
-                console.log("setShowQRScannerModal function:", typeof setShowQRScannerModal);
                 if (typeof setShowQRScannerModal === "function") {
                   setShowQRScannerModal(true);
                 } else {
@@ -1750,7 +1012,6 @@ var EnhancedConnectionSetup = ({
                 className: "max-w-none h-auto border border-gray-600/30 rounded w-[20rem] sm:w-[24rem] md:w-[28rem] lg:w-[32rem]"
               })
             ]),
-            // Переключатель управления ниже QR кода
             (qrFramesTotal || 0) >= 1 && React.createElement("div", {
               key: "qr-controls-below",
               className: "mt-4 flex flex-col items-center gap-2"
@@ -1763,7 +1024,6 @@ var EnhancedConnectionSetup = ({
                 key: "control-buttons",
                 className: "flex gap-1"
               }, [
-                // Кнопки навигации показываем только если больше 1 части
                 (qrFramesTotal || 0) > 1 && React.createElement("button", {
                   key: "prev-frame",
                   onClick: prevQrFrame,
@@ -1774,7 +1034,6 @@ var EnhancedConnectionSetup = ({
                   onClick: toggleQrManualMode,
                   className: `px-2 py-1 rounded text-xs font-medium ${qrManualMode ? "bg-blue-500 text-white" : "bg-gray-600 text-gray-300 hover:bg-gray-500"}`
                 }, qrManualMode ? "Manual" : "Auto"),
-                // Кнопки навигации показываем только если больше 1 части
                 (qrFramesTotal || 0) > 1 && React.createElement("button", {
                   key: "next-frame",
                   onClick: nextQrFrame,
@@ -1807,7 +1066,6 @@ var EnhancedConnectionSetup = ({
 };
 var createScrollToBottomFunction = (chatMessagesRef) => {
   return () => {
-    console.log("\u{1F50D} Global scrollToBottom called, chatMessagesRef:", chatMessagesRef.current);
     if (chatMessagesRef && chatMessagesRef.current) {
       const scrollAttempt = () => {
         if (chatMessagesRef.current) {
@@ -1873,7 +1131,7 @@ var EnhancedChatInterface = ({
       scrollToBottom();
       setShowScrollButton(false);
     } else {
-      console.error("\u274C scrollToBottom is not a function:", scrollToBottom);
+      console.error("scrollToBottom is not a function:", scrollToBottom);
       if (chatMessagesRef.current) {
         chatMessagesRef.current.scrollTo({
           top: chatMessagesRef.current.scrollHeight,
@@ -1883,9 +1141,9 @@ var EnhancedChatInterface = ({
       setShowScrollButton(false);
     }
   };
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
+  const handleKeyPress = (e2) => {
+    if (e2.key === "Enter" && !e2.shiftKey) {
+      e2.preventDefault();
       onSendMessage();
     }
   };
@@ -2005,7 +1263,6 @@ var EnhancedChatInterface = ({
           })
         )
       ),
-      // Секция передачи файлов
       React.createElement(
         "div",
         {
@@ -2046,7 +1303,6 @@ var EnhancedChatInterface = ({
                 showFileTransfer ? "Hide file transfer" : "Send files"
               ]
             ),
-            // ИСПРАВЛЕНИЕ: Используем правильный компонент
             showFileTransfer && React.createElement(window.FileTransferComponent || (() => React.createElement("div", {
               className: "p-4 text-center text-red-400"
             }, "FileTransferComponent not loaded")), {
@@ -2056,7 +1312,6 @@ var EnhancedChatInterface = ({
           ]
         )
       ),
-      // Область ввода сообщений
       React.createElement(
         "div",
         { className: "border-t border-gray-500/10" },
@@ -2073,7 +1328,7 @@ var EnhancedChatInterface = ({
                 [
                   React.createElement("textarea", {
                     value: messageInput,
-                    onChange: (e) => setMessageInput(e.target.value),
+                    onChange: (e2) => setMessageInput(e2.target.value),
                     onKeyDown: handleKeyPress,
                     placeholder: "Enter message to encrypt...",
                     rows: 2,
@@ -2117,8 +1372,6 @@ var EnhancedChatInterface = ({
   );
 };
 var EnhancedSecureP2PChat = () => {
-  console.log("\u{1F50D} EnhancedSecureP2PChat component initialized");
-  console.log("\u{1F3AE} QR Manual Control Features Loaded!");
   const [messages, setMessages] = React.useState([]);
   const [connectionStatus, setConnectionStatus] = React.useState("disconnected");
   const [messageInput, setMessageInput] = React.useState("");
@@ -2165,21 +1418,9 @@ var EnhancedSecureP2PChat = () => {
     const hasAnswerData = answerData && answerData.trim().length > 0 || answerInput && answerInput.trim().length > 0;
     const hasAnswerQR = qrCodeUrl && qrCodeUrl.trim().length > 0;
     const shouldPreserve = connectionState.hasActiveAnswer && answerAge < maxPreserveTime && !connectionState.isUserInitiatedDisconnect || hasAnswerData && answerAge < maxPreserveTime && !connectionState.isUserInitiatedDisconnect || hasAnswerQR && answerAge < maxPreserveTime && !connectionState.isUserInitiatedDisconnect;
-    console.log("\u{1F50D} shouldPreserveAnswerData check:", {
-      hasActiveAnswer: connectionState.hasActiveAnswer,
-      hasAnswerData,
-      hasAnswerQR,
-      answerAge,
-      maxPreserveTime,
-      isUserInitiatedDisconnect: connectionState.isUserInitiatedDisconnect,
-      shouldPreserve,
-      answerData: answerData ? "exists" : "null",
-      answerInput: answerInput ? "exists" : "null",
-      qrCodeUrl: qrCodeUrl ? "exists" : "null"
-    });
     return shouldPreserve;
   };
-  const markAnswerCreated2 = () => {
+  const markAnswerCreated = () => {
     updateConnectionState({
       hasActiveAnswer: true,
       answerCreatedAt: Date.now()
@@ -2262,13 +1503,6 @@ var EnhancedSecureP2PChat = () => {
             passedChecks: 10,
             totalChecks: 10
           };
-          console.log("\u{1F512} Security level updated:", {
-            level: currentLevel.level,
-            score: currentLevel.score,
-            sessionType: currentLevel.sessionType,
-            passedChecks: currentLevel.passedChecks,
-            totalChecks: currentLevel.totalChecks
-          });
         }
       }
     } catch (error) {
@@ -2327,7 +1561,7 @@ var EnhancedSecureP2PChat = () => {
             "security_upgrade"
           ];
           if (parsedMessage.type && blockedTypes.includes(parsedMessage.type)) {
-            console.log(`\u{1F6D1} Blocked system/file message from chat: ${parsedMessage.type}`);
+            console.log(`Blocked system/file message from chat: ${parsedMessage.type}`);
             return;
           }
         } catch (parseError) {
@@ -2336,12 +1570,6 @@ var EnhancedSecureP2PChat = () => {
       addMessageWithAutoScroll(message, type);
     };
     const handleStatusChange = (status) => {
-      console.log("handleStatusChange called with status:", status);
-      console.log("\u{1F50D} Status change details:");
-      console.log("  - oldStatus:", connectionStatus);
-      console.log("  - newStatus:", status);
-      console.log("  - isVerified:", isVerified);
-      console.log("  - willShowChat:", status === "connected" && isVerified);
       setConnectionStatus(status);
       if (status === "connected") {
         document.dispatchEvent(new CustomEvent("new-connection"));
@@ -2349,7 +1577,6 @@ var EnhancedSecureP2PChat = () => {
           updateSecurityLevel().catch(console.error);
         }
       } else if (status === "verifying") {
-        console.log("Setting showVerification to true for verifying status");
         setShowVerification(true);
         if (!window.isUpdatingSecurity) {
           updateSecurityLevel().catch(console.error);
@@ -2373,7 +1600,6 @@ var EnhancedSecureP2PChat = () => {
         updateConnectionState({ status: "disconnected" });
         setConnectionStatus("disconnected");
         if (shouldPreserveAnswerData()) {
-          console.log("\u{1F6E1}\uFE0F Preserving answer data after recent creation");
           setIsVerified(false);
           setShowVerification(false);
           return;
@@ -2397,10 +1623,6 @@ var EnhancedSecureP2PChat = () => {
         setTimeout(() => {
           setConnectionStatus("disconnected");
           setShowVerification(false);
-          if (shouldPreserveAnswerData()) {
-            console.log("\u{1F6E1}\uFE0F Preserving answer data in setTimeout after recent creation");
-            return;
-          }
           setOfferData(null);
           setAnswerData(null);
           setOfferInput("");
@@ -2422,10 +1644,6 @@ var EnhancedSecureP2PChat = () => {
           setLocalVerificationConfirmed(false);
           setRemoteVerificationConfirmed(false);
           setBothVerificationsConfirmed(false);
-          if (shouldPreserveAnswerData()) {
-            console.log("\u{1F6E1}\uFE0F Preserving answer data in peer_disconnected after recent creation");
-            return;
-          }
           setOfferData(null);
           setAnswerData(null);
           setOfferInput("");
@@ -2433,31 +1651,29 @@ var EnhancedSecureP2PChat = () => {
           setShowOfferStep(false);
           setShowAnswerStep(false);
           setMessages([]);
+          if (typeof console.clear === "function") {
+            console.clear();
+          }
         }, 2e3);
       }
     };
     const handleKeyExchange = (fingerprint) => {
-      console.log("handleKeyExchange called with fingerprint:", fingerprint);
       if (fingerprint === "") {
         setKeyFingerprint("");
       } else {
         setKeyFingerprint(fingerprint);
-        console.log("Key fingerprint set in UI:", fingerprint);
       }
     };
     const handleVerificationRequired = (code) => {
-      console.log("handleVerificationRequired called with code:", code);
       if (code === "") {
         setVerificationCode("");
         setShowVerification(false);
       } else {
         setVerificationCode(code);
         setShowVerification(true);
-        console.log("Verification code set, showing verification UI");
       }
     };
     const handleVerificationStateChange = (state) => {
-      console.log("handleVerificationStateChange called with state:", state);
       setLocalVerificationConfirmed(state.localConfirmed);
       setRemoteVerificationConfirmed(state.remoteConfirmed);
       setBothVerificationsConfirmed(state.bothConfirmed);
@@ -2473,13 +1689,12 @@ var EnhancedSecureP2PChat = () => {
       } else if (errorType === "security_violation") {
         setSessionTimeLeft(0);
         setPendingSession(null);
-        addMessageWithAutoScroll(`\u{1F512} Security breach: ${errorMessage}`, "system");
+        addMessageWithAutoScroll(` Security breach: ${errorMessage}`, "system");
         if (typeof console.clear === "function") {
           console.clear();
         }
       }
     };
-    console.log("\u{1F527} Initializing WebRTC Manager...");
     if (typeof console.clear === "function") {
       console.clear();
     }
@@ -2491,10 +1706,9 @@ var EnhancedSecureP2PChat = () => {
       handleAnswerError,
       handleVerificationStateChange
     );
-    handleMessage("\u{1F680} SecureBit.chat Enhanced Security Edition v4.2.12 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.", "system");
+    handleMessage(" SecureBit.chat Enhanced Security Edition v4.2.12 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.", "system");
     const handleBeforeUnload = (event) => {
       if (event.type === "beforeunload" && !isTabSwitching) {
-        console.log("\u{1F50C} Page unloading (closing tab) - sending disconnect notification");
         if (webrtcManagerRef.current && webrtcManagerRef.current.isConnected()) {
           try {
             webrtcManagerRef.current.sendSystemMessage({
@@ -2503,7 +1717,6 @@ var EnhancedSecureP2PChat = () => {
               timestamp: Date.now()
             });
           } catch (error) {
-            console.log("Could not send disconnect notification:", error.message);
           }
           setTimeout(() => {
             if (webrtcManagerRef.current) {
@@ -2514,7 +1727,6 @@ var EnhancedSecureP2PChat = () => {
           webrtcManagerRef.current.disconnect();
         }
       } else if (isTabSwitching) {
-        console.log("\u{1F4F1} Tab switching detected - NOT disconnecting");
         event.preventDefault();
         event.returnValue = "";
       }
@@ -2524,7 +1736,6 @@ var EnhancedSecureP2PChat = () => {
     let tabSwitchTimeout = null;
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
-        console.log("\u{1F4F1} Page hidden (tab switch) - keeping connection alive");
         isTabSwitching = true;
         if (tabSwitchTimeout) {
           clearTimeout(tabSwitchTimeout);
@@ -2533,7 +1744,6 @@ var EnhancedSecureP2PChat = () => {
           isTabSwitching = false;
         }, 5e3);
       } else if (document.visibilityState === "visible") {
-        console.log("\u{1F4F1} Page visible (tab restored) - connection maintained");
         isTabSwitching = false;
         if (tabSwitchTimeout) {
           clearTimeout(tabSwitchTimeout);
@@ -2554,7 +1764,7 @@ var EnhancedSecureP2PChat = () => {
           const downloadMessage = React.createElement("div", {
             className: "flex items-center space-x-2"
           }, [
-            React.createElement("span", { key: "label" }, `\u{1F4E5} File received: ${fileData.fileName} (${sizeMb} MB)`),
+            React.createElement("span", { key: "label" }, ` File received: ${fileData.fileName} (${sizeMb} MB)`),
             React.createElement("button", {
               key: "btn",
               className: "px-3 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs",
@@ -2566,9 +1776,9 @@ var EnhancedSecureP2PChat = () => {
                   a.download = fileData.fileName;
                   a.click();
                   setTimeout(() => fileData.revokeObjectURL(url), 15e3);
-                } catch (e) {
-                  console.error("Download failed:", e);
-                  addMessageWithAutoScroll(`\u274C File upload error: ${String(e?.message || e)}`, "system");
+                } catch (e2) {
+                  console.error("Download failed:", e2);
+                  addMessageWithAutoScroll(` File upload error: ${String(e2?.message || e2)}`, "system");
                 }
               }
             }, "Download")
@@ -2579,11 +1789,11 @@ var EnhancedSecureP2PChat = () => {
         (error) => {
           console.error("File transfer error:", error);
           if (error.includes("Connection not ready")) {
-            addMessageWithAutoScroll(`\u26A0\uFE0F File transfer error: connection not ready. Try again later.`, "system");
+            addMessageWithAutoScroll(` File transfer error: connection not ready. Try again later.`, "system");
           } else if (error.includes("File too large")) {
-            addMessageWithAutoScroll(`\u26A0\uFE0F File is too big. Maximum size: 100 MB`, "system");
+            addMessageWithAutoScroll(` File is too big. Maximum size: 100 MB`, "system");
           } else {
-            addMessageWithAutoScroll(`\u274C File transfer error: ${error}`, "system");
+            addMessageWithAutoScroll(` File transfer error: ${error}`, "system");
           }
         }
       );
@@ -2596,7 +1806,6 @@ var EnhancedSecureP2PChat = () => {
         tabSwitchTimeout = null;
       }
       if (webrtcManagerRef.current) {
-        console.log("\u{1F9F9} Cleaning up WebRTC Manager...");
         webrtcManagerRef.current.disconnect();
         webrtcManagerRef.current = null;
       }
@@ -2720,7 +1929,6 @@ var EnhancedSecureP2PChat = () => {
   const generateQRCode2 = async (data) => {
     try {
       const originalSize = typeof data === "string" ? data.length : JSON.stringify(data).length;
-      console.log(`\u{1F4CA} Original QR Code data size: ${originalSize} characters`);
       const payload = typeof data === "string" ? data : JSON.stringify(data);
       const isDesktop = typeof window !== "undefined" && (window.innerWidth || 0) >= 1024;
       const QR_SIZE = isDesktop ? 720 : 512;
@@ -2733,13 +1941,11 @@ var EnhancedSecureP2PChat = () => {
         setQrFrameIndex(1);
         return;
       }
-      console.log("\u{1F39E}\uFE0F Using RAW animated QR frames (no compression)");
       stopQrAnimation();
       const id = `raw_${Date.now()}_${Math.random().toString(36).slice(2)}`;
       const TARGET_CHUNKS = 10;
       const FRAME_MAX = Math.max(200, Math.floor(payload.length / TARGET_CHUNKS));
       const total = Math.ceil(payload.length / FRAME_MAX);
-      console.log(`\u{1F4CA} Splitting ${payload.length} chars into ${total} chunks (max ${FRAME_MAX} chars per chunk)`);
       const rawChunks = [];
       for (let i = 0; i < total; i++) {
         const seq = i + 1;
@@ -2767,8 +1973,8 @@ var EnhancedSecureP2PChat = () => {
         try {
           const url = await window.generateQRCode(current, EC_OPTS);
           setQrCodeUrl(url);
-        } catch (e) {
-          console.warn("Animated QR render error (raw):", e);
+        } catch (e2) {
+          console.warn("Animated QR render error (raw):", e2);
         }
         const nextIdx = (idx + 1) % chunks.length;
         qrAnimationRef.current.idx = nextIdx;
@@ -2785,7 +1991,7 @@ var EnhancedSecureP2PChat = () => {
     } catch (error) {
       console.error("QR code generation failed:", error);
       setMessages((prev) => [...prev, {
-        message: `\u274C QR code generation failed: ${error.message}`,
+        message: ` QR code generation failed: ${error.message}`,
         type: "error"
       }]);
     }
@@ -2857,13 +2063,7 @@ var EnhancedSecureP2PChat = () => {
   };
   const handleQRScan = async (scannedData) => {
     try {
-      console.log("\u{1F50D} Processing scanned QR data...");
-      console.log("\u{1F4CA} Current mode - showOfferStep:", showOfferStep);
-      console.log("\u{1F4CA} Scanned data length:", scannedData.length);
-      console.log("\u{1F4CA} Scanned data first 100 chars:", scannedData.substring(0, 100));
-      console.log("\u{1F4CA} window.receiveAndProcess available:", !!window.receiveAndProcess);
       const parsedData = JSON.parse(scannedData);
-      console.log("\u{1F4CA} Parsed data structure:", parsedData);
       if (parsedData.hdr && parsedData.body) {
         const { hdr } = parsedData;
         if (!qrChunksBufferRef.current.id || qrChunksBufferRef.current.id !== hdr.id) {
@@ -2897,7 +2097,7 @@ var EnhancedSecureP2PChat = () => {
             } else {
               setOfferInput(JSON.stringify(payloadObj, null, 2));
             }
-            setMessages((prev) => [...prev, { message: "\u2705 All frames captured. RAW payload reconstructed.", type: "success" }]);
+            setMessages((prev) => [...prev, { message: "All frames captured. RAW payload reconstructed.", type: "success" }]);
             try {
               document.dispatchEvent(new CustomEvent("qr-scan-complete", { detail: { id: hdr.id } }));
             } catch {
@@ -2905,8 +2105,8 @@ var EnhancedSecureP2PChat = () => {
             qrChunksBufferRef.current = { id: null, total: 0, seen: /* @__PURE__ */ new Set(), items: [] };
             setShowQRScannerModal(false);
             return Promise.resolve(true);
-          } catch (e) {
-            console.warn("RAW multi-frame reconstruction failed:", e);
+          } catch (e2) {
+            console.warn("RAW multi-frame reconstruction failed:", e2);
             return Promise.resolve(false);
           }
         } else if (window.receiveAndProcess) {
@@ -2919,7 +2119,7 @@ var EnhancedSecureP2PChat = () => {
               } else {
                 setOfferInput(JSON.stringify(payloadObj, null, 2));
               }
-              setMessages((prev) => [...prev, { message: "\u2705 All frames captured. COSE payload reconstructed.", type: "success" }]);
+              setMessages((prev) => [...prev, { message: "All frames captured. COSE payload reconstructed.", type: "success" }]);
               try {
                 document.dispatchEvent(new CustomEvent("qr-scan-complete", { detail: { id: hdr.id } }));
               } catch {
@@ -2928,8 +2128,8 @@ var EnhancedSecureP2PChat = () => {
               setShowQRScannerModal(false);
               return Promise.resolve(true);
             }
-          } catch (e) {
-            console.warn("COSE multi-chunk processing failed:", e);
+          } catch (e2) {
+            console.warn("COSE multi-chunk processing failed:", e2);
           }
           return Promise.resolve(false);
         } else {
@@ -2958,10 +2158,8 @@ var EnhancedSecureP2PChat = () => {
           const fullOffer = JSON.parse(fullOfferData);
           if (showOfferStep) {
             setAnswerInput(JSON.stringify(fullOffer, null, 2));
-            console.log("\u{1F4F1} Reference data populated to answerInput (waiting for response mode)");
           } else {
             setOfferInput(JSON.stringify(fullOffer, null, 2));
-            console.log("\u{1F4F1} Reference data populated to offerInput (paste invitation mode)");
           }
           setMessages((prev) => [...prev, {
             message: "\u{1F4F1} QR code scanned successfully! Full offer data retrieved.",
@@ -2971,7 +2169,7 @@ var EnhancedSecureP2PChat = () => {
           return true;
         } else {
           setMessages((prev) => [...prev, {
-            message: "\u274C QR code reference found but full data not available. Please use copy/paste.",
+            message: "QR code reference found but full data not available. Please use copy/paste.",
             type: "error"
           }]);
           return false;
@@ -2979,7 +2177,7 @@ var EnhancedSecureP2PChat = () => {
       } else {
         if (!parsedData.sdp) {
           setMessages((prev) => [...prev, {
-            message: "\u26A0\uFE0F QR code contains compressed data (SDP removed). Please use copy/paste for full data.",
+            message: "QR code contains compressed data (SDP removed). Please use copy/paste for full data.",
             type: "warning"
           }]);
         }
@@ -3013,26 +2211,21 @@ var EnhancedSecureP2PChat = () => {
   };
   const handleCreateOffer = async () => {
     try {
-      console.log("\u{1F3AF} handleCreateOffer called");
       setOfferData("");
       setShowOfferStep(false);
       setShowQRCode(false);
       setQrCodeUrl("");
-      console.log("\u{1F3AF} Calling createSecureOffer...");
       const offer = await webrtcManagerRef.current.createSecureOffer();
-      console.log("\u{1F3AF} createSecureOffer returned:", offer ? "success" : "null");
       setOfferData(offer);
       setShowOfferStep(true);
       const offerString = typeof offer === "object" ? JSON.stringify(offer) : offer;
-      console.log("Generating QR code for data length:", offerString.length);
-      console.log("First 100 chars of offer data:", offerString.substring(0, 100));
       await generateQRCode2(offerString);
       const existingMessages = messages.filter(
         (m) => m.type === "system" && (m.message.includes("Secure invitation created") || m.message.includes("Send the encrypted code"))
       );
       if (existingMessages.length === 0) {
         setMessages((prev) => [...prev, {
-          message: "\u{1F510} Secure invitation created and encrypted!",
+          message: "Secure invitation created and encrypted!",
           type: "system",
           id: Date.now(),
           timestamp: Date.now()
@@ -3049,7 +2242,7 @@ var EnhancedSecureP2PChat = () => {
       }
     } catch (error) {
       setMessages((prev) => [...prev, {
-        message: `\u274C Error creating invitation: ${error.message}`,
+        message: `Error creating invitation: ${error.message}`,
         type: "system",
         id: Date.now(),
         timestamp: Date.now()
@@ -3058,12 +2251,9 @@ var EnhancedSecureP2PChat = () => {
   };
   const handleCreateAnswer = async () => {
     try {
-      console.log("handleCreateAnswer called, offerInput:", offerInput);
-      console.log("offerInput.trim():", offerInput.trim());
-      console.log("offerInput.trim() length:", offerInput.trim().length);
       if (!offerInput.trim()) {
         setMessages((prev) => [...prev, {
-          message: "\u26A0\uFE0F You need to insert the invitation code from your interlocutor.",
+          message: "You need to insert the invitation code from your interlocutor.",
           type: "system",
           id: Date.now(),
           timestamp: Date.now()
@@ -3072,7 +2262,7 @@ var EnhancedSecureP2PChat = () => {
       }
       try {
         setMessages((prev) => [...prev, {
-          message: "\u{1F504} Processing the secure invitation...",
+          message: "Processing the secure invitation...",
           type: "system",
           id: Date.now(),
           timestamp: Date.now()
@@ -3090,28 +2280,28 @@ var EnhancedSecureP2PChat = () => {
         if (!isValidOfferType) {
           throw new Error("Invalid invitation type. Expected offer or enhanced_secure_offer");
         }
-        console.log("Creating secure answer for offer:", offer);
         const answer = await webrtcManagerRef.current.createSecureAnswer(offer);
-        console.log("Secure answer created:", answer);
         setAnswerData(answer);
         setShowAnswerStep(true);
         const answerString = typeof answer === "object" ? JSON.stringify(answer) : answer;
-        console.log("Generating QR code for answer data length:", answerString.length);
-        console.log("First 100 chars of answer data:", answerString.substring(0, 100));
         await generateQRCode2(answerString);
-        markAnswerCreated2();
+        if (e.target.value.trim().length > 0) {
+          if (typeof markAnswerCreated === "function") {
+            markAnswerCreated();
+          }
+        }
         const existingResponseMessages = messages.filter(
           (m) => m.type === "system" && (m.message.includes("Secure response created") || m.message.includes("Send the response"))
         );
         if (existingResponseMessages.length === 0) {
           setMessages((prev) => [...prev, {
-            message: "\u2705 Secure response created!",
+            message: "Secure response created!",
             type: "system",
             id: Date.now(),
             timestamp: Date.now()
           }]);
           setMessages((prev) => [...prev, {
-            message: "\u{1F4E4} Send the response code to the initiator via a secure channel or let them scan the QR code below.",
+            message: "Send the response code to the initiator via a secure channel or let them scan the QR code below.",
             type: "system",
             id: Date.now(),
             timestamp: Date.now()
@@ -3123,7 +2313,7 @@ var EnhancedSecureP2PChat = () => {
       } catch (error) {
         console.error("Error in handleCreateAnswer:", error);
         setMessages((prev) => [...prev, {
-          message: `\u274C Error processing the invitation: ${error.message}`,
+          message: `Error processing the invitation: ${error.message}`,
           type: "system",
           id: Date.now(),
           timestamp: Date.now()
@@ -3132,7 +2322,7 @@ var EnhancedSecureP2PChat = () => {
     } catch (error) {
       console.error("Error in handleCreateAnswer:", error);
       setMessages((prev) => [...prev, {
-        message: `\u274C Invitation processing error: ${error.message}`,
+        message: `Invitation processing error: ${error.message}`,
         type: "system",
         id: Date.now(),
         timestamp: Date.now()
@@ -3143,7 +2333,7 @@ var EnhancedSecureP2PChat = () => {
     try {
       if (!answerInput.trim()) {
         setMessages((prev) => [...prev, {
-          message: "\u26A0\uFE0F You need to insert the response code from your interlocutor.",
+          message: "You need to insert the response code from your interlocutor.",
           type: "system",
           id: Date.now(),
           timestamp: Date.now()
@@ -3152,7 +2342,7 @@ var EnhancedSecureP2PChat = () => {
       }
       try {
         setMessages((prev) => [...prev, {
-          message: "\u{1F504} Processing the secure response...",
+          message: "Processing the secure response...",
           type: "system",
           id: Date.now(),
           timestamp: Date.now()
@@ -3174,14 +2364,14 @@ var EnhancedSecureP2PChat = () => {
         if (pendingSession) {
           setPendingSession(null);
           setMessages((prev) => [...prev, {
-            message: `\u2705 All security features enabled by default`,
+            message: `All security features enabled by default`,
             type: "system",
             id: Date.now(),
             timestamp: Date.now()
           }]);
         }
         setMessages((prev) => [...prev, {
-          message: "\u{1F504} Finalizing the secure connection...",
+          message: "Finalizing the secure connection...",
           type: "system",
           id: Date.now(),
           timestamp: Date.now()
@@ -3194,20 +2384,20 @@ var EnhancedSecureP2PChat = () => {
         let errorMessage = "Connection setup error";
         if (error.message.includes("CRITICAL SECURITY FAILURE")) {
           if (error.message.includes("ECDH public key structure")) {
-            errorMessage = "\u{1F511} Invalid response code - missing or corrupted cryptographic key. Please check the code and try again.";
+            errorMessage = "Invalid response code - missing or corrupted cryptographic key. Please check the code and try again.";
           } else if (error.message.includes("ECDSA public key structure")) {
-            errorMessage = "\u{1F510} Invalid response code - missing signature verification key. Please check the code and try again.";
+            errorMessage = "Invalid response code - missing signature verification key. Please check the code and try again.";
           } else {
-            errorMessage = "\u{1F512} Security validation failed - possible attack detected";
+            errorMessage = "Security validation failed - possible attack detected";
           }
         } else if (error.message.includes("too old") || error.message.includes("replay")) {
-          errorMessage = "\u23F0 Response data is outdated - please use a fresh invitation";
+          errorMessage = "Response data is outdated - please use a fresh invitation";
         } else if (error.message.includes("MITM") || error.message.includes("signature")) {
-          errorMessage = "\u{1F6E1}\uFE0F Security breach detected - connection rejected";
+          errorMessage = "Security breach detected - connection rejected";
         } else if (error.message.includes("Invalid") || error.message.includes("format")) {
-          errorMessage = "\u{1F4DD} Invalid response format - please check the code";
+          errorMessage = "Invalid response format - please check the code";
         } else {
-          errorMessage = `\u274C ${error.message}`;
+          errorMessage = ` ${error.message}`;
         }
         setMessages((prev) => [...prev, {
           message: errorMessage,
@@ -3221,31 +2411,26 @@ var EnhancedSecureP2PChat = () => {
           setSessionTimeLeft(0);
         }
         setConnectionStatus("failed");
-        console.log("\u{1F6A8} Error occurred, but keeping connection status as connecting:");
-        console.log("  - errorMessage:", error.message);
-        console.log("  - connectionStatus:", "connecting (kept)");
-        console.log("  - isVerified:", false);
-        console.log("  - willShowChat:", keyFingerprint && keyFingerprint !== "");
       }
     } catch (error) {
       console.error("Error in handleConnect outer try:", error);
       let errorMessage = "Connection setup error";
       if (error.message.includes("CRITICAL SECURITY FAILURE")) {
         if (error.message.includes("ECDH public key structure")) {
-          errorMessage = "\u{1F511} Invalid response code - missing or corrupted cryptographic key. Please check the code and try again.";
+          errorMessage = "Invalid response code - missing or corrupted cryptographic key. Please check the code and try again.";
         } else if (error.message.includes("ECDSA public key structure")) {
-          errorMessage = "\u{1F510} Invalid response code - missing signature verification key. Please check the code and try again.";
+          errorMessage = "Invalid response code - missing signature verification key. Please check the code and try again.";
         } else {
-          errorMessage = "\u{1F512} Security validation failed - possible attack detected";
+          errorMessage = "Security validation failed - possible attack detected";
         }
       } else if (error.message.includes("too old") || error.message.includes("replay")) {
-        errorMessage = "\u23F0 Response data is outdated - please use a fresh invitation";
+        errorMessage = "Response data is outdated - please use a fresh invitation";
       } else if (error.message.includes("MITM") || error.message.includes("signature")) {
-        errorMessage = "\u{1F6E1}\uFE0F Security breach detected - connection rejected";
+        errorMessage = "Security breach detected - connection rejected";
       } else if (error.message.includes("Invalid") || error.message.includes("format")) {
-        errorMessage = "\u{1F4DD} Invalid response format - please check the code";
+        errorMessage = "Invalid response format - please check the code";
       } else {
-        errorMessage = `\u274C ${error.message}`;
+        errorMessage = `${error.message}`;
       }
       setMessages((prev) => [...prev, {
         message: errorMessage,
@@ -3259,11 +2444,6 @@ var EnhancedSecureP2PChat = () => {
         setSessionTimeLeft(0);
       }
       setConnectionStatus("failed");
-      console.log("\u{1F6A8} Error occurred in outer catch, but keeping connection status as connecting:");
-      console.log("  - errorMessage:", error.message);
-      console.log("  - connectionStatus:", "connecting (kept)");
-      console.log("  - isVerified:", false);
-      console.log("  - willShowChat:", keyFingerprint && keyFingerprint !== "");
     }
   };
   const handleVerifyConnection = (isValid) => {
@@ -3272,7 +2452,7 @@ var EnhancedSecureP2PChat = () => {
       setLocalVerificationConfirmed(true);
     } else {
       setMessages((prev) => [...prev, {
-        message: "\u274C Verification rejected. The connection is unsafe! Session reset..",
+        message: " Verification rejected. The connection is unsafe! Session reset..",
         type: "system",
         id: Date.now(),
         timestamp: Date.now()
@@ -3316,7 +2496,7 @@ var EnhancedSecureP2PChat = () => {
     } catch (error) {
       const msg = String(error?.message || error);
       if (!/queued for sending|Data channel not ready/i.test(msg)) {
-        addMessageWithAutoScroll(`\u274C Sending error: ${msg}`, "system");
+        addMessageWithAutoScroll(`Sending error: ${msg}`, "system");
       }
     }
   };
@@ -3346,6 +2526,9 @@ var EnhancedSecureP2PChat = () => {
     setLocalVerificationConfirmed(false);
     setRemoteVerificationConfirmed(false);
     setBothVerificationsConfirmed(false);
+    if (typeof console.clear === "function") {
+      console.clear();
+    }
     setSessionTimeLeft(0);
     setPendingSession(null);
     document.dispatchEvent(new CustomEvent("peer-disconnect"));
@@ -3381,6 +2564,9 @@ var EnhancedSecureP2PChat = () => {
     setSecurityLevel(null);
     setIsVerified(false);
     setMessages([]);
+    if (typeof console.clear === "function") {
+      console.clear();
+    }
     document.dispatchEvent(new CustomEvent("peer-disconnect"));
     document.dispatchEvent(new CustomEvent("disconnected"));
     document.dispatchEvent(new CustomEvent("session-cleanup", {
@@ -3399,31 +2585,23 @@ var EnhancedSecureP2PChat = () => {
   const handleSessionActivated = (session) => {
     let message;
     if (session.type === "demo") {
-      message = `\u{1F3AE} Demo session activated for 6 minutes. You can create invitations!`;
+      message = ` Demo session activated for 6 minutes. You can create invitations!`;
     } else {
-      message = `\u2705 All security features enabled by default. You can create invitations!`;
+      message = ` All security features enabled by default. You can create invitations!`;
     }
     addMessageWithAutoScroll(message, "system");
   };
   React.useEffect(() => {
     if (connectionStatus === "connected" && isVerified) {
-      addMessageWithAutoScroll("\u{1F389} Secure connection successfully established and verified! You can now communicate safely with full protection against MITM attacks and Perfect Forward Secrecy..", "system");
+      addMessageWithAutoScroll(" Secure connection successfully established and verified! You can now communicate safely with full protection against MITM attacks and Perfect Forward Secrecy..", "system");
     }
   }, [connectionStatus, isVerified]);
   const isConnectedAndVerified = (connectionStatus === "connected" || connectionStatus === "verified") && isVerified;
-  console.log("\u{1F50D} Chat activation check:");
-  console.log("  - connectionStatus:", connectionStatus);
-  console.log("  - isVerified:", isVerified);
-  console.log("  - keyFingerprint:", keyFingerprint);
-  console.log("  - isConnectedAndVerified:", isConnectedAndVerified);
-  console.log("  - bothVerificationsConfirmed:", bothVerificationsConfirmed);
-  console.log("  - localVerificationConfirmed:", localVerificationConfirmed);
-  console.log("  - remoteVerificationConfirmed:", remoteVerificationConfirmed);
   React.useEffect(() => {
     if (isConnectedAndVerified && pendingSession && connectionStatus !== "failed") {
       setPendingSession(null);
       setSessionTimeLeft(0);
-      addMessageWithAutoScroll("\u2705 All security features enabled by default", "system");
+      addMessageWithAutoScroll(" All security features enabled by default", "system");
     }
   }, [isConnectedAndVerified, pendingSession, connectionStatus]);
   return React.createElement("div", {
@@ -3446,16 +2624,9 @@ var EnhancedSecureP2PChat = () => {
       {
         key: "main"
       },
-      (() => {
-        console.log("\u{1F50D} Main render decision:", {
-          isConnectedAndVerified,
-          connectionStatus,
-          isVerified,
-          keyFingerprint: !!keyFingerprint
-        });
+      /* @__PURE__ */ (() => {
         return isConnectedAndVerified;
       })() ? (() => {
-        console.log("\u{1F50D} Passing scrollToBottom to EnhancedChatInterface:", typeof scrollToBottom, scrollToBottom);
         return React.createElement(EnhancedChatInterface, {
           messages,
           messageInput,
@@ -3501,32 +2672,18 @@ var EnhancedSecureP2PChat = () => {
         qrManualMode,
         toggleQrManualMode,
         nextQrFrame,
-        prevQrFrame
+        prevQrFrame,
         // PAKE passwords removed - using SAS verification instead
+        markAnswerCreated
       })
-    ),
-    // PAKE Password Modal removed - using SAS verification instead
-    // Payment Modal removed - all security features enabled by default
-    (() => {
-      console.log("Rendering QRScanner, showQRScannerModal:", showQRScannerModal, "QRScanner available:", !!window.QRScanner);
-      return window.QRScanner ? React.createElement(window.QRScanner, {
-        key: "qr-scanner-modal",
-        onScan: handleQRScan,
-        onClose: () => setShowQRScannerModal(false),
-        isVisible: showQRScannerModal,
-        continuous: true
-      }) : React.createElement("div", {
-        key: "qr-scanner-error",
-        className: "hidden"
-      }, "QRScanner not loaded");
-    })()
+    )
   ]);
 };
 function initializeApp() {
   if (window.EnhancedSecureCryptoUtils && window.EnhancedSecureWebRTCManager) {
     ReactDOM.render(React.createElement(EnhancedSecureP2PChat), document.getElementById("root"));
   } else {
-    console.error("\u274C \u041C\u043E\u0434\u0443\u043B\u0438 \u043D\u0435 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043D\u044B:", {
+    console.error("\u041C\u043E\u0434\u0443\u043B\u0438 \u043D\u0435 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043D\u044B:", {
       hasCrypto: !!window.EnhancedSecureCryptoUtils,
       hasWebRTC: !!window.EnhancedSecureWebRTCManager
     });
@@ -3534,11 +2691,11 @@ function initializeApp() {
 }
 if (typeof window !== "undefined") {
   window.addEventListener("unhandledrejection", (event) => {
-    console.error("\u{1F6A8} Unhandled promise rejection:", event.reason);
+    console.error("Unhandled promise rejection:", event.reason);
     event.preventDefault();
   });
   window.addEventListener("error", (event) => {
-    console.error("\u{1F6A8} Global error:", event.error);
+    console.error("Global error:", event.error);
     event.preventDefault();
   });
   if (!window.initializeApp) {

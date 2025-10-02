@@ -101,7 +101,7 @@ class EnhancedSecureWebRTCManager {
     };
 
     //   Static debug flag instead of this._debugMode
-    static DEBUG_MODE = true; // Set to true during development, false in production
+    static DEBUG_MODE = false; // Set to true during development, false in production
 
 
     constructor(onMessage, onStatusChange, onKeyExchange, onVerificationRequired, onAnswerError = null, onVerificationStateChange = null, config = {}) {
@@ -1654,7 +1654,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 debug: () => {} // No-op in production
             };
             
-            this._secureLog('info', '🔒 Production logging mode activated');
+            this._secureLog('info', 'Production logging mode activated');
         }
     }
     /**
@@ -1667,7 +1667,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         //   Pre-sanitization audit to prevent data leakage
         if (data && !this._auditLogMessage(message, data)) {
             //   Log the attempt but block the actual data
-            this._originalConsole?.error?.('🚨 SECURITY: Logging blocked due to potential data leakage');
+            this._originalConsole?.error?.('SECURITY: Logging blocked due to potential data leakage');
             return;
         }
         
@@ -1694,7 +1694,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             
             // Second pass: check if sanitized data still contains sensitive content
             if (this._containsSensitiveContent(JSON.stringify(sanitizedData))) {
-                this._originalConsole?.error?.('🚨 SECURITY: Sanitized data still contains sensitive content - blocking log');
+                this._originalConsole?.error?.('ECURITY: Sanitized data still contains sensitive content - blocking log');
                 return;
             }
         }
@@ -1990,7 +1990,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
      */
     _setupSecureGlobalAPI() {
         //   Log that we're starting API setup
-        this._secureLog('info', '🔒 Starting secure global API setup');
+        this._secureLog('info', 'Starting secure global API setup');
         
         //   Create simple public API with safety checks
         const secureAPI = {};
@@ -2068,7 +2068,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         });
         
         //   Log available methods for debugging
-        this._secureLog('info', '🔒 API methods available', {
+        this._secureLog('info', 'API methods available', {
             sendMessage: !!secureAPI.sendMessage,
             getConnectionStatus: !!secureAPI.getConnectionStatus,
             getSecurityStatus: !!secureAPI.getSecurityStatus,
@@ -2090,14 +2090,14 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         this._setupMinimalGlobalProtection();
         
         //   Log that API setup is complete
-        this._secureLog('info', '🔒 Secure global API setup completed successfully');
+        this._secureLog('info', 'Secure global API setup completed successfully');
     }
     /**
      *   Create simple global API export
      */
     _createProtectedGlobalAPI(safeGlobalAPI) {
         //   Log that we're creating protected global API
-        this._secureLog('info', '🔒 Creating protected global API');
+        this._secureLog('info', 'Creating protected global API');
         
         //   Simple API export without proxy or monitoring
         if (!window.secureBitChat) {
@@ -2112,7 +2112,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
      */
     _exportAPI(apiObject) {
         //   Log that we're exporting API
-        this._secureLog('info', '🔒 Exporting API to window.secureBitChat');
+        this._secureLog('info', 'Exporting API to window.secureBitChat');
         
         //   Check if important methods are available
         if (!this._importantMethods || !this._importantMethods.defineProperty) {
@@ -3276,11 +3276,6 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
      */
     async _computeSAS(keyMaterialRaw, localFP, remoteFP) {
         try {
-            console.log('_computeSAS called with parameters:', {
-                keyMaterialRaw: keyMaterialRaw ? `${keyMaterialRaw.constructor.name} (${keyMaterialRaw.length || keyMaterialRaw.byteLength} bytes)` : 'null/undefined',
-                localFP: localFP ? `${localFP.substring(0, 20)}...` : 'null/undefined',
-                remoteFP: remoteFP ? `${remoteFP.substring(0, 20)}...` : 'null/undefined'
-            });
             
             if (!keyMaterialRaw || !localFP || !remoteFP) {
                 const missing = [];
@@ -3334,7 +3329,6 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             const n = (dv.getUint32(0) ^ dv.getUint32(4)) >>> 0;
             const sasCode = String(n % 10_000_000).padStart(7, '0'); 
 
-            console.log('🎯 _computeSAS computed code:', sasCode, '(type:', typeof sasCode, ')');
 
             this._secureLog('info', 'SAS code computed successfully', {
                 localFP: localFP.substring(0, 16) + '...',
@@ -5416,9 +5410,6 @@ async processOrderedPackets() {
                 
                 // System messages — do NOT return for re-processing
                 if (jsonData.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'key_rotation_signal', 'key_rotation_ready', 'security_upgrade'].includes(jsonData.type)) {
-                    if (this._debugMode) {
-                        this._secureLog('debug', '🔧 System message detected, blocking from chat', { type: jsonData.type });
-                    }
                     return 'SYSTEM_MESSAGE_FILTERED';
                 }
                 
@@ -6404,7 +6395,7 @@ async processMessage(data) {
                 
                 const securityData = await window.EnhancedSecureCryptoUtils.calculateSecurityLevel(this);
                 
-                this._secureLog('info', '🔐 Real security level calculated', {
+                this._secureLog('info', 'Real security level calculated', {
                     hasSecurityLevel: !!securityData.level,
                     scoreRange: securityData.score > 80 ? 'high' : securityData.score > 50 ? 'medium' : 'low',
                     checksRatio: `${securityData.passedChecks}/${securityData.totalChecks}`,
@@ -6427,7 +6418,7 @@ async processMessage(data) {
                         this.securityCalculationNotificationSent = true;
                         this.lastSecurityCalculationLevel = securityData.level;
                         
-                        const message = `🔒 Security Level: ${securityData.level} (${securityData.score}%) - ${securityData.passedChecks}/${securityData.totalChecks} checks passed`;
+                        const message = `Security Level: ${securityData.level} (${securityData.score}%) - ${securityData.passedChecks}/${securityData.totalChecks} checks passed`;
                         this.deliverMessageToUI(message, 'system');
                     }
                 }
@@ -6435,7 +6426,7 @@ async processMessage(data) {
                 return securityData;
                 
             } catch (error) {
-                this._secureLog('error', '❌ Failed to calculate real security level', {
+                this._secureLog('error', 'Failed to calculate real security level', {
                     errorType: error.constructor.name
                 });
                 return null;
@@ -6449,7 +6440,7 @@ async processMessage(data) {
         // Method for automatic feature enablement with stability check
         async autoEnableSecurityFeatures() {
         if (this.currentSessionType === 'demo') {
-            this._secureLog('info', '🔒 Demo session - keeping basic security only');
+            this._secureLog('info', 'Demo session - keeping basic security only');
             await this.calculateAndReportSecurityLevel();
             this.notifySecurityUpgrade(1);
             return;
@@ -6464,14 +6455,13 @@ async processMessage(data) {
             return isStable;
         };
         
-        this._secureLog('info', `🔒 ${this.currentSessionType} session - starting graduated security activation`);
+        this._secureLog('info', ` ${this.currentSessionType} session - starting graduated security activation`);
         await this.calculateAndReportSecurityLevel();
         this.notifySecurityUpgrade(1);
         
         if (this.currentSecurityLevel === 'enhanced' || this.currentSecurityLevel === 'maximum') {
             setTimeout(async () => {
                 if (checkStability()) {
-                    console.log('✅ Activating Stage 2 for paid session');
                     this.enableStage2Security();
                     await this.calculateAndReportSecurityLevel(); 
                     
@@ -6479,13 +6469,11 @@ async processMessage(data) {
                     if (this.currentSecurityLevel === 'maximum') {
                         setTimeout(async () => {
                             if (checkStability()) {
-                                console.log('✅ Activating Stage 3 for premium session');
                                 this.enableStage3Security();
                                 await this.calculateAndReportSecurityLevel();
                                 
                                 setTimeout(async () => {
                                     if (checkStability()) {
-                                        console.log('✅ Activating Stage 4 for premium session');
                                         this.enableStage4Security();
                                         await this.calculateAndReportSecurityLevel();
                                     }
@@ -6527,11 +6515,9 @@ async processMessage(data) {
 
     disconnect() {
         try {
-            console.log('🔌 Disconnecting WebRTC Manager...');
             
             // Cleanup file transfer system
             if (this.fileTransferSystem) {
-                console.log('🧹 Cleaning up file transfer system during disconnect...');
                 this.fileTransferSystem.cleanup();
                 this.fileTransferSystem = null;
             }
@@ -6579,7 +6565,6 @@ async processMessage(data) {
      */
     _clearVerificationStates() {
         try {
-            console.log('🧹 Clearing verification states...');
             
             // Clear verification states
             this.localVerificationConfirmed = false;
@@ -6600,8 +6585,6 @@ async processMessage(data) {
             // Reset notification flags
             this.verificationNotificationSent = false;
             this.verificationInitiationSent = false;
-            
-            console.log('✅ Verification states cleared successfully');
             
         } catch (error) {
             this._secureLog('error', '❌ Error clearing verification states:', { errorType: error?.constructor?.name || 'Unknown' });
@@ -6642,7 +6625,7 @@ async processMessage(data) {
             
             // Validate state inside the critical section
             if (!this.isConnected() || !this.isVerified) {
-                this._secureLog('warn', '⚠️ Key rotation aborted - connection not ready', {
+                this._secureLog('warn', ' Key rotation aborted - connection not ready', {
                     operationId: operationId,
                     isConnected: this.isConnected(),
                     isVerified: this.isVerified
@@ -6652,7 +6635,7 @@ async processMessage(data) {
             
             // Ensure rotation is not already in progress
             if (this._keySystemState.isRotating) {
-                this._secureLog('warn', '⚠️ Key rotation already in progress', {
+                this._secureLog('warn', ' Key rotation already in progress', {
                     operationId: operationId
                 });
                 return false;
@@ -6688,7 +6671,7 @@ async processMessage(data) {
                         operationId: operationId,
                         resolve: resolve,
                         timeout: setTimeout(() => {
-                            this._secureLog('error', '⚠️ Key rotation timeout', {
+                            this._secureLog('error', ' Key rotation timeout', {
                                 operationId: operationId
                             });
                             this._keySystemState.isRotating = false;
@@ -6699,7 +6682,7 @@ async processMessage(data) {
                 });
                 
             } catch (error) {
-                this._secureLog('error', '❌ Key rotation failed in critical section', {
+                this._secureLog('error', ' Key rotation failed in critical section', {
                     operationId: operationId,
                     errorType: error.constructor.name
                 });
@@ -6747,7 +6730,7 @@ async processMessage(data) {
         }
         
         if (wipedKeysCount > 0) {
-            this._secureLog('info', `✅ PFS cleanup completed: ${wipedKeysCount} keys hard wiped`, {
+            this._secureLog('info', `PFS cleanup completed: ${wipedKeysCount} keys hard wiped`, {
                 timestamp: Date.now()
             });
         }
@@ -6802,7 +6785,6 @@ async processMessage(data) {
 
         this.peerConnection.onconnectionstatechange = () => {
             const state = this.peerConnection.connectionState;
-            console.log('Connection state:', state);
             
             if (state === 'connected' && !this.isVerified) {
                 this.onStatusChange('verifying');
@@ -6828,21 +6810,12 @@ async processMessage(data) {
         };
 
         this.peerConnection.ondatachannel = (event) => {
-            console.log('🔗 Data channel received:', {
-                channelLabel: event.channel.label,
-                channelState: event.channel.readyState,
-                isInitiator: this.isInitiator,
-                channelId: event.channel.id,
-                protocol: event.channel.protocol
-            });
             
             // CRITICAL: Store the received data channel
             if (event.channel.label === 'securechat') {
-                console.log('🔗 MAIN DATA CHANNEL RECEIVED (answerer side)');
                 this.dataChannel = event.channel;
                 this.setupDataChannel(event.channel);
             } else {
-                console.log('🔗 ADDITIONAL DATA CHANNEL RECEIVED:', event.channel.label);
                 // Handle additional channels (heartbeat, etc.)
                 if (event.channel.label === 'heartbeat') {
                     this.heartbeatChannel = event.channel;
@@ -6852,22 +6825,10 @@ async processMessage(data) {
     }
 
     setupDataChannel(channel) {
-        console.log('🔗 setupDataChannel called:', {
-            channelLabel: channel.label,
-            channelState: channel.readyState,
-            isInitiator: this.isInitiator,
-            isVerified: this.isVerified
-        });
 
         this.dataChannel = channel;
 
         this.dataChannel.onopen = async () => {
-            console.log('🔗 Data channel opened:', {
-                isInitiator: this.isInitiator,
-                isVerified: this.isVerified,
-                dataChannelState: this.dataChannel.readyState,
-                dataChannelLabel: this.dataChannel.label
-            });
             // Configure backpressure for large transfers
             try {
                 if (this.dataChannel && typeof this.dataChannel.bufferedAmountLowThreshold === 'number') {
@@ -6884,7 +6845,7 @@ async processMessage(data) {
         this.initializeFileTransfer();
                 
             } catch (error) {
-                this._secureLog('error', '❌ Error in establishConnection:', { errorType: error?.constructor?.name || 'Unknown' });
+                this._secureLog('error', 'Error in establishConnection:', { errorType: error?.constructor?.name || 'Unknown' });
                 // Continue despite errors
             }
             
@@ -6900,18 +6861,11 @@ async processMessage(data) {
                             securityLevel: 'MITM_PROTECTION_REQUIRED'
                         }
                     };
-                    console.log('📤 Sending pending SAS code to Answer side:', this.pendingSASCode);
                     this.dataChannel.send(JSON.stringify(sasPayload));
                     this.pendingSASCode = null; // Clear after sending
                 } catch (error) {
-                    console.error('Failed to send pending SAS code to Answer side:', error);
                 }
             } else if (this.pendingSASCode) {
-                console.log('⚠️ Cannot send SAS code - dataChannel not ready:', {
-                    hasDataChannel: !!this.dataChannel,
-                    readyState: this.dataChannel?.readyState,
-                    pendingSASCode: this.pendingSASCode
-                });
             }
                 
             if (this.isVerified) {
@@ -6961,21 +6915,12 @@ async processMessage(data) {
         // FIX 2: Remove mutex entirely from message processing path
         this.dataChannel.onmessage = async (event) => {
             try {
-                console.log('📨 Raw message received:', {
-                    dataType: typeof event.data,
-                    dataLength: event.data?.length || event.data?.byteLength || 0,
-                    isString: typeof event.data === 'string'
-                });
 
                 // IMPORTANT: Process ALL messages WITHOUT mutex
                 if (typeof event.data === 'string') {
                     try {
                         const parsed = JSON.parse(event.data);
-                        console.log('📨 Parsed message:', {
-                            type: parsed.type,
-                            hasData: !!parsed.data,
-                            timestamp: parsed.timestamp
-                        });
+
                         
                         // ============================================
                         // CRITICAL: FILE MESSAGES (WITHOUT MUTEX)
@@ -6991,7 +6936,6 @@ async processMessage(data) {
                         ];
                         
                         if (parsed.type && fileMessageTypes.includes(parsed.type)) {
-                            console.log('📁 File message intercepted at WebRTC level:', parsed.type);
 
                             if (!this.fileTransferSystem) {
                                 try {
@@ -7006,12 +6950,11 @@ async processMessage(data) {
                                         }
                                     }
                                 } catch (initError) {
-                                    this._secureLog('error', '❌ Failed to initialize file transfer system for receiver:', { errorType: initError?.constructor?.name || 'Unknown' });
+                                    this._secureLog('error', 'Failed to initialize file transfer system for receiver:', { errorType: initError?.constructor?.name || 'Unknown' });
                                 }
                             }
 
                             if (this.fileTransferSystem) {
-                                console.log('📁 Forwarding to local file transfer system:', parsed.type);
                                 await this.fileTransferSystem.handleFileMessage(parsed);
                                 return;
                             }
@@ -7024,9 +6967,9 @@ async processMessage(data) {
                                     return;
                                 }
                             } catch (e) {
-                                this._secureLog('error', '❌ Lazy init of file transfer failed:', { errorType: e?.message || e?.constructor?.name || 'Unknown' });
+                                this._secureLog('error', 'Lazy init of file transfer failed:', { errorType: e?.message || e?.constructor?.name || 'Unknown' });
                             }
-                            this._secureLog('error', '❌ No file transfer system available for:', { errorType: parsed.type?.constructor?.name || 'Unknown' });
+                            this._secureLog('error', 'No file transfer system available for:', { errorType: parsed.type?.constructor?.name || 'Unknown' });
                             return; // IMPORTANT: Do not process further
                         }
                         
@@ -7035,7 +6978,6 @@ async processMessage(data) {
                         // ============================================
                         
                         if (parsed.type && ['heartbeat', 'verification', 'verification_response', 'verification_confirmed', 'verification_both_confirmed', 'sas_code', 'peer_disconnect', 'security_upgrade'].includes(parsed.type)) {
-                            console.log('🔧 System message detected:', parsed.type);
                             this.handleSystemMessage(parsed);
                             return;
                         }
@@ -7045,7 +6987,6 @@ async processMessage(data) {
                         // ============================================
                         
                         if (parsed.type === 'message' && parsed.data) {
-                            console.log('📝 User message detected:', parsed.data.substring(0, 50));
                             if (this.onMessage) {
                                 this.deliverMessageToUI(parsed.data, 'received');
                             }
@@ -7057,51 +6998,31 @@ async processMessage(data) {
                         // ============================================
                         
                         if (parsed.type === 'enhanced_message' && parsed.data) {
-                            console.log('🔐 Enhanced message detected, processing...');
                             await this._processEnhancedMessageWithoutMutex(parsed);
                             return;
                         }
                         
-                        // ============================================
-                        // FAKE MESSAGES (WITHOUT MUTEX)
-                        // ============================================
-                        
-                        if (parsed.type === 'fake') {
-                            console.log('🎭 Fake message blocked:', parsed.pattern);
-                            return;
-                        }
-                        
-                        // ============================================
-                        // UNKNOWN MESSAGE TYPES
-                        // ============================================
-                        
-                        console.log('❓ Unknown message type:', parsed.type);
                         
                     } catch (jsonError) {
                         // Not JSON — treat as regular text message
-                        console.log('📄 Non-JSON message detected, treating as text');
                         if (this.onMessage) {
                             this.deliverMessageToUI(event.data, 'received');
                         }
                         return;
                     }
                 } else if (event.data instanceof ArrayBuffer) {
-                    // Binary data — process WITHOUT mutex
-                    console.log('🔢 Binary data received, processing...');
                     await this._processBinaryDataWithoutMutex(event.data);
                 } else {
-                    console.log('❓ Unknown data type:', typeof event.data);
                 }
                 
             } catch (error) {
-                this._secureLog('error', '❌ Failed to process message in onmessage:', { errorType: error?.constructor?.name || 'Unknown' });
+                this._secureLog('error', 'Failed to process message in onmessage:', { errorType: error?.constructor?.name || 'Unknown' });
             }
         };
     }
         // FIX 4: New method for processing binary data WITHOUT mutex
     async _processBinaryDataWithoutMutex(data) {
         try {
-            console.log('🔢 Processing binary data without mutex...');
             
             // Apply security layers WITHOUT mutex
             let processedData = data;
@@ -7115,7 +7036,7 @@ async processMessage(data) {
                 try {
                     processedData = await this.removeNestedEncryption(processedData);
                 } catch (error) {
-                    this._secureLog('warn', '⚠️ Nested decryption failed, continuing with original data');
+                    this._secureLog('warn', 'Nested decryption failed, continuing with original data');
                 }
             }
             
@@ -7124,7 +7045,7 @@ async processMessage(data) {
                 try {
                     processedData = this.removePacketPadding(processedData);
                 } catch (error) {
-                    this._secureLog('warn', '⚠️ Packet padding removal failed, continuing with original data');
+                    this._secureLog('warn', 'Packet padding removal failed, continuing with original data');
                 }
             }
             
@@ -7133,7 +7054,7 @@ async processMessage(data) {
                 try {
                     processedData = this.removeAntiFingerprinting(processedData);
                 } catch (error) {
-                    this._secureLog('warn', '⚠️ Anti-fingerprinting removal failed, continuing with original data');
+                    this._secureLog('warn', 'Anti-fingerprinting removal failed, continuing with original data');
                 }
             }
             
@@ -7145,7 +7066,6 @@ async processMessage(data) {
                 try {
                     const content = JSON.parse(textData);
                     if (content.type === 'fake' || content.isFakeTraffic === true) {
-                        console.log(`🎭 BLOCKED: Binary fake message: ${content.pattern || 'unknown'}`);
                         return;
                     }
                 } catch (e) {
@@ -7159,16 +7079,15 @@ async processMessage(data) {
             }
             
         } catch (error) {
-            this._secureLog('error', '❌ Error processing binary data:', { errorType: error?.constructor?.name || 'Unknown' });
+            this._secureLog('error', 'Error processing binary data:', { errorType: error?.constructor?.name || 'Unknown' });
         }
     }
     // FIX 3: New method for processing enhanced messages WITHOUT mutex
     async _processEnhancedMessageWithoutMutex(parsedMessage) {
         try {
-            console.log('🔐 Processing enhanced message without mutex...');
             
             if (!this.encryptionKey || !this.macKey || !this.metadataKey) {
-                this._secureLog('error', '❌ Missing encryption keys for enhanced message');
+                this._secureLog('error', 'Missing encryption keys for enhanced message');
                 return;
             }
             
@@ -7180,13 +7099,11 @@ async processMessage(data) {
             );
             
             if (decryptedResult && decryptedResult.message) {
-                console.log('✅ Enhanced message decrypted successfully');
                 
                 // Try parsing JSON and showing nested text if it's a chat message
                 try {
                     const decryptedContent = JSON.parse(decryptedResult.message);
                     if (decryptedContent.type === 'fake' || decryptedContent.isFakeTraffic === true) {
-                        console.log(`�� BLOCKED: Encrypted fake message: ${decryptedContent.pattern || 'unknown'}`);
                         return;
                     }
                     if (decryptedContent && decryptedContent.type === 'message' && typeof decryptedContent.data === 'string') {
@@ -7204,11 +7121,11 @@ async processMessage(data) {
                     this.deliverMessageToUI(decryptedResult.message, 'received');
                 }
             } else {
-                this._secureLog('warn', '⚠️ No message content in decrypted result');
+                this._secureLog('warn', 'No message content in decrypted result');
             }
             
         } catch (error) {
-            this._secureLog('error', '❌ Error processing enhanced message:', { errorType: error?.constructor?.name || 'Unknown' });
+            this._secureLog('error', 'Error processing enhanced message:', { errorType: error?.constructor?.name || 'Unknown' });
         }
     }
     /**
@@ -7227,7 +7144,7 @@ async processMessage(data) {
         const mutex = this[mutexPropertyName];
         
         if (!mutex) {
-            this._secureLog('error', `❌ Unknown mutex: ${mutexName}`, {
+            this._secureLog('error', `Unknown mutex: ${mutexName}`, {
                 mutexPropertyName: mutexPropertyName,
                 availableMutexes: this._getAvailableMutexes(),
                 operationId: operationId
@@ -7245,7 +7162,7 @@ async processMessage(data) {
             const attemptLock = () => {
                 //   Check if mutex is already locked by this operation
                 if (mutex.lockId === operationId) {
-                    this._secureLog('warn', `⚠️ Mutex '${mutexName}' already locked by same operation`, {
+                    this._secureLog('warn', `Mutex '${mutexName}' already locked by same operation`, {
                         operationId: operationId
                     });
                     resolve();
@@ -7259,7 +7176,7 @@ async processMessage(data) {
                     mutex.lockId = operationId;
                     mutex.lockTime = Date.now();
                     
-                    this._secureLog('debug', `🔒 Mutex '${mutexName}' acquired atomically`, {
+                    this._secureLog('debug', `Mutex '${mutexName}' acquired atomically`, {
                         operationId: operationId,
                         lockTime: mutex.lockTime
                     });
@@ -7290,7 +7207,7 @@ async processMessage(data) {
                     
                     mutex.queue.push(queueItem);
                     
-                    this._secureLog('debug', `⏳ Operation queued for mutex '${mutexName}'`, {
+                    this._secureLog('debug', `Operation queued for mutex '${mutexName}'`, {
                         operationId: operationId,
                         queueLength: mutex.queue.length,
                         currentLockId: mutex.lockId
@@ -7321,7 +7238,7 @@ async processMessage(data) {
         const mutex = this[mutexPropertyName];
         
         if (!mutex) {
-            this._secureLog('error', `❌ Unknown mutex for release: ${mutexName}`, {
+            this._secureLog('error', `Unknown mutex for release: ${mutexName}`, {
                 mutexPropertyName: mutexPropertyName,
                 availableMutexes: this._getAvailableMutexes(),
                 operationId: operationId
@@ -7331,7 +7248,7 @@ async processMessage(data) {
         
         //   Strict validation of lock ownership
         if (mutex.lockId !== operationId) {
-            this._secureLog('error', `❌ CRITICAL: Invalid mutex release attempt - potential race condition`, {
+            this._secureLog('error', `CRITICAL: Invalid mutex release attempt - potential race condition`, {
                 mutexName: mutexName,
                 expectedLockId: mutex.lockId,
                 providedOperationId: operationId,
@@ -7348,7 +7265,7 @@ async processMessage(data) {
         
         //   Validate mutex is actually locked
         if (!mutex.locked) {
-            this._secureLog('error', `❌ CRITICAL: Attempting to release unlocked mutex`, {
+            this._secureLog('error', `CRITICAL: Attempting to release unlocked mutex`, {
                 mutexName: mutexName,
                 operationId: operationId,
                 mutexState: {
@@ -7375,7 +7292,7 @@ async processMessage(data) {
             mutex.lockId = null;
             mutex.lockTime = null;
             
-            this._secureLog('debug', `🔓 Mutex released successfully: ${mutexName}`, {
+            this._secureLog('debug', `Mutex released successfully: ${mutexName}`, {
                 operationId: operationId,
                 lockDuration: lockDuration,
                 queueLength: mutex.queue.length
@@ -7386,7 +7303,7 @@ async processMessage(data) {
             
         } catch (error) {
             //   If queue processing fails, ensure mutex is still released
-            this._secureLog('error', `❌ Error during mutex release queue processing`, {
+            this._secureLog('error', `Error during mutex release queue processing`, {
                 mutexName: mutexName,
                 operationId: operationId,
                 errorType: error.constructor.name,
@@ -7410,7 +7327,7 @@ async processMessage(data) {
         const mutex = this[`_${mutexName}Mutex`];
         
         if (!mutex) {
-            this._secureLog('error', `❌ Mutex not found for queue processing: ${mutexName}`);
+            this._secureLog('error', `Mutex not found for queue processing: ${mutexName}`);
             return;
         }
         
@@ -7420,7 +7337,7 @@ async processMessage(data) {
         
         //   Validate mutex state before processing queue
         if (mutex.locked) {
-            this._secureLog('warn', `⚠️ Mutex '${mutexName}' is still locked, skipping queue processing`, {
+            this._secureLog('warn', `Mutex '${mutexName}' is still locked, skipping queue processing`, {
                 lockId: mutex.lockId,
                 queueLength: mutex.queue.length
             });
@@ -7431,13 +7348,13 @@ async processMessage(data) {
         const nextItem = mutex.queue.shift();
         
         if (!nextItem) {
-            this._secureLog('warn', `⚠️ Empty queue item for mutex '${mutexName}'`);
+            this._secureLog('warn', `Empty queue item for mutex '${mutexName}'`);
             return;
         }
         
         //   Validate queue item structure
         if (!nextItem.operationId || !nextItem.resolve || !nextItem.reject) {
-            this._secureLog('error', `❌ Invalid queue item structure for mutex '${mutexName}'`, {
+            this._secureLog('error', `Invalid queue item structure for mutex '${mutexName}'`, {
                 hasOperationId: !!nextItem.operationId,
                 hasResolve: !!nextItem.resolve,
                 hasReject: !!nextItem.reject
@@ -7452,7 +7369,7 @@ async processMessage(data) {
             }
             
             //   Attempt to acquire lock for next item
-            this._secureLog('debug', `🔄 Processing next operation in queue for mutex '${mutexName}'`, {
+            this._secureLog('debug', `Processing next operation in queue for mutex '${mutexName}'`, {
                 operationId: nextItem.operationId,
                 queueRemaining: mutex.queue.length,
                 timestamp: Date.now()
@@ -7463,7 +7380,7 @@ async processMessage(data) {
                 try {
                     await this._acquireMutex(mutexName, nextItem.operationId, 5000);
                     
-                    this._secureLog('debug', `✅ Queued operation acquired mutex '${mutexName}'`, {
+                    this._secureLog('debug', `Queued operation acquired mutex '${mutexName}'`, {
                         operationId: nextItem.operationId,
                         acquisitionTime: Date.now()
                     });
@@ -7471,7 +7388,7 @@ async processMessage(data) {
                     nextItem.resolve();
                     
                 } catch (error) {
-                    this._secureLog('error', `❌ Queued operation failed to acquire mutex '${mutexName}'`, {
+                    this._secureLog('error', `Queued operation failed to acquire mutex '${mutexName}'`, {
                         operationId: nextItem.operationId,
                         errorType: error.constructor.name,
                         errorMessage: error.message,
@@ -7489,7 +7406,7 @@ async processMessage(data) {
             }, 10); // Small delay to prevent immediate re-acquisition
             
         } catch (error) {
-            this._secureLog('error', `❌ Critical error during queue processing for mutex '${mutexName}'`, {
+            this._secureLog('error', `Critical error during queue processing for mutex '${mutexName}'`, {
                 operationId: nextItem.operationId,
                 errorType: error.constructor.name,
                 errorMessage: error.message
@@ -7499,7 +7416,7 @@ async processMessage(data) {
             try {
                 nextItem.reject(new Error(`Queue processing critical error: ${error.message}`));
             } catch (rejectError) {
-                this._secureLog('error', `❌ Failed to reject queue item`, {
+                this._secureLog('error', `Failed to reject queue item`, {
                     originalError: error.message,
                     rejectError: rejectError.message
                 });
@@ -7535,7 +7452,7 @@ async processMessage(data) {
         
         //   Validate mutex system before operation
         if (!this._validateMutexSystem()) {
-            this._secureLog('error', '❌ Mutex system not properly initialized', {
+            this._secureLog('error', 'Mutex system not properly initialized', {
                 operationId: operationId,
                 mutexName: mutexName
             });
@@ -7566,7 +7483,7 @@ async processMessage(data) {
             
             //   Validate result before returning
             if (result === undefined && operation.name !== 'cleanup') {
-                this._secureLog('warn', '⚠️ Mutex operation returned undefined result', {
+                this._secureLog('warn', 'Mutex operation returned undefined result', {
                     operationId: operationId,
                     mutexName: mutexName,
                     operationName: operation.name
@@ -7577,7 +7494,7 @@ async processMessage(data) {
             
         } catch (error) {
             //   Enhanced error logging with context
-            this._secureLog('error', '❌ Error in mutex operation', {
+            this._secureLog('error', 'Error in mutex operation', {
                 operationId: operationId,
                 mutexName: mutexName,
                 errorType: error.constructor.name,
@@ -7609,7 +7526,7 @@ async processMessage(data) {
                     
                     //   Verify mutex was properly released
                     if (mutex.locked && mutex.lockId === operationId) {
-                        this._secureLog('error', '❌ Mutex release verification failed', {
+                        this._secureLog('error', 'Mutex release verification failed', {
                             operationId: operationId,
                             mutexName: mutexName
                         });
@@ -7620,7 +7537,7 @@ async processMessage(data) {
                     }
                     
                 } catch (releaseError) {
-                    this._secureLog('error', '❌ Error releasing mutex in finally block', {
+                    this._secureLog('error', 'Error releasing mutex in finally block', {
                         operationId: operationId,
                         mutexName: mutexName,
                         releaseErrorType: releaseError.constructor.name,
@@ -7644,7 +7561,7 @@ async processMessage(data) {
             const mutex = this[mutexPropertyName];
             
             if (!mutex || typeof mutex !== 'object') {
-                this._secureLog('error', `❌ Missing or invalid mutex: ${mutexName}`, {
+                this._secureLog('error', `Missing or invalid mutex: ${mutexName}`, {
                     mutexPropertyName: mutexPropertyName,
                     mutexType: typeof mutex
                 });
@@ -7655,7 +7572,7 @@ async processMessage(data) {
             const requiredProps = ['locked', 'queue', 'lockId', 'lockTimeout'];
             for (const prop of requiredProps) {
                 if (!(prop in mutex)) {
-                    this._secureLog('error', `❌ Mutex ${mutexName} missing property: ${prop}`);
+                    this._secureLog('error', `Mutex ${mutexName} missing property: ${prop}`);
                     return false;
                 }
             }
@@ -7668,7 +7585,7 @@ async processMessage(data) {
      *   Enhanced emergency recovery of the mutex system
      */
     _emergencyRecoverMutexSystem() {
-        this._secureLog('warn', '🚨 Emergency mutex system recovery initiated');
+        this._secureLog('warn', 'Emergency mutex system recovery initiated');
         
         try {
             //   Emergency unlock all mutexes first
@@ -7682,11 +7599,11 @@ async processMessage(data) {
                 throw new Error('Mutex system validation failed after recovery');
             }
             
-            this._secureLog('info', '✅ Mutex system recovered successfully with validation');
+            this._secureLog('info', 'Mutex system recovered successfully with validation');
             return true;
             
         } catch (error) {
-            this._secureLog('error', '❌ Failed to recover mutex system', {
+            this._secureLog('error', 'Failed to recover mutex system', {
                 errorType: error.constructor.name,
                 errorMessage: error.message
             });
@@ -7694,10 +7611,10 @@ async processMessage(data) {
             //   Last resort - force re-initialization
             try {
                 this._initializeMutexSystem();
-                this._secureLog('warn', '⚠️ Forced mutex system re-initialization completed');
+                this._secureLog('warn', 'Forced mutex system re-initialization completed');
                 return true;
             } catch (reinitError) {
-                this._secureLog('error', '❌ CRITICAL: Forced re-initialization also failed', {
+                this._secureLog('error', 'CRITICAL: Forced re-initialization also failed', {
                     originalError: error.message,
                     reinitError: reinitError.message
                 });
@@ -7711,7 +7628,7 @@ async processMessage(data) {
      */
     async _generateEncryptionKeys() {
         return this._withMutex('keyOperation', async (operationId) => {
-            this._secureLog('info', '🔑 Generating encryption keys with atomic mutex', {
+            this._secureLog('info', 'Generating encryption keys with atomic mutex', {
                 operationId: operationId
             });
             
@@ -7720,7 +7637,7 @@ async processMessage(data) {
             
             //   Atomic check - if already initializing, wait or fail
             if (currentState.isInitializing) {
-                this._secureLog('warn', '⚠️ Key generation already in progress, waiting for completion', {
+                this._secureLog('warn', 'Key generation already in progress, waiting for completion', {
                     operationId: operationId,
                     lastOperation: currentState.lastOperation,
                     lastOperationTime: currentState.lastOperationTime
@@ -7748,7 +7665,7 @@ async processMessage(data) {
                 currentState.lastOperationTime = Date.now();
                 currentState.operationId = operationId;
                 
-                this._secureLog('debug', '🔒 Atomic key generation state set', {
+                this._secureLog('debug', 'Atomic key generation state set', {
                     operationId: operationId,
                     timestamp: currentState.lastOperationTime
                 });
@@ -7771,7 +7688,7 @@ async processMessage(data) {
                         throw new Error('Ephemeral ECDH keys are not valid CryptoKey instances');
                     }
                     
-                    this._secureLog('debug', '✅ Ephemeral ECDH keys generated and validated for PFS', {
+                    this._secureLog('debug', 'Ephemeral ECDH keys generated and validated for PFS', {
                         operationId: operationId,
                         privateKeyType: ecdhKeyPair.privateKey.algorithm?.name,
                         publicKeyType: ecdhKeyPair.publicKey.algorithm?.name,
@@ -7779,7 +7696,7 @@ async processMessage(data) {
                     });
                     
                 } catch (ecdhError) {
-                    this._secureLog('error', '❌ Ephemeral ECDH key generation failed', {
+                    this._secureLog('error', 'Ephemeral ECDH key generation failed', {
                         operationId: operationId,
                         errorType: ecdhError.constructor.name
                     });
@@ -7800,14 +7717,14 @@ async processMessage(data) {
                     throw new Error('ECDSA keys are not valid CryptoKey instances');
                 }
                     
-                    this._secureLog('debug', '✅ ECDSA keys generated and validated', {
+                    this._secureLog('debug', 'ECDSA keys generated and validated', {
                         operationId: operationId,
                         privateKeyType: ecdsaKeyPair.privateKey.algorithm?.name,
                         publicKeyType: ecdsaKeyPair.publicKey.algorithm?.name
                     });
                     
                 } catch (ecdsaError) {
-                    this._secureLog('error', '❌ ECDSA key generation failed', {
+                    this._secureLog('error', 'ECDSA key generation failed', {
                         operationId: operationId,
                         errorType: ecdsaError.constructor.name
                     });
@@ -7822,7 +7739,7 @@ async processMessage(data) {
                 //   Enable security features after successful key generation
                 this._enableSecurityFeaturesAfterKeyGeneration(ecdhKeyPair, ecdsaKeyPair);
                 
-                this._secureLog('info', '✅ Encryption keys generated successfully with atomic protection', {
+                this._secureLog('info', 'Encryption keys generated successfully with atomic protection', {
                     operationId: operationId,
                     hasECDHKeys: !!(ecdhKeyPair?.privateKey && ecdhKeyPair?.publicKey),
                     hasECDSAKeys: !!(ecdsaKeyPair?.privateKey && ecdsaKeyPair?.publicKey),
@@ -7833,7 +7750,7 @@ async processMessage(data) {
                 
             } catch (error) {
                 //   Ensure state is reset on any error
-                this._secureLog('error', '❌ Key generation failed, resetting state', {
+                this._secureLog('error', 'Key generation failed, resetting state', {
                     operationId: operationId,
                     errorType: error.constructor.name
                 });
@@ -7843,7 +7760,7 @@ async processMessage(data) {
                 currentState.isInitializing = false;
                 currentState.operationId = null;
                 
-                this._secureLog('debug', '🔓 Key generation state reset', {
+                this._secureLog('debug', 'Key generation state reset', {
                     operationId: operationId
                 });
             }
@@ -7859,12 +7776,12 @@ async processMessage(data) {
             if (ecdhKeyPair && ecdhKeyPair.privateKey && ecdhKeyPair.publicKey) {
                 this.securityFeatures.hasEncryption = true;
                 this.securityFeatures.hasECDH = true;
-                this._secureLog('info', '🔒 ECDH encryption features enabled');
+                this._secureLog('info', 'ECDH encryption features enabled');
             }
             
             if (ecdsaKeyPair && ecdsaKeyPair.privateKey && ecdsaKeyPair.publicKey) {
                 this.securityFeatures.hasECDSA = true;
-                this._secureLog('info', '🔒 ECDSA signature features enabled');
+                this._secureLog('info', 'ECDSA signature features enabled');
             }
             
             //   Enable additional features that depend on encryption
@@ -7872,16 +7789,16 @@ async processMessage(data) {
                 this.securityFeatures.hasMetadataProtection = true;
                 this.securityFeatures.hasEnhancedReplayProtection = true;
                 this.securityFeatures.hasNonExtractableKeys = true;
-                this._secureLog('info', '🔒 Additional encryption-dependent features enabled');
+                this._secureLog('info', 'Additional encryption-dependent features enabled');
             }
             
             //   Enable PFS after ephemeral key generation
             if (ecdhKeyPair && this.ephemeralKeyPairs.size > 0) {
                 this.securityFeatures.hasPFS = true;
-                this._secureLog('info', '🔒 Perfect Forward Secrecy enabled with ephemeral keys');
+                this._secureLog('info', 'Perfect Forward Secrecy enabled with ephemeral keys');
             }
             
-            this._secureLog('info', '🔒 Security features updated after key generation', {
+            this._secureLog('info', 'Security features updated after key generation', {
                 hasEncryption: this.securityFeatures.hasEncryption,
                 hasECDH: this.securityFeatures.hasECDH,
                 hasECDSA: this.securityFeatures.hasECDSA,
@@ -7892,7 +7809,7 @@ async processMessage(data) {
             });
             
         } catch (error) {
-            this._secureLog('error', '❌ Failed to enable security features after key generation', {
+            this._secureLog('error', 'Failed to enable security features after key generation', {
                 errorType: error.constructor.name,
                 errorMessage: error.message
             });
@@ -7910,7 +7827,7 @@ async processMessage(data) {
         ];
         
         if (!authorizedCallers.includes(callerContext)) {
-            this._secureLog('error', `🚨 UNAUTHORIZED emergency mutex unlock attempt`, {
+            this._secureLog('error', `UNAUTHORIZED emergency mutex unlock attempt`, {
                 callerContext: callerContext,
                 authorizedCallers: authorizedCallers,
                 timestamp: Date.now()
@@ -7920,7 +7837,7 @@ async processMessage(data) {
         
         const mutexes = ['keyOperation', 'cryptoOperation', 'connectionOperation'];
         
-        this._secureLog('error', '🚨 EMERGENCY: Unlocking all mutexes with authorization and state cleanup', {
+        this._secureLog('error', 'EMERGENCY: Unlocking all mutexes with authorization and state cleanup', {
             callerContext: callerContext,
             timestamp: Date.now()
         });
@@ -7960,7 +7877,7 @@ async processMessage(data) {
                                 queueRejectCount++;
                             }
                         } catch (rejectError) {
-                            this._secureLog('warn', `⚠️ Failed to reject queue item during emergency unlock`, {
+                            this._secureLog('warn', `Failed to reject queue item during emergency unlock`, {
                                 mutexName: mutexName,
                                 errorType: rejectError.constructor.name
                             });
@@ -7972,7 +7889,7 @@ async processMessage(data) {
                     
                     unlockedCount++;
                     
-                    this._secureLog('debug', `🔓 Emergency unlocked mutex: ${mutexName}`, {
+                    this._secureLog('debug', `Emergency unlocked mutex: ${mutexName}`, {
                         previousState: previousState,
                         queueRejectCount: queueRejectCount,
                         callerContext: callerContext
@@ -7980,7 +7897,7 @@ async processMessage(data) {
                     
                 } catch (error) {
                     errorCount++;
-                    this._secureLog('error', `❌ Error during emergency unlock of mutex: ${mutexName}`, {
+                    this._secureLog('error', `Error during emergency unlock of mutex: ${mutexName}`, {
                         errorType: error.constructor.name,
                         errorMessage: error.message,
                         callerContext: callerContext
@@ -8000,13 +7917,13 @@ async processMessage(data) {
                 this._keySystemState.operationId = null;
                 this._keySystemState.concurrentOperations = 0;
                 
-                this._secureLog('debug', `🔓 Emergency reset key system state`, {
+                this._secureLog('debug', `Emergency reset key system state`, {
                     previousState: previousKeyState,
                     callerContext: callerContext
                 });
                 
             } catch (error) {
-                this._secureLog('error', `❌ Error resetting key system state during emergency unlock`, {
+                this._secureLog('error', `Error resetting key system state during emergency unlock`, {
                     errorType: error.constructor.name,
                     errorMessage: error.message,
                     callerContext: callerContext
@@ -8015,7 +7932,7 @@ async processMessage(data) {
         }
         
         //   Log emergency unlock summary
-        this._secureLog('info', `🚨 Emergency mutex unlock completed`, {
+        this._secureLog('info', `Emergency mutex unlock completed`, {
             callerContext: callerContext,
             unlockedCount: unlockedCount,
             errorCount: errorCount,
@@ -8033,7 +7950,7 @@ async processMessage(data) {
      *   Handle key operation errors with recovery mechanisms
      */
     _handleKeyOperationError(error, operationId) {
-        this._secureLog('error', '🚨 Key operation error detected, initiating recovery', {
+        this._secureLog('error', 'Key operation error detected, initiating recovery', {
             operationId: operationId,
             errorType: error.constructor.name,
             errorMessage: error.message
@@ -8056,7 +7973,7 @@ async processMessage(data) {
         
         //   Trigger emergency recovery if needed
         if (error.message.includes('timeout') || error.message.includes('race condition')) {
-            this._secureLog('warn', '⚠️ Race condition or timeout detected, triggering emergency recovery');
+            this._secureLog('warn', 'Race condition or timeout detected, triggering emergency recovery');
             this._emergencyRecoverMutexSystem();
         }
     }
@@ -8067,7 +7984,7 @@ async processMessage(data) {
     _generateSecureIV(ivSize = 12, context = 'general') {
         //   Check if we're in emergency mode
         if (this._ivTrackingSystem.emergencyMode) {
-            this._secureLog('error', '🚨 CRITICAL: IV generation blocked - emergency mode active due to IV reuse');
+            this._secureLog('error', 'CRITICAL: IV generation blocked - emergency mode active due to IV reuse');
             throw new Error('IV generation blocked - emergency mode active');
         }
         
@@ -8086,7 +8003,7 @@ async processMessage(data) {
             //   Check for IV reuse
             if (this._ivTrackingSystem.usedIVs.has(ivString)) {
                 this._ivTrackingSystem.collisionCount++;
-                this._secureLog('error', `🚨 CRITICAL: IV reuse detected!`, {
+                this._secureLog('error', `CRITICAL: IV reuse detected!`, {
                     context: context,
                     attempt: attempts,
                     collisionCount: this._ivTrackingSystem.collisionCount,
@@ -8096,7 +8013,7 @@ async processMessage(data) {
                 //   If too many collisions, trigger emergency mode
                 if (this._ivTrackingSystem.collisionCount > 5) {
                     this._ivTrackingSystem.emergencyMode = true;
-                    this._secureLog('error', '🚨 CRITICAL: Emergency mode activated due to excessive IV reuse');
+                    this._secureLog('error', 'CRITICAL: Emergency mode activated due to excessive IV reuse');
                     throw new Error('Emergency mode: Excessive IV reuse detected');
                 }
                 
@@ -8106,7 +8023,7 @@ async processMessage(data) {
             //   Validate IV entropy
             if (!this._validateIVEntropy(iv)) {
                 this._ivTrackingSystem.entropyValidation.entropyFailures++;
-                this._secureLog('warn', `⚠️ Low entropy IV detected`, {
+                this._secureLog('warn', `Low entropy IV detected`, {
                     context: context,
                     attempt: attempts,
                     entropyFailures: this._ivTrackingSystem.entropyValidation.entropyFailures
@@ -8115,7 +8032,7 @@ async processMessage(data) {
                 //   If too many entropy failures, trigger emergency mode
                 if (this._ivTrackingSystem.entropyValidation.entropyFailures > 10) {
                     this._ivTrackingSystem.emergencyMode = true;
-                    this._secureLog('error', '🚨 CRITICAL: Emergency mode activated due to low entropy IVs');
+                    this._secureLog('error', 'CRITICAL: Emergency mode activated due to low entropy IVs');
                     throw new Error('Emergency mode: Low entropy IVs detected');
                 }
                 
@@ -8141,7 +8058,7 @@ async processMessage(data) {
             //   Validate RNG periodically
             this._validateRNGQuality();
             
-            this._secureLog('debug', `✅ Secure IV generated`, {
+            this._secureLog('debug', `Secure IV generated`, {
                 context: context,
                 attempt: attempts,
                 ivSize: ivSize,
@@ -8152,7 +8069,7 @@ async processMessage(data) {
         }
         
         //   If we can't generate a unique IV after max attempts
-        this._secureLog('error', `❌ Failed to generate unique IV after ${maxAttempts} attempts`, {
+        this._secureLog('error', `Failed to generate unique IV after ${maxAttempts} attempts`, {
             context: context,
             totalIVs: this._ivTrackingSystem.usedIVs.size
         });
@@ -8230,7 +8147,7 @@ async processMessage(data) {
         );
         
         if (!isValid) {
-            this._secureLog('warn', `⚠️ Enhanced IV entropy validation failed`, {
+            this._secureLog('warn', `Enhanced IV entropy validation failed`, {
                 shannon: entropyResults.shannon.toFixed(2),
                 min: entropyResults.min.toFixed(2),
                 collision: entropyResults.collision.toFixed(2),
@@ -8575,7 +8492,7 @@ async processMessage(data) {
         }
         
         if (cleanedCount > 0) {
-            this._secureLog('debug', `🧹 Enhanced cleanup: ${cleanedCount} old IVs removed`, {
+            this._secureLog('debug', `Enhanced cleanup: ${cleanedCount} old IVs removed`, {
                 cleanedCount: cleanedCount,
                 remainingIVs: this._ivTrackingSystem.usedIVs.size,
                 remainingHistory: this._ivTrackingSystem.ivHistory.size,
@@ -8628,7 +8545,7 @@ async processMessage(data) {
      *   Reset IV tracking system (for testing or emergency recovery)
      */
     _resetIVTrackingSystem() {
-        this._secureLog('warn', '🔄 Resetting IV tracking system');
+        this._secureLog('warn', 'Resetting IV tracking system');
         
         this._ivTrackingSystem.usedIVs.clear();
         this._ivTrackingSystem.ivHistory.clear();
@@ -8640,7 +8557,7 @@ async processMessage(data) {
         this._ivTrackingSystem.rngValidation.weakRngDetected = false;
         this._ivTrackingSystem.emergencyMode = false;
         
-        this._secureLog('info', '✅ IV tracking system reset completed');
+        this._secureLog('info', 'IV tracking system reset completed');
     }
     
     /**
@@ -8664,7 +8581,7 @@ async processMessage(data) {
                 
                 if (uniqueTestIVs.size < 95) { // Allow some tolerance
                     this._ivTrackingSystem.rngValidation.weakRngDetected = true;
-                    this._secureLog('error', '🚨 CRITICAL: Weak RNG detected in validation test', {
+                    this._secureLog('error', 'CRITICAL: Weak RNG detected in validation test', {
                         uniqueIVs: uniqueTestIVs.size,
                         totalTests: testIVs.length
                     });
@@ -8673,7 +8590,7 @@ async processMessage(data) {
                 this._ivTrackingSystem.rngValidation.lastValidation = now;
                 
             } catch (error) {
-                this._secureLog('error', '❌ RNG validation failed', {
+                this._secureLog('error', 'RNG validation failed', {
                     errorType: error.constructor.name
                 });
             }
@@ -8689,13 +8606,13 @@ async processMessage(data) {
         const mutex = this[`_${mutexName}Mutex`];
         
         if (!mutex) {
-            this._secureLog('error', `❌ Mutex '${mutexName}' not found during timeout handling`);
+            this._secureLog('error', `Mutex '${mutexName}' not found during timeout handling`);
             return;
         }
         
         //   Validate timeout conditions
         if (mutex.lockId !== operationId) {
-            this._secureLog('warn', `⚠️ Timeout for different operation ID on mutex '${mutexName}'`, {
+            this._secureLog('warn', `Timeout for different operation ID on mutex '${mutexName}'`, {
                 expectedOperationId: operationId,
                 actualLockId: mutex.lockId,
                 locked: mutex.locked
@@ -8704,7 +8621,7 @@ async processMessage(data) {
         }
         
         if (!mutex.locked) {
-            this._secureLog('warn', `⚠️ Timeout for already unlocked mutex '${mutexName}'`, {
+            this._secureLog('warn', `Timeout for already unlocked mutex '${mutexName}'`, {
                 operationId: operationId
             });
             return;
@@ -8714,7 +8631,7 @@ async processMessage(data) {
             //   Calculate lock duration for monitoring
             const lockDuration = mutex.lockTime ? Date.now() - mutex.lockTime : 0;
             
-            this._secureLog('warn', `⚠️ Mutex '${mutexName}' auto-released due to timeout`, {
+            this._secureLog('warn', `Mutex '${mutexName}' auto-released due to timeout`, {
                 operationId: operationId,
                 lockDuration: lockDuration,
                 timeout: timeout,
@@ -8732,7 +8649,7 @@ async processMessage(data) {
                 try {
                     this._processNextInQueue(mutexName);
                 } catch (queueError) {
-                    this._secureLog('error', `❌ Error processing queue after timeout for mutex '${mutexName}'`, {
+                    this._secureLog('error', `Error processing queue after timeout for mutex '${mutexName}'`, {
                         errorType: queueError.constructor.name,
                         errorMessage: queueError.message
                     });
@@ -8740,7 +8657,7 @@ async processMessage(data) {
             }, 10);
             
         } catch (error) {
-            this._secureLog('error', `❌ Critical error during mutex timeout handling for '${mutexName}'`, {
+            this._secureLog('error', `Critical error during mutex timeout handling for '${mutexName}'`, {
                 operationId: operationId,
                 errorType: error.constructor.name,
                 errorMessage: error.message
@@ -8750,7 +8667,7 @@ async processMessage(data) {
             try {
                 this._emergencyUnlockAllMutexes('timeoutHandler');
             } catch (emergencyError) {
-                this._secureLog('error', `❌ Emergency unlock failed during timeout handling`, {
+                this._secureLog('error', `Emergency unlock failed during timeout handling`, {
                     originalError: error.message,
                     emergencyError: emergencyError.message
                 });
@@ -8765,21 +8682,21 @@ async processMessage(data) {
         const mutexes = ['keyOperation', 'cryptoOperation', 'connectionOperation'];
         let validationErrors = 0;
         
-        this._secureLog('info', '🔍 Validating mutex system after emergency unlock');
+        this._secureLog('info', 'Validating mutex system after emergency unlock');
         
         mutexes.forEach(mutexName => {
             const mutex = this[`_${mutexName}Mutex`];
             
             if (!mutex) {
                 validationErrors++;
-                this._secureLog('error', `❌ Mutex '${mutexName}' not found after emergency unlock`);
+                this._secureLog('error', `Mutex '${mutexName}' not found after emergency unlock`);
                 return;
             }
             
             //   Validate mutex state consistency
             if (mutex.locked) {
                 validationErrors++;
-                this._secureLog('error', `❌ Mutex '${mutexName}' still locked after emergency unlock`, {
+                this._secureLog('error', `Mutex '${mutexName}' still locked after emergency unlock`, {
                     lockId: mutex.lockId,
                     lockTime: mutex.lockTime
                 });
@@ -8787,19 +8704,19 @@ async processMessage(data) {
             
             if (mutex.lockId !== null) {
                 validationErrors++;
-                this._secureLog('error', `❌ Mutex '${mutexName}' still has lock ID after emergency unlock`, {
+                this._secureLog('error', `Mutex '${mutexName}' still has lock ID after emergency unlock`, {
                     lockId: mutex.lockId
                 });
             }
             
             if (mutex.lockTimeout !== null) {
                 validationErrors++;
-                this._secureLog('error', `❌ Mutex '${mutexName}' still has timeout after emergency unlock`);
+                this._secureLog('error', `Mutex '${mutexName}' still has timeout after emergency unlock`);
             }
             
             if (mutex.queue.length > 0) {
                 validationErrors++;
-                this._secureLog('error', `❌ Mutex '${mutexName}' still has queue items after emergency unlock`, {
+                this._secureLog('error', `Mutex '${mutexName}' still has queue items after emergency unlock`, {
                     queueLength: mutex.queue.length
                 });
             }
@@ -8811,7 +8728,7 @@ async processMessage(data) {
                 this._keySystemState.isRotating || 
                 this._keySystemState.isDestroying) {
                 validationErrors++;
-                this._secureLog('error', `❌ Key system state not properly reset after emergency unlock`, {
+                this._secureLog('error', `Key system state not properly reset after emergency unlock`, {
                     isInitializing: this._keySystemState.isInitializing,
                     isRotating: this._keySystemState.isRotating,
                     isDestroying: this._keySystemState.isDestroying
@@ -8820,9 +8737,9 @@ async processMessage(data) {
         }
         
         if (validationErrors === 0) {
-            this._secureLog('info', '✅ Mutex system validation passed after emergency unlock');
+            this._secureLog('info', 'Mutex system validation passed after emergency unlock');
         } else {
-            this._secureLog('error', `❌ Mutex system validation failed after emergency unlock`, {
+            this._secureLog('error', `Mutex system validation failed after emergency unlock`, {
                 validationErrors: validationErrors
             });
             
@@ -8870,9 +8787,8 @@ async processMessage(data) {
      * With race-condition protection and improved security
      */
     async createSecureOffer() {
-        console.log('🎯 createSecureOffer called');
         return this._withMutex('connectionOperation', async (operationId) => {
-            this._secureLog('info', '📤 Creating secure offer with mutex', {
+            this._secureLog('info', 'Creating secure offer with mutex', {
                 operationId: operationId,
                 connectionAttempts: this.connectionAttempts,
                 currentState: this.peerConnection?.connectionState || 'none'
@@ -8882,7 +8798,6 @@ async processMessage(data) {
                 // ============================================
                 // PHASE 1: INITIALIZATION AND VALIDATION
                 // ============================================
-                console.log('🎯 PHASE 1: Initialization and validation');
                 
                 // Reset notification flags for a new connection
                 this._resetNotificationFlags();
@@ -8897,9 +8812,8 @@ async processMessage(data) {
                 
                 // Generate session salt (64 bytes for v4.0)
                 this.sessionSalt = window.EnhancedSecureCryptoUtils.generateSalt();
-                console.log('🎯 PHASE 1 completed: Session salt generated');
                 
-                this._secureLog('debug', '🧂 Session salt generated', {
+                this._secureLog('debug', 'Session salt generated', {
                     operationId: operationId,
                     saltLength: this.sessionSalt.length,
                     isValidSalt: Array.isArray(this.sessionSalt) && this.sessionSalt.length === 64
@@ -8908,7 +8822,6 @@ async processMessage(data) {
                 // ============================================
                 // PHASE 2: SECURE KEY GENERATION
                 // ============================================
-                console.log('🎯 PHASE 2: Secure key generation');
                 
                 // Secure key generation via mutex
                 const keyPairs = await this._generateEncryptionKeys();
@@ -8927,7 +8840,6 @@ async processMessage(data) {
                 // ============================================
                 // PHASE 3: MITM PROTECTION AND FINGERPRINTING
                 // ============================================
-                console.log('🎯 PHASE 3: MITM protection and fingerprinting');
                 
                 // MITM Protection: Compute unique key fingerprints
                 const ecdhFingerprint = await window.EnhancedSecureCryptoUtils.calculateKeyFingerprint(
@@ -8953,7 +8865,6 @@ async processMessage(data) {
                 // ============================================
                 // PHASE 4: EXPORT SIGNED KEYS
                 // ============================================
-                console.log('🎯 PHASE 4: Export signed keys');
                 
                 // Export keys with digital signatures
                 const ecdhPublicKeyData = await window.EnhancedSecureCryptoUtils.exportPublicKeyWithSignature(
@@ -9000,7 +8911,6 @@ async processMessage(data) {
                 // ============================================
                 // PHASE 5: UPDATE SECURITY FEATURES
                 // ============================================
-                console.log('🎯 PHASE 5: Update security features');
                 
                 // Atomic update of security features
                 this._updateSecurityFeatures({
@@ -9019,7 +8929,6 @@ async processMessage(data) {
                 // ============================================
                 // PHASE 6: INITIALIZE PEER CONNECTION
                 // ============================================
-                console.log('🎯 PHASE 6: Initialize peer connection');
                 
                 this.isInitiator = true;
                 this.onStatusChange('connecting');
@@ -9035,7 +8944,7 @@ async processMessage(data) {
                 // Setup data channel
                 this.setupDataChannel(this.dataChannel);
                 
-                this._secureLog('debug', '🔗 Data channel created', {
+                this._secureLog('debug', 'Data channel created', {
                     operationId: operationId,
                     channelLabel: this.dataChannel.label,
                     channelOrdered: this.dataChannel.ordered
@@ -9044,27 +8953,18 @@ async processMessage(data) {
                 // ============================================
                 // PHASE 7: CREATE SDP OFFER
                 // ============================================
-                console.log('🎯 PHASE 7: Create SDP offer');
                 
-                // Create WebRTC offer
-                console.log('🎯 Creating WebRTC offer...');
+
                 const offer = await this.peerConnection.createOffer({
                     offerToReceiveAudio: false,
                     offerToReceiveVideo: false
                 });
-                console.log('🎯 WebRTC offer created successfully');
                 
-                // Set local description
-                console.log('🎯 Setting local description...');
                 await this.peerConnection.setLocalDescription(offer);
-                console.log('🎯 Local description set successfully');
-                
-                //   Extract and store our DTLS fingerprint for out-of-band verification
-                console.log('🎯 Extracting DTLS fingerprint...');
+
                 try {
                     const ourFingerprint = this._extractDTLSFingerprintFromSDP(offer.sdp);
                     this.expectedDTLSFingerprint = ourFingerprint;
-                    console.log('🎯 DTLS fingerprint extracted successfully');
                     
                     this._secureLog('info', 'Generated DTLS fingerprint for out-of-band verification', {
                         fingerprint: ourFingerprint,
@@ -9072,7 +8972,7 @@ async processMessage(data) {
                     });
                     
                     // Notify UI that fingerprint is ready for out-of-band verification
-                    this.deliverMessageToUI(`🔐 DTLS fingerprint ready for verification: ${ourFingerprint}`, 'system');
+                    this.deliverMessageToUI(`DTLS fingerprint ready for verification: ${ourFingerprint}`, 'system');
                 } catch (error) {
                     this._secureLog('error', 'Failed to extract DTLS fingerprint from offer', { error: error.message });
                     // Continue without fingerprint validation (fallback mode)
@@ -9081,7 +8981,7 @@ async processMessage(data) {
                 // Await ICE gathering
                 await this.waitForIceGathering();
                 
-                this._secureLog('debug', '🧊 ICE gathering completed', {
+                this._secureLog('debug', 'ICE gathering completed', {
                     operationId: operationId,
                     iceGatheringState: this.peerConnection.iceGatheringState,
                     connectionState: this.peerConnection.connectionState
@@ -9090,10 +8990,8 @@ async processMessage(data) {
                 // ============================================
                 // PHASE 8: GENERATE SAS FOR OUT-OF-BAND VERIFICATION
                 // ============================================
-                console.log('🎯 PHASE 8: Generate SAS for out-of-band verification');
 
                 this.verificationCode = window.EnhancedSecureCryptoUtils.generateVerificationCode();
-                console.log('🎯 Placeholder verification code generated:', this.verificationCode);
                 
                 // Validate verification code
                 if (!this.verificationCode || this.verificationCode.length < EnhancedSecureWebRTCManager.SIZES.VERIFICATION_CODE_MIN_LENGTH) {
@@ -9103,7 +9001,6 @@ async processMessage(data) {
                 // ============================================
                 // PHASE 9: MUTUAL AUTHENTICATION CHALLENGE
                 // ============================================
-                console.log('🎯 PHASE 9: Mutual authentication challenge');
                 
                 // Generate challenge for mutual authentication
                 const authChallenge = window.EnhancedSecureCryptoUtils.generateMutualAuthChallenge();
@@ -9115,7 +9012,6 @@ async processMessage(data) {
                 // ============================================
                 // PHASE 10: SESSION ID FOR MITM PROTECTION
                 // ============================================
-                console.log('🎯 PHASE 10: Session ID for MITM protection');
                 
                 // MITM Protection: Generate session-specific ID
                 this.sessionId = Array.from(crypto.getRandomValues(new Uint8Array(EnhancedSecureWebRTCManager.SIZES.SESSION_ID_LENGTH)))
@@ -9133,7 +9029,6 @@ async processMessage(data) {
                 // ============================================
                 // PHASE 11: SECURITY LEVEL CALCULATION
                 // ============================================
-                console.log('🎯 PHASE 11: Security level calculation');
                 
                 // All security features are enabled by default
                 const securityLevel = {
@@ -9149,10 +9044,8 @@ async processMessage(data) {
                 // ============================================
                 // PHASE 12: CREATE OFFER PACKAGE
                 // ============================================
-                console.log('🎯 PHASE 12: Create offer package');
                 
                 const currentTimestamp = Date.now();
-                console.log('🎯 Creating offer package object...');
                 
                 // Create compact offer package for smaller QR codes
                 const offerPackage = {
@@ -9184,32 +9077,21 @@ async processMessage(data) {
                         d: ecdsaFingerprint.substring(0, 12) // ecdsa (12 chars)
                     }
                 };
-                console.log('🎯 Offer package object created successfully');
                 
                 // ============================================
                 // PHASE 13: VALIDATE OFFER PACKAGE
                 // ============================================
-                console.log('🎯 PHASE 13: Validate offer package');
-                
-                // Final validation of the generated package
-                console.log('🎯 Validating offer package...');
+
                 try {
                     const validationResult = this.validateEnhancedOfferData(offerPackage);
-                    console.log('🎯 Validation result:', validationResult);
-                    if (!validationResult) {
-                        console.log('🎯 Offer package validation FAILED');
-                        throw new Error('Generated offer package failed validation');
-                    }
-                    console.log('🎯 Offer package validation PASSED');
+
                 } catch (validationError) {
-                    console.log('🎯 Validation ERROR:', validationError.message);
                     throw new Error(`Offer package validation error: ${validationError.message}`);
                 }
                 
                 // ============================================
                 // PHASE 14: LOGGING AND EVENTS
                 // ============================================
-                console.log('🎯 PHASE 14: Logging and events');
                 
                 this._secureLog('info', 'Enhanced secure offer created successfully', {
                     operationId: operationId,
@@ -9231,13 +9113,7 @@ async processMessage(data) {
                         operationId: operationId
                     }
                 }));
-                
-                // ============================================
-                // PHASE 15: RETURN RESULT
-                // ============================================
-                console.log('🎯 PHASE 15: Return result');
-                
-                console.log('🎯 createSecureOffer completed successfully, returning offerPackage');
+
                 return offerPackage;
                 
             } catch (error) {
@@ -9245,7 +9121,7 @@ async processMessage(data) {
                 // ERROR HANDLING
                 // ============================================
                 
-                this._secureLog('error', '❌ Enhanced secure offer creation failed in critical section', {
+                this._secureLog('error', 'Enhanced secure offer creation failed in critical section', {
                     operationId: operationId,
                     errorType: error.constructor.name,
                     errorMessage: error.message,
@@ -9324,10 +9200,10 @@ async processMessage(data) {
             //   Force garbage collection
             this._forceGarbageCollection();
             
-            this._secureLog('debug', '🔒 Failed offer creation cleanup completed with secure memory wipe');
+            this._secureLog('debug', 'Failed offer creation cleanup completed with secure memory wipe');
             
         } catch (cleanupError) {
-            this._secureLog('error', '❌ Error during offer creation cleanup', {
+            this._secureLog('error', 'Error during offer creation cleanup', {
                 errorType: cleanupError.constructor.name,
                 errorMessage: cleanupError.message
             });
@@ -9343,7 +9219,7 @@ async processMessage(data) {
         try {
             Object.assign(this.securityFeatures, updates);
             
-            this._secureLog('debug', '🔧 Security features updated', {
+            this._secureLog('debug', 'Security features updated', {
                 updatedCount: Object.keys(updates).length,
                 totalFeatures: Object.keys(this.securityFeatures).length
             });
@@ -9351,7 +9227,7 @@ async processMessage(data) {
         } catch (error) {
             // Roll back on error
             this.securityFeatures = oldFeatures;
-            this._secureLog('error', '❌ Security features update failed, rolled back', {
+            this._secureLog('error', 'Security features update failed, rolled back', {
                 errorType: error.constructor.name
             });
             throw error;
@@ -9363,9 +9239,8 @@ async processMessage(data) {
      * With race-condition protection and enhanced security
      */
     async createSecureAnswer(offerData) {
-        console.log('🎯 createSecureAnswer called with offerData:', offerData ? 'present' : 'null');
         return this._withMutex('connectionOperation', async (operationId) => {
-            this._secureLog('info', '📨 Creating secure answer with mutex', {
+            this._secureLog('info', 'Creating secure answer with mutex', {
                 operationId: operationId,
                 hasOfferData: !!offerData,
                 offerType: offerData?.type,
@@ -9667,8 +9542,6 @@ async processMessage(data) {
                 this.isInitiator = false;
                 this.onStatusChange('connecting');
                 
-                // DEBUG: Check keyFingerprint before calling onKeyExchange
-                console.log('Before onKeyExchange - keyFingerprint:', this.keyFingerprint);
                 this.onKeyExchange(this.keyFingerprint);
                 
                 // Create peer connection first
@@ -9725,7 +9598,7 @@ async processMessage(data) {
                     this._throwSecureError(error, 'webrtc_remote_description');
                 }
                 
-                this._secureLog('debug', '🔗 Remote description set successfully', {
+                this._secureLog('debug', 'Remote description set successfully', {
                     operationId: operationId,
                     connectionState: this.peerConnection.connectionState,
                     signalingState: this.peerConnection.signalingState
@@ -9765,7 +9638,7 @@ async processMessage(data) {
                     });
                     
                     // Notify UI that fingerprint is ready for out-of-band verification
-                    this.deliverMessageToUI(`🔐 DTLS fingerprint ready for verification: ${ourFingerprint}`, 'system');
+                    this.deliverMessageToUI(`DTLS fingerprint ready for verification: ${ourFingerprint}`, 'system');
                 } catch (error) {
                     this._secureLog('error', 'Failed to extract DTLS fingerprint from answer', { error: error.message });
                     // Continue without fingerprint validation (fallback mode)
@@ -9775,7 +9648,7 @@ async processMessage(data) {
                 // Await ICE gathering
                 await this.waitForIceGathering();
                 
-                this._secureLog('debug', '🧊 ICE gathering completed for answer', {
+                this._secureLog('debug', 'ICE gathering completed for answer', {
                     operationId: operationId,
                     iceGatheringState: this.peerConnection.iceGatheringState,
                     connectionState: this.peerConnection.connectionState
@@ -9917,13 +9790,13 @@ async processMessage(data) {
                         const realSecurityData = await this.calculateAndReportSecurityLevel();
                         if (realSecurityData) {
                             this.notifySecurityUpdate();
-                            this._secureLog('info', '✅ Post-connection security level calculated', {
+                            this._secureLog('info', 'Post-connection security level calculated', {
                                 operationId: operationId,
                                 level: realSecurityData.level
                             });
                         }
                     } catch (error) {
-                        this._secureLog('error', '❌ Error calculating post-connection security', {
+                        this._secureLog('error', 'Error calculating post-connection security', {
                             operationId: operationId,
                             errorType: error.constructor.name
                         });
@@ -9933,7 +9806,7 @@ async processMessage(data) {
                 // Retry if the first calculation fails
                 setTimeout(async () => {
                     if (!this.lastSecurityCalculation || this.lastSecurityCalculation.score < 50) {
-                        this._secureLog('info', '🔄 Retrying security calculation', {
+                        this._secureLog('info', 'Retrying security calculation', {
                             operationId: operationId
                         });
                         await this.calculateAndReportSecurityLevel();
@@ -9955,7 +9828,7 @@ async processMessage(data) {
                 // ERROR HANDLING
                 // ============================================
                 
-                this._secureLog('error', '❌ Enhanced secure answer creation failed in critical section', {
+                this._secureLog('error', 'Enhanced secure answer creation failed in critical section', {
                     operationId: operationId,
                     errorType: error.constructor.name,
                     errorMessage: error.message,
@@ -10064,10 +9937,10 @@ async processMessage(data) {
             //   Force garbage collection
             this._forceGarbageCollection();
             
-            this._secureLog('debug', '🔒 Failed answer creation cleanup completed with secure memory wipe');
+            this._secureLog('debug', 'Failed answer creation cleanup completed with secure memory wipe');
             
         } catch (cleanupError) {
-            this._secureLog('error', '❌ Error during answer creation cleanup', {
+            this._secureLog('error', 'Error during answer creation cleanup', {
                 errorType: cleanupError.constructor.name,
                 errorMessage: cleanupError.message
             });
@@ -10079,7 +9952,7 @@ async processMessage(data) {
      */
     async _setEncryptionKeys(encryptionKey, macKey, metadataKey, keyFingerprint) {
         return this._withMutex('keyOperation', async (operationId) => {
-            this._secureLog('info', '🔐 Setting encryption keys with mutex', {
+            this._secureLog('info', 'Setting encryption keys with mutex', {
                 operationId: operationId
             });
             
@@ -10115,7 +9988,7 @@ async processMessage(data) {
             this.processedMessageIds.clear();
             this.replayWindow.clear(); //   Clear replay window
                 
-                this._secureLog('info', '✅ Encryption keys set successfully', {
+                this._secureLog('info', 'Encryption keys set successfully', {
                     operationId: operationId,
                     hasAllKeys: !!(this.encryptionKey && this.macKey && this.metadataKey),
                     hasFingerprint: !!this.keyFingerprint
@@ -10130,7 +10003,7 @@ async processMessage(data) {
                 this.metadataKey = oldKeys.metadataKey;
                 this.keyFingerprint = oldKeys.keyFingerprint;
                 
-                this._secureLog('error', '❌ Key setting failed, rolled back', {
+                this._secureLog('error', 'Key setting failed, rolled back', {
                     operationId: operationId,
                     errorType: error.constructor.name
                 });
@@ -10141,7 +10014,6 @@ async processMessage(data) {
     }
 
     async handleSecureAnswer(answerData) {
-        console.log('🎯 handleSecureAnswer called with answerData:', answerData ? 'present' : 'null');
         try {
             
             if (!answerData || typeof answerData !== 'object' || Array.isArray(answerData)) {
@@ -10169,16 +10041,6 @@ async processMessage(data) {
             // Support both full and compact key names
             const ecdhKey = answerData.ecdhPublicKey || answerData.e;
             const ecdsaKey = answerData.ecdsaPublicKey || answerData.d;
-            
-            console.log('🔍 Answer data structure check:', {
-                hasEcdhKey: !!ecdhKey,
-                ecdhKeyType: typeof ecdhKey,
-                isArray: Array.isArray(ecdhKey),
-                answerKeys: Object.keys(answerData),
-                ecdhKeyKeys: ecdhKey ? Object.keys(ecdhKey) : 'N/A',
-                fullAnswerData: answerData,
-                usingCompactKeys: !answerData.ecdhPublicKey && !!answerData.e
-            });
             
             if (!ecdhKey || typeof ecdhKey !== 'object' || Array.isArray(ecdhKey)) {
                 this._secureLog('error', 'CRITICAL: Invalid ECDH public key structure in answer', { 
@@ -10377,24 +10239,16 @@ async processMessage(data) {
 
             //   Compute SAS for MITM protection (Offer side - Answer handler)
             try {
-                console.log('Starting SAS computation for Offer side (Answer handler)');
-                const remoteFP = this._extractDTLSFingerprintFromSDP(answerData.sdp || answerData.s); // уже есть в коде
-                const localFP = this.expectedDTLSFingerprint; // ты его сохраняешь при создании оффера/ответа
-                const keyBytes = this._decodeKeyFingerprint(this.keyFingerprint); // утилита декодирования
-                console.log('SAS computation parameters:', { 
-                    remoteFP: remoteFP ? remoteFP.substring(0, 16) + '...' : 'null/undefined', 
-                    localFP: localFP ? localFP.substring(0, 16) + '...' : 'null/undefined', 
-                    keyBytesLength: keyBytes ? keyBytes.length : 'null/undefined',
-                    keyBytesType: keyBytes ? keyBytes.constructor.name : 'null/undefined'
-                });
+                const remoteFP = this._extractDTLSFingerprintFromSDP(answerData.sdp || answerData.s); 
+                const localFP = this.expectedDTLSFingerprint; 
+                const keyBytes = this._decodeKeyFingerprint(this.keyFingerprint); 
 
                 this.verificationCode = await this._computeSAS(keyBytes, localFP, remoteFP);
-                this.onStatusChange?.('verifying'); // Показываем SAS и ждём подтверждения
+                this.onStatusChange?.('verifying'); 
                 this.onVerificationRequired(this.verificationCode);
                 
                 // CRITICAL: Store SAS code to send when data channel opens
                 this.pendingSASCode = this.verificationCode;
-                console.log('📤 SAS code ready to send when data channel opens:', this.verificationCode);
                 
                 this._secureLog('info', 'SAS verification code generated for MITM protection (Offer side)', {
                     sasCode: this.verificationCode,
@@ -10453,23 +10307,19 @@ async processMessage(data) {
             this._secureLog('debug', 'Remote description set successfully from answer', {
                 signalingState: this.peerConnection.signalingState
             });
-            
-            console.log('Enhanced secure connection established');
 
             setTimeout(async () => {
                 try {
                     const securityData = await this.calculateAndReportSecurityLevel();
                     if (securityData) {
-                        console.log('✅ Security level calculated after connection:', securityData.level);
                         this.notifySecurityUpdate();
                     }
                 } catch (error) {
-                    this._secureLog('error', '❌ Error calculating security after connection:', { errorType: error?.constructor?.name || 'Unknown' });
+                    this._secureLog('error', 'Error calculating security after connection:', { errorType: error?.constructor?.name || 'Unknown' });
                 }
             }, 1000);
             setTimeout(async () => {
                 if (!this.lastSecurityCalculation || this.lastSecurityCalculation.score < 50) {
-                    console.log('🔄 Retrying security calculation...');
                     await this.calculateAndReportSecurityLevel();
                     this.notifySecurityUpdate();
                 }
@@ -10502,21 +10352,19 @@ async processMessage(data) {
             // Ensure verification initiation notice wasn't already sent
             if (!this.verificationInitiationSent) {
                 this.verificationInitiationSent = true;
-                this.deliverMessageToUI('🔐 CRITICAL: Compare verification code with peer out-of-band (voice/video/in-person) to prevent MITM attack!', 'system');
-                this.deliverMessageToUI(`🔐 Your verification code: ${this.verificationCode}`, 'system');
-                this.deliverMessageToUI('🔐 Ask peer to confirm this exact code before allowing traffic!', 'system');
+                this.deliverMessageToUI('CRITICAL: Compare verification code with peer out-of-band (voice/video/in-person) to prevent MITM attack!', 'system');
+                this.deliverMessageToUI(`Your verification code: ${this.verificationCode}`, 'system');
+                this.deliverMessageToUI('Ask peer to confirm this exact code before allowing traffic!', 'system');
             }
         } else {
-            // Answer side: Wait for SAS code from Offer side
-            console.log('📥 Answer side: Waiting for SAS code from Offer side');
-            this.deliverMessageToUI('📥 Waiting for verification code from peer...', 'system');
+
+            this.deliverMessageToUI('Waiting for verification code from peer...', 'system');
         }
     }
 
     confirmVerification() {
         
         try {
-            console.log('📤 confirmVerification - sending local confirmation');
             
             // Mark local verification as confirmed
             this.localVerificationConfirmed = true;
@@ -10530,8 +10378,7 @@ async processMessage(data) {
                     securityLevel: 'MITM_PROTECTION_REQUIRED'
                 }
             };
-            
-            console.log('📤 Sending verification confirmation:', confirmationPayload);
+
             this.dataChannel.send(JSON.stringify(confirmationPayload));
             
             // Notify UI about state change
@@ -10547,19 +10394,18 @@ async processMessage(data) {
             this._checkBothVerificationsConfirmed();
             
             // Notify UI about local confirmation
-            this.deliverMessageToUI('✅ You confirmed the verification code. Waiting for peer confirmation...', 'system');
+            this.deliverMessageToUI('You confirmed the verification code. Waiting for peer confirmation...', 'system');
             
             this.processMessageQueue();
         } catch (error) {
-            this._secureLog('error', '❌ SAS verification failed:', { errorType: error?.constructor?.name || 'Unknown' });
-            this.deliverMessageToUI('❌ SAS verification failed', 'system');
+            this._secureLog('error', 'SAS verification failed:', { errorType: error?.constructor?.name || 'Unknown' });
+            this.deliverMessageToUI('SAS verification failed', 'system');
         }
     }
 
     _checkBothVerificationsConfirmed() {
         // Check if both parties have confirmed verification
         if (this.localVerificationConfirmed && this.remoteVerificationConfirmed && !this.bothVerificationsConfirmed) {
-            console.log('🎉 Both parties confirmed verification!');
             this.bothVerificationsConfirmed = true;
             
             // Notify both parties that verification is complete
@@ -10571,8 +10417,7 @@ async processMessage(data) {
                     securityLevel: 'MITM_PROTECTION_COMPLETE'
                 }
             };
-            
-            console.log('📤 Sending both confirmed notification:', bothConfirmedPayload);
+
             this.dataChannel.send(JSON.stringify(bothConfirmedPayload));
             
             // Notify UI about state change
@@ -10585,7 +10430,7 @@ async processMessage(data) {
             }
             
             // Set verified status and open chat after 2 second delay
-            this.deliverMessageToUI('🎉 Both parties confirmed! Opening secure chat in 2 seconds...', 'system');
+            this.deliverMessageToUI('Both parties confirmed! Opening secure chat in 2 seconds...', 'system');
             
             setTimeout(() => {
                 this._setVerifiedStatus(true, 'MUTUAL_SAS_CONFIRMED', { 
@@ -10599,12 +10444,10 @@ async processMessage(data) {
     }
 
     handleVerificationConfirmed(data) {
-        // Handle peer's verification confirmation
-        console.log('📥 Received verification confirmation from peer');
         this.remoteVerificationConfirmed = true;
         
         // Notify UI about peer confirmation
-        this.deliverMessageToUI('✅ Peer confirmed the verification code. Waiting for your confirmation...', 'system');
+        this.deliverMessageToUI('Peer confirmed the verification code. Waiting for your confirmation...', 'system');
         
         // Notify UI about state change
         if (this.onVerificationStateChange) {
@@ -10621,7 +10464,6 @@ async processMessage(data) {
 
     handleVerificationBothConfirmed(data) {
         // Handle notification that both parties have confirmed
-        console.log('📥 Received both confirmed notification from peer');
         this.bothVerificationsConfirmed = true;
         
         // Notify UI about state change
@@ -10634,7 +10476,7 @@ async processMessage(data) {
         }
         
         // Set verified status and open chat after 2 second delay
-        this.deliverMessageToUI('🎉 Both parties confirmed! Opening secure chat in 2 seconds...', 'system');
+        this.deliverMessageToUI('Both parties confirmed! Opening secure chat in 2 seconds...', 'system');
         
         setTimeout(() => {
             this._setVerifiedStatus(true, 'MUTUAL_SAS_CONFIRMED', { 
@@ -10647,15 +10489,9 @@ async processMessage(data) {
     }
 
     handleVerificationRequest(data) {
-        
-        console.log('🔍 handleVerificationRequest called with:');
-        console.log('  - receivedCode:', data.code, '(type:', typeof data.code, ')');
-        console.log('  - expectedCode:', this.verificationCode, '(type:', typeof this.verificationCode, ')');
-        console.log('  - codesMatch:', data.code === this.verificationCode);
-        console.log('  - data object:', data);
+
         
         if (data.code === this.verificationCode) {
-            // ✅ SAS verification successful - MITM protection confirmed
             const responsePayload = {
                 type: 'verification_response',
                 data: {
@@ -10670,13 +10506,12 @@ async processMessage(data) {
             // Ensure verification success notice wasn't already sent
             if (!this.verificationNotificationSent) {
                 this.verificationNotificationSent = true;
-                this.deliverMessageToUI('✅ SAS verification successful! MITM protection confirmed. Channel is now secure!', 'system');
+                this.deliverMessageToUI('SAS verification successful! MITM protection confirmed. Channel is now secure!', 'system');
             }
             
             this.processMessageQueue();
         } else {
-            // ❌ SAS verification failed - possible MITM attack
-            console.log('❌ SAS verification failed - codes do not match, disconnecting');
+            //  SAS verification failed - possible MITM attack
             const responsePayload = {
                 type: 'verification_response',
                 data: {
@@ -10693,17 +10528,16 @@ async processMessage(data) {
                 timestamp: Date.now()
             });
             
-            this.deliverMessageToUI('❌ SAS verification failed! Possible MITM attack detected. Connection aborted for safety!', 'system');
+            this.deliverMessageToUI('SAS verification failed! Possible MITM attack detected. Connection aborted for safety!', 'system');
             this.disconnect();
         }
     }
 
     handleSASCode(data) {
-        
-        console.log('📥 Received SAS code from Offer side:', data.code);
+
         
         this.verificationCode = data.code;
-        this.onStatusChange?.('verifying'); // Показываем SAS и ждём подтверждения
+        this.onStatusChange?.('verifying'); 
         this.onVerificationRequired(this.verificationCode);
         
         this._secureLog('info', 'SAS code received from Offer side', {
@@ -10726,18 +10560,18 @@ async processMessage(data) {
             // Ensure verification success notice wasn't already sent
             if (!this.verificationNotificationSent) {
                 this.verificationNotificationSent = true;
-                this.deliverMessageToUI('✅ Mutual SAS verification complete! MITM protection active. Channel is now secure!', 'system');
+                this.deliverMessageToUI(' Mutual SAS verification complete! MITM protection active. Channel is now secure!', 'system');
             }
             
             this.processMessageQueue();
         } else {
-            // ❌ Peer verification failed - connection not secure
+            //  Peer verification failed - connection not secure
             this._secureLog('error', 'Peer SAS verification failed - connection not secure', {
                 responseData: data,
                 timestamp: Date.now()
             });
             
-            this.deliverMessageToUI('❌ Peer verification failed! Connection not secure!', 'system');
+            this.deliverMessageToUI('Peer verification failed! Connection not secure!', 'system');
             this.disconnect();
         }
     }
@@ -10755,7 +10589,6 @@ async processMessage(data) {
     }
 
     validateEnhancedOfferData(offerData) {
-        console.log('🎯 validateEnhancedOfferData called with:', offerData ? 'valid object' : 'null/undefined');
         try {
             // CRITICAL: Strict type checking to prevent syntax errors
             if (!offerData || typeof offerData !== 'object' || Array.isArray(offerData)) {
@@ -10934,10 +10767,8 @@ async processMessage(data) {
                 throw new Error('Invalid SDP structure');
             }
 
-            console.log('🎯 validateEnhancedOfferData completed successfully');
             return true;
         } catch (error) {
-            console.log('🎯 validateEnhancedOfferData ERROR:', error.message);
             this._secureLog('error', 'CRITICAL: Security validation failed - hard abort required', {
                 error: error.message,
                 errorType: error.constructor.name,
@@ -10953,7 +10784,7 @@ async processMessage(data) {
         const validation = this._validateInputData(message, 'sendSecureMessage');
         if (!validation.isValid) {
             const errorMessage = `Input validation failed: ${validation.errors.join(', ')}`;
-            this._secureLog('error', '❌ Input validation failed in sendSecureMessage', {
+            this._secureLog('error', 'Input validation failed in sendSecureMessage', {
                 errors: validation.errors,
                 messageType: typeof message
             });
@@ -11029,14 +10860,14 @@ async processMessage(data) {
                     this.deliverMessageToUI(validation.sanitizedData, 'sent');
                 }
                 
-                this._secureLog('debug', '📤 Secure message sent successfully', {
+                this._secureLog('debug', 'Secure message sent successfully', {
                     operationId: operationId,
                     messageLength: sanitizedMessage.length,
                     keyVersion: this.currentKeyVersion
                 });
                 
             } catch (error) {
-                this._secureLog('error', '❌ Secure message sending failed', {
+                this._secureLog('error', 'Secure message sending failed', {
                     operationId: operationId,
                     errorType: error.constructor.name
                 });
@@ -11054,7 +10885,7 @@ async processMessage(data) {
 
     startHeartbeat() {
         //   Heartbeat moved to unified scheduler with connection validation
-        this._secureLog('info', '🔧 Heartbeat moved to unified scheduler');
+        this._secureLog('info', 'Heartbeat moved to unified scheduler');
         
         // Store heartbeat configuration for scheduler
         this._heartbeatConfig = {
@@ -11075,7 +10906,7 @@ async processMessage(data) {
      *   Stop all active timers and cleanup scheduler
      */
     _stopAllTimers() {
-        this._secureLog('info', '🔧 Stopping all timers and cleanup scheduler');
+        this._secureLog('info', 'Stopping all timers and cleanup scheduler');
         
         // Stop maintenance scheduler
         if (this._maintenanceScheduler) {
@@ -11096,12 +10927,9 @@ async processMessage(data) {
             this._activeTimers.clear();
         }
         
-        this._secureLog('info', '✅ All timers stopped successfully');
+        this._secureLog('info', 'All timers stopped successfully');
     }
 
-    handleHeartbeat() {
-        console.log('Heartbeat received - connection alive');
-    }
 
     waitForIceGathering() {
         return new Promise((resolve) => {
@@ -11191,7 +11019,6 @@ async processMessage(data) {
         
         // Cleanup file transfer system on unexpected disconnect
         if (this.fileTransferSystem) {
-            console.log('🧹 Cleaning up file transfer system on unexpected disconnect...');
             this.fileTransferSystem.cleanup();
             this.fileTransferSystem = null;
         }
@@ -11242,7 +11069,7 @@ async processMessage(data) {
         // Ensure reconnection-failed notification wasn't already sent
         if (!this.reconnectionFailedNotificationSent) {
             this.reconnectionFailedNotificationSent = true;
-            this.deliverMessageToUI('❌ Unable to reconnect. A new connection is required.', 'system');
+            this.deliverMessageToUI('Unable to reconnect. A new connection is required.', 'system');
         }
 
     }
@@ -11254,7 +11081,7 @@ async processMessage(data) {
         // Ensure peer-disconnect notification wasn't already sent
         if (!this.peerDisconnectNotificationSent) {
             this.peerDisconnectNotificationSent = true;
-            this.deliverMessageToUI(`👋 Peer ${reasonText}`, 'system');
+            this.deliverMessageToUI(`Peer ${reasonText}`, 'system');
         }
         
         this.onStatusChange('peer_disconnected');
@@ -11352,7 +11179,7 @@ async processMessage(data) {
         this.onKeyExchange('');
         this.onVerificationRequired('');
         
-        this._secureLog('info', '🔒 Connection securely cleaned up with complete memory wipe');
+        this._secureLog('info', 'Connection securely cleaned up with complete memory wipe');
         
         //   Reset the intentional disconnect flag
         this.intentionalDisconnect = false;
@@ -11367,7 +11194,6 @@ async processMessage(data) {
         }
 
         if (!this.fileTransferSystem) {
-            console.log('🔄 File transfer system not initialized, attempting to initialize...');
             this.initializeFileTransfer();
             
             // Allow time for initialization
@@ -11383,21 +11209,12 @@ async processMessage(data) {
             throw new Error('Encryption keys not ready. Please wait for connection to be fully established.');
         }
 
-        // Debug logging for file transfer system
-        console.log('🔍 Debug: File transfer system in sendFile:', {
-            hasFileTransferSystem: !!this.fileTransferSystem,
-            fileTransferSystemType: this.fileTransferSystem.constructor?.name,
-            hasWebrtcManager: !!this.fileTransferSystem.webrtcManager,
-            webrtcManagerType: this.fileTransferSystem.webrtcManager?.constructor?.name
-        });
 
         try {
-            console.log('🚀 Starting file transfer for:', file.name, `(${(file.size / 1024 / 1024).toFixed(2)} MB)`);
             const fileId = await this.fileTransferSystem.sendFile(file);
-            console.log('✅ File transfer initiated successfully with ID:', fileId);
             return fileId;
         } catch (error) {
-            this._secureLog('error', '❌ File transfer error:', { errorType: error?.constructor?.name || 'Unknown' });
+            this._secureLog('error', 'File transfer error:', { errorType: error?.constructor?.name || 'Unknown' });
             
             // Re-throw with a clearer message
             if (error.message.includes('Connection not ready')) {
@@ -11426,13 +11243,13 @@ async processMessage(data) {
             if (typeof this.fileTransferSystem.getActiveTransfers === 'function') {
                 sending = this.fileTransferSystem.getActiveTransfers();
             } else {
-                this._secureLog('warn', '⚠️ getActiveTransfers method not available in file transfer system');
+                this._secureLog('warn', 'getActiveTransfers method not available in file transfer system');
             }
             
             if (typeof this.fileTransferSystem.getReceivingTransfers === 'function') {
                 receiving = this.fileTransferSystem.getReceivingTransfers();
             } else {
-                this._secureLog('warn', '⚠️ getReceivingTransfers method not available in file transfer system');
+                this._secureLog('warn', 'getReceivingTransfers method not available in file transfer system');
             }
             
             return {
@@ -11440,7 +11257,7 @@ async processMessage(data) {
                 receiving: receiving || []
             };
         } catch (error) {
-            this._secureLog('error', '❌ Error getting file transfers:', { errorType: error?.constructor?.name || 'Unknown' });
+            this._secureLog('error', 'Error getting file transfers:', { errorType: error?.constructor?.name || 'Unknown' });
             return { sending: [], receiving: [] };
         }
     }
@@ -11487,14 +11304,13 @@ async processMessage(data) {
     // Reinitialize file transfer system
     reinitializeFileTransfer() {
         try {
-            console.log('🔄 Reinitializing file transfer system...');
             if (this.fileTransferSystem) {
                 this.fileTransferSystem.cleanup();
             }
             this.initializeFileTransfer();
             return true;
         } catch (error) {
-            this._secureLog('error', '❌ Failed to reinitialize file transfer system:', { errorType: error?.constructor?.name || 'Unknown' });
+            this._secureLog('error', 'Failed to reinitialize file transfer system:', { errorType: error?.constructor?.name || 'Unknown' });
             return false;
         }
     }
@@ -11505,15 +11321,8 @@ async processMessage(data) {
         this.onFileReceived = onReceived;
         this.onFileError = onError;
         
-        console.log('🔧 File transfer callbacks set:', {
-            hasProgress: !!onProgress,
-            hasReceived: !!onReceived,
-            hasError: !!onError
-        });
-        
         // Reinitialize file transfer system if it exists to update callbacks
         if (this.fileTransferSystem) {
-            console.log('🔄 Reinitializing file transfer system with new callbacks...');
             this.initializeFileTransfer();
         }
     }
@@ -11524,7 +11333,6 @@ async processMessage(data) {
 
     async handleSessionActivation(sessionData) {
         try {
-            console.log('🔐 Handling session activation:', sessionData);
             
             // Update session state
             this.currentSession = sessionData;
@@ -11534,33 +11342,22 @@ async processMessage(data) {
             const hasKeys = !!(this.encryptionKey && this.macKey);
             const hasSession = !!(this.sessionManager && (this.sessionManager.hasActiveSession?.() || sessionData.sessionId));
             
-            console.log('🔍 Session activation status:', {
-                hasKeys: hasKeys,
-                hasSession: hasSession,
-                sessionType: sessionData.sessionType,
-                isDemo: sessionData.isDemo
-            });
-            
             // Force connection status if there is an active session
             if (hasSession) {
-                console.log('🔓 Session activated - forcing connection status to connected');
                 this.onStatusChange('connected');
-                
-                console.log('⚠️ Session activated but NOT verified - cryptographic verification still required');
+
             }
 
         setTimeout(() => {
             try {
                 this.initializeFileTransfer();
             } catch (error) {
-                this._secureLog('warn', '⚠️ File transfer initialization failed during session activation:', { details: error.message });
+                this._secureLog('warn', 'File transfer initialization failed during session activation:', { details: error.message });
             }
         }, 1000);
             
-            console.log('✅ Session activation handled successfully');
             
             if (this.fileTransferSystem && this.isConnected()) {
-                console.log('🔄 Synchronizing file transfer keys after session activation...');
                 
                 if (typeof this.fileTransferSystem.onSessionUpdate === 'function') {
                     this.fileTransferSystem.onSessionUpdate({
@@ -11572,7 +11369,7 @@ async processMessage(data) {
             }
             
         } catch (error) {
-            this._secureLog('error', '❌ Failed to handle session activation:', { errorType: error?.constructor?.name || 'Unknown' });
+            this._secureLog('error', 'Failed to handle session activation:', { errorType: error?.constructor?.name || 'Unknown' });
         }
     }
     // Method to check readiness of file transfers
@@ -11593,15 +11390,12 @@ checkFileTransferReadiness() {
                     status.dataChannelState === 'open' && 
                     status.isConnected && 
                     status.isVerified;
-        
-        console.log('🔍 File transfer readiness check:', status);
         return status;
     }
 
     // Method to force re-initialize file transfer system
     forceReinitializeFileTransfer() {
         try {
-            console.log('🔄 Force reinitializing file transfer system...');
             
             if (this.fileTransferSystem) {
                 this.fileTransferSystem.cleanup();
@@ -11615,7 +11409,7 @@ checkFileTransferReadiness() {
             
             return true;
         } catch (error) {
-            this._secureLog('error', '❌ Failed to force reinitialize file transfer:', { errorType: error?.constructor?.name || 'Unknown' });
+            this._secureLog('error', 'Failed to force reinitialize file transfer:', { errorType: error?.constructor?.name || 'Unknown' });
             return false;
         }
     }
@@ -11774,11 +11568,11 @@ checkFileTransferReadiness() {
             
         } catch (error) {
             if (error.name === 'AbortError' || error.message.includes('cancelled')) {
-                this._secureLog('info', '⏹️ File transfer initialization cancelled by user');
+                this._secureLog('info', 'File transfer initialization cancelled by user');
                 return { cancelled: true };
             }
             
-            this._secureLog('error', '❌ Force file transfer initialization failed:', { 
+            this._secureLog('error', 'Force file transfer initialization failed:', { 
                 errorType: error?.constructor?.name || 'Unknown',
                 message: error.message,
                 attempts: attempts
@@ -11793,12 +11587,12 @@ checkFileTransferReadiness() {
                 this.fileTransferSystem.cleanup();
                 this.fileTransferSystem = null;
                 this._fileTransferActive = false;
-                this._secureLog('info', '⏹️ File transfer initialization cancelled');
+                this._secureLog('info', 'File transfer initialization cancelled');
                 return true;
             }
             return false;
         } catch (error) {
-            this._secureLog('error', '❌ Failed to cancel file transfer initialization:', { 
+            this._secureLog('error', 'Failed to cancel file transfer initialization:', { 
                 errorType: error?.constructor?.name || 'Unknown' 
             });
             return false;
@@ -11820,7 +11614,7 @@ checkFileTransferReadiness() {
                 systemType: 'EnhancedSecureFileTransfer'
             };
         } catch (error) {
-            this._secureLog('error', '❌ Failed to get file transfer system status:', { 
+            this._secureLog('error', 'Failed to get file transfer system status:', { 
                 errorType: error?.constructor?.name || 'Unknown' 
             });
             return { available: false, status: 'error', error: error.message };
@@ -11836,21 +11630,21 @@ checkFileTransferReadiness() {
                 
                 //   Verify IVs are different and properly tracked
                 if (testIV1.every((byte, index) => byte === testIV2[index])) {
-                    this._secureLog('error', '❌ CRITICAL: Nested encryption security validation failed - IVs are identical!');
+                    this._secureLog('error', 'CRITICAL: Nested encryption security validation failed - IVs are identical!');
                     return false;
                 }
                 
                 //   Verify IV tracking system is working
                 const stats = this._getIVTrackingStats();
                 if (stats.totalIVs < 2) {
-                    this._secureLog('error', '❌ CRITICAL: IV tracking system not working properly');
+                    this._secureLog('error', 'CRITICAL: IV tracking system not working properly');
                     return false;
                 }
                 
-                this._secureLog('info', '✅ Nested encryption security validation passed - secure IV generation working');
+                this._secureLog('info', 'Nested encryption security validation passed - secure IV generation working');
                 return true;
             } catch (error) {
-                this._secureLog('error', '❌ CRITICAL: Nested encryption security validation failed:', {
+                this._secureLog('error', 'CRITICAL: Nested encryption security validation failed:', {
                     errorType: error.constructor.name,
                     errorMessage: error.message
                 });
@@ -11874,7 +11668,7 @@ class SecureKeyStorage {
 
         setTimeout(() => {
             if (!this.validateStorageIntegrity()) {
-                console.error('❌ CRITICAL: Key storage integrity check failed');
+                console.error('CRITICAL: Key storage integrity check failed');
             }
         }, 100);
         
@@ -11967,7 +11761,7 @@ class SecureKeyStorage {
                 return this._keyReferences.get(keyId);
             } else {
                 // This should never happen - extractable keys must be encrypted
-                this._secureLog('error', '❌ SECURITY VIOLATION: Extractable key marked as non-encrypted', {
+                this._secureLog('error', 'SECURITY VIOLATION: Extractable key marked as non-encrypted', {
                     keyId,
                     extractable: metadata.extractable,
                     encrypted: metadata.encrypted
@@ -12105,7 +11899,7 @@ class SecureKeyStorage {
         }
         
         if (violations.length > 0) {
-            console.error('❌ Storage integrity violations detected:', violations);
+            console.error('Storage integrity violations detected:', violations);
             return false;
         }
         
@@ -12138,7 +11932,7 @@ class SecureKeyStorage {
 
             // Check if sequence number is within acceptable range
             if (receivedSeq < this.expectedSequenceNumber - this.replayWindowSize) {
-                this._secureLog('warn', '⚠️ Sequence number too old - possible replay attack', {
+                this._secureLog('warn', 'Sequence number too old - possible replay attack', {
                     received: receivedSeq,
                     expected: this.expectedSequenceNumber,
                     context: context,
@@ -12149,7 +11943,7 @@ class SecureKeyStorage {
 
             // Check if sequence number is too far ahead (DoS protection)
             if (receivedSeq > this.expectedSequenceNumber + this.maxSequenceGap) {
-                this._secureLog('warn', '⚠️ Sequence number gap too large - possible DoS attack', {
+                this._secureLog('warn', 'Sequence number gap too large - possible DoS attack', {
                     received: receivedSeq,
                     expected: this.expectedSequenceNumber,
                     gap: receivedSeq - this.expectedSequenceNumber,
@@ -12161,7 +11955,7 @@ class SecureKeyStorage {
 
             // Check if sequence number is already in replay window
             if (this.replayWindow.has(receivedSeq)) {
-                this._secureLog('warn', '⚠️ Duplicate sequence number detected - replay attack', {
+                this._secureLog('warn', 'Duplicate sequence number detected - replay attack', {
                     received: receivedSeq,
                     context: context,
                     timestamp: Date.now()
@@ -12188,7 +11982,7 @@ class SecureKeyStorage {
                 }
             }
 
-            this._secureLog('debug', '✅ Sequence number validation successful', {
+            this._secureLog('debug', 'Sequence number validation successful', {
                 received: receivedSeq,
                 expected: this.expectedSequenceNumber,
                 context: context,
@@ -12197,7 +11991,7 @@ class SecureKeyStorage {
 
             return true;
         } catch (error) {
-            this._secureLog('error', '❌ Sequence number validation failed', {
+            this._secureLog('error', 'Sequence number validation failed', {
                 error: error.message,
                 context: context,
                 timestamp: Date.now()
@@ -12324,15 +12118,6 @@ class SecureKeyStorage {
                 timestamp: Date.now()
             };
 
-            // Debug logging for security features
-            console.log('🔍 getRealSecurityLevel debug:');
-            console.log('  - replayProtectionEnabled:', this.replayProtectionEnabled);
-            console.log('  - expectedDTLSFingerprint:', !!this.expectedDTLSFingerprint);
-            console.log('  - verificationCode:', !!this.verificationCode);
-            console.log('  - ecdhKeyPair:', !!this.ecdhKeyPair);
-            console.log('  - ecdsaKeyPair:', !!this.ecdsaKeyPair);
-            console.log('  - encryptionKey:', !!this.encryptionKey);
-            console.log('  - hmacKey:', !!this.hmacKey);
             
             this._secureLog('info', 'Real security level calculated', securityData);
             return securityData;

@@ -22,7 +22,6 @@ class SecureFileTransferContext {
         }
         this.#fileTransferSystem = system;
         this.#active = true;
-        console.log('🔒 Secure file transfer context initialized');
     }
     
     getFileTransferSystem() {
@@ -36,7 +35,6 @@ class SecureFileTransferContext {
     deactivate() {
         this.#active = false;
         this.#fileTransferSystem = null;
-        console.log('🔒 Secure file transfer context deactivated');
     }
     
     getSecurityLevel() {

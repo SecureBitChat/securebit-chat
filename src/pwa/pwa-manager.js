@@ -49,7 +49,6 @@ class PWAOfflineManager {
     }
 
     async init() {
-        console.log('📴 PWA Offline Manager initializing...');
         
         try {
             // Initialize offline database
@@ -74,8 +73,7 @@ class PWAOfflineManager {
             if (this.isOnline) {
                 await this.processOfflineQueue();
             }
-            
-            console.log('✅ PWA Offline Manager initialized');
+
             
         } catch (error) {
             console.error('❌ Offline Manager initialization failed:', error);
@@ -97,7 +95,6 @@ class PWAOfflineManager {
             
             request.onsuccess = () => {
                 this.offlineDB = request.result;
-                console.log('💾 Offline database opened successfully');
                 resolve(this.offlineDB);
             };
             
@@ -107,7 +104,6 @@ class PWAOfflineManager {
                 // Create object stores
                 Object.entries(this.dbConfig.stores).forEach(([storeName, config]) => {
                     if (!db.objectStoreNames.contains(storeName)) {
-                        console.log(`📦 Creating object store: ${storeName}`);
                         
                         const store = db.createObjectStore(storeName, {
                             keyPath: config.keyPath,
@@ -129,7 +125,6 @@ class PWAOfflineManager {
     setupEventListeners() {
         // Network status changes
         window.addEventListener('online', () => {
-            console.log('🌐 Connection restored');
             this.isOnline = true;
             this.reconnectAttempts = 0;
             this.updateConnectionStatus(true);
@@ -137,7 +132,6 @@ class PWAOfflineManager {
         });
 
         window.addEventListener('offline', () => {
-            console.log('📴 Connection lost');
             this.isOnline = false;
             this.updateConnectionStatus(false);
             this.handleConnectionLost();
@@ -320,7 +314,6 @@ class PWAOfflineManager {
             }
 
             this.reconnectAttempts++;
-            console.log(`🔄 Reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
             
             // Try to detect if we're actually back online
             this.checkOnlineStatus();
@@ -328,7 +321,6 @@ class PWAOfflineManager {
             if (this.reconnectAttempts >= this.maxReconnectAttempts) {
                 clearInterval(this.reconnectInterval);
                 this.reconnectInterval = null;
-                console.log('❌ Max reconnection attempts reached');
             }
         }, 10000); // Try every 10 seconds
     }
@@ -343,8 +335,6 @@ class PWAOfflineManager {
             });
             
             if (response.ok && !this.isOnline) {
-                // We're actually online but navigator.onLine is wrong
-                console.log('🌐 Detected online status, updating...');
                 this.isOnline = true;
                 this.handleConnectionRestored();
             }
@@ -374,8 +364,7 @@ class PWAOfflineManager {
             const transaction = this.offlineDB.transaction(['offlineQueue'], 'readwrite');
             const store = transaction.objectStore('offlineQueue');
             await this.promisifyRequest(store.add(queueItem));
-            
-            console.log('📤 Action queued for offline sync:', action.type);
+
             this.offlineQueue.push(queueItem);
             
             // Try to register background sync
@@ -395,7 +384,6 @@ class PWAOfflineManager {
         }
 
         this.syncInProgress = true;
-        console.log('🔄 Processing offline queue...');
         
         let processedCount = 0;
         let errorCount = 0;
@@ -420,7 +408,6 @@ class PWAOfflineManager {
                         await this.processQueueItem(item);
                         await this.promisifyRequest(store.delete(item.id));
                         processedCount++;
-                        console.log('✅ Processed offline action:', item.type);
                     } catch (error) {
                         console.error('❌ Failed to process offline action:', error);
                         errorCount++;
@@ -575,7 +562,6 @@ class PWAOfflineManager {
             const savedConnectionState = await this.getStoredData('sessionData', 'connection_state');
             
             if (savedConnectionState && savedConnectionState.wasConnected) {
-                console.log('🔄 Attempting WebRTC reconnection...');
                 
                 // Show reconnection indicator
                 this.showReconnectionIndicator();
@@ -681,8 +667,7 @@ class PWAOfflineManager {
             const transaction = this.offlineDB.transaction(['appState'], 'readwrite');
             const store = transaction.objectStore('appState');
             await this.promisifyRequest(store.put(appState));
-            
-            console.log('💾 Application state saved for offline recovery');
+
         } catch (error) {
             console.error('❌ Failed to save application state:', error);
         }
@@ -743,8 +728,7 @@ class PWAOfflineManager {
             } else {
                 await this.promisifyRequest(store.clear());
             }
-            
-            console.log(`🗑️ Cleared stored data from ${storeName}`);
+
         } catch (error) {
             console.error(`❌ Failed to clear stored data from ${storeName}:`, error);
         }
@@ -754,7 +738,6 @@ class PWAOfflineManager {
         if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
             navigator.serviceWorker.ready.then(registration => {
                 this.registration = registration;
-                console.log('📡 Background sync registered');
             });
         } else {
             console.warn('⚠️ Background sync not supported');
@@ -812,7 +795,6 @@ class PWAOfflineManager {
     }
 
     handleOfflineDisconnection(details) {
-        console.log('🔌 WebRTC disconnected while offline:', details);
         
         // Save connection state for recovery
         this.storeData('sessionData', {
@@ -857,7 +839,6 @@ class PWAOfflineManager {
     }
 
     handleNetworkFailure(error) {
-        console.log('🌐 Network failure detected:', error?.message);
         
         // Queue the failed action for retry if appropriate
         if (this.shouldQueueFailedRequest(error)) {

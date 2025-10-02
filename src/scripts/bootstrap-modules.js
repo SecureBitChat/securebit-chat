@@ -34,6 +34,9 @@
       loadReactComponent('../components/ui/LightningPayment.jsx'),
       loadReactComponent('../components/ui/PaymentModal.jsx'),
       loadReactComponent('../components/ui/DownloadApps.jsx'),
+      loadReactComponent('../components/ui/ComparisonTable.jsx'),
+      loadReactComponent('../components/ui/UniqueFeatureSlider.jsx'),
+      loadReactComponent('../components/ui/Roadmap.jsx'),
       loadReactComponent('../components/ui/FileTransfer.jsx'),
     ]);
 

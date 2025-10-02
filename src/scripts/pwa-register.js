@@ -6,20 +6,15 @@ if ('serviceWorker' in navigator) {
         scope: './',
       });
 
-      console.log('✅ PWA: Service Worker registered successfully');
-      console.log('📡 SW Scope:', registration.scope);
-
       // Store registration for use in other modules
       window.swRegistration = registration;
 
       // Listen for updates
       registration.addEventListener('updatefound', () => {
-        console.log('🔄 PWA: Service Worker update found');
         const newWorker = registration.installing;
 
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            console.log('🆕 PWA: New version available');
 
             const isPWAInstalled =
               window.matchMedia('(display-mode: standalone)').matches ||
@@ -57,17 +52,11 @@ if ('serviceWorker' in navigator) {
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.ready.then((registration) => {
-    console.log('🎯 PWA: Service Worker ready');
 
     const isPWAInstalled =
       window.matchMedia('(display-mode: standalone)').matches ||
       window.navigator.standalone === true;
 
-    console.log('🔍 PWA Installation Status:', {
-      isStandalone: isPWAInstalled,
-      displayMode: window.matchMedia('(display-mode: standalone)').matches,
-      iosStandalone: window.navigator.standalone === true,
-    });
 
     if (window.pwaInstallPrompt && window.pwaInstallPrompt.setServiceWorkerRegistration) {
       window.pwaInstallPrompt.setServiceWorkerRegistration(registration);
@@ -85,9 +74,7 @@ if ('serviceWorker' in navigator) {
 
   // Listen to Service Worker messages
   navigator.serviceWorker.addEventListener('message', (event) => {
-    console.log('📨 Message from Service Worker:', event.data);
     if (event.data && event.data.type === 'SW_ACTIVATED') {
-      console.log('🔄 Service Worker activated, checking for updates...');
 
       const isPWAInstalled =
         window.matchMedia('(display-mode: standalone)').matches ||

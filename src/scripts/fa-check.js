@@ -28,9 +28,6 @@ document.addEventListener('DOMContentLoaded', function () {
       return false;
     }
 
-    if (window.DEBUG_MODE) {
-      console.log('Font Awesome loaded successfully');
-    }
     return true;
   }
 

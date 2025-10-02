@@ -53,19 +53,6 @@ const EnhancedMinimalHeader = ({
                     realSecurityData = await window.EnhancedSecureCryptoUtils.calculateSecurityLevel(activeWebrtcManager);
                 }
                 
-                if (window.DEBUG_MODE) {
-                    console.log('🔐 REAL security level calculated:', {
-                        level: realSecurityData?.level,
-                        score: realSecurityData?.score,
-                        passedChecks: realSecurityData?.passedChecks,
-                        totalChecks: realSecurityData?.totalChecks,
-                        isRealData: realSecurityData?.isRealData,
-                        sessionType: realSecurityData?.sessionType,
-                        maxPossibleScore: realSecurityData?.maxPossibleScore,
-                        verificationResults: realSecurityData?.verificationResults ? Object.keys(realSecurityData.verificationResults) : []
-                    });
-                }
-                
                 if (realSecurityData && realSecurityData.isRealData !== false) {
                     const currentScore = realSecurityLevel?.score || 0;
                     const newScore = realSecurityData.score || 0;
@@ -73,23 +60,15 @@ const EnhancedMinimalHeader = ({
                     if (currentScore !== newScore || !realSecurityLevel) {
                         setRealSecurityLevel(realSecurityData);
                         setLastSecurityUpdate(now);
-                        
-                        if (window.DEBUG_MODE) {
-                            console.log('✅ Security level updated in header component:', {
-                                oldScore: currentScore,
-                                newScore: newScore,
-                                sessionType: realSecurityData.sessionType
-                            });
-                        }
-                    } else if (window.DEBUG_MODE) {
-                        console.log('ℹ️ Security level unchanged, skipping update');
+
+                        } else if (window.DEBUG_MODE) {
                     }
                 } else {
-                    console.warn('⚠️ Security calculation returned invalid data');
+                    console.warn(' Security calculation returned invalid data');
                 }
                 
             } catch (error) {
-                console.error('❌ Error in real security calculation:', error);
+                console.error(' Error in real security calculation:', error);
             } finally {
                 isUpdating = false;
             }
@@ -122,9 +101,6 @@ const EnhancedMinimalHeader = ({
 
     React.useEffect(() => {
         const handleSecurityUpdate = (event) => {
-            if (window.DEBUG_MODE) {
-                console.log('🔒 Security level update event received:', event.detail);
-            }
 
             setTimeout(() => {
                 setLastSecurityUpdate(0);
@@ -132,9 +108,6 @@ const EnhancedMinimalHeader = ({
         };
 
         const handleRealSecurityCalculated = (event) => {
-            if (window.DEBUG_MODE) {
-                console.log('🔐 Real security calculated event:', event.detail);
-            }
             
             if (event.detail && event.detail.securityData) {
                 setRealSecurityLevel(event.detail.securityData);
@@ -146,9 +119,6 @@ const EnhancedMinimalHeader = ({
         document.addEventListener('real-security-calculated', handleRealSecurityCalculated);
         
         window.forceHeaderSecurityUpdate = (webrtcManager) => {
-            if (window.DEBUG_MODE) {
-                console.log('🔄 Force header security update called');
-            }
             
             if (webrtcManager && window.EnhancedSecureCryptoUtils) {
                 window.EnhancedSecureCryptoUtils.calculateSecurityLevel(webrtcManager)
@@ -223,9 +193,6 @@ const EnhancedMinimalHeader = ({
         };
 
         const handleDisconnected = () => {
-            if (window.DEBUG_MODE) {
-                console.log('🔌 Disconnected - clearing security data in header');
-            }
 
             setRealSecurityLevel(null);
             setLastSecurityUpdate(0);
@@ -264,19 +231,11 @@ const EnhancedMinimalHeader = ({
         event.preventDefault();
         event.stopPropagation();
 
-        // Debug information
-        console.log('🔍 Security click debug:', {
-            hasWebrtcManager: !!webrtcManager,
-            hasCryptoUtils: !!window.EnhancedSecureCryptoUtils,
-            hasRealSecurityLevel: !!realSecurityLevel,
-            connectionStatus: webrtcManager?.connectionState || 'unknown'
-        });
 
         // Run real security tests if webrtcManager is available
         let realTestResults = null;
         if (webrtcManager && window.EnhancedSecureCryptoUtils) {
             try {
-                console.log('🔍 Running real security tests...');
                 realTestResults = await window.EnhancedSecureCryptoUtils.calculateSecurityLevel(webrtcManager);
                 console.log('✅ Real security tests completed:', realTestResults);
             } catch (error) {
@@ -312,11 +271,11 @@ const EnhancedMinimalHeader = ({
                 totalChecks: 0,
                 sessionType: 'unknown'
             };
-            console.log('⚠️ Using fallback security data:', securityData);
+            console.log('Using fallback security data:', securityData);
         }
 
         // Detailed information about the REAL security check
-        let message = `🔒 REAL-TIME SECURITY VERIFICATION\n\n`;
+        let message = `REAL-TIME SECURITY VERIFICATION\n\n`;
         message += `Security Level: ${securityData.level} (${securityData.score}%)\n`;
         message += `Session Type: ${securityData.sessionType || 'premium'}\n`;
         message += `Verification Time: ${new Date(securityData.timestamp).toLocaleTimeString()}\n`;
@@ -330,7 +289,7 @@ const EnhancedMinimalHeader = ({
             const failedTests = Object.entries(securityData.verificationResults).filter(([key, result]) => !result.passed);
             
             if (passedTests.length > 0) {
-                message += '✅ PASSED TESTS:\n';
+                message += 'PASSED TESTS:\n';
                 passedTests.forEach(([key, result]) => {
                     const testName = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
                     message += `   ${testName}: ${result.details || 'Test passed'}\n`;
@@ -339,7 +298,7 @@ const EnhancedMinimalHeader = ({
             }
             
             if (failedTests.length > 0) {
-                message += '❌ FAILED/UNAVAILABLE TESTS:\n';
+                message += 'FAILED/UNAVAILABLE TESTS:\n';
                 failedTests.forEach(([key, result]) => {
                     const testName = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
                     message += `   ${testName}: ${result.details || 'Test failed or unavailable'}\n`;
@@ -353,7 +312,7 @@ const EnhancedMinimalHeader = ({
         }
         
         // Real security features status
-        message += `🔒 SECURITY FEATURES STATUS:\n`;
+        message += `SECURITY FEATURES STATUS:\n`;
         message += '=' + '='.repeat(40) + '\n';
         
         if (securityData.verificationResults) {

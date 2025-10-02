@@ -394,15 +394,7 @@ class EnhancedSecureCryptoUtils {
                 sessionType: sessionType,
                 maxPossibleScore: 100 // All features enabled - max 100 points
             };
-            
-            console.log('Real security level calculated:', {
-                score: percentage,
-                level: result.level,
-                passedChecks: passedChecks,
-                totalChecks: availableChecks,
-                sessionType: sessionType,
-                maxPossibleScore: result.maxPossibleScore
-            });
+
             
             return result;
         } catch (error) {

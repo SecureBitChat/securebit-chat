@@ -324,14 +324,6 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
         maxPossibleScore: 100
         // All features enabled - max 100 points
       };
-      console.log("Real security level calculated:", {
-        score: percentage,
-        level: result.level,
-        passedChecks,
-        totalChecks: availableChecks,
-        sessionType,
-        maxPossibleScore: result.maxPossibleScore
-      });
       return result;
     } catch (error) {
       console.error("Security level calculation failed:", error.message);
@@ -2175,7 +2167,6 @@ var SecureFileTransferContext = class _SecureFileTransferContext {
     }
     this.#fileTransferSystem = system;
     this.#active = true;
-    console.log("\u{1F512} Secure file transfer context initialized");
   }
   getFileTransferSystem() {
     return this.#fileTransferSystem;
@@ -2186,7 +2177,6 @@ var SecureFileTransferContext = class _SecureFileTransferContext {
   deactivate() {
     this.#active = false;
     this.#fileTransferSystem = null;
-    console.log("\u{1F512} Secure file transfer context deactivated");
   }
   getSecurityLevel() {
     return this.#securityLevel;
@@ -3900,7 +3890,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     SYSTEM_MESSAGE: "SYSTEM_MESSAGE_FILTERED"
   };
   //   Static debug flag instead of this._debugMode
-  static DEBUG_MODE = true;
+  static DEBUG_MODE = false;
   // Set to true during development, false in production
   constructor(onMessage, onStatusChange, onKeyExchange, onVerificationRequired, onAnswerError = null, onVerificationStateChange = null, config = {}) {
     this._isProductionMode = this._detectProductionMode();
@@ -6449,11 +6439,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
    */
   async _computeSAS(keyMaterialRaw, localFP, remoteFP) {
     try {
-      console.log("_computeSAS called with parameters:", {
-        keyMaterialRaw: keyMaterialRaw ? `${keyMaterialRaw.constructor.name} (${keyMaterialRaw.length || keyMaterialRaw.byteLength} bytes)` : "null/undefined",
-        localFP: localFP ? `${localFP.substring(0, 20)}...` : "null/undefined",
-        remoteFP: remoteFP ? `${remoteFP.substring(0, 20)}...` : "null/undefined"
-      });
       if (!keyMaterialRaw || !localFP || !remoteFP) {
         const missing = [];
         if (!keyMaterialRaw) missing.push("keyMaterialRaw");
@@ -6497,7 +6482,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       const dv = new DataView(bits);
       const n = (dv.getUint32(0) ^ dv.getUint32(4)) >>> 0;
       const sasCode = String(n % 1e7).padStart(7, "0");
-      console.log("\u{1F3AF} _computeSAS computed code:", sasCode, "(type:", typeof sasCode, ")");
       this._secureLog("info", "SAS code computed successfully", {
         localFP: localFP.substring(0, 16) + "...",
         remoteFP: remoteFP.substring(0, 16) + "...",
@@ -8122,9 +8106,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
             return "FAKE_MESSAGE_FILTERED";
           }
           if (jsonData.type && ["heartbeat", "verification", "verification_response", "peer_disconnect", "key_rotation_signal", "key_rotation_ready", "security_upgrade"].includes(jsonData.type)) {
-            if (this._debugMode) {
-              this._secureLog("debug", "\u{1F527} System message detected, blocking from chat", { type: jsonData.type });
-            }
             return "SYSTEM_MESSAGE_FILTERED";
           }
           if (jsonData.type && ["file_transfer_start", "file_transfer_response", "file_chunk", "chunk_confirmation", "file_transfer_complete", "file_transfer_error"].includes(jsonData.type)) {
@@ -8878,7 +8859,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         hasAllKeys: !!(this.encryptionKey && this.macKey && this.metadataKey)
       });
       const securityData = await window.EnhancedSecureCryptoUtils.calculateSecurityLevel(this);
-      this._secureLog("info", "\u{1F510} Real security level calculated", {
+      this._secureLog("info", "Real security level calculated", {
         hasSecurityLevel: !!securityData.level,
         scoreRange: securityData.score > 80 ? "high" : securityData.score > 50 ? "medium" : "low",
         checksRatio: `${securityData.passedChecks}/${securityData.totalChecks}`,
@@ -8897,13 +8878,13 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         if (!this.securityCalculationNotificationSent || this.lastSecurityCalculationLevel !== securityData.level) {
           this.securityCalculationNotificationSent = true;
           this.lastSecurityCalculationLevel = securityData.level;
-          const message = `\u{1F512} Security Level: ${securityData.level} (${securityData.score}%) - ${securityData.passedChecks}/${securityData.totalChecks} checks passed`;
+          const message = `Security Level: ${securityData.level} (${securityData.score}%) - ${securityData.passedChecks}/${securityData.totalChecks} checks passed`;
           this.deliverMessageToUI(message, "system");
         }
       }
       return securityData;
     } catch (error) {
-      this._secureLog("error", "\u274C Failed to calculate real security level", {
+      this._secureLog("error", "Failed to calculate real security level", {
         errorType: error.constructor.name
       });
       return null;
@@ -8915,7 +8896,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   // Method for automatic feature enablement with stability check
   async autoEnableSecurityFeatures() {
     if (this.currentSessionType === "demo") {
-      this._secureLog("info", "\u{1F512} Demo session - keeping basic security only");
+      this._secureLog("info", "Demo session - keeping basic security only");
       await this.calculateAndReportSecurityLevel();
       this.notifySecurityUpgrade(1);
       return;
@@ -8924,24 +8905,21 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       const isStable = this.isConnected() && this.isVerified && this.connectionAttempts === 0 && this.messageQueue.length === 0 && this.peerConnection?.connectionState === "connected";
       return isStable;
     };
-    this._secureLog("info", `\u{1F512} ${this.currentSessionType} session - starting graduated security activation`);
+    this._secureLog("info", ` ${this.currentSessionType} session - starting graduated security activation`);
     await this.calculateAndReportSecurityLevel();
     this.notifySecurityUpgrade(1);
     if (this.currentSecurityLevel === "enhanced" || this.currentSecurityLevel === "maximum") {
       setTimeout(async () => {
         if (checkStability()) {
-          console.log("\u2705 Activating Stage 2 for paid session");
           this.enableStage2Security();
           await this.calculateAndReportSecurityLevel();
           if (this.currentSecurityLevel === "maximum") {
             setTimeout(async () => {
               if (checkStability()) {
-                console.log("\u2705 Activating Stage 3 for premium session");
                 this.enableStage3Security();
                 await this.calculateAndReportSecurityLevel();
                 setTimeout(async () => {
                   if (checkStability()) {
-                    console.log("\u2705 Activating Stage 4 for premium session");
                     this.enableStage4Security();
                     await this.calculateAndReportSecurityLevel();
                   }
@@ -8973,9 +8951,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   }
   disconnect() {
     try {
-      console.log("\u{1F50C} Disconnecting WebRTC Manager...");
       if (this.fileTransferSystem) {
-        console.log("\u{1F9F9} Cleaning up file transfer system during disconnect...");
         this.fileTransferSystem.cleanup();
         this.fileTransferSystem = null;
       }
@@ -9005,7 +8981,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
    */
   _clearVerificationStates() {
     try {
-      console.log("\u{1F9F9} Clearing verification states...");
       this.localVerificationConfirmed = false;
       this.remoteVerificationConfirmed = false;
       this.bothVerificationsConfirmed = false;
@@ -9018,7 +8993,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       this.processedMessageIds.clear();
       this.verificationNotificationSent = false;
       this.verificationInitiationSent = false;
-      console.log("\u2705 Verification states cleared successfully");
     } catch (error) {
       this._secureLog("error", "\u274C Error clearing verification states:", { errorType: error?.constructor?.name || "Unknown" });
     }
@@ -9047,7 +9021,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         operationId
       });
       if (!this.isConnected() || !this.isVerified) {
-        this._secureLog("warn", "\u26A0\uFE0F Key rotation aborted - connection not ready", {
+        this._secureLog("warn", " Key rotation aborted - connection not ready", {
           operationId,
           isConnected: this.isConnected(),
           isVerified: this.isVerified
@@ -9055,7 +9029,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         return false;
       }
       if (this._keySystemState.isRotating) {
-        this._secureLog("warn", "\u26A0\uFE0F Key rotation already in progress", {
+        this._secureLog("warn", " Key rotation already in progress", {
           operationId
         });
         return false;
@@ -9082,7 +9056,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
             operationId,
             resolve,
             timeout: setTimeout(() => {
-              this._secureLog("error", "\u26A0\uFE0F Key rotation timeout", {
+              this._secureLog("error", " Key rotation timeout", {
                 operationId
               });
               this._keySystemState.isRotating = false;
@@ -9093,7 +9067,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           };
         });
       } catch (error) {
-        this._secureLog("error", "\u274C Key rotation failed in critical section", {
+        this._secureLog("error", " Key rotation failed in critical section", {
           operationId,
           errorType: error.constructor.name
         });
@@ -9132,7 +9106,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       }
     }
     if (wipedKeysCount > 0) {
-      this._secureLog("info", `\u2705 PFS cleanup completed: ${wipedKeysCount} keys hard wiped`, {
+      this._secureLog("info", `PFS cleanup completed: ${wipedKeysCount} keys hard wiped`, {
         timestamp: Date.now()
       });
     }
@@ -9178,7 +9152,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     this.peerConnection = new RTCPeerConnection(config);
     this.peerConnection.onconnectionstatechange = () => {
       const state = this.peerConnection.connectionState;
-      console.log("Connection state:", state);
       if (state === "connected" && !this.isVerified) {
         this.onStatusChange("verifying");
       } else if (state === "connected" && this.isVerified) {
@@ -9198,19 +9171,10 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       }
     };
     this.peerConnection.ondatachannel = (event) => {
-      console.log("\u{1F517} Data channel received:", {
-        channelLabel: event.channel.label,
-        channelState: event.channel.readyState,
-        isInitiator: this.isInitiator,
-        channelId: event.channel.id,
-        protocol: event.channel.protocol
-      });
       if (event.channel.label === "securechat") {
-        console.log("\u{1F517} MAIN DATA CHANNEL RECEIVED (answerer side)");
         this.dataChannel = event.channel;
         this.setupDataChannel(event.channel);
       } else {
-        console.log("\u{1F517} ADDITIONAL DATA CHANNEL RECEIVED:", event.channel.label);
         if (event.channel.label === "heartbeat") {
           this.heartbeatChannel = event.channel;
         }
@@ -9218,20 +9182,8 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     };
   }
   setupDataChannel(channel) {
-    console.log("\u{1F517} setupDataChannel called:", {
-      channelLabel: channel.label,
-      channelState: channel.readyState,
-      isInitiator: this.isInitiator,
-      isVerified: this.isVerified
-    });
     this.dataChannel = channel;
     this.dataChannel.onopen = async () => {
-      console.log("\u{1F517} Data channel opened:", {
-        isInitiator: this.isInitiator,
-        isVerified: this.isVerified,
-        dataChannelState: this.dataChannel.readyState,
-        dataChannelLabel: this.dataChannel.label
-      });
       try {
         if (this.dataChannel && typeof this.dataChannel.bufferedAmountLowThreshold === "number") {
           this.dataChannel.bufferedAmountLowThreshold = 1024 * 1024;
@@ -9242,7 +9194,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         await this.establishConnection();
         this.initializeFileTransfer();
       } catch (error) {
-        this._secureLog("error", "\u274C Error in establishConnection:", { errorType: error?.constructor?.name || "Unknown" });
+        this._secureLog("error", "Error in establishConnection:", { errorType: error?.constructor?.name || "Unknown" });
       }
       if (this.pendingSASCode && this.dataChannel && this.dataChannel.readyState === "open") {
         try {
@@ -9255,18 +9207,11 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
               securityLevel: "MITM_PROTECTION_REQUIRED"
             }
           };
-          console.log("\u{1F4E4} Sending pending SAS code to Answer side:", this.pendingSASCode);
           this.dataChannel.send(JSON.stringify(sasPayload));
           this.pendingSASCode = null;
         } catch (error) {
-          console.error("Failed to send pending SAS code to Answer side:", error);
         }
       } else if (this.pendingSASCode) {
-        console.log("\u26A0\uFE0F Cannot send SAS code - dataChannel not ready:", {
-          hasDataChannel: !!this.dataChannel,
-          readyState: this.dataChannel?.readyState,
-          pendingSASCode: this.pendingSASCode
-        });
       }
       if (this.isVerified) {
         this.onStatusChange("connected");
@@ -9304,19 +9249,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     };
     this.dataChannel.onmessage = async (event) => {
       try {
-        console.log("\u{1F4E8} Raw message received:", {
-          dataType: typeof event.data,
-          dataLength: event.data?.length || event.data?.byteLength || 0,
-          isString: typeof event.data === "string"
-        });
         if (typeof event.data === "string") {
           try {
             const parsed = JSON.parse(event.data);
-            console.log("\u{1F4E8} Parsed message:", {
-              type: parsed.type,
-              hasData: !!parsed.data,
-              timestamp: parsed.timestamp
-            });
             const fileMessageTypes2 = [
               "file_transfer_start",
               "file_transfer_response",
@@ -9326,7 +9261,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
               "file_transfer_error"
             ];
             if (parsed.type && fileMessageTypes2.includes(parsed.type)) {
-              console.log("\u{1F4C1} File message intercepted at WebRTC level:", parsed.type);
               if (!this.fileTransferSystem) {
                 try {
                   if (this.isVerified && this.dataChannel && this.dataChannel.readyState === "open") {
@@ -9339,11 +9273,10 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
                     }
                   }
                 } catch (initError) {
-                  this._secureLog("error", "\u274C Failed to initialize file transfer system for receiver:", { errorType: initError?.constructor?.name || "Unknown" });
+                  this._secureLog("error", "Failed to initialize file transfer system for receiver:", { errorType: initError?.constructor?.name || "Unknown" });
                 }
               }
               if (this.fileTransferSystem) {
-                console.log("\u{1F4C1} Forwarding to local file transfer system:", parsed.type);
                 await this.fileTransferSystem.handleFileMessage(parsed);
                 return;
               }
@@ -9355,75 +9288,63 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
                   return;
                 }
               } catch (e) {
-                this._secureLog("error", "\u274C Lazy init of file transfer failed:", { errorType: e?.message || e?.constructor?.name || "Unknown" });
+                this._secureLog("error", "Lazy init of file transfer failed:", { errorType: e?.message || e?.constructor?.name || "Unknown" });
               }
-              this._secureLog("error", "\u274C No file transfer system available for:", { errorType: parsed.type?.constructor?.name || "Unknown" });
+              this._secureLog("error", "No file transfer system available for:", { errorType: parsed.type?.constructor?.name || "Unknown" });
               return;
             }
             if (parsed.type && ["heartbeat", "verification", "verification_response", "verification_confirmed", "verification_both_confirmed", "sas_code", "peer_disconnect", "security_upgrade"].includes(parsed.type)) {
-              console.log("\u{1F527} System message detected:", parsed.type);
               this.handleSystemMessage(parsed);
               return;
             }
             if (parsed.type === "message" && parsed.data) {
-              console.log("\u{1F4DD} User message detected:", parsed.data.substring(0, 50));
               if (this.onMessage) {
                 this.deliverMessageToUI(parsed.data, "received");
               }
               return;
             }
             if (parsed.type === "enhanced_message" && parsed.data) {
-              console.log("\u{1F510} Enhanced message detected, processing...");
               await this._processEnhancedMessageWithoutMutex(parsed);
               return;
             }
-            if (parsed.type === "fake") {
-              console.log("\u{1F3AD} Fake message blocked:", parsed.pattern);
-              return;
-            }
-            console.log("\u2753 Unknown message type:", parsed.type);
           } catch (jsonError) {
-            console.log("\u{1F4C4} Non-JSON message detected, treating as text");
             if (this.onMessage) {
               this.deliverMessageToUI(event.data, "received");
             }
             return;
           }
         } else if (event.data instanceof ArrayBuffer) {
-          console.log("\u{1F522} Binary data received, processing...");
           await this._processBinaryDataWithoutMutex(event.data);
         } else {
-          console.log("\u2753 Unknown data type:", typeof event.data);
         }
       } catch (error) {
-        this._secureLog("error", "\u274C Failed to process message in onmessage:", { errorType: error?.constructor?.name || "Unknown" });
+        this._secureLog("error", "Failed to process message in onmessage:", { errorType: error?.constructor?.name || "Unknown" });
       }
     };
   }
   // FIX 4: New method for processing binary data WITHOUT mutex
   async _processBinaryDataWithoutMutex(data) {
     try {
-      console.log("\u{1F522} Processing binary data without mutex...");
       let processedData = data;
       if (this.securityFeatures.hasNestedEncryption && this.nestedEncryptionKey && processedData instanceof ArrayBuffer && processedData.byteLength > 12) {
         try {
           processedData = await this.removeNestedEncryption(processedData);
         } catch (error) {
-          this._secureLog("warn", "\u26A0\uFE0F Nested decryption failed, continuing with original data");
+          this._secureLog("warn", "Nested decryption failed, continuing with original data");
         }
       }
       if (this.securityFeatures.hasPacketPadding && processedData instanceof ArrayBuffer) {
         try {
           processedData = this.removePacketPadding(processedData);
         } catch (error) {
-          this._secureLog("warn", "\u26A0\uFE0F Packet padding removal failed, continuing with original data");
+          this._secureLog("warn", "Packet padding removal failed, continuing with original data");
         }
       }
       if (this.securityFeatures.hasAntiFingerprinting && processedData instanceof ArrayBuffer) {
         try {
           processedData = this.removeAntiFingerprinting(processedData);
         } catch (error) {
-          this._secureLog("warn", "\u26A0\uFE0F Anti-fingerprinting removal failed, continuing with original data");
+          this._secureLog("warn", "Anti-fingerprinting removal failed, continuing with original data");
         }
       }
       if (processedData instanceof ArrayBuffer) {
@@ -9431,7 +9352,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         try {
           const content = JSON.parse(textData);
           if (content.type === "fake" || content.isFakeTraffic === true) {
-            console.log(`\u{1F3AD} BLOCKED: Binary fake message: ${content.pattern || "unknown"}`);
             return;
           }
         } catch (e) {
@@ -9441,15 +9361,14 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         }
       }
     } catch (error) {
-      this._secureLog("error", "\u274C Error processing binary data:", { errorType: error?.constructor?.name || "Unknown" });
+      this._secureLog("error", "Error processing binary data:", { errorType: error?.constructor?.name || "Unknown" });
     }
   }
   // FIX 3: New method for processing enhanced messages WITHOUT mutex
   async _processEnhancedMessageWithoutMutex(parsedMessage) {
     try {
-      console.log("\u{1F510} Processing enhanced message without mutex...");
       if (!this.encryptionKey || !this.macKey || !this.metadataKey) {
-        this._secureLog("error", "\u274C Missing encryption keys for enhanced message");
+        this._secureLog("error", "Missing encryption keys for enhanced message");
         return;
       }
       const decryptedResult = await window.EnhancedSecureCryptoUtils.decryptMessage(
@@ -9459,11 +9378,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         this.metadataKey
       );
       if (decryptedResult && decryptedResult.message) {
-        console.log("\u2705 Enhanced message decrypted successfully");
         try {
           const decryptedContent = JSON.parse(decryptedResult.message);
           if (decryptedContent.type === "fake" || decryptedContent.isFakeTraffic === true) {
-            console.log(`\uFFFD\uFFFD BLOCKED: Encrypted fake message: ${decryptedContent.pattern || "unknown"}`);
             return;
           }
           if (decryptedContent && decryptedContent.type === "message" && typeof decryptedContent.data === "string") {
@@ -9478,10 +9395,10 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           this.deliverMessageToUI(decryptedResult.message, "received");
         }
       } else {
-        this._secureLog("warn", "\u26A0\uFE0F No message content in decrypted result");
+        this._secureLog("warn", "No message content in decrypted result");
       }
     } catch (error) {
-      this._secureLog("error", "\u274C Error processing enhanced message:", { errorType: error?.constructor?.name || "Unknown" });
+      this._secureLog("error", "Error processing enhanced message:", { errorType: error?.constructor?.name || "Unknown" });
     }
   }
   /**
@@ -9497,7 +9414,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     const mutexPropertyName = `_${mutexName}Mutex`;
     const mutex = this[mutexPropertyName];
     if (!mutex) {
-      this._secureLog("error", `\u274C Unknown mutex: ${mutexName}`, {
+      this._secureLog("error", `Unknown mutex: ${mutexName}`, {
         mutexPropertyName,
         availableMutexes: this._getAvailableMutexes(),
         operationId
@@ -9510,7 +9427,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     return new Promise((resolve, reject) => {
       const attemptLock = () => {
         if (mutex.lockId === operationId) {
-          this._secureLog("warn", `\u26A0\uFE0F Mutex '${mutexName}' already locked by same operation`, {
+          this._secureLog("warn", `Mutex '${mutexName}' already locked by same operation`, {
             operationId
           });
           resolve();
@@ -9520,7 +9437,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           mutex.locked = true;
           mutex.lockId = operationId;
           mutex.lockTime = Date.now();
-          this._secureLog("debug", `\u{1F512} Mutex '${mutexName}' acquired atomically`, {
+          this._secureLog("debug", `Mutex '${mutexName}' acquired atomically`, {
             operationId,
             lockTime: mutex.lockTime
           });
@@ -9543,7 +9460,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
             }, timeout)
           };
           mutex.queue.push(queueItem);
-          this._secureLog("debug", `\u23F3 Operation queued for mutex '${mutexName}'`, {
+          this._secureLog("debug", `Operation queued for mutex '${mutexName}'`, {
             operationId,
             queueLength: mutex.queue.length,
             currentLockId: mutex.lockId
@@ -9566,7 +9483,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     const mutexPropertyName = `_${mutexName}Mutex`;
     const mutex = this[mutexPropertyName];
     if (!mutex) {
-      this._secureLog("error", `\u274C Unknown mutex for release: ${mutexName}`, {
+      this._secureLog("error", `Unknown mutex for release: ${mutexName}`, {
         mutexPropertyName,
         availableMutexes: this._getAvailableMutexes(),
         operationId
@@ -9574,7 +9491,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       throw new Error(`Unknown mutex for release: ${mutexName}`);
     }
     if (mutex.lockId !== operationId) {
-      this._secureLog("error", `\u274C CRITICAL: Invalid mutex release attempt - potential race condition`, {
+      this._secureLog("error", `CRITICAL: Invalid mutex release attempt - potential race condition`, {
         mutexName,
         expectedLockId: mutex.lockId,
         providedOperationId: operationId,
@@ -9587,7 +9504,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       throw new Error(`Invalid mutex release attempt for '${mutexName}': expected '${mutex.lockId}', got '${operationId}'`);
     }
     if (!mutex.locked) {
-      this._secureLog("error", `\u274C CRITICAL: Attempting to release unlocked mutex`, {
+      this._secureLog("error", `CRITICAL: Attempting to release unlocked mutex`, {
         mutexName,
         operationId,
         mutexState: {
@@ -9607,14 +9524,14 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       mutex.locked = false;
       mutex.lockId = null;
       mutex.lockTime = null;
-      this._secureLog("debug", `\u{1F513} Mutex released successfully: ${mutexName}`, {
+      this._secureLog("debug", `Mutex released successfully: ${mutexName}`, {
         operationId,
         lockDuration,
         queueLength: mutex.queue.length
       });
       this._processNextInQueue(mutexName);
     } catch (error) {
-      this._secureLog("error", `\u274C Error during mutex release queue processing`, {
+      this._secureLog("error", `Error during mutex release queue processing`, {
         mutexName,
         operationId,
         errorType: error.constructor.name,
@@ -9633,14 +9550,14 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   _processNextInQueue(mutexName) {
     const mutex = this[`_${mutexName}Mutex`];
     if (!mutex) {
-      this._secureLog("error", `\u274C Mutex not found for queue processing: ${mutexName}`);
+      this._secureLog("error", `Mutex not found for queue processing: ${mutexName}`);
       return;
     }
     if (mutex.queue.length === 0) {
       return;
     }
     if (mutex.locked) {
-      this._secureLog("warn", `\u26A0\uFE0F Mutex '${mutexName}' is still locked, skipping queue processing`, {
+      this._secureLog("warn", `Mutex '${mutexName}' is still locked, skipping queue processing`, {
         lockId: mutex.lockId,
         queueLength: mutex.queue.length
       });
@@ -9648,11 +9565,11 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     }
     const nextItem = mutex.queue.shift();
     if (!nextItem) {
-      this._secureLog("warn", `\u26A0\uFE0F Empty queue item for mutex '${mutexName}'`);
+      this._secureLog("warn", `Empty queue item for mutex '${mutexName}'`);
       return;
     }
     if (!nextItem.operationId || !nextItem.resolve || !nextItem.reject) {
-      this._secureLog("error", `\u274C Invalid queue item structure for mutex '${mutexName}'`, {
+      this._secureLog("error", `Invalid queue item structure for mutex '${mutexName}'`, {
         hasOperationId: !!nextItem.operationId,
         hasResolve: !!nextItem.resolve,
         hasReject: !!nextItem.reject
@@ -9663,7 +9580,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       if (nextItem.timeout) {
         clearTimeout(nextItem.timeout);
       }
-      this._secureLog("debug", `\u{1F504} Processing next operation in queue for mutex '${mutexName}'`, {
+      this._secureLog("debug", `Processing next operation in queue for mutex '${mutexName}'`, {
         operationId: nextItem.operationId,
         queueRemaining: mutex.queue.length,
         timestamp: Date.now()
@@ -9671,13 +9588,13 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       setTimeout(async () => {
         try {
           await this._acquireMutex(mutexName, nextItem.operationId, 5e3);
-          this._secureLog("debug", `\u2705 Queued operation acquired mutex '${mutexName}'`, {
+          this._secureLog("debug", `Queued operation acquired mutex '${mutexName}'`, {
             operationId: nextItem.operationId,
             acquisitionTime: Date.now()
           });
           nextItem.resolve();
         } catch (error) {
-          this._secureLog("error", `\u274C Queued operation failed to acquire mutex '${mutexName}'`, {
+          this._secureLog("error", `Queued operation failed to acquire mutex '${mutexName}'`, {
             operationId: nextItem.operationId,
             errorType: error.constructor.name,
             errorMessage: error.message,
@@ -9690,7 +9607,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         }
       }, 10);
     } catch (error) {
-      this._secureLog("error", `\u274C Critical error during queue processing for mutex '${mutexName}'`, {
+      this._secureLog("error", `Critical error during queue processing for mutex '${mutexName}'`, {
         operationId: nextItem.operationId,
         errorType: error.constructor.name,
         errorMessage: error.message
@@ -9698,7 +9615,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       try {
         nextItem.reject(new Error(`Queue processing critical error: ${error.message}`));
       } catch (rejectError) {
-        this._secureLog("error", `\u274C Failed to reject queue item`, {
+        this._secureLog("error", `Failed to reject queue item`, {
           originalError: error.message,
           rejectError: rejectError.message
         });
@@ -9725,7 +9642,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   async _withMutex(mutexName, operation, timeout = 5e3) {
     const operationId = this._generateOperationId();
     if (!this._validateMutexSystem()) {
-      this._secureLog("error", "\u274C Mutex system not properly initialized", {
+      this._secureLog("error", "Mutex system not properly initialized", {
         operationId,
         mutexName
       });
@@ -9745,7 +9662,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       }
       const result = await operation(operationId);
       if (result === void 0 && operation.name !== "cleanup") {
-        this._secureLog("warn", "\u26A0\uFE0F Mutex operation returned undefined result", {
+        this._secureLog("warn", "Mutex operation returned undefined result", {
           operationId,
           mutexName,
           operationName: operation.name
@@ -9753,7 +9670,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       }
       return result;
     } catch (error) {
-      this._secureLog("error", "\u274C Error in mutex operation", {
+      this._secureLog("error", "Error in mutex operation", {
         operationId,
         mutexName,
         errorType: error.constructor.name,
@@ -9777,7 +9694,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         try {
           await this._releaseMutex(mutexName, operationId);
           if (mutex.locked && mutex.lockId === operationId) {
-            this._secureLog("error", "\u274C Mutex release verification failed", {
+            this._secureLog("error", "Mutex release verification failed", {
               operationId,
               mutexName
             });
@@ -9786,7 +9703,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
             mutex.lockTimeout = null;
           }
         } catch (releaseError) {
-          this._secureLog("error", "\u274C Error releasing mutex in finally block", {
+          this._secureLog("error", "Error releasing mutex in finally block", {
             operationId,
             mutexName,
             releaseErrorType: releaseError.constructor.name,
@@ -9805,7 +9722,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       const mutexPropertyName = `_${mutexName}Mutex`;
       const mutex = this[mutexPropertyName];
       if (!mutex || typeof mutex !== "object") {
-        this._secureLog("error", `\u274C Missing or invalid mutex: ${mutexName}`, {
+        this._secureLog("error", `Missing or invalid mutex: ${mutexName}`, {
           mutexPropertyName,
           mutexType: typeof mutex
         });
@@ -9814,7 +9731,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       const requiredProps = ["locked", "queue", "lockId", "lockTimeout"];
       for (const prop of requiredProps) {
         if (!(prop in mutex)) {
-          this._secureLog("error", `\u274C Mutex ${mutexName} missing property: ${prop}`);
+          this._secureLog("error", `Mutex ${mutexName} missing property: ${prop}`);
           return false;
         }
       }
@@ -9825,26 +9742,26 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
    *   Enhanced emergency recovery of the mutex system
    */
   _emergencyRecoverMutexSystem() {
-    this._secureLog("warn", "\u{1F6A8} Emergency mutex system recovery initiated");
+    this._secureLog("warn", "Emergency mutex system recovery initiated");
     try {
       this._emergencyUnlockAllMutexes("emergencyRecovery");
       this._initializeMutexSystem();
       if (!this._validateMutexSystem()) {
         throw new Error("Mutex system validation failed after recovery");
       }
-      this._secureLog("info", "\u2705 Mutex system recovered successfully with validation");
+      this._secureLog("info", "Mutex system recovered successfully with validation");
       return true;
     } catch (error) {
-      this._secureLog("error", "\u274C Failed to recover mutex system", {
+      this._secureLog("error", "Failed to recover mutex system", {
         errorType: error.constructor.name,
         errorMessage: error.message
       });
       try {
         this._initializeMutexSystem();
-        this._secureLog("warn", "\u26A0\uFE0F Forced mutex system re-initialization completed");
+        this._secureLog("warn", "Forced mutex system re-initialization completed");
         return true;
       } catch (reinitError) {
-        this._secureLog("error", "\u274C CRITICAL: Forced re-initialization also failed", {
+        this._secureLog("error", "CRITICAL: Forced re-initialization also failed", {
           originalError: error.message,
           reinitError: reinitError.message
         });
@@ -9857,12 +9774,12 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
    */
   async _generateEncryptionKeys() {
     return this._withMutex("keyOperation", async (operationId) => {
-      this._secureLog("info", "\u{1F511} Generating encryption keys with atomic mutex", {
+      this._secureLog("info", "Generating encryption keys with atomic mutex", {
         operationId
       });
       const currentState = this._keySystemState;
       if (currentState.isInitializing) {
-        this._secureLog("warn", "\u26A0\uFE0F Key generation already in progress, waiting for completion", {
+        this._secureLog("warn", "Key generation already in progress, waiting for completion", {
           operationId,
           lastOperation: currentState.lastOperation,
           lastOperationTime: currentState.lastOperationTime
@@ -9882,7 +9799,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         currentState.lastOperation = "generation";
         currentState.lastOperationTime = Date.now();
         currentState.operationId = operationId;
-        this._secureLog("debug", "\u{1F512} Atomic key generation state set", {
+        this._secureLog("debug", "Atomic key generation state set", {
           operationId,
           timestamp: currentState.lastOperationTime
         });
@@ -9896,14 +9813,14 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           if (!this._validateKeyPairConstantTime(ecdhKeyPair)) {
             throw new Error("Ephemeral ECDH keys are not valid CryptoKey instances");
           }
-          this._secureLog("debug", "\u2705 Ephemeral ECDH keys generated and validated for PFS", {
+          this._secureLog("debug", "Ephemeral ECDH keys generated and validated for PFS", {
             operationId,
             privateKeyType: ecdhKeyPair.privateKey.algorithm?.name,
             publicKeyType: ecdhKeyPair.publicKey.algorithm?.name,
             isEphemeral: true
           });
         } catch (ecdhError) {
-          this._secureLog("error", "\u274C Ephemeral ECDH key generation failed", {
+          this._secureLog("error", "Ephemeral ECDH key generation failed", {
             operationId,
             errorType: ecdhError.constructor.name
           });
@@ -9917,13 +9834,13 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           if (!this._validateKeyPairConstantTime(ecdsaKeyPair)) {
             throw new Error("ECDSA keys are not valid CryptoKey instances");
           }
-          this._secureLog("debug", "\u2705 ECDSA keys generated and validated", {
+          this._secureLog("debug", "ECDSA keys generated and validated", {
             operationId,
             privateKeyType: ecdsaKeyPair.privateKey.algorithm?.name,
             publicKeyType: ecdsaKeyPair.publicKey.algorithm?.name
           });
         } catch (ecdsaError) {
-          this._secureLog("error", "\u274C ECDSA key generation failed", {
+          this._secureLog("error", "ECDSA key generation failed", {
             operationId,
             errorType: ecdsaError.constructor.name
           });
@@ -9933,7 +9850,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           throw new Error("One or both key pairs failed to generate");
         }
         this._enableSecurityFeaturesAfterKeyGeneration(ecdhKeyPair, ecdsaKeyPair);
-        this._secureLog("info", "\u2705 Encryption keys generated successfully with atomic protection", {
+        this._secureLog("info", "Encryption keys generated successfully with atomic protection", {
           operationId,
           hasECDHKeys: !!(ecdhKeyPair?.privateKey && ecdhKeyPair?.publicKey),
           hasECDSAKeys: !!(ecdsaKeyPair?.privateKey && ecdsaKeyPair?.publicKey),
@@ -9941,7 +9858,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         });
         return { ecdhKeyPair, ecdsaKeyPair };
       } catch (error) {
-        this._secureLog("error", "\u274C Key generation failed, resetting state", {
+        this._secureLog("error", "Key generation failed, resetting state", {
           operationId,
           errorType: error.constructor.name
         });
@@ -9949,7 +9866,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       } finally {
         currentState.isInitializing = false;
         currentState.operationId = null;
-        this._secureLog("debug", "\u{1F513} Key generation state reset", {
+        this._secureLog("debug", "Key generation state reset", {
           operationId
         });
       }
@@ -9963,23 +9880,23 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       if (ecdhKeyPair && ecdhKeyPair.privateKey && ecdhKeyPair.publicKey) {
         this.securityFeatures.hasEncryption = true;
         this.securityFeatures.hasECDH = true;
-        this._secureLog("info", "\u{1F512} ECDH encryption features enabled");
+        this._secureLog("info", "ECDH encryption features enabled");
       }
       if (ecdsaKeyPair && ecdsaKeyPair.privateKey && ecdsaKeyPair.publicKey) {
         this.securityFeatures.hasECDSA = true;
-        this._secureLog("info", "\u{1F512} ECDSA signature features enabled");
+        this._secureLog("info", "ECDSA signature features enabled");
       }
       if (this.securityFeatures.hasEncryption) {
         this.securityFeatures.hasMetadataProtection = true;
         this.securityFeatures.hasEnhancedReplayProtection = true;
         this.securityFeatures.hasNonExtractableKeys = true;
-        this._secureLog("info", "\u{1F512} Additional encryption-dependent features enabled");
+        this._secureLog("info", "Additional encryption-dependent features enabled");
       }
       if (ecdhKeyPair && this.ephemeralKeyPairs.size > 0) {
         this.securityFeatures.hasPFS = true;
-        this._secureLog("info", "\u{1F512} Perfect Forward Secrecy enabled with ephemeral keys");
+        this._secureLog("info", "Perfect Forward Secrecy enabled with ephemeral keys");
       }
-      this._secureLog("info", "\u{1F512} Security features updated after key generation", {
+      this._secureLog("info", "Security features updated after key generation", {
         hasEncryption: this.securityFeatures.hasEncryption,
         hasECDH: this.securityFeatures.hasECDH,
         hasECDSA: this.securityFeatures.hasECDSA,
@@ -9989,7 +9906,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         hasPFS: this.securityFeatures.hasPFS
       });
     } catch (error) {
-      this._secureLog("error", "\u274C Failed to enable security features after key generation", {
+      this._secureLog("error", "Failed to enable security features after key generation", {
         errorType: error.constructor.name,
         errorMessage: error.message
       });
@@ -10008,7 +9925,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       "errorHandler"
     ];
     if (!authorizedCallers.includes(callerContext)) {
-      this._secureLog("error", `\u{1F6A8} UNAUTHORIZED emergency mutex unlock attempt`, {
+      this._secureLog("error", `UNAUTHORIZED emergency mutex unlock attempt`, {
         callerContext,
         authorizedCallers,
         timestamp: Date.now()
@@ -10016,7 +9933,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       throw new Error(`Unauthorized emergency mutex unlock attempt by: ${callerContext}`);
     }
     const mutexes = ["keyOperation", "cryptoOperation", "connectionOperation"];
-    this._secureLog("error", "\u{1F6A8} EMERGENCY: Unlocking all mutexes with authorization and state cleanup", {
+    this._secureLog("error", "EMERGENCY: Unlocking all mutexes with authorization and state cleanup", {
       callerContext,
       timestamp: Date.now()
     });
@@ -10047,7 +9964,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
                 queueRejectCount++;
               }
             } catch (rejectError) {
-              this._secureLog("warn", `\u26A0\uFE0F Failed to reject queue item during emergency unlock`, {
+              this._secureLog("warn", `Failed to reject queue item during emergency unlock`, {
                 mutexName,
                 errorType: rejectError.constructor.name
               });
@@ -10055,14 +9972,14 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           });
           mutex.queue = [];
           unlockedCount++;
-          this._secureLog("debug", `\u{1F513} Emergency unlocked mutex: ${mutexName}`, {
+          this._secureLog("debug", `Emergency unlocked mutex: ${mutexName}`, {
             previousState,
             queueRejectCount,
             callerContext
           });
         } catch (error) {
           errorCount++;
-          this._secureLog("error", `\u274C Error during emergency unlock of mutex: ${mutexName}`, {
+          this._secureLog("error", `Error during emergency unlock of mutex: ${mutexName}`, {
             errorType: error.constructor.name,
             errorMessage: error.message,
             callerContext
@@ -10078,19 +9995,19 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         this._keySystemState.isDestroying = false;
         this._keySystemState.operationId = null;
         this._keySystemState.concurrentOperations = 0;
-        this._secureLog("debug", `\u{1F513} Emergency reset key system state`, {
+        this._secureLog("debug", `Emergency reset key system state`, {
           previousState: previousKeyState,
           callerContext
         });
       } catch (error) {
-        this._secureLog("error", `\u274C Error resetting key system state during emergency unlock`, {
+        this._secureLog("error", `Error resetting key system state during emergency unlock`, {
           errorType: error.constructor.name,
           errorMessage: error.message,
           callerContext
         });
       }
     }
-    this._secureLog("info", `\u{1F6A8} Emergency mutex unlock completed`, {
+    this._secureLog("info", `Emergency mutex unlock completed`, {
       callerContext,
       unlockedCount,
       errorCount,
@@ -10105,7 +10022,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
    *   Handle key operation errors with recovery mechanisms
    */
   _handleKeyOperationError(error, operationId) {
-    this._secureLog("error", "\u{1F6A8} Key operation error detected, initiating recovery", {
+    this._secureLog("error", "Key operation error detected, initiating recovery", {
       operationId,
       errorType: error.constructor.name,
       errorMessage: error.message
@@ -10122,7 +10039,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     this.macKey = null;
     this.metadataKey = null;
     if (error.message.includes("timeout") || error.message.includes("race condition")) {
-      this._secureLog("warn", "\u26A0\uFE0F Race condition or timeout detected, triggering emergency recovery");
+      this._secureLog("warn", "Race condition or timeout detected, triggering emergency recovery");
       this._emergencyRecoverMutexSystem();
     }
   }
@@ -10131,7 +10048,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
    */
   _generateSecureIV(ivSize = 12, context = "general") {
     if (this._ivTrackingSystem.emergencyMode) {
-      this._secureLog("error", "\u{1F6A8} CRITICAL: IV generation blocked - emergency mode active due to IV reuse");
+      this._secureLog("error", "CRITICAL: IV generation blocked - emergency mode active due to IV reuse");
       throw new Error("IV generation blocked - emergency mode active");
     }
     let attempts2 = 0;
@@ -10142,7 +10059,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       const ivString = Array.from(iv).map((b) => b.toString(16).padStart(2, "0")).join("");
       if (this._ivTrackingSystem.usedIVs.has(ivString)) {
         this._ivTrackingSystem.collisionCount++;
-        this._secureLog("error", `\u{1F6A8} CRITICAL: IV reuse detected!`, {
+        this._secureLog("error", `CRITICAL: IV reuse detected!`, {
           context,
           attempt: attempts2,
           collisionCount: this._ivTrackingSystem.collisionCount,
@@ -10151,21 +10068,21 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         });
         if (this._ivTrackingSystem.collisionCount > 5) {
           this._ivTrackingSystem.emergencyMode = true;
-          this._secureLog("error", "\u{1F6A8} CRITICAL: Emergency mode activated due to excessive IV reuse");
+          this._secureLog("error", "CRITICAL: Emergency mode activated due to excessive IV reuse");
           throw new Error("Emergency mode: Excessive IV reuse detected");
         }
         continue;
       }
       if (!this._validateIVEntropy(iv)) {
         this._ivTrackingSystem.entropyValidation.entropyFailures++;
-        this._secureLog("warn", `\u26A0\uFE0F Low entropy IV detected`, {
+        this._secureLog("warn", `Low entropy IV detected`, {
           context,
           attempt: attempts2,
           entropyFailures: this._ivTrackingSystem.entropyValidation.entropyFailures
         });
         if (this._ivTrackingSystem.entropyValidation.entropyFailures > 10) {
           this._ivTrackingSystem.emergencyMode = true;
-          this._secureLog("error", "\u{1F6A8} CRITICAL: Emergency mode activated due to low entropy IVs");
+          this._secureLog("error", "CRITICAL: Emergency mode activated due to low entropy IVs");
           throw new Error("Emergency mode: Low entropy IVs detected");
         }
         continue;
@@ -10183,7 +10100,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         this._ivTrackingSystem.sessionIVs.get(this.sessionId).add(ivString);
       }
       this._validateRNGQuality();
-      this._secureLog("debug", `\u2705 Secure IV generated`, {
+      this._secureLog("debug", `Secure IV generated`, {
         context,
         attempt: attempts2,
         ivSize,
@@ -10191,7 +10108,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       });
       return iv;
     }
-    this._secureLog("error", `\u274C Failed to generate unique IV after ${maxAttempts} attempts`, {
+    this._secureLog("error", `Failed to generate unique IV after ${maxAttempts} attempts`, {
       context,
       totalIVs: this._ivTrackingSystem.usedIVs.size
     });
@@ -10241,7 +10158,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     const minEntropyThreshold = this._ivTrackingSystem.entropyValidation.minEntropy;
     const isValid = entropyResults.shannon >= minEntropyThreshold && entropyResults.min >= minEntropyThreshold * 0.8 && entropyResults.collision >= minEntropyThreshold * 0.9 && entropyResults.compression >= minEntropyThreshold * 0.7 && entropyResults.quantum >= minEntropyThreshold * 0.6 && !hasSuspiciousPatterns;
     if (!isValid) {
-      this._secureLog("warn", `\u26A0\uFE0F Enhanced IV entropy validation failed`, {
+      this._secureLog("warn", `Enhanced IV entropy validation failed`, {
         shannon: entropyResults.shannon.toFixed(2),
         min: entropyResults.min.toFixed(2),
         collision: entropyResults.collision.toFixed(2),
@@ -10511,7 +10428,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       }
     }
     if (cleanedCount > 0) {
-      this._secureLog("debug", `\u{1F9F9} Enhanced cleanup: ${cleanedCount} old IVs removed`, {
+      this._secureLog("debug", `Enhanced cleanup: ${cleanedCount} old IVs removed`, {
         cleanedCount,
         remainingIVs: this._ivTrackingSystem.usedIVs.size,
         remainingHistory: this._ivTrackingSystem.ivHistory.size,
@@ -10558,7 +10475,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
    *   Reset IV tracking system (for testing or emergency recovery)
    */
   _resetIVTrackingSystem() {
-    this._secureLog("warn", "\u{1F504} Resetting IV tracking system");
+    this._secureLog("warn", "Resetting IV tracking system");
     this._ivTrackingSystem.usedIVs.clear();
     this._ivTrackingSystem.ivHistory.clear();
     this._ivTrackingSystem.sessionIVs.clear();
@@ -10568,7 +10485,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     this._ivTrackingSystem.rngValidation.testsPerformed = 0;
     this._ivTrackingSystem.rngValidation.weakRngDetected = false;
     this._ivTrackingSystem.emergencyMode = false;
-    this._secureLog("info", "\u2705 IV tracking system reset completed");
+    this._secureLog("info", "IV tracking system reset completed");
   }
   /**
    *   Validate RNG quality
@@ -10585,14 +10502,14 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         const uniqueTestIVs = new Set(testIVStrings);
         if (uniqueTestIVs.size < 95) {
           this._ivTrackingSystem.rngValidation.weakRngDetected = true;
-          this._secureLog("error", "\u{1F6A8} CRITICAL: Weak RNG detected in validation test", {
+          this._secureLog("error", "CRITICAL: Weak RNG detected in validation test", {
             uniqueIVs: uniqueTestIVs.size,
             totalTests: testIVs.length
           });
         }
         this._ivTrackingSystem.rngValidation.lastValidation = now;
       } catch (error) {
-        this._secureLog("error", "\u274C RNG validation failed", {
+        this._secureLog("error", "RNG validation failed", {
           errorType: error.constructor.name
         });
       }
@@ -10605,11 +10522,11 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   _handleMutexTimeout(mutexName, operationId, timeout) {
     const mutex = this[`_${mutexName}Mutex`];
     if (!mutex) {
-      this._secureLog("error", `\u274C Mutex '${mutexName}' not found during timeout handling`);
+      this._secureLog("error", `Mutex '${mutexName}' not found during timeout handling`);
       return;
     }
     if (mutex.lockId !== operationId) {
-      this._secureLog("warn", `\u26A0\uFE0F Timeout for different operation ID on mutex '${mutexName}'`, {
+      this._secureLog("warn", `Timeout for different operation ID on mutex '${mutexName}'`, {
         expectedOperationId: operationId,
         actualLockId: mutex.lockId,
         locked: mutex.locked
@@ -10617,14 +10534,14 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       return;
     }
     if (!mutex.locked) {
-      this._secureLog("warn", `\u26A0\uFE0F Timeout for already unlocked mutex '${mutexName}'`, {
+      this._secureLog("warn", `Timeout for already unlocked mutex '${mutexName}'`, {
         operationId
       });
       return;
     }
     try {
       const lockDuration = mutex.lockTime ? Date.now() - mutex.lockTime : 0;
-      this._secureLog("warn", `\u26A0\uFE0F Mutex '${mutexName}' auto-released due to timeout`, {
+      this._secureLog("warn", `Mutex '${mutexName}' auto-released due to timeout`, {
         operationId,
         lockDuration,
         timeout,
@@ -10638,14 +10555,14 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         try {
           this._processNextInQueue(mutexName);
         } catch (queueError) {
-          this._secureLog("error", `\u274C Error processing queue after timeout for mutex '${mutexName}'`, {
+          this._secureLog("error", `Error processing queue after timeout for mutex '${mutexName}'`, {
             errorType: queueError.constructor.name,
             errorMessage: queueError.message
           });
         }
       }, 10);
     } catch (error) {
-      this._secureLog("error", `\u274C Critical error during mutex timeout handling for '${mutexName}'`, {
+      this._secureLog("error", `Critical error during mutex timeout handling for '${mutexName}'`, {
         operationId,
         errorType: error.constructor.name,
         errorMessage: error.message
@@ -10653,7 +10570,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       try {
         this._emergencyUnlockAllMutexes("timeoutHandler");
       } catch (emergencyError) {
-        this._secureLog("error", `\u274C Emergency unlock failed during timeout handling`, {
+        this._secureLog("error", `Emergency unlock failed during timeout handling`, {
           originalError: error.message,
           emergencyError: emergencyError.message
         });
@@ -10666,34 +10583,34 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   _validateMutexSystemAfterEmergencyUnlock() {
     const mutexes = ["keyOperation", "cryptoOperation", "connectionOperation"];
     let validationErrors = 0;
-    this._secureLog("info", "\u{1F50D} Validating mutex system after emergency unlock");
+    this._secureLog("info", "Validating mutex system after emergency unlock");
     mutexes.forEach((mutexName) => {
       const mutex = this[`_${mutexName}Mutex`];
       if (!mutex) {
         validationErrors++;
-        this._secureLog("error", `\u274C Mutex '${mutexName}' not found after emergency unlock`);
+        this._secureLog("error", `Mutex '${mutexName}' not found after emergency unlock`);
         return;
       }
       if (mutex.locked) {
         validationErrors++;
-        this._secureLog("error", `\u274C Mutex '${mutexName}' still locked after emergency unlock`, {
+        this._secureLog("error", `Mutex '${mutexName}' still locked after emergency unlock`, {
           lockId: mutex.lockId,
           lockTime: mutex.lockTime
         });
       }
       if (mutex.lockId !== null) {
         validationErrors++;
-        this._secureLog("error", `\u274C Mutex '${mutexName}' still has lock ID after emergency unlock`, {
+        this._secureLog("error", `Mutex '${mutexName}' still has lock ID after emergency unlock`, {
           lockId: mutex.lockId
         });
       }
       if (mutex.lockTimeout !== null) {
         validationErrors++;
-        this._secureLog("error", `\u274C Mutex '${mutexName}' still has timeout after emergency unlock`);
+        this._secureLog("error", `Mutex '${mutexName}' still has timeout after emergency unlock`);
       }
       if (mutex.queue.length > 0) {
         validationErrors++;
-        this._secureLog("error", `\u274C Mutex '${mutexName}' still has queue items after emergency unlock`, {
+        this._secureLog("error", `Mutex '${mutexName}' still has queue items after emergency unlock`, {
           queueLength: mutex.queue.length
         });
       }
@@ -10701,7 +10618,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     if (this._keySystemState) {
       if (this._keySystemState.isInitializing || this._keySystemState.isRotating || this._keySystemState.isDestroying) {
         validationErrors++;
-        this._secureLog("error", `\u274C Key system state not properly reset after emergency unlock`, {
+        this._secureLog("error", `Key system state not properly reset after emergency unlock`, {
           isInitializing: this._keySystemState.isInitializing,
           isRotating: this._keySystemState.isRotating,
           isDestroying: this._keySystemState.isDestroying
@@ -10709,9 +10626,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       }
     }
     if (validationErrors === 0) {
-      this._secureLog("info", "\u2705 Mutex system validation passed after emergency unlock");
+      this._secureLog("info", "Mutex system validation passed after emergency unlock");
     } else {
-      this._secureLog("error", `\u274C Mutex system validation failed after emergency unlock`, {
+      this._secureLog("error", `Mutex system validation failed after emergency unlock`, {
         validationErrors
       });
       setTimeout(() => {
@@ -10752,28 +10669,24 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
    * With race-condition protection and improved security
    */
   async createSecureOffer() {
-    console.log("\u{1F3AF} createSecureOffer called");
     return this._withMutex("connectionOperation", async (operationId) => {
-      this._secureLog("info", "\u{1F4E4} Creating secure offer with mutex", {
+      this._secureLog("info", "Creating secure offer with mutex", {
         operationId,
         connectionAttempts: this.connectionAttempts,
         currentState: this.peerConnection?.connectionState || "none"
       });
       try {
-        console.log("\u{1F3AF} PHASE 1: Initialization and validation");
         this._resetNotificationFlags();
         if (!this._checkRateLimit()) {
           throw new Error("Connection rate limit exceeded. Please wait before trying again.");
         }
         this.connectionAttempts = 0;
         this.sessionSalt = window.EnhancedSecureCryptoUtils.generateSalt();
-        console.log("\u{1F3AF} PHASE 1 completed: Session salt generated");
-        this._secureLog("debug", "\u{1F9C2} Session salt generated", {
+        this._secureLog("debug", "Session salt generated", {
           operationId,
           saltLength: this.sessionSalt.length,
           isValidSalt: Array.isArray(this.sessionSalt) && this.sessionSalt.length === 64
         });
-        console.log("\u{1F3AF} PHASE 2: Secure key generation");
         const keyPairs = await this._generateEncryptionKeys();
         this.ecdhKeyPair = keyPairs.ecdhKeyPair;
         this.ecdsaKeyPair = keyPairs.ecdsaKeyPair;
@@ -10783,7 +10696,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         if (!this.ecdsaKeyPair?.privateKey || !this.ecdsaKeyPair?.publicKey) {
           throw new Error("Failed to generate valid ECDSA key pair");
         }
-        console.log("\u{1F3AF} PHASE 3: MITM protection and fingerprinting");
         const ecdhFingerprint = await window.EnhancedSecureCryptoUtils.calculateKeyFingerprint(
           await crypto.subtle.exportKey("spki", this.ecdhKeyPair.publicKey)
         );
@@ -10800,7 +10712,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           fingerprintLength: ecdhFingerprint.length,
           timestamp: Date.now()
         });
-        console.log("\u{1F3AF} PHASE 4: Export signed keys");
         const ecdhPublicKeyData = await window.EnhancedSecureCryptoUtils.exportPublicKeyWithSignature(
           this.ecdhKeyPair.publicKey,
           this.ecdsaKeyPair.privateKey,
@@ -10835,7 +10746,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           });
           throw new Error("CRITICAL SECURITY FAILURE: ECDSA key export incomplete - hard abort required");
         }
-        console.log("\u{1F3AF} PHASE 5: Update security features");
         this._updateSecurityFeatures({
           hasEncryption: true,
           hasECDH: true,
@@ -10848,7 +10758,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           hasEnhancedValidation: true,
           hasPFS: true
         });
-        console.log("\u{1F3AF} PHASE 6: Initialize peer connection");
         this.isInitiator = true;
         this.onStatusChange("connecting");
         this.createPeerConnection();
@@ -10856,58 +10765,46 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           ordered: true
         });
         this.setupDataChannel(this.dataChannel);
-        this._secureLog("debug", "\u{1F517} Data channel created", {
+        this._secureLog("debug", "Data channel created", {
           operationId,
           channelLabel: this.dataChannel.label,
           channelOrdered: this.dataChannel.ordered
         });
-        console.log("\u{1F3AF} PHASE 7: Create SDP offer");
-        console.log("\u{1F3AF} Creating WebRTC offer...");
         const offer = await this.peerConnection.createOffer({
           offerToReceiveAudio: false,
           offerToReceiveVideo: false
         });
-        console.log("\u{1F3AF} WebRTC offer created successfully");
-        console.log("\u{1F3AF} Setting local description...");
         await this.peerConnection.setLocalDescription(offer);
-        console.log("\u{1F3AF} Local description set successfully");
-        console.log("\u{1F3AF} Extracting DTLS fingerprint...");
         try {
           const ourFingerprint = this._extractDTLSFingerprintFromSDP(offer.sdp);
           this.expectedDTLSFingerprint = ourFingerprint;
-          console.log("\u{1F3AF} DTLS fingerprint extracted successfully");
           this._secureLog("info", "Generated DTLS fingerprint for out-of-band verification", {
             fingerprint: ourFingerprint,
             context: "offer_creation"
           });
-          this.deliverMessageToUI(`\u{1F510} DTLS fingerprint ready for verification: ${ourFingerprint}`, "system");
+          this.deliverMessageToUI(`DTLS fingerprint ready for verification: ${ourFingerprint}`, "system");
         } catch (error) {
           this._secureLog("error", "Failed to extract DTLS fingerprint from offer", { error: error.message });
         }
         await this.waitForIceGathering();
-        this._secureLog("debug", "\u{1F9CA} ICE gathering completed", {
+        this._secureLog("debug", "ICE gathering completed", {
           operationId,
           iceGatheringState: this.peerConnection.iceGatheringState,
           connectionState: this.peerConnection.connectionState
         });
-        console.log("\u{1F3AF} PHASE 8: Generate SAS for out-of-band verification");
         this.verificationCode = window.EnhancedSecureCryptoUtils.generateVerificationCode();
-        console.log("\u{1F3AF} Placeholder verification code generated:", this.verificationCode);
         if (!this.verificationCode || this.verificationCode.length < _EnhancedSecureWebRTCManager.SIZES.VERIFICATION_CODE_MIN_LENGTH) {
           throw new Error("Failed to generate valid verification code");
         }
-        console.log("\u{1F3AF} PHASE 9: Mutual authentication challenge");
         const authChallenge = window.EnhancedSecureCryptoUtils.generateMutualAuthChallenge();
         if (!authChallenge) {
           throw new Error("Failed to generate mutual authentication challenge");
         }
-        console.log("\u{1F3AF} PHASE 10: Session ID for MITM protection");
         this.sessionId = Array.from(crypto.getRandomValues(new Uint8Array(_EnhancedSecureWebRTCManager.SIZES.SESSION_ID_LENGTH))).map((b) => b.toString(16).padStart(2, "0")).join("");
         if (!this.sessionId || this.sessionId.length !== _EnhancedSecureWebRTCManager.SIZES.SESSION_ID_LENGTH * 2) {
           throw new Error("Failed to generate valid session ID");
         }
         this.connectionId = Array.from(crypto.getRandomValues(new Uint8Array(8))).map((b) => b.toString(16).padStart(2, "0")).join("");
-        console.log("\u{1F3AF} PHASE 11: Security level calculation");
         const securityLevel = {
           level: "MAXIMUM",
           score: 100,
@@ -10917,9 +10814,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           totalChecks: 10,
           isRealData: true
         };
-        console.log("\u{1F3AF} PHASE 12: Create offer package");
         const currentTimestamp = Date.now();
-        console.log("\u{1F3AF} Creating offer package object...");
         const offerPackage = {
           // Core information (minimal)
           t: "offer",
@@ -10958,22 +10853,11 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
             // ecdsa (12 chars)
           }
         };
-        console.log("\u{1F3AF} Offer package object created successfully");
-        console.log("\u{1F3AF} PHASE 13: Validate offer package");
-        console.log("\u{1F3AF} Validating offer package...");
         try {
           const validationResult = this.validateEnhancedOfferData(offerPackage);
-          console.log("\u{1F3AF} Validation result:", validationResult);
-          if (!validationResult) {
-            console.log("\u{1F3AF} Offer package validation FAILED");
-            throw new Error("Generated offer package failed validation");
-          }
-          console.log("\u{1F3AF} Offer package validation PASSED");
         } catch (validationError) {
-          console.log("\u{1F3AF} Validation ERROR:", validationError.message);
           throw new Error(`Offer package validation error: ${validationError.message}`);
         }
-        console.log("\u{1F3AF} PHASE 14: Logging and events");
         this._secureLog("info", "Enhanced secure offer created successfully", {
           operationId,
           version: offerPackage.version,
@@ -10993,11 +10877,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
             operationId
           }
         }));
-        console.log("\u{1F3AF} PHASE 15: Return result");
-        console.log("\u{1F3AF} createSecureOffer completed successfully, returning offerPackage");
         return offerPackage;
       } catch (error) {
-        this._secureLog("error", "\u274C Enhanced secure offer creation failed in critical section", {
+        this._secureLog("error", "Enhanced secure offer creation failed in critical section", {
           operationId,
           errorType: error.constructor.name,
           errorMessage: error.message,
@@ -11054,9 +10936,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         hasPFS: false
       });
       this._forceGarbageCollection();
-      this._secureLog("debug", "\u{1F512} Failed offer creation cleanup completed with secure memory wipe");
+      this._secureLog("debug", "Failed offer creation cleanup completed with secure memory wipe");
     } catch (cleanupError) {
-      this._secureLog("error", "\u274C Error during offer creation cleanup", {
+      this._secureLog("error", "Error during offer creation cleanup", {
         errorType: cleanupError.constructor.name,
         errorMessage: cleanupError.message
       });
@@ -11069,13 +10951,13 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     const oldFeatures = { ...this.securityFeatures };
     try {
       Object.assign(this.securityFeatures, updates);
-      this._secureLog("debug", "\u{1F527} Security features updated", {
+      this._secureLog("debug", "Security features updated", {
         updatedCount: Object.keys(updates).length,
         totalFeatures: Object.keys(this.securityFeatures).length
       });
     } catch (error) {
       this.securityFeatures = oldFeatures;
-      this._secureLog("error", "\u274C Security features update failed, rolled back", {
+      this._secureLog("error", "Security features update failed, rolled back", {
         errorType: error.constructor.name
       });
       throw error;
@@ -11086,9 +10968,8 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
    * With race-condition protection and enhanced security
    */
   async createSecureAnswer(offerData) {
-    console.log("\u{1F3AF} createSecureAnswer called with offerData:", offerData ? "present" : "null");
     return this._withMutex("connectionOperation", async (operationId) => {
-      this._secureLog("info", "\u{1F4E8} Creating secure answer with mutex", {
+      this._secureLog("info", "Creating secure answer with mutex", {
         operationId,
         hasOfferData: !!offerData,
         offerType: offerData?.type,
@@ -11287,7 +11168,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         }
         this.isInitiator = false;
         this.onStatusChange("connecting");
-        console.log("Before onKeyExchange - keyFingerprint:", this.keyFingerprint);
         this.onKeyExchange(this.keyFingerprint);
         this.createPeerConnection();
         if (this.strictDTLSValidation) {
@@ -11331,7 +11211,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           });
           this._throwSecureError(error, "webrtc_remote_description");
         }
-        this._secureLog("debug", "\u{1F517} Remote description set successfully", {
+        this._secureLog("debug", "Remote description set successfully", {
           operationId,
           connectionState: this.peerConnection.connectionState,
           signalingState: this.peerConnection.signalingState
@@ -11357,12 +11237,12 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
             fingerprint: ourFingerprint,
             context: "answer_creation"
           });
-          this.deliverMessageToUI(`\u{1F510} DTLS fingerprint ready for verification: ${ourFingerprint}`, "system");
+          this.deliverMessageToUI(`DTLS fingerprint ready for verification: ${ourFingerprint}`, "system");
         } catch (error) {
           this._secureLog("error", "Failed to extract DTLS fingerprint from answer", { error: error.message });
         }
         await this.waitForIceGathering();
-        this._secureLog("debug", "\u{1F9CA} ICE gathering completed for answer", {
+        this._secureLog("debug", "ICE gathering completed for answer", {
           operationId,
           iceGatheringState: this.peerConnection.iceGatheringState,
           connectionState: this.peerConnection.connectionState
@@ -11471,13 +11351,13 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
             const realSecurityData = await this.calculateAndReportSecurityLevel();
             if (realSecurityData) {
               this.notifySecurityUpdate();
-              this._secureLog("info", "\u2705 Post-connection security level calculated", {
+              this._secureLog("info", "Post-connection security level calculated", {
                 operationId,
                 level: realSecurityData.level
               });
             }
           } catch (error) {
-            this._secureLog("error", "\u274C Error calculating post-connection security", {
+            this._secureLog("error", "Error calculating post-connection security", {
               operationId,
               errorType: error.constructor.name
             });
@@ -11485,7 +11365,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         }, 1e3);
         setTimeout(async () => {
           if (!this.lastSecurityCalculation || this.lastSecurityCalculation.score < 50) {
-            this._secureLog("info", "\u{1F504} Retrying security calculation", {
+            this._secureLog("info", "Retrying security calculation", {
               operationId
             });
             await this.calculateAndReportSecurityLevel();
@@ -11495,7 +11375,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         this.notifySecurityUpdate();
         return answerPackage;
       } catch (error) {
-        this._secureLog("error", "\u274C Enhanced secure answer creation failed in critical section", {
+        this._secureLog("error", "Enhanced secure answer creation failed in critical section", {
           operationId,
           errorType: error.constructor.name,
           errorMessage: error.message,
@@ -11578,9 +11458,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         hasPFS: false
       });
       this._forceGarbageCollection();
-      this._secureLog("debug", "\u{1F512} Failed answer creation cleanup completed with secure memory wipe");
+      this._secureLog("debug", "Failed answer creation cleanup completed with secure memory wipe");
     } catch (cleanupError) {
-      this._secureLog("error", "\u274C Error during answer creation cleanup", {
+      this._secureLog("error", "Error during answer creation cleanup", {
         errorType: cleanupError.constructor.name,
         errorMessage: cleanupError.message
       });
@@ -11591,7 +11471,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
    */
   async _setEncryptionKeys(encryptionKey, macKey, metadataKey, keyFingerprint) {
     return this._withMutex("keyOperation", async (operationId) => {
-      this._secureLog("info", "\u{1F510} Setting encryption keys with mutex", {
+      this._secureLog("info", "Setting encryption keys with mutex", {
         operationId
       });
       if (!(encryptionKey instanceof CryptoKey) || !(macKey instanceof CryptoKey) || !(metadataKey instanceof CryptoKey)) {
@@ -11616,7 +11496,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         this.messageCounter = 0;
         this.processedMessageIds.clear();
         this.replayWindow.clear();
-        this._secureLog("info", "\u2705 Encryption keys set successfully", {
+        this._secureLog("info", "Encryption keys set successfully", {
           operationId,
           hasAllKeys: !!(this.encryptionKey && this.macKey && this.metadataKey),
           hasFingerprint: !!this.keyFingerprint
@@ -11627,7 +11507,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         this.macKey = oldKeys.macKey;
         this.metadataKey = oldKeys.metadataKey;
         this.keyFingerprint = oldKeys.keyFingerprint;
-        this._secureLog("error", "\u274C Key setting failed, rolled back", {
+        this._secureLog("error", "Key setting failed, rolled back", {
           operationId,
           errorType: error.constructor.name
         });
@@ -11636,7 +11516,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     });
   }
   async handleSecureAnswer(answerData) {
-    console.log("\u{1F3AF} handleSecureAnswer called with answerData:", answerData ? "present" : "null");
     try {
       if (!answerData || typeof answerData !== "object" || Array.isArray(answerData)) {
         this._secureLog("error", "CRITICAL: Invalid answer data structure", {
@@ -11657,15 +11536,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       }
       const ecdhKey = answerData.ecdhPublicKey || answerData.e;
       const ecdsaKey = answerData.ecdsaPublicKey || answerData.d;
-      console.log("\u{1F50D} Answer data structure check:", {
-        hasEcdhKey: !!ecdhKey,
-        ecdhKeyType: typeof ecdhKey,
-        isArray: Array.isArray(ecdhKey),
-        answerKeys: Object.keys(answerData),
-        ecdhKeyKeys: ecdhKey ? Object.keys(ecdhKey) : "N/A",
-        fullAnswerData: answerData,
-        usingCompactKeys: !answerData.ecdhPublicKey && !!answerData.e
-      });
       if (!ecdhKey || typeof ecdhKey !== "object" || Array.isArray(ecdhKey)) {
         this._secureLog("error", "CRITICAL: Invalid ECDH public key structure in answer", {
           hasEcdhKey: !!ecdhKey,
@@ -11815,21 +11685,13 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       });
       this.onKeyExchange(this.keyFingerprint);
       try {
-        console.log("Starting SAS computation for Offer side (Answer handler)");
         const remoteFP = this._extractDTLSFingerprintFromSDP(answerData.sdp || answerData.s);
         const localFP = this.expectedDTLSFingerprint;
         const keyBytes = this._decodeKeyFingerprint(this.keyFingerprint);
-        console.log("SAS computation parameters:", {
-          remoteFP: remoteFP ? remoteFP.substring(0, 16) + "..." : "null/undefined",
-          localFP: localFP ? localFP.substring(0, 16) + "..." : "null/undefined",
-          keyBytesLength: keyBytes ? keyBytes.length : "null/undefined",
-          keyBytesType: keyBytes ? keyBytes.constructor.name : "null/undefined"
-        });
         this.verificationCode = await this._computeSAS(keyBytes, localFP, remoteFP);
         this.onStatusChange?.("verifying");
         this.onVerificationRequired(this.verificationCode);
         this.pendingSASCode = this.verificationCode;
-        console.log("\u{1F4E4} SAS code ready to send when data channel opens:", this.verificationCode);
         this._secureLog("info", "SAS verification code generated for MITM protection (Offer side)", {
           sasCode: this.verificationCode,
           localFP: localFP.substring(0, 16) + "...",
@@ -11877,21 +11739,18 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       this._secureLog("debug", "Remote description set successfully from answer", {
         signalingState: this.peerConnection.signalingState
       });
-      console.log("Enhanced secure connection established");
       setTimeout(async () => {
         try {
           const securityData = await this.calculateAndReportSecurityLevel();
           if (securityData) {
-            console.log("\u2705 Security level calculated after connection:", securityData.level);
             this.notifySecurityUpdate();
           }
         } catch (error) {
-          this._secureLog("error", "\u274C Error calculating security after connection:", { errorType: error?.constructor?.name || "Unknown" });
+          this._secureLog("error", "Error calculating security after connection:", { errorType: error?.constructor?.name || "Unknown" });
         }
       }, 1e3);
       setTimeout(async () => {
         if (!this.lastSecurityCalculation || this.lastSecurityCalculation.score < 50) {
-          console.log("\u{1F504} Retrying security calculation...");
           await this.calculateAndReportSecurityLevel();
           this.notifySecurityUpdate();
         }
@@ -11918,18 +11777,16 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     if (this.isInitiator) {
       if (!this.verificationInitiationSent) {
         this.verificationInitiationSent = true;
-        this.deliverMessageToUI("\u{1F510} CRITICAL: Compare verification code with peer out-of-band (voice/video/in-person) to prevent MITM attack!", "system");
-        this.deliverMessageToUI(`\u{1F510} Your verification code: ${this.verificationCode}`, "system");
-        this.deliverMessageToUI("\u{1F510} Ask peer to confirm this exact code before allowing traffic!", "system");
+        this.deliverMessageToUI("CRITICAL: Compare verification code with peer out-of-band (voice/video/in-person) to prevent MITM attack!", "system");
+        this.deliverMessageToUI(`Your verification code: ${this.verificationCode}`, "system");
+        this.deliverMessageToUI("Ask peer to confirm this exact code before allowing traffic!", "system");
       }
     } else {
-      console.log("\u{1F4E5} Answer side: Waiting for SAS code from Offer side");
-      this.deliverMessageToUI("\u{1F4E5} Waiting for verification code from peer...", "system");
+      this.deliverMessageToUI("Waiting for verification code from peer...", "system");
     }
   }
   confirmVerification() {
     try {
-      console.log("\u{1F4E4} confirmVerification - sending local confirmation");
       this.localVerificationConfirmed = true;
       const confirmationPayload = {
         type: "verification_confirmed",
@@ -11939,7 +11796,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           securityLevel: "MITM_PROTECTION_REQUIRED"
         }
       };
-      console.log("\u{1F4E4} Sending verification confirmation:", confirmationPayload);
       this.dataChannel.send(JSON.stringify(confirmationPayload));
       if (this.onVerificationStateChange) {
         this.onVerificationStateChange({
@@ -11949,16 +11805,15 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         });
       }
       this._checkBothVerificationsConfirmed();
-      this.deliverMessageToUI("\u2705 You confirmed the verification code. Waiting for peer confirmation...", "system");
+      this.deliverMessageToUI("You confirmed the verification code. Waiting for peer confirmation...", "system");
       this.processMessageQueue();
     } catch (error) {
-      this._secureLog("error", "\u274C SAS verification failed:", { errorType: error?.constructor?.name || "Unknown" });
-      this.deliverMessageToUI("\u274C SAS verification failed", "system");
+      this._secureLog("error", "SAS verification failed:", { errorType: error?.constructor?.name || "Unknown" });
+      this.deliverMessageToUI("SAS verification failed", "system");
     }
   }
   _checkBothVerificationsConfirmed() {
     if (this.localVerificationConfirmed && this.remoteVerificationConfirmed && !this.bothVerificationsConfirmed) {
-      console.log("\u{1F389} Both parties confirmed verification!");
       this.bothVerificationsConfirmed = true;
       const bothConfirmedPayload = {
         type: "verification_both_confirmed",
@@ -11968,7 +11823,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           securityLevel: "MITM_PROTECTION_COMPLETE"
         }
       };
-      console.log("\u{1F4E4} Sending both confirmed notification:", bothConfirmedPayload);
       this.dataChannel.send(JSON.stringify(bothConfirmedPayload));
       if (this.onVerificationStateChange) {
         this.onVerificationStateChange({
@@ -11977,7 +11831,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           bothConfirmed: this.bothVerificationsConfirmed
         });
       }
-      this.deliverMessageToUI("\u{1F389} Both parties confirmed! Opening secure chat in 2 seconds...", "system");
+      this.deliverMessageToUI("Both parties confirmed! Opening secure chat in 2 seconds...", "system");
       setTimeout(() => {
         this._setVerifiedStatus(true, "MUTUAL_SAS_CONFIRMED", {
           code: this.verificationCode,
@@ -11989,9 +11843,8 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     }
   }
   handleVerificationConfirmed(data) {
-    console.log("\u{1F4E5} Received verification confirmation from peer");
     this.remoteVerificationConfirmed = true;
-    this.deliverMessageToUI("\u2705 Peer confirmed the verification code. Waiting for your confirmation...", "system");
+    this.deliverMessageToUI("Peer confirmed the verification code. Waiting for your confirmation...", "system");
     if (this.onVerificationStateChange) {
       this.onVerificationStateChange({
         localConfirmed: this.localVerificationConfirmed,
@@ -12002,7 +11855,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     this._checkBothVerificationsConfirmed();
   }
   handleVerificationBothConfirmed(data) {
-    console.log("\u{1F4E5} Received both confirmed notification from peer");
     this.bothVerificationsConfirmed = true;
     if (this.onVerificationStateChange) {
       this.onVerificationStateChange({
@@ -12011,7 +11863,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         bothConfirmed: this.bothVerificationsConfirmed
       });
     }
-    this.deliverMessageToUI("\u{1F389} Both parties confirmed! Opening secure chat in 2 seconds...", "system");
+    this.deliverMessageToUI("Both parties confirmed! Opening secure chat in 2 seconds...", "system");
     setTimeout(() => {
       this._setVerifiedStatus(true, "MUTUAL_SAS_CONFIRMED", {
         code: this.verificationCode,
@@ -12022,11 +11874,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     }, 2e3);
   }
   handleVerificationRequest(data) {
-    console.log("\u{1F50D} handleVerificationRequest called with:");
-    console.log("  - receivedCode:", data.code, "(type:", typeof data.code, ")");
-    console.log("  - expectedCode:", this.verificationCode, "(type:", typeof this.verificationCode, ")");
-    console.log("  - codesMatch:", data.code === this.verificationCode);
-    console.log("  - data object:", data);
     if (data.code === this.verificationCode) {
       const responsePayload = {
         type: "verification_response",
@@ -12041,11 +11888,10 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       this.dataChannel.send(JSON.stringify(responsePayload));
       if (!this.verificationNotificationSent) {
         this.verificationNotificationSent = true;
-        this.deliverMessageToUI("\u2705 SAS verification successful! MITM protection confirmed. Channel is now secure!", "system");
+        this.deliverMessageToUI("SAS verification successful! MITM protection confirmed. Channel is now secure!", "system");
       }
       this.processMessageQueue();
     } else {
-      console.log("\u274C SAS verification failed - codes do not match, disconnecting");
       const responsePayload = {
         type: "verification_response",
         data: {
@@ -12060,12 +11906,11 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         expectedCode: this.verificationCode,
         timestamp: Date.now()
       });
-      this.deliverMessageToUI("\u274C SAS verification failed! Possible MITM attack detected. Connection aborted for safety!", "system");
+      this.deliverMessageToUI("SAS verification failed! Possible MITM attack detected. Connection aborted for safety!", "system");
       this.disconnect();
     }
   }
   handleSASCode(data) {
-    console.log("\u{1F4E5} Received SAS code from Offer side:", data.code);
     this.verificationCode = data.code;
     this.onStatusChange?.("verifying");
     this.onVerificationRequired(this.verificationCode);
@@ -12083,7 +11928,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       });
       if (!this.verificationNotificationSent) {
         this.verificationNotificationSent = true;
-        this.deliverMessageToUI("\u2705 Mutual SAS verification complete! MITM protection active. Channel is now secure!", "system");
+        this.deliverMessageToUI(" Mutual SAS verification complete! MITM protection active. Channel is now secure!", "system");
       }
       this.processMessageQueue();
     } else {
@@ -12091,7 +11936,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         responseData: data,
         timestamp: Date.now()
       });
-      this.deliverMessageToUI("\u274C Peer verification failed! Connection not secure!", "system");
+      this.deliverMessageToUI("Peer verification failed! Connection not secure!", "system");
       this.disconnect();
     }
   }
@@ -12099,7 +11944,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     return offerData && offerData.type === "enhanced_secure_offer" && offerData.sdp && offerData.publicKey && offerData.salt && offerData.verificationCode && Array.isArray(offerData.publicKey) && Array.isArray(offerData.salt) && offerData.salt.length === 32;
   }
   validateEnhancedOfferData(offerData) {
-    console.log("\u{1F3AF} validateEnhancedOfferData called with:", offerData ? "valid object" : "null/undefined");
     try {
       if (!offerData || typeof offerData !== "object" || Array.isArray(offerData)) {
         this._secureLog("error", "CRITICAL: Invalid offer data structure", {
@@ -12242,10 +12086,8 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       if (typeof sdp !== "string" || !sdp.includes("v=0")) {
         throw new Error("Invalid SDP structure");
       }
-      console.log("\u{1F3AF} validateEnhancedOfferData completed successfully");
       return true;
     } catch (error) {
-      console.log("\u{1F3AF} validateEnhancedOfferData ERROR:", error.message);
       this._secureLog("error", "CRITICAL: Security validation failed - hard abort required", {
         error: error.message,
         errorType: error.constructor.name,
@@ -12258,7 +12100,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     const validation = this._validateInputData(message, "sendSecureMessage");
     if (!validation.isValid) {
       const errorMessage = `Input validation failed: ${validation.errors.join(", ")}`;
-      this._secureLog("error", "\u274C Input validation failed in sendSecureMessage", {
+      this._secureLog("error", "Input validation failed in sendSecureMessage", {
         errors: validation.errors,
         messageType: typeof message
       });
@@ -12312,13 +12154,13 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         if (typeof validation.sanitizedData === "string") {
           this.deliverMessageToUI(validation.sanitizedData, "sent");
         }
-        this._secureLog("debug", "\u{1F4E4} Secure message sent successfully", {
+        this._secureLog("debug", "Secure message sent successfully", {
           operationId,
           messageLength: sanitizedMessage.length,
           keyVersion: this.currentKeyVersion
         });
       } catch (error) {
-        this._secureLog("error", "\u274C Secure message sending failed", {
+        this._secureLog("error", "Secure message sending failed", {
           operationId,
           errorType: error.constructor.name
         });
@@ -12333,7 +12175,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     }
   }
   startHeartbeat() {
-    this._secureLog("info", "\u{1F527} Heartbeat moved to unified scheduler");
+    this._secureLog("info", "Heartbeat moved to unified scheduler");
     this._heartbeatConfig = {
       enabled: true,
       interval: _EnhancedSecureWebRTCManager.TIMEOUTS.HEARTBEAT_INTERVAL,
@@ -12349,7 +12191,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
    *   Stop all active timers and cleanup scheduler
    */
   _stopAllTimers() {
-    this._secureLog("info", "\u{1F527} Stopping all timers and cleanup scheduler");
+    this._secureLog("info", "Stopping all timers and cleanup scheduler");
     if (this._maintenanceScheduler) {
       clearInterval(this._maintenanceScheduler);
       this._maintenanceScheduler = null;
@@ -12363,10 +12205,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       });
       this._activeTimers.clear();
     }
-    this._secureLog("info", "\u2705 All timers stopped successfully");
-  }
-  handleHeartbeat() {
-    console.log("Heartbeat received - connection alive");
+    this._secureLog("info", "All timers stopped successfully");
   }
   waitForIceGathering() {
     return new Promise((resolve) => {
@@ -12437,7 +12276,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       this.deliverMessageToUI("\u{1F50C} Connection lost. Attempting to reconnect...", "system");
     }
     if (this.fileTransferSystem) {
-      console.log("\u{1F9F9} Cleaning up file transfer system on unexpected disconnect...");
       this.fileTransferSystem.cleanup();
       this.fileTransferSystem = null;
     }
@@ -12482,7 +12320,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   attemptReconnection() {
     if (!this.reconnectionFailedNotificationSent) {
       this.reconnectionFailedNotificationSent = true;
-      this.deliverMessageToUI("\u274C Unable to reconnect. A new connection is required.", "system");
+      this.deliverMessageToUI("Unable to reconnect. A new connection is required.", "system");
     }
   }
   handlePeerDisconnectNotification(data) {
@@ -12490,7 +12328,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     const reasonText = reason === "user_disconnect" ? "manually disconnected." : "connection lost.";
     if (!this.peerDisconnectNotificationSent) {
       this.peerDisconnectNotificationSent = true;
-      this.deliverMessageToUI(`\u{1F44B} Peer ${reasonText}`, "system");
+      this.deliverMessageToUI(`Peer ${reasonText}`, "system");
     }
     this.onStatusChange("peer_disconnected");
     this.intentionalDisconnect = false;
@@ -12563,7 +12401,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     this.onStatusChange("disconnected");
     this.onKeyExchange("");
     this.onVerificationRequired("");
-    this._secureLog("info", "\u{1F512} Connection securely cleaned up with complete memory wipe");
+    this._secureLog("info", "Connection securely cleaned up with complete memory wipe");
     this.intentionalDisconnect = false;
   }
   // Public method to send files
@@ -12573,7 +12411,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       throw new Error("Connection not ready for file transfer. Please ensure the connection is established.");
     }
     if (!this.fileTransferSystem) {
-      console.log("\u{1F504} File transfer system not initialized, attempting to initialize...");
       this.initializeFileTransfer();
       await new Promise((resolve) => setTimeout(resolve, 500));
       if (!this.fileTransferSystem) {
@@ -12583,19 +12420,11 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     if (!this.encryptionKey || !this.macKey) {
       throw new Error("Encryption keys not ready. Please wait for connection to be fully established.");
     }
-    console.log("\u{1F50D} Debug: File transfer system in sendFile:", {
-      hasFileTransferSystem: !!this.fileTransferSystem,
-      fileTransferSystemType: this.fileTransferSystem.constructor?.name,
-      hasWebrtcManager: !!this.fileTransferSystem.webrtcManager,
-      webrtcManagerType: this.fileTransferSystem.webrtcManager?.constructor?.name
-    });
     try {
-      console.log("\u{1F680} Starting file transfer for:", file.name, `(${(file.size / 1024 / 1024).toFixed(2)} MB)`);
       const fileId = await this.fileTransferSystem.sendFile(file);
-      console.log("\u2705 File transfer initiated successfully with ID:", fileId);
       return fileId;
     } catch (error) {
-      this._secureLog("error", "\u274C File transfer error:", { errorType: error?.constructor?.name || "Unknown" });
+      this._secureLog("error", "File transfer error:", { errorType: error?.constructor?.name || "Unknown" });
       if (error.message.includes("Connection not ready")) {
         throw new Error("Connection not ready for file transfer. Check connection status.");
       } else if (error.message.includes("Encryption keys not initialized")) {
@@ -12618,19 +12447,19 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       if (typeof this.fileTransferSystem.getActiveTransfers === "function") {
         sending = this.fileTransferSystem.getActiveTransfers();
       } else {
-        this._secureLog("warn", "\u26A0\uFE0F getActiveTransfers method not available in file transfer system");
+        this._secureLog("warn", "getActiveTransfers method not available in file transfer system");
       }
       if (typeof this.fileTransferSystem.getReceivingTransfers === "function") {
         receiving = this.fileTransferSystem.getReceivingTransfers();
       } else {
-        this._secureLog("warn", "\u26A0\uFE0F getReceivingTransfers method not available in file transfer system");
+        this._secureLog("warn", "getReceivingTransfers method not available in file transfer system");
       }
       return {
         sending: sending || [],
         receiving: receiving || []
       };
     } catch (error) {
-      this._secureLog("error", "\u274C Error getting file transfers:", { errorType: error?.constructor?.name || "Unknown" });
+      this._secureLog("error", "Error getting file transfers:", { errorType: error?.constructor?.name || "Unknown" });
       return { sending: [], receiving: [] };
     }
   }
@@ -12671,14 +12500,13 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   // Reinitialize file transfer system
   reinitializeFileTransfer() {
     try {
-      console.log("\u{1F504} Reinitializing file transfer system...");
       if (this.fileTransferSystem) {
         this.fileTransferSystem.cleanup();
       }
       this.initializeFileTransfer();
       return true;
     } catch (error) {
-      this._secureLog("error", "\u274C Failed to reinitialize file transfer system:", { errorType: error?.constructor?.name || "Unknown" });
+      this._secureLog("error", "Failed to reinitialize file transfer system:", { errorType: error?.constructor?.name || "Unknown" });
       return false;
     }
   }
@@ -12687,13 +12515,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     this.onFileProgress = onProgress;
     this.onFileReceived = onReceived;
     this.onFileError = onError;
-    console.log("\u{1F527} File transfer callbacks set:", {
-      hasProgress: !!onProgress,
-      hasReceived: !!onReceived,
-      hasError: !!onError
-    });
     if (this.fileTransferSystem) {
-      console.log("\u{1F504} Reinitializing file transfer system with new callbacks...");
       this.initializeFileTransfer();
     }
   }
@@ -12702,32 +12524,21 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   // ============================================
   async handleSessionActivation(sessionData) {
     try {
-      console.log("\u{1F510} Handling session activation:", sessionData);
       this.currentSession = sessionData;
       this.sessionManager = sessionData.sessionManager;
       const hasKeys = !!(this.encryptionKey && this.macKey);
       const hasSession = !!(this.sessionManager && (this.sessionManager.hasActiveSession?.() || sessionData.sessionId));
-      console.log("\u{1F50D} Session activation status:", {
-        hasKeys,
-        hasSession,
-        sessionType: sessionData.sessionType,
-        isDemo: sessionData.isDemo
-      });
       if (hasSession) {
-        console.log("\u{1F513} Session activated - forcing connection status to connected");
         this.onStatusChange("connected");
-        console.log("\u26A0\uFE0F Session activated but NOT verified - cryptographic verification still required");
       }
       setTimeout(() => {
         try {
           this.initializeFileTransfer();
         } catch (error) {
-          this._secureLog("warn", "\u26A0\uFE0F File transfer initialization failed during session activation:", { details: error.message });
+          this._secureLog("warn", "File transfer initialization failed during session activation:", { details: error.message });
         }
       }, 1e3);
-      console.log("\u2705 Session activation handled successfully");
       if (this.fileTransferSystem && this.isConnected()) {
-        console.log("\u{1F504} Synchronizing file transfer keys after session activation...");
         if (typeof this.fileTransferSystem.onSessionUpdate === "function") {
           this.fileTransferSystem.onSessionUpdate({
             keyFingerprint: this.keyFingerprint,
@@ -12737,7 +12548,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         }
       }
     } catch (error) {
-      this._secureLog("error", "\u274C Failed to handle session activation:", { errorType: error?.constructor?.name || "Unknown" });
+      this._secureLog("error", "Failed to handle session activation:", { errorType: error?.constructor?.name || "Unknown" });
     }
   }
   // Method to check readiness of file transfers
@@ -12753,13 +12564,11 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       ready: false
     };
     status.ready = status.hasFileTransferSystem && status.hasDataChannel && status.dataChannelState === "open" && status.isConnected && status.isVerified;
-    console.log("\u{1F50D} File transfer readiness check:", status);
     return status;
   }
   // Method to force re-initialize file transfer system
   forceReinitializeFileTransfer() {
     try {
-      console.log("\u{1F504} Force reinitializing file transfer system...");
       if (this.fileTransferSystem) {
         this.fileTransferSystem.cleanup();
         this.fileTransferSystem = null;
@@ -12769,7 +12578,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       }, 500);
       return true;
     } catch (error) {
-      this._secureLog("error", "\u274C Failed to force reinitialize file transfer:", { errorType: error?.constructor?.name || "Unknown" });
+      this._secureLog("error", "Failed to force reinitialize file transfer:", { errorType: error?.constructor?.name || "Unknown" });
       return false;
     }
   }
@@ -12904,10 +12713,10 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       }
     } catch (error) {
       if (error.name === "AbortError" || error.message.includes("cancelled")) {
-        this._secureLog("info", "\u23F9\uFE0F File transfer initialization cancelled by user");
+        this._secureLog("info", "File transfer initialization cancelled by user");
         return { cancelled: true };
       }
-      this._secureLog("error", "\u274C Force file transfer initialization failed:", {
+      this._secureLog("error", "Force file transfer initialization failed:", {
         errorType: error?.constructor?.name || "Unknown",
         message: error.message,
         attempts
@@ -12921,12 +12730,12 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         this.fileTransferSystem.cleanup();
         this.fileTransferSystem = null;
         this._fileTransferActive = false;
-        this._secureLog("info", "\u23F9\uFE0F File transfer initialization cancelled");
+        this._secureLog("info", "File transfer initialization cancelled");
         return true;
       }
       return false;
     } catch (error) {
-      this._secureLog("error", "\u274C Failed to cancel file transfer initialization:", {
+      this._secureLog("error", "Failed to cancel file transfer initialization:", {
         errorType: error?.constructor?.name || "Unknown"
       });
       return false;
@@ -12946,7 +12755,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         systemType: "EnhancedSecureFileTransfer"
       };
     } catch (error) {
-      this._secureLog("error", "\u274C Failed to get file transfer system status:", {
+      this._secureLog("error", "Failed to get file transfer system status:", {
         errorType: error?.constructor?.name || "Unknown"
       });
       return { available: false, status: "error", error: error.message };
@@ -12958,18 +12767,18 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         const testIV1 = this._generateSecureIV(_EnhancedSecureWebRTCManager.SIZES.NESTED_ENCRYPTION_IV_SIZE, "securityTest1");
         const testIV2 = this._generateSecureIV(_EnhancedSecureWebRTCManager.SIZES.NESTED_ENCRYPTION_IV_SIZE, "securityTest2");
         if (testIV1.every((byte, index) => byte === testIV2[index])) {
-          this._secureLog("error", "\u274C CRITICAL: Nested encryption security validation failed - IVs are identical!");
+          this._secureLog("error", "CRITICAL: Nested encryption security validation failed - IVs are identical!");
           return false;
         }
         const stats = this._getIVTrackingStats();
         if (stats.totalIVs < 2) {
-          this._secureLog("error", "\u274C CRITICAL: IV tracking system not working properly");
+          this._secureLog("error", "CRITICAL: IV tracking system not working properly");
           return false;
         }
-        this._secureLog("info", "\u2705 Nested encryption security validation passed - secure IV generation working");
+        this._secureLog("info", "Nested encryption security validation passed - secure IV generation working");
         return true;
       } catch (error) {
-        this._secureLog("error", "\u274C CRITICAL: Nested encryption security validation failed:", {
+        this._secureLog("error", "CRITICAL: Nested encryption security validation failed:", {
           errorType: error.constructor.name,
           errorMessage: error.message
         });
@@ -12988,7 +12797,7 @@ var SecureKeyStorage = class {
     this._initializeStorageMaster();
     setTimeout(() => {
       if (!this.validateStorageIntegrity()) {
-        console.error("\u274C CRITICAL: Key storage integrity check failed");
+        console.error("CRITICAL: Key storage integrity check failed");
       }
     }, 100);
   }
@@ -13056,7 +12865,7 @@ var SecureKeyStorage = class {
       if (metadata.extractable === false) {
         return this._keyReferences.get(keyId);
       } else {
-        this._secureLog("error", "\u274C SECURITY VIOLATION: Extractable key marked as non-encrypted", {
+        this._secureLog("error", "SECURITY VIOLATION: Extractable key marked as non-encrypted", {
           keyId,
           extractable: metadata.extractable,
           encrypted: metadata.encrypted
@@ -13154,7 +12963,7 @@ var SecureKeyStorage = class {
       }
     }
     if (violations.length > 0) {
-      console.error("\u274C Storage integrity violations detected:", violations);
+      console.error("Storage integrity violations detected:", violations);
       return false;
     }
     return true;
@@ -13181,7 +12990,7 @@ var SecureKeyStorage = class {
         return true;
       }
       if (receivedSeq < this.expectedSequenceNumber - this.replayWindowSize) {
-        this._secureLog("warn", "\u26A0\uFE0F Sequence number too old - possible replay attack", {
+        this._secureLog("warn", "Sequence number too old - possible replay attack", {
           received: receivedSeq,
           expected: this.expectedSequenceNumber,
           context,
@@ -13190,7 +12999,7 @@ var SecureKeyStorage = class {
         return false;
       }
       if (receivedSeq > this.expectedSequenceNumber + this.maxSequenceGap) {
-        this._secureLog("warn", "\u26A0\uFE0F Sequence number gap too large - possible DoS attack", {
+        this._secureLog("warn", "Sequence number gap too large - possible DoS attack", {
           received: receivedSeq,
           expected: this.expectedSequenceNumber,
           gap: receivedSeq - this.expectedSequenceNumber,
@@ -13200,7 +13009,7 @@ var SecureKeyStorage = class {
         return false;
       }
       if (this.replayWindow.has(receivedSeq)) {
-        this._secureLog("warn", "\u26A0\uFE0F Duplicate sequence number detected - replay attack", {
+        this._secureLog("warn", "Duplicate sequence number detected - replay attack", {
           received: receivedSeq,
           context,
           timestamp: Date.now()
@@ -13218,7 +13027,7 @@ var SecureKeyStorage = class {
           this.replayWindow.delete(this.expectedSequenceNumber - this.replayWindowSize - 1);
         }
       }
-      this._secureLog("debug", "\u2705 Sequence number validation successful", {
+      this._secureLog("debug", "Sequence number validation successful", {
         received: receivedSeq,
         expected: this.expectedSequenceNumber,
         context,
@@ -13226,7 +13035,7 @@ var SecureKeyStorage = class {
       });
       return true;
     } catch (error) {
-      this._secureLog("error", "\u274C Sequence number validation failed", {
+      this._secureLog("error", "Sequence number validation failed", {
         error: error.message,
         context,
         timestamp: Date.now()
@@ -13336,14 +13145,6 @@ var SecureKeyStorage = class {
         currentSecurityLevel: this.currentSecurityLevel,
         timestamp: Date.now()
       };
-      console.log("\u{1F50D} getRealSecurityLevel debug:");
-      console.log("  - replayProtectionEnabled:", this.replayProtectionEnabled);
-      console.log("  - expectedDTLSFingerprint:", !!this.expectedDTLSFingerprint);
-      console.log("  - verificationCode:", !!this.verificationCode);
-      console.log("  - ecdhKeyPair:", !!this.ecdhKeyPair);
-      console.log("  - ecdsaKeyPair:", !!this.ecdsaKeyPair);
-      console.log("  - encryptionKey:", !!this.encryptionKey);
-      console.log("  - hmacKey:", !!this.hmacKey);
       this._secureLog("info", "Real security level calculated", securityData);
       return securityData;
     } catch (error) {
@@ -13681,39 +13482,19 @@ var EnhancedMinimalHeader = ({
         } else {
           realSecurityData = await window.EnhancedSecureCryptoUtils.calculateSecurityLevel(activeWebrtcManager);
         }
-        if (window.DEBUG_MODE) {
-          console.log("\u{1F510} REAL security level calculated:", {
-            level: realSecurityData?.level,
-            score: realSecurityData?.score,
-            passedChecks: realSecurityData?.passedChecks,
-            totalChecks: realSecurityData?.totalChecks,
-            isRealData: realSecurityData?.isRealData,
-            sessionType: realSecurityData?.sessionType,
-            maxPossibleScore: realSecurityData?.maxPossibleScore,
-            verificationResults: realSecurityData?.verificationResults ? Object.keys(realSecurityData.verificationResults) : []
-          });
-        }
         if (realSecurityData && realSecurityData.isRealData !== false) {
           const currentScore = realSecurityLevel?.score || 0;
           const newScore = realSecurityData.score || 0;
           if (currentScore !== newScore || !realSecurityLevel) {
             setRealSecurityLevel(realSecurityData);
             setLastSecurityUpdate(now);
-            if (window.DEBUG_MODE) {
-              console.log("\u2705 Security level updated in header component:", {
-                oldScore: currentScore,
-                newScore,
-                sessionType: realSecurityData.sessionType
-              });
-            }
           } else if (window.DEBUG_MODE) {
-            console.log("\u2139\uFE0F Security level unchanged, skipping update");
           }
         } else {
-          console.warn("\u26A0\uFE0F Security calculation returned invalid data");
+          console.warn(" Security calculation returned invalid data");
         }
       } catch (error) {
-        console.error("\u274C Error in real security calculation:", error);
+        console.error(" Error in real security calculation:", error);
       } finally {
         isUpdating = false;
       }
@@ -13736,17 +13517,11 @@ var EnhancedMinimalHeader = ({
   }, [webrtcManager, isConnected]);
   React.useEffect(() => {
     const handleSecurityUpdate = (event) => {
-      if (window.DEBUG_MODE) {
-        console.log("\u{1F512} Security level update event received:", event.detail);
-      }
       setTimeout(() => {
         setLastSecurityUpdate(0);
       }, 100);
     };
     const handleRealSecurityCalculated = (event) => {
-      if (window.DEBUG_MODE) {
-        console.log("\u{1F510} Real security calculated event:", event.detail);
-      }
       if (event.detail && event.detail.securityData) {
         setRealSecurityLevel(event.detail.securityData);
         setLastSecurityUpdate(Date.now());
@@ -13755,9 +13530,6 @@ var EnhancedMinimalHeader = ({
     document.addEventListener("security-level-updated", handleSecurityUpdate);
     document.addEventListener("real-security-calculated", handleRealSecurityCalculated);
     window.forceHeaderSecurityUpdate = (webrtcManager2) => {
-      if (window.DEBUG_MODE) {
-        console.log("\u{1F504} Force header security update called");
-      }
       if (webrtcManager2 && window.EnhancedSecureCryptoUtils) {
         window.EnhancedSecureCryptoUtils.calculateSecurityLevel(webrtcManager2).then((securityData) => {
           if (securityData && securityData.isRealData !== false) {
@@ -13811,9 +13583,6 @@ var EnhancedMinimalHeader = ({
       setLastSecurityUpdate(0);
     };
     const handleDisconnected = () => {
-      if (window.DEBUG_MODE) {
-        console.log("\u{1F50C} Disconnected - clearing security data in header");
-      }
       setRealSecurityLevel(null);
       setLastSecurityUpdate(0);
       setHasActiveSession(false);
@@ -13840,16 +13609,9 @@ var EnhancedMinimalHeader = ({
     }
     event.preventDefault();
     event.stopPropagation();
-    console.log("\u{1F50D} Security click debug:", {
-      hasWebrtcManager: !!webrtcManager,
-      hasCryptoUtils: !!window.EnhancedSecureCryptoUtils,
-      hasRealSecurityLevel: !!realSecurityLevel,
-      connectionStatus: webrtcManager?.connectionState || "unknown"
-    });
     let realTestResults = null;
     if (webrtcManager && window.EnhancedSecureCryptoUtils) {
       try {
-        console.log("\u{1F50D} Running real security tests...");
         realTestResults = await window.EnhancedSecureCryptoUtils.calculateSecurityLevel(webrtcManager);
         console.log("\u2705 Real security tests completed:", realTestResults);
       } catch (error) {
@@ -13879,9 +13641,9 @@ var EnhancedMinimalHeader = ({
         totalChecks: 0,
         sessionType: "unknown"
       };
-      console.log("\u26A0\uFE0F Using fallback security data:", securityData);
+      console.log("Using fallback security data:", securityData);
     }
-    let message = `\u{1F512} REAL-TIME SECURITY VERIFICATION
+    let message = `REAL-TIME SECURITY VERIFICATION
 
 `;
     message += `Security Level: ${securityData.level} (${securityData.score}%)
@@ -13899,7 +13661,7 @@ var EnhancedMinimalHeader = ({
       const passedTests = Object.entries(securityData.verificationResults).filter(([key, result]) => result.passed);
       const failedTests = Object.entries(securityData.verificationResults).filter(([key, result]) => !result.passed);
       if (passedTests.length > 0) {
-        message += "\u2705 PASSED TESTS:\n";
+        message += "PASSED TESTS:\n";
         passedTests.forEach(([key, result]) => {
           const testName = key.replace(/([A-Z])/g, " $1").replace(/^./, (str) => str.toUpperCase());
           message += `   ${testName}: ${result.details || "Test passed"}
@@ -13908,7 +13670,7 @@ var EnhancedMinimalHeader = ({
         message += "\n";
       }
       if (failedTests.length > 0) {
-        message += "\u274C FAILED/UNAVAILABLE TESTS:\n";
+        message += "FAILED/UNAVAILABLE TESTS:\n";
         failedTests.forEach(([key, result]) => {
           const testName = key.replace(/([A-Z])/g, " $1").replace(/^./, (str) => str.toUpperCase());
           message += `   ${testName}: ${result.details || "Test failed or unavailable"}
@@ -13924,7 +13686,7 @@ var EnhancedMinimalHeader = ({
 
 `;
     }
-    message += `\u{1F512} SECURITY FEATURES STATUS:
+    message += `SECURITY FEATURES STATUS:
 `;
     message += "=" + "=".repeat(40) + "\n";
     if (securityData.verificationResults) {
@@ -14272,7 +14034,7 @@ window.EnhancedMinimalHeader = EnhancedMinimalHeader;
 // src/components/ui/DownloadApps.jsx
 var DownloadApps = () => {
   const apps = [
-    { id: "web", name: "Web App", subtitle: "Browser Version", icon: "fas fa-globe", platform: "Web", isActive: true, url: "https://securebitchat.github.io/securebit-chat/", color: "green" },
+    { id: "web", name: "Web App", subtitle: "Browser Version", icon: "fas fa-globe", platform: "Web", isActive: true, url: "https://securebit.chat/", color: "green" },
     { id: "windows", name: "Windows", subtitle: "Desktop App", icon: "fab fa-windows", platform: "Desktop", isActive: true, url: "https://securebit.chat/download/windows/SecureBit%20Chat%20Setup%204.1.222.exe", color: "blue" },
     { id: "macos", name: "macOS", subtitle: "Desktop App", icon: "fab fa-safari", platform: "Desktop", isActive: false, url: "#", color: "blueios" },
     { id: "linux", name: "Linux", subtitle: "Desktop App", icon: "fab fa-linux", platform: "Desktop", isActive: false, url: "#", color: "orange" },
@@ -14334,6 +14096,752 @@ var DownloadApps = () => {
   ]);
 };
 window.DownloadApps = DownloadApps;
+
+// src/components/ui/UniqueFeatureSlider.jsx
+var UniqueFeatureSlider = () => {
+  const [currentSlide, setCurrentSlide] = React.useState(0);
+  const slides = [
+    {
+      icon: "fas fa-shield-halved",
+      color: "orange",
+      title: "18-Layer Military Security",
+      description: "Revolutionary defense system with ECDH P-384 + AES-GCM 256 + ECDSA + Complete ASN.1 Validation. Enhanced Security Edition provides military-grade protection exceeding government standards with complete key structure verification."
+    },
+    {
+      icon: "fas fa-network-wired",
+      color: "purple",
+      title: "Pure P2P WebRTC Architecture",
+      description: "Direct peer-to-peer connections without any servers. Impossible to censor, block, or monitor. Complete decentralization with zero infrastructure."
+    },
+    {
+      icon: "fas fa-sync-alt",
+      color: "green",
+      title: "Perfect Forward Secrecy",
+      description: "Automatic key rotation every 5 minutes or 100 messages. Non-extractable keys with hardware protection ensure past messages remain secure."
+    },
+    {
+      icon: "fas fa-user-secret",
+      color: "cyan",
+      title: "Advanced Traffic Obfuscation",
+      description: "Fake traffic generation, packet padding, and pattern masking make communication indistinguishable from random noise. Defeats traffic analysis."
+    },
+    {
+      icon: "fas fa-eye-slash",
+      color: "blue",
+      title: "Zero Data Collection",
+      description: "No registration, no servers, no logs. Messages exist only in browser memory. Complete anonymity with instant anonymous channels."
+    },
+    {
+      icon: "fas fa-code",
+      color: "emerald",
+      title: "100% Open Source Security",
+      description: "All code is open for audit under MIT license. Uses only standard WebCrypto APIs. Cryptography runs directly in browser without server dependencies."
+    }
+  ];
+  const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % slides.length);
+  const prevSlide = () => setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+  const goToSlide = (index) => setCurrentSlide(index);
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      nextSlide();
+    }, 15e3);
+    return () => clearInterval(timer);
+  }, []);
+  return React.createElement("div", {
+    className: "mt-12"
+  }, [
+    React.createElement("div", {
+      key: "header",
+      className: "text-center mb-8"
+    }, [
+      React.createElement("h3", {
+        key: "title",
+        className: "text-2xl font-semibold text-primary mb-3"
+      }, "Why SecureBit.chat is unique"),
+      React.createElement("p", {
+        key: "subtitle",
+        className: "text-secondary max-w-2xl mx-auto"
+      }, "The only messenger with military-grade cryptography")
+    ]),
+    React.createElement("div", {
+      key: "slider-container",
+      className: "relative max-w-4xl mx-auto"
+    }, [
+      React.createElement("div", {
+        key: "slider-wrapper",
+        className: "overflow-hidden rounded-xl"
+      }, [
+        React.createElement("div", {
+          key: "slides",
+          className: "flex transition-transform duration-500 ease-in-out",
+          style: { transform: `translateX(-${currentSlide * 100}%)` }
+        }, slides.map(
+          (slide, index) => React.createElement("div", {
+            key: index,
+            className: "w-full flex-shrink-0 px-4"
+          }, [
+            React.createElement("div", {
+              key: "slide-content",
+              className: "card-minimal rounded-xl p-8 text-center min-h-[300px] flex flex-col justify-center relative overflow-hidden"
+            }, [
+              // Background icon
+              React.createElement("i", {
+                key: "bg-icon",
+                className: `${slide.icon} absolute right-[-100px] top-1/2 -translate-y-1/2 opacity-10 text-[300px] pointer-events-none ${slide.color === "orange" ? "text-orange-500" : slide.color === "yellow" ? "text-yellow-500" : slide.color === "purple" ? "text-purple-500" : slide.color === "green" ? "text-green-500" : slide.color === "cyan" ? "text-cyan-500" : slide.color === "blue" ? "text-blue-500" : "text-emerald-500"}`
+              }),
+              // Content
+              React.createElement("h4", {
+                key: "slide-title",
+                className: "text-xl font-semibold text-primary mb-4 relative z-10"
+              }, slide.title),
+              React.createElement("p", {
+                key: "slide-description",
+                className: "text-secondary leading-relaxed max-w-2xl mx-auto relative z-10"
+              }, slide.description)
+            ])
+          ])
+        ))
+      ]),
+      // Navigation
+      React.createElement("button", {
+        key: "prev-btn",
+        onClick: prevSlide,
+        className: "absolute left-2 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-gray-600/80 hover:bg-gray-500/80 text-white rounded-full flex items-center justify-center transition-all duration-200 z-10"
+      }, [
+        React.createElement("i", {
+          key: "prev-icon",
+          className: "fas fa-chevron-left"
+        })
+      ]),
+      React.createElement("button", {
+        key: "next-btn",
+        onClick: nextSlide,
+        className: "absolute right-2 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-gray-600/80 hover:bg-gray-500/80 text-white rounded-full flex items-center justify-center transition-all duration-200 z-10"
+      }, [
+        React.createElement("i", {
+          key: "next-icon",
+          className: "fas fa-chevron-right"
+        })
+      ])
+    ]),
+    // Enhanced dots navigation (оставляем улучшенные точки)
+    React.createElement("div", {
+      key: "dots-container",
+      className: "flex justify-center space-x-3 mt-6"
+    }, slides.map(
+      (slide, index) => React.createElement("button", {
+        key: index,
+        onClick: () => goToSlide(index),
+        className: `relative group transition-all duration-300 ${index === currentSlide ? "w-12 h-2 bg-orange-500 rounded-full" : "w-4 h-2 bg-gray-600 hover:bg-gray-500 rounded-full hover:scale-125"}`
+      }, [
+        // Tooltip on hover
+        React.createElement("div", {
+          key: "tooltip",
+          className: "absolute -top-10 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none"
+        }, slide.title)
+      ])
+    ))
+  ]);
+};
+window.UniqueFeatureSlider = UniqueFeatureSlider;
+
+// src/components/ui/ComparisonTable.jsx
+var ComparisonTable = () => {
+  const [selectedFeature, setSelectedFeature] = React.useState(null);
+  const messengers = [
+    {
+      name: "SecureBit.chat",
+      logo: /* @__PURE__ */ React.createElement("div", { className: "w-8 h-8 bg-orange-500/10 border border-orange-500/20 rounded-lg flex items-center justify-center" }, /* @__PURE__ */ React.createElement("i", { className: "fas fa-shield-halved text-orange-400" })),
+      type: "P2P WebRTC",
+      version: "Latest",
+      color: "orange"
+    },
+    {
+      name: "Signal",
+      logo: /* @__PURE__ */ React.createElement("svg", { className: "w-8 h-8", viewBox: "0 0 122.88 122.31", xmlns: "http://www.w3.org/2000/svg" }, /* @__PURE__ */ React.createElement("path", { className: "fill-blue-500", d: "M27.75,0H95.13a27.83,27.83,0,0,1,27.75,27.75V94.57a27.83,27.83,0,0,1-27.75,27.74H27.75A27.83,27.83,0,0,1,0,94.57V27.75A27.83,27.83,0,0,1,27.75,0Z" }), /* @__PURE__ */ React.createElement("path", { className: "fill-white", d: "M61.44,25.39A35.76,35.76,0,0,0,31.18,80.18L27.74,94.86l14.67-3.44a35.77,35.77,0,1,0,19-66Z" })),
+      type: "Centralized",
+      version: "Latest",
+      color: "blue"
+    },
+    {
+      name: "Threema",
+      logo: /* @__PURE__ */ React.createElement("svg", { className: "w-8 h-8", viewBox: "0 0 122.88 122.88", xmlns: "http://www.w3.org/2000/svg" }, /* @__PURE__ */ React.createElement("rect", { width: "122.88", height: "122.88", rx: "18.43", fill: "#474747" }), /* @__PURE__ */ React.createElement("path", { fill: "#FFFFFF", d: "M44.26,78.48l-19.44,4.8l4.08-16.56c-4.08-5.28-6.48-12-6.48-18.96c0-18.96,17.52-34.32,39.12-34.32c21.6,0,39.12,15.36,39.12,34.32c0,18.96-17.52,34.32-39.12,34.32c-6,0-12-1.2-17.04-3.36L44.26,78.48z M50.26,44.64h-0.48c-0.96,0-1.68,0.72-1.44,1.68v15.6c0,0.96,0.72,1.68,1.68,1.68l23.04,0c0.96,0,1.68-0.72,1.68-1.68v-15.6c0-0.96-0.72-1.68-1.68-1.68h-0.48v-4.32c0-6-5.04-11.04-11.04-11.04S50.5,34.32,50.5,40.32v4.32H50.26z M68.02,44.64h-13.2v-4.32c0-3.6,2.88-6.72,6.72-6.72c3.6,0,6.72,2.88,6.72,6.72v4.32H68.02z" }), /* @__PURE__ */ React.createElement("circle", { cx: "37.44", cy: "97.44", r: "6.72", fill: "#3fe669" }), /* @__PURE__ */ React.createElement("circle", { cx: "61.44", cy: "97.44", r: "6.72", fill: "#3fe669" }), /* @__PURE__ */ React.createElement("circle", { cx: "85.44", cy: "97.44", r: "6.72", fill: "#3fe669" })),
+      type: "Centralized",
+      version: "Latest",
+      color: "green"
+    },
+    {
+      name: "Session",
+      logo: /* @__PURE__ */ React.createElement("svg", { className: "w-8 h-8", viewBox: "0 0 1024 1024", xmlns: "http://www.w3.org/2000/svg" }, /* @__PURE__ */ React.createElement("rect", { width: "1024", height: "1024", fill: "#333132" }), /* @__PURE__ */ React.createElement("path", { fill: "#00f782", d: "M431 574.8c-.8-7.4-6.7-8.2-10.8-10.6-13.6-7.9-27.5-15.4-41.3-23l-22.5-12.3c-8.5-4.7-17.1-9.2-25.6-14.1-10.5-6-21-11.9-31.1-18.6-18.9-12.5-33.8-29.1-46.3-48.1-8.3-12.6-14.8-26.1-19.2-40.4-6.7-21.7-10.8-44.1-7.8-66.8 1.8-14 4.6-28 9.7-41.6 7.8-20.8 19.3-38.8 34.2-54.8 9.8-10.6 21.2-19.1 33.4-26.8 14.7-9.3 30.7-15.4 47.4-19 13.8-3 28.1-4.3 42.2-4.4 89.9-.4 179.7-.3 269.6 0 12.6 0 25.5 1 37.7 4.1 24.3 6.2 45.7 18.2 63 37 11.2 12.2 20.4 25.8 25.8 41.2 7.3 20.7 12.3 42.1 6.7 64.4-2.1 8.5-2.7 17.5-6.1 25.4-4.7 10.9-10.8 21.2-17.2 31.2-8.7 13.5-20.5 24.3-34.4 32.2-10.1 5.7-21 10.2-32 14.3-18.1 6.7-37.2 5-56.1 5.2-17.2.2-34.5 0-51.7.1-1.7 0-3.4 1.2-5.1 1.9 1.3 1.8 2.1 4.3 3.9 5.3 13.5 7.8 27.2 15.4 40.8 22.9 11 6 22.3 11.7 33.2 17.9 15.2 8.5 30.2 17.4 45.3 26.1 19.3 11.1 34.8 26.4 47.8 44.3 9.7 13.3 17.2 27.9 23 43.5 6.1 16.6 9.2 33.8 10.4 51.3.6 9.1-.7 18.5-1.9 27.6-1.2 9.1-2.7 18.4-5.6 27.1-3.3 10.2-7.4 20.2-12.4 29.6-8.4 15.7-19.6 29.4-32.8 41.4-12.7 11.5-26.8 20.6-42.4 27.6-22.9 10.3-46.9 14.4-71.6 14.5-89.7.3-179.4.2-269.1-.1-12.6 0-25.5-1-37.7-3.9-24.5-5.7-45.8-18-63.3-36.4-11.6-12.3-20.2-26.5-26.6-41.9-2.7-6.4-4.1-13.5-5.4-20.4-1.5-8.1-2.8-16.3-3.1-24.5-.6-15.7 2.8-30.9 8.2-45.4 8.2-22 21.7-40.6 40.2-55.2 10-7.9 21.3-13.7 33.1-18.8 16.6-7.2 34-8.1 51.4-8.5 21.9-.5 43.9-.1 65.9-.1 1.9-.1 3.9-.3 6.2-.4zm96.3-342.4c0 .1 0 .1 0 0-48.3.1-96.6-.6-144.9.5-13.5.3-27.4 3.9-40.1 8.7-14.9 5.6-28.1 14.6-39.9 25.8-20.2 19-32.2 42.2-37.2 68.9-3.6 19-1.4 38.1 4.1 56.5 4.1 13.7 10.5 26.4 18.5 38.4 14.8 22.2 35.7 36.7 58.4 49.2 11 6.1 22.2 11.9 33.2 18 13.5 7.5 26.9 15.1 40.4 22.6 13.1 7.3 26.2 14.5 39.2 21.7 9.7 5.3 19.4 10.7 29.1 16.1 2.9 1.6 4.1.2 4.5-2.4.3-2 .3-4 .3-6.1v-58.8c0-19.9.1-39.9 0-59.8 0-6.6 1.7-12.8 7.6-16.1 3.5-2 8.2-2.8 12.4-2.8 50.3-.2 100.7-.2 151-.1 19.8 0 38.3-4.4 55.1-15.1 23.1-14.8 36.3-36.3 40.6-62.9 3.4-20.8-1-40.9-12.4-58.5-17.8-27.5-43.6-43-76.5-43.6-47.8-.8-95.6-.2-143.4-.2zm-30.6 559.7c45.1 0 90.2-.2 135.3.1 18.9.1 36.6-3.9 53.9-11.1 18.4-7.7 33.6-19.8 46.3-34.9 9.1-10.8 16.2-22.9 20.8-36.5 4.2-12.4 7.4-24.7 7.3-37.9-.1-10.3.2-20.5-3.4-30.5-2.6-7.2-3.4-15.2-6.4-22.1-3.9-8.9-8.9-17.3-14-25.5-12.9-20.8-31.9-34.7-52.8-46.4-10.6-5.9-21.2-11.6-31.8-17.5-10.3-5.7-20.4-11.7-30.7-17.4-11.2-6.1-22.5-11.9-33.7-18-16.6-9.1-33.1-18.4-49.8-27.5-4.9-2.7-6.1-1.9-6.4 3.9-.1 2-.1 4.1-.1 6.1v114.5c0 14.8-5.6 20.4-20.4 20.4-47.6.1-95.3-.1-142.9.2-10.5.1-21.1 1.4-31.6 2.8-16.5 2.2-30.5 9.9-42.8 21-17 15.5-27 34.7-29.4 57.5-1.1 10.9-.4 21.7 2.9 32.5 3.7 12.3 9.2 23.4 17.5 33 19.2 22.1 43.4 33.3 72.7 33.3 46.6.1 93 0 139.5 0z" })),
+      type: "Onion Network",
+      version: "Latest",
+      color: "cyan"
+    }
+  ];
+  const features = [
+    {
+      name: "Security Architecture",
+      lockbit: { status: "trophy", detail: "18-layer military-grade defense system with complete ASN.1 validation" },
+      signal: { status: "check", detail: "Signal Protocol with double ratchet" },
+      threema: { status: "check", detail: "Standard security implementation" },
+      session: { status: "check", detail: "Modified Signal Protocol + Onion routing" }
+    },
+    {
+      name: "Cryptography",
+      lockbit: { status: "trophy", detail: "ECDH P-384 + AES-GCM 256 + ECDSA P-384" },
+      signal: { status: "check", detail: "Signal Protocol + Double Ratchet" },
+      threema: { status: "check", detail: "NaCl + XSalsa20 + Poly1305" },
+      session: { status: "check", detail: "Modified Signal Protocol" }
+    },
+    {
+      name: "Perfect Forward Secrecy",
+      lockbit: { status: "trophy", detail: "Auto rotation every 5 minutes or 100 messages" },
+      signal: { status: "check", detail: "Double Ratchet algorithm" },
+      threema: { status: "warning", detail: "Partial (group chats)" },
+      session: { status: "check", detail: "Session Ratchet algorithm" }
+    },
+    {
+      name: "Architecture",
+      lockbit: { status: "trophy", detail: "Pure P2P WebRTC without servers" },
+      signal: { status: "times", detail: "Centralized Signal servers" },
+      threema: { status: "times", detail: "Threema servers in Switzerland" },
+      session: { status: "warning", detail: "Onion routing via network nodes" }
+    },
+    {
+      name: "Registration Anonymity",
+      lockbit: { status: "trophy", detail: "No registration required, instant anonymous channels" },
+      signal: { status: "times", detail: "Phone number required" },
+      threema: { status: "check", detail: "ID generated locally" },
+      session: { status: "check", detail: "Random session ID" }
+    },
+    {
+      name: "Payment Integration",
+      lockbit: { status: "trophy", detail: "Lightning Network satoshis per session + WebLN" },
+      signal: { status: "times", detail: "No payment system" },
+      threema: { status: "times", detail: "No payment system" },
+      session: { status: "times", detail: "No payment system" }
+    },
+    {
+      name: "Metadata Protection",
+      lockbit: { status: "trophy", detail: "Full metadata encryption + traffic obfuscation" },
+      signal: { status: "warning", detail: "Sealed Sender (partial)" },
+      threema: { status: "warning", detail: "Minimal metadata" },
+      session: { status: "check", detail: "Onion routing hides metadata" }
+    },
+    {
+      name: "Traffic Obfuscation",
+      lockbit: { status: "trophy", detail: "Fake traffic + pattern masking + packet padding" },
+      signal: { status: "times", detail: "No traffic obfuscation" },
+      threema: { status: "times", detail: "No traffic obfuscation" },
+      session: { status: "check", detail: "Onion routing provides obfuscation" }
+    },
+    {
+      name: "Open Source",
+      lockbit: { status: "trophy", detail: "100% open + auditable + MIT license" },
+      signal: { status: "check", detail: "Fully open" },
+      threema: { status: "warning", detail: "Only clients open" },
+      session: { status: "check", detail: "Fully open" }
+    },
+    {
+      name: "MITM Protection",
+      lockbit: { status: "trophy", detail: "Out-of-band verification + mutual auth + ECDSA" },
+      signal: { status: "check", detail: "Safety numbers verification" },
+      threema: { status: "check", detail: "QR code scanning" },
+      session: { status: "warning", detail: "Basic key verification" }
+    },
+    {
+      name: "Economic Model",
+      lockbit: { status: "trophy", detail: "Sustainable pay-per-session model" },
+      signal: { status: "warning", detail: "Donations and grants dependency" },
+      threema: { status: "check", detail: "One-time app purchase" },
+      session: { status: "warning", detail: "Donations dependency" }
+    },
+    {
+      name: "Censorship Resistance",
+      lockbit: { status: "trophy", detail: "Impossible to block P2P + no servers to target" },
+      signal: { status: "warning", detail: "Blocked in authoritarian countries" },
+      threema: { status: "warning", detail: "May be blocked" },
+      session: { status: "check", detail: "Onion routing bypasses blocks" }
+    },
+    {
+      name: "Data Storage",
+      lockbit: { status: "trophy", detail: "Zero data storage - only in browser memory" },
+      signal: { status: "warning", detail: "Local database storage" },
+      threema: { status: "warning", detail: "Local + optional backup" },
+      session: { status: "warning", detail: "Local database storage" }
+    },
+    {
+      name: "Key Security",
+      lockbit: { status: "trophy", detail: "Non-extractable keys + hardware protection" },
+      signal: { status: "check", detail: "Secure key storage" },
+      threema: { status: "check", detail: "Local key storage" },
+      session: { status: "check", detail: "Secure key storage" }
+    },
+    {
+      name: "Post-Quantum Roadmap",
+      lockbit: { status: "check", detail: "Planned v5.0 - CRYSTALS-Kyber/Dilithium" },
+      signal: { status: "warning", detail: "PQXDH in development" },
+      threema: { status: "times", detail: "Not announced" },
+      session: { status: "times", detail: "Not announced" }
+    }
+  ];
+  const getStatusIcon = (status) => {
+    const statusMap = {
+      "trophy": { icon: "fa-trophy", color: "accent-orange" },
+      "check": { icon: "fa-check", color: "text-green-300" },
+      "warning": { icon: "fa-exclamation-triangle", color: "text-yellow-300" },
+      "times": { icon: "fa-times", color: "text-red-300" }
+    };
+    return statusMap[status] || { icon: "fa-question", color: "text-gray-400" };
+  };
+  const toggleFeatureDetail = (index) => {
+    setSelectedFeature(selectedFeature === index ? null : index);
+  };
+  return /* @__PURE__ */ React.createElement("div", { className: "mt-16" }, /* @__PURE__ */ React.createElement("div", { className: "text-center mb-8" }, /* @__PURE__ */ React.createElement("h3", { className: "text-3xl font-bold text-white mb-3" }, "Enhanced Security Edition Comparison"), /* @__PURE__ */ React.createElement("p", { className: "text-gray-400 max-w-2xl mx-auto mb-4" }, "Enhanced Security Edition vs leading secure messengers")), /* @__PURE__ */ React.createElement("div", { className: "max-w-7xl mx-auto" }, /* @__PURE__ */ React.createElement("div", { className: "md:hidden p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg mb-4" }, /* @__PURE__ */ React.createElement("p", { className: "text-yellow-400 text-sm text-center" }, /* @__PURE__ */ React.createElement("i", { className: "fas fa-lightbulb mr-2" }), "Rotate your device horizontally for better viewing")), /* @__PURE__ */ React.createElement("div", { className: "overflow-x-auto" }, /* @__PURE__ */ React.createElement(
+    "table",
+    {
+      className: "w-full border-collapse rounded-xl overflow-hidden shadow-2xl",
+      style: { backgroundColor: "rgba(42, 43, 42, 0.9)" }
+    },
+    /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { className: "bg-black-table" }, /* @__PURE__ */ React.createElement("th", { className: "text-left p-4 border-b border-gray-600 text-white font-bold min-w-[240px]" }, "Security Criterion"), messengers.map((messenger, index) => /* @__PURE__ */ React.createElement("th", { key: `messenger-${index}`, className: "text-center p-4 border-b border-gray-600 min-w-[160px]" }, /* @__PURE__ */ React.createElement("div", { className: "flex flex-col items-center" }, /* @__PURE__ */ React.createElement("div", { className: "mb-2" }, messenger.logo), /* @__PURE__ */ React.createElement("div", { className: `text-sm font-bold ${messenger.color === "orange" ? "text-orange-400" : messenger.color === "blue" ? "text-blue-400" : messenger.color === "green" ? "text-green-400" : "text-cyan-400"}` }, messenger.name), /* @__PURE__ */ React.createElement("div", { className: "text-xs text-gray-400" }, messenger.type), /* @__PURE__ */ React.createElement("div", { className: "text-xs text-gray-500 mt-1" }, messenger.version)))))),
+    /* @__PURE__ */ React.createElement("tbody", null, features.map((feature, featureIndex) => /* @__PURE__ */ React.createElement(React.Fragment, { key: `feature-${featureIndex}` }, /* @__PURE__ */ React.createElement(
+      "tr",
+      {
+        className: `border-b border-gray-700/30 transition-all duration-200 cursor-pointer hover:bg-[rgb(20_20_20_/30%)] ${selectedFeature === featureIndex ? "bg-[rgb(20_20_20_/50%)]" : ""}`,
+        onClick: () => toggleFeatureDetail(featureIndex)
+      },
+      /* @__PURE__ */ React.createElement("td", { className: "p-4 text-white font-semibold" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between" }, /* @__PURE__ */ React.createElement("span", null, feature.name), /* @__PURE__ */ React.createElement("i", { className: `fas fa-chevron-${selectedFeature === featureIndex ? "up" : "down"} text-xs text-gray-400 opacity-60 transition-all duration-200` }))),
+      /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("i", { className: `fas ${getStatusIcon(feature.lockbit.status).icon} ${getStatusIcon(feature.lockbit.status).color} text-2xl` })),
+      /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("i", { className: `fas ${getStatusIcon(feature.signal.status).icon} ${getStatusIcon(feature.signal.status).color} text-2xl` })),
+      /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("i", { className: `fas ${getStatusIcon(feature.threema.status).icon} ${getStatusIcon(feature.threema.status).color} text-2xl` })),
+      /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("i", { className: `fas ${getStatusIcon(feature.session.status).icon} ${getStatusIcon(feature.session.status).color} text-2xl` }))
+    ), selectedFeature === featureIndex && /* @__PURE__ */ React.createElement("tr", { className: "border-b border-gray-700/30 bg-gradient-to-r from-gray-800/20 to-gray-900/20" }, /* @__PURE__ */ React.createElement("td", { className: "p-4 text-xs text-gray-400 font-medium" }, "Technical Details:"), /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs text-orange-300 font-medium leading-relaxed" }, feature.lockbit.detail)), /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs text-blue-300 leading-relaxed" }, feature.signal.detail)), /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs text-green-300 leading-relaxed" }, feature.threema.detail)), /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs text-cyan-300 leading-relaxed" }, feature.session.detail))))))
+  )), /* @__PURE__ */ React.createElement("div", { className: "mt-8 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-orange-500/10 rounded-xl hover:bg-orange-500/40 transition-colors" }, /* @__PURE__ */ React.createElement("i", { className: "fas fa-trophy text-orange-400 mr-2 text-xl" }), /* @__PURE__ */ React.createElement("span", { className: "text-orange-300 text-sm font-bold" }, "Category Leader")), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-green-500/10 rounded-xl hover:bg-green-600/40 transition-colors" }, /* @__PURE__ */ React.createElement("i", { className: "fas fa-check text-green-300 mr-2 text-xl" }), /* @__PURE__ */ React.createElement("span", { className: "text-green-200 text-sm font-bold" }, "Excellent")), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-yellow-500/10 rounded-xl hover:bg-yellow-600/40 transition-colors" }, /* @__PURE__ */ React.createElement("i", { className: "fas fa-exclamation-triangle text-yellow-300 mr-2 text-xl" }), /* @__PURE__ */ React.createElement("span", { className: "text-yellow-200 text-sm font-bold" }, "Partial/Limited")), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-red-500/10 rounded-xl hover:bg-red-600/40 transition-colors" }, /* @__PURE__ */ React.createElement("i", { className: "fas fa-times text-red-300 mr-2 text-xl" }), /* @__PURE__ */ React.createElement("span", { className: "text-red-200 text-sm font-bold" }, "Not Available")))));
+};
+window.ComparisonTable = ComparisonTable;
+
+// src/components/ui/Roadmap.jsx
+function Roadmap() {
+  const [selectedPhase, setSelectedPhase] = React.useState(null);
+  const phases = [
+    {
+      version: "v1.0",
+      title: "Start of Development",
+      status: "done",
+      date: "Early 2025",
+      description: "Idea, prototype, and infrastructure setup",
+      features: [
+        "Concept and requirements formation",
+        "Stack selection: WebRTC, P2P, cryptography",
+        "First messaging prototypes",
+        "Repository creation and CI",
+        "Basic encryption architecture",
+        "UX/UI design"
+      ]
+    },
+    {
+      version: "v1.5",
+      title: "Alpha Release",
+      status: "done",
+      date: "Spring 2025",
+      description: "First public alpha: basic chat and key exchange",
+      features: [
+        "Basic P2P messaging via WebRTC",
+        "Simple E2E encryption (demo scheme)",
+        "Stable signaling and reconnection",
+        "Minimal UX for testing",
+        "Feedback collection from early testers"
+      ]
+    },
+    {
+      version: "v2.0",
+      title: "Security Hardened",
+      status: "done",
+      date: "Summer 2025",
+      description: "Security strengthening and stable branch release",
+      features: [
+        "ECDH/ECDSA implementation in production",
+        "Perfect Forward Secrecy and key rotation",
+        "Improved authentication checks",
+        "File encryption and large payload transfers",
+        "Audit of basic cryptoprocesses"
+      ]
+    },
+    {
+      version: "v3.0",
+      title: "Scaling & Stability",
+      status: "done",
+      date: "Fall 2025",
+      description: "Network scaling and stability improvements",
+      features: [
+        "Optimization of P2P connections and NAT traversal",
+        "Reconnection mechanisms and message queues",
+        "Reduced battery consumption on mobile",
+        "Support for multi-device synchronization",
+        "Monitoring and logging tools for developers"
+      ]
+    },
+    {
+      version: "v3.5",
+      title: "Privacy-first Release",
+      status: "done",
+      date: "Winter 2025",
+      description: "Focus on privacy: minimizing metadata",
+      features: [
+        "Metadata protection and fingerprint reduction",
+        "Experiments with onion routing and DHT",
+        "Options for anonymous connections",
+        "Preparation for open code audit",
+        "Improved user verification processes"
+      ]
+    },
+    // current and future phases
+    {
+      version: "v4.2.12",
+      title: "Enhanced Security Edition",
+      status: "current",
+      date: "Now",
+      description: "Current version with ECDH + DTLS + SAS security, 18-layer military-grade cryptography and complete ASN.1 validation",
+      features: [
+        "ECDH + DTLS + SAS triple-layer security",
+        "ECDH P-384 + AES-GCM 256-bit encryption",
+        "DTLS fingerprint verification",
+        "SAS (Short Authentication String) verification",
+        "Perfect Forward Secrecy with key rotation",
+        "Enhanced MITM attack prevention",
+        "Complete ASN.1 DER validation",
+        "OID and EC point verification",
+        "SPKI structure validation",
+        "P2P WebRTC architecture",
+        "Metadata protection",
+        "100% open source code"
+      ]
+    },
+    {
+      version: "v4.5",
+      title: "Mobile & Desktop Edition",
+      status: "development",
+      date: "Q2 2025",
+      description: "Native apps for all platforms",
+      features: [
+        "PWA app for mobile",
+        "Electron app for desktop",
+        "Real-time notifications",
+        "Automatic reconnection",
+        "Battery optimization",
+        "Cross-device synchronization",
+        "Improved UX/UI",
+        "Support for files up to 100MB"
+      ]
+    },
+    {
+      version: "v5.0",
+      title: "Quantum-Resistant Edition",
+      status: "planned",
+      date: "Q4 2025",
+      description: "Protection against quantum computers",
+      features: [
+        "Post-quantum cryptography CRYSTALS-Kyber",
+        "SPHINCS+ digital signatures",
+        "Hybrid scheme: classic + PQ",
+        "Quantum-safe key exchange",
+        "Updated hashing algorithms",
+        "Migration of existing sessions",
+        "Compatibility with v4.x",
+        "Quantum-resistant protocols"
+      ]
+    },
+    {
+      version: "v5.5",
+      title: "Group Communications",
+      status: "planned",
+      date: "Q2 2026",
+      description: "Group chats with preserved privacy",
+      features: [
+        "P2P group connections up to 8 participants",
+        "Mesh networking for groups",
+        "Signal Double Ratchet for groups",
+        "Anonymous groups without metadata",
+        "Ephemeral groups (disappear after session)",
+        "Cryptographic group administration",
+        "Group member auditing"
+      ]
+    },
+    {
+      version: "v6.0",
+      title: "Decentralized Network",
+      status: "research",
+      date: "2027",
+      description: "Fully decentralized network",
+      features: [
+        "LockBit node mesh network",
+        "DHT for peer discovery",
+        "Built-in onion routing",
+        "Tokenomics and node incentives",
+        "Governance via DAO",
+        "Interoperability with other networks",
+        "Cross-platform compatibility",
+        "Self-healing network"
+      ]
+    },
+    {
+      version: "v7.0",
+      title: "AI Privacy Assistant",
+      status: "research",
+      date: "2028+",
+      description: "AI for privacy and security",
+      features: [
+        "Local AI threat analysis",
+        "Automatic MITM detection",
+        "Adaptive cryptography",
+        "Personalized security recommendations",
+        "Zero-knowledge machine learning",
+        "Private AI assistant",
+        "Predictive security",
+        "Autonomous attack protection"
+      ]
+    }
+  ];
+  const getStatusConfig = (status) => {
+    switch (status) {
+      case "current":
+        return {
+          color: "green",
+          bgClass: "bg-green-500/10 border-green-500/20",
+          textClass: "text-green-400",
+          icon: "fas fa-check-circle",
+          label: "Current Version"
+        };
+      case "development":
+        return {
+          color: "orange",
+          bgClass: "bg-orange-500/10 border-orange-500/20",
+          textClass: "text-orange-400",
+          icon: "fas fa-code",
+          label: "In Development"
+        };
+      case "planned":
+        return {
+          color: "blue",
+          bgClass: "bg-blue-500/10 border-blue-500/20",
+          textClass: "text-blue-400",
+          icon: "fas fa-calendar-alt",
+          label: "Planned"
+        };
+      case "research":
+        return {
+          color: "purple",
+          bgClass: "bg-purple-500/10 border-purple-500/20",
+          textClass: "text-purple-400",
+          icon: "fas fa-flask",
+          label: "Research"
+        };
+      case "done":
+        return {
+          color: "gray",
+          bgClass: "bg-gray-500/10 border-gray-500/20",
+          textClass: "text-gray-300",
+          icon: "fas fa-flag-checkered",
+          label: "Released"
+        };
+      default:
+        return {
+          color: "gray",
+          bgClass: "bg-gray-500/10 border-gray-500/20",
+          textClass: "text-gray-400",
+          icon: "fas fa-question",
+          label: "Unknown"
+        };
+    }
+  };
+  const togglePhaseDetail = (index) => {
+    setSelectedPhase(selectedPhase === index ? null : index);
+  };
+  return /* @__PURE__ */ React.createElement("div", { key: "roadmap-section", className: "mt-16 px-4 sm:px-0" }, /* @__PURE__ */ React.createElement("div", { key: "section-header", className: "text-center mb-12" }, /* @__PURE__ */ React.createElement("h3", { key: "title", className: "text-2xl font-semibold text-primary mb-3" }, "Development Roadmap"), /* @__PURE__ */ React.createElement("p", { key: "subtitle", className: "text-secondary max-w-2xl mx-auto mb-6" }, "Evolution of SecureBit.chat : from initial development to quantum-resistant decentralized network with complete ASN.1 validation")), /* @__PURE__ */ React.createElement("div", { key: "roadmap-container", className: "max-w-6xl mx-auto" }, /* @__PURE__ */ React.createElement("div", { key: "timeline", className: "relative" }, /* @__PURE__ */ React.createElement("div", { key: "phases", className: "space-y-8" }, phases.map((phase, index) => {
+    const statusConfig = getStatusConfig(phase.status);
+    const isExpanded = selectedPhase === index;
+    return /* @__PURE__ */ React.createElement("div", { key: `phase-${index}`, className: "relative" }, /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        type: "button",
+        "aria-expanded": isExpanded,
+        onClick: () => togglePhaseDetail(index),
+        key: `phase-button-${index}`,
+        className: `card-minimal rounded-xl p-4 text-left w-full transition-all duration-300 ${isExpanded ? "ring-2 ring-" + statusConfig.color + "-500/30" : ""}`
+      },
+      /* @__PURE__ */ React.createElement(
+        "div",
+        {
+          key: "phase-header",
+          className: "flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 space-y-2 sm:space-y-0"
+        },
+        /* @__PURE__ */ React.createElement(
+          "div",
+          {
+            key: "phase-info",
+            className: "flex flex-col sm:flex-row sm:items-center sm:space-x-4"
+          },
+          /* @__PURE__ */ React.createElement(
+            "div",
+            {
+              key: "version-badge",
+              className: `px-3 py-1 ${statusConfig.bgClass} border rounded-lg mb-2 sm:mb-0`
+            },
+            /* @__PURE__ */ React.createElement(
+              "span",
+              {
+                key: "version",
+                className: `${statusConfig.textClass} font-bold text-sm`
+              },
+              phase.version
+            )
+          ),
+          /* @__PURE__ */ React.createElement("div", { key: "title-section" }, /* @__PURE__ */ React.createElement(
+            "h4",
+            {
+              key: "title",
+              className: "text-lg font-semibold text-primary"
+            },
+            phase.title
+          ), /* @__PURE__ */ React.createElement(
+            "p",
+            {
+              key: "description",
+              className: "text-secondary text-sm"
+            },
+            phase.description
+          ))
+        ),
+        /* @__PURE__ */ React.createElement(
+          "div",
+          {
+            key: "phase-meta",
+            className: "flex items-center space-x-3 text-sm text-gray-400 font-medium"
+          },
+          /* @__PURE__ */ React.createElement(
+            "div",
+            {
+              key: "status-badge",
+              className: `flex items-center px-3 py-1 ${statusConfig.bgClass} border rounded-lg`
+            },
+            /* @__PURE__ */ React.createElement(
+              "i",
+              {
+                key: "status-icon",
+                className: `${statusConfig.icon} ${statusConfig.textClass} mr-2 text-xs`
+              }
+            ),
+            /* @__PURE__ */ React.createElement(
+              "span",
+              {
+                key: "status-text",
+                className: `${statusConfig.textClass} text-xs font-medium`
+              },
+              statusConfig.label
+            )
+          ),
+          /* @__PURE__ */ React.createElement("div", { key: "date" }, phase.date),
+          /* @__PURE__ */ React.createElement(
+            "i",
+            {
+              key: "expand-icon",
+              className: `fas fa-chevron-${isExpanded ? "up" : "down"} text-gray-400 text-sm`
+            }
+          )
+        )
+      ),
+      isExpanded && /* @__PURE__ */ React.createElement(
+        "div",
+        {
+          key: "features-section",
+          className: "mt-6 pt-6 border-t border-gray-700/30"
+        },
+        /* @__PURE__ */ React.createElement(
+          "h5",
+          {
+            key: "features-title",
+            className: "text-primary font-medium mb-4 flex items-center"
+          },
+          /* @__PURE__ */ React.createElement(
+            "i",
+            {
+              key: "features-icon",
+              className: "fas fa-list-ul mr-2 text-sm"
+            }
+          ),
+          "Key features:"
+        ),
+        /* @__PURE__ */ React.createElement(
+          "div",
+          {
+            key: "features-grid",
+            className: "grid md:grid-cols-2 gap-3"
+          },
+          phase.features.map((feature, featureIndex) => /* @__PURE__ */ React.createElement(
+            "div",
+            {
+              key: `feature-${featureIndex}`,
+              className: "flex items-center space-x-3 p-3 bg-custom-bg rounded-lg"
+            },
+            /* @__PURE__ */ React.createElement(
+              "div",
+              {
+                className: `w-2 h-2 rounded-full ${statusConfig.textClass.replace(
+                  "text-",
+                  "bg-"
+                )}`
+              }
+            ),
+            /* @__PURE__ */ React.createElement("span", { className: "text-secondary text-sm" }, feature)
+          ))
+        )
+      )
+    ));
+  })))), /* @__PURE__ */ React.createElement("div", { key: "cta-section", className: "mt-12 text-center" }, /* @__PURE__ */ React.createElement(
+    "div",
+    {
+      key: "cta-card",
+      className: "card-minimal rounded-xl p-8 max-w-2xl mx-auto"
+    },
+    /* @__PURE__ */ React.createElement(
+      "h4",
+      {
+        key: "cta-title",
+        className: "text-xl font-semibold text-primary mb-3"
+      },
+      "Join the future of privacy"
+    ),
+    /* @__PURE__ */ React.createElement("p", { key: "cta-description", className: "text-secondary mb-6" }, "SecureBit.chat grows thanks to the community. Your ideas and feedback help shape the future of secure communication with complete ASN.1 validation."),
+    /* @__PURE__ */ React.createElement(
+      "div",
+      {
+        key: "cta-buttons",
+        className: "flex flex-col sm:flex-row gap-4 justify-center"
+      },
+      /* @__PURE__ */ React.createElement(
+        "a",
+        {
+          key: "github-link",
+          href: "https://github.com/SecureBitChat/securebit-chat/",
+          className: "btn-primary text-white py-3 px-6 rounded-lg font-medium transition-all duration-200 flex items-center justify-center"
+        },
+        /* @__PURE__ */ React.createElement("i", { key: "github-icon", className: "fab fa-github mr-2" }),
+        "GitHub Repository"
+      ),
+      /* @__PURE__ */ React.createElement(
+        "a",
+        {
+          key: "feedback-link",
+          href: "mailto:lockbitchat@tutanota.com",
+          className: "btn-secondary text-white py-3 px-6 rounded-lg font-medium transition-all duration-200 flex items-center justify-center"
+        },
+        /* @__PURE__ */ React.createElement("i", { key: "feedback-icon", className: "fas fa-comments mr-2" }),
+        "Feedback"
+      )
+    )
+  )));
+}
+window.Roadmap = Roadmap;
 
 // src/components/ui/FileTransfer.jsx
 var FileTransferComponent = ({ webrtcManager, isConnected }) => {
