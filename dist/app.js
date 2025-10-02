@@ -1316,7 +1316,7 @@ var EnhancedConnectionSetup = ({
                 React.createElement("i", {
                   className: "fas fa-check-circle mr-2"
                 }),
-                "Secure invitation created! Send the code to your contact:"
+                "Secure invitation created! Send the code to your contact"
               ])
             ]),
             React.createElement("div", {
