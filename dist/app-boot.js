@@ -15235,7 +15235,7 @@ window.UniqueFeatureSlider = UniqueFeatureSlider;
 var SecurityFeatures = () => {
   const features = [
     { id: "feature1", color: "#00ff88", icon: "fas fa-key accent-green", title: "ECDH P-384 Key Exchange", desc: "Military-grade elliptic curve key exchange" },
-    { id: "feature2", color: "#bb00ff", icon: "fas fa-user-shield accent-purple", title: "MITM Protection", desc: "Out-of-band verification against attacks" },
+    { id: "feature2", color: "#a78bfa", icon: "fas fa-user-shield accent-purple", title: "MITM Protection", desc: "Out-of-band verification against attacks" },
     { id: "feature3", color: "#ff8800", icon: "fas fa-lock accent-orange", title: "AES-GCM 256 Encryption", desc: "Authenticated encryption standard" },
     { id: "feature4", color: "#00ffff", icon: "fas fa-sync-alt accent-cyan", title: "Perfect Forward Secrecy", desc: "Automatic key rotation every 5 minutes" },
     { id: "feature5", color: "#0088ff", icon: "fas fa-signature accent-blue", title: "ECDSA P-384 Signatures", desc: "Digital signatures for message integrity" },
