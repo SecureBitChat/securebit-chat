@@ -2,7 +2,6 @@
 const UniqueFeatureSlider = () => {
   const trackRef = React.useRef(null);
   const wrapRef = React.useRef(null);
-  const dotsRef = React.useRef(null);
   const [current, setCurrent] = React.useState(0);
 
   const slides = [
@@ -93,7 +92,7 @@ const UniqueFeatureSlider = () => {
       key: 'head',
       className: 'head'
     }, [
-      React.createElement('h2', { key: 'title' }, 'Why SecureBit.chat is unique'),
+      React.createElement('h2', { key: 'title', className: 'text-2xl sm:text-3xl font-bold text-white mb-4 leading-snug' }, 'Why SecureBit.chat is unique'),
       React.createElement('div', { 
         key: 'controls',
         className: 'controls'
@@ -169,20 +168,6 @@ const UniqueFeatureSlider = () => {
         ])
       ))
     ),
-
-    // Dots
-    React.createElement('div', {
-      key: 'dots',
-      className: 'dots',
-      ref: dotsRef,
-      ...(isMobile() ? { hidden: true } : {})
-    }, slides.map((_, index) =>
-      React.createElement('span', {
-        key: index,
-        className: `dot ${index === current ? 'active' : ''}`,
-        onClick: () => activate(index, true)
-      })
-    ))
   ]);
 };
 

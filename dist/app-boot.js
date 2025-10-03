@@ -15022,9 +15022,9 @@ var DownloadApps = () => {
   const apps = [
     { id: "web", name: "Web App", subtitle: "Browser Version", icon: "fas fa-globe", platform: "Web", isActive: true, url: "https://securebit.chat/", color: "green" },
     { id: "windows", name: "Windows", subtitle: "Desktop App", icon: "fab fa-windows", platform: "Desktop", isActive: true, url: "https://securebit.chat/download/windows/SecureBit%20Chat%20Setup%204.1.222.exe", color: "blue" },
-    { id: "macos", name: "macOS", subtitle: "Desktop App", icon: "fab fa-safari", platform: "Desktop", isActive: false, url: "#", color: "blueios" },
+    { id: "macos", name: "macOS", subtitle: "Desktop App", icon: "fab fa-safari", platform: "Desktop", isActive: false, url: "#", color: "gray" },
     { id: "linux", name: "Linux", subtitle: "Desktop App", icon: "fab fa-linux", platform: "Desktop", isActive: false, url: "#", color: "orange" },
-    { id: "ios", name: "iOS", subtitle: "iPhone & iPad", icon: "fab fa-apple", platform: "Mobile", isActive: false, url: "https://apps.apple.com/app/securebit-chat/", color: "blue" },
+    { id: "ios", name: "iOS", subtitle: "iPhone & iPad", icon: "fab fa-apple", platform: "Mobile", isActive: false, url: "https://apps.apple.com/app/securebit-chat/", color: "white" },
     { id: "android", name: "Android", subtitle: "Google Play", icon: "fab fa-android", platform: "Mobile", isActive: false, url: "https://play.google.com/store/apps/details?id=com.securebit.chat", color: "green" }
   ];
   const handleDownload = (app) => {
@@ -15087,7 +15087,6 @@ window.DownloadApps = DownloadApps;
 var UniqueFeatureSlider = () => {
   const trackRef = React.useRef(null);
   const wrapRef = React.useRef(null);
-  const dotsRef = React.useRef(null);
   const [current, setCurrent] = React.useState(0);
   const slides = [
     {
@@ -15167,7 +15166,7 @@ var UniqueFeatureSlider = () => {
       key: "head",
       className: "head"
     }, [
-      React.createElement("h2", { key: "title" }, "Why SecureBit.chat is unique"),
+      React.createElement("h2", { key: "title", className: "text-2xl sm:text-3xl font-bold text-white mb-4 leading-snug" }, "Why SecureBit.chat is unique"),
       React.createElement("div", {
         key: "controls",
         className: "controls"
@@ -15242,20 +15241,7 @@ var UniqueFeatureSlider = () => {
           ])
         ])
       ))
-    ),
-    // Dots
-    React.createElement("div", {
-      key: "dots",
-      className: "dots",
-      ref: dotsRef,
-      ...isMobile() ? { hidden: true } : {}
-    }, slides.map(
-      (_, index) => React.createElement("span", {
-        key: index,
-        className: `dot ${index === current ? "active" : ""}`,
-        onClick: () => activate(index, true)
-      })
-    ))
+    )
   ]);
 };
 window.UniqueFeatureSlider = UniqueFeatureSlider;

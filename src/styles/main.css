@@ -195,15 +195,8 @@ body {
   align-items: flex-end;
   gap: 2rem;
 }
-.head h2 {
-  font: 400 1.5rem/1.2 Inter, sans-serif;
-  color: #fff;
-}
-@media (min-width: 1024px) {
-  .head h2 {
-    font-size: 2.25rem;
-  }
-}
+
+
 .nav-btn {
   width: 2.5rem;
   height: 2.5rem;
@@ -287,7 +280,7 @@ body {
   align-items: center;
   gap: 0.7rem;
   padding: 0;
-  background: linear-gradient(transparent 40%, rgba(0, 0, 0, 0.85) 100%);
+  background: linear-gradient(transparent 40%, rgba(0, 0, 0, 0.35) 100%);
   z-index: 2;
 }
 .project-card__title {
@@ -328,43 +321,12 @@ body {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
 }
 .project-card__desc {
-  color: #ddd;
+  color: #b6b6b6;
   font-size: 1rem;
   line-height: 1.4;
   max-width: 16rem;
 }
-.project-card__btn {
-  padding: 0.55rem 1.3rem;
-  border: none;
-  border-radius: 9999px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-.project-card__btn:hover {
-  background: #ff824f;
-}
 
-.dots {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: center;
-  padding: 20px 0;
-}
-.dot {
-  width: 13px;
-  height: 13px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.35);
-  cursor: pointer;
-  transition: 0.3s;
-}
-.dot.active {
-  background: var(--accent);
-  transform: scale(1.2);
-}
 
 @media (max-width: 767px) {
   :root {
