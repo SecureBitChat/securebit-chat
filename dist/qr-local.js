@@ -860,7 +860,7 @@ var require_reed_solomon_encoder = __commonJS({
       this.degree = degree;
       this.genPoly = Polynomial.generateECPolynomial(this.degree);
     };
-    ReedSolomonEncoder.prototype.encode = function encode2(data) {
+    ReedSolomonEncoder.prototype.encode = function encode3(data) {
       if (!this.genPoly) {
         throw new Error("Encoder not initialized");
       }
@@ -27551,7 +27551,7 @@ var require_cbor = __commonJS({
     (function(global2, undefined2) {
       "use strict";
       var POW_2_24 = Math.pow(2, -24), POW_2_32 = Math.pow(2, 32), POW_2_53 = Math.pow(2, 53);
-      function encode2(value) {
+      function encode3(value) {
         var data = new ArrayBuffer(256);
         var dataView = new DataView(data);
         var lastLength;
@@ -27694,7 +27694,7 @@ var require_cbor = __commonJS({
           retView.setUint8(i, dataView.getUint8(i));
         return ret;
       }
-      function decode2(data, tagger, simpleValue) {
+      function decode3(data, tagger, simpleValue) {
         var dataView = new DataView(data);
         var offset = 0;
         if (typeof tagger !== "function")
@@ -27890,7 +27890,7 @@ var require_cbor = __commonJS({
           throw "Remaining bytes";
         return ret;
       }
-      var obj = { encode: encode2, decode: decode2 };
+      var obj = { encode: encode3, decode: decode3 };
       if (typeof define === "function" && define.amd)
         define("cbor/cbor", obj);
       else if (typeof module !== "undefined" && module.exports)
@@ -31899,9 +31899,6 @@ var Html5QrcodeScanner = (function() {
   };
   return Html5QrcodeScanner2;
 })();
-
-// src/crypto/cose-qr.js
-var cbor = __toESM(require_cbor());
 
 // node_modules/pako/dist/pako.esm.mjs
 var Z_FIXED$1 = 4;
@@ -36076,9 +36073,15 @@ var inflate_1$1 = {
 var { Deflate, deflate, deflateRaw, gzip } = deflate_1$1;
 var { Inflate, inflate, inflateRaw, ungzip } = inflate_1$1;
 var deflate_1 = deflate;
+var gzip_1 = gzip;
 var inflate_1 = inflate;
+var ungzip_1 = ungzip;
+
+// src/scripts/qr-local.js
+var cbor2 = __toESM(require_cbor());
 
 // src/crypto/cose-qr.js
+var cbor = __toESM(require_cbor());
 var base64 = __toESM(require_base64_js());
 function toBase64Url(uint8) {
   let b64 = base64.fromByteArray(uint8);
@@ -36421,11 +36424,82 @@ window.packSecurePayload = packSecurePayload;
 window.receiveAndProcess = receiveAndProcess;
 
 // src/scripts/qr-local.js
+var COMPRESSION_PREFIX = "SB1:gz:";
+var BINARY_PREFIX = "SB1:bin:";
+function uint8ToBase64(bytes) {
+  let binary = "";
+  const chunkSize = 32768;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode.apply(null, chunk);
+  }
+  return btoa(binary);
+}
+function base64ToUint8(b64) {
+  const binary = atob(b64);
+  const len = binary.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+function compressStringToBase64Gzip(text) {
+  const utf8 = new TextEncoder().encode(text);
+  const gz = gzip_1(utf8);
+  return uint8ToBase64(gz);
+}
+function decompressBase64GzipToString(b64) {
+  const gz = base64ToUint8(b64);
+  const out = ungzip_1(gz);
+  return new TextDecoder().decode(out);
+}
 async function generateQRCode(text, opts = {}) {
   const size = opts.size || 512;
   const margin = opts.margin ?? 2;
   const errorCorrectionLevel = opts.errorCorrectionLevel || "M";
   return await QRCode.toDataURL(text, { width: size, margin, errorCorrectionLevel });
+}
+async function generateCompressedQRCode(text, opts = {}) {
+  try {
+    const compressedB64 = compressStringToBase64Gzip(text);
+    const payload = COMPRESSION_PREFIX + compressedB64;
+    return await generateQRCode(payload, opts);
+  } catch (e) {
+    console.warn("generateCompressedQRCode failed, falling back to plain:", e?.message || e);
+    return await generateQRCode(text, opts);
+  }
+}
+function base64ToBase64Url(b64) {
+  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+function base64UrlToBase64(b64url) {
+  let b64 = b64url.replace(/-/g, "+").replace(/_/g, "/");
+  const pad = b64.length % 4;
+  if (pad) b64 += "=".repeat(4 - pad);
+  return b64;
+}
+function encodeObjectToBinaryBase64Url(obj) {
+  const cborBytes = cbor2.encode(obj);
+  const compressed = deflate_1(new Uint8Array(cborBytes));
+  const b64 = uint8ToBase64(compressed);
+  return base64ToBase64Url(b64);
+}
+function decodeBinaryBase64UrlToObject(b64url) {
+  const b64 = base64UrlToBase64(b64url);
+  const compressed = base64ToUint8(b64);
+  const decompressed = inflate_1(compressed);
+  const ab = decompressed.buffer.slice(decompressed.byteOffset, decompressed.byteOffset + decompressed.byteLength);
+  return cbor2.decode(ab);
+}
+async function generateBinaryQRCodeFromObject(obj, opts = {}) {
+  try {
+    const b64url = encodeObjectToBinaryBase64Url(obj);
+    const payload = BINARY_PREFIX + b64url;
+    return await generateQRCode(payload, opts);
+  } catch (e) {
+    console.warn("generateBinaryQRCodeFromObject failed, falling back to JSON compressed:", e?.message || e);
+    const text = JSON.stringify(obj);
+    return await generateCompressedQRCode(text, opts);
+  }
 }
 async function generateCOSEQRCode(data, senderKey = null, recipientKey = null) {
   try {
@@ -36443,11 +36517,62 @@ async function generateCOSEQRCode(data, senderKey = null, recipientKey = null) {
   }
 }
 window.generateQRCode = generateQRCode;
+window.generateCompressedQRCode = generateCompressedQRCode;
+window.generateBinaryQRCodeFromObject = generateBinaryQRCodeFromObject;
 window.generateCOSEQRCode = generateCOSEQRCode;
 window.Html5Qrcode = Html5Qrcode;
 window.packSecurePayload = packSecurePayload;
 window.receiveAndProcess = receiveAndProcess;
-console.log("QR libraries loaded: generateQRCode, generateCOSEQRCode, Html5Qrcode, COSE functions");
+window.decompressIfNeeded = function(scannedText) {
+  try {
+    if (typeof scannedText === "string" && scannedText.startsWith(COMPRESSION_PREFIX)) {
+      const b64 = scannedText.slice(COMPRESSION_PREFIX.length);
+      return decompressBase64GzipToString(b64);
+    }
+  } catch (e) {
+    console.warn("decompressIfNeeded failed:", e?.message || e);
+  }
+  return scannedText;
+};
+window.compressToPrefixedGzip = function(text) {
+  try {
+    const payload = String(text || "");
+    const compressedB64 = compressStringToBase64Gzip(payload);
+    return COMPRESSION_PREFIX + compressedB64;
+  } catch (e) {
+    console.warn("compressToPrefixedGzip failed:", e?.message || e);
+    return String(text || "");
+  }
+};
+window.encodeBinaryToPrefixed = function(objOrJson) {
+  try {
+    const obj = typeof objOrJson === "string" ? JSON.parse(objOrJson) : objOrJson;
+    const b64url = encodeObjectToBinaryBase64Url(obj);
+    return BINARY_PREFIX + b64url;
+  } catch (e) {
+    console.warn("encodeBinaryToPrefixed failed:", e?.message || e);
+    return typeof objOrJson === "string" ? objOrJson : JSON.stringify(objOrJson);
+  }
+};
+window.decodeAnyPayload = function(scannedText) {
+  try {
+    if (typeof scannedText === "string") {
+      if (scannedText.startsWith(BINARY_PREFIX)) {
+        const b64url = scannedText.slice(BINARY_PREFIX.length);
+        return decodeBinaryBase64UrlToObject(b64url);
+      }
+      if (scannedText.startsWith(COMPRESSION_PREFIX)) {
+        const s = window.decompressIfNeeded(scannedText);
+        return s;
+      }
+      return scannedText;
+    }
+  } catch (e) {
+    console.warn("decodeAnyPayload failed:", e?.message || e);
+  }
+  return scannedText;
+};
+console.log("QR libraries loaded: generateQRCode, generateCompressedQRCode, generateBinaryQRCodeFromObject, Html5Qrcode, COSE functions");
 /*! Bundled license information:
 
 pako/dist/pako.esm.mjs:

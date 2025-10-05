@@ -517,7 +517,7 @@
                                 ]),
         
                                 // Step 1
-                                React.createElement('div', {
+                                !showAnswerStep && React.createElement('div', {
                                     key: 'step1',
                                     className: "card-minimal rounded-xl p-6"
                                 }, [
@@ -538,16 +538,16 @@
                                         key: 'description',
                                         className: "text-secondary text-sm mb-4"
                                     }, "Creating cryptographically strong keys and codes to protect against attacks"),
-                                    React.createElement('button', {
+                                    !showOfferStep && React.createElement('button', {
                                         key: 'create-btn',
                                         onClick: onCreateOffer,
-                                        disabled: connectionStatus === 'connecting' || showOfferStep,
+                                        disabled: connectionStatus === 'connecting',
                                         className: `w-full btn-primary text-white py-3 px-4 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed`
                                     }, [
                                         React.createElement('i', {
                                             className: 'fas fa-shield-alt mr-2'
                                         }),
-                                        showOfferStep ? 'Keys created ✓' : 'Create secure keys'
+                                        'Create secure keys'
                                     ]),
         
                                     showOfferStep && React.createElement('div', {
@@ -571,46 +571,27 @@
                                             key: 'offer-data',
                                             className: "space-y-3"
                                         }, [
-                                            React.createElement('textarea', {
-                                                key: 'textarea',
-                                                value: typeof offerData === 'object' ? JSON.stringify(offerData, null, 2) : offerData,
-                                                readOnly: true,
-                                                rows: 8,
-                                                className: "w-full p-3 bg-custom-bg border border-gray-500/20 rounded-lg font-mono text-xs text-secondary resize-none custom-scrollbar"
-                                            }),
+                                            // Raw JSON hidden intentionally; users copy compressed string or use QR
                                             React.createElement('div', {
                                                 key: 'buttons',
                                                 className: "flex gap-2"
                                             }, [
                                             React.createElement(EnhancedCopyButton, {
                                                 key: 'copy',
-                                                text: typeof offerData === 'object' ? JSON.stringify(offerData, null, 2) : offerData,
-                                                    className: "flex-1 px-3 py-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 rounded text-sm font-medium"
-                                                }, 'Copy invitation code'),
-                                                React.createElement('button', {
-                                                    key: 'qr-toggle',
-                                                    onClick: async () => {
-                                                        const next = !showQRCode;
-                                                        setShowQRCode(next);
-                                                        if (next) {
-                                                            try {
-                                                                const payload = typeof offerData === 'object' ? JSON.stringify(offerData) : offerData;
-                                                                if (payload && payload.length) {
-                                                                    await generateQRCode(payload);
-                                                                }
-                                                            } catch (e) {
-                                                                console.warn('QR regenerate on toggle failed:', e);
-                                                            }
+                                                text: (() => {
+                                                    try {
+                                                        const min = typeof offerData === 'object' ? JSON.stringify(offerData) : (offerData || '');
+                                                        if (typeof window.encodeBinaryToPrefixed === 'function') {
+                                                            return window.encodeBinaryToPrefixed(min);
                                                         }
-                                                    },
-                                                    className: "px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded text-sm font-medium transition-all duration-200"
-                                                }, [
-                                                    React.createElement('i', {
-                                                        key: 'icon',
-                                                        className: showQRCode ? 'fas fa-eye-slash mr-1' : 'fas fa-qrcode mr-1'
-                                                    }),
-                                                    showQRCode ? 'Hide QR' : 'Show QR'
-                                                ])
+                                                        if (typeof window.compressToPrefixedGzip === 'function') {
+                                                            return window.compressToPrefixedGzip(min);
+                                                        }
+                                                        return min;
+                                                    } catch { return typeof offerData === 'object' ? JSON.stringify(offerData) : (offerData || ''); }
+                                                })(),
+                                                    className: "flex-1 px-3 py-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 rounded text-sm font-medium"
+                                                }, 'Copy invitation code')
                                             ]),
                                             showQRCode && qrCodeUrl && React.createElement('div', {
                                                 key: 'qr-container',
@@ -827,8 +808,7 @@
                                     }, 'Joining the secure channel')
                                 ]),
         
-                                // Step 1
-                                React.createElement('div', {
+                                (showAnswerStep ? null : React.createElement('div', {
                                     key: 'step1',
                                     className: "card-minimal rounded-xl p-6"
                                 }, [
@@ -854,13 +834,11 @@
                                         value: offerInput,
                                         onChange: (e) => {
                                             setOfferInput(e.target.value);
-                                            // Mark answer as created when user manually enters data
                                             if (e.target.value.trim().length > 0) {
-                                            if (typeof markAnswerCreated === 'function') {
-                                                markAnswerCreated();
+                                                if (typeof markAnswerCreated === 'function') {
+                                                    markAnswerCreated();
+                                                }
                                             }
-                                        }
-
                                         },
                                         rows: 8,
                                         placeholder: "Paste the encrypted invitation code or scan QR code...",
@@ -881,17 +859,17 @@
                                             }),
                                             'Scan QR Code'
                                         ]),
-                                    React.createElement('button', {
-                                        key: 'process-btn',
-                                        onClick: onCreateAnswer,
-                                        disabled: !offerInput.trim() || connectionStatus === 'connecting',
-                                            className: "flex-1 btn-secondary text-white py-2 px-4 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    }, [
-                                        React.createElement('i', {
-                                            className: 'fas fa-cogs mr-2'
-                                        }),
-                                            'Process invitation'
-                                        ])
+                                        React.createElement('button', {
+                                            key: 'process-btn',
+                                            onClick: onCreateAnswer,
+                                            disabled: !offerInput.trim() || connectionStatus === 'connecting',
+                                                className: "flex-1 btn-secondary text-white py-2 px-4 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        }, [
+                                            React.createElement('i', {
+                                                className: 'fas fa-cogs mr-2'
+                                            }),
+                                                'Process invitation'
+                                            ])
                                     ]),
                                     showQRScanner && React.createElement('div', {
                                         key: 'qr-scanner',
@@ -908,7 +886,6 @@
                                         React.createElement('button', {
                                             key: 'open-scanner',
                                             onClick: () => {
-
                                                 if (typeof setShowQRScannerModal === 'function') {
                                                     setShowQRScannerModal(true);
                                                 } else {
@@ -931,7 +908,6 @@
                                                     const testData = '{"type":"test","message":"Hello QR Scanner!"}';
                                                     const qrUrl = await window.generateQRCode(testData);
                                                     console.log('Test QR code generated:', qrUrl);
-                                                    // Open QR code in new tab for testing
                                                     const newWindow = window.open();
                                                     newWindow.document.write(`<img src="${qrUrl}" style="width: 300px; height: 300px;">`);
                                                 }
@@ -944,7 +920,7 @@
                                             className: "px-3 py-1 bg-gray-600/20 hover:bg-gray-600/30 text-gray-300 border border-gray-500/20 rounded text-xs font-medium transition-all duration-200"
                                         }, 'Close Scanner')
                                     ])
-                                ]),
+                                ])),
         
                                 // Step 2
                                 showAnswerStep && React.createElement('div', {
@@ -981,16 +957,21 @@
                                         key: 'answer-data',
                                         className: "space-y-3 mb-4"
                                     }, [
-                                        React.createElement('textarea', {
-                                            key: 'textarea',
-                                            value: typeof answerData === 'object' ? JSON.stringify(answerData, null, 2) : answerData,
-                                            readOnly: true,
-                                            rows: 6,
-                                            className: "w-full p-3 bg-custom-bg border border-green-500/20 rounded-lg font-mono text-xs text-secondary resize-none custom-scrollbar"
-                                        }),
+                                        // Raw JSON hidden intentionally; users copy compressed string or use QR
                                         React.createElement(EnhancedCopyButton, {
                                             key: 'copy',
-                                            text: typeof answerData === 'object' ? JSON.stringify(answerData, null, 2) : answerData,
+                                            text: (() => {
+                                                try {
+                                                    const min = typeof answerData === 'object' ? JSON.stringify(answerData) : (answerData || '');
+                                                    if (typeof window.encodeBinaryToPrefixed === 'function') {
+                                                        return window.encodeBinaryToPrefixed(min);
+                                                    }
+                                                    if (typeof window.compressToPrefixedGzip === 'function') {
+                                                        return window.compressToPrefixedGzip(min);
+                                                    }
+                                                    return min;
+                                                } catch { return typeof answerData === 'object' ? JSON.stringify(answerData) : (answerData || ''); }
+                                            })(),
                                             className: "w-full px-3 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 rounded text-sm font-medium"
                                         }, 'Copy response code')
                                     ]),
@@ -2067,8 +2048,9 @@
                         return templateOffer;
                     };
 
-                    // Conservative QR payload limit (characters). Adjust per error correction level.
-                    const MAX_QR_LEN = 800;
+                    // Conservative QR payload limits (characters). Adjust per error correction level.
+                    const MAX_QR_LEN = 800;      // for JSON/plain/gzip
+                    const BIN_MAX_QR_LEN = 400;  // stricter for SB1:bin to improve scan reliability
                     const [qrFramesTotal, setQrFramesTotal] = React.useState(0);
                     const [qrFrameIndex, setQrFrameIndex] = React.useState(0);
                     const [qrManualMode, setQrManualMode] = React.useState(false);
@@ -2083,6 +2065,33 @@
                         setQrManualMode(false);
                     };
 
+                    // Render frame at current index (no index mutation)
+                    const renderCurrent = async () => {
+                        const { chunks, idx } = qrAnimationRef.current || {};
+                        if (!chunks || !chunks.length) return;
+                        const current = chunks[idx % chunks.length];
+                        try {
+                            const isDesktop = (typeof window !== 'undefined') && ((window.innerWidth || 0) >= 1024);
+                            const QR_SIZE = isDesktop ? 720 : 512;
+                            const url = await (window.generateQRCode ? window.generateQRCode(current, { errorCorrectionLevel: 'M', margin: 2, size: QR_SIZE }) : Promise.resolve(''));
+                            if (url) setQrCodeUrl(url);
+                        } catch (e) {
+                            console.warn('Animated QR render error (current):', e);
+                        }
+                        setQrFrameIndex(((qrAnimationRef.current?.idx || 0) % (qrAnimationRef.current?.chunks?.length || 1)) + 1);
+                    };
+
+                    // Render current frame, then advance index by 1
+                    const renderAndAdvance = async () => {
+                        await renderCurrent();
+                        const len = qrAnimationRef.current?.chunks?.length || 0;
+                        if (len > 0) {
+                            const nextIdx = ((qrAnimationRef.current?.idx || 0) + 1) % len;
+                            qrAnimationRef.current.idx = nextIdx;
+                            setQrFrameIndex(nextIdx + 1);
+                        }
+                    };
+
                     const toggleQrManualMode = () => {
                         const newManualMode = !qrManualMode;
                         setQrManualMode(newManualMode);
@@ -2095,35 +2104,57 @@
                             }
                             console.log('QR Manual mode enabled - auto-scroll stopped');
                         } else {
-                            if (qrAnimationRef.current.chunks.length > 1 && qrAnimationRef.current.active) {
-                                const intervalMs = 4000;
-                                qrAnimationRef.current.timer = setInterval(renderNext, intervalMs);
+                            if (qrAnimationRef.current.chunks.length > 1) {
+                                const intervalMs = 3000;
+                                qrAnimationRef.current.active = true;
+                                clearInterval(qrAnimationRef.current.timer);
+                                qrAnimationRef.current.timer = setInterval(renderAndAdvance, intervalMs);
                             }
                             console.log('QR Manual mode disabled - auto-scroll resumed');
                         }
                     };
 
-                    const nextQrFrame = () => {
+                    const nextQrFrame = async () => {
                         console.log('🎮 nextQrFrame called, qrFramesTotal:', qrFramesTotal, 'qrAnimationRef.current:', qrAnimationRef.current);
                         if (qrAnimationRef.current.chunks.length > 1) {
                             const nextIdx = (qrAnimationRef.current.idx + 1) % qrAnimationRef.current.chunks.length;
                             qrAnimationRef.current.idx = nextIdx;
                             setQrFrameIndex(nextIdx + 1);
                             console.log('🎮 Next frame index:', nextIdx + 1);
-                            renderNext();
+                            // Ensure auto-advance timer runs in manual mode too
+                            try { clearInterval(qrAnimationRef.current.timer); } catch {}
+                            qrAnimationRef.current.timer = null;
+                            await renderCurrent();
+                            // If not in manual mode, restart auto timer
+                            if (!qrManualMode && qrAnimationRef.current.chunks.length > 1) {
+                                const intervalMs = 3000;
+                                qrAnimationRef.current.active = true;
+                                qrAnimationRef.current.timer = setInterval(renderAndAdvance, intervalMs);
+                            } else {
+                                qrAnimationRef.current.active = false;
+                            }
                         } else {
                             console.log('🎮 No multiple frames to navigate');
                         }
                     };
 
-                    const prevQrFrame = () => {
+                    const prevQrFrame = async () => {
                         console.log('🎮 prevQrFrame called, qrFramesTotal:', qrFramesTotal, 'qrAnimationRef.current:', qrAnimationRef.current);
                         if (qrAnimationRef.current.chunks.length > 1) {
                             const prevIdx = (qrAnimationRef.current.idx - 1 + qrAnimationRef.current.chunks.length) % qrAnimationRef.current.chunks.length;
                             qrAnimationRef.current.idx = prevIdx;
                             setQrFrameIndex(prevIdx + 1);
                             console.log('🎮 Previous frame index:', prevIdx + 1);
-                            renderNext();
+                            try { clearInterval(qrAnimationRef.current.timer); } catch {}
+                            qrAnimationRef.current.timer = null;
+                            await renderCurrent();
+                            if (!qrManualMode && qrAnimationRef.current.chunks.length > 1) {
+                                const intervalMs = 3000;
+                                qrAnimationRef.current.active = true;
+                                qrAnimationRef.current.timer = setInterval(renderAndAdvance, intervalMs);
+                            } else {
+                                qrAnimationRef.current.active = false;
+                            }
                         } else {
                             console.log('🎮 No multiple frames to navigate');
                         }
@@ -2141,7 +2172,11 @@
                             const QR_SIZE = isDesktop ? 720 : 512;
                             if (payload.length <= MAX_QR_LEN) {
                                 if (!window.generateQRCode) throw new Error('QR code generator unavailable');
-                                stopQrAnimation();
+                                try { if (qrAnimationRef.current && qrAnimationRef.current.timer) { clearInterval(qrAnimationRef.current.timer); } } catch {}
+                                qrAnimationRef.current = { timer: null, chunks: [], idx: 0, active: false };
+                                setQrFrameIndex(0);
+                                setQrFramesTotal(0);
+                                setQrManualMode(false);
                                 const qrDataUrl = await window.generateQRCode(payload, { errorCorrectionLevel: 'M', size: QR_SIZE, margin: 2 });
                                     setQrCodeUrl(qrDataUrl);
                                 setQrFramesTotal(1);
@@ -2149,7 +2184,11 @@
                                     return;
                             }
 
-                            stopQrAnimation();
+                            try { if (qrAnimationRef.current && qrAnimationRef.current.timer) { clearInterval(qrAnimationRef.current.timer); } } catch {}
+                            qrAnimationRef.current = { timer: null, chunks: [], idx: 0, active: false };
+                            setQrFrameIndex(0);
+                            setQrFramesTotal(0);
+                            setQrManualMode(false);
                             const id = `raw_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
                             const TARGET_CHUNKS = 10;
@@ -2175,27 +2214,12 @@
                             setQrFramesTotal(rawChunks.length);
                             setQrFrameIndex(1);
                                 const EC_OPTS = { errorCorrectionLevel: 'M', margin: 2, size: QR_SIZE };
-                            const renderNext = async () => {
-                                const { chunks, idx, active } = qrAnimationRef.current;
-                                if (!active || !chunks.length) return;
-                                const current = chunks[idx % chunks.length];
-                                try {
-                                    const url = await window.generateQRCode(current, EC_OPTS);
-                                    setQrCodeUrl(url);
-                                } catch (e) {
-                                    console.warn('Animated QR render error (raw):', e);
-                                }
-                                const nextIdx = (idx + 1) % chunks.length;
-                                qrAnimationRef.current.idx = nextIdx;
-                                setQrFrameIndex(nextIdx + 1);
-                            };
-                                await renderNext();
+                            await renderNext();
 
                                 if (!qrManualMode) {
-                                    const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
-                                    const isIOS = /iPhone|iPad|iPod/i.test(ua);
                                     const intervalMs = 4000; // 4 seconds per frame for better readability
-                                    qrAnimationRef.current.timer = setInterval(renderNext, intervalMs);
+                                    qrAnimationRef.current.active = true;
+                                    qrAnimationRef.current.timer = setInterval(renderAndAdvance, intervalMs);
                                 }
                             return;
                         } catch (error) {
@@ -2279,11 +2303,21 @@
 
                     const handleQRScan = async (scannedData) => {
                         try {
+                            // Prefer binary (CBOR) decode, else gzip JSON, else raw JSON
+                            let parsedData;
+                            if (typeof window.decodeAnyPayload === 'function') {
+                                const any = window.decodeAnyPayload(scannedData);
+                                if (typeof any === 'string') {
+                                    parsedData = JSON.parse(any);
+                                } else {
+                                    parsedData = any; // object from binary
+                                }
+                            } else {
+                                const maybeDecompressed = (typeof window.decompressIfNeeded === 'function') ? window.decompressIfNeeded(scannedData) : scannedData;
+                                parsedData = JSON.parse(maybeDecompressed);
+                            }
                             
-                            // Try to parse as JSON first
-                            const parsedData = JSON.parse(scannedData);
-                            
-                            // QR with hdr/body: COSE or RAW animated frames
+                            // QR with hdr/body: COSE or RAW/BIN animated frames
                             if (parsedData.hdr && parsedData.body) {
                                 const { hdr } = parsedData;
                                 // Initialize/rotate buffer by id
@@ -2309,7 +2343,7 @@
                                     // Explicitly keep scanner open
                                     return Promise.resolve(false);
                                 }
-                                // Completed: decide RAW vs COSE
+                                // Completed: decide RAW vs BIN vs COSE
                                 if (hdr.rt === 'raw') {
                                     try {
                                         // Sort by seq and concatenate bodies
@@ -2332,6 +2366,34 @@
                                         return Promise.resolve(true);
                                     } catch (e) {
                                         console.warn('RAW multi-frame reconstruction failed:', e);
+                                        return Promise.resolve(false);
+                                    }
+                                } else if (hdr.rt === 'bin') {
+                                    try {
+                                        const parts = qrChunksBufferRef.current.items
+                                            .map(s => JSON.parse(s))
+                                            .sort((a, b) => (a.hdr.seq || 0) - (b.hdr.seq || 0))
+                                            .map(p => p.body || '');
+                                        const fullText = parts.join(''); // SB1:bin:...
+                                        let payloadObj;
+                                        if (typeof window.decodeAnyPayload === 'function') {
+                                            const any = window.decodeAnyPayload(fullText);
+                                            payloadObj = (typeof any === 'string') ? JSON.parse(any) : any;
+                                        } else {
+                                            payloadObj = JSON.parse(fullText);
+                                        }
+                                        if (showOfferStep) {
+                                            setAnswerInput(JSON.stringify(payloadObj, null, 2));
+                                        } else {
+                                            setOfferInput(JSON.stringify(payloadObj, null, 2));
+                                        }
+                                        setMessages(prev => [...prev, { message: 'All frames captured. BIN payload reconstructed.', type: 'success' }]);
+                                        try { document.dispatchEvent(new CustomEvent('qr-scan-complete', { detail: { id: hdr.id } })); } catch {}
+                                        qrChunksBufferRef.current = { id: null, total: 0, seen: new Set(), items: [] };
+                                        setShowQRScannerModal(false);
+                                        return Promise.resolve(true);
+                                    } catch (e) {
+                                        console.warn('BIN multi-frame reconstruction failed:', e);
                                         return Promise.resolve(false);
                                     }
                                 } else if (window.receiveAndProcess) {
@@ -2409,10 +2471,10 @@
                                     return false;
                                 }
                             } else {
-                                // Check if this is compressed data (missing SDP)
-                                if (!parsedData.sdp) {
+                                // If payload was compressed, it's already decompressed above; keep legacy warning only when clearly incomplete
+                                if (!parsedData.sdp && parsedData.type === 'enhanced_secure_offer') {
                                     setMessages(prev => [...prev, {
-                                        message: 'QR code contains compressed data (SDP removed). Please use copy/paste for full data.',
+                                        message: 'Compressed QR may omit SDP for brevity. Use copy/paste if connection fails.',
                                         type: 'warning'
                                     }]);
                                 }
@@ -2467,10 +2529,46 @@
                             setOfferData(offer);
                             setShowOfferStep(true);
                             
-                            // Generate QR code for the offer data
-                            // Use compact JSON (no pretty-printing) to reduce size
+                            // Do not auto-generate single QR; prepare animated binary frames when user opens QR
                             const offerString = typeof offer === 'object' ? JSON.stringify(offer) : offer;
-                            await generateQRCode(offerString);
+                            try {
+                                if (typeof window.encodeBinaryToPrefixed === 'function') {
+                                    const bin = window.encodeBinaryToPrefixed(offerString);
+                                    // Precompute frames to be ready instantly on show
+                                    const id = `bin_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+                                    const TARGET_CHUNKS = 10;
+                                    let FRAME_MAX = Math.max(200, Math.floor(bin.length / TARGET_CHUNKS));
+                                    if (FRAME_MAX <= 0) FRAME_MAX = 200;
+                                    let total = Math.ceil(bin.length / FRAME_MAX);
+                                    if (total < 2) { total = 2; FRAME_MAX = Math.ceil(bin.length / 2) || 1; }
+                                    const chunks = [];
+                                    for (let i = 0; i < total; i++) {
+                                        const seq = i + 1;
+                                        const part = bin.slice(i * FRAME_MAX, (i + 1) * FRAME_MAX);
+                                        chunks.push(JSON.stringify({ hdr: { v: 1, id, seq, total, rt: 'bin' }, body: part }));
+                                    }
+                                    // Seed first frame and start auto-advance immediately
+                                    const isDesktop = (typeof window !== 'undefined') && ((window.innerWidth || 0) >= 1024);
+                                    const QR_SIZE = isDesktop ? 720 : 512;
+                                    if (window.generateQRCode && chunks.length > 0) {
+                                        const firstUrl = await window.generateQRCode(chunks[0], { errorCorrectionLevel: 'M', size: QR_SIZE, margin: 2 });
+                                        if (firstUrl) setQrCodeUrl(firstUrl);
+                                    }
+                                    // Store precomputed chunks to ref, ready for animation
+                                    try { if (qrAnimationRef.current && qrAnimationRef.current.timer) { clearInterval(qrAnimationRef.current.timer); } } catch {}
+                                    qrAnimationRef.current = { timer: null, chunks, idx: 0, active: true };
+                                    setQrFramesTotal(chunks.length);
+                                    setQrFrameIndex(1);
+                                    setQrManualMode(false);
+                                    // Start auto-advance loop for Offer immediately
+                                    const intervalMs = 3000;
+                                    qrAnimationRef.current.timer = setInterval(renderAndAdvance, intervalMs);
+                                    // Show QR immediately for Offer flow
+                                    try { setShowQRCode(true); } catch {}
+                                }
+                            } catch (e) {
+                                console.warn('Offer QR precompute failed:', e);
+                            }
         
                             const existingMessages = messages.filter(m => 
                                 m.type === 'system' && 
@@ -2530,8 +2628,14 @@
         
                                 let offer;
                                 try {
-                                    // Parse the offer data directly (no decryption needed with SAS)
-                                    offer = JSON.parse(offerInput.trim());
+                                    // Prefer binary decode first, then gzip JSON
+                                    if (typeof window.decodeAnyPayload === 'function') {
+                                        const any = window.decodeAnyPayload(offerInput.trim());
+                                        offer = (typeof any === 'string') ? JSON.parse(any) : any;
+                                    } else {
+                                        const rawText = (typeof window.decompressIfNeeded === 'function') ? window.decompressIfNeeded(offerInput.trim()) : offerInput.trim();
+                                        offer = JSON.parse(rawText);
+                                    }
                                 } catch (parseError) {
                                     throw new Error(`Invalid invitation format: ${parseError.message}`);
                                 }
@@ -2552,10 +2656,51 @@
                                     setAnswerData(answer);
                                     setShowAnswerStep(true);
                                     
-                                    // Generate QR code for the answer data
+                                    // Answer QR: precompute binary frames and start animation immediately
                                     const answerString = typeof answer === 'object' ? JSON.stringify(answer) : answer;
-
-                                    await generateQRCode(answerString);
+                                    try {
+                                        if (typeof window.encodeBinaryToPrefixed === 'function') {
+                                            const bin = window.encodeBinaryToPrefixed(answerString);
+                                            const id = `ans_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+                                            const TARGET_CHUNKS = 10;
+                                            let FRAME_MAX = Math.max(200, Math.floor(bin.length / TARGET_CHUNKS));
+                                            if (FRAME_MAX <= 0) FRAME_MAX = 200;
+                                            let total = Math.ceil(bin.length / FRAME_MAX);
+                                            if (total < 2) { total = 2; FRAME_MAX = Math.ceil(bin.length / 2) || 1; }
+                                            const chunks = [];
+                                            for (let i = 0; i < total; i++) {
+                                                const seq = i + 1;
+                                                const part = bin.slice(i * FRAME_MAX, (i + 1) * FRAME_MAX);
+                                                chunks.push(JSON.stringify({ hdr: { v: 1, id, seq, total, rt: 'bin' }, body: part }));
+                                            }
+                                            const isDesktop = (typeof window !== 'undefined') && ((window.innerWidth || 0) >= 1024);
+                                            const QR_SIZE = isDesktop ? 720 : 512;
+                                            if (window.generateQRCode && chunks.length > 0) {
+                                                const firstUrl = await window.generateQRCode(chunks[0], { errorCorrectionLevel: 'M', size: QR_SIZE, margin: 2 });
+                                                if (firstUrl) setQrCodeUrl(firstUrl);
+                                            }
+                                            try { if (qrAnimationRef.current && qrAnimationRef.current.timer) { clearInterval(qrAnimationRef.current.timer); } } catch {}
+                                            qrAnimationRef.current = { timer: null, chunks, idx: 0, active: true };
+                                            setQrFramesTotal(chunks.length);
+                                            setQrFrameIndex(1);
+                                            setQrManualMode(false);
+                                            const intervalMs = 3000;
+                                            qrAnimationRef.current.timer = setInterval(renderAndAdvance, intervalMs);
+                                            try { setShowQRCode(true); } catch {}
+                                        } else {
+                                            // Fallback: single QR compressed or plain
+                                            let url = '';
+                                            if (typeof window.generateCompressedQRCode === 'function') {
+                                                url = await window.generateCompressedQRCode(answerString);
+                                            } else {
+                                                url = await generateQRCode(answerString);
+                                            }
+                                            if (url) setQrCodeUrl(url);
+                                            try { setShowQRCode(true); } catch {}
+                                        }
+                                    } catch (e) {
+                                        console.warn('Answer QR generation failed:', e);
+                                    }
                                     
                                     // Mark answer as created for state management
                                     if (e.target.value.trim().length > 0) {
@@ -2633,8 +2778,14 @@
         
                                 let answer;
                                 try {
-                                    // Parse the answer data directly (no decryption needed with SAS)
-                                    answer = JSON.parse(answerInput.trim());
+                                    // Prefer binary decode first, then gzip JSON
+                                    if (typeof window.decodeAnyPayload === 'function') {
+                                        const anyAnswer = window.decodeAnyPayload(answerInput.trim());
+                                        answer = (typeof anyAnswer === 'string') ? JSON.parse(anyAnswer) : anyAnswer;
+                                    } else {
+                                        const rawText = (typeof window.decompressIfNeeded === 'function') ? window.decompressIfNeeded(answerInput.trim()) : answerInput.trim();
+                                        answer = JSON.parse(rawText);
+                                    }
                                 } catch (parseError) {
                                     throw new Error(`Invalid response format: ${parseError.message}`);
                                 }
