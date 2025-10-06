@@ -15088,6 +15088,7 @@ var UniqueFeatureSlider = () => {
   const trackRef = React.useRef(null);
   const wrapRef = React.useRef(null);
   const [current, setCurrent] = React.useState(0);
+  const [isReady, setIsReady] = React.useState(false);
   const slides = [
     {
       icon: "\u{1F6E1}\uFE0F",
@@ -15125,6 +15126,12 @@ var UniqueFeatureSlider = () => {
       description: "No registration, no servers, no logs. Complete anonymity with instant channels."
     }
   ];
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsReady(true);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
   const isMobile = () => window.matchMedia("(max-width:767px)").matches;
   const center = React.useCallback((i) => {
     if (!trackRef.current || !wrapRef.current) return;
@@ -15158,15 +15165,41 @@ var UniqueFeatureSlider = () => {
     return () => window.removeEventListener("keydown", handleKeydown);
   }, [current]);
   React.useEffect(() => {
-    center(current);
-  }, [current, center]);
+    if (isReady) {
+      center(current);
+    }
+  }, [current, center, isReady]);
+  if (!isReady) {
+    return React.createElement(
+      "section",
+      {
+        style: {
+          background: "transparent",
+          minHeight: "400px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center"
+        }
+      },
+      React.createElement("div", {
+        style: {
+          opacity: 0.5,
+          fontSize: "14px",
+          color: "#fff"
+        }
+      }, "Loading...")
+    );
+  }
   return React.createElement("section", { style: { background: "transparent" } }, [
     // Header
     React.createElement("div", {
       key: "head",
       className: "head"
     }, [
-      React.createElement("h2", { key: "title", className: "text-2xl sm:text-3xl font-bold text-white mb-4 leading-snug" }, "Why SecureBit.chat is unique"),
+      React.createElement("h2", {
+        key: "title",
+        className: "text-2xl sm:text-3xl font-bold text-white mb-4 leading-snug"
+      }, "Why SecureBit.chat is unique"),
       React.createElement("div", {
         key: "controls",
         className: "controls"
