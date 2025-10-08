@@ -595,7 +595,7 @@
                                             ]),
                                             showQRCode && qrCodeUrl && React.createElement('div', {
                                                 key: 'qr-container',
-                                                className: "mt-4 p-4 bg-gray-800/50 border border-gray-600/30 rounded-lg text-center"
+                                                className: "mt-4 p-4 border border-gray-600/30 rounded-lg text-center"
                                             }, [
                                                 React.createElement('h4', {
                                                     key: 'qr-title',
@@ -835,10 +835,10 @@
                                         onChange: (e) => {
                                             setOfferInput(e.target.value);
                                             if (e.target.value.trim().length > 0) {
-                                                if (typeof markAnswerCreated === 'function') {
-                                                    markAnswerCreated();
-                                                }
+                                            if (typeof markAnswerCreated === 'function') {
+                                                markAnswerCreated();
                                             }
+                                        }
                                         },
                                         rows: 8,
                                         placeholder: "Paste the encrypted invitation code or scan QR code...",
@@ -859,17 +859,17 @@
                                             }),
                                             'Scan QR Code'
                                         ]),
-                                        React.createElement('button', {
-                                            key: 'process-btn',
-                                            onClick: onCreateAnswer,
-                                            disabled: !offerInput.trim() || connectionStatus === 'connecting',
-                                                className: "flex-1 btn-secondary text-white py-2 px-4 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        }, [
-                                            React.createElement('i', {
-                                                className: 'fas fa-cogs mr-2'
-                                            }),
-                                                'Process invitation'
-                                            ])
+                                    React.createElement('button', {
+                                        key: 'process-btn',
+                                        onClick: onCreateAnswer,
+                                        disabled: !offerInput.trim() || connectionStatus === 'connecting',
+                                            className: "flex-1 btn-secondary text-white py-2 px-4 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    }, [
+                                        React.createElement('i', {
+                                            className: 'fas fa-cogs mr-2'
+                                        }),
+                                            'Process invitation'
+                                        ])
                                     ]),
                                     showQRScanner && React.createElement('div', {
                                         key: 'qr-scanner',
@@ -978,7 +978,7 @@
                                     // QR Code section for answer
                                     qrCodeUrl && React.createElement('div', {
                                         key: 'qr-container',
-                                        className: "mt-4 p-4 bg-gray-800/50 border border-gray-600/30 rounded-lg text-center"
+                                        className: "mt-4 p-4 border border-gray-600/30 rounded-lg text-center"
                                     }, [
                                         React.createElement('h4', {
                                             key: 'qr-title',
@@ -2166,10 +2166,53 @@
                     const generateQRCode = async (data) => {
                         try {
                             const originalSize = typeof data === 'string' ? data.length : JSON.stringify(data).length;
-                            // Small payload: прямой JSON в один QR (без сжатия, без обёрток)
-                            const payload = typeof data === 'string' ? data : JSON.stringify(data);
                             const isDesktop = (typeof window !== 'undefined') && ((window.innerWidth || 0) >= 1024);
                             const QR_SIZE = isDesktop ? 720 : 512;
+                            
+                            // Try binary format first (CBOR + deflate + base64url)
+                            if (typeof window.generateBinaryQRCodeFromObject === 'function') {
+                                try {
+                                    const obj = typeof data === 'string' ? JSON.parse(data) : data;
+                                    const qrDataUrl = await window.generateBinaryQRCodeFromObject(obj, { errorCorrectionLevel: 'M', size: QR_SIZE, margin: 2 });
+                                    if (qrDataUrl) {
+                                        try { if (qrAnimationRef.current && qrAnimationRef.current.timer) { clearInterval(qrAnimationRef.current.timer); } } catch {}
+                                        qrAnimationRef.current = { timer: null, chunks: [], idx: 0, active: false };
+                                        setQrFrameIndex(0);
+                                        setQrFramesTotal(0);
+                                        setQrManualMode(false);
+                                        setQrCodeUrl(qrDataUrl);
+                                        setQrFramesTotal(1);
+                                        setQrFrameIndex(1);
+                                        return;
+                                    }
+                                } catch (e) {
+                                    console.warn('Binary QR generation failed, falling back to compressed:', e?.message || e);
+                                }
+                            }
+                            
+                            // Fallback to compressed JSON
+                            if (typeof window.generateCompressedQRCode === 'function') {
+                                try {
+                                    const payload = typeof data === 'string' ? data : JSON.stringify(data);
+                                    const qrDataUrl = await window.generateCompressedQRCode(payload, { errorCorrectionLevel: 'M', size: QR_SIZE, margin: 2 });
+                                    if (qrDataUrl) {
+                                        try { if (qrAnimationRef.current && qrAnimationRef.current.timer) { clearInterval(qrAnimationRef.current.timer); } } catch {}
+                                        qrAnimationRef.current = { timer: null, chunks: [], idx: 0, active: false };
+                                        setQrFrameIndex(0);
+                                        setQrFramesTotal(0);
+                                        setQrManualMode(false);
+                                        setQrCodeUrl(qrDataUrl);
+                                        setQrFramesTotal(1);
+                                        setQrFrameIndex(1);
+                                        return;
+                                    }
+                                } catch (e) {
+                                    console.warn('Compressed QR generation failed, falling back to plain:', e?.message || e);
+                                }
+                            }
+                            
+                            // Final fallback to plain JSON
+                            const payload = typeof data === 'string' ? data : JSON.stringify(data);
                             if (payload.length <= MAX_QR_LEN) {
                                 if (!window.generateQRCode) throw new Error('QR code generator unavailable');
                                 try { if (qrAnimationRef.current && qrAnimationRef.current.timer) { clearInterval(qrAnimationRef.current.timer); } } catch {}
@@ -2184,6 +2227,7 @@
                                     return;
                             }
 
+                            // Large payload: разбиваем на фреймы (plain JSON)
                             try { if (qrAnimationRef.current && qrAnimationRef.current.timer) { clearInterval(qrAnimationRef.current.timer); } } catch {}
                             qrAnimationRef.current = { timer: null, chunks: [], idx: 0, active: false };
                             setQrFrameIndex(0);
@@ -2214,12 +2258,12 @@
                             setQrFramesTotal(rawChunks.length);
                             setQrFrameIndex(1);
                                 const EC_OPTS = { errorCorrectionLevel: 'M', margin: 2, size: QR_SIZE };
-                            await renderNext();
+                                await renderNext();
 
                                 if (!qrManualMode) {
                                     const intervalMs = 4000; // 4 seconds per frame for better readability
-                                    qrAnimationRef.current.active = true;
-                                    qrAnimationRef.current.timer = setInterval(renderAndAdvance, intervalMs);
+                                qrAnimationRef.current.active = true;
+                                qrAnimationRef.current.timer = setInterval(renderAndAdvance, intervalMs);
                                 }
                             return;
                         } catch (error) {
@@ -2303,7 +2347,172 @@
 
                     const handleQRScan = async (scannedData) => {
                         try {
-                            // Prefer binary (CBOR) decode, else gzip JSON, else raw JSON
+                            console.log('QR Code scanned:', scannedData.substring(0, 100) + '...');
+                            console.log('Current buffer state:', qrChunksBufferRef.current);
+                            
+                            // Check if this is a binary chunk (starts with SB1:bin: or is a raw binary chunk)
+                            if (scannedData.startsWith('SB1:bin:') || (qrChunksBufferRef.current && qrChunksBufferRef.current.id)) {
+                                console.log('Binary chunk detected:', scannedData.substring(0, 50) + '...');
+                                
+                                // This is a binary chunk - add to buffer
+                                if (!qrChunksBufferRef.current.id) {
+                                    console.log('Initializing buffer for binary chunks');
+                                    // Initialize buffer for binary chunks
+                                    qrChunksBufferRef.current = { 
+                                        id: `bin_${Date.now()}`, 
+                                        total: 4, // We expect 4 chunks
+                                        seen: new Set(), 
+                                        items: [],
+                                        lastUpdateMs: Date.now()
+                                    };
+                                }
+                                
+                                // Add chunk to buffer (use data hash as identifier)
+                                const chunkHash = scannedData.substring(0, 50); // Use first 50 chars as hash
+                                
+                                // Check if this chunk was already scanned
+                                if (qrChunksBufferRef.current.seen.has(chunkHash)) {
+                                    console.log(`Chunk already scanned, ignoring...`);
+                                    return Promise.resolve(false);
+                                }
+                                
+                                qrChunksBufferRef.current.seen.add(chunkHash);
+                                qrChunksBufferRef.current.items.push(scannedData);
+                                qrChunksBufferRef.current.lastUpdateMs = Date.now();
+                                
+                                // Emit progress and force re-render
+                                try {
+                                    const uniqueCount = qrChunksBufferRef.current.seen.size;
+                                    document.dispatchEvent(new CustomEvent('qr-scan-progress', { 
+                                        detail: { 
+                                            id: qrChunksBufferRef.current.id, 
+                                            seq: uniqueCount, 
+                                            total: qrChunksBufferRef.current.total 
+                                        } 
+                                    }));
+                                    
+                                    // Force re-render to update progress indicator
+                                    setQrFramesTotal(qrChunksBufferRef.current.total);
+                                    setQrFrameIndex(uniqueCount);
+                                } catch {}
+                                
+                                // Check if we have all chunks
+                                const isComplete = qrChunksBufferRef.current.seen.size >= qrChunksBufferRef.current.total;
+                                console.log(`Chunks collected: ${qrChunksBufferRef.current.seen.size}/${qrChunksBufferRef.current.total}, complete: ${isComplete}`);
+                                
+                                if (!isComplete) {
+                                    // Keep scanner open for more chunks
+                                    console.log(`Scanned chunk ${qrChunksBufferRef.current.seen.size}/${qrChunksBufferRef.current.total}, waiting for more...`);
+                                    return Promise.resolve(false);
+                                }
+                                
+                                // All chunks collected - reconstruct binary data
+                                try {
+                                    const fullBinaryData = qrChunksBufferRef.current.items.join('');
+                                    // Store the original binary data, not decoded JSON
+                                    if (showOfferStep) {
+                                        setAnswerInput(fullBinaryData);
+                                    } else {
+                                        setOfferInput(fullBinaryData);
+                                    }
+                                    
+                                    setMessages(prev => [...prev, { 
+                                        message: 'All binary chunks captured. Payload reconstructed.', 
+                                        type: 'success' 
+                                    }]);
+                                    
+                                    // Clear buffer and close scanner
+                                    qrChunksBufferRef.current = { id: null, total: 0, seen: new Set(), items: [] };
+                                    setShowQRScannerModal(false);
+                                    return Promise.resolve(true);
+                                } catch (e) {
+                                    console.warn('Binary chunks reconstruction failed:', e);
+                                    return Promise.resolve(false);
+                                }
+                            }
+                            
+                            // Check if this might be a binary chunk (long string without JSON structure)
+                            if (scannedData.length > 100 && !scannedData.startsWith('{') && !scannedData.startsWith('[')) {
+                                console.log('Detected potential binary chunk (long non-JSON string):', scannedData.substring(0, 50) + '...');
+                                
+                                // Initialize buffer if not exists
+                                if (!qrChunksBufferRef.current.id) {
+                                    console.log('Initializing buffer for potential binary chunks');
+                                    qrChunksBufferRef.current = { 
+                                        id: `bin_${Date.now()}`, 
+                                        total: 4, // We expect 4 chunks
+                                        seen: new Set(), 
+                                        items: [],
+                                        lastUpdateMs: Date.now()
+                                    };
+                                }
+                                
+                                // Add chunk to buffer (use data hash as identifier)
+                                const chunkHash = scannedData.substring(0, 50); // Use first 50 chars as hash
+                                
+                                // Check if this chunk was already scanned
+                                if (qrChunksBufferRef.current.seen.has(chunkHash)) {
+                                    console.log(`Chunk already scanned, ignoring...`);
+                                    return Promise.resolve(false);
+                                }
+                                
+                                qrChunksBufferRef.current.seen.add(chunkHash);
+                                qrChunksBufferRef.current.items.push(scannedData);
+                                qrChunksBufferRef.current.lastUpdateMs = Date.now();
+                                
+                                // Force re-render to update progress indicator
+                                try {
+                                    const uniqueCount = qrChunksBufferRef.current.seen.size;
+                                    document.dispatchEvent(new CustomEvent('qr-scan-progress', { 
+                                        detail: { 
+                                            id: qrChunksBufferRef.current.id, 
+                                            seq: uniqueCount, 
+                                            total: qrChunksBufferRef.current.total 
+                                        } 
+                                    }));
+                                    
+                                    // Force re-render to update progress indicator
+                                    setQrFramesTotal(qrChunksBufferRef.current.total);
+                                    setQrFrameIndex(uniqueCount);
+                                } catch {}
+                                
+                                // Check if we have all chunks
+                                const isComplete = qrChunksBufferRef.current.seen.size >= qrChunksBufferRef.current.total;
+                                console.log(`Chunks collected: ${qrChunksBufferRef.current.seen.size}/${qrChunksBufferRef.current.total}, complete: ${isComplete}`);
+                                
+                                if (!isComplete) {
+                                    // Keep scanner open for more chunks
+                                    console.log(`Scanned chunk ${qrChunksBufferRef.current.seen.size}/${qrChunksBufferRef.current.total}, waiting for more...`);
+                                    return Promise.resolve(false);
+                                }
+                                
+                                // All chunks collected - reconstruct binary data
+                                try {
+                                    const fullBinaryData = qrChunksBufferRef.current.items.join('');
+                                    // Store the original binary data, not decoded JSON
+                                    if (showOfferStep) {
+                                        setAnswerInput(fullBinaryData);
+                                    } else {
+                                        setOfferInput(fullBinaryData);
+                                    }
+                                    
+                                    setMessages(prev => [...prev, { 
+                                        message: 'All binary chunks captured. Payload reconstructed.', 
+                                        type: 'success' 
+                                    }]);
+                                    
+                                    // Clear buffer and close scanner
+                                    qrChunksBufferRef.current = { id: null, total: 0, seen: new Set(), items: [] };
+                                    setShowQRScannerModal(false);
+                                    return Promise.resolve(true);
+                                } catch (e) {
+                                    console.warn('Binary chunks reconstruction failed:', e);
+                                    return Promise.resolve(false);
+                                }
+                            }
+                            
+                            // Single QR code - try to decode directly
+                            console.log('Processing single QR code:', scannedData.substring(0, 50) + '...');
                             let parsedData;
                             if (typeof window.decodeAnyPayload === 'function') {
                                 const any = window.decodeAnyPayload(scannedData);
@@ -2316,6 +2525,7 @@
                                 const maybeDecompressed = (typeof window.decompressIfNeeded === 'function') ? window.decompressIfNeeded(scannedData) : scannedData;
                                 parsedData = JSON.parse(maybeDecompressed);
                             }
+                            console.log('Decoded data:', parsedData);
                             
                             // QR with hdr/body: COSE or RAW/BIN animated frames
                             if (parsedData.hdr && parsedData.body) {
@@ -2529,24 +2739,27 @@
                             setOfferData(offer);
                             setShowOfferStep(true);
                             
-                            // Do not auto-generate single QR; prepare animated binary frames when user opens QR
+                            // Generate QR code with binary format and chunking
                             const offerString = typeof offer === 'object' ? JSON.stringify(offer) : offer;
                             try {
                                 if (typeof window.encodeBinaryToPrefixed === 'function') {
                                     const bin = window.encodeBinaryToPrefixed(offerString);
-                                    // Precompute frames to be ready instantly on show
-                                    const id = `bin_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-                                    const TARGET_CHUNKS = 10;
+                                    // Force chunking into 4 parts - split binary data directly
+                                    const TARGET_CHUNKS = 4;
                                     let FRAME_MAX = Math.max(200, Math.floor(bin.length / TARGET_CHUNKS));
                                     if (FRAME_MAX <= 0) FRAME_MAX = 200;
                                     let total = Math.ceil(bin.length / FRAME_MAX);
                                     if (total < 2) { total = 2; FRAME_MAX = Math.ceil(bin.length / 2) || 1; }
+                                    
+                                    const id = `bin_${Date.now()}_${Math.random().toString(36).slice(2)}`;
                                     const chunks = [];
                                     for (let i = 0; i < total; i++) {
                                         const seq = i + 1;
                                         const part = bin.slice(i * FRAME_MAX, (i + 1) * FRAME_MAX);
-                                        chunks.push(JSON.stringify({ hdr: { v: 1, id, seq, total, rt: 'bin' }, body: part }));
+                                        // Store binary chunks directly without JSON wrapper
+                                        chunks.push(part);
                                     }
+                                    
                                     // Seed first frame and start auto-advance immediately
                                     const isDesktop = (typeof window !== 'undefined') && ((window.innerWidth || 0) >= 1024);
                                     const QR_SIZE = isDesktop ? 720 : 512;
@@ -2554,20 +2767,27 @@
                                         const firstUrl = await window.generateQRCode(chunks[0], { errorCorrectionLevel: 'M', size: QR_SIZE, margin: 2 });
                                         if (firstUrl) setQrCodeUrl(firstUrl);
                                     }
+                                    
                                     // Store precomputed chunks to ref, ready for animation
                                     try { if (qrAnimationRef.current && qrAnimationRef.current.timer) { clearInterval(qrAnimationRef.current.timer); } } catch {}
                                     qrAnimationRef.current = { timer: null, chunks, idx: 0, active: true };
                                     setQrFramesTotal(chunks.length);
                                     setQrFrameIndex(1);
                                     setQrManualMode(false);
+                                    
                                     // Start auto-advance loop for Offer immediately
                                     const intervalMs = 3000;
                                     qrAnimationRef.current.timer = setInterval(renderAndAdvance, intervalMs);
+                                    
                                     // Show QR immediately for Offer flow
+                                    try { setShowQRCode(true); } catch {}
+                                } else {
+                                    // Fallback to single QR
+                                    await generateQRCode(offer);
                                     try { setShowQRCode(true); } catch {}
                                 }
                             } catch (e) {
-                                console.warn('Offer QR precompute failed:', e);
+                                console.warn('Offer QR generation failed:', e);
                             }
         
                             const existingMessages = messages.filter(m => 
@@ -2656,46 +2876,48 @@
                                     setAnswerData(answer);
                                     setShowAnswerStep(true);
                                     
-                                    // Answer QR: precompute binary frames and start animation immediately
+                                    // Generate QR code with binary format and chunking
                                     const answerString = typeof answer === 'object' ? JSON.stringify(answer) : answer;
                                     try {
                                         if (typeof window.encodeBinaryToPrefixed === 'function') {
                                             const bin = window.encodeBinaryToPrefixed(answerString);
-                                            const id = `ans_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-                                            const TARGET_CHUNKS = 10;
+                                            // Force chunking into 4 parts - split binary data directly
+                                            const TARGET_CHUNKS = 4;
                                             let FRAME_MAX = Math.max(200, Math.floor(bin.length / TARGET_CHUNKS));
                                             if (FRAME_MAX <= 0) FRAME_MAX = 200;
                                             let total = Math.ceil(bin.length / FRAME_MAX);
                                             if (total < 2) { total = 2; FRAME_MAX = Math.ceil(bin.length / 2) || 1; }
+                                            
+                                            const id = `ans_${Date.now()}_${Math.random().toString(36).slice(2)}`;
                                             const chunks = [];
                                             for (let i = 0; i < total; i++) {
                                                 const seq = i + 1;
                                                 const part = bin.slice(i * FRAME_MAX, (i + 1) * FRAME_MAX);
-                                                chunks.push(JSON.stringify({ hdr: { v: 1, id, seq, total, rt: 'bin' }, body: part }));
+                                                // Store binary chunks directly without JSON wrapper
+                                                chunks.push(part);
                                             }
+                                            
                                             const isDesktop = (typeof window !== 'undefined') && ((window.innerWidth || 0) >= 1024);
                                             const QR_SIZE = isDesktop ? 720 : 512;
                                             if (window.generateQRCode && chunks.length > 0) {
                                                 const firstUrl = await window.generateQRCode(chunks[0], { errorCorrectionLevel: 'M', size: QR_SIZE, margin: 2 });
                                                 if (firstUrl) setQrCodeUrl(firstUrl);
                                             }
+                                            
                                             try { if (qrAnimationRef.current && qrAnimationRef.current.timer) { clearInterval(qrAnimationRef.current.timer); } } catch {}
                                             qrAnimationRef.current = { timer: null, chunks, idx: 0, active: true };
                                             setQrFramesTotal(chunks.length);
                                             setQrFrameIndex(1);
                                             setQrManualMode(false);
+                                            
                                             const intervalMs = 3000;
                                             qrAnimationRef.current.timer = setInterval(renderAndAdvance, intervalMs);
+                                            
+                                            // Show QR immediately for Answer flow
                                             try { setShowQRCode(true); } catch {}
                                         } else {
-                                            // Fallback: single QR compressed or plain
-                                            let url = '';
-                                            if (typeof window.generateCompressedQRCode === 'function') {
-                                                url = await window.generateCompressedQRCode(answerString);
-                                            } else {
-                                                url = await generateQRCode(answerString);
-                                            }
-                                            if (url) setQrCodeUrl(url);
+                                            // Fallback to single QR
+                                            await generateQRCode(answer);
                                             try { setShowQRCode(true); } catch {}
                                         }
                                     } catch (e) {
@@ -2989,6 +3211,8 @@
                         setShowQRCode(false);
                         setShowQRScanner(false);
                         setShowQRScannerModal(false);
+                        // Clear QR scanner buffer
+                        qrChunksBufferRef.current = { id: null, total: 0, seen: new Set(), items: [] };
 
                         if (!shouldPreserveAnswerData()) {
                             setQrCodeUrl('');
@@ -3117,6 +3341,105 @@
                             addMessageWithAutoScroll(' All security features enabled by default', 'system');
                         }
                     }, [isConnectedAndVerified, pendingSession, connectionStatus]);
+
+                    // QR Scanner initialization
+                    React.useEffect(() => {
+                        if (showQRScannerModal && window.Html5Qrcode) {
+                            const html5Qrcode = new window.Html5Qrcode("qr-reader");
+                            const config = { 
+                                fps: 10
+                                // Убираем qrbox чтобы использовать всю область
+                            };
+
+                            let isScanning = true;
+
+                            html5Qrcode.start(
+                                { facingMode: "environment" }, // Use back camera
+                                config,
+                                (decodedText, decodedResult) => {
+                                    if (!isScanning) {
+                                        console.log('Scanner stopped, ignoring scan');
+                                        return;
+                                    }
+                                    
+                                    console.log('QR Code scanned:', decodedText);
+                                    console.log('Current buffer state:', qrChunksBufferRef.current);
+                                    
+                                    handleQRScan(decodedText).then((success) => {
+                                        console.log('QR scan result:', success);
+                                        if (success) {
+                                            // Successfully processed - stop scanner and close modal
+                                            console.log('Closing scanner and modal');
+                                            isScanning = false;
+                                            
+                                            // Stop scanner first, then clear
+                                            try {
+                                                console.log('Stopping scanner...');
+                                                html5Qrcode.stop().then(() => {
+                                                    console.log('Scanner stopped, clearing...');
+                                                    html5Qrcode.clear();
+                                                    setShowQRScannerModal(false);
+                                                }).catch((err) => {
+                                                    console.log('Error stopping scanner:', err);
+                                                    // Try to clear anyway
+                                                    try {
+                                                        html5Qrcode.clear();
+                                                    } catch (clearErr) {
+                                                        console.log('Error clearing scanner:', clearErr);
+                                                    }
+                                                    setShowQRScannerModal(false);
+                                                });
+                                            } catch (err) {
+                                                console.log('Error in scanner cleanup:', err);
+                                                setShowQRScannerModal(false);
+                                            }
+                                        } else {
+                                            console.log('Continuing to scan for more chunks...');
+                                        }
+                                    }).catch((error) => {
+                                        console.error('QR scan processing error:', error);
+                                        // Continue scanning on error
+                                    });
+                                },
+                                (error) => {
+                                    // Ignore scanning errors - continue scanning
+                                    if (isScanning) {
+                                        console.log('QR scan error (ignored):', error);
+                                    }
+                                }
+                            ).catch((err) => {
+                                console.error('QR Scanner start error:', err);
+                                // Close modal on start error
+                                setShowQRScannerModal(false);
+                            });
+
+                            return () => {
+                                isScanning = false;
+                                try {
+                                    // Try to stop scanner, but don't worry if it's already stopped
+                                    html5Qrcode.stop().then(() => {
+                                        html5Qrcode.clear();
+                                    }).catch((err) => {
+                                        // Scanner might already be stopped, just clear it
+                                        console.log('Scanner already stopped or error stopping:', err);
+                                        try {
+                                            html5Qrcode.clear();
+                                        } catch (clearErr) {
+                                            console.log('Error clearing scanner in cleanup:', clearErr);
+                                        }
+                                    });
+                                } catch (err) {
+                                    console.log('Error in cleanup:', err);
+                                    // Just try to clear, don't worry about stopping
+                                    try {
+                                        html5Qrcode.clear();
+                                    } catch (clearErr) {
+                                        console.log('Error clearing scanner in cleanup:', clearErr);
+                                    }
+                                }
+                            };
+                        }
+                    }, [showQRScannerModal]);
         
                     return React.createElement('div', { 
                         className: "minimal-bg min-h-screen" 
@@ -3192,6 +3515,82 @@
                                     markAnswerCreated: markAnswerCreated
                                 })
                         ),
+                        
+                        // QR Scanner Modal
+                        showQRScannerModal && React.createElement('div', {
+                            key: 'qr-scanner-modal',
+                            className: "fixed inset-0 bg-black/80 flex items-center justify-center z-50"
+                        }, [
+                            React.createElement('div', {
+                                key: 'scanner-container',
+                                className: "bg-gray-900 rounded-lg p-4 max-w-2xl w-full mx-4"
+                            }, [
+                                React.createElement('div', {
+                                    key: 'scanner-header',
+                                    className: "flex items-center justify-between mb-4"
+                                }, [
+                                    React.createElement('h3', {
+                                        key: 'scanner-title',
+                                        className: "text-lg font-medium text-white"
+                                    }, 'QR Code Scanner'),
+                                    React.createElement('button', {
+                                        key: 'close-btn',
+                                        onClick: () => {
+                                            setShowQRScannerModal(false);
+                                            // Clear QR scanner buffer
+                                            qrChunksBufferRef.current = { id: null, total: 0, seen: new Set(), items: [] };
+                                        },
+                                        className: "text-gray-400 hover:text-white"
+                                    }, [
+                                        React.createElement('i', {
+                                            key: 'close-icon',
+                                            className: 'fas fa-times'
+                                        })
+                                    ])
+                                ]),
+                                React.createElement('div', {
+                                    key: 'scanner-content',
+                                    className: "text-center"
+                                }, [
+                                    React.createElement('p', {
+                                        key: 'scanner-description',
+                                        className: "text-gray-400 mb-4"
+                                    }, 'Point your camera at the QR code to scan'),
+                                    qrChunksBufferRef.current && qrChunksBufferRef.current.id && React.createElement('div', {
+                                        key: 'progress-indicator',
+                                        className: "mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg"
+                                    }, [
+                                        React.createElement('p', {
+                                            key: 'progress-text',
+                                            className: "text-blue-400 text-sm"
+                                        }, `Scanned: ${qrChunksBufferRef.current.seen.size}/${qrChunksBufferRef.current.total} parts`),
+                                        React.createElement('div', {
+                                            key: 'progress-bar',
+                                            className: "w-full bg-gray-700 rounded-full h-2 mt-2"
+                                        }, [
+                                            React.createElement('div', {
+                                                key: 'progress-fill',
+                                                className: "bg-blue-500 h-2 rounded-full transition-all duration-300",
+                                                style: { 
+                                                    width: `${(qrChunksBufferRef.current.seen.size / qrChunksBufferRef.current.total) * 100}%` 
+                                                }
+                                            })
+                                        ])
+                                    ]),
+                                    React.createElement('div', {
+                                        key: 'scanner-placeholder',
+                                        id: "qr-reader",
+                                        className: "w-full h-96 bg-gray-800 rounded-lg flex items-center justify-center",
+                                        style: { minHeight: '400px' }
+                                    }, [
+                                        React.createElement('p', {
+                                            key: 'scanner-placeholder-text',
+                                            className: "text-gray-500"
+                                        }, 'Camera will start here...')
+                                    ])
+                                ])
+                            ])
+                        ])
                         
                     ]);
                 };

@@ -568,7 +568,7 @@ var EnhancedConnectionSetup = ({
               ]),
               showQRCode && qrCodeUrl && React.createElement("div", {
                 key: "qr-container",
-                className: "mt-4 p-4 bg-gray-800/50 border border-gray-600/30 rounded-lg text-center"
+                className: "mt-4 p-4 border border-gray-600/30 rounded-lg text-center"
               }, [
                 React.createElement("h4", {
                   key: "qr-title",
@@ -939,7 +939,7 @@ var EnhancedConnectionSetup = ({
           // QR Code section for answer
           qrCodeUrl && React.createElement("div", {
             key: "qr-container",
-            className: "mt-4 p-4 bg-gray-800/50 border border-gray-600/30 rounded-lg text-center"
+            className: "mt-4 p-4 border border-gray-600/30 rounded-lg text-center"
           }, [
             React.createElement("h4", {
               key: "qr-title",
@@ -1923,9 +1923,57 @@ var EnhancedSecureP2PChat = () => {
   const generateQRCode = async (data) => {
     try {
       const originalSize = typeof data === "string" ? data.length : JSON.stringify(data).length;
-      const payload = typeof data === "string" ? data : JSON.stringify(data);
       const isDesktop = typeof window !== "undefined" && (window.innerWidth || 0) >= 1024;
       const QR_SIZE = isDesktop ? 720 : 512;
+      if (typeof window.generateBinaryQRCodeFromObject === "function") {
+        try {
+          const obj = typeof data === "string" ? JSON.parse(data) : data;
+          const qrDataUrl = await window.generateBinaryQRCodeFromObject(obj, { errorCorrectionLevel: "M", size: QR_SIZE, margin: 2 });
+          if (qrDataUrl) {
+            try {
+              if (qrAnimationRef.current && qrAnimationRef.current.timer) {
+                clearInterval(qrAnimationRef.current.timer);
+              }
+            } catch {
+            }
+            qrAnimationRef.current = { timer: null, chunks: [], idx: 0, active: false };
+            setQrFrameIndex(0);
+            setQrFramesTotal(0);
+            setQrManualMode(false);
+            setQrCodeUrl(qrDataUrl);
+            setQrFramesTotal(1);
+            setQrFrameIndex(1);
+            return;
+          }
+        } catch (e2) {
+          console.warn("Binary QR generation failed, falling back to compressed:", e2?.message || e2);
+        }
+      }
+      if (typeof window.generateCompressedQRCode === "function") {
+        try {
+          const payload2 = typeof data === "string" ? data : JSON.stringify(data);
+          const qrDataUrl = await window.generateCompressedQRCode(payload2, { errorCorrectionLevel: "M", size: QR_SIZE, margin: 2 });
+          if (qrDataUrl) {
+            try {
+              if (qrAnimationRef.current && qrAnimationRef.current.timer) {
+                clearInterval(qrAnimationRef.current.timer);
+              }
+            } catch {
+            }
+            qrAnimationRef.current = { timer: null, chunks: [], idx: 0, active: false };
+            setQrFrameIndex(0);
+            setQrFramesTotal(0);
+            setQrManualMode(false);
+            setQrCodeUrl(qrDataUrl);
+            setQrFramesTotal(1);
+            setQrFrameIndex(1);
+            return;
+          }
+        } catch (e2) {
+          console.warn("Compressed QR generation failed, falling back to plain:", e2?.message || e2);
+        }
+      }
+      const payload = typeof data === "string" ? data : JSON.stringify(data);
       if (payload.length <= MAX_QR_LEN) {
         if (!window.generateQRCode) throw new Error("QR code generator unavailable");
         try {
@@ -2060,6 +2108,127 @@ var EnhancedSecureP2PChat = () => {
   };
   const handleQRScan = async (scannedData) => {
     try {
+      console.log("QR Code scanned:", scannedData.substring(0, 100) + "...");
+      console.log("Current buffer state:", qrChunksBufferRef.current);
+      if (scannedData.startsWith("SB1:bin:") || qrChunksBufferRef.current && qrChunksBufferRef.current.id) {
+        console.log("Binary chunk detected:", scannedData.substring(0, 50) + "...");
+        if (!qrChunksBufferRef.current.id) {
+          console.log("Initializing buffer for binary chunks");
+          qrChunksBufferRef.current = {
+            id: `bin_${Date.now()}`,
+            total: 4,
+            // We expect 4 chunks
+            seen: /* @__PURE__ */ new Set(),
+            items: [],
+            lastUpdateMs: Date.now()
+          };
+        }
+        const chunkHash = scannedData.substring(0, 50);
+        if (qrChunksBufferRef.current.seen.has(chunkHash)) {
+          console.log(`Chunk already scanned, ignoring...`);
+          return Promise.resolve(false);
+        }
+        qrChunksBufferRef.current.seen.add(chunkHash);
+        qrChunksBufferRef.current.items.push(scannedData);
+        qrChunksBufferRef.current.lastUpdateMs = Date.now();
+        try {
+          const uniqueCount = qrChunksBufferRef.current.seen.size;
+          document.dispatchEvent(new CustomEvent("qr-scan-progress", {
+            detail: {
+              id: qrChunksBufferRef.current.id,
+              seq: uniqueCount,
+              total: qrChunksBufferRef.current.total
+            }
+          }));
+          setQrFramesTotal(qrChunksBufferRef.current.total);
+          setQrFrameIndex(uniqueCount);
+        } catch {
+        }
+        const isComplete = qrChunksBufferRef.current.seen.size >= qrChunksBufferRef.current.total;
+        console.log(`Chunks collected: ${qrChunksBufferRef.current.seen.size}/${qrChunksBufferRef.current.total}, complete: ${isComplete}`);
+        if (!isComplete) {
+          console.log(`Scanned chunk ${qrChunksBufferRef.current.seen.size}/${qrChunksBufferRef.current.total}, waiting for more...`);
+          return Promise.resolve(false);
+        }
+        try {
+          const fullBinaryData = qrChunksBufferRef.current.items.join("");
+          if (showOfferStep) {
+            setAnswerInput(fullBinaryData);
+          } else {
+            setOfferInput(fullBinaryData);
+          }
+          setMessages((prev) => [...prev, {
+            message: "All binary chunks captured. Payload reconstructed.",
+            type: "success"
+          }]);
+          qrChunksBufferRef.current = { id: null, total: 0, seen: /* @__PURE__ */ new Set(), items: [] };
+          setShowQRScannerModal(false);
+          return Promise.resolve(true);
+        } catch (e2) {
+          console.warn("Binary chunks reconstruction failed:", e2);
+          return Promise.resolve(false);
+        }
+      }
+      if (scannedData.length > 100 && !scannedData.startsWith("{") && !scannedData.startsWith("[")) {
+        console.log("Detected potential binary chunk (long non-JSON string):", scannedData.substring(0, 50) + "...");
+        if (!qrChunksBufferRef.current.id) {
+          console.log("Initializing buffer for potential binary chunks");
+          qrChunksBufferRef.current = {
+            id: `bin_${Date.now()}`,
+            total: 4,
+            // We expect 4 chunks
+            seen: /* @__PURE__ */ new Set(),
+            items: [],
+            lastUpdateMs: Date.now()
+          };
+        }
+        const chunkHash = scannedData.substring(0, 50);
+        if (qrChunksBufferRef.current.seen.has(chunkHash)) {
+          console.log(`Chunk already scanned, ignoring...`);
+          return Promise.resolve(false);
+        }
+        qrChunksBufferRef.current.seen.add(chunkHash);
+        qrChunksBufferRef.current.items.push(scannedData);
+        qrChunksBufferRef.current.lastUpdateMs = Date.now();
+        try {
+          const uniqueCount = qrChunksBufferRef.current.seen.size;
+          document.dispatchEvent(new CustomEvent("qr-scan-progress", {
+            detail: {
+              id: qrChunksBufferRef.current.id,
+              seq: uniqueCount,
+              total: qrChunksBufferRef.current.total
+            }
+          }));
+          setQrFramesTotal(qrChunksBufferRef.current.total);
+          setQrFrameIndex(uniqueCount);
+        } catch {
+        }
+        const isComplete = qrChunksBufferRef.current.seen.size >= qrChunksBufferRef.current.total;
+        console.log(`Chunks collected: ${qrChunksBufferRef.current.seen.size}/${qrChunksBufferRef.current.total}, complete: ${isComplete}`);
+        if (!isComplete) {
+          console.log(`Scanned chunk ${qrChunksBufferRef.current.seen.size}/${qrChunksBufferRef.current.total}, waiting for more...`);
+          return Promise.resolve(false);
+        }
+        try {
+          const fullBinaryData = qrChunksBufferRef.current.items.join("");
+          if (showOfferStep) {
+            setAnswerInput(fullBinaryData);
+          } else {
+            setOfferInput(fullBinaryData);
+          }
+          setMessages((prev) => [...prev, {
+            message: "All binary chunks captured. Payload reconstructed.",
+            type: "success"
+          }]);
+          qrChunksBufferRef.current = { id: null, total: 0, seen: /* @__PURE__ */ new Set(), items: [] };
+          setShowQRScannerModal(false);
+          return Promise.resolve(true);
+        } catch (e2) {
+          console.warn("Binary chunks reconstruction failed:", e2);
+          return Promise.resolve(false);
+        }
+      }
+      console.log("Processing single QR code:", scannedData.substring(0, 50) + "...");
       let parsedData;
       if (typeof window.decodeAnyPayload === "function") {
         const any = window.decodeAnyPayload(scannedData);
@@ -2072,6 +2241,7 @@ var EnhancedSecureP2PChat = () => {
         const maybeDecompressed = typeof window.decompressIfNeeded === "function" ? window.decompressIfNeeded(scannedData) : scannedData;
         parsedData = JSON.parse(maybeDecompressed);
       }
+      console.log("Decoded data:", parsedData);
       if (parsedData.hdr && parsedData.body) {
         const { hdr } = parsedData;
         if (!qrChunksBufferRef.current.id || qrChunksBufferRef.current.id !== hdr.id) {
@@ -2258,8 +2428,7 @@ var EnhancedSecureP2PChat = () => {
       try {
         if (typeof window.encodeBinaryToPrefixed === "function") {
           const bin = window.encodeBinaryToPrefixed(offerString);
-          const id = `bin_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-          const TARGET_CHUNKS = 10;
+          const TARGET_CHUNKS = 4;
           let FRAME_MAX = Math.max(200, Math.floor(bin.length / TARGET_CHUNKS));
           if (FRAME_MAX <= 0) FRAME_MAX = 200;
           let total = Math.ceil(bin.length / FRAME_MAX);
@@ -2267,11 +2436,12 @@ var EnhancedSecureP2PChat = () => {
             total = 2;
             FRAME_MAX = Math.ceil(bin.length / 2) || 1;
           }
+          const id = `bin_${Date.now()}_${Math.random().toString(36).slice(2)}`;
           const chunks = [];
           for (let i = 0; i < total; i++) {
             const seq = i + 1;
             const part = bin.slice(i * FRAME_MAX, (i + 1) * FRAME_MAX);
-            chunks.push(JSON.stringify({ hdr: { v: 1, id, seq, total, rt: "bin" }, body: part }));
+            chunks.push(part);
           }
           const isDesktop = typeof window !== "undefined" && (window.innerWidth || 0) >= 1024;
           const QR_SIZE = isDesktop ? 720 : 512;
@@ -2295,9 +2465,15 @@ var EnhancedSecureP2PChat = () => {
             setShowQRCode(true);
           } catch {
           }
+        } else {
+          await generateQRCode(offer);
+          try {
+            setShowQRCode(true);
+          } catch {
+          }
         }
       } catch (e2) {
-        console.warn("Offer QR precompute failed:", e2);
+        console.warn("Offer QR generation failed:", e2);
       }
       const existingMessages = messages.filter(
         (m) => m.type === "system" && (m.message.includes("Secure invitation created") || m.message.includes("Send the encrypted code"))
@@ -2372,8 +2548,7 @@ var EnhancedSecureP2PChat = () => {
         try {
           if (typeof window.encodeBinaryToPrefixed === "function") {
             const bin = window.encodeBinaryToPrefixed(answerString);
-            const id = `ans_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-            const TARGET_CHUNKS = 10;
+            const TARGET_CHUNKS = 4;
             let FRAME_MAX = Math.max(200, Math.floor(bin.length / TARGET_CHUNKS));
             if (FRAME_MAX <= 0) FRAME_MAX = 200;
             let total = Math.ceil(bin.length / FRAME_MAX);
@@ -2381,11 +2556,12 @@ var EnhancedSecureP2PChat = () => {
               total = 2;
               FRAME_MAX = Math.ceil(bin.length / 2) || 1;
             }
+            const id = `ans_${Date.now()}_${Math.random().toString(36).slice(2)}`;
             const chunks = [];
             for (let i = 0; i < total; i++) {
               const seq = i + 1;
               const part = bin.slice(i * FRAME_MAX, (i + 1) * FRAME_MAX);
-              chunks.push(JSON.stringify({ hdr: { v: 1, id, seq, total, rt: "bin" }, body: part }));
+              chunks.push(part);
             }
             const isDesktop = typeof window !== "undefined" && (window.innerWidth || 0) >= 1024;
             const QR_SIZE = isDesktop ? 720 : 512;
@@ -2410,13 +2586,7 @@ var EnhancedSecureP2PChat = () => {
             } catch {
             }
           } else {
-            let url = "";
-            if (typeof window.generateCompressedQRCode === "function") {
-              url = await window.generateCompressedQRCode(answerString);
-            } else {
-              url = await generateQRCode(answerString);
-            }
-            if (url) setQrCodeUrl(url);
+            await generateQRCode(answer);
             try {
               setShowQRCode(true);
             } catch {
@@ -2659,6 +2829,7 @@ var EnhancedSecureP2PChat = () => {
     setShowQRCode(false);
     setShowQRScanner(false);
     setShowQRScannerModal(false);
+    qrChunksBufferRef.current = { id: null, total: 0, seen: /* @__PURE__ */ new Set(), items: [] };
     if (!shouldPreserveAnswerData()) {
       setQrCodeUrl("");
     }
@@ -2750,6 +2921,89 @@ var EnhancedSecureP2PChat = () => {
       addMessageWithAutoScroll(" All security features enabled by default", "system");
     }
   }, [isConnectedAndVerified, pendingSession, connectionStatus]);
+  React.useEffect(() => {
+    if (showQRScannerModal && window.Html5Qrcode) {
+      const html5Qrcode = new window.Html5Qrcode("qr-reader");
+      const config = {
+        fps: 10
+        // Убираем qrbox чтобы использовать всю область
+      };
+      let isScanning = true;
+      html5Qrcode.start(
+        { facingMode: "environment" },
+        // Use back camera
+        config,
+        (decodedText, decodedResult) => {
+          if (!isScanning) {
+            console.log("Scanner stopped, ignoring scan");
+            return;
+          }
+          console.log("QR Code scanned:", decodedText);
+          console.log("Current buffer state:", qrChunksBufferRef.current);
+          handleQRScan(decodedText).then((success) => {
+            console.log("QR scan result:", success);
+            if (success) {
+              console.log("Closing scanner and modal");
+              isScanning = false;
+              try {
+                console.log("Stopping scanner...");
+                html5Qrcode.stop().then(() => {
+                  console.log("Scanner stopped, clearing...");
+                  html5Qrcode.clear();
+                  setShowQRScannerModal(false);
+                }).catch((err) => {
+                  console.log("Error stopping scanner:", err);
+                  try {
+                    html5Qrcode.clear();
+                  } catch (clearErr) {
+                    console.log("Error clearing scanner:", clearErr);
+                  }
+                  setShowQRScannerModal(false);
+                });
+              } catch (err) {
+                console.log("Error in scanner cleanup:", err);
+                setShowQRScannerModal(false);
+              }
+            } else {
+              console.log("Continuing to scan for more chunks...");
+            }
+          }).catch((error) => {
+            console.error("QR scan processing error:", error);
+          });
+        },
+        (error) => {
+          if (isScanning) {
+            console.log("QR scan error (ignored):", error);
+          }
+        }
+      ).catch((err) => {
+        console.error("QR Scanner start error:", err);
+        setShowQRScannerModal(false);
+      });
+      return () => {
+        isScanning = false;
+        try {
+          html5Qrcode.stop().then(() => {
+            html5Qrcode.clear();
+          }).catch((err) => {
+            console.log("Scanner already stopped or error stopping:", err);
+            try {
+              html5Qrcode.clear();
+            } catch (clearErr) {
+              console.log("Error clearing scanner in cleanup:", clearErr);
+            }
+          });
+        } catch (err) {
+          console.log("Error in cleanup:", err);
+          try {
+            html5Qrcode.clear();
+          } catch (clearErr) {
+            console.log("Error clearing scanner in cleanup:", clearErr);
+          }
+        }
+      };
+    }
+  }, [showQRScannerModal]);
   return React.createElement("div", {
     className: "minimal-bg min-h-screen"
   }, [
@@ -2822,7 +3076,81 @@ var EnhancedSecureP2PChat = () => {
         // PAKE passwords removed - using SAS verification instead
         markAnswerCreated
       })
-    )
+    ),
+    // QR Scanner Modal
+    showQRScannerModal && React.createElement("div", {
+      key: "qr-scanner-modal",
+      className: "fixed inset-0 bg-black/80 flex items-center justify-center z-50"
+    }, [
+      React.createElement("div", {
+        key: "scanner-container",
+        className: "bg-gray-900 rounded-lg p-4 max-w-2xl w-full mx-4"
+      }, [
+        React.createElement("div", {
+          key: "scanner-header",
+          className: "flex items-center justify-between mb-4"
+        }, [
+          React.createElement("h3", {
+            key: "scanner-title",
+            className: "text-lg font-medium text-white"
+          }, "QR Code Scanner"),
+          React.createElement("button", {
+            key: "close-btn",
+            onClick: () => {
+              setShowQRScannerModal(false);
+              qrChunksBufferRef.current = { id: null, total: 0, seen: /* @__PURE__ */ new Set(), items: [] };
+            },
+            className: "text-gray-400 hover:text-white"
+          }, [
+            React.createElement("i", {
+              key: "close-icon",
+              className: "fas fa-times"
+            })
+          ])
+        ]),
+        React.createElement("div", {
+          key: "scanner-content",
+          className: "text-center"
+        }, [
+          React.createElement("p", {
+            key: "scanner-description",
+            className: "text-gray-400 mb-4"
+          }, "Point your camera at the QR code to scan"),
+          qrChunksBufferRef.current && qrChunksBufferRef.current.id && React.createElement("div", {
+            key: "progress-indicator",
+            className: "mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg"
+          }, [
+            React.createElement("p", {
+              key: "progress-text",
+              className: "text-blue-400 text-sm"
+            }, `Scanned: ${qrChunksBufferRef.current.seen.size}/${qrChunksBufferRef.current.total} parts`),
+            React.createElement("div", {
+              key: "progress-bar",
+              className: "w-full bg-gray-700 rounded-full h-2 mt-2"
+            }, [
+              React.createElement("div", {
+                key: "progress-fill",
+                className: "bg-blue-500 h-2 rounded-full transition-all duration-300",
+                style: {
+                  width: `${qrChunksBufferRef.current.seen.size / qrChunksBufferRef.current.total * 100}%`
+                }
+              })
+            ])
+          ]),
+          React.createElement("div", {
+            key: "scanner-placeholder",
+            id: "qr-reader",
+            className: "w-full h-96 bg-gray-800 rounded-lg flex items-center justify-center",
+            style: { minHeight: "400px" }
+          }, [
+            React.createElement("p", {
+              key: "scanner-placeholder-text",
+              className: "text-gray-500"
+            }, "Camera will start here...")
+          ])
+        ])
+      ])
+    ])
   ]);
 };
 function initializeApp() {
