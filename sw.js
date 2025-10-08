@@ -1,9 +1,9 @@
 // SecureBit.chat Service Worker
-// Enhanced Security Edition v4.2.12 - ECDH + DTLS + SAS
+// Enhanced Security Edition v4.3.120 - ECDH + DTLS + SAS
 
-const CACHE_NAME = 'securebit-v4.2.12';
-const STATIC_CACHE = 'securebit-static-v4.2.12';
-const DYNAMIC_CACHE = 'securebit-dynamic-v4.2.12';
+const CACHE_NAME = 'securebit-v4.3.120';
+const STATIC_CACHE = 'securebit-static-v4.3.120';
+const DYNAMIC_CACHE = 'securebit-dynamic-v4.3.120';
 
 // Files to cache for offline functionality (excluding external CDNs that may have CORS issues)
 const STATIC_ASSETS = [

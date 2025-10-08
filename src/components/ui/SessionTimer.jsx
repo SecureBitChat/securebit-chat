@@ -1,4 +1,4 @@
-// SessionTimer Component - v4.2.12 - ECDH + DTLS + SAS
+// SessionTimer Component - v4.3.120 - ECDH + DTLS + SAS
 const SessionTimer = ({ timeLeft, sessionType, sessionManager, onDisconnect }) => {
     const [currentTime, setCurrentTime] = React.useState(timeLeft || 0);
     const [showExpiredMessage, setShowExpiredMessage] = React.useState(false);

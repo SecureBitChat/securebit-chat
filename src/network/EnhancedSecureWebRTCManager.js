@@ -101,7 +101,7 @@ class EnhancedSecureWebRTCManager {
     };
 
     //   Static debug flag instead of this._debugMode
-    static DEBUG_MODE = true; // Set to true during development, false in production
+    static DEBUG_MODE = false; // Set to true during development, false in production
 
 
     constructor(onMessage, onStatusChange, onKeyExchange, onVerificationRequired, onAnswerError = null, onVerificationStateChange = null, config = {}) {

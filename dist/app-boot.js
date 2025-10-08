@@ -3890,7 +3890,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     SYSTEM_MESSAGE: "SYSTEM_MESSAGE_FILTERED"
   };
   //   Static debug flag instead of this._debugMode
-  static DEBUG_MODE = true;
+  static DEBUG_MODE = false;
   // Set to true during development, false in production
   constructor(onMessage, onStatusChange, onKeyExchange, onVerificationRequired, onAnswerError = null, onVerificationStateChange = null, config = {}) {
     this._isProductionMode = this._detectProductionMode();
@@ -14896,7 +14896,7 @@ Right-click or Ctrl+click to disconnect`,
             React.createElement("p", {
               key: "subtitle",
               className: "text-xs sm:text-sm text-muted hidden sm:block"
-            }, "End-to-end freedom v4.2.12")
+            }, "End-to-end freedom v4.3.120")
           ])
         ]),
         // Status and Controls - Responsive
@@ -15659,7 +15659,7 @@ function Roadmap() {
     },
     // current and future phases
     {
-      version: "v4.2.12",
+      version: "v4.3.120",
       title: "Enhanced Security Edition",
       status: "current",
       date: "Now",

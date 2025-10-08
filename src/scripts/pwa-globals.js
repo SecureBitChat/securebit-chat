@@ -65,7 +65,7 @@ window.showUpdateNotification = function showUpdateNotification() {
             <i class="fas fa-download text-lg"></i>
             <div class="flex-1">
                 <div class="font-medium">Update Available</div>
-                <div class="text-sm opacity-90">SecureBit.chat v4.2.12 - ECDH + DTLS + SAS is ready</div>
+                <div class="text-sm opacity-90">SecureBit.chat v4.3.120 - ECDH + DTLS + SAS is ready</div>
             </div>
             <button data-action="reload" class="bg-white/20 hover:bg-white/30 px-3 py-1 rounded text-sm font-medium transition-colors">
                 Update

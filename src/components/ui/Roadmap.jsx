@@ -75,7 +75,7 @@ function Roadmap() {
         
                     // current and future phases
                     {
-                                          version: "v4.2.12",
+                                          version: "v4.3.120",
                         title: "Enhanced Security Edition",
                         status: "current",
                         date: "Now",
