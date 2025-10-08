@@ -3451,7 +3451,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             // Validate timestamp (prevent very old messages)
             const now = Date.now();
             const messageAge = now - aad.timestamp;
-            if (messageAge > 300000) { // 5 minutes
+            if (messageAge > 1800000) { // 30 minutes for better UX
                 throw new Error('AAD timestamp too old - possible replay attack');
             }
             
@@ -9581,9 +9581,9 @@ async processMessage(data) {
                     throw new Error('Missing required security fields in offer data – possible MITM attack');
                 }
                 
-                // Replay attack protection (window reduced to 5 minutes)
+                // Replay attack protection (extended to 30 minutes for better UX)
                 const offerAge = Date.now() - timestamp;
-                const MAX_OFFER_AGE = 300000; // 5 minutes instead of 1 hour
+                const MAX_OFFER_AGE = 1800000; // 30 minutes for better user experience
                 
                 if (offerAge > MAX_OFFER_AGE) {
                     this._secureLog('error', 'Offer data is too old - possible replay attack', {
@@ -13072,8 +13072,8 @@ class SecureMasterKeyManager {
         this._onSessionExpired = null;
         this._onUnlocked = null;
         
-        // Setup event listeners
-        this._setupEventListeners();
+        // Setup event listeners (disabled for better UX - no auto-disconnect)
+        // this._setupEventListeners();
     }
     
     /**

@@ -1807,7 +1807,7 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
         throw new Error("Challenge mismatch - possible replay attack");
       }
       const responseAge = Date.now() - proof.responseTimestamp;
-      if (responseAge > 3e5) {
+      if (responseAge > 18e5) {
         throw new Error("Proof response expired");
       }
       const expectedHash = await _EnhancedSecureCryptoUtils.hashPublicKey(publicKey);
@@ -1966,7 +1966,7 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
         throw new Error("Invalid metadata structure");
       }
       const messageAge = Date.now() - metadata.timestamp;
-      if (messageAge > 3e5) {
+      if (messageAge > 18e5) {
         throw new Error("Message expired (older than 5 minutes)");
       }
       if (expectedSequenceNumber !== null) {
@@ -6566,7 +6566,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       }
       const now = Date.now();
       const messageAge = now - aad.timestamp;
-      if (messageAge > 3e5) {
+      if (messageAge > 18e5) {
         throw new Error("AAD timestamp too old - possible replay attack");
       }
       return aad;
@@ -11226,7 +11226,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           throw new Error("Missing required security fields in offer data \u2013 possible MITM attack");
         }
         const offerAge = Date.now() - timestamp;
-        const MAX_OFFER_AGE = 3e5;
+        const MAX_OFFER_AGE = 18e5;
         if (offerAge > MAX_OFFER_AGE) {
           this._secureLog("error", "Offer data is too old - possible replay attack", {
             operationId,
@@ -13873,7 +13873,6 @@ var SecureMasterKeyManager = class {
     this._onPasswordRequired = null;
     this._onSessionExpired = null;
     this._onUnlocked = null;
-    this._setupEventListeners();
   }
   /**
    * Set callback for password requests

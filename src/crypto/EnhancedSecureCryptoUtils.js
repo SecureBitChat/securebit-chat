@@ -2241,9 +2241,9 @@ class EnhancedSecureCryptoUtils {
                 throw new Error('Challenge mismatch - possible replay attack');
             }
 
-            // Check response time (max 5 minutes)
+            // Check response time (max 30 minutes for better UX)
             const responseAge = Date.now() - proof.responseTimestamp;
-            if (responseAge > 300000) {
+            if (responseAge > 1800000) {
                 throw new Error('Proof response expired');
             }
 
@@ -2435,7 +2435,7 @@ class EnhancedSecureCryptoUtils {
             }
 
             const messageAge = Date.now() - metadata.timestamp;
-            if (messageAge > 300000) {
+            if (messageAge > 1800000) { // 30 minutes for better UX
                 throw new Error('Message expired (older than 5 minutes)');
             }
 

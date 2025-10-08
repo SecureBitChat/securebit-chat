@@ -2746,10 +2746,19 @@
                                     const bin = window.encodeBinaryToPrefixed(offerString);
                                     // Force chunking into 4 parts - split binary data directly
                                     const TARGET_CHUNKS = 4;
-                                    let FRAME_MAX = Math.max(200, Math.floor(bin.length / TARGET_CHUNKS));
+                                    let total = TARGET_CHUNKS;
+                                    let FRAME_MAX = Math.max(200, Math.ceil(bin.length / TARGET_CHUNKS));
                                     if (FRAME_MAX <= 0) FRAME_MAX = 200;
-                                    let total = Math.ceil(bin.length / FRAME_MAX);
-                                    if (total < 2) { total = 2; FRAME_MAX = Math.ceil(bin.length / 2) || 1; }
+                                    
+                                    // Ensure we don't exceed TARGET_CHUNKS
+                                    if (bin.length <= FRAME_MAX) {
+                                        total = 1;
+                                        FRAME_MAX = bin.length;
+                                    } else {
+                                        // Recalculate to ensure exactly TARGET_CHUNKS parts
+                                        FRAME_MAX = Math.ceil(bin.length / TARGET_CHUNKS);
+                                        total = TARGET_CHUNKS;
+                                    }
                                     
                                     const id = `bin_${Date.now()}_${Math.random().toString(36).slice(2)}`;
                                     const chunks = [];
@@ -2883,10 +2892,19 @@
                                             const bin = window.encodeBinaryToPrefixed(answerString);
                                             // Force chunking into 4 parts - split binary data directly
                                             const TARGET_CHUNKS = 4;
-                                            let FRAME_MAX = Math.max(200, Math.floor(bin.length / TARGET_CHUNKS));
+                                            let total = TARGET_CHUNKS;
+                                            let FRAME_MAX = Math.max(200, Math.ceil(bin.length / TARGET_CHUNKS));
                                             if (FRAME_MAX <= 0) FRAME_MAX = 200;
-                                            let total = Math.ceil(bin.length / FRAME_MAX);
-                                            if (total < 2) { total = 2; FRAME_MAX = Math.ceil(bin.length / 2) || 1; }
+                                            
+                                            // Ensure we don't exceed TARGET_CHUNKS
+                                            if (bin.length <= FRAME_MAX) {
+                                                total = 1;
+                                                FRAME_MAX = bin.length;
+                                            } else {
+                                                // Recalculate to ensure exactly TARGET_CHUNKS parts
+                                                FRAME_MAX = Math.ceil(bin.length / TARGET_CHUNKS);
+                                                total = TARGET_CHUNKS;
+                                            }
                                             
                                             const id = `ans_${Date.now()}_${Math.random().toString(36).slice(2)}`;
                                             const chunks = [];
