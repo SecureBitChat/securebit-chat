@@ -1,4 +1,4 @@
-# SecureBit.chat v4.2.12 - ECDH + DTLS + SAS
+# SecureBit.chat v4.3.120 - UX/UI Redesign + Binary QR System
 
 <div align="center">
 
@@ -15,7 +15,27 @@
 
 ---
 
-## ✨ What's New in v4.2.12 - ECDH + DTLS + SAS
+## ✨ What's New in v4.3.120 - UX/UI Redesign + Binary QR System
+
+### 🎨 Complete UX/UI Redesign
+- Fully refreshed interface and improved navigation.  
+- More intuitive design and consistent experience across platforms.  
+- Enhanced readability and visual clarity.
+
+### 📷 Advanced QR Exchange System
+- Rebuilt QR connection system for faster and more secure pairing.  
+- Optimized scanning and decoding speed.  
+- Improved compatibility with mobile cameras and desktop screens.
+
+### 🗜️ Compressed Connection Codes
+- New **binary compression layer** for all connection data.  
+- Dramatically reduces code length and exchange time.  
+- Perfect for offline pairing and air-gapped communication.
+
+### 🔄 Binary Connection Protocol
+- Replaced old JSON exchange with a **binary data protocol**.  
+- Boosts performance and reduces handshake latency.  
+- Enables seamless cross-platform P2P connection setup.
 
 ### 🛡️ Revolutionary ECDH + DTLS + SAS Security System
 * **Complete PAKE removal** - Eliminated libsodium dependency and PAKE-based authentication
