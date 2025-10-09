@@ -15024,20 +15024,27 @@ var DownloadApps = () => {
     { id: "macos", name: "macOS", subtitle: "Desktop App", icon: "fab fa-safari", platform: "Desktop", isActive: false, url: "#", color: "gray" },
     { id: "linux", name: "Linux", subtitle: "Desktop App", icon: "fab fa-linux", platform: "Desktop", isActive: false, url: "#", color: "orange" },
     { id: "ios", name: "iOS", subtitle: "iPhone & iPad", icon: "fab fa-apple", platform: "Mobile", isActive: false, url: "https://apps.apple.com/app/securebit-chat/", color: "white" },
-    { id: "android", name: "Android", subtitle: "Google Play", icon: "fab fa-android", platform: "Mobile", isActive: false, url: "https://play.google.com/store/apps/details?id=com.securebit.chat", color: "green" }
+    { id: "android", name: "Android", subtitle: "Google Play", icon: "fab fa-android", platform: "Mobile", isActive: false, url: "https://play.google.com/store/apps/details?id=com.securebit.chat", color: "green" },
+    { id: "chrome", name: "Chrome", subtitle: "Browser Extension", icon: "fab fa-chrome", platform: "Browser", isActive: false, url: "#", color: "yellow" },
+    { id: "edge", name: "Edge", subtitle: "Browser Extension", icon: "fab fa-edge", platform: "Browser", isActive: false, url: "#", color: "blue" },
+    { id: "opera", name: "Opera", subtitle: "Browser Extension", icon: "fab fa-opera", platform: "Browser", isActive: false, url: "#", color: "red" },
+    { id: "firefox", name: "Firefox", subtitle: "Browser Extension", icon: "fab fa-firefox-browser", platform: "Browser", isActive: false, url: "#", color: "orange" }
   ];
   const handleDownload = (app) => {
     if (app.isActive) window.open(app.url, "_blank");
   };
-  const desktopApps = apps.filter((a) => a.platform !== "Mobile");
+  const desktopApps = apps.filter((a) => a.platform === "Desktop" || a.platform === "Web");
   const mobileApps = apps.filter((a) => a.platform === "Mobile");
+  const browserApps = apps.filter((a) => a.platform === "Browser");
   const cardSize = "w-28 h-28";
   const colorClasses = {
     green: "text-green-500",
     blue: "text-blue-500",
-    blueios: "text-blue-600",
     gray: "text-gray-500",
-    orange: "text-orange-500"
+    orange: "text-orange-500",
+    red: "text-red-500",
+    white: "text-white",
+    yellow: "text-yellow-400"
   };
   const renderAppCard = (app) => React.createElement("div", {
     key: app.id,
@@ -15075,8 +15082,14 @@ var DownloadApps = () => {
     // Mobile Apps
     React.createElement(
       "div",
-      { key: "mobile-row", className: "flex justify-center gap-6" },
+      { key: "mobile-row", className: "flex justify-center gap-6 mb-6" },
       mobileApps.map(renderAppCard)
+    ),
+    // Browser Extensions
+    React.createElement(
+      "div",
+      { key: "browser-row", className: "flex justify-center gap-6" },
+      browserApps.map(renderAppCard)
     )
   ]);
 };
