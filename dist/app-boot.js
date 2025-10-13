@@ -15779,13 +15779,6 @@ var ComparisonTable = () => {
       session: { status: "check", detail: "Random session ID" }
     },
     {
-      name: "Payment Integration",
-      lockbit: { status: "trophy", detail: "Lightning Network satoshis per session + WebLN" },
-      signal: { status: "times", detail: "No payment system" },
-      threema: { status: "times", detail: "No payment system" },
-      session: { status: "times", detail: "No payment system" }
-    },
-    {
       name: "Metadata Protection",
       lockbit: { status: "trophy", detail: "Full metadata encryption + traffic obfuscation" },
       signal: { status: "warning", detail: "Sealed Sender (partial)" },
@@ -15812,13 +15805,6 @@ var ComparisonTable = () => {
       signal: { status: "check", detail: "Safety numbers verification" },
       threema: { status: "check", detail: "QR code scanning" },
       session: { status: "warning", detail: "Basic key verification" }
-    },
-    {
-      name: "Economic Model",
-      lockbit: { status: "trophy", detail: "Sustainable pay-per-session model" },
-      signal: { status: "warning", detail: "Donations and grants dependency" },
-      threema: { status: "check", detail: "One-time app purchase" },
-      session: { status: "warning", detail: "Donations dependency" }
     },
     {
       name: "Censorship Resistance",

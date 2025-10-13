@@ -167,14 +167,12 @@
 | Feature                     | **SecureBit.chat**            | Signal                       | Threema               | Session                |
 | --------------------------- | ----------------------------- | ---------------------------- | --------------------- | ---------------------- |
 | **Architecture**            | 🏆 Pure P2P WebRTC            | ❌ Centralized servers        | ❌ Centralized servers | ⚠️ Onion network       |
-| **Payment Integration**     | ❌ None                      | ❌ None                       | ❌ None                | ❌ None                 |
 | **File Transfer**           | 🏆 P2P encrypted + chunked    | ✅ Encrypted via servers     | ✅ Encrypted via servers | ✅ Encrypted via servers |
 | **PWA Support**             | 🏆 Full PWA installation      | ❌ None                       | ❌ None                | ❌ None                 |
 | **Registration**            | 🏆 Anonymous                  | ❌ Phone required             | ✅ ID generated        | ✅ Random ID            |
 | **Traffic Obfuscation**     | 🏆 Advanced fake traffic      | ❌ None                       | ❌ None                | ✅ Onion routing        |
 | **Censorship Resistance**   | 🏆 Hard to block              | ⚠️ Blocked in some countries | ⚠️ May be blocked     | ✅ Onion routing        |
 | **Data Storage**            | 🏆 Zero storage               | ⚠️ Local database            | ⚠️ Local + backup     | ⚠️ Local database      |
-| **Economic Model**          | ✅ Open-source                | ⚠️ Donations dependent       | ✅ One‑time purchase   | ⚠️ Donations dependent |
 | **Metadata Protection**     | 🏆 Full encryption            | ⚠️ Sealed Sender (partial)   | ⚠️ Minimal metadata   | ✅ Onion routing        |
 | **Key Security**            | 🏆 Non‑extractable + hardware | ✅ Secure storage             | ✅ Local storage       | ✅ Secure storage       |
 | **Perfect Forward Secrecy** | 🏆 Auto rotation (5 min)      | ✅ Double Ratchet             | ⚠️ Partial (groups)   | ✅ Session Ratchet      |
