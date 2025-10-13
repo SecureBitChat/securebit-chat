@@ -6709,41 +6709,41 @@ async processMessage(data) {
         // Method for automatic feature enablement with stability check
         async autoEnableSecurityFeatures() {
             this._secureLog('info', 'Starting graduated security activation - all features enabled');
-            
-            const checkStability = () => {
-                const isStable = this.isConnected() && 
-                                this.isVerified && 
-                                this.connectionAttempts === 0 && 
-                                this.messageQueue.length === 0 &&
-                                this.peerConnection?.connectionState === 'connected';
-                return isStable;
-            };
-            
-            await this.calculateAndReportSecurityLevel();
-            this.notifySecurityUpgrade(1);
-            
+
+        const checkStability = () => {
+            const isStable = this.isConnected() && 
+                            this.isVerified && 
+                            this.connectionAttempts === 0 && 
+                            this.messageQueue.length === 0 &&
+                            this.peerConnection?.connectionState === 'connected';
+            return isStable;
+        };
+        
+        await this.calculateAndReportSecurityLevel();
+        this.notifySecurityUpgrade(1);
+        
             // Enable all security stages progressively
             setTimeout(async () => {
                 if (checkStability()) {
                     this.enableStage2Security();
                     await this.calculateAndReportSecurityLevel(); 
                     
-                    setTimeout(async () => {
-                        if (checkStability()) {
-                            this.enableStage3Security();
-                            await this.calculateAndReportSecurityLevel();
-                            
-                            setTimeout(async () => {
-                                if (checkStability()) {
-                                    this.enableStage4Security();
-                                    await this.calculateAndReportSecurityLevel();
-                                }
-                            }, 20000);
-                        }
-                    }, 15000);
+                        setTimeout(async () => {
+                            if (checkStability()) {
+                                this.enableStage3Security();
+                                await this.calculateAndReportSecurityLevel();
+                                
+                                setTimeout(async () => {
+                                    if (checkStability()) {
+                                        this.enableStage4Security();
+                                        await this.calculateAndReportSecurityLevel();
+                                    }
+                                }, 20000);
+                            }
+                        }, 15000);
                 }
             }, 10000);
-        }
+    }
 
     // ============================================
     // CONNECTION MANAGEMENT WITH ENHANCED SECURITY

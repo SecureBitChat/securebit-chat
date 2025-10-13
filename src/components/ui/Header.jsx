@@ -9,6 +9,10 @@ const EnhancedMinimalHeader = ({
 }) => {
     const [realSecurityLevel, setRealSecurityLevel] = React.useState(null);
     const [lastSecurityUpdate, setLastSecurityUpdate] = React.useState(0);
+    // Added local session state to remove references errors after session timer removal
+    const [hasActiveSession, setHasActiveSession] = React.useState(false);
+    const [currentTimeLeft, setCurrentTimeLeft] = React.useState(0);
+    const [sessionType, setSessionType] = React.useState('unknown');
 
     // ============================================
     // FIXED SECURITY UPDATE LOGIC
@@ -154,7 +158,7 @@ const EnhancedMinimalHeader = ({
         setHasActiveSession(true);
         setCurrentTimeLeft(0);
         setSessionType('premium'); // All features enabled
-    }, [sessionTimeLeft]);
+    }, []);
 
     React.useEffect(() => {
         const handleForceUpdate = (event) => {

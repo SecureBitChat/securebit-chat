@@ -3,10 +3,11 @@
 (async () => {
   try {
     const timestamp = Date.now();
-    const [cryptoModule, webrtcModule, fileTransferModule] = await Promise.all([
+    const [cryptoModule, webrtcModule, fileTransferModule, bluetoothModule] = await Promise.all([
       import(`../crypto/EnhancedSecureCryptoUtils.js?v=${timestamp}`),
       import(`../network/EnhancedSecureWebRTCManager.js?v=${timestamp}`),
       import(`../transfer/EnhancedSecureFileTransfer.js?v=${timestamp}`),
+      import(`../transfer/BluetoothKeyTransfer.js?v=${timestamp}`),
     ]);
 
     const { EnhancedSecureCryptoUtils } = cryptoModule;
@@ -15,6 +16,8 @@
     window.EnhancedSecureWebRTCManager = EnhancedSecureWebRTCManager;
     const { EnhancedSecureFileTransfer } = fileTransferModule;
     window.EnhancedSecureFileTransfer = EnhancedSecureFileTransfer;
+    const { default: BluetoothKeyTransfer } = bluetoothModule;
+    window.BluetoothKeyTransfer = BluetoothKeyTransfer;
 
     async function loadReactComponent(path) {
       const response = await fetch(`${path}?v=${timestamp}`);
@@ -33,6 +36,7 @@
       loadReactComponent('../components/ui/Testimonials.jsx'),
       loadReactComponent('../components/ui/Roadmap.jsx'),
       loadReactComponent('../components/ui/FileTransfer.jsx'),
+      loadReactComponent('../components/ui/BluetoothKeyTransfer.jsx'),
     ]);
 
     if (typeof window.initializeApp === 'function') {

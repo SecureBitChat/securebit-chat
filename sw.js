@@ -27,7 +27,11 @@ const STATIC_ASSETS = [
     '/src/pwa/pwa-manager.js',
     '/src/pwa/install-prompt.js',
     '/src/scripts/pwa-register.js',
-    '/src/scripts/pwa-offline-test.js'
+    '/src/scripts/pwa-offline-test.js',
+    
+    // Bluetooth key transfer (PWA feature)
+    '/src/transfer/BluetoothKeyTransfer.js',
+    '/src/components/ui/BluetoothKeyTransfer.jsx'
 ];
 
 // Sensitive files that should never be cached

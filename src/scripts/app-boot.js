@@ -1,6 +1,7 @@
 import { EnhancedSecureCryptoUtils } from '../crypto/EnhancedSecureCryptoUtils.js';
 import { EnhancedSecureWebRTCManager } from '../network/EnhancedSecureWebRTCManager.js';
 import { EnhancedSecureFileTransfer } from '../transfer/EnhancedSecureFileTransfer.js';
+import BluetoothKeyTransfer from '../transfer/BluetoothKeyTransfer.js';
 
 // Import UI components (side-effect: they attach themselves to window.*)
 import '../components/ui/Header.jsx';
@@ -11,11 +12,13 @@ import '../components/ui/Testimonials.jsx';
 import '../components/ui/ComparisonTable.jsx';
 import '../components/ui/Roadmap.jsx';
 import '../components/ui/FileTransfer.jsx';
+import '../components/ui/BluetoothKeyTransfer.jsx';
 
 // Expose to global for legacy usage inside app code
 window.EnhancedSecureCryptoUtils = EnhancedSecureCryptoUtils;
 window.EnhancedSecureWebRTCManager = EnhancedSecureWebRTCManager;
 window.EnhancedSecureFileTransfer = EnhancedSecureFileTransfer;
+window.BluetoothKeyTransfer = BluetoothKeyTransfer;
 
 // Mount application once DOM and modules are ready
 const start = () => {
