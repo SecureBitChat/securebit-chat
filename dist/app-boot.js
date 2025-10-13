@@ -3944,8 +3944,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       } : null;
     };
     this._secureLog("info", "\u{1F512} Enhanced WebRTC Manager initialized with secure API");
-    this.currentSessionType = null;
-    this.currentSecurityLevel = "basic";
     this.sessionConstraints = null;
     this.peerConnection = null;
     this.dataChannel = null;
@@ -5680,7 +5678,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       connectionState: this.peerConnection?.connectionState || "disconnected"
     });
     secureAPI.getSecurityStatus = () => ({
-      securityLevel: this.currentSecurityLevel || "basic",
+      securityLevel: "maximum",
       stage: "initialized",
       activeFeaturesCount: Object.values(this.securityFeatures || {}).filter(Boolean).length
     });
@@ -7415,22 +7413,19 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     return mask;
   }
   // Security configuration - all features enabled by default
-  configureSecurityForSession(sessionType, securityLevel) {
-    this._secureLog("info", `\u{1F527} Configuring security for ${sessionType} session (${securityLevel} level)`);
-    this.currentSessionType = sessionType;
-    this.currentSecurityLevel = securityLevel;
+  configureSecurityForSession() {
+    this._secureLog("info", "\u{1F527} Configuring security - all features enabled by default");
     this.sessionConstraints = {};
     Object.keys(this.securityFeatures).forEach((feature) => {
       this.sessionConstraints[feature] = true;
     });
     this.applySessionConstraints();
-    this._secureLog("info", `\u2705 Security configured for ${sessionType} - all features enabled`, { constraints: this.sessionConstraints });
+    this._secureLog("info", "\u2705 Security configured - all features enabled", { constraints: this.sessionConstraints });
     if (!this._validateCryptographicSecurity()) {
       this._secureLog("error", "\u{1F6A8} CRITICAL: Cryptographic security validation failed after session configuration");
       if (this.onStatusChange) {
         this.onStatusChange("security_breach", {
           type: "crypto_security_failure",
-          sessionType,
           message: "Cryptographic security validation failed after session configuration"
         });
       }
@@ -7550,20 +7545,15 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   }
   // Security Level Notification
   notifySecurityLevel() {
-    if (this.lastSecurityLevelNotification === this.currentSecurityLevel) {
+    if (this.lastSecurityLevelNotification === "maximum") {
       return;
     }
-    this.lastSecurityLevelNotification = this.currentSecurityLevel;
-    const levelMessages = {
-      "basic": "\u{1F512} Basic Security Active - Demo session with essential protection",
-      "enhanced": "\u{1F510} Enhanced Security Active - Paid session with advanced protection",
-      "maximum": "\u{1F6E1}\uFE0F Maximum Security Active - Premium session with complete protection"
-    };
-    const message = levelMessages[this.currentSecurityLevel] || levelMessages["basic"];
+    this.lastSecurityLevelNotification = "maximum";
+    const message = "\u{1F6E1}\uFE0F Maximum Security Active - All features enabled";
     if (this.onMessage) {
       this.deliverMessageToUI(message, "system");
     }
-    if (this.currentSecurityLevel !== "basic" && this.onMessage) {
+    if (this.onMessage) {
       const activeFeatures = Object.entries(this.securityFeatures).filter(([key, value]) => value === true).map(([key]) => key.replace("has", "").replace(/([A-Z])/g, " $1").trim().toLowerCase()).slice(0, 5);
       this.deliverMessageToUI(`\u{1F527} Active: ${activeFeatures.join(", ")}...`, "system");
     }
@@ -8950,11 +8940,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     if (this.sessionConstraints?.hasAntiFingerprinting) {
       this.securityFeatures.hasAntiFingerprinting = true;
       this.antiFingerprintingConfig.enabled = true;
-      if (this.currentSecurityLevel === "enhanced") {
-        this.antiFingerprintingConfig.randomizeSizes = false;
-        this.antiFingerprintingConfig.maskPatterns = false;
-        this.antiFingerprintingConfig.useRandomHeaders = false;
-      }
+      this.antiFingerprintingConfig.randomizeSizes = true;
+      this.antiFingerprintingConfig.maskPatterns = true;
+      this.antiFingerprintingConfig.useRandomHeaders = true;
     }
     this.notifySecurityUpgrade(2);
     setTimeout(() => {
@@ -8963,10 +8951,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   }
   // Method to enable Stage 3 features (traffic obfuscation)
   enableStage3Security() {
-    if (this.currentSecurityLevel !== "maximum") {
-      this._secureLog("info", "\u{1F512} Stage 3 features only available for premium sessions");
-      return;
-    }
+    this._secureLog("info", "\u{1F512} Enabling Stage 3 features (traffic obfuscation)");
     if (this.sessionConstraints?.hasMessageChunking) {
       this.securityFeatures.hasMessageChunking = true;
       this.chunkingConfig.enabled = true;
@@ -8983,10 +8968,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   }
   // Method for enabling Stage 4 functions (maximum safety)
   enableStage4Security() {
-    if (this.currentSecurityLevel !== "maximum") {
-      this._secureLog("info", "\u{1F512} Stage 4 features only available for premium sessions");
-      return;
-    }
+    this._secureLog("info", "\u{1F512} Enabling Stage 4 features (maximum safety)");
     if (this.sessionConstraints?.hasDecoyChannels && this.isConnected() && this.isVerified) {
       this.securityFeatures.hasDecoyChannels = true;
       this.decoyChannelConfig.enabled = true;
@@ -9017,11 +8999,10 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   // Method for getting security status
   getSecurityStatus() {
     const activeFeatures = Object.entries(this.securityFeatures).filter(([key, value]) => value === true).map(([key]) => key);
-    const stage = this.currentSecurityLevel === "basic" ? 1 : this.currentSecurityLevel === "enhanced" ? 2 : this.currentSecurityLevel === "maximum" ? 4 : 1;
+    const stage = 4;
     return {
       stage,
-      sessionType: this.currentSessionType,
-      securityLevel: this.currentSecurityLevel,
+      securityLevel: "maximum",
       activeFeatures,
       totalFeatures: Object.keys(this.securityFeatures).length,
       activeFeaturesCount: activeFeatures.length,
@@ -9118,41 +9099,31 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   // ============================================
   // Method for automatic feature enablement with stability check
   async autoEnableSecurityFeatures() {
-    if (this.currentSessionType === "demo") {
-      this._secureLog("info", "Demo session - keeping basic security only");
-      await this.calculateAndReportSecurityLevel();
-      this.notifySecurityUpgrade(1);
-      return;
-    }
+    this._secureLog("info", "Starting graduated security activation - all features enabled");
     const checkStability = () => {
       const isStable = this.isConnected() && this.isVerified && this.connectionAttempts === 0 && this.messageQueue.length === 0 && this.peerConnection?.connectionState === "connected";
       return isStable;
     };
-    this._secureLog("info", ` ${this.currentSessionType} session - starting graduated security activation`);
     await this.calculateAndReportSecurityLevel();
     this.notifySecurityUpgrade(1);
-    if (this.currentSecurityLevel === "enhanced" || this.currentSecurityLevel === "maximum") {
-      setTimeout(async () => {
-        if (checkStability()) {
-          this.enableStage2Security();
-          await this.calculateAndReportSecurityLevel();
-          if (this.currentSecurityLevel === "maximum") {
+    setTimeout(async () => {
+      if (checkStability()) {
+        this.enableStage2Security();
+        await this.calculateAndReportSecurityLevel();
+        setTimeout(async () => {
+          if (checkStability()) {
+            this.enableStage3Security();
+            await this.calculateAndReportSecurityLevel();
             setTimeout(async () => {
               if (checkStability()) {
-                this.enableStage3Security();
+                this.enableStage4Security();
                 await this.calculateAndReportSecurityLevel();
-                setTimeout(async () => {
-                  if (checkStability()) {
-                    this.enableStage4Security();
-                    await this.calculateAndReportSecurityLevel();
-                  }
-                }, 2e4);
               }
-            }, 15e3);
+            }, 2e4);
           }
-        }
-      }, 1e4);
-    }
+        }, 15e3);
+      }
+    }, 1e4);
   }
   // ============================================
   // CONNECTION MANAGEMENT WITH ENHANCED SECURITY
@@ -12766,9 +12737,8 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   async handleSessionActivation(sessionData) {
     try {
       this.currentSession = sessionData;
-      this.sessionManager = sessionData.sessionManager;
       const hasKeys = !!(this.encryptionKey && this.macKey);
-      const hasSession = !!(this.sessionManager && (this.sessionManager.hasActiveSession?.() || sessionData.sessionId));
+      const hasSession = !!sessionData.sessionId;
       if (hasSession) {
         this.onStatusChange("connected");
       }
@@ -13455,7 +13425,7 @@ var SecureKeyStorage = class {
         // Additional info
         connectionId: this.connectionId,
         keyFingerprint: this.keyFingerprint,
-        currentSecurityLevel: this.currentSecurityLevel,
+        currentSecurityLevel: "maximum",
         timestamp: Date.now()
       };
       this._secureLog("info", "Real security level calculated", securityData);
@@ -14139,291 +14109,6 @@ var SecureMasterKeyManager = class {
   }
 };
 
-// src/components/ui/SessionTimer.jsx
-var SessionTimer = ({ timeLeft, sessionType, sessionManager, onDisconnect }) => {
-  const [currentTime, setCurrentTime] = React.useState(timeLeft || 0);
-  const [showExpiredMessage, setShowExpiredMessage] = React.useState(false);
-  const [initialized, setInitialized] = React.useState(false);
-  const [connectionBroken, setConnectionBroken] = React.useState(false);
-  const [loggedHidden, setLoggedHidden] = React.useState(false);
-  React.useEffect(() => {
-    if (connectionBroken) {
-      if (!loggedHidden) {
-        console.log("\u23F1\uFE0F SessionTimer initialization skipped - connection broken");
-        setLoggedHidden(true);
-      }
-      return;
-    }
-    let initialTime = 0;
-    if (sessionManager?.hasActiveSession()) {
-      initialTime = sessionManager.getTimeLeft();
-    } else if (timeLeft && timeLeft > 0) {
-      initialTime = timeLeft;
-    }
-    if (initialTime <= 0) {
-      setCurrentTime(0);
-      setInitialized(false);
-      setLoggedHidden(true);
-      return;
-    }
-    if (connectionBroken) {
-      setCurrentTime(0);
-      setInitialized(false);
-      setLoggedHidden(true);
-      return;
-    }
-    setCurrentTime(initialTime);
-    setInitialized(true);
-    setLoggedHidden(false);
-  }, [sessionManager, connectionBroken]);
-  React.useEffect(() => {
-    if (connectionBroken) {
-      if (!loggedHidden) {
-        setLoggedHidden(true);
-      }
-      return;
-    }
-    if (timeLeft && timeLeft > 0) {
-      setCurrentTime(timeLeft);
-    }
-    setLoggedHidden(false);
-  }, [timeLeft, connectionBroken]);
-  React.useEffect(() => {
-    if (!initialized) {
-      return;
-    }
-    if (connectionBroken) {
-      if (!loggedHidden) {
-        setLoggedHidden(true);
-      }
-      return;
-    }
-    if (!currentTime || currentTime <= 0 || !sessionManager) {
-      return;
-    }
-    const interval = setInterval(() => {
-      if (connectionBroken) {
-        setCurrentTime(0);
-        clearInterval(interval);
-        return;
-      }
-      if (sessionManager?.hasActiveSession()) {
-        const newTime = sessionManager.getTimeLeft();
-        setCurrentTime(newTime);
-        if (window.DEBUG_MODE && Math.floor(Date.now() / 3e4) !== Math.floor((Date.now() - 1e3) / 3e4)) {
-          console.log("\u23F1\uFE0F Timer tick:", Math.floor(newTime / 1e3) + "s");
-        }
-        if (newTime <= 0) {
-          setShowExpiredMessage(true);
-          setTimeout(() => setShowExpiredMessage(false), 5e3);
-          clearInterval(interval);
-        }
-      } else {
-        setCurrentTime(0);
-        clearInterval(interval);
-      }
-    }, 1e3);
-    return () => {
-      clearInterval(interval);
-    };
-  }, [initialized, currentTime, sessionManager, connectionBroken]);
-  React.useEffect(() => {
-    const handleSessionTimerUpdate = (event) => {
-      if (connectionBroken) {
-        return;
-      }
-      if (event.detail.timeLeft && event.detail.timeLeft > 0) {
-        setCurrentTime(event.detail.timeLeft);
-      }
-    };
-    const handleForceHeaderUpdate = (event) => {
-      if (connectionBroken) {
-        return;
-      }
-      if (sessionManager && sessionManager.hasActiveSession()) {
-        const newTime = sessionManager.getTimeLeft();
-        setCurrentTime(newTime);
-      } else {
-        setCurrentTime(event.detail.timeLeft);
-      }
-    };
-    const handlePeerDisconnect = (event) => {
-      setConnectionBroken(true);
-      setCurrentTime(0);
-      setShowExpiredMessage(false);
-      setLoggedHidden(false);
-    };
-    const handleNewConnection = (event) => {
-      setConnectionBroken(false);
-      setLoggedHidden(false);
-    };
-    const handleConnectionCleaned = (event) => {
-      setConnectionBroken(true);
-      setCurrentTime(0);
-      setShowExpiredMessage(false);
-      setInitialized(false);
-      setLoggedHidden(false);
-    };
-    const handleSessionReset = (event) => {
-      setConnectionBroken(true);
-      setCurrentTime(0);
-      setShowExpiredMessage(false);
-      setInitialized(false);
-      setLoggedHidden(false);
-    };
-    const handleSessionCleanup = (event) => {
-      setConnectionBroken(true);
-      setCurrentTime(0);
-      setShowExpiredMessage(false);
-      setInitialized(false);
-      setLoggedHidden(false);
-    };
-    const handleDisconnected = (event) => {
-      setConnectionBroken(true);
-      setCurrentTime(0);
-      setShowExpiredMessage(false);
-      setInitialized(false);
-      setLoggedHidden(false);
-    };
-    document.addEventListener("session-timer-update", handleSessionTimerUpdate);
-    document.addEventListener("force-header-update", handleForceHeaderUpdate);
-    document.addEventListener("peer-disconnect", handlePeerDisconnect);
-    document.addEventListener("new-connection", handleNewConnection);
-    document.addEventListener("connection-cleaned", handleConnectionCleaned);
-    document.addEventListener("session-reset", handleSessionReset);
-    document.addEventListener("session-cleanup", handleSessionCleanup);
-    document.addEventListener("disconnected", handleDisconnected);
-    return () => {
-      document.removeEventListener("session-timer-update", handleSessionTimerUpdate);
-      document.removeEventListener("force-header-update", handleForceHeaderUpdate);
-      document.removeEventListener("peer-disconnect", handlePeerDisconnect);
-      document.removeEventListener("new-connection", handleNewConnection);
-      document.removeEventListener("connection-cleaned", handleConnectionCleaned);
-      document.removeEventListener("session-reset", handleSessionReset);
-      document.removeEventListener("session-cleanup", handleSessionCleanup);
-      document.removeEventListener("disconnected", handleDisconnected);
-    };
-  }, [sessionManager]);
-  if (showExpiredMessage) {
-    return React.createElement("div", {
-      className: "session-timer expired flex items-center space-x-2 px-3 py-1.5 rounded-lg animate-pulse",
-      style: { background: "linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.2) 100%)" }
-    }, [
-      React.createElement("i", {
-        key: "icon",
-        className: "fas fa-exclamation-triangle text-red-400"
-      }),
-      React.createElement("span", {
-        key: "message",
-        className: "text-red-400 text-sm font-medium"
-      }, "Session Expired!")
-    ]);
-  }
-  if (!sessionManager) {
-    if (!loggedHidden) {
-      console.log("\u23F1\uFE0F SessionTimer hidden - no sessionManager");
-      setLoggedHidden(true);
-    }
-    return null;
-  }
-  if (connectionBroken) {
-    if (!loggedHidden) {
-      console.log("\u23F1\uFE0F SessionTimer hidden - connection broken");
-      setLoggedHidden(true);
-    }
-    return null;
-  }
-  if (!currentTime || currentTime <= 0) {
-    if (!loggedHidden) {
-      console.log("\u23F1\uFE0F SessionTimer hidden - no time left, currentTime:", currentTime);
-      setLoggedHidden(true);
-    }
-    return null;
-  }
-  if (loggedHidden) {
-    setLoggedHidden(false);
-  }
-  const totalMinutes = Math.floor(currentTime / (60 * 1e3));
-  const totalSeconds = Math.floor(currentTime / 1e3);
-  const isDemo = sessionType === "demo";
-  const isWarning = isDemo ? totalMinutes <= 2 : totalMinutes <= 10;
-  const isCritical = isDemo ? totalSeconds <= 60 : totalMinutes <= 5;
-  const formatTime = (ms) => {
-    const hours = Math.floor(ms / (60 * 60 * 1e3));
-    const minutes = Math.floor(ms % (60 * 60 * 1e3) / (60 * 1e3));
-    const seconds = Math.floor(ms % (60 * 1e3) / 1e3);
-    if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
-    } else {
-      return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-    }
-  };
-  const getTimerStyle = () => {
-    const totalDuration = sessionType === "demo" ? 6 * 60 * 1e3 : 60 * 60 * 1e3;
-    const timeProgress = (totalDuration - currentTime) / totalDuration;
-    let backgroundColor, textColor, iconColor, iconClass, shouldPulse;
-    if (timeProgress <= 0.33) {
-      backgroundColor = "linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(22, 163, 74, 0.15) 100%)";
-      textColor = "text-green-400";
-      iconColor = "text-green-400";
-      iconClass = "fas fa-clock";
-      shouldPulse = false;
-    } else if (timeProgress <= 0.66) {
-      backgroundColor = "linear-gradient(135deg, rgba(234, 179, 8, 0.15) 0%, rgba(202, 138, 4, 0.15) 100%)";
-      textColor = "text-yellow-400";
-      iconColor = "text-yellow-400";
-      iconClass = "fas fa-clock";
-      shouldPulse = false;
-    } else {
-      backgroundColor = "linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.15) 100%)";
-      textColor = "text-red-400";
-      iconColor = "text-red-400";
-      iconClass = "fas fa-exclamation-triangle";
-      shouldPulse = true;
-    }
-    return { backgroundColor, textColor, iconColor, iconClass, shouldPulse };
-  };
-  const timerStyle = getTimerStyle();
-  const handleTimerClick = () => {
-    if (onDisconnect && typeof onDisconnect === "function") {
-      onDisconnect();
-    }
-  };
-  return React.createElement("div", {
-    className: `session-timer flex items-center space-x-2 px-3 py-1.5 rounded-lg transition-all duration-500 cursor-pointer hover:opacity-80 ${isDemo ? "demo-session" : ""} ${timerStyle.shouldPulse ? "animate-pulse" : ""}`,
-    style: { background: timerStyle.backgroundColor },
-    onClick: handleTimerClick,
-    title: "Click to disconnect and clear session"
-  }, [
-    React.createElement("i", {
-      key: "icon",
-      className: `${timerStyle.iconClass} ${timerStyle.iconColor}`
-    }),
-    React.createElement("span", {
-      key: "time",
-      className: `text-sm font-mono font-semibold ${timerStyle.textColor}`
-    }, formatTime(currentTime)),
-    React.createElement("div", {
-      key: "progress",
-      className: "ml-2 w-16 h-1 bg-gray-700 rounded-full overflow-hidden"
-    }, [
-      React.createElement("div", {
-        key: "progress-bar",
-        className: `${timerStyle.textColor.replace("text-", "bg-")} h-full rounded-full transition-all duration-500`,
-        style: {
-          width: `${Math.max(0, Math.min(100, currentTime / (sessionType === "demo" ? 6 * 60 * 1e3 : 60 * 60 * 1e3) * 100))}%`
-        }
-      })
-    ])
-  ]);
-};
-window.SessionTimer = SessionTimer;
-window.updateSessionTimer = (newTimeLeft, newSessionType) => {
-  document.dispatchEvent(new CustomEvent("session-timer-update", {
-    detail: { timeLeft: newTimeLeft, sessionType: newSessionType }
-  }));
-};
-
 // src/components/ui/Header.jsx
 var EnhancedMinimalHeader = ({
   status,
@@ -14432,13 +14117,8 @@ var EnhancedMinimalHeader = ({
   onDisconnect,
   isConnected,
   securityLevel,
-  sessionManager,
-  sessionTimeLeft,
   webrtcManager
 }) => {
-  const [currentTimeLeft, setCurrentTimeLeft] = React.useState(sessionTimeLeft || 0);
-  const [hasActiveSession, setHasActiveSession] = React.useState(false);
-  const [sessionType, setSessionType] = React.useState("unknown");
   const [realSecurityLevel, setRealSecurityLevel] = React.useState(null);
   const [lastSecurityUpdate, setLastSecurityUpdate] = React.useState(0);
   React.useEffect(() => {
@@ -14623,8 +14303,7 @@ var EnhancedMinimalHeader = ({
         details: "Security verification not available",
         isRealData: false,
         passedChecks: 0,
-        totalChecks: 0,
-        sessionType: "unknown"
+        totalChecks: 0
       };
       console.log("Using fallback security data:", securityData);
     }
@@ -14632,8 +14311,6 @@ var EnhancedMinimalHeader = ({
 
 `;
     message += `Security Level: ${securityData.level} (${securityData.score}%)
-`;
-    message += `Session Type: ${securityData.sessionType || "premium"}
 `;
     message += `Verification Time: ${new Date(securityData.timestamp).toLocaleTimeString()}
 `;
@@ -14816,7 +14493,6 @@ ${securityData.details || "Real cryptographic verification completed"}`;
   };
   const config = getStatusConfig();
   const displaySecurityLevel = isConnected ? realSecurityLevel || securityLevel : null;
-  const shouldShowTimer = hasActiveSession && currentTimeLeft > 0 && window.SessionTimer;
   const getSecurityIndicatorDetails = () => {
     if (!displaySecurityLevel) {
       return {
@@ -14903,13 +14579,6 @@ Right-click or Ctrl+click to disconnect`,
           key: "status-section",
           className: "flex items-center space-x-2 sm:space-x-3"
         }, [
-          // Session Timer - all features enabled by default
-          shouldShowTimer && React.createElement(window.SessionTimer, {
-            key: "session-timer",
-            timeLeft: currentTimeLeft,
-            sessionType,
-            onDisconnect
-          }),
           displaySecurityLevel && React.createElement("div", {
             key: "security-level",
             className: "hidden md:flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity duration-200",

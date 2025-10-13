@@ -1337,7 +1337,6 @@ var EnhancedSecureP2PChat = () => {
   const [localVerificationConfirmed, setLocalVerificationConfirmed] = React.useState(false);
   const [remoteVerificationConfirmed, setRemoteVerificationConfirmed] = React.useState(false);
   const [bothVerificationsConfirmed, setBothVerificationsConfirmed] = React.useState(false);
-  const [sessionTimeLeft, setSessionTimeLeft] = React.useState(0);
   const [pendingSession, setPendingSession] = React.useState(null);
   const [connectionState, setConnectionState] = React.useState({
     status: "disconnected",
@@ -1563,7 +1562,6 @@ var EnhancedSecureP2PChat = () => {
         setKeyFingerprint("");
         setVerificationCode("");
         setSecurityLevel(null);
-        setSessionTimeLeft(0);
         setTimeout(() => {
           setConnectionStatus("disconnected");
           setShowVerification(false);
@@ -3022,7 +3020,6 @@ var EnhancedSecureP2PChat = () => {
       isConnected: isConnectedAndVerified,
       securityLevel,
       // sessionManager removed - all features enabled by default
-      sessionTimeLeft,
       webrtcManager: webrtcManagerRef.current
     }),
     React.createElement(
