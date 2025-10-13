@@ -1421,7 +1421,6 @@
                     // PAKE password states removed - using SAS verification instead
                     
                     // Session state - all security features enabled by default
-                    const [sessionTimeLeft, setSessionTimeLeft] = React.useState(0);
                     const [pendingSession, setPendingSession] = React.useState(null);
                     
                     // All security features are enabled by default - no payment required
@@ -1730,8 +1729,6 @@
                                 setVerificationCode('');
                                 setSecurityLevel(null);
                                 
-                                // Reset session and timer
-                                    setSessionTimeLeft(0);
                                 
                                 // Return to main page after a short delay
                                 setTimeout(() => {
@@ -3471,7 +3468,6 @@
                             isConnected: isConnectedAndVerified,
                             securityLevel: securityLevel,
                             // sessionManager removed - all features enabled by default
-                            sessionTimeLeft: sessionTimeLeft,
                             webrtcManager: webrtcManagerRef.current
                         }),
         

@@ -3,10 +3,9 @@
 (async () => {
   try {
     const timestamp = Date.now();
-    const [cryptoModule, webrtcModule, paymentModule, fileTransferModule] = await Promise.all([
+    const [cryptoModule, webrtcModule, fileTransferModule] = await Promise.all([
       import(`../crypto/EnhancedSecureCryptoUtils.js?v=${timestamp}`),
       import(`../network/EnhancedSecureWebRTCManager.js?v=${timestamp}`),
-      import(`../session/PayPerSessionManager.js?v=${timestamp}`),
       import(`../transfer/EnhancedSecureFileTransfer.js?v=${timestamp}`),
     ]);
 
@@ -14,8 +13,6 @@
     window.EnhancedSecureCryptoUtils = EnhancedSecureCryptoUtils;
     const { EnhancedSecureWebRTCManager } = webrtcModule;
     window.EnhancedSecureWebRTCManager = EnhancedSecureWebRTCManager;
-    const { PayPerSessionManager } = paymentModule;
-    window.PayPerSessionManager = PayPerSessionManager;
     const { EnhancedSecureFileTransfer } = fileTransferModule;
     window.EnhancedSecureFileTransfer = EnhancedSecureFileTransfer;
 
@@ -28,11 +25,7 @@
     }
 
     await Promise.all([
-      loadReactComponent('../components/ui/SessionTimer.jsx'),
       loadReactComponent('../components/ui/Header.jsx'),
-      loadReactComponent('../components/ui/SessionTypeSelector.jsx'),
-      loadReactComponent('../components/ui/LightningPayment.jsx'),
-      loadReactComponent('../components/ui/PaymentModal.jsx'),
       loadReactComponent('../components/ui/DownloadApps.jsx'),
       loadReactComponent('../components/ui/ComparisonTable.jsx'),
       loadReactComponent('../components/ui/UniqueFeatureSlider.jsx'),

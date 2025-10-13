@@ -5,13 +5,8 @@ const EnhancedMinimalHeader = ({
     onDisconnect, 
     isConnected, 
     securityLevel, 
-    sessionManager, 
-    sessionTimeLeft,
     webrtcManager 
 }) => {
-    const [currentTimeLeft, setCurrentTimeLeft] = React.useState(sessionTimeLeft || 0);
-    const [hasActiveSession, setHasActiveSession] = React.useState(false);
-    const [sessionType, setSessionType] = React.useState('unknown');
     const [realSecurityLevel, setRealSecurityLevel] = React.useState(null);
     const [lastSecurityUpdate, setLastSecurityUpdate] = React.useState(0);
 
@@ -268,8 +263,7 @@ const EnhancedMinimalHeader = ({
                 details: 'Security verification not available',
                 isRealData: false,
                 passedChecks: 0,
-                totalChecks: 0,
-                sessionType: 'unknown'
+                totalChecks: 0
             };
             console.log('Using fallback security data:', securityData);
         }
@@ -277,7 +271,6 @@ const EnhancedMinimalHeader = ({
         // Detailed information about the REAL security check
         let message = `REAL-TIME SECURITY VERIFICATION\n\n`;
         message += `Security Level: ${securityData.level} (${securityData.score}%)\n`;
-        message += `Session Type: ${securityData.sessionType || 'premium'}\n`;
         message += `Verification Time: ${new Date(securityData.timestamp).toLocaleTimeString()}\n`;
         message += `Data Source: ${securityData.isRealData ? 'Real Cryptographic Tests' : 'Simulated Data'}\n\n`;
         
@@ -465,7 +458,6 @@ const EnhancedMinimalHeader = ({
     const config = getStatusConfig();
     const displaySecurityLevel = isConnected ? (realSecurityLevel || securityLevel) : null;
     
-    const shouldShowTimer = hasActiveSession && currentTimeLeft > 0 && window.SessionTimer;
 
     // ============================================
     // DATA RELIABILITY INDICATOR
@@ -570,13 +562,6 @@ const EnhancedMinimalHeader = ({
                     key: 'status-section',
                     className: 'flex items-center space-x-2 sm:space-x-3'
                 }, [
-                    // Session Timer - all features enabled by default
-                    shouldShowTimer && React.createElement(window.SessionTimer, {
-                        key: 'session-timer',
-                        timeLeft: currentTimeLeft,
-                        sessionType: sessionType,
-                        onDisconnect: onDisconnect
-                    }),
 
                     displaySecurityLevel && React.createElement('div', {
                         key: 'security-level',

@@ -3,7 +3,6 @@ import { EnhancedSecureWebRTCManager } from '../network/EnhancedSecureWebRTCMana
 import { EnhancedSecureFileTransfer } from '../transfer/EnhancedSecureFileTransfer.js';
 
 // Import UI components (side-effect: they attach themselves to window.*)
-import '../components/ui/SessionTimer.jsx';
 import '../components/ui/Header.jsx';
 import '../components/ui/DownloadApps.jsx';
 import '../components/ui/UniqueFeatureSlider.jsx';

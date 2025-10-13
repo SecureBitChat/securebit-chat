@@ -1,27 +1,13 @@
-window.forceUpdateHeader = (timeLeft, sessionType) => {
+window.forceUpdateHeader = () => {
   const event = new CustomEvent('force-header-update', {
-    detail: { timeLeft, sessionType, timestamp: Date.now() },
+    detail: { timestamp: Date.now() },
   });
   document.dispatchEvent(event);
-  if (window.sessionManager && window.sessionManager.forceUpdateTimer) {
-    window.sessionManager.forceUpdateTimer();
-  }
-};
-
-window.updateSessionTimer = (timeLeft, sessionType) => {
-  document.dispatchEvent(
-    new CustomEvent('session-timer-update', {
-      detail: { timeLeft, sessionType },
-    }),
-  );
 };
 
 document.addEventListener('session-activated', (event) => {
-  if (window.updateSessionTimer) {
-    window.updateSessionTimer(event.detail.timeLeft, event.detail.sessionType);
-  }
   if (window.forceUpdateHeader) {
-    window.forceUpdateHeader(event.detail.timeLeft, event.detail.sessionType);
+    window.forceUpdateHeader();
   }
   if (window.webrtcManager && window.webrtcManager.handleSessionActivation) {
     if (window.DEBUG_MODE) {
@@ -29,9 +15,6 @@ document.addEventListener('session-activated', (event) => {
     }
     window.webrtcManager.handleSessionActivation({
       sessionId: event.detail.sessionId,
-      sessionType: event.detail.sessionType,
-      timeLeft: event.detail.timeLeft,
-      isDemo: event.detail.isDemo,
       sessionManager: window.sessionManager,
     });
   }

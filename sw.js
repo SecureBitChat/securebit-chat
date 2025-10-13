@@ -1,34 +1,33 @@
 // SecureBit.chat Service Worker
-// Enhanced Security Edition v4.3.120 - ECDH + DTLS + SAS
+// Conservative PWA Edition v4.3.120 - Minimal Caching Strategy
 
-const CACHE_NAME = 'securebit-v4.3.120';
-const STATIC_CACHE = 'securebit-static-v4.3.120';
-const DYNAMIC_CACHE = 'securebit-dynamic-v4.3.120';
+const CACHE_NAME = 'securebit-pwa-v4.3.120';
+const STATIC_CACHE = 'securebit-pwa-static-v4.3.120';
+const DYNAMIC_CACHE = 'securebit-pwa-dynamic-v4.3.120';
 
-// Files to cache for offline functionality (excluding external CDNs that may have CORS issues)
+// Essential files for PWA offline functionality
 const STATIC_ASSETS = [
     '/',
     '/index.html',
     '/manifest.json',
-    '/src/crypto/EnhancedSecureCryptoUtils.js',
-    '/src/network/EnhancedSecureWebRTCManager.js',
-    '/src/session/PayPerSessionManager.js',
-    '/src/components/ui/SessionTimer.jsx',
-    '/src/components/ui/Header.jsx',
-    '/src/components/ui/PasswordModal.jsx',
-    '/src/components/ui/SessionTypeSelector.jsx',
-    '/src/components/ui/PaymentModal.jsx',
-    '/src/components/ui/DownloadApps.jsx',
-    '/src/components/ui/ComparisonTable.jsx',
-    '/src/components/ui/UniqueFeatureSlider.jsx',
-    '/src/components/ui/SecurityFeatures.jsx',
-    '/src/components/ui/Testimonials.jsx',
-    '/src/components/ui/Roadmap.jsx',
-    '/src/styles/main.css',
-    '/src/styles/animations.css',
-    '/src/styles/components.css',
+    
+    // Core PWA files only
+    '/dist/app.js',
+    '/dist/app-boot.js',
+    
+    // Essential styles for PWA
     '/src/styles/pwa.css',
-    '/logo/favicon.ico'
+    
+    // PWA icons (required for install)
+    '/logo/icon-192x192.png',
+    '/logo/icon-512x512.png',
+    '/logo/favicon.ico',
+    
+    // PWA components only
+    '/src/pwa/pwa-manager.js',
+    '/src/pwa/install-prompt.js',
+    '/src/scripts/pwa-register.js',
+    '/src/scripts/pwa-offline-test.js'
 ];
 
 // Sensitive files that should never be cached
@@ -43,21 +42,22 @@ const SENSITIVE_PATTERNS = [
 
 // Network first patterns (always try network first)
 const NETWORK_FIRST_PATTERNS = [
-    /\.js$/,
-    /\.jsx$/,
-    /\/src\//,
-    /api/
+    /\/api\//,
+    /\/session\//,
+    /\/payment\//,
+    /\/verification\//,
+    /preimage/,
+    /auth/
 ];
 
-// Cache first patterns (static assets)
+// Cache first patterns (only essential PWA assets)
 const CACHE_FIRST_PATTERNS = [
-    /\.css$/,
-    /\.png$/,
-    /\.jpg$/,
-    /\.svg$/,
-    /\.ico$/,
-    /fonts/,
-    /logo/
+    /manifest\.json$/,
+    /logo\/icon-.*\.png$/,
+    /logo\/favicon\.ico$/,
+    /src\/styles\/pwa\.css$/,
+    /src\/pwa\/.*\.js$/,
+    /src\/scripts\/pwa-.*\.js$/
 ];
 
 self.addEventListener('message', (event) => {
@@ -160,23 +160,23 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(handleRequest(event.request));
 });
 
-// Smart request handling with security considerations
+// Conservative request handling - only cache PWA essentials
 async function handleRequest(request) {
     const url = new URL(request.url);
     
     try {
-        // Strategy 1: Cache First (for static assets)
+        // Strategy 1: Cache First (only for essential PWA assets)
         if (CACHE_FIRST_PATTERNS.some(pattern => pattern.test(url.pathname))) {
             return await cacheFirst(request);
         }
         
-        // Strategy 2: Network First (for dynamic content and security-critical files)
+        // Strategy 2: Network First (for all other requests)
         if (NETWORK_FIRST_PATTERNS.some(pattern => pattern.test(url.pathname))) {
             return await networkFirst(request);
         }
         
-        // Strategy 3: Stale While Revalidate (for main pages)
-        return await staleWhileRevalidate(request);
+        // Strategy 3: Network First for everything else (no aggressive caching)
+        return await networkFirst(request);
         
     } catch (error) {
         console.error('❌ Request handling failed:', error);
@@ -254,29 +254,39 @@ async function staleWhileRevalidate(request) {
     return cachedResponse || networkResponsePromise || handleOffline(request);
 }
 
-// Offline fallback
+// Offline fallback - minimal caching for PWA only
 async function handleOffline(request) {
     const url = new URL(request.url);
     
     // For navigation requests, return cached index.html
-    if (request.destination === 'document') {
-        const cachedIndex = await caches.match('/');
+    if (request.destination === 'document' || request.mode === 'navigate') {
+        const cachedIndex = await caches.match('/index.html');
         if (cachedIndex) {
             return cachedIndex;
         }
+        
+        // Fallback to root if index.html not found
+        const cachedRoot = await caches.match('/');
+        if (cachedRoot) {
+            return cachedRoot;
+        }
     }
     
-    // For images, return a placeholder or cached version
-    if (request.destination === 'image') {
-        return new Response(
-            '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="#1a1a1a"/><text x="100" y="100" text-anchor="middle" fill="#666" font-size="14">Offline</text></svg>',
-            { headers: { 'Content-Type': 'image/svg+xml' } }
-        );
+    // For PWA assets, try to return cached version
+    if (CACHE_FIRST_PATTERNS.some(pattern => pattern.test(url.pathname))) {
+        const cachedAsset = await caches.match(request);
+        if (cachedAsset) {
+            return cachedAsset;
+        }
     }
     
-    // Return a generic offline response
+    // Return a generic offline response for everything else
     return new Response(
-        JSON.stringify({ error: 'Offline', message: 'Network unavailable' }), 
+        JSON.stringify({ 
+            error: 'Offline', 
+            message: 'Network unavailable - PWA offline mode',
+            url: url.pathname
+        }), 
         {
             status: 503,
             statusText: 'Service Unavailable',
@@ -292,6 +302,29 @@ self.addEventListener('sync', (event) => {
         event.waitUntil(retryFailedRequests());
     }
 });
+
+async function retryFailedRequests() {
+    try {
+        // Get all cached requests that failed
+        const cache = await caches.open(DYNAMIC_CACHE);
+        const requests = await cache.keys();
+        
+        for (const request of requests) {
+            try {
+                // Try to fetch the request again
+                const response = await fetch(request);
+                if (response.ok) {
+                    // Update cache with successful response
+                    await cache.put(request, response);
+                }
+            } catch (error) {
+                console.warn('⚠️ Retry failed for:', request.url, error.message);
+            }
+        }
+    } catch (error) {
+        console.error('❌ Failed to retry requests:', error);
+    }
+}
 
 
 

@@ -167,8 +167,6 @@ class EnhancedSecureWebRTCManager {
         } : null;
     };
     this._secureLog('info', '🔒 Enhanced WebRTC Manager initialized with secure API');
-    this.currentSessionType = null;
-    this.currentSecurityLevel = 'basic';
     this.sessionConstraints = null;
     this.peerConnection = null;
     this.dataChannel = null;
@@ -2311,7 +2309,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         
         //   Create simple getSecurityStatus method
         secureAPI.getSecurityStatus = () => ({
-            securityLevel: this.currentSecurityLevel || 'basic',
+            securityLevel: 'maximum',
             stage: 'initialized',
             activeFeaturesCount: Object.values(this.securityFeatures || {}).filter(Boolean).length
         });
@@ -4484,11 +4482,8 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     // Security configuration - all features enabled by default
-    configureSecurityForSession(sessionType, securityLevel) {
-        this._secureLog('info', `🔧 Configuring security for ${sessionType} session (${securityLevel} level)`);
-        
-        this.currentSessionType = sessionType;
-        this.currentSecurityLevel = securityLevel;
+    configureSecurityForSession() {
+        this._secureLog('info', '🔧 Configuring security - all features enabled by default');
         
         // All security features are enabled by default - no payment required
             this.sessionConstraints = {};
@@ -4499,7 +4494,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             
             this.applySessionConstraints();
             
-        this._secureLog('info', `✅ Security configured for ${sessionType} - all features enabled`, { constraints: this.sessionConstraints });
+        this._secureLog('info', '✅ Security configured - all features enabled', { constraints: this.sessionConstraints });
 
             if (!this._validateCryptographicSecurity()) {
                 this._secureLog('error', '🚨 CRITICAL: Cryptographic security validation failed after session configuration');
@@ -4507,7 +4502,6 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 if (this.onStatusChange) {
                     this.onStatusChange('security_breach', {
                         type: 'crypto_security_failure',
-                        sessionType: sessionType,
                         message: 'Cryptographic security validation failed after session configuration'
                     });
                 }
@@ -4644,27 +4638,21 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
 
     // Security Level Notification
     notifySecurityLevel() {
-        // Avoid duplicate notifications for the same security level
-        if (this.lastSecurityLevelNotification === this.currentSecurityLevel) {
+        // Avoid duplicate notifications
+        if (this.lastSecurityLevelNotification === 'maximum') {
             return; // prevent duplication
         }
         
-        this.lastSecurityLevelNotification = this.currentSecurityLevel;
+        this.lastSecurityLevelNotification = 'maximum';
         
-        const levelMessages = {
-            'basic': '🔒 Basic Security Active - Demo session with essential protection',
-            'enhanced': '🔐 Enhanced Security Active - Paid session with advanced protection',
-            'maximum': '🛡️ Maximum Security Active - Premium session with complete protection'
-        };
-
-        const message = levelMessages[this.currentSecurityLevel] || levelMessages['basic'];
+        const message = '🛡️ Maximum Security Active - All features enabled';
         
         if (this.onMessage) {
             this.deliverMessageToUI(message, 'system');
         }
 
-        // Showing details of functions for paid sessions
-        if (this.currentSecurityLevel !== 'basic' && this.onMessage) {
+        // Showing details of active features
+        if (this.onMessage) {
             const activeFeatures = Object.entries(this.securityFeatures)
                 .filter(([key, value]) => value === true)
                 .map(([key]) => key.replace('has', '').replace(/([A-Z])/g, ' $1').trim().toLowerCase())
@@ -6520,11 +6508,10 @@ async processMessage(data) {
         if (this.sessionConstraints?.hasAntiFingerprinting) {
             this.securityFeatures.hasAntiFingerprinting = true;
             this.antiFingerprintingConfig.enabled = true;
-            if (this.currentSecurityLevel === 'enhanced') {
-                this.antiFingerprintingConfig.randomizeSizes = false;
-                this.antiFingerprintingConfig.maskPatterns = false;
-                this.antiFingerprintingConfig.useRandomHeaders = false;
-            }
+            // Enable full anti-fingerprinting features
+            this.antiFingerprintingConfig.randomizeSizes = true;
+            this.antiFingerprintingConfig.maskPatterns = true;
+            this.antiFingerprintingConfig.useRandomHeaders = true;
         }
         
         this.notifySecurityUpgrade(2);
@@ -6535,10 +6522,7 @@ async processMessage(data) {
 
         // Method to enable Stage 3 features (traffic obfuscation)
         enableStage3Security() {
-            if (this.currentSecurityLevel !== 'maximum') {
-                this._secureLog('info', '🔒 Stage 3 features only available for premium sessions');
-                return;
-            }
+            this._secureLog('info', '🔒 Enabling Stage 3 features (traffic obfuscation)');
             
             if (this.sessionConstraints?.hasMessageChunking) {
                 this.securityFeatures.hasMessageChunking = true;
@@ -6559,10 +6543,7 @@ async processMessage(data) {
 
         // Method for enabling Stage 4 functions (maximum safety)
         enableStage4Security() {
-            if (this.currentSecurityLevel !== 'maximum') {
-                this._secureLog('info', '🔒 Stage 4 features only available for premium sessions');
-                return;
-            }
+            this._secureLog('info', '🔒 Enabling Stage 4 features (maximum safety)');
             
             if (this.sessionConstraints?.hasDecoyChannels && this.isConnected() && this.isVerified) {
                 this.securityFeatures.hasDecoyChannels = true;
@@ -6603,14 +6584,11 @@ async processMessage(data) {
                 .filter(([key, value]) => value === true)
                 .map(([key]) => key);
                 
-            const stage = this.currentSecurityLevel === 'basic' ? 1 : 
-                     this.currentSecurityLevel === 'enhanced' ? 2 :
-                     this.currentSecurityLevel === 'maximum' ? 4 : 1;
+            const stage = 4; // Maximum security stage
                         
             return {
                 stage: stage,
-                sessionType: this.currentSessionType,
-                securityLevel: this.currentSecurityLevel,
+                securityLevel: 'maximum',
                 activeFeatures: activeFeatures,
                 totalFeatures: Object.keys(this.securityFeatures).length,
                 activeFeaturesCount: activeFeatures.length,
@@ -6730,52 +6708,42 @@ async processMessage(data) {
 
         // Method for automatic feature enablement with stability check
         async autoEnableSecurityFeatures() {
-        if (this.currentSessionType === 'demo') {
-            this._secureLog('info', 'Demo session - keeping basic security only');
+            this._secureLog('info', 'Starting graduated security activation - all features enabled');
+            
+            const checkStability = () => {
+                const isStable = this.isConnected() && 
+                                this.isVerified && 
+                                this.connectionAttempts === 0 && 
+                                this.messageQueue.length === 0 &&
+                                this.peerConnection?.connectionState === 'connected';
+                return isStable;
+            };
+            
             await this.calculateAndReportSecurityLevel();
             this.notifySecurityUpgrade(1);
-            return;
-        }
-
-        const checkStability = () => {
-            const isStable = this.isConnected() && 
-                            this.isVerified && 
-                            this.connectionAttempts === 0 && 
-                            this.messageQueue.length === 0 &&
-                            this.peerConnection?.connectionState === 'connected';
-            return isStable;
-        };
-        
-        this._secureLog('info', ` ${this.currentSessionType} session - starting graduated security activation`);
-        await this.calculateAndReportSecurityLevel();
-        this.notifySecurityUpgrade(1);
-        
-        if (this.currentSecurityLevel === 'enhanced' || this.currentSecurityLevel === 'maximum') {
+            
+            // Enable all security stages progressively
             setTimeout(async () => {
                 if (checkStability()) {
                     this.enableStage2Security();
                     await this.calculateAndReportSecurityLevel(); 
                     
-                    // For maximum sessions, turn on Stage 3 and 4
-                    if (this.currentSecurityLevel === 'maximum') {
-                        setTimeout(async () => {
-                            if (checkStability()) {
-                                this.enableStage3Security();
-                                await this.calculateAndReportSecurityLevel();
-                                
-                                setTimeout(async () => {
-                                    if (checkStability()) {
-                                        this.enableStage4Security();
-                                        await this.calculateAndReportSecurityLevel();
-                                    }
-                                }, 20000);
-                            }
-                        }, 15000);
-                    }
+                    setTimeout(async () => {
+                        if (checkStability()) {
+                            this.enableStage3Security();
+                            await this.calculateAndReportSecurityLevel();
+                            
+                            setTimeout(async () => {
+                                if (checkStability()) {
+                                    this.enableStage4Security();
+                                    await this.calculateAndReportSecurityLevel();
+                                }
+                            }, 20000);
+                        }
+                    }, 15000);
                 }
             }, 10000);
         }
-    }
 
     // ============================================
     // CONNECTION MANAGEMENT WITH ENHANCED SECURITY
@@ -11644,11 +11612,10 @@ async processMessage(data) {
             
             // Update session state
             this.currentSession = sessionData;
-            this.sessionManager = sessionData.sessionManager;
             
             // FIX: More lenient checks for activation
             const hasKeys = !!(this.encryptionKey && this.macKey);
-            const hasSession = !!(this.sessionManager && (this.sessionManager.hasActiveSession?.() || sessionData.sessionId));
+            const hasSession = !!(sessionData.sessionId);
             
             // Force connection status if there is an active session
             if (hasSession) {
@@ -12508,7 +12475,7 @@ class SecureKeyStorage {
                 // Additional info
                 connectionId: this.connectionId,
                 keyFingerprint: this.keyFingerprint,
-                currentSecurityLevel: this.currentSecurityLevel,
+                currentSecurityLevel: 'maximum',
                 timestamp: Date.now()
             };
 
