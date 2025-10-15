@@ -1,4 +1,4 @@
-name: Mirror to Codeberg + PrivacyGuides
+name: Mirror to Codeberg
 
 on:
   push:
@@ -13,26 +13,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0   #test
+          fetch-depth: 0   
 
       - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.CODEBERG_SSH_KEY }}" > ~/.ssh/id_ed25519_codeberg
-          chmod 600 ~/.ssh/id_ed25519_codeberg
+          echo "${{ secrets.CODEBERG_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan codeberg.org >> ~/.ssh/known_hosts
-          echo "${{ secrets.PRIVACYGUIDES_SSH_KEY }}" > ~/.ssh/id_ed25519_privacy
-          chmod 600 ~/.ssh/id_ed25519_privacy
-          ssh-keyscan code.privacyguides.dev >> ~/.ssh/known_hosts
 
       - name: Push to Codeberg
         run: |
           git remote remove codeberg || true
           git remote add codeberg git@codeberg.org:SecureBitChat/securebit-chat.git
-          GIT_SSH_COMMAND="ssh -i ~/.ssh/id_ed25519_codeberg" git push codeberg main --force
-
-      - name: Push to PrivacyGuides
-        run: |
-          git remote remove privacy || true
-          git remote add privacy git@code.privacyguides.dev:SecureBitChat/securebit-chat.git
-          GIT_SSH_COMMAND="ssh -i ~/.ssh/id_ed25519_privacy" git push privacy main --force
+          git push codeberg main --force
