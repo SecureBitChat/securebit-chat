@@ -96,7 +96,7 @@ class PWAInstallPrompt {
 
     setupEventListeners() {
         window.addEventListener('beforeinstallprompt', (event) => {
-            event.preventDefault();
+            // Don't prevent default - let browser show its own banner
             this.deferredPrompt = event;
 
             if (this.checkInstallationStatus()) {

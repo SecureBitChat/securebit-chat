@@ -267,9 +267,11 @@ var EnhancedConnectionSetup = ({
   toggleQrManualMode,
   nextQrFrame,
   prevQrFrame,
-  markAnswerCreated
+  markAnswerCreated,
+  notificationIntegrationRef
 }) => {
   const [mode, setMode] = React.useState("select");
+  const [notificationPermissionRequested, setNotificationPermissionRequested] = React.useState(false);
   const resetToSelect = () => {
     setMode("select");
     onClearData();
@@ -279,6 +281,76 @@ var EnhancedConnectionSetup = ({
   };
   const handleVerificationReject = () => {
     onVerifyConnection(false);
+  };
+  const requestNotificationPermissionOnInteraction = async () => {
+    if (notificationPermissionRequested) {
+      return;
+    }
+    try {
+      if (!("Notification" in window)) {
+        return;
+      }
+      if (!window.isSecureContext && window.location.protocol !== "https:" && window.location.hostname !== "localhost") {
+        return;
+      }
+      const currentPermission = Notification.permission;
+      if (currentPermission === "default") {
+        const permission = await Notification.requestPermission();
+        if (permission === "granted") {
+          try {
+            if (window.NotificationIntegration && webrtcManagerRef.current) {
+              const integration = new window.NotificationIntegration(webrtcManagerRef.current);
+              await integration.init();
+              notificationIntegrationRef.current = integration;
+            }
+          } catch (error) {
+          }
+          setTimeout(() => {
+            try {
+              const welcomeNotification = new Notification("SecureBit Chat", {
+                body: "Notifications enabled! You will receive alerts for new messages.",
+                icon: "/logo/icon-192x192.png",
+                tag: "welcome-notification"
+              });
+              welcomeNotification.onclick = () => {
+                welcomeNotification.close();
+              };
+              setTimeout(() => {
+                welcomeNotification.close();
+              }, 5e3);
+            } catch (error) {
+            }
+          }, 1e3);
+        }
+      } else if (currentPermission === "granted") {
+        try {
+          if (window.NotificationIntegration && webrtcManagerRef.current && !notificationIntegrationRef.current) {
+            const integration = new window.NotificationIntegration(webrtcManagerRef.current);
+            await integration.init();
+            notificationIntegrationRef.current = integration;
+          }
+        } catch (error) {
+        }
+        setTimeout(() => {
+          try {
+            const testNotification = new Notification("SecureBit Chat", {
+              body: "Notifications are working! You will receive alerts for new messages.",
+              icon: "/logo/icon-192x192.png",
+              tag: "test-notification"
+            });
+            testNotification.onclick = () => {
+              testNotification.close();
+            };
+            setTimeout(() => {
+              testNotification.close();
+            }, 5e3);
+          } catch (error) {
+          }
+        }, 1e3);
+      }
+      setNotificationPermissionRequested(true);
+    } catch (error) {
+    }
   };
   if (showVerification) {
     return React.createElement("div", {
@@ -327,7 +399,10 @@ var EnhancedConnectionSetup = ({
           // Create Connection
           React.createElement("div", {
             key: "create",
-            onClick: () => setMode("create"),
+            onClick: () => {
+              requestNotificationPermissionOnInteraction();
+              setMode("create");
+            },
             className: "card-minimal rounded-xl p-6 cursor-pointer group flex-1 create"
           }, [
             React.createElement("div", {
@@ -399,7 +474,10 @@ var EnhancedConnectionSetup = ({
           // Join Connection
           React.createElement("div", {
             key: "join",
-            onClick: () => setMode("join"),
+            onClick: () => {
+              requestNotificationPermissionOnInteraction();
+              setMode("join");
+            },
             className: "card-minimal rounded-xl p-6 cursor-pointer group flex-1 join"
           }, [
             React.createElement("div", {
@@ -1321,8 +1399,8 @@ var EnhancedSecureP2PChat = () => {
   React.useEffect(() => {
     window.forceCleanup = () => {
       handleClearData();
-      if (webrtcManagerRef.current) {
-        webrtcManagerRef.current.disconnect();
+      if (webrtcManagerRef2.current) {
+        webrtcManagerRef2.current.disconnect();
       }
     };
     window.clearLogs = () => {
@@ -1335,8 +1413,9 @@ var EnhancedSecureP2PChat = () => {
       delete window.clearLogs;
     };
   }, []);
-  const webrtcManagerRef = React.useRef(null);
-  window.webrtcManagerRef = webrtcManagerRef;
+  const webrtcManagerRef2 = React.useRef(null);
+  const notificationIntegrationRef = React.useRef(null);
+  window.webrtcManagerRef = webrtcManagerRef2;
   const addMessageWithAutoScroll = React.useCallback((message, type) => {
     const newMessage = {
       message,
@@ -1377,7 +1456,7 @@ var EnhancedSecureP2PChat = () => {
     }
     window.isUpdatingSecurity = true;
     try {
-      if (webrtcManagerRef.current) {
+      if (webrtcManagerRef2.current) {
         setSecurityLevel({
           level: "MAXIMUM",
           score: 100,
@@ -1388,7 +1467,7 @@ var EnhancedSecureP2PChat = () => {
           isRealData: true
         });
         if (window.DEBUG_MODE) {
-          const currentLevel = webrtcManagerRef.current.ecdhKeyPair && webrtcManagerRef.current.ecdsaKeyPair ? await webrtcManagerRef.current.calculateSecurityLevel() : {
+          const currentLevel = webrtcManagerRef2.current.ecdhKeyPair && webrtcManagerRef2.current.ecdsaKeyPair ? await webrtcManagerRef2.current.calculateSecurityLevel() : {
             level: "MAXIMUM",
             score: 100,
             sessionType: "premium",
@@ -1421,7 +1500,7 @@ var EnhancedSecureP2PChat = () => {
     }
   }, [messages]);
   React.useEffect(() => {
-    if (webrtcManagerRef.current) {
+    if (webrtcManagerRef2.current) {
       console.log("\u26A0\uFE0F WebRTC Manager already initialized, skipping...");
       return;
     }
@@ -1583,7 +1662,7 @@ var EnhancedSecureP2PChat = () => {
     if (typeof console.clear === "function") {
       console.clear();
     }
-    webrtcManagerRef.current = new EnhancedSecureWebRTCManager(
+    webrtcManagerRef2.current = new EnhancedSecureWebRTCManager(
       handleMessage,
       handleStatusChange,
       handleKeyExchange,
@@ -1591,12 +1670,22 @@ var EnhancedSecureP2PChat = () => {
       handleAnswerError,
       handleVerificationStateChange
     );
+    if (Notification.permission === "granted" && window.NotificationIntegration && !notificationIntegrationRef.current) {
+      try {
+        const integration = new window.NotificationIntegration(webrtcManagerRef2.current);
+        integration.init().then(() => {
+          notificationIntegrationRef.current = integration;
+        }).catch((error) => {
+        });
+      } catch (error) {
+      }
+    }
     handleMessage(" SecureBit.chat Enhanced Security Edition v4.3.120 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.", "system");
     const handleBeforeUnload = (event) => {
       if (event.type === "beforeunload" && !isTabSwitching) {
-        if (webrtcManagerRef.current && webrtcManagerRef.current.isConnected()) {
+        if (webrtcManagerRef2.current && webrtcManagerRef2.current.isConnected()) {
           try {
-            webrtcManagerRef.current.sendSystemMessage({
+            webrtcManagerRef2.current.sendSystemMessage({
               type: "peer_disconnect",
               reason: "user_disconnect",
               timestamp: Date.now()
@@ -1604,12 +1693,12 @@ var EnhancedSecureP2PChat = () => {
           } catch (error) {
           }
           setTimeout(() => {
-            if (webrtcManagerRef.current) {
-              webrtcManagerRef.current.disconnect();
+            if (webrtcManagerRef2.current) {
+              webrtcManagerRef2.current.disconnect();
             }
           }, 100);
-        } else if (webrtcManagerRef.current) {
-          webrtcManagerRef.current.disconnect();
+        } else if (webrtcManagerRef2.current) {
+          webrtcManagerRef2.current.disconnect();
         }
       } else if (isTabSwitching) {
         event.preventDefault();
@@ -1637,8 +1726,8 @@ var EnhancedSecureP2PChat = () => {
       }
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    if (webrtcManagerRef.current) {
-      webrtcManagerRef.current.setFileTransferCallbacks(
+    if (webrtcManagerRef2.current) {
+      webrtcManagerRef2.current.setFileTransferCallbacks(
         // Progress callback
         (progress) => {
           console.log("File progress:", progress);
@@ -1690,9 +1779,9 @@ var EnhancedSecureP2PChat = () => {
         clearTimeout(tabSwitchTimeout);
         tabSwitchTimeout = null;
       }
-      if (webrtcManagerRef.current) {
-        webrtcManagerRef.current.disconnect();
-        webrtcManagerRef.current = null;
+      if (webrtcManagerRef2.current) {
+        webrtcManagerRef2.current.disconnect();
+        webrtcManagerRef2.current = null;
       }
     };
   }, []);
@@ -2362,7 +2451,7 @@ var EnhancedSecureP2PChat = () => {
       setShowOfferStep(false);
       setShowQRCode(false);
       setQrCodeUrl("");
-      const offer = await webrtcManagerRef.current.createSecureOffer();
+      const offer = await webrtcManagerRef2.current.createSecureOffer();
       setOfferData(offer);
       setShowOfferStep(true);
       const offerString = typeof offer === "object" ? JSON.stringify(offer) : offer;
@@ -2485,7 +2574,7 @@ var EnhancedSecureP2PChat = () => {
         if (!isValidOfferType) {
           throw new Error("Invalid invitation type. Expected offer or enhanced_secure_offer");
         }
-        const answer = await webrtcManagerRef.current.createSecureAnswer(offer);
+        const answer = await webrtcManagerRef2.current.createSecureAnswer(offer);
         setAnswerData(answer);
         setShowAnswerStep(true);
         const answerString = typeof answer === "object" ? JSON.stringify(answer) : answer;
@@ -2623,7 +2712,7 @@ var EnhancedSecureP2PChat = () => {
         if (!answerType || answerType !== "answer" && answerType !== "enhanced_secure_answer") {
           throw new Error("Invalid response type. Expected answer or enhanced_secure_answer");
         }
-        await webrtcManagerRef.current.handleSecureAnswer(answer);
+        await webrtcManagerRef2.current.handleSecureAnswer(answer);
         if (pendingSession) {
           setPendingSession(null);
           setMessages((prev) => [...prev, {
@@ -2709,10 +2798,37 @@ var EnhancedSecureP2PChat = () => {
       setConnectionStatus("failed");
     }
   };
-  const handleVerifyConnection = (isValid) => {
+  const handleVerifyConnection = async (isValid) => {
     if (isValid) {
-      webrtcManagerRef.current.confirmVerification();
+      webrtcManagerRef2.current.confirmVerification();
       setLocalVerificationConfirmed(true);
+      try {
+        if (window.NotificationIntegration && webrtcManagerRef2.current && !notificationIntegrationRef.current) {
+          const integration = new window.NotificationIntegration(webrtcManagerRef2.current);
+          await integration.init();
+          notificationIntegrationRef.current = integration;
+          const status = integration.getStatus();
+          if (status.permission === "granted") {
+            setMessages((prev) => [...prev, {
+              message: "\u2713 Notifications enabled - you will receive alerts when the tab is inactive",
+              type: "system",
+              id: Date.now(),
+              timestamp: Date.now()
+            }]);
+          } else {
+            setMessages((prev) => [...prev, {
+              message: "\u2139 Notifications disabled - you can enable them using the button on the main page",
+              type: "system",
+              id: Date.now(),
+              timestamp: Date.now()
+            }]);
+          }
+        } else if (notificationIntegrationRef.current) {
+        } else {
+        }
+      } catch (error) {
+        console.warn("Failed to initialize notifications:", error);
+      }
     } else {
       setMessages((prev) => [...prev, {
         message: " Verification rejected. The connection is unsafe! Session reset..",
@@ -2746,15 +2862,15 @@ var EnhancedSecureP2PChat = () => {
     if (!messageInput.trim()) {
       return;
     }
-    if (!webrtcManagerRef.current) {
+    if (!webrtcManagerRef2.current) {
       return;
     }
-    if (!webrtcManagerRef.current.isConnected()) {
+    if (!webrtcManagerRef2.current.isConnected()) {
       return;
     }
     try {
       addMessageWithAutoScroll(messageInput.trim(), "sent");
-      await webrtcManagerRef.current.sendMessage(messageInput);
+      await webrtcManagerRef2.current.sendMessage(messageInput);
       setMessageInput("");
     } catch (error) {
       const msg = String(error?.message || error);
@@ -2804,8 +2920,12 @@ var EnhancedSecureP2PChat = () => {
         status: "disconnected",
         isUserInitiatedDisconnect: true
       });
-      if (webrtcManagerRef.current) {
-        webrtcManagerRef.current.disconnect();
+      if (webrtcManagerRef2.current) {
+        webrtcManagerRef2.current.disconnect();
+      }
+      if (notificationIntegrationRef.current) {
+        notificationIntegrationRef.current.cleanup();
+        notificationIntegrationRef.current = null;
       }
       setKeyFingerprint("");
       setVerificationCode("");
@@ -2964,7 +3084,7 @@ var EnhancedSecureP2PChat = () => {
       isConnected: isConnectedAndVerified,
       securityLevel,
       // sessionManager removed - all features enabled by default
-      webrtcManager: webrtcManagerRef.current
+      webrtcManager: webrtcManagerRef2.current
     }),
     React.createElement(
       "main",
@@ -2984,7 +3104,7 @@ var EnhancedSecureP2PChat = () => {
           isVerified,
           chatMessagesRef,
           scrollToBottom,
-          webrtcManager: webrtcManagerRef.current
+          webrtcManager: webrtcManagerRef2.current
         });
       })() : React.createElement(EnhancedConnectionSetup, {
         onCreateOffer: handleCreateOffer,
@@ -3021,7 +3141,8 @@ var EnhancedSecureP2PChat = () => {
         nextQrFrame,
         prevQrFrame,
         // PAKE passwords removed - using SAS verification instead
-        markAnswerCreated
+        markAnswerCreated,
+        notificationIntegrationRef
       })
     ),
     // QR Scanner Modal

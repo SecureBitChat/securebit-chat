@@ -1,3 +1,720 @@
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __commonJS = (cb, mod) => function __require() {
+  return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+
+// src/notifications/SecureNotificationManager.js
+var require_SecureNotificationManager = __commonJS({
+  "src/notifications/SecureNotificationManager.js"(exports, module) {
+    var SecureChatNotificationManager = class {
+      constructor(config = {}) {
+        this.permission = Notification.permission;
+        this.isTabActive = this.checkTabActive();
+        this.unreadCount = 0;
+        this.originalTitle = document.title;
+        this.notificationQueue = [];
+        this.maxQueueSize = config.maxQueueSize || 5;
+        this.rateLimitMs = config.rateLimitMs || 2e3;
+        this.lastNotificationTime = 0;
+        this.trustedOrigins = config.trustedOrigins || [];
+        this.isSecureContext = window.isSecureContext;
+        this.hidden = this.getHiddenProperty();
+        this.visibilityChange = this.getVisibilityChangeEvent();
+        this.initVisibilityTracking();
+        this.initSecurityChecks();
+      }
+      /**
+       * Initialize security checks and validation
+       * @private
+       */
+      initSecurityChecks() {
+      }
+      /**
+       * Get hidden property name for cross-browser compatibility
+       * @returns {string} Hidden property name
+       * @private
+       */
+      getHiddenProperty() {
+        if (typeof document.hidden !== "undefined") {
+          return "hidden";
+        } else if (typeof document.msHidden !== "undefined") {
+          return "msHidden";
+        } else if (typeof document.webkitHidden !== "undefined") {
+          return "webkitHidden";
+        }
+        return "hidden";
+      }
+      /**
+       * Get visibility change event name for cross-browser compatibility
+       * @returns {string} Visibility change event name
+       * @private
+       */
+      getVisibilityChangeEvent() {
+        if (typeof document.hidden !== "undefined") {
+          return "visibilitychange";
+        } else if (typeof document.msHidden !== "undefined") {
+          return "msvisibilitychange";
+        } else if (typeof document.webkitHidden !== "undefined") {
+          return "webkitvisibilitychange";
+        }
+        return "visibilitychange";
+      }
+      /**
+       * Check if tab is currently active using multiple methods
+       * @returns {boolean} True if tab is active
+       * @private
+       */
+      checkTabActive() {
+        if (this.hidden && typeof document[this.hidden] !== "undefined") {
+          return !document[this.hidden];
+        }
+        if (typeof document.hasFocus === "function") {
+          return document.hasFocus();
+        }
+        return true;
+      }
+      /**
+       * Initialize page visibility tracking (Page Visibility API)
+       * @private
+       */
+      initVisibilityTracking() {
+        if (typeof document.addEventListener !== "undefined" && typeof document[this.hidden] !== "undefined") {
+          document.addEventListener(this.visibilityChange, () => {
+            this.isTabActive = this.checkTabActive();
+            if (this.isTabActive) {
+              this.resetUnreadCount();
+              this.clearNotificationQueue();
+            }
+          });
+        }
+        window.addEventListener("focus", () => {
+          this.isTabActive = this.checkTabActive();
+          if (this.isTabActive) {
+            this.resetUnreadCount();
+          }
+        });
+        window.addEventListener("blur", () => {
+          this.isTabActive = this.checkTabActive();
+        });
+        window.addEventListener("beforeunload", () => {
+          this.clearNotificationQueue();
+        });
+      }
+      /**
+       * Request notification permission (BEST PRACTICE: Only call in response to user action)
+       * Never call on page load!
+       * @returns {Promise<boolean>} Permission granted status
+       */
+      async requestPermission() {
+        if (!this.isSecureContext || !("Notification" in window)) {
+          return false;
+        }
+        if (this.permission === "granted") {
+          return true;
+        }
+        if (this.permission === "denied") {
+          return false;
+        }
+        try {
+          this.permission = await Notification.requestPermission();
+          return this.permission === "granted";
+        } catch (error) {
+          return false;
+        }
+      }
+      /**
+       * Update page title with unread count
+       * @private
+       */
+      updateTitle() {
+        if (this.unreadCount > 0) {
+          document.title = `(${this.unreadCount}) ${this.originalTitle}`;
+        } else {
+          document.title = this.originalTitle;
+        }
+      }
+      /**
+       * XSS Protection: Sanitize input text
+       * @param {string} text - Text to sanitize
+       * @returns {string} Sanitized text
+       * @private
+       */
+      sanitizeText(text) {
+        if (typeof text !== "string") {
+          return "";
+        }
+        const div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#x27;").substring(0, 500);
+      }
+      /**
+       * Validate icon URL (XSS protection)
+       * @param {string} url - URL to validate
+       * @returns {string|null} Validated URL or null
+       * @private
+       */
+      validateIconUrl(url) {
+        if (!url) return null;
+        try {
+          const parsedUrl = new URL(url, window.location.origin);
+          if (parsedUrl.protocol === "https:" || parsedUrl.protocol === "data:") {
+            if (this.trustedOrigins.length > 0) {
+              const isTrusted = this.trustedOrigins.some(
+                (origin) => parsedUrl.origin === origin
+              );
+              return isTrusted ? parsedUrl.href : null;
+            }
+            return parsedUrl.href;
+          }
+          return null;
+        } catch (error) {
+          return null;
+        }
+      }
+      /**
+       * Rate limiting for spam protection
+       * @returns {boolean} Rate limit check passed
+       * @private
+       */
+      checkRateLimit() {
+        const now = Date.now();
+        if (now - this.lastNotificationTime < this.rateLimitMs) {
+          return false;
+        }
+        this.lastNotificationTime = now;
+        return true;
+      }
+      /**
+       * Send secure notification
+       * @param {string} senderName - Name of message sender
+       * @param {string} message - Message content
+       * @param {Object} options - Notification options
+       * @returns {Notification|null} Created notification or null
+       */
+      notify(senderName, message, options = {}) {
+        this.isTabActive = this.checkTabActive();
+        if (this.isTabActive) {
+          return null;
+        }
+        if (this.permission !== "granted") {
+          return null;
+        }
+        if (!this.checkRateLimit()) {
+          return null;
+        }
+        const safeSenderName = this.sanitizeText(senderName || "Unknown");
+        const safeMessage = this.sanitizeText(message || "");
+        const safeIcon = this.validateIconUrl(options.icon) || "/logo/icon-192x192.png";
+        if (this.notificationQueue.length >= this.maxQueueSize) {
+          this.clearNotificationQueue();
+        }
+        try {
+          const notification = new Notification(
+            `${safeSenderName}`,
+            {
+              body: safeMessage.substring(0, 200),
+              // Length limit
+              icon: safeIcon,
+              badge: safeIcon,
+              tag: `chat-${options.senderId || "unknown"}`,
+              // Grouping
+              requireInteraction: false,
+              // Don't block user
+              silent: options.silent || false,
+              // Vibrate only for mobile and if supported
+              vibrate: navigator.vibrate ? [200, 100, 200] : void 0,
+              // Safe metadata
+              data: {
+                senderId: this.sanitizeText(options.senderId),
+                timestamp: Date.now()
+                // Don't include sensitive data!
+              }
+            }
+          );
+          this.unreadCount++;
+          this.updateTitle();
+          this.notificationQueue.push(notification);
+          notification.onclick = (event) => {
+            event.preventDefault();
+            window.focus();
+            notification.close();
+            if (typeof options.onClick === "function") {
+              try {
+                options.onClick(options.senderId);
+              } catch (error) {
+                console.error("[Notifications] Error in onClick handler:", error);
+              }
+            }
+          };
+          notification.onerror = (event) => {
+            console.error("[Notifications] Error showing notification:", event);
+          };
+          const autoCloseTimeout = Math.min(options.autoClose || 5e3, 1e4);
+          setTimeout(() => {
+            notification.close();
+            this.removeFromQueue(notification);
+          }, autoCloseTimeout);
+          return notification;
+        } catch (error) {
+          console.error("[Notifications] Failed to create notification:", error);
+          return null;
+        }
+      }
+      /**
+       * Remove notification from queue
+       * @param {Notification} notification - Notification to remove
+       * @private
+       */
+      removeFromQueue(notification) {
+        const index = this.notificationQueue.indexOf(notification);
+        if (index > -1) {
+          this.notificationQueue.splice(index, 1);
+        }
+      }
+      /**
+       * Clear all notifications
+       */
+      clearNotificationQueue() {
+        this.notificationQueue.forEach((notification) => {
+          try {
+            notification.close();
+          } catch (error) {
+          }
+        });
+        this.notificationQueue = [];
+      }
+      /**
+       * Reset unread counter
+       */
+      resetUnreadCount() {
+        this.unreadCount = 0;
+        this.updateTitle();
+      }
+      /**
+       * Get current status
+       * @returns {Object} Current notification status
+       */
+      getStatus() {
+        return {
+          permission: this.permission,
+          isTabActive: this.isTabActive,
+          unreadCount: this.unreadCount,
+          isSecureContext: this.isSecureContext,
+          queueSize: this.notificationQueue.length
+        };
+      }
+    };
+    var SecureP2PChat = class {
+      constructor() {
+        this.notificationManager = new SecureChatNotificationManager({
+          maxQueueSize: 5,
+          rateLimitMs: 2e3,
+          trustedOrigins: [
+            window.location.origin
+            // Add other trusted origins for CDN icons
+          ]
+        });
+        this.dataChannel = null;
+        this.peerConnection = null;
+        this.remotePeerName = "Peer";
+        this.messageHistory = [];
+        this.maxHistorySize = 100;
+      }
+      /**
+       * Initialize when user connects
+       */
+      async init() {
+      }
+      /**
+       * Method for manual permission request (called on click)
+       * @returns {Promise<boolean>} Permission granted status
+       */
+      async enableNotifications() {
+        const granted = await this.notificationManager.requestPermission();
+        return granted;
+      }
+      /**
+       * Setup DataChannel with security checks
+       * @param {RTCDataChannel} dataChannel - WebRTC data channel
+       */
+      setupDataChannel(dataChannel) {
+        if (!dataChannel) {
+          console.error("[Chat] Invalid DataChannel");
+          return;
+        }
+        this.dataChannel = dataChannel;
+        this.dataChannel.onmessage = (event) => {
+          this.handleIncomingMessage(event.data);
+        };
+        this.dataChannel.onerror = (error) => {
+        };
+      }
+      /**
+       * XSS Protection: Validate incoming messages
+       * @param {string|Object} data - Message data
+       * @returns {Object|null} Validated message or null
+       * @private
+       */
+      validateMessage(data) {
+        try {
+          const message = typeof data === "string" ? JSON.parse(data) : data;
+          if (!message || typeof message !== "object") {
+            throw new Error("Invalid message structure");
+          }
+          if (!message.text || typeof message.text !== "string") {
+            throw new Error("Invalid message text");
+          }
+          if (message.text.length > 1e4) {
+            throw new Error("Message too long");
+          }
+          return {
+            text: message.text,
+            senderName: message.senderName || "Unknown",
+            senderId: message.senderId || "unknown",
+            timestamp: message.timestamp || Date.now(),
+            senderAvatar: message.senderAvatar || null
+          };
+        } catch (error) {
+          console.error("[Chat] Message validation failed:", error);
+          return null;
+        }
+      }
+      /**
+       * Secure handling of incoming messages
+       * @param {string|Object} data - Message data
+       * @private
+       */
+      handleIncomingMessage(data) {
+        const message = this.validateMessage(data);
+        if (!message) {
+          return;
+        }
+        this.messageHistory.push(message);
+        if (this.messageHistory.length > this.maxHistorySize) {
+          this.messageHistory.shift();
+        }
+        this.displayMessage(message);
+        this.notificationManager.notify(
+          message.senderName,
+          message.text,
+          {
+            icon: message.senderAvatar,
+            senderId: message.senderId,
+            onClick: (senderId) => {
+              this.scrollToLatestMessage();
+            }
+          }
+        );
+        if (!this.notificationManager.isTabActive) {
+          this.playNotificationSound();
+        }
+      }
+      /**
+       * XSS Protection: Safe message display
+       * @param {Object} message - Message to display
+       * @private
+       */
+      displayMessage(message) {
+        const container = document.getElementById("messages");
+        if (!container) {
+          return;
+        }
+        const messageEl = document.createElement("div");
+        messageEl.className = "message";
+        const nameEl = document.createElement("strong");
+        nameEl.textContent = message.senderName + ": ";
+        const textEl = document.createElement("span");
+        textEl.textContent = message.text;
+        const timeEl = document.createElement("small");
+        timeEl.textContent = new Date(message.timestamp).toLocaleTimeString();
+        messageEl.appendChild(nameEl);
+        messageEl.appendChild(textEl);
+        messageEl.appendChild(document.createElement("br"));
+        messageEl.appendChild(timeEl);
+        container.appendChild(messageEl);
+        this.scrollToLatestMessage();
+      }
+      /**
+       * Safe sound playback
+       * @private
+       */
+      playNotificationSound() {
+        try {
+          const audio = new Audio("/assets/audio/notification.mp3");
+          audio.volume = 0.3;
+          audio.play().catch((error) => {
+          });
+        } catch (error) {
+        }
+      }
+      /**
+       * Scroll to latest message
+       * @private
+       */
+      scrollToLatestMessage() {
+        const container = document.getElementById("messages");
+        if (container) {
+          container.scrollTop = container.scrollHeight;
+        }
+      }
+      /**
+       * Get status
+       * @returns {Object} Current chat status
+       */
+      getStatus() {
+        return {
+          notifications: this.notificationManager.getStatus(),
+          messageCount: this.messageHistory.length,
+          connected: this.dataChannel?.readyState === "open"
+        };
+      }
+    };
+    if (typeof module !== "undefined" && module.exports) {
+      module.exports = { SecureChatNotificationManager, SecureP2PChat };
+    }
+    if (typeof window !== "undefined") {
+      window.SecureChatNotificationManager = SecureChatNotificationManager;
+      window.SecureP2PChat = SecureP2PChat;
+    }
+  }
+});
+
+// src/notifications/NotificationIntegration.js
+var require_NotificationIntegration = __commonJS({
+  "src/notifications/NotificationIntegration.js"(exports, module) {
+    var import_SecureNotificationManager = __toESM(require_SecureNotificationManager());
+    var NotificationIntegration2 = class {
+      constructor(webrtcManager) {
+        this.webrtcManager = webrtcManager;
+        this.notificationManager = new import_SecureNotificationManager.SecureChatNotificationManager({
+          maxQueueSize: 10,
+          rateLimitMs: 1e3,
+          // Reduced from 2000ms to 1000ms
+          trustedOrigins: [
+            window.location.origin
+            // Add other trusted origins for CDN icons
+          ]
+        });
+        this.isInitialized = false;
+        this.originalOnMessage = null;
+        this.originalOnStatusChange = null;
+        this.processedMessages = /* @__PURE__ */ new Set();
+      }
+      /**
+       * Initialize notification integration
+       * @returns {Promise<boolean>} Initialization success
+       */
+      async init() {
+        try {
+          if (this.isInitialized) {
+            return true;
+          }
+          this.originalOnMessage = this.webrtcManager.onMessage;
+          this.originalOnStatusChange = this.webrtcManager.onStatusChange;
+          this.webrtcManager.onMessage = (message, type) => {
+            this.handleIncomingMessage(message, type);
+            if (this.originalOnMessage) {
+              this.originalOnMessage(message, type);
+            }
+          };
+          this.webrtcManager.onStatusChange = (status) => {
+            this.handleStatusChange(status);
+            if (this.originalOnStatusChange) {
+              this.originalOnStatusChange(status);
+            }
+          };
+          if (this.webrtcManager.deliverMessageToUI) {
+            this.originalDeliverMessageToUI = this.webrtcManager.deliverMessageToUI.bind(this.webrtcManager);
+            this.webrtcManager.deliverMessageToUI = (message, type) => {
+              this.handleIncomingMessage(message, type);
+              this.originalDeliverMessageToUI(message, type);
+            };
+          }
+          this.isInitialized = true;
+          return true;
+        } catch (error) {
+          return false;
+        }
+      }
+      /**
+       * Handle incoming messages and trigger notifications
+       * @param {*} message - Message content
+       * @param {string} type - Message type
+       * @private
+       */
+      handleIncomingMessage(message, type) {
+        try {
+          const messageKey = `${type}:${typeof message === "string" ? message : JSON.stringify(message)}`;
+          if (this.processedMessages.has(messageKey)) {
+            return;
+          }
+          this.processedMessages.add(messageKey);
+          if (this.processedMessages.size > 100) {
+            const messagesArray = Array.from(this.processedMessages);
+            this.processedMessages.clear();
+            messagesArray.slice(-50).forEach((msg) => this.processedMessages.add(msg));
+          }
+          if (type === "system" || type === "file-transfer" || type === "heartbeat") {
+            return;
+          }
+          const messageInfo = this.extractMessageInfo(message, type);
+          if (!messageInfo) {
+            return;
+          }
+          const notificationResult = this.notificationManager.notify(
+            messageInfo.senderName,
+            messageInfo.text,
+            {
+              icon: messageInfo.senderAvatar,
+              senderId: messageInfo.senderId,
+              onClick: (senderId) => {
+                this.focusChatWindow();
+              }
+            }
+          );
+        } catch (error) {
+        }
+      }
+      /**
+       * Handle status changes
+       * @param {string} status - Connection status
+       * @private
+       */
+      handleStatusChange(status) {
+        try {
+          if (status === "disconnected" || status === "failed") {
+            this.notificationManager.clearNotificationQueue();
+            this.notificationManager.resetUnreadCount();
+          }
+        } catch (error) {
+        }
+      }
+      /**
+       * Extract message information for notifications
+       * @param {*} message - Message content
+       * @param {string} type - Message type
+       * @returns {Object|null} Extracted message info or null
+       * @private
+       */
+      extractMessageInfo(message, type) {
+        try {
+          let messageData = message;
+          if (typeof message === "string") {
+            try {
+              messageData = JSON.parse(message);
+            } catch (e) {
+              return {
+                senderName: "Peer",
+                text: message,
+                senderId: "peer",
+                senderAvatar: null
+              };
+            }
+          }
+          if (typeof messageData === "object" && messageData !== null) {
+            return {
+              senderName: messageData.senderName || messageData.name || "Peer",
+              text: messageData.text || messageData.message || messageData.content || "",
+              senderId: messageData.senderId || messageData.id || "peer",
+              senderAvatar: messageData.senderAvatar || messageData.avatar || null
+            };
+          }
+          return null;
+        } catch (error) {
+          return null;
+        }
+      }
+      /**
+       * Focus chat window when notification is clicked
+       * @private
+       */
+      focusChatWindow() {
+        try {
+          window.focus();
+          const messagesContainer = document.getElementById("messages");
+          if (messagesContainer) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+          }
+        } catch (error) {
+        }
+      }
+      /**
+       * Request notification permission
+       * @returns {Promise<boolean>} Permission granted status
+       */
+      async requestPermission() {
+        try {
+          return await this.notificationManager.requestPermission();
+        } catch (error) {
+          return false;
+        }
+      }
+      /**
+       * Get notification status
+       * @returns {Object} Notification status
+       */
+      getStatus() {
+        return this.notificationManager.getStatus();
+      }
+      /**
+       * Clear all notifications
+       */
+      clearNotifications() {
+        this.notificationManager.clearNotificationQueue();
+        this.notificationManager.resetUnreadCount();
+      }
+      /**
+       * Cleanup integration
+       */
+      cleanup() {
+        try {
+          if (this.isInitialized) {
+            if (this.originalOnMessage) {
+              this.webrtcManager.onMessage = this.originalOnMessage;
+            }
+            if (this.originalOnStatusChange) {
+              this.webrtcManager.onStatusChange = this.originalOnStatusChange;
+            }
+            if (this.originalDeliverMessageToUI) {
+              this.webrtcManager.deliverMessageToUI = this.originalDeliverMessageToUI;
+            }
+            this.clearNotifications();
+            this.isInitialized = false;
+          }
+        } catch (error) {
+        }
+      }
+    };
+    if (typeof module !== "undefined" && module.exports) {
+      module.exports = { NotificationIntegration: NotificationIntegration2 };
+    }
+    if (typeof window !== "undefined") {
+      window.NotificationIntegration = NotificationIntegration2;
+    }
+  }
+});
+
 // src/crypto/EnhancedSecureCryptoUtils.js
 var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
   static _keyMetadata = /* @__PURE__ */ new WeakMap();
@@ -14109,6 +14826,9 @@ var SecureMasterKeyManager = class {
   }
 };
 
+// src/scripts/app-boot.js
+var import_NotificationIntegration = __toESM(require_NotificationIntegration());
+
 // src/components/ui/Header.jsx
 var EnhancedMinimalHeader = ({
   status,
@@ -16056,6 +16776,7 @@ window.FileTransferComponent = FileTransferComponent;
 window.EnhancedSecureCryptoUtils = EnhancedSecureCryptoUtils;
 window.EnhancedSecureWebRTCManager = EnhancedSecureWebRTCManager;
 window.EnhancedSecureFileTransfer = EnhancedSecureFileTransfer;
+window.NotificationIntegration = import_NotificationIntegration.NotificationIntegration;
 var start = () => {
   if (typeof window.initializeApp === "function") {
     window.initializeApp();
@@ -16068,4 +16789,20 @@ if (document.readyState === "loading") {
 } else {
   start();
 }
+/**
+ * Secure and Reliable Notification Manager for P2P WebRTC Chat
+ * Follows best practices: OWASP, MDN, Chrome DevRel
+ * 
+ * @version 1.0.0
+ * @author SecureBit Team
+ * @license MIT
+ */
+/**
+ * Notification Integration Module for SecureBit WebRTC Chat
+ * Integrates secure notifications with existing WebRTC architecture
+ * 
+ * @version 1.0.0
+ * @author SecureBit Team
+ * @license MIT
+ */
 //# sourceMappingURL=app-boot.js.map

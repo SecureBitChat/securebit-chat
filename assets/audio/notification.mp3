@@ -1,0 +1,20 @@
+# Notification Sound Asset
+# 
+# This file should contain a short, pleasant notification sound in MP3 format.
+# Recommended specifications:
+# - Duration: 1-2 seconds
+# - Format: MP3, 44.1kHz, 128kbps
+# - Volume: Moderate (not too loud)
+# - License: Ensure proper licensing for commercial use
+#
+# You can create this using:
+# 1. Text-to-speech generators
+# 2. Audio editing software
+# 3. Free notification sound libraries
+# 4. AI-generated sounds
+#
+# Example sources:
+# - Freesound.org (CC licensed)
+# - Zapsplat.com
+# - Adobe Audition
+# - Audacity (free)

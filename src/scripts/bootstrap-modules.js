@@ -3,10 +3,13 @@
 (async () => {
   try {
     const timestamp = Date.now();
-    const [cryptoModule, webrtcModule, fileTransferModule] = await Promise.all([
+    const [cryptoModule, webrtcModule, fileTransferModule, notificationModule, notificationTestModule, notificationGestureTestModule] = await Promise.all([
       import(`../crypto/EnhancedSecureCryptoUtils.js?v=${timestamp}`),
       import(`../network/EnhancedSecureWebRTCManager.js?v=${timestamp}`),
       import(`../transfer/EnhancedSecureFileTransfer.js?v=${timestamp}`),
+      import(`../notifications/NotificationIntegration.js?v=${timestamp}`),
+      import(`../notifications/NotificationTest.js?v=${timestamp}`),
+      import(`../notifications/NotificationGestureTest.js?v=${timestamp}`),
     ]);
 
     const { EnhancedSecureCryptoUtils } = cryptoModule;
@@ -15,6 +18,12 @@
     window.EnhancedSecureWebRTCManager = EnhancedSecureWebRTCManager;
     const { EnhancedSecureFileTransfer } = fileTransferModule;
     window.EnhancedSecureFileTransfer = EnhancedSecureFileTransfer;
+    const { NotificationIntegration } = notificationModule;
+    window.NotificationIntegration = NotificationIntegration;
+    const { NotificationTest } = notificationTestModule;
+    window.NotificationTest = NotificationTest;
+    const { NotificationGestureTest } = notificationGestureTestModule;
+    window.NotificationGestureTest = NotificationGestureTest;
 
     // Load React components using dynamic imports instead of eval
     const componentModules = await Promise.all([

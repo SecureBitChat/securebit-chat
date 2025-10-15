@@ -1,6 +1,7 @@
 import { EnhancedSecureCryptoUtils } from '../crypto/EnhancedSecureCryptoUtils.js';
 import { EnhancedSecureWebRTCManager } from '../network/EnhancedSecureWebRTCManager.js';
 import { EnhancedSecureFileTransfer } from '../transfer/EnhancedSecureFileTransfer.js';
+import { NotificationIntegration } from '../notifications/NotificationIntegration.js';
 
 // Import UI components (side-effect: they attach themselves to window.*)
 import '../components/ui/Header.jsx';
@@ -16,6 +17,7 @@ import '../components/ui/FileTransfer.jsx';
 window.EnhancedSecureCryptoUtils = EnhancedSecureCryptoUtils;
 window.EnhancedSecureWebRTCManager = EnhancedSecureWebRTCManager;
 window.EnhancedSecureFileTransfer = EnhancedSecureFileTransfer;
+window.NotificationIntegration = NotificationIntegration;
 
 // Mount application once DOM and modules are ready
 const start = () => {

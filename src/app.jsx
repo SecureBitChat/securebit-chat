@@ -280,9 +280,11 @@
                     toggleQrManualMode,
                     nextQrFrame,
                     prevQrFrame,
-                    markAnswerCreated
+                    markAnswerCreated,
+                    notificationIntegrationRef
                 }) => {
                     const [mode, setMode] = React.useState('select');
+                    const [notificationPermissionRequested, setNotificationPermissionRequested] = React.useState(false);
         
                     const resetToSelect = () => {
                         setMode('select');
@@ -295,6 +297,110 @@
         
                     const handleVerificationReject = () => {
                         onVerifyConnection(false);
+                    };
+                    
+                    // Request notification permission on first user interaction
+                    const requestNotificationPermissionOnInteraction = async () => {
+                        if (notificationPermissionRequested) {
+                            return; // Already requested
+                        }
+                        
+                        try {
+                            // Check if Notification API is supported
+                            if (!('Notification' in window)) {
+                                return;
+                            }
+                            
+                            // Check if we're in a secure context
+                            if (!window.isSecureContext && window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+                                return;
+                            }
+                            
+                            // Check current permission status
+                            const currentPermission = Notification.permission;
+                            
+                            // Only request if permission is default (not granted or denied)
+                            if (currentPermission === 'default') {
+                                const permission = await Notification.requestPermission();
+                                
+                                if (permission === 'granted') {
+                                    // Initialize notification integration immediately
+                                    try {
+                                        if (window.NotificationIntegration && webrtcManagerRef.current) {
+                                            const integration = new window.NotificationIntegration(webrtcManagerRef.current);
+                                            await integration.init();
+                                            
+                                            // Store reference for cleanup
+                                            notificationIntegrationRef.current = integration;
+                                        }
+                                    } catch (error) {
+                                        // Handle error silently
+                                    }
+                                    
+                                    // Send welcome notification
+                                    setTimeout(() => {
+                                        try {
+                                            const welcomeNotification = new Notification('SecureBit Chat', {
+                                                body: 'Notifications enabled! You will receive alerts for new messages.',
+                                                icon: '/logo/icon-192x192.png',
+                                                tag: 'welcome-notification'
+                                            });
+                                            
+                                            welcomeNotification.onclick = () => {
+                                                welcomeNotification.close();
+                                            };
+                                            
+                                            setTimeout(() => {
+                                                welcomeNotification.close();
+                                            }, 5000);
+                                            
+                                        } catch (error) {
+                                            // Handle error silently
+                                        }
+                                    }, 1000);
+                                    
+                                }
+                            } else if (currentPermission === 'granted') {
+                                // Initialize notification integration immediately
+                                try {
+                                    if (window.NotificationIntegration && webrtcManagerRef.current && !notificationIntegrationRef.current) {
+                                        const integration = new window.NotificationIntegration(webrtcManagerRef.current);
+                                        await integration.init();
+                                        
+                                        // Store reference for cleanup
+                                        notificationIntegrationRef.current = integration;
+                                    }
+                                } catch (error) {
+                                    // Handle error silently
+                                }
+                                
+                                // Test notification to confirm it works
+                                setTimeout(() => {
+                                    try {
+                                        const testNotification = new Notification('SecureBit Chat', {
+                                            body: 'Notifications are working! You will receive alerts for new messages.',
+                                            icon: '/logo/icon-192x192.png',
+                                            tag: 'test-notification'
+                                        });
+                                        
+                                        testNotification.onclick = () => {
+                                            testNotification.close();
+                                        };
+                                        
+                                        setTimeout(() => {
+                                            testNotification.close();
+                                        }, 5000);
+                                    } catch (error) {
+                                        // Handle error silently
+                                    }
+                                }, 1000);
+                            }
+                            
+                            setNotificationPermissionRequested(true);
+                            
+                        } catch (error) {
+                            // Handle error silently
+                        }
                     };
         
                     if (showVerification) {
@@ -346,7 +452,10 @@
                                     // Create Connection
                                     React.createElement('div', {
                                         key: 'create',
-                                        onClick: () => setMode('create'),
+                                        onClick: () => {
+                                            requestNotificationPermissionOnInteraction();
+                                            setMode('create');
+                                        },
                                         className: "card-minimal rounded-xl p-6 cursor-pointer group flex-1 create"
                                     }, [
                                         React.createElement('div', {
@@ -418,7 +527,10 @@
                                     // Join Connection
                                     React.createElement('div', {
                                         key: 'join',
-                                        onClick: () => setMode('join'),
+                                        onClick: () => {
+                                            requestNotificationPermissionOnInteraction();
+                                            setMode('join');
+                                        },
                                         className: "card-minimal rounded-xl p-6 cursor-pointer group flex-1 join"
                                     }, [
                                         React.createElement('div', {
@@ -1023,6 +1135,7 @@
                     };
                 };
         
+        
                const EnhancedChatInterface = ({
             messages,
             messageInput,
@@ -1453,6 +1566,7 @@
                     }, []);
         
                     const webrtcManagerRef = React.useRef(null);
+                    const notificationIntegrationRef = React.useRef(null);
                     // Expose for modules/UI that run outside this closure (e.g., inline handlers)
                     // Safe because it's a ref object and we maintain it centrally here
                     window.webrtcManagerRef = webrtcManagerRef;
@@ -1784,6 +1898,20 @@
                             handleAnswerError,
                             handleVerificationStateChange
                         );
+        
+                        // Initialize notification integration if permission was already granted
+                        if (Notification.permission === 'granted' && window.NotificationIntegration && !notificationIntegrationRef.current) {
+                            try {
+                                const integration = new window.NotificationIntegration(webrtcManagerRef.current);
+                                integration.init().then(() => {
+                                    notificationIntegrationRef.current = integration;
+                                }).catch((error) => {
+                                    // Handle error silently
+                                });
+                            } catch (error) {
+                                // Handle error silently
+                            }
+                        }
         
                         handleMessage(' SecureBit.chat Enhanced Security Edition v4.3.120 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.', 'system');
         
@@ -3083,11 +3211,47 @@
                         }
                     };
         
-                    const handleVerifyConnection = (isValid) => {
+                    const handleVerifyConnection = async (isValid) => {
                         if (isValid) {
                             webrtcManagerRef.current.confirmVerification();
                             // Mark local verification as confirmed
                             setLocalVerificationConfirmed(true);
+                            
+                            // Initialize notification integration if permission was granted
+                            try {
+                                if (window.NotificationIntegration && webrtcManagerRef.current && !notificationIntegrationRef.current) {
+                                    const integration = new window.NotificationIntegration(webrtcManagerRef.current);
+                                    await integration.init();
+                                    
+                                    // Store reference for cleanup
+                                    notificationIntegrationRef.current = integration;
+                                    
+                                    
+                                    // Check if permission was already granted
+                                    const status = integration.getStatus();
+                                    if (status.permission === 'granted') {
+                                        setMessages(prev => [...prev, { 
+                                            message: '✓ Notifications enabled - you will receive alerts when the tab is inactive', 
+                                            type: 'system',
+                                            id: Date.now(),
+                                            timestamp: Date.now()
+                                        }]);
+                                    } else {
+                                        setMessages(prev => [...prev, { 
+                                            message: 'ℹ Notifications disabled - you can enable them using the button on the main page', 
+                                            type: 'system',
+                                            id: Date.now(),
+                                            timestamp: Date.now()
+                                        }]);
+                                    }
+                                } else if (notificationIntegrationRef.current) {
+                                } else {
+                                    // Handle error silently
+                                }
+                            } catch (error) {
+                                console.warn('Failed to initialize notifications:', error);
+                                // Don't show error to user, notifications are optional
+                            }
                         } else {
                             setMessages(prev => [...prev, { 
                                 message: ' Verification rejected. The connection is unsafe! Session reset..', 
@@ -3217,6 +3381,12 @@
                             // Cleanup WebRTC connection
                         if (webrtcManagerRef.current) {
                             webrtcManagerRef.current.disconnect();
+                        }
+                        
+                        // Cleanup notification integration
+                        if (notificationIntegrationRef.current) {
+                            notificationIntegrationRef.current.cleanup();
+                            notificationIntegrationRef.current = null;
                         }
         
                             // Clear all connection-related states
@@ -3476,7 +3646,8 @@
                                     nextQrFrame: nextQrFrame,
                                     prevQrFrame: prevQrFrame,
                                     // PAKE passwords removed - using SAS verification instead
-                                    markAnswerCreated: markAnswerCreated
+                                    markAnswerCreated: markAnswerCreated,
+                                    notificationIntegrationRef: notificationIntegrationRef
                                 })
                         ),
                         
@@ -3586,6 +3757,7 @@
                     if (!window.initializeApp) {
                         window.initializeApp = initializeApp;
                     }
-                }
+                };
+                
                 // Render Enhanced Application
                 ReactDOM.render(React.createElement(EnhancedSecureP2PChat), document.getElementById('root'));
