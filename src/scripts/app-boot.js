@@ -20,6 +20,12 @@ window.EnhancedSecureWebRTCManager = EnhancedSecureWebRTCManager;
 window.EnhancedSecureFileTransfer = EnhancedSecureFileTransfer;
 window.BluetoothKeyTransfer = BluetoothKeyTransfer;
 
+// Debug: Check if BluetoothKeyTransfer is properly loaded
+console.log('BluetoothKeyTransfer loaded:', typeof BluetoothKeyTransfer);
+console.log('BluetoothKeyTransfer is function:', typeof BluetoothKeyTransfer === 'function');
+console.log('BluetoothKeyTransfer on window:', typeof window.BluetoothKeyTransfer);
+console.log('createBluetoothKeyTransfer on window:', typeof window.createBluetoothKeyTransfer);
+
 // Mount application once DOM and modules are ready
 const start = () => {
   if (typeof window.initializeApp === 'function') {

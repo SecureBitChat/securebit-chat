@@ -16,12 +16,13 @@
  */
 
 class BluetoothKeyTransfer {
-    constructor(webrtcManager, onStatusChange, onKeyReceived, onError, onAutoConnection) {
+    constructor(webrtcManager, onStatusChange, onKeyReceived, onError, onAutoConnection, offerData = null) {
         this.webrtcManager = webrtcManager;
         this.onStatusChange = onStatusChange;
         this.onKeyReceived = onKeyReceived;
         this.onError = onError;
         this.onAutoConnection = onAutoConnection;
+        this.offerData = offerData;
         
         // Bluetooth state
         this.isSupported = false;
@@ -79,7 +80,7 @@ class BluetoothKeyTransfer {
     /**
      * Start advertising this device for key exchange
      */
-    async startAdvertising(publicKey, deviceName = 'SecureBit Device') {
+    async startAdvertising(publicKey = null, deviceName = 'SecureBit Device') {
         if (!this.isSupported || !this.isAvailable) {
             throw new Error('Bluetooth not supported or available');
         }
@@ -88,27 +89,19 @@ class BluetoothKeyTransfer {
             this.log('info', 'Starting Bluetooth advertising...');
             this.onStatusChange?.('advertising_starting', { deviceName });
             
-            // Prepare advertising data
-            const keyData = await this.prepareKeyData(publicKey);
-            this.advertisingData = {
-                deviceName,
-                keyData,
-                timestamp: Date.now(),
-                protocolVersion: this.PROTOCOL_VERSION
-            };
+            // Use offerData if available, otherwise use provided publicKey
+            const keyToAdvertise = this.offerData || publicKey;
             
-            // Start advertising
-            const options = {
-                filters: [{
-                    services: [this.SERVICE_UUID]
-                }],
-                optionalServices: [this.SERVICE_UUID]
-            };
+            // For web browsers, we can't actually advertise BLE
+            // Instead, we'll wait for devices to connect to us
+            // This is a limitation of the Web Bluetooth API
             
             this.isAdvertising = true;
             this.onStatusChange?.('advertising_active', { deviceName });
             
-            this.log('info', 'Bluetooth advertising started successfully');
+            this.log('info', 'Bluetooth advertising mode activated (waiting for connections)');
+            this.log('info', 'Note: Web browsers cannot actively advertise BLE. Waiting for incoming connections...');
+            
             return true;
             
         } catch (error) {
@@ -335,6 +328,21 @@ class BluetoothKeyTransfer {
             this.onStatusChange?.('connected', { deviceId: device.id, deviceName: device.name });
             this.log('info', 'Successfully connected to device:', device.name);
             
+            // Auto-start exchange process based on role
+            if (this.offerData) {
+                // We are initiator - send offer immediately
+                this.log('info', 'Auto-sending offer as initiator...');
+                await this.sendConnectionData({
+                    type: 'offer',
+                    data: this.offerData,
+                    timestamp: Date.now()
+                }, device.id);
+            } else {
+                // We are responder - wait for offer
+                this.log('info', 'Waiting for offer as responder...');
+                this.onStatusChange?.('waiting_for_offer', { deviceId: device.id });
+            }
+            
         } catch (error) {
             this.log('error', 'Failed to connect to device', error);
             this.onError?.(error);
@@ -417,6 +425,37 @@ class BluetoothKeyTransfer {
             }
             
             this.connectionDataBuffer.get(deviceId).set(connectionData.type, connectionData);
+            
+            // Auto-handle offer if we are responder
+            if (connectionData.type === 'offer' && !this.offerData) {
+                this.log('info', 'Auto-creating answer for received offer...');
+                try {
+                    // Create answer using WebRTC manager
+                    const answer = await this.webrtcManager.createSecureAnswer(connectionData.data);
+                    
+                    // Send answer back
+                    await this.sendConnectionData({
+                        type: 'answer',
+                        data: answer,
+                        timestamp: Date.now()
+                    }, deviceId);
+                    
+                    this.log('info', 'Answer sent successfully');
+                    this.onStatusChange?.('answer_sent', { deviceId });
+                } catch (error) {
+                    this.log('error', 'Failed to create answer:', error);
+                    this.onError?.(error);
+                }
+            }
+            
+            // Auto-handle answer if we are initiator
+            if (connectionData.type === 'answer' && this.offerData) {
+                this.log('info', 'Answer received, establishing connection...');
+                this.onStatusChange?.('answer_received', { deviceId, data: connectionData });
+                
+                // Trigger auto-connection callback
+                this.onAutoConnection?.(connectionData.data, deviceId);
+            }
             
             // Notify waiting processes
             this.onStatusChange?.(`${connectionData.type}_received`, { deviceId, data: connectionData });
@@ -764,8 +803,14 @@ class BluetoothKeyTransfer {
 }
 
 // Export for use in other modules
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = BluetoothKeyTransfer;
-} else if (typeof window !== 'undefined') {
+export { BluetoothKeyTransfer };
+export default BluetoothKeyTransfer;
+
+// Also expose on window for global access
+if (typeof window !== 'undefined') {
     window.BluetoothKeyTransfer = BluetoothKeyTransfer;
+    // Also create a factory function for easier usage
+    window.createBluetoothKeyTransfer = function(...args) {
+        return new BluetoothKeyTransfer(...args);
+    };
 }

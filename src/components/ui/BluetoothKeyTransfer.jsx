@@ -14,7 +14,9 @@ const BluetoothKeyTransfer = ({
     onStatusChange, 
     onAutoConnection,
     isVisible = false, 
-    onClose 
+    onClose,
+    role = null,
+    offerData = null
 }) => {
     const [bluetoothManager, setBluetoothManager] = React.useState(null);
     const [isSupported, setIsSupported] = React.useState(false);
@@ -25,13 +27,30 @@ const BluetoothKeyTransfer = ({
     const [status, setStatus] = React.useState('idle');
     const [error, setError] = React.useState(null);
     const [logs, setLogs] = React.useState([]);
+    const [isInitializing, setIsInitializing] = React.useState(false);
 
     // Initialize Bluetooth manager
     React.useEffect(() => {
         if (isVisible && !bluetoothManager) {
-            initializeBluetooth();
+            // Don't initialize immediately, wait for user action
+            addLog('Bluetooth modal opened. Click a button to start.');
         }
     }, [isVisible]);
+
+    // Auto-start exchange process when role and offerData are provided
+    React.useEffect(() => {
+        if (isVisible && bluetoothManager && role && offerData) {
+            if (role === 'initiator') {
+                // Start advertising and waiting for connection
+                addLog('Starting Bluetooth key exchange as initiator...');
+                bluetoothManager.startAdvertising();
+            } else if (role === 'responder') {
+                // Start scanning for initiator
+                addLog('Starting Bluetooth key exchange as responder...');
+                bluetoothManager.startScanning();
+            }
+        }
+    }, [isVisible, bluetoothManager, role, offerData]);
 
     // Cleanup on unmount
     React.useEffect(() => {
@@ -43,14 +62,31 @@ const BluetoothKeyTransfer = ({
     }, [bluetoothManager]);
 
     const initializeBluetooth = async () => {
+        setIsInitializing(true);
+        setError(null);
+        
         try {
-            const manager = new window.BluetoothKeyTransfer(
-                webrtcManager,
-                handleStatusChange,
-                handleKeyReceived,
-                handleError,
-                handleAutoConnection
-            );
+            // Check Bluetooth support first
+            if (!navigator.bluetooth) {
+                throw new Error('Bluetooth is not supported in this browser');
+            }
+            
+            addLog('Bluetooth is supported, initializing manager...');
+            
+            // Check if BluetoothKeyTransfer class is available
+            if (!window.BluetoothKeyTransfer && !window.createBluetoothKeyTransfer) {
+                throw new Error('BluetoothKeyTransfer class not loaded. Please refresh the page.');
+            }
+            
+            // Additional check - make sure it's a constructor function
+            if (window.BluetoothKeyTransfer && typeof window.BluetoothKeyTransfer !== 'function') {
+                throw new Error('BluetoothKeyTransfer is not a constructor function. Type: ' + typeof window.BluetoothKeyTransfer);
+            }
+            
+            // Initialize Bluetooth manager first
+            const manager = window.createBluetoothKeyTransfer ? 
+                window.createBluetoothKeyTransfer(webrtcManager, handleStatusChange, handleKeyReceived, handleError, handleAutoConnection, offerData) :
+                new window.BluetoothKeyTransfer(webrtcManager, handleStatusChange, handleKeyReceived, handleError, handleAutoConnection, offerData);
             
             setBluetoothManager(manager);
             
@@ -58,11 +94,20 @@ const BluetoothKeyTransfer = ({
             setTimeout(() => {
                 setIsSupported(manager.isSupported);
                 setIsAvailable(manager.isAvailable);
+                setIsInitializing(false);
+                addLog('Bluetooth manager initialized successfully');
+                
+                if (!manager.isSupported) {
+                    setError('Bluetooth is not supported in this browser');
+                } else if (!manager.isAvailable) {
+                    setError('Bluetooth is not available. Please enable Bluetooth on your device.');
+                }
             }, 100);
             
         } catch (error) {
             console.error('Failed to initialize Bluetooth manager:', error);
             setError('Failed to initialize Bluetooth: ' + error.message);
+            setIsInitializing(false);
         }
     };
 
@@ -130,6 +175,12 @@ const BluetoothKeyTransfer = ({
     const startScanning = async () => {
         try {
             setError(null);
+            
+            // Initialize Bluetooth manager if not already done
+            if (!bluetoothManager) {
+                await initializeBluetooth();
+            }
+            
             await bluetoothManager.startScanning();
         } catch (error) {
             setError('Failed to start scanning: ' + error.message);
@@ -147,6 +198,12 @@ const BluetoothKeyTransfer = ({
     const startAdvertising = async () => {
         try {
             setError(null);
+            
+            // Initialize Bluetooth manager if not already done
+            if (!bluetoothManager) {
+                await initializeBluetooth();
+            }
+            
             if (!webrtcManager || !webrtcManager.ecdhKeyPair) {
                 throw new Error('No public key available for advertising');
             }
@@ -249,8 +306,27 @@ const BluetoothKeyTransfer = ({
                 key: 'content',
                 className: 'p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-200px)]'
             }, [
-                // Status Section
-                React.createElement('div', {
+                // Loading state
+                isInitializing && React.createElement('div', {
+                    key: 'loading',
+                    className: 'flex items-center justify-center py-8'
+                }, [
+                    React.createElement('div', {
+                        key: 'spinner',
+                        className: 'animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mr-3'
+                    }),
+                    React.createElement('span', {
+                        key: 'text',
+                        className: 'text-white text-lg'
+                    }, 'Initializing Bluetooth...')
+                ]),
+                
+                // Main content (only show when not initializing)
+                !isInitializing && React.createElement('div', {
+                    key: 'main-content'
+                }, [
+                    // Status Section
+                    React.createElement('div', {
                     key: 'status',
                     className: 'space-y-4'
                 }, [
@@ -288,6 +364,44 @@ const BluetoothKeyTransfer = ({
                     ])
                 ]),
 
+                // Info Section
+                React.createElement('div', {
+                    key: 'info',
+                    className: 'p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg'
+                }, [
+                    React.createElement('div', {
+                        key: 'header',
+                        className: 'flex items-center space-x-2 mb-2'
+                    }, [
+                        React.createElement('i', {
+                            key: 'icon',
+                            className: 'fas fa-info-circle text-blue-400'
+                        }),
+                        React.createElement('h4', {
+                            key: 'title',
+                            className: 'text-blue-400 font-medium'
+                        }, 'How Bluetooth Key Exchange Works')
+                    ]),
+                    React.createElement('div', {
+                        key: 'content',
+                        className: 'text-sm text-gray-300 space-y-2'
+                    }, [
+                        React.createElement('p', {
+                            key: 'p1'
+                        }, '• One device scans for nearby devices (responder)'),
+                        React.createElement('p', {
+                            key: 'p2'
+                        }, '• The other device waits for connection (initiator)'),
+                        React.createElement('p', {
+                            key: 'p3'
+                        }, '• Keys are exchanged automatically once connected'),
+                        React.createElement('p', {
+                            key: 'p4',
+                            className: 'text-blue-300 font-medium'
+                        }, 'Note: Both devices must be close to each other (within Bluetooth range)')
+                    ])
+                ]),
+
                 // Controls Section
                 React.createElement('div', {
                     key: 'controls',
@@ -314,7 +428,7 @@ const BluetoothKeyTransfer = ({
                             React.createElement('button', {
                                 key: 'scan',
                                 onClick: isScanning ? stopScanning : startScanning,
-                                disabled: !isSupported || !isAvailable,
+                                disabled: !bluetoothManager,
                                 className: `w-full px-4 py-2 rounded-lg font-medium transition-colors ${
                                     isScanning 
                                         ? 'bg-red-600 hover:bg-red-700 text-white' 
@@ -341,7 +455,7 @@ const BluetoothKeyTransfer = ({
                             React.createElement('button', {
                                 key: 'advertise',
                                 onClick: isAdvertising ? stopAdvertising : startAdvertising,
-                                disabled: !isSupported || !isAvailable,
+                                disabled: !bluetoothManager,
                                 className: `w-full px-4 py-2 rounded-lg font-medium transition-colors ${
                                     isAdvertising 
                                         ? 'bg-red-600 hover:bg-red-700 text-white' 
@@ -487,6 +601,7 @@ const BluetoothKeyTransfer = ({
                     )
                 ])
             ]),
+                ]), // Close main-content div
 
             // Footer
             React.createElement('div', {

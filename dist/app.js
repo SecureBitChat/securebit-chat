@@ -564,7 +564,28 @@ var EnhancedConnectionSetup = ({
                     }
                   })(),
                   className: "flex-1 px-3 py-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 rounded text-sm font-medium"
-                }, "Copy invitation code")
+                }, "Copy invitation code"),
+                React.createElement("button", {
+                  key: "bluetooth-offer",
+                  onClick: () => {
+                    try {
+                      document.dispatchEvent(new CustomEvent("open-bluetooth-transfer", {
+                        detail: {
+                          role: "initiator",
+                          offerData
+                        }
+                      }));
+                    } catch {
+                    }
+                  },
+                  className: "flex-1 px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded text-sm font-medium transition-all duration-200"
+                }, [
+                  React.createElement("i", {
+                    key: "icon",
+                    className: "fas fa-bluetooth mr-2"
+                  }),
+                  "Send via Bluetooth"
+                ])
               ]),
               showQRCode && qrCodeUrl && React.createElement("div", {
                 key: "qr-container",
@@ -1366,11 +1387,14 @@ var EnhancedSecureP2PChat = () => {
   const [showQRScannerModal, setShowQRScannerModal] = React.useState(false);
   const [showBluetoothTransfer, setShowBluetoothTransfer] = React.useState(false);
   const [bluetoothAutoRole, setBluetoothAutoRole] = React.useState(null);
+  const [bluetoothOfferData, setBluetoothOfferData] = React.useState(null);
   React.useEffect(() => {
     const openBt = (e) => {
       try {
         const role = e?.detail?.role || null;
+        const offerData2 = e?.detail?.offerData || null;
         setBluetoothAutoRole(role);
+        setBluetoothOfferData(offerData2);
         setShowBluetoothTransfer(true);
       } catch {
       }
@@ -2561,19 +2585,29 @@ var EnhancedSecureP2PChat = () => {
       type: "error"
     }]);
   };
-  const handleBluetoothAutoConnection = async (connectionData) => {
+  const handleBluetoothAutoConnection = async (answerData2, deviceId) => {
     try {
-      console.log("Bluetooth auto connection completed:", connectionData);
-      setMessages((prev) => [...prev, {
-        message: "\u{1F535} Bluetooth auto connection completed successfully!",
-        type: "success"
-      }]);
-      setShowBluetoothTransfer(false);
+      console.log("Bluetooth auto connection - answer received:", answerData2);
+      setAnswerData(answerData2);
+      if (webrtcManagerRef.current) {
+        await webrtcManagerRef.current.processAnswer(answerData2);
+        setMessages((prev) => [...prev, {
+          message: "\u{1F535} Bluetooth connection established successfully!",
+          type: "success",
+          id: Date.now(),
+          timestamp: Date.now()
+        }]);
+        setConnectionStatus("connected");
+        setShowBluetoothTransfer(false);
+        setShowVerification(true);
+      }
     } catch (error) {
       console.error("Failed to process auto connection:", error);
       setMessages((prev) => [...prev, {
         message: "Failed to process auto connection: " + error.message,
-        type: "error"
+        type: "error",
+        id: Date.now(),
+        timestamp: Date.now()
       }]);
     }
   };
@@ -3330,7 +3364,9 @@ var EnhancedSecureP2PChat = () => {
       onError: handleBluetoothError,
       onAutoConnection: handleBluetoothAutoConnection,
       isVisible: showBluetoothTransfer,
-      onClose: () => setShowBluetoothTransfer(false)
+      onClose: () => setShowBluetoothTransfer(false),
+      role: bluetoothAutoRole,
+      offerData: bluetoothOfferData
     })
   ]);
 };

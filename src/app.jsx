@@ -591,7 +591,27 @@
                                                     } catch { return typeof offerData === 'object' ? JSON.stringify(offerData) : (offerData || ''); }
                                                 })(),
                                                     className: "flex-1 px-3 py-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 rounded text-sm font-medium"
-                                                }, 'Copy invitation code')
+                                                }, 'Copy invitation code'),
+                                            React.createElement('button', {
+                                                key: 'bluetooth-offer',
+                                                onClick: () => { 
+                                                    try { 
+                                                        document.dispatchEvent(new CustomEvent('open-bluetooth-transfer', { 
+                                                            detail: { 
+                                                                role: 'initiator',
+                                                                offerData: offerData 
+                                                            } 
+                                                        })); 
+                                                    } catch {} 
+                                                },
+                                                className: "flex-1 px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded text-sm font-medium transition-all duration-200"
+                                            }, [
+                                                React.createElement('i', {
+                                                    key: 'icon',
+                                                    className: 'fas fa-bluetooth mr-2'
+                                                }),
+                                                'Send via Bluetooth'
+                                            ])
                                             ]),
                                             showQRCode && qrCodeUrl && React.createElement('div', {
                                                 key: 'qr-container',
@@ -1436,12 +1456,15 @@
                     // Bluetooth key transfer states
                     const [showBluetoothTransfer, setShowBluetoothTransfer] = React.useState(false);
                     const [bluetoothAutoRole, setBluetoothAutoRole] = React.useState(null);
+                    const [bluetoothOfferData, setBluetoothOfferData] = React.useState(null);
 
                     React.useEffect(() => {
                         const openBt = (e) => {
                             try {
                                 const role = e?.detail?.role || null;
+                                const offerData = e?.detail?.offerData || null;
                                 setBluetoothAutoRole(role);
+                                setBluetoothOfferData(offerData);
                                 setShowBluetoothTransfer(true);
                             } catch {}
                         };
@@ -2875,26 +2898,41 @@
                         }]);
                     };
 
-                    const handleBluetoothAutoConnection = async (connectionData) => {
+                    const handleBluetoothAutoConnection = async (answerData, deviceId) => {
                         try {
-                            console.log('Bluetooth auto connection completed:', connectionData);
+                            console.log('Bluetooth auto connection - answer received:', answerData);
                             
-                            setMessages(prev => [...prev, {
-                                message: '🔵 Bluetooth auto connection completed successfully!',
-                                type: 'success'
-                            }]);
+                            // Set the answer data
+                            setAnswerData(answerData);
                             
-                            // Close Bluetooth transfer modal
-                            setShowBluetoothTransfer(false);
-                            
-                            // The connection is now established automatically
-                            // No need for manual offer/answer processing
+                            // Process the answer to establish connection
+                            if (webrtcManagerRef.current) {
+                                await webrtcManagerRef.current.processAnswer(answerData);
+                                
+                                setMessages(prev => [...prev, {
+                                    message: '🔵 Bluetooth connection established successfully!',
+                                    type: 'success',
+                                    id: Date.now(),
+                                    timestamp: Date.now()
+                                }]);
+                                
+                                // Update connection status
+                                setConnectionStatus('connected');
+                                
+                                // Close Bluetooth transfer modal
+                                setShowBluetoothTransfer(false);
+                                
+                                // Show verification step
+                                setShowVerification(true);
+                            }
                             
                         } catch (error) {
                             console.error('Failed to process auto connection:', error);
                             setMessages(prev => [...prev, {
                                 message: 'Failed to process auto connection: ' + error.message,
-                                type: 'error'
+                                type: 'error',
+                                id: Date.now(),
+                                timestamp: Date.now()
                             }]);
                         }
                     };
@@ -3119,10 +3157,10 @@
                                     
                                     // Mark answer as created for state management
                                     if (answerInput.trim().length > 0) {
-                                        if (typeof markAnswerCreated === 'function') {
-                                            markAnswerCreated();
-                                        }
+                                    if (typeof markAnswerCreated === 'function') {
+                                        markAnswerCreated();
                                     }
+                                }
 
         
                                 const existingResponseMessages = messages.filter(m => 
@@ -3441,38 +3479,38 @@
                     const handleDisconnect = () => {
                         try {
                             setSessionTimeLeft(0);
-                            
-                            // Mark as user-initiated disconnect
-                            updateConnectionState({ 
-                                status: 'disconnected',
-                                isUserInitiatedDisconnect: true 
-                            });
-                            
+                        
+                        // Mark as user-initiated disconnect
+                        updateConnectionState({ 
+                            status: 'disconnected',
+                            isUserInitiatedDisconnect: true 
+                        });
+                        
                             // Cleanup WebRTC connection
-                            if (webrtcManagerRef.current) {
-                                webrtcManagerRef.current.disconnect();
-                            }
-            
+                        if (webrtcManagerRef.current) {
+                            webrtcManagerRef.current.disconnect();
+                        }
+        
                             // Clear all connection-related states
-                            setKeyFingerprint('');
-                            setVerificationCode('');
-                            setSecurityLevel(null);
-                            setIsVerified(false);
-                            setShowVerification(false);
-                            setConnectionStatus('disconnected');
-                            
-                            // Clear verification states
-                            setLocalVerificationConfirmed(false);
-                            setRemoteVerificationConfirmed(false);
-                            setBothVerificationsConfirmed(false);
-            
+                        setKeyFingerprint('');
+                        setVerificationCode('');
+                        setSecurityLevel(null);
+                        setIsVerified(false);
+                        setShowVerification(false);
+                        setConnectionStatus('disconnected');
+                        
+                        // Clear verification states
+                        setLocalVerificationConfirmed(false);
+                        setRemoteVerificationConfirmed(false);
+                        setBothVerificationsConfirmed(false);
+        
                             // Reset UI to initial state
                             setOfferData('');
                             setAnswerData('');
-                            setOfferInput('');
-                            setAnswerInput('');
-                            setShowOfferStep(false);
-                            setShowAnswerStep(false);
+                        setOfferInput('');
+                        setAnswerInput('');
+                        setShowOfferStep(false);
+                        setShowAnswerStep(false);
                             setShowQRCode(false);
                             setQrCodeUrl('');
                             setShowQRScanner(false);
@@ -3481,32 +3519,32 @@
                             setBluetoothAutoRole(null);
             
                             // Clear messages
-                            setMessages([]);
-            
+                        setMessages([]);
+        
                             // Clear console
-                            if (typeof console.clear === 'function') {
-                                console.clear();
-                            }
-            
+                        if (typeof console.clear === 'function') {
+                            console.clear();
+                        }
+        
                             // Dispatch disconnect events
-                            document.dispatchEvent(new CustomEvent('peer-disconnect'));
-                            document.dispatchEvent(new CustomEvent('disconnected'));
-                            
+                        document.dispatchEvent(new CustomEvent('peer-disconnect'));
+                        document.dispatchEvent(new CustomEvent('disconnected'));
+        
                             // Dispatch session cleanup event
-                            document.dispatchEvent(new CustomEvent('session-cleanup', {
-                                detail: { 
-                                    timestamp: Date.now(),
-                                    reason: 'manual_disconnect'
-                                }
-                            }));
+                        document.dispatchEvent(new CustomEvent('session-cleanup', {
+                            detail: { 
+                                timestamp: Date.now(),
+                                reason: 'manual_disconnect'
+                            }
+                        }));
                             
                             // Clear data and reset session timer
                             handleClearData();
-                            
-                            setTimeout(() => {
+        
+                        setTimeout(() => {
                                 setSessionTimeLeft(0);
-                            }, 500);
-                            
+                        }, 500);
+        
                             console.log('Disconnect completed successfully');
                         } catch (error) {
                             console.error('Error during disconnect:', error);
@@ -3801,7 +3839,9 @@
                             onError: handleBluetoothError,
                             onAutoConnection: handleBluetoothAutoConnection,
                             isVisible: showBluetoothTransfer,
-                            onClose: () => setShowBluetoothTransfer(false)
+                            onClose: () => setShowBluetoothTransfer(false),
+                            role: bluetoothAutoRole,
+                            offerData: bluetoothOfferData
                         })
                         
                     ]);
