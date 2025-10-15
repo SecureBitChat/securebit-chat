@@ -653,63 +653,8 @@
                                             ])
                                         ])
                                     ])
-                                ]),
+                                ]),       
         
-                                // Step 2 - Session Type Selection
-                                // showOfferStep && React.createElement('div', {
-                                //     key: 'step2',
-                                //     className: "card-minimal rounded-xl p-6"
-                                // }, [
-                                //     React.createElement('div', {
-                                //         key: 'step-header',
-                                //         className: "flex items-center mb-4"
-                                //     }, [
-                                //         React.createElement('div', {
-                                //             key: 'number',
-                                //             className: "w-8 h-8 bg-green-500 text-white rounded-lg flex items-center justify-center font-semibold text-sm mr-3"
-                                //         }, '2'),
-                                //         React.createElement('h3', {
-                                //             key: 'title',
-                                //             className: "text-lg font-medium text-primary"
-                                //         }, "Select session type")
-                                //     ]),
-                                //     React.createElement('p', {
-                                //         key: 'description',
-                                //         className: "text-secondary text-sm mb-4"
-                                //     }, "Choose a session plan or use limited demo mode for testing."),
-                                //     React.createElement(SessionTypeSelector, {
-                                //         key: 'session-selector',
-                                //         onSelectType: (sessionType) => {
-                                //             // Save the selected session type
-                                //             setSelectedSessionType(sessionType);
-                                //             console.log('🎯 Session type selected:', sessionType);
-                                            
-                                //             // FIX: For demo sessions, we immediately call automatic activation
-                                //             if (sessionType === 'demo') {
-                                //                 console.log('🎮 Demo session selected, scheduling automatic activation...');
-                                //                 // Delay activation for 2 seconds to stabilize
-                                //                 setTimeout(() => {
-                                //                     if (sessionManager) {
-                                //                         console.log('🚀 Triggering demo session activation from selection...');
-                                //                         handleDemoVerification();
-                                //                     }
-                                //                 }, 2000);
-                                //             }
-                                            
-                                //             // Open a modal payment window
-                                //             if (typeof window.showPaymentModal === 'function') {
-                                //                 window.showPaymentModal(sessionType);
-                                //             } else {
-                                //                 // Fallback - show session information
-                                //                 console.log('Selected session type:', sessionType);
-                                //             }
-                                //         },
-                                //         onCancel: resetToSelect,
-                                //         sessionManager: window.sessionManager
-                                //     })
-                                // ]),
-        
-                                // Step 3 - Waiting for response
                                 showOfferStep && React.createElement('div', {
                                     key: 'step2',
                                     className: "card-minimal rounded-xl p-6"
