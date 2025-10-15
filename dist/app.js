@@ -709,25 +709,30 @@ var EnhancedConnectionSetup = ({
                 className: "fas fa-qrcode mr-2"
               }),
               "Scan QR Code"
+            ]),
+            React.createElement("button", {
+              key: "bluetooth-btn",
+              onClick: () => {
+                try {
+                  document.dispatchEvent(new CustomEvent("open-bluetooth-transfer", { detail: { role: "responder" } }));
+                } catch {
+                }
+              },
+              className: "px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded text-sm font-medium transition-all duration-200"
+            }, [
+              React.createElement("i", {
+                key: "icon",
+                className: "fas fa-bluetooth mr-2"
+              }),
+              "Bluetooth"
             ])
-            // React.createElement('button', {
-            //     key: 'bluetooth-btn',
-            //     onClick: () => { try { document.dispatchEvent(new CustomEvent('open-bluetooth-transfer', { detail: { role: 'responder' } })); } catch {} },
-            //     className: "px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded text-sm font-medium transition-all duration-200"
-            // }, [
-            //     React.createElement('i', {
-            //         key: 'icon',
-            //         className: 'fas fa-bluetooth mr-2'
-            //     }),
-            //     'Bluetooth'
-            // ])
           ]),
           React.createElement("textarea", {
             key: "input",
             value: answerInput,
-            onChange: (e2) => {
-              setAnswerInput(e2.target.value);
-              if (e2.target.value.trim().length > 0) {
+            onChange: (e) => {
+              setAnswerInput(e.target.value);
+              if (e.target.value.trim().length > 0) {
                 if (typeof markAnswerCreated === "function") {
                   markAnswerCreated();
                 }
@@ -803,9 +808,9 @@ var EnhancedConnectionSetup = ({
           React.createElement("textarea", {
             key: "input",
             value: offerInput,
-            onChange: (e2) => {
-              setOfferInput(e2.target.value);
-              if (e2.target.value.trim().length > 0) {
+            onChange: (e) => {
+              setOfferInput(e.target.value);
+              if (e.target.value.trim().length > 0) {
                 if (typeof markAnswerCreated === "function") {
                   markAnswerCreated();
                 }
@@ -830,17 +835,22 @@ var EnhancedConnectionSetup = ({
               }),
               "Scan QR Code"
             ]),
-            // React.createElement('button', {
-            //     key: 'bluetooth-btn',
-            //     onClick: () => { try { document.dispatchEvent(new CustomEvent('open-bluetooth-transfer', { detail: { role: 'initiator' } })); } catch {} },
-            //     className: "px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded text-sm font-medium transition-all duration-200"
-            // }, [
-            //     React.createElement('i', {
-            //         key: 'icon',
-            //         className: 'fas fa-bluetooth mr-2'
-            //     }),
-            //     'Bluetooth'
-            // ]),
+            React.createElement("button", {
+              key: "bluetooth-btn",
+              onClick: () => {
+                try {
+                  document.dispatchEvent(new CustomEvent("open-bluetooth-transfer", { detail: { role: "initiator" } }));
+                } catch {
+                }
+              },
+              className: "px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded text-sm font-medium transition-all duration-200"
+            }, [
+              React.createElement("i", {
+                key: "icon",
+                className: "fas fa-bluetooth mr-2"
+              }),
+              "Bluetooth"
+            ]),
             React.createElement("button", {
               key: "process-btn",
               onClick: onCreateAnswer,
@@ -1107,9 +1117,9 @@ var EnhancedChatInterface = ({
       setShowScrollButton(false);
     }
   };
-  const handleKeyPress = (e2) => {
-    if (e2.key === "Enter" && !e2.shiftKey) {
-      e2.preventDefault();
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
       onSendMessage();
     }
   };
@@ -1294,7 +1304,7 @@ var EnhancedChatInterface = ({
                 [
                   React.createElement("textarea", {
                     value: messageInput,
-                    onChange: (e2) => setMessageInput(e2.target.value),
+                    onChange: (e) => setMessageInput(e.target.value),
                     onKeyDown: handleKeyPress,
                     placeholder: "Enter message to encrypt...",
                     rows: 2,
@@ -1357,9 +1367,9 @@ var EnhancedSecureP2PChat = () => {
   const [showBluetoothTransfer, setShowBluetoothTransfer] = React.useState(false);
   const [bluetoothAutoRole, setBluetoothAutoRole] = React.useState(null);
   React.useEffect(() => {
-    const openBt = (e2) => {
+    const openBt = (e) => {
       try {
-        const role = e2?.detail?.role || null;
+        const role = e?.detail?.role || null;
         setBluetoothAutoRole(role);
         setShowBluetoothTransfer(true);
       } catch {
@@ -1371,6 +1381,7 @@ var EnhancedSecureP2PChat = () => {
   const [bluetoothManager, setBluetoothManager] = React.useState(null);
   const [isVerified, setIsVerified] = React.useState(false);
   const [securityLevel, setSecurityLevel] = React.useState(null);
+  const [sessionTimeLeft, setSessionTimeLeft] = React.useState(0);
   const [localVerificationConfirmed, setLocalVerificationConfirmed] = React.useState(false);
   const [remoteVerificationConfirmed, setRemoteVerificationConfirmed] = React.useState(false);
   const [bothVerificationsConfirmed, setBothVerificationsConfirmed] = React.useState(false);
@@ -1395,7 +1406,7 @@ var EnhancedSecureP2PChat = () => {
     const now = Date.now();
     const answerAge = now - (connectionState.answerCreatedAt || 0);
     const maxPreserveTime = 3e5;
-    const hasAnswerData = answerData && answerData.trim().length > 0 || answerInput && answerInput.trim().length > 0;
+    const hasAnswerData = answerData && typeof answerData === "string" && answerData.trim().length > 0 || answerInput && answerInput.trim().length > 0;
     const hasAnswerQR = qrCodeUrl && qrCodeUrl.trim().length > 0;
     const shouldPreserve = connectionState.hasActiveAnswer && answerAge < maxPreserveTime && !connectionState.isUserInitiatedDisconnect || hasAnswerData && answerAge < maxPreserveTime && !connectionState.isUserInitiatedDisconnect || hasAnswerQR && answerAge < maxPreserveTime && !connectionState.isUserInitiatedDisconnect;
     return shouldPreserve;
@@ -1584,8 +1595,8 @@ var EnhancedSecureP2PChat = () => {
         setLocalVerificationConfirmed(false);
         setRemoteVerificationConfirmed(false);
         setBothVerificationsConfirmed(false);
-        setOfferData(null);
-        setAnswerData(null);
+        setOfferData("");
+        setAnswerData("");
         setOfferInput("");
         setAnswerInput("");
         setShowOfferStep(false);
@@ -1596,8 +1607,8 @@ var EnhancedSecureP2PChat = () => {
         setTimeout(() => {
           setConnectionStatus("disconnected");
           setShowVerification(false);
-          setOfferData(null);
-          setAnswerData(null);
+          setOfferData("");
+          setAnswerData("");
           setOfferInput("");
           setAnswerInput("");
           setShowOfferStep(false);
@@ -1617,8 +1628,8 @@ var EnhancedSecureP2PChat = () => {
           setLocalVerificationConfirmed(false);
           setRemoteVerificationConfirmed(false);
           setBothVerificationsConfirmed(false);
-          setOfferData(null);
-          setAnswerData(null);
+          setOfferData("");
+          setAnswerData("");
           setOfferInput("");
           setAnswerInput("");
           setShowOfferStep(false);
@@ -1749,9 +1760,9 @@ var EnhancedSecureP2PChat = () => {
                   a.download = fileData.fileName;
                   a.click();
                   setTimeout(() => fileData.revokeObjectURL(url), 15e3);
-                } catch (e2) {
-                  console.error("Download failed:", e2);
-                  addMessageWithAutoScroll(` File upload error: ${String(e2?.message || e2)}`, "system");
+                } catch (e) {
+                  console.error("Download failed:", e);
+                  addMessageWithAutoScroll(` File upload error: ${String(e?.message || e)}`, "system");
                 }
               }
             }, "Download")
@@ -1867,8 +1878,8 @@ var EnhancedSecureP2PChat = () => {
       const QR_SIZE = isDesktop ? 720 : 512;
       const url = await (window.generateQRCode ? window.generateQRCode(current, { errorCorrectionLevel: "M", margin: 2, size: QR_SIZE }) : Promise.resolve(""));
       if (url) setQrCodeUrl(url);
-    } catch (e2) {
-      console.warn("Animated QR render error (current):", e2);
+    } catch (e) {
+      console.warn("Animated QR render error (current):", e);
     }
     setQrFrameIndex((qrAnimationRef.current?.idx || 0) % (qrAnimationRef.current?.chunks?.length || 1) + 1);
   };
@@ -1974,8 +1985,8 @@ var EnhancedSecureP2PChat = () => {
             setQrFrameIndex(1);
             return;
           }
-        } catch (e2) {
-          console.warn("Binary QR generation failed, falling back to compressed:", e2?.message || e2);
+        } catch (e) {
+          console.warn("Binary QR generation failed, falling back to compressed:", e?.message || e);
         }
       }
       if (typeof window.generateCompressedQRCode === "function") {
@@ -1998,8 +2009,8 @@ var EnhancedSecureP2PChat = () => {
             setQrFrameIndex(1);
             return;
           }
-        } catch (e2) {
-          console.warn("Compressed QR generation failed, falling back to plain:", e2?.message || e2);
+        } catch (e) {
+          console.warn("Compressed QR generation failed, falling back to plain:", e?.message || e);
         }
       }
       const payload = typeof data === "string" ? data : JSON.stringify(data);
@@ -2193,8 +2204,8 @@ var EnhancedSecureP2PChat = () => {
           qrChunksBufferRef.current = { id: null, total: 0, seen: /* @__PURE__ */ new Set(), items: [] };
           setShowQRScannerModal(false);
           return Promise.resolve(true);
-        } catch (e2) {
-          console.warn("Binary chunks reconstruction failed:", e2);
+        } catch (e) {
+          console.warn("Binary chunks reconstruction failed:", e);
           return Promise.resolve(false);
         }
       }
@@ -2252,8 +2263,8 @@ var EnhancedSecureP2PChat = () => {
           qrChunksBufferRef.current = { id: null, total: 0, seen: /* @__PURE__ */ new Set(), items: [] };
           setShowQRScannerModal(false);
           return Promise.resolve(true);
-        } catch (e2) {
-          console.warn("Binary chunks reconstruction failed:", e2);
+        } catch (e) {
+          console.warn("Binary chunks reconstruction failed:", e);
           return Promise.resolve(false);
         }
       }
@@ -2312,8 +2323,8 @@ var EnhancedSecureP2PChat = () => {
             qrChunksBufferRef.current = { id: null, total: 0, seen: /* @__PURE__ */ new Set(), items: [] };
             setShowQRScannerModal(false);
             return Promise.resolve(true);
-          } catch (e2) {
-            console.warn("RAW multi-frame reconstruction failed:", e2);
+          } catch (e) {
+            console.warn("RAW multi-frame reconstruction failed:", e);
             return Promise.resolve(false);
           }
         } else if (hdr.rt === "bin") {
@@ -2340,8 +2351,8 @@ var EnhancedSecureP2PChat = () => {
             qrChunksBufferRef.current = { id: null, total: 0, seen: /* @__PURE__ */ new Set(), items: [] };
             setShowQRScannerModal(false);
             return Promise.resolve(true);
-          } catch (e2) {
-            console.warn("BIN multi-frame reconstruction failed:", e2);
+          } catch (e) {
+            console.warn("BIN multi-frame reconstruction failed:", e);
             return Promise.resolve(false);
           }
         } else if (window.receiveAndProcess) {
@@ -2363,8 +2374,8 @@ var EnhancedSecureP2PChat = () => {
               setShowQRScannerModal(false);
               return Promise.resolve(true);
             }
-          } catch (e2) {
-            console.warn("COSE multi-chunk processing failed:", e2);
+          } catch (e) {
+            console.warn("COSE multi-chunk processing failed:", e);
           }
           return Promise.resolve(false);
         } else {
@@ -2626,8 +2637,8 @@ var EnhancedSecureP2PChat = () => {
           } catch {
           }
         }
-      } catch (e2) {
-        console.warn("Offer QR generation failed:", e2);
+      } catch (e) {
+        console.warn("Offer QR generation failed:", e);
       }
       const existingMessages = messages.filter(
         (m) => m.type === "system" && (m.message.includes("Secure invitation created") || m.message.includes("Send the encrypted code"))
@@ -2749,10 +2760,10 @@ var EnhancedSecureP2PChat = () => {
             } catch {
             }
           }
-        } catch (e2) {
-          console.warn("Answer QR generation failed:", e2);
+        } catch (e) {
+          console.warn("Answer QR generation failed:", e);
         }
-        if (e.target.value.trim().length > 0) {
+        if (answerInput.trim().length > 0) {
           if (typeof markAnswerCreated === "function") {
             markAnswerCreated();
           }
@@ -2936,8 +2947,8 @@ var EnhancedSecureP2PChat = () => {
       setShowVerification(false);
       setVerificationCode("");
       setConnectionStatus("disconnected");
-      setOfferData(null);
-      setAnswerData(null);
+      setOfferData("");
+      setAnswerData("");
       setOfferInput("");
       setAnswerInput("");
       setShowOfferStep(false);
@@ -3008,53 +3019,56 @@ var EnhancedSecureP2PChat = () => {
     document.dispatchEvent(new CustomEvent("peer-disconnect"));
   };
   const handleDisconnect = () => {
-    setSessionTimeLeft(0);
-    updateConnectionState({
-      status: "disconnected",
-      isUserInitiatedDisconnect: true
-    });
-    if (webrtcManagerRef.current) {
-      webrtcManagerRef.current.disconnect();
-    }
-    setKeyFingerprint("");
-    setVerificationCode("");
-    setSecurityLevel(null);
-    setIsVerified(false);
-    setShowVerification(false);
-    setConnectionStatus("disconnected");
-    setLocalVerificationConfirmed(false);
-    setRemoteVerificationConfirmed(false);
-    setBothVerificationsConfirmed(false);
-    setConnectionStatus("disconnected");
-    setShowVerification(false);
-    setOfferData(null);
-    setAnswerData(null);
-    setOfferInput("");
-    setAnswerInput("");
-    setShowOfferStep(false);
-    setShowAnswerStep(false);
-    setKeyFingerprint("");
-    setVerificationCode("");
-    setSecurityLevel(null);
-    setIsVerified(false);
-    setMessages([]);
-    if (typeof console.clear === "function") {
-      console.clear();
-    }
-    document.dispatchEvent(new CustomEvent("peer-disconnect"));
-    document.dispatchEvent(new CustomEvent("disconnected"));
-    document.dispatchEvent(new CustomEvent("session-cleanup", {
-      detail: {
-        timestamp: Date.now(),
-        reason: "manual_disconnect"
-      }
-    }));
-    setTimeout(() => {
+    try {
       setSessionTimeLeft(0);
-    }, 500);
-    handleClearData();
-    setTimeout(() => {
-    }, 1e3);
+      updateConnectionState({
+        status: "disconnected",
+        isUserInitiatedDisconnect: true
+      });
+      if (webrtcManagerRef.current) {
+        webrtcManagerRef.current.disconnect();
+      }
+      setKeyFingerprint("");
+      setVerificationCode("");
+      setSecurityLevel(null);
+      setIsVerified(false);
+      setShowVerification(false);
+      setConnectionStatus("disconnected");
+      setLocalVerificationConfirmed(false);
+      setRemoteVerificationConfirmed(false);
+      setBothVerificationsConfirmed(false);
+      setOfferData("");
+      setAnswerData("");
+      setOfferInput("");
+      setAnswerInput("");
+      setShowOfferStep(false);
+      setShowAnswerStep(false);
+      setShowQRCode(false);
+      setQrCodeUrl("");
+      setShowQRScanner(false);
+      setShowQRScannerModal(false);
+      setShowBluetoothTransfer(false);
+      setBluetoothAutoRole(null);
+      setMessages([]);
+      if (typeof console.clear === "function") {
+        console.clear();
+      }
+      document.dispatchEvent(new CustomEvent("peer-disconnect"));
+      document.dispatchEvent(new CustomEvent("disconnected"));
+      document.dispatchEvent(new CustomEvent("session-cleanup", {
+        detail: {
+          timestamp: Date.now(),
+          reason: "manual_disconnect"
+        }
+      }));
+      handleClearData();
+      setTimeout(() => {
+        setSessionTimeLeft(0);
+      }, 500);
+      console.log("Disconnect completed successfully");
+    } catch (error) {
+      console.error("Error during disconnect:", error);
+    }
   };
   const handleSessionActivated = (session) => {
     let message;

@@ -746,17 +746,17 @@
                                             }),
                                             'Scan QR Code'
                                         ]),
-                                        // React.createElement('button', {
-                                        //     key: 'bluetooth-btn',
-                                        //     onClick: () => { try { document.dispatchEvent(new CustomEvent('open-bluetooth-transfer', { detail: { role: 'responder' } })); } catch {} },
-                                        //     className: "px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded text-sm font-medium transition-all duration-200"
-                                        // }, [
-                                        //     React.createElement('i', {
-                                        //         key: 'icon',
-                                        //         className: 'fas fa-bluetooth mr-2'
-                                        //     }),
-                                        //     'Bluetooth'
-                                        // ])
+                                        React.createElement('button', {
+                                            key: 'bluetooth-btn',
+                                            onClick: () => { try { document.dispatchEvent(new CustomEvent('open-bluetooth-transfer', { detail: { role: 'responder' } })); } catch {} },
+                                            className: "px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded text-sm font-medium transition-all duration-200"
+                                        }, [
+                                            React.createElement('i', {
+                                                key: 'icon',
+                                                className: 'fas fa-bluetooth mr-2'
+                                            }),
+                                            'Bluetooth'
+                                        ])
                                     ]),
                                     React.createElement('textarea', {
                                         key: 'input',
@@ -870,17 +870,17 @@
                                             }),
                                             'Scan QR Code'
                                         ]),
-                                        // React.createElement('button', {
-                                        //     key: 'bluetooth-btn',
-                                        //     onClick: () => { try { document.dispatchEvent(new CustomEvent('open-bluetooth-transfer', { detail: { role: 'initiator' } })); } catch {} },
-                                        //     className: "px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded text-sm font-medium transition-all duration-200"
-                                        // }, [
-                                        //     React.createElement('i', {
-                                        //         key: 'icon',
-                                        //         className: 'fas fa-bluetooth mr-2'
-                                        //     }),
-                                        //     'Bluetooth'
-                                        // ]),
+                                        React.createElement('button', {
+                                            key: 'bluetooth-btn',
+                                            onClick: () => { try { document.dispatchEvent(new CustomEvent('open-bluetooth-transfer', { detail: { role: 'initiator' } })); } catch {} },
+                                            className: "px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded text-sm font-medium transition-all duration-200"
+                                        }, [
+                                            React.createElement('i', {
+                                                key: 'icon',
+                                                className: 'fas fa-bluetooth mr-2'
+                                            }),
+                                            'Bluetooth'
+                                        ]),
                                     React.createElement('button', {
                                         key: 'process-btn',
                                         onClick: onCreateAnswer,
@@ -1451,6 +1451,7 @@
                     const [bluetoothManager, setBluetoothManager] = React.useState(null);
                     const [isVerified, setIsVerified] = React.useState(false);
                     const [securityLevel, setSecurityLevel] = React.useState(null);
+                    const [sessionTimeLeft, setSessionTimeLeft] = React.useState(0);
                     
                     // Mutual verification states
                     const [localVerificationConfirmed, setLocalVerificationConfirmed] = React.useState(false);
@@ -1497,7 +1498,7 @@
                         const maxPreserveTime = 300000;
         
 
-                        const hasAnswerData = (answerData && answerData.trim().length > 0) || 
+                        const hasAnswerData = (answerData && typeof answerData === 'string' && answerData.trim().length > 0) || 
                                             (answerInput && answerInput.trim().length > 0);
 
                         const hasAnswerQR = qrCodeUrl && qrCodeUrl.trim().length > 0;
@@ -1751,8 +1752,8 @@
                                 setBothVerificationsConfirmed(false);
                                 
                                 // Clear connection data
-                                setOfferData(null);
-                                setAnswerData(null);
+                                setOfferData('');
+                                setAnswerData('');
                                 setOfferInput('');
                                 setAnswerInput('');
                                 setShowOfferStep(false);
@@ -1767,8 +1768,8 @@
                                     setConnectionStatus('disconnected');
                                     setShowVerification(false);
                                     
-                                    setOfferData(null);
-                                    setAnswerData(null);
+                                    setOfferData('');
+                                    setAnswerData('');
                                     setOfferInput('');
                                     setAnswerInput('');
                                     setShowOfferStep(false);
@@ -1796,8 +1797,8 @@
                                     setBothVerificationsConfirmed(false);
                                     
                                     // Clear connection data
-                                    setOfferData(null);
-                                    setAnswerData(null);
+                                    setOfferData('');
+                                    setAnswerData('');
                                     setOfferInput('');
                                     setAnswerInput('');
                                     setShowOfferStep(false);
@@ -3117,11 +3118,11 @@
                                     }
                                     
                                     // Mark answer as created for state management
-                                    if (e.target.value.trim().length > 0) {
-                                    if (typeof markAnswerCreated === 'function') {
-                                        markAnswerCreated();
+                                    if (answerInput.trim().length > 0) {
+                                        if (typeof markAnswerCreated === 'function') {
+                                            markAnswerCreated();
+                                        }
                                     }
-                                }
 
         
                                 const existingResponseMessages = messages.filter(m => 
@@ -3338,8 +3339,8 @@
                             
                             // Reset UI to initial state
                             setConnectionStatus('disconnected');
-                            setOfferData(null);
-                            setAnswerData(null);
+                            setOfferData('');
+                            setAnswerData('');
                             setOfferInput('');
                             setAnswerInput('');
                             setShowOfferStep(false);
@@ -3438,70 +3439,78 @@
                     };
         
                     const handleDisconnect = () => {
+                        try {
                             setSessionTimeLeft(0);
-                        
-                        // Mark as user-initiated disconnect
-                        updateConnectionState({ 
-                            status: 'disconnected',
-                            isUserInitiatedDisconnect: true 
-                        });
-                        
-                        // Cleanup session state
-                        if (webrtcManagerRef.current) {
-                            webrtcManagerRef.current.disconnect();
-                        }
-        
-                        setKeyFingerprint('');
-                        setVerificationCode('');
-                        setSecurityLevel(null);
-                        setIsVerified(false);
-                        setShowVerification(false);
-                        setConnectionStatus('disconnected');
-                        
-                        // Clear verification states
-                        setLocalVerificationConfirmed(false);
-                        setRemoteVerificationConfirmed(false);
-                        setBothVerificationsConfirmed(false);
-        
-                        // Reset UI to initial state (user-initiated disconnect always clears data)
-                        setConnectionStatus('disconnected');
-                        setShowVerification(false);
-                        setOfferData(null);
-                        setAnswerData(null);
-                        setOfferInput('');
-                        setAnswerInput('');
-                        setShowOfferStep(false);
-                        setShowAnswerStep(false);
-                        setKeyFingerprint('');
-                        setVerificationCode('');
-                        setSecurityLevel(null);
-                        setIsVerified(false);
-        
-                        setMessages([]);
-        
-                        if (typeof console.clear === 'function') {
-                            console.clear();
-                        }
-        
-                        document.dispatchEvent(new CustomEvent('peer-disconnect'));
-                        document.dispatchEvent(new CustomEvent('disconnected'));
-        
-                        document.dispatchEvent(new CustomEvent('session-cleanup', {
-                            detail: { 
-                                timestamp: Date.now(),
-                                reason: 'manual_disconnect'
+                            
+                            // Mark as user-initiated disconnect
+                            updateConnectionState({ 
+                                status: 'disconnected',
+                                isUserInitiatedDisconnect: true 
+                            });
+                            
+                            // Cleanup WebRTC connection
+                            if (webrtcManagerRef.current) {
+                                webrtcManagerRef.current.disconnect();
                             }
-                        }));
-        
-                        setTimeout(() => {
+            
+                            // Clear all connection-related states
+                            setKeyFingerprint('');
+                            setVerificationCode('');
+                            setSecurityLevel(null);
+                            setIsVerified(false);
+                            setShowVerification(false);
+                            setConnectionStatus('disconnected');
+                            
+                            // Clear verification states
+                            setLocalVerificationConfirmed(false);
+                            setRemoteVerificationConfirmed(false);
+                            setBothVerificationsConfirmed(false);
+            
+                            // Reset UI to initial state
+                            setOfferData('');
+                            setAnswerData('');
+                            setOfferInput('');
+                            setAnswerInput('');
+                            setShowOfferStep(false);
+                            setShowAnswerStep(false);
+                            setShowQRCode(false);
+                            setQrCodeUrl('');
+                            setShowQRScanner(false);
+                            setShowQRScannerModal(false);
+                            setShowBluetoothTransfer(false);
+                            setBluetoothAutoRole(null);
+            
+                            // Clear messages
+                            setMessages([]);
+            
+                            // Clear console
+                            if (typeof console.clear === 'function') {
+                                console.clear();
+                            }
+            
+                            // Dispatch disconnect events
+                            document.dispatchEvent(new CustomEvent('peer-disconnect'));
+                            document.dispatchEvent(new CustomEvent('disconnected'));
+                            
+                            // Dispatch session cleanup event
+                            document.dispatchEvent(new CustomEvent('session-cleanup', {
+                                detail: { 
+                                    timestamp: Date.now(),
+                                    reason: 'manual_disconnect'
+                                }
+                            }));
+                            
+                            // Clear data and reset session timer
+                            handleClearData();
+                            
+                            setTimeout(() => {
                                 setSessionTimeLeft(0);
-                        }, 500);
-        
-                        handleClearData();
-        
-                        setTimeout(() => {
-                            // Session manager removed - all features enabled by default
-                        }, 1000);
+                            }, 500);
+                            
+                            console.log('Disconnect completed successfully');
+                        } catch (error) {
+                            console.error('Error during disconnect:', error);
+                        }
                     };
         
                     const handleSessionActivated = (session) => {
