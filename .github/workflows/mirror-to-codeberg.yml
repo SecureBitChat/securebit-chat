@@ -19,6 +19,10 @@ jobs:
           echo "${{ secrets.CODEBERG_SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan codeberg.org >> ~/.ssh/known_hosts
+          ssh -i ~/.ssh/id_ed25519 git@codeberg.org || true
+
+      - name: Show remotes
+        run: git remote -v
 
       - name: Push to Codeberg
         run: |
