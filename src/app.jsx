@@ -592,26 +592,6 @@
                                                 })(),
                                                     className: "flex-1 px-3 py-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 rounded text-sm font-medium"
                                                 }, 'Copy invitation code'),
-                                            React.createElement('button', {
-                                                key: 'bluetooth-offer',
-                                                onClick: () => { 
-                                                    try { 
-                                                        document.dispatchEvent(new CustomEvent('open-bluetooth-transfer', { 
-                                                            detail: { 
-                                                                role: 'initiator',
-                                                                offerData: offerData 
-                                                            } 
-                                                        })); 
-                                                    } catch {} 
-                                                },
-                                                className: "flex-1 px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded text-sm font-medium transition-all duration-200"
-                                            }, [
-                                                React.createElement('i', {
-                                                    key: 'icon',
-                                                    className: 'fas fa-bluetooth mr-2'
-                                                }),
-                                                'Send via Bluetooth'
-                                            ])
                                             ]),
                                             showQRCode && qrCodeUrl && React.createElement('div', {
                                                 key: 'qr-container',
@@ -766,17 +746,6 @@
                                             }),
                                             'Scan QR Code'
                                         ]),
-                                        React.createElement('button', {
-                                            key: 'bluetooth-btn',
-                                            onClick: () => { try { document.dispatchEvent(new CustomEvent('open-bluetooth-transfer', { detail: { role: 'responder' } })); } catch {} },
-                                            className: "px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded text-sm font-medium transition-all duration-200"
-                                        }, [
-                                            React.createElement('i', {
-                                                key: 'icon',
-                                                className: 'fas fa-bluetooth mr-2'
-                                            }),
-                                            'Bluetooth'
-                                        ])
                                     ]),
                                     React.createElement('textarea', {
                                         key: 'input',
@@ -889,17 +858,6 @@
                                                 className: 'fas fa-qrcode mr-2'
                                             }),
                                             'Scan QR Code'
-                                        ]),
-                                        React.createElement('button', {
-                                            key: 'bluetooth-btn',
-                                            onClick: () => { try { document.dispatchEvent(new CustomEvent('open-bluetooth-transfer', { detail: { role: 'initiator' } })); } catch {} },
-                                            className: "px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded text-sm font-medium transition-all duration-200"
-                                        }, [
-                                            React.createElement('i', {
-                                                key: 'icon',
-                                                className: 'fas fa-bluetooth mr-2'
-                                            }),
-                                            'Bluetooth'
                                         ]),
                                     React.createElement('button', {
                                         key: 'process-btn',
@@ -1453,25 +1411,7 @@
                     const [showQRScanner, setShowQRScanner] = React.useState(false);
                     const [showQRScannerModal, setShowQRScannerModal] = React.useState(false);
                     
-                    // Bluetooth key transfer states
-                    const [showBluetoothTransfer, setShowBluetoothTransfer] = React.useState(false);
-                    const [bluetoothAutoRole, setBluetoothAutoRole] = React.useState(null);
-                    const [bluetoothOfferData, setBluetoothOfferData] = React.useState(null);
 
-                    React.useEffect(() => {
-                        const openBt = (e) => {
-                            try {
-                                const role = e?.detail?.role || null;
-                                const offerData = e?.detail?.offerData || null;
-                                setBluetoothAutoRole(role);
-                                setBluetoothOfferData(offerData);
-                                setShowBluetoothTransfer(true);
-                            } catch {}
-                        };
-                        document.addEventListener('open-bluetooth-transfer', openBt);
-                        return () => document.removeEventListener('open-bluetooth-transfer', openBt);
-                    }, []);
-                    const [bluetoothManager, setBluetoothManager] = React.useState(null);
                     const [isVerified, setIsVerified] = React.useState(false);
                     const [securityLevel, setSecurityLevel] = React.useState(null);
                     const [sessionTimeLeft, setSessionTimeLeft] = React.useState(0);
@@ -2777,165 +2717,8 @@
                         }
                     };
 
-                    // Bluetooth key transfer handlers
-                    const handleBluetoothKeyReceived = async (keyData, deviceId) => {
-                        try {
-                            console.log('Bluetooth key received from device:', deviceId);
-                            
-                            // Convert key data to the format expected by the app
-                            const keyString = JSON.stringify(keyData, null, 2);
-                            
-                            // Determine which input to populate based on current mode
-                            if (showOfferStep) {
-                                // In "Waiting for peer's response" mode - populate answerInput
-                                setAnswerInput(keyString);
-                            } else {
-                                // In "Paste secure invitation" mode - populate offerInput
-                                setOfferInput(keyString);
-                            }
-                            
-                            setMessages(prev => [...prev, {
-                                message: '🔵 Bluetooth key received successfully!',
-                                type: 'success'
-                            }]);
-                            
-                            // Close Bluetooth transfer modal
-                            setShowBluetoothTransfer(false);
-                            
-                        } catch (error) {
-                            console.error('Failed to process Bluetooth key:', error);
-                            setMessages(prev => [...prev, {
-                                message: 'Failed to process Bluetooth key: ' + error.message,
-                                type: 'error'
-                            }]);
-                        }
-                    };
 
-                    const handleBluetoothStatusChange = (statusType, data) => {
-                        console.log('Bluetooth status change:', statusType, data);
-                        
-                        switch (statusType) {
-                            case 'bluetooth_ready':
-                                setMessages(prev => [...prev, {
-                                    message: '🔵 Bluetooth ready for key exchange',
-                                    type: 'info'
-                                }]);
-                                break;
-                            case 'connected':
-                                setMessages(prev => [...prev, {
-                                    message: `🔵 Connected to device: ${data.deviceName}`,
-                                    type: 'success'
-                                }]);
-                                break;
-                            case 'key_sent':
-                                setMessages(prev => [...prev, {
-                                    message: '🔵 Public key sent via Bluetooth',
-                                    type: 'success'
-                                }]);
-                                break;
-                            case 'key_received':
-                                setMessages(prev => [...prev, {
-                                    message: '🔵 Public key received via Bluetooth',
-                                    type: 'success'
-                                }]);
-                                break;
-                            case 'auto_connection_starting':
-                                setMessages(prev => [...prev, {
-                                    message: '🔵 Starting automatic connection...',
-                                    type: 'info'
-                                }]);
-                                break;
-                            case 'creating_offer':
-                                setMessages(prev => [...prev, {
-                                    message: '🔵 Creating secure offer...',
-                                    type: 'info'
-                                }]);
-                                break;
-                            case 'offer_sent':
-                                setMessages(prev => [...prev, {
-                                    message: '🔵 Offer sent, waiting for answer...',
-                                    type: 'info'
-                                }]);
-                                break;
-                            case 'waiting_for_answer':
-                                setMessages(prev => [...prev, {
-                                    message: '🔵 Waiting for answer...',
-                                    type: 'info'
-                                }]);
-                                break;
-                            case 'processing_answer':
-                                setMessages(prev => [...prev, {
-                                    message: '🔵 Processing answer...',
-                                    type: 'info'
-                                }]);
-                                break;
-                            case 'waiting_for_verification':
-                                setMessages(prev => [...prev, {
-                                    message: '🔵 Waiting for verification...',
-                                    type: 'info'
-                                }]);
-                                break;
-                            case 'auto_connection_complete':
-                                setMessages(prev => [...prev, {
-                                    message: '🔵 Automatic connection completed!',
-                                    type: 'success'
-                                }]);
-                                break;
-                            case 'auto_connection_failed':
-                                setMessages(prev => [...prev, {
-                                    message: '🔵 Automatic connection failed: ' + (data.error || 'Unknown error'),
-                                    type: 'error'
-                                }]);
-                                break;
-                        }
-                    };
 
-                    const handleBluetoothError = (error) => {
-                        console.error('Bluetooth error:', error);
-                        setMessages(prev => [...prev, {
-                            message: 'Bluetooth error: ' + error.message,
-                            type: 'error'
-                        }]);
-                    };
-
-                    const handleBluetoothAutoConnection = async (answerData, deviceId) => {
-                        try {
-                            console.log('Bluetooth auto connection - answer received:', answerData);
-                            
-                            // Set the answer data
-                            setAnswerData(answerData);
-                            
-                            // Process the answer to establish connection
-                            if (webrtcManagerRef.current) {
-                                await webrtcManagerRef.current.processAnswer(answerData);
-                                
-                                setMessages(prev => [...prev, {
-                                    message: '🔵 Bluetooth connection established successfully!',
-                                    type: 'success',
-                                    id: Date.now(),
-                                    timestamp: Date.now()
-                                }]);
-                                
-                                // Update connection status
-                                setConnectionStatus('connected');
-                                
-                                // Close Bluetooth transfer modal
-                                setShowBluetoothTransfer(false);
-                                
-                                // Show verification step
-                                setShowVerification(true);
-                            }
-                            
-                        } catch (error) {
-                            console.error('Failed to process auto connection:', error);
-                            setMessages(prev => [...prev, {
-                                message: 'Failed to process auto connection: ' + error.message,
-                                type: 'error',
-                                id: Date.now(),
-                                timestamp: Date.now()
-                            }]);
-                        }
-                    };
         
                     const handleCreateOffer = async () => {
                         try {
@@ -3515,8 +3298,6 @@
                             setQrCodeUrl('');
                             setShowQRScanner(false);
                             setShowQRScannerModal(false);
-                            setShowBluetoothTransfer(false);
-                            setBluetoothAutoRole(null);
             
                             // Clear messages
                         setMessages([]);
@@ -3830,19 +3611,6 @@
                             ])
                         ]),
                         
-                        // Bluetooth Key Transfer Modal
-                        showBluetoothTransfer && window.BluetoothKeyTransfer && React.createElement(window.BluetoothKeyTransfer, {
-                            key: 'bluetooth-transfer-modal',
-                            webrtcManager: webrtcManagerRef.current,
-                            onKeyReceived: handleBluetoothKeyReceived,
-                            onStatusChange: handleBluetoothStatusChange,
-                            onError: handleBluetoothError,
-                            onAutoConnection: handleBluetoothAutoConnection,
-                            isVisible: showBluetoothTransfer,
-                            onClose: () => setShowBluetoothTransfer(false),
-                            role: bluetoothAutoRole,
-                            offerData: bluetoothOfferData
-                        })
                         
                     ]);
                 };

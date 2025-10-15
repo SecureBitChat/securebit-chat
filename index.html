@@ -5,15 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy"
   content="default-src 'self';
-           script-src 'self' ;
+           script-src 'self';
            style-src 'self';
-           font-src 'self' ;
-           connect-src 'self' https: ;
-           img-src 'self' data:;
-           manifest-src 'self';
-           worker-src 'self';
+           font-src 'self';
+           connect-src 'self' https: wss: ws:;
+           img-src 'self' data: https:;
+           media-src 'none';
            object-src 'none';
+           frame-src 'none';
            frame-ancestors 'none';
+           worker-src 'self';
+           manifest-src 'self';
            form-action 'self';
            upgrade-insecure-requests;
            report-uri /csp-report;
@@ -110,8 +112,7 @@
 <meta name="theme-color" content="#ff6b35">
 <meta name="msapplication-navbutton-color" content="#ff6b35">
 
-<!-- Security Headers for PWA -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' ; style-src 'self' ; font-src 'self' ; connect-src 'self' https: wss: ws:; img-src 'self' data: https:; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'self';">
+<!-- Security Headers for PWA - CSP is already defined above -->
 
 
     <!-- GitHub Pages SEO -->

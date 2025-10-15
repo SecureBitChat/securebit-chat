@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bluetooth Button Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .log {
+            background: #000;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+        .success { color: #4CAF50; }
+        .error { color: #f44336; }
+        .warning { color: #ff9800; }
+        .info { color: #2196F3; }
+    </style>
+</head>
+<body>
+    <h1>Bluetooth Button Test</h1>
+    
+    <p>This test will check if Bluetooth buttons work in the main application.</p>
+    
+    <button onclick="testBluetoothButtons()">Test Bluetooth Buttons</button>
+    <button onclick="clearLog()">Clear Log</button>
+    
+    <div id="log" class="log"></div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'info';
+            logDiv.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+        }
+
+        async function testBluetoothButtons() {
+            log('Testing Bluetooth buttons...');
+            
+            // Wait for modules to load
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Check if classes are loaded
+            log('Checking Bluetooth classes...');
+            if (window.EnhancedBluetoothKeyTransfer) {
+                log('✓ EnhancedBluetoothKeyTransfer loaded', 'success');
+            } else {
+                log('✗ EnhancedBluetoothKeyTransfer not loaded', 'error');
+            }
+            
+            if (window.BluetoothManagerFactory) {
+                log('✓ BluetoothManagerFactory loaded', 'success');
+            } else {
+                log('✗ BluetoothManagerFactory not loaded', 'error');
+            }
+            
+            // Test creating a manager
+            try {
+                log('Testing manager creation...');
+                const manager = window.BluetoothManagerFactory.createAutoManager(
+                    null, null, null, null, null, 'test-data'
+                );
+                log('✓ Manager created successfully', 'success');
+                log(`Manager type: ${typeof manager}`, 'success');
+                log(`Manager isSupported: ${manager.isSupported}`, 'success');
+                log(`Manager isAvailable: ${manager.isAvailable}`, 'success');
+                
+                // Test methods
+                if (typeof manager.startScanning === 'function') {
+                    log('✓ startScanning method available', 'success');
+                } else {
+                    log('✗ startScanning method not available', 'error');
+                }
+                
+                if (typeof manager.startAdvertising === 'function') {
+                    log('✓ startAdvertising method available', 'success');
+                } else {
+                    log('✗ startAdvertising method not available', 'error');
+                }
+                
+            } catch (error) {
+                log(`✗ Manager creation failed: ${error.message}`, 'error');
+            }
+            
+            // Test React component
+            log('Checking React component...');
+            if (window.BluetoothKeyTransfer) {
+                log('✓ BluetoothKeyTransfer React component loaded', 'success');
+            } else {
+                log('✗ BluetoothKeyTransfer React component not loaded', 'error');
+            }
+            
+            log('Bluetooth button test completed');
+        }
+
+        // Auto-run test when page loads
+        window.addEventListener('load', () => {
+            log('Page loaded, starting Bluetooth button test...');
+            testBluetoothButtons();
+        });
+    </script>
+
+    <!-- Load our modules -->
+    <script type="module" src="dist/app-boot.js"></script>
+</body>
+</html>
