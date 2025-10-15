@@ -22,5 +22,6 @@ jobs:
 
       - name: Push to Codeberg
         run: |
+          git remote remove codeberg || true
           git remote add codeberg git@codeberg.org:SecureBitChat/securebit-chat.git
           git push codeberg main --force
