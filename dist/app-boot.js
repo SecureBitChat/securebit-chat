@@ -15294,7 +15294,7 @@ Right-click or Ctrl+click to disconnect`,
             React.createElement("p", {
               key: "subtitle",
               className: "text-xs sm:text-sm text-muted hidden sm:block"
-            }, "End-to-end freedom v4.3.120")
+            }, "End-to-end freedom v4.4.18")
           ])
         ]),
         // Status and Controls - Responsive
@@ -16049,7 +16049,7 @@ function Roadmap() {
     },
     // current and future phases
     {
-      version: "v4.3.120",
+      version: "v4.4.18",
       title: "Enhanced Security Edition",
       status: "current",
       date: "Now",
