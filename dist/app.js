@@ -293,8 +293,8 @@ var EnhancedConnectionSetup = ({
       if (!window.isSecureContext && window.location.protocol !== "https:" && window.location.hostname !== "localhost") {
         return;
       }
-      const currentPermission = Notification.permission;
-      if (currentPermission === "default") {
+      const currentPermission = typeof Notification !== "undefined" && Notification ? Notification.permission : "denied";
+      if (typeof Notification !== "undefined" && currentPermission === "default") {
         const permission = await Notification.requestPermission();
         if (permission === "granted") {
           try {
@@ -307,6 +307,7 @@ var EnhancedConnectionSetup = ({
           }
           setTimeout(() => {
             try {
+              if (typeof Notification === "undefined") return;
               const welcomeNotification = new Notification("SecureBit Chat", {
                 body: "Notifications enabled! You will receive alerts for new messages.",
                 icon: "/logo/icon-192x192.png",
@@ -322,7 +323,7 @@ var EnhancedConnectionSetup = ({
             }
           }, 1e3);
         }
-      } else if (currentPermission === "granted") {
+      } else if (typeof Notification !== "undefined" && currentPermission === "granted") {
         try {
           if (window.NotificationIntegration && webrtcManagerRef.current && !notificationIntegrationRef.current) {
             const integration = new window.NotificationIntegration(webrtcManagerRef.current);
@@ -333,6 +334,7 @@ var EnhancedConnectionSetup = ({
         }
         setTimeout(() => {
           try {
+            if (typeof Notification === "undefined") return;
             const testNotification = new Notification("SecureBit Chat", {
               body: "Notifications are working! You will receive alerts for new messages.",
               icon: "/logo/icon-192x192.png",
@@ -1670,7 +1672,7 @@ var EnhancedSecureP2PChat = () => {
       handleAnswerError,
       handleVerificationStateChange
     );
-    if (Notification.permission === "granted" && window.NotificationIntegration && !notificationIntegrationRef.current) {
+    if (typeof Notification !== "undefined" && Notification.permission === "granted" && window.NotificationIntegration && !notificationIntegrationRef.current) {
       try {
         const integration = new window.NotificationIntegration(webrtcManagerRef2.current);
         integration.init().then(() => {
@@ -2557,14 +2559,24 @@ var EnhancedSecureP2PChat = () => {
         }]);
         let offer;
         try {
+          console.log("DEBUG: Processing offer input:", offerInput.trim().substring(0, 100) + "...");
+          console.log("DEBUG: decodeAnyPayload available:", typeof window.decodeAnyPayload === "function");
+          console.log("DEBUG: decompressIfNeeded available:", typeof window.decompressIfNeeded === "function");
           if (typeof window.decodeAnyPayload === "function") {
+            console.log("DEBUG: Using decodeAnyPayload...");
             const any = window.decodeAnyPayload(offerInput.trim());
+            console.log("DEBUG: decodeAnyPayload result type:", typeof any);
+            console.log("DEBUG: decodeAnyPayload result:", any);
             offer = typeof any === "string" ? JSON.parse(any) : any;
           } else {
+            console.log("DEBUG: Using decompressIfNeeded...");
             const rawText = typeof window.decompressIfNeeded === "function" ? window.decompressIfNeeded(offerInput.trim()) : offerInput.trim();
+            console.log("DEBUG: decompressIfNeeded result:", rawText.substring(0, 100) + "...");
             offer = JSON.parse(rawText);
           }
+          console.log("DEBUG: Final offer:", offer);
         } catch (parseError) {
+          console.error("DEBUG: Parse error:", parseError);
           throw new Error(`Invalid invitation format: ${parseError.message}`);
         }
         if (!offer || typeof offer !== "object") {

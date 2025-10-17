@@ -9,7 +9,10 @@
 
 class SecureChatNotificationManager {
   constructor(config = {}) {
-    this.permission = Notification.permission;
+    // Safely read Notification permission (iOS Safari may not define Notification)
+    this.permission = (typeof Notification !== 'undefined' && Notification && typeof Notification.permission === 'string')
+      ? Notification.permission
+      : 'denied';
     this.isTabActive = this.checkTabActive(); // Initialize with proper check
     this.unreadCount = 0;
     this.originalTitle = document.title;
@@ -238,6 +241,10 @@ class SecureChatNotificationManager {
    * @returns {Notification|null} Created notification or null
    */
   notify(senderName, message, options = {}) {
+    // Abort if Notifications API is not available (e.g., iOS Safari)
+    if (typeof Notification === 'undefined') {
+      return null;
+    }
     // Update tab active state before checking
     this.isTabActive = this.checkTabActive();
     

@@ -1204,12 +1204,22 @@ class EnhancedSecureCryptoUtils {
     // Verify ECDSA signature (P-384 or P-256)
     static async verifySignature(publicKey, signature, data) {
         try {
+            console.log('DEBUG: verifySignature called with:', {
+                publicKey: publicKey,
+                signature: signature,
+                data: data
+            });
+            
             const encoder = new TextEncoder();
             const dataBuffer = typeof data === 'string' ? encoder.encode(data) : data;
             const signatureBuffer = new Uint8Array(signature);
             
+            console.log('DEBUG: verifySignature dataBuffer:', dataBuffer);
+            console.log('DEBUG: verifySignature signatureBuffer:', signatureBuffer);
+            
             // Try SHA-384 first, fallback to SHA-256
             try {
+                console.log('DEBUG: Trying SHA-384 verification...');
                 const isValid = await crypto.subtle.verify(
                     {
                         name: 'ECDSA',
@@ -1220,6 +1230,8 @@ class EnhancedSecureCryptoUtils {
                     dataBuffer
                 );
                 
+                console.log('DEBUG: SHA-384 verification result:', isValid);
+                
                 EnhancedSecureCryptoUtils.secureLog.log('info', 'Signature verification completed (SHA-384)', {
                     isValid,
                     dataSize: dataBuffer.length
@@ -1227,8 +1239,10 @@ class EnhancedSecureCryptoUtils {
                 
                 return isValid;
             } catch (sha384Error) {
+                console.log('DEBUG: SHA-384 verification failed, trying SHA-256:', sha384Error);
                 EnhancedSecureCryptoUtils.secureLog.log('warn', 'SHA-384 verification failed, trying SHA-256', { error: sha384Error.message });
                 
+                console.log('DEBUG: Trying SHA-256 verification...');
                 const isValid = await crypto.subtle.verify(
                     {
                         name: 'ECDSA',
@@ -1238,6 +1252,8 @@ class EnhancedSecureCryptoUtils {
                     signatureBuffer,
                     dataBuffer
                 );
+                
+                console.log('DEBUG: SHA-256 verification result:', isValid);
                 
                 EnhancedSecureCryptoUtils.secureLog.log('info', 'Signature verification completed (SHA-256 fallback)', {
                     isValid,
@@ -1583,6 +1599,12 @@ class EnhancedSecureCryptoUtils {
     // Import and verify signed public key
     static async importSignedPublicKey(signedPackage, verifyingKey, expectedKeyType = 'ECDH') {
         try {
+            console.log('DEBUG: importSignedPublicKey called with:', {
+                signedPackage: signedPackage,
+                verifyingKey: verifyingKey,
+                expectedKeyType: expectedKeyType
+            });
+            
             // Validate package structure
             if (!signedPackage || typeof signedPackage !== 'object') {
                 throw new Error('Invalid signed package format');
@@ -1609,7 +1631,11 @@ class EnhancedSecureCryptoUtils {
             // Verify signature
             const packageCopy = { keyType, keyData, timestamp, version };
             const packageString = JSON.stringify(packageCopy);
+            console.log('DEBUG: Web version package string for verification:', packageString);
+            console.log('DEBUG: Web version signature to verify:', signature);
+            console.log('DEBUG: Web version verifying key:', verifyingKey);
             const isValidSignature = await EnhancedSecureCryptoUtils.verifySignature(verifyingKey, signature, packageString);
+            console.log('DEBUG: Web version signature verification result:', isValidSignature);
             
             if (!isValidSignature) {
                 throw new Error('Invalid signature on key package - possible MITM attack');

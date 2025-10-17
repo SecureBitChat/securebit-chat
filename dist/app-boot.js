@@ -29,7 +29,7 @@ var require_SecureNotificationManager = __commonJS({
   "src/notifications/SecureNotificationManager.js"(exports, module) {
     var SecureChatNotificationManager = class {
       constructor(config = {}) {
-        this.permission = Notification.permission;
+        this.permission = typeof Notification !== "undefined" && Notification && typeof Notification.permission === "string" ? Notification.permission : "denied";
         this.isTabActive = this.checkTabActive();
         this.unreadCount = 0;
         this.originalTitle = document.title;
@@ -213,6 +213,9 @@ var require_SecureNotificationManager = __commonJS({
        * @returns {Notification|null} Created notification or null
        */
       notify(senderName, message, options = {}) {
+        if (typeof Notification === "undefined") {
+          return null;
+        }
         this.isTabActive = this.checkTabActive();
         if (this.isTabActive) {
           return null;
@@ -1684,10 +1687,18 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
   // Verify ECDSA signature (P-384 or P-256)
   static async verifySignature(publicKey, signature, data) {
     try {
+      console.log("DEBUG: verifySignature called with:", {
+        publicKey,
+        signature,
+        data
+      });
       const encoder = new TextEncoder();
       const dataBuffer = typeof data === "string" ? encoder.encode(data) : data;
       const signatureBuffer = new Uint8Array(signature);
+      console.log("DEBUG: verifySignature dataBuffer:", dataBuffer);
+      console.log("DEBUG: verifySignature signatureBuffer:", signatureBuffer);
       try {
+        console.log("DEBUG: Trying SHA-384 verification...");
         const isValid = await crypto.subtle.verify(
           {
             name: "ECDSA",
@@ -1697,13 +1708,16 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
           signatureBuffer,
           dataBuffer
         );
+        console.log("DEBUG: SHA-384 verification result:", isValid);
         _EnhancedSecureCryptoUtils.secureLog.log("info", "Signature verification completed (SHA-384)", {
           isValid,
           dataSize: dataBuffer.length
         });
         return isValid;
       } catch (sha384Error) {
+        console.log("DEBUG: SHA-384 verification failed, trying SHA-256:", sha384Error);
         _EnhancedSecureCryptoUtils.secureLog.log("warn", "SHA-384 verification failed, trying SHA-256", { error: sha384Error.message });
+        console.log("DEBUG: Trying SHA-256 verification...");
         const isValid = await crypto.subtle.verify(
           {
             name: "ECDSA",
@@ -1713,6 +1727,7 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
           signatureBuffer,
           dataBuffer
         );
+        console.log("DEBUG: SHA-256 verification result:", isValid);
         _EnhancedSecureCryptoUtils.secureLog.log("info", "Signature verification completed (SHA-256 fallback)", {
           isValid,
           dataSize: dataBuffer.length
@@ -1973,6 +1988,11 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
   // Import and verify signed public key
   static async importSignedPublicKey(signedPackage, verifyingKey, expectedKeyType = "ECDH") {
     try {
+      console.log("DEBUG: importSignedPublicKey called with:", {
+        signedPackage,
+        verifyingKey,
+        expectedKeyType
+      });
       if (!signedPackage || typeof signedPackage !== "object") {
         throw new Error("Invalid signed package format");
       }
@@ -1990,7 +2010,11 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
       await _EnhancedSecureCryptoUtils.validateKeyStructure(keyData, keyType);
       const packageCopy = { keyType, keyData, timestamp, version };
       const packageString = JSON.stringify(packageCopy);
+      console.log("DEBUG: Web version package string for verification:", packageString);
+      console.log("DEBUG: Web version signature to verify:", signature);
+      console.log("DEBUG: Web version verifying key:", verifyingKey);
       const isValidSignature = await _EnhancedSecureCryptoUtils.verifySignature(verifyingKey, signature, packageString);
+      console.log("DEBUG: Web version signature verification result:", isValidSignature);
       if (!isValidSignature) {
         throw new Error("Invalid signature on key package - possible MITM attack");
       }

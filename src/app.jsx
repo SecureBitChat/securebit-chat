@@ -317,10 +317,12 @@
                             }
                             
                             // Check current permission status
-                            const currentPermission = Notification.permission;
+                            const currentPermission = (typeof Notification !== 'undefined' && Notification)
+                                ? Notification.permission
+                                : 'denied';
                             
                             // Only request if permission is default (not granted or denied)
-                            if (currentPermission === 'default') {
+                            if (typeof Notification !== 'undefined' && currentPermission === 'default') {
                                 const permission = await Notification.requestPermission();
                                 
                                 if (permission === 'granted') {
@@ -337,9 +339,10 @@
                                         // Handle error silently
                                     }
                                     
-                                    // Send welcome notification
+                                    // Send welcome notification (only if Notifications API exists)
                                     setTimeout(() => {
                                         try {
+                                            if (typeof Notification === 'undefined') return;
                                             const welcomeNotification = new Notification('SecureBit Chat', {
                                                 body: 'Notifications enabled! You will receive alerts for new messages.',
                                                 icon: '/logo/icon-192x192.png',
@@ -360,7 +363,7 @@
                                     }, 1000);
                                     
                                 }
-                            } else if (currentPermission === 'granted') {
+                            } else if (typeof Notification !== 'undefined' && currentPermission === 'granted') {
                                 // Initialize notification integration immediately
                                 try {
                                     if (window.NotificationIntegration && webrtcManagerRef.current && !notificationIntegrationRef.current) {
@@ -377,6 +380,7 @@
                                 // Test notification to confirm it works
                                 setTimeout(() => {
                                     try {
+                                        if (typeof Notification === 'undefined') return;
                                         const testNotification = new Notification('SecureBit Chat', {
                                             body: 'Notifications are working! You will receive alerts for new messages.',
                                             icon: '/logo/icon-192x192.png',
@@ -1900,7 +1904,7 @@
                         );
         
                         // Initialize notification integration if permission was already granted
-                        if (Notification.permission === 'granted' && window.NotificationIntegration && !notificationIntegrationRef.current) {
+                        if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && window.NotificationIntegration && !notificationIntegrationRef.current) {
                             try {
                                 const integration = new window.NotificationIntegration(webrtcManagerRef.current);
                                 integration.init().then(() => {
@@ -2926,15 +2930,26 @@
         
                                 let offer;
                                 try {
+                                    console.log('DEBUG: Processing offer input:', offerInput.trim().substring(0, 100) + '...');
+                                    console.log('DEBUG: decodeAnyPayload available:', typeof window.decodeAnyPayload === 'function');
+                                    console.log('DEBUG: decompressIfNeeded available:', typeof window.decompressIfNeeded === 'function');
+                                    
                                     // Prefer binary decode first, then gzip JSON
                                     if (typeof window.decodeAnyPayload === 'function') {
+                                        console.log('DEBUG: Using decodeAnyPayload...');
                                         const any = window.decodeAnyPayload(offerInput.trim());
+                                        console.log('DEBUG: decodeAnyPayload result type:', typeof any);
+                                        console.log('DEBUG: decodeAnyPayload result:', any);
                                         offer = (typeof any === 'string') ? JSON.parse(any) : any;
                                     } else {
+                                        console.log('DEBUG: Using decompressIfNeeded...');
                                         const rawText = (typeof window.decompressIfNeeded === 'function') ? window.decompressIfNeeded(offerInput.trim()) : offerInput.trim();
+                                        console.log('DEBUG: decompressIfNeeded result:', rawText.substring(0, 100) + '...');
                                         offer = JSON.parse(rawText);
                                     }
+                                    console.log('DEBUG: Final offer:', offer);
                                 } catch (parseError) {
+                                    console.error('DEBUG: Parse error:', parseError);
                                     throw new Error(`Invalid invitation format: ${parseError.message}`);
                                 }
         
