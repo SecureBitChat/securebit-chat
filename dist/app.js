@@ -268,12 +268,15 @@ var EnhancedConnectionSetup = ({
   nextQrFrame,
   prevQrFrame,
   markAnswerCreated,
-  notificationIntegrationRef
+  notificationIntegrationRef,
+  isGeneratingKeys,
+  handleCreateOffer
 }) => {
   const [mode, setMode] = React.useState("select");
   const [notificationPermissionRequested, setNotificationPermissionRequested] = React.useState(false);
   const resetToSelect = () => {
     setMode("select");
+    setIsGeneratingKeys(false);
     onClearData();
   };
   const handleVerificationConfirm = () => {
@@ -293,8 +296,8 @@ var EnhancedConnectionSetup = ({
       if (!window.isSecureContext && window.location.protocol !== "https:" && window.location.hostname !== "localhost") {
         return;
       }
-      const currentPermission = typeof Notification !== "undefined" && Notification ? Notification.permission : "denied";
-      if (typeof Notification !== "undefined" && currentPermission === "default") {
+      const currentPermission = Notification.permission;
+      if (currentPermission === "default") {
         const permission = await Notification.requestPermission();
         if (permission === "granted") {
           try {
@@ -307,7 +310,6 @@ var EnhancedConnectionSetup = ({
           }
           setTimeout(() => {
             try {
-              if (typeof Notification === "undefined") return;
               const welcomeNotification = new Notification("SecureBit Chat", {
                 body: "Notifications enabled! You will receive alerts for new messages.",
                 icon: "/logo/icon-192x192.png",
@@ -323,7 +325,7 @@ var EnhancedConnectionSetup = ({
             }
           }, 1e3);
         }
-      } else if (typeof Notification !== "undefined" && currentPermission === "granted") {
+      } else if (currentPermission === "granted") {
         try {
           if (window.NotificationIntegration && webrtcManagerRef.current && !notificationIntegrationRef.current) {
             const integration = new window.NotificationIntegration(webrtcManagerRef.current);
@@ -334,7 +336,6 @@ var EnhancedConnectionSetup = ({
         }
         setTimeout(() => {
           try {
-            if (typeof Notification === "undefined") return;
             const testNotification = new Notification("SecureBit Chat", {
               body: "Notifications are working! You will receive alerts for new messages.",
               icon: "/logo/icon-192x192.png",
@@ -404,6 +405,11 @@ var EnhancedConnectionSetup = ({
             onClick: () => {
               requestNotificationPermissionOnInteraction();
               setMode("create");
+              setTimeout(() => {
+                if (webrtcManagerRef.current) {
+                  handleCreateOffer();
+                }
+              }, 100);
             },
             className: "card-minimal rounded-xl p-6 cursor-pointer group flex-1 create"
           }, [
@@ -590,16 +596,15 @@ var EnhancedConnectionSetup = ({
             key: "description",
             className: "text-secondary text-sm mb-4"
           }, "Creating cryptographically strong keys and codes to protect against attacks"),
-          !showOfferStep && React.createElement("button", {
-            key: "create-btn",
-            onClick: onCreateOffer,
-            disabled: connectionStatus === "connecting",
-            className: `w-full btn-primary text-white py-3 px-4 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed`
+          !showOfferStep && isGeneratingKeys && React.createElement("div", {
+            key: "loading-state",
+            className: "w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center"
           }, [
             React.createElement("i", {
-              className: "fas fa-shield-alt mr-2"
+              key: "spinner",
+              className: "fas fa-spinner fa-spin mr-2"
             }),
-            "Create secure keys"
+            "Generating secure keys..."
           ]),
           showOfferStep && React.createElement("div", {
             key: "offer-result",
@@ -1360,6 +1365,7 @@ var EnhancedSecureP2PChat = () => {
   const [qrCodeUrl, setQrCodeUrl] = React.useState("");
   const [showQRScanner, setShowQRScanner] = React.useState(false);
   const [showQRScannerModal, setShowQRScannerModal] = React.useState(false);
+  const [isGeneratingKeys, setIsGeneratingKeys2] = React.useState(false);
   const [isVerified, setIsVerified] = React.useState(false);
   const [securityLevel, setSecurityLevel] = React.useState(null);
   const [sessionTimeLeft, setSessionTimeLeft] = React.useState(0);
@@ -1672,7 +1678,7 @@ var EnhancedSecureP2PChat = () => {
       handleAnswerError,
       handleVerificationStateChange
     );
-    if (typeof Notification !== "undefined" && Notification.permission === "granted" && window.NotificationIntegration && !notificationIntegrationRef.current) {
+    if (Notification.permission === "granted" && window.NotificationIntegration && !notificationIntegrationRef.current) {
       try {
         const integration = new window.NotificationIntegration(webrtcManagerRef2.current);
         integration.init().then(() => {
@@ -2449,6 +2455,7 @@ var EnhancedSecureP2PChat = () => {
   };
   const handleCreateOffer = async () => {
     try {
+      setIsGeneratingKeys2(true);
       setOfferData("");
       setShowOfferStep(false);
       setShowQRCode(false);
@@ -2537,6 +2544,8 @@ var EnhancedSecureP2PChat = () => {
         id: Date.now(),
         timestamp: Date.now()
       }]);
+    } finally {
+      setIsGeneratingKeys2(false);
     }
   };
   const handleCreateAnswer = async () => {
@@ -2897,6 +2906,7 @@ var EnhancedSecureP2PChat = () => {
     setOfferInput("");
     setAnswerInput("");
     setShowOfferStep(false);
+    setIsGeneratingKeys2(false);
     if (!shouldPreserveAnswerData()) {
       setShowAnswerStep(false);
     }
@@ -2954,6 +2964,7 @@ var EnhancedSecureP2PChat = () => {
       setAnswerInput("");
       setShowOfferStep(false);
       setShowAnswerStep(false);
+      setIsGeneratingKeys2(false);
       setShowQRCode(false);
       setQrCodeUrl("");
       setShowQRScanner(false);
@@ -3154,7 +3165,9 @@ var EnhancedSecureP2PChat = () => {
         prevQrFrame,
         // PAKE passwords removed - using SAS verification instead
         markAnswerCreated,
-        notificationIntegrationRef
+        notificationIntegrationRef,
+        isGeneratingKeys,
+        handleCreateOffer
       })
     ),
     // QR Scanner Modal

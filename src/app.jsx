@@ -281,13 +281,16 @@
                     nextQrFrame,
                     prevQrFrame,
                     markAnswerCreated,
-                    notificationIntegrationRef
+                    notificationIntegrationRef,
+                    isGeneratingKeys,
+                    handleCreateOffer
                 }) => {
                     const [mode, setMode] = React.useState('select');
                     const [notificationPermissionRequested, setNotificationPermissionRequested] = React.useState(false);
         
                     const resetToSelect = () => {
                         setMode('select');
+                        setIsGeneratingKeys(false);
                         onClearData();
                     };
         
@@ -317,12 +320,10 @@
                             }
                             
                             // Check current permission status
-                            const currentPermission = (typeof Notification !== 'undefined' && Notification)
-                                ? Notification.permission
-                                : 'denied';
+                            const currentPermission = Notification.permission;
                             
                             // Only request if permission is default (not granted or denied)
-                            if (typeof Notification !== 'undefined' && currentPermission === 'default') {
+                            if (currentPermission === 'default') {
                                 const permission = await Notification.requestPermission();
                                 
                                 if (permission === 'granted') {
@@ -339,10 +340,9 @@
                                         // Handle error silently
                                     }
                                     
-                                    // Send welcome notification (only if Notifications API exists)
+                                    // Send welcome notification
                                     setTimeout(() => {
                                         try {
-                                            if (typeof Notification === 'undefined') return;
                                             const welcomeNotification = new Notification('SecureBit Chat', {
                                                 body: 'Notifications enabled! You will receive alerts for new messages.',
                                                 icon: '/logo/icon-192x192.png',
@@ -363,7 +363,7 @@
                                     }, 1000);
                                     
                                 }
-                            } else if (typeof Notification !== 'undefined' && currentPermission === 'granted') {
+                            } else if (currentPermission === 'granted') {
                                 // Initialize notification integration immediately
                                 try {
                                     if (window.NotificationIntegration && webrtcManagerRef.current && !notificationIntegrationRef.current) {
@@ -380,7 +380,6 @@
                                 // Test notification to confirm it works
                                 setTimeout(() => {
                                     try {
-                                        if (typeof Notification === 'undefined') return;
                                         const testNotification = new Notification('SecureBit Chat', {
                                             body: 'Notifications are working! You will receive alerts for new messages.',
                                             icon: '/logo/icon-192x192.png',
@@ -459,6 +458,12 @@
                                         onClick: () => {
                                             requestNotificationPermissionOnInteraction();
                                             setMode('create');
+                                            // Автоматически запускаем генерацию ключей
+                                            setTimeout(() => {
+                                                if (webrtcManagerRef.current) {
+                                                    handleCreateOffer();
+                                                }
+                                            }, 100);
                                         },
                                         className: "card-minimal rounded-xl p-6 cursor-pointer group flex-1 create"
                                     }, [
@@ -631,7 +636,7 @@
                                         className: "text-xl font-semibold text-primary mb-2"
                                     }, 'Creating a secure channel')
                                 ]),
-        
+
                                 // Step 1
                                 !showAnswerStep && React.createElement('div', {
                                     key: 'step1',
@@ -654,16 +659,15 @@
                                         key: 'description',
                                         className: "text-secondary text-sm mb-4"
                                     }, "Creating cryptographically strong keys and codes to protect against attacks"),
-                                    !showOfferStep && React.createElement('button', {
-                                        key: 'create-btn',
-                                        onClick: onCreateOffer,
-                                        disabled: connectionStatus === 'connecting',
-                                        className: `w-full btn-primary text-white py-3 px-4 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed`
+                                    !showOfferStep && isGeneratingKeys && React.createElement('div', {
+                                        key: 'loading-state',
+                                        className: "w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center"
                                     }, [
                                         React.createElement('i', {
-                                            className: 'fas fa-shield-alt mr-2'
+                                            key: 'spinner',
+                                            className: 'fas fa-spinner fa-spin mr-2'
                                         }),
-                                        'Create secure keys'
+                                        'Generating secure keys...'
                                     ]),
         
                                     showOfferStep && React.createElement('div', {
@@ -1472,6 +1476,7 @@
                     const [qrCodeUrl, setQrCodeUrl] = React.useState('');
                     const [showQRScanner, setShowQRScanner] = React.useState(false);
                     const [showQRScannerModal, setShowQRScannerModal] = React.useState(false);
+                    const [isGeneratingKeys, setIsGeneratingKeys] = React.useState(false);
                     
 
                     const [isVerified, setIsVerified] = React.useState(false);
@@ -1904,7 +1909,7 @@
                         );
         
                         // Initialize notification integration if permission was already granted
-                        if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && window.NotificationIntegration && !notificationIntegrationRef.current) {
+                        if (Notification.permission === 'granted' && window.NotificationIntegration && !notificationIntegrationRef.current) {
                             try {
                                 const integration = new window.NotificationIntegration(webrtcManagerRef.current);
                                 integration.init().then(() => {
@@ -2800,7 +2805,7 @@
                     const handleCreateOffer = async () => {
                         try {
                             // All security features are enabled by default
-        
+                            setIsGeneratingKeys(true);
                             setOfferData('');
                             setShowOfferStep(false);
                             setShowQRCode(false);
@@ -2904,6 +2909,8 @@
                                         id: Date.now(),
                                         timestamp: Date.now()
                                     }]);
+                                } finally {
+                                    setIsGeneratingKeys(false);
                                 }
                     };
         
@@ -3340,6 +3347,7 @@
                         setOfferInput('');
                         setAnswerInput('');
                         setShowOfferStep(false);
+                        setIsGeneratingKeys(false);
 
                         if (!shouldPreserveAnswerData()) {
                             setShowAnswerStep(false);
@@ -3417,13 +3425,14 @@
                         setRemoteVerificationConfirmed(false);
                         setBothVerificationsConfirmed(false);
         
-                            // Reset UI to initial state
-                            setOfferData('');
-                            setAnswerData('');
+                        // Reset UI to initial state
+                        setOfferData('');
+                        setAnswerData('');
                         setOfferInput('');
                         setAnswerInput('');
                         setShowOfferStep(false);
                         setShowAnswerStep(false);
+                        setIsGeneratingKeys(false);
                             setShowQRCode(false);
                             setQrCodeUrl('');
                             setShowQRScanner(false);
@@ -3662,7 +3671,9 @@
                                     prevQrFrame: prevQrFrame,
                                     // PAKE passwords removed - using SAS verification instead
                                     markAnswerCreated: markAnswerCreated,
-                                    notificationIntegrationRef: notificationIntegrationRef
+                                    notificationIntegrationRef: notificationIntegrationRef,
+                                    isGeneratingKeys: isGeneratingKeys,
+                                    handleCreateOffer: handleCreateOffer
                                 })
                         ),
                         
