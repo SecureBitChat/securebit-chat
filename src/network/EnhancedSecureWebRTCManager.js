@@ -4510,7 +4510,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         } while (randomValue >= 256 - (256 % range));
         return (randomValue % range) + min;
     }
-
+    
     //   Generate fingerprint mask for anti-fingerprinting with enhanced randomization
     generateFingerprintMask() {
         //   Enhanced randomization to prevent side-channel attacks
