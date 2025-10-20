@@ -2760,6 +2760,14 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
     if (typeof message !== "string") {
       throw new Error("Message must be a string");
     }
+    function replaceUntilStable(str, pattern, replacement = "") {
+      let previous;
+      do {
+        previous = str;
+        str = str.replace(pattern, replacement);
+      } while (str !== previous);
+      return str;
+    }
     const dangerousPatterns = [
       // Script tags with various formats
       /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,
@@ -2793,12 +2801,20 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
     do {
       previousLength = sanitized.length;
       for (const pattern of dangerousPatterns) {
-        sanitized = sanitized.replace(pattern, "");
+        sanitized = replaceUntilStable(sanitized, pattern);
       }
-      sanitized = sanitized.replace(/<[^>]*>/g, "").replace(/^\w+:/gi, "").replace(/\bon\w+\s*=\s*["'][^"']*["']/gi, "").replace(/\bon\w+\s*=\s*[^>\s]+/gi, "").replace(/[<>]/g, "").trim();
+      sanitized = replaceUntilStable(sanitized, /<[^>]*>/g);
+      sanitized = replaceUntilStable(sanitized, /^\w+:/gi);
+      sanitized = replaceUntilStable(sanitized, /\bon\w+\s*=\s*["'][^"']*["']/gi);
+      sanitized = replaceUntilStable(sanitized, /\bon\w+\s*=\s*[^>\s]+/gi);
+      sanitized = sanitized.replace(/[<>]/g, "").trim();
       iterations++;
     } while (sanitized.length !== previousLength && iterations < maxIterations);
-    sanitized = sanitized.replace(/<[^>]*>/g, "").replace(/^\w+:/gi, "").replace(/\bon\w+\s*=\s*["'][^"']*["']/gi, "").replace(/\bon\w+\s*=\s*[^>\s]+/gi, "").replace(/[<>]/g, "").trim();
+    sanitized = replaceUntilStable(sanitized, /<[^>]*>/g);
+    sanitized = replaceUntilStable(sanitized, /^\w+:/gi);
+    sanitized = replaceUntilStable(sanitized, /\bon\w+\s*=\s*["'][^"']*["']/gi);
+    sanitized = replaceUntilStable(sanitized, /\bon\w+\s*=\s*[^>\s]+/gi);
+    sanitized = sanitized.replace(/[<>]/g, "").trim();
     return sanitized.substring(0, 2e3);
   }
   // Generate cryptographically secure salt (64 bytes for enhanced security)

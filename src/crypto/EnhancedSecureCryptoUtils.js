@@ -2529,6 +2529,16 @@ class EnhancedSecureCryptoUtils {
             throw new Error('Message must be a string');
         }
         
+        // Helper function to apply replacement until stable
+        function replaceUntilStable(str, pattern, replacement = '') {
+            let previous;
+            do {
+                previous = str;
+                str = str.replace(pattern, replacement);
+            } while (str !== previous);
+            return str;
+        }
+        
         // Define all dangerous patterns that need to be removed
         const dangerousPatterns = [
             // Script tags with various formats
@@ -2566,39 +2576,31 @@ class EnhancedSecureCryptoUtils {
         do {
             previousLength = sanitized.length;
             
-            // Apply all dangerous patterns
+            // Apply all dangerous patterns with stable replacement
             for (const pattern of dangerousPatterns) {
-                sanitized = sanitized.replace(pattern, '');
+                sanitized = replaceUntilStable(sanitized, pattern);
             }
             
-            // Additional cleanup for edge cases
-            sanitized = sanitized
-                // Remove any remaining angle brackets that might form tags
-                .replace(/<[^>]*>/g, '')
-                // Remove any remaining protocol handlers
-                .replace(/^\w+:/gi, '')
-                // Remove any remaining event handlers
-                .replace(/\bon\w+\s*=\s*["'][^"']*["']/gi, '')
-                .replace(/\bon\w+\s*=\s*[^>\s]+/gi, '')
-                // Remove any remaining dangerous characters
-                .replace(/[<>]/g, '')
-                .trim();
+            // Additional cleanup for edge cases - each applied until stable
+            sanitized = replaceUntilStable(sanitized, /<[^>]*>/g);
+            sanitized = replaceUntilStable(sanitized, /^\w+:/gi);
+            sanitized = replaceUntilStable(sanitized, /\bon\w+\s*=\s*["'][^"']*["']/gi);
+            sanitized = replaceUntilStable(sanitized, /\bon\w+\s*=\s*[^>\s]+/gi);
+            
+            // Single character removal is inherently safe
+            sanitized = sanitized.replace(/[<>]/g, '').trim();
             
             iterations++;
         } while (sanitized.length !== previousLength && iterations < maxIterations);
         
-        // Final security pass: remove any remaining potential XSS vectors
-        sanitized = sanitized
-            // Remove any remaining HTML-like content
-            .replace(/<[^>]*>/g, '')
-            // Remove any remaining protocol handlers
-            .replace(/^\w+:/gi, '')
-            // Remove any remaining event handlers
-            .replace(/\bon\w+\s*=\s*["'][^"']*["']/gi, '')
-            .replace(/\bon\w+\s*=\s*[^>\s]+/gi, '')
-            // Remove any remaining dangerous characters
-            .replace(/[<>]/g, '')
-            .trim();
+        // Final security pass with stable replacements
+        sanitized = replaceUntilStable(sanitized, /<[^>]*>/g);
+        sanitized = replaceUntilStable(sanitized, /^\w+:/gi);
+        sanitized = replaceUntilStable(sanitized, /\bon\w+\s*=\s*["'][^"']*["']/gi);
+        sanitized = replaceUntilStable(sanitized, /\bon\w+\s*=\s*[^>\s]+/gi);
+        
+        // Final single character cleanup
+        sanitized = sanitized.replace(/[<>]/g, '').trim();
         
         return sanitized.substring(0, 2000); // Limit length
     }
