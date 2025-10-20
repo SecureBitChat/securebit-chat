@@ -2523,22 +2523,84 @@ class EnhancedSecureCryptoUtils {
         }
     }
 
-    // Enhanced input sanitization
+    // Enhanced input sanitization with iterative processing to handle edge cases
     static sanitizeMessage(message) {
         if (typeof message !== 'string') {
             throw new Error('Message must be a string');
         }
         
-        return message
-            .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-            .replace(/javascript:/gi, '')
-            .replace(/data:/gi, '')
-            .replace(/vbscript:/gi, '')
-            .replace(/onload\s*=/gi, '')
-            .replace(/onerror\s*=/gi, '')
-            .replace(/onclick\s*=/gi, '')
-            .trim()
-            .substring(0, 2000); // Increased limit
+        // Define all dangerous patterns that need to be removed
+        const dangerousPatterns = [
+            // Script tags with various formats
+            /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,
+            /<script\b[^>]*>[\s\S]*?<\/script\s+[^>]*>/gi,
+            /<script\b[^>]*>[\s\S]*$/gi,
+            // Other dangerous tags
+            /<iframe\b[^>]*>[\s\S]*?<\/iframe\s*>/gi,
+            /<object\b[^>]*>[\s\S]*?<\/object\s*>/gi,
+            /<embed\b[^>]*>/gi,
+            /<applet\b[^>]*>[\s\S]*?<\/applet\s*>/gi,
+            /<style\b[^>]*>[\s\S]*?<\/style\s*>/gi,
+            // Dangerous protocols
+            /javascript\s*:/gi,
+            /data\s*:/gi,
+            /vbscript\s*:/gi,
+            // Event handlers
+            /on\w+\s*=/gi,
+            // HTML comments
+            /<!--[\s\S]*?-->/g,
+            // Link and meta tags with javascript
+            /<link\b[^>]*javascript[^>]*>/gi,
+            /<meta\b[^>]*javascript[^>]*>/gi,
+            // Any remaining script-like content
+            /<[^>]*script[^>]*>/gi,
+            /<[^>]*on\w+\s*=[^>]*>/gi
+        ];
+        
+        // Iterative sanitization to handle edge cases
+        let sanitized = message;
+        let previousLength;
+        let iterations = 0;
+        const maxIterations = 10; // Prevent infinite loops
+        
+        do {
+            previousLength = sanitized.length;
+            
+            // Apply all dangerous patterns
+            for (const pattern of dangerousPatterns) {
+                sanitized = sanitized.replace(pattern, '');
+            }
+            
+            // Additional cleanup for edge cases
+            sanitized = sanitized
+                // Remove any remaining angle brackets that might form tags
+                .replace(/<[^>]*>/g, '')
+                // Remove any remaining protocol handlers
+                .replace(/^\w+:/gi, '')
+                // Remove any remaining event handlers
+                .replace(/\bon\w+\s*=\s*["'][^"']*["']/gi, '')
+                .replace(/\bon\w+\s*=\s*[^>\s]+/gi, '')
+                // Remove any remaining dangerous characters
+                .replace(/[<>]/g, '')
+                .trim();
+            
+            iterations++;
+        } while (sanitized.length !== previousLength && iterations < maxIterations);
+        
+        // Final security pass: remove any remaining potential XSS vectors
+        sanitized = sanitized
+            // Remove any remaining HTML-like content
+            .replace(/<[^>]*>/g, '')
+            // Remove any remaining protocol handlers
+            .replace(/^\w+:/gi, '')
+            // Remove any remaining event handlers
+            .replace(/\bon\w+\s*=\s*["'][^"']*["']/gi, '')
+            .replace(/\bon\w+\s*=\s*[^>\s]+/gi, '')
+            // Remove any remaining dangerous characters
+            .replace(/[<>]/g, '')
+            .trim();
+        
+        return sanitized.substring(0, 2000); // Limit length
     }
 
     // Generate cryptographically secure salt (64 bytes for enhanced security)

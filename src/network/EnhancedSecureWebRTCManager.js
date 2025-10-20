@@ -1770,8 +1770,20 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         
         //   Malicious pattern detection
         this._maliciousPatterns = [
-            /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, // Script tags
-            /javascript:/gi, // JavaScript protocol
+            // Enhanced script tag detection that handles edge cases
+            /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, // Standard </script>
+            /<script\b[^>]*>[\s\S]*?<\/script\s+[^>]*>/gi, // </script with attributes>
+            /<script\b[^>]*>[\s\S]*$/gi, // Malformed script tags without closing
+            // Additional dangerous tags
+            /<iframe\b[^>]*>[\s\S]*?<\/iframe\s*>/gi, // iframe tags
+            /<object\b[^>]*>[\s\S]*?<\/object\s*>/gi, // object tags
+            /<embed\b[^>]*>/gi, // embed tags
+            /<applet\b[^>]*>[\s\S]*?<\/applet\s*>/gi, // applet tags
+            /<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, // style tags
+            // Dangerous protocols
+            /javascript\s*:/gi, // JavaScript protocol
+            /data\s*:/gi, // Data protocol
+            /vbscript\s*:/gi, // VBScript protocol
             /data:text\/html/gi, // Data URLs with HTML
             /on\w+\s*=/gi, // Event handlers
             /eval\s*\(/gi, // eval() calls

@@ -2755,12 +2755,51 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
       throw new Error(`Failed to decrypt the message: ${error.message}`);
     }
   }
-  // Enhanced input sanitization
+  // Enhanced input sanitization with iterative processing to handle edge cases
   static sanitizeMessage(message) {
     if (typeof message !== "string") {
       throw new Error("Message must be a string");
     }
-    return message.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "").replace(/javascript:/gi, "").replace(/data:/gi, "").replace(/vbscript:/gi, "").replace(/onload\s*=/gi, "").replace(/onerror\s*=/gi, "").replace(/onclick\s*=/gi, "").trim().substring(0, 2e3);
+    const dangerousPatterns = [
+      // Script tags with various formats
+      /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,
+      /<script\b[^>]*>[\s\S]*?<\/script\s+[^>]*>/gi,
+      /<script\b[^>]*>[\s\S]*$/gi,
+      // Other dangerous tags
+      /<iframe\b[^>]*>[\s\S]*?<\/iframe\s*>/gi,
+      /<object\b[^>]*>[\s\S]*?<\/object\s*>/gi,
+      /<embed\b[^>]*>/gi,
+      /<applet\b[^>]*>[\s\S]*?<\/applet\s*>/gi,
+      /<style\b[^>]*>[\s\S]*?<\/style\s*>/gi,
+      // Dangerous protocols
+      /javascript\s*:/gi,
+      /data\s*:/gi,
+      /vbscript\s*:/gi,
+      // Event handlers
+      /on\w+\s*=/gi,
+      // HTML comments
+      /<!--[\s\S]*?-->/g,
+      // Link and meta tags with javascript
+      /<link\b[^>]*javascript[^>]*>/gi,
+      /<meta\b[^>]*javascript[^>]*>/gi,
+      // Any remaining script-like content
+      /<[^>]*script[^>]*>/gi,
+      /<[^>]*on\w+\s*=[^>]*>/gi
+    ];
+    let sanitized = message;
+    let previousLength;
+    let iterations = 0;
+    const maxIterations = 10;
+    do {
+      previousLength = sanitized.length;
+      for (const pattern of dangerousPatterns) {
+        sanitized = sanitized.replace(pattern, "");
+      }
+      sanitized = sanitized.replace(/<[^>]*>/g, "").replace(/^\w+:/gi, "").replace(/\bon\w+\s*=\s*["'][^"']*["']/gi, "").replace(/\bon\w+\s*=\s*[^>\s]+/gi, "").replace(/[<>]/g, "").trim();
+      iterations++;
+    } while (sanitized.length !== previousLength && iterations < maxIterations);
+    sanitized = sanitized.replace(/<[^>]*>/g, "").replace(/^\w+:/gi, "").replace(/\bon\w+\s*=\s*["'][^"']*["']/gi, "").replace(/\bon\w+\s*=\s*[^>\s]+/gi, "").replace(/[<>]/g, "").trim();
+    return sanitized.substring(0, 2e3);
   }
   // Generate cryptographically secure salt (64 bytes for enhanced security)
   static generateSalt() {
@@ -5926,10 +5965,31 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       // Burst size for rate limiting
     };
     this._maliciousPatterns = [
-      /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
-      // Script tags
-      /javascript:/gi,
+      // Enhanced script tag detection that handles edge cases
+      /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,
+      // Standard <\/script>
+      /<script\b[^>]*>[\s\S]*?<\/script\s+[^>]*>/gi,
+      // <\/script with attributes>
+      /<script\b[^>]*>[\s\S]*$/gi,
+      // Malformed script tags without closing
+      // Additional dangerous tags
+      /<iframe\b[^>]*>[\s\S]*?<\/iframe\s*>/gi,
+      // iframe tags
+      /<object\b[^>]*>[\s\S]*?<\/object\s*>/gi,
+      // object tags
+      /<embed\b[^>]*>/gi,
+      // embed tags
+      /<applet\b[^>]*>[\s\S]*?<\/applet\s*>/gi,
+      // applet tags
+      /<style\b[^>]*>[\s\S]*?<\/style\s*>/gi,
+      // style tags
+      // Dangerous protocols
+      /javascript\s*:/gi,
       // JavaScript protocol
+      /data\s*:/gi,
+      // Data protocol
+      /vbscript\s*:/gi,
+      // VBScript protocol
       /data:text\/html/gi,
       // Data URLs with HTML
       /on\w+\s*=/gi,
