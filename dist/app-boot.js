@@ -8194,16 +8194,15 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     }
   }
   // Helper function: unbiased integer in [min, max]
-  getUnbiasedRandomInRange(min, max) {
+  getSafeRandomInt(min, max) {
     if (!Number.isInteger(min) || !Number.isInteger(max)) {
-      throw new Error("getUnbiasedRandomInRange requires integer min and max");
+      throw new Error("getSafeRandomInt requires integer min and max");
     }
     const range = max - min + 1;
     if (range <= 0) throw new Error("Invalid range");
-    const bytesNeeded = Math.max(1, Math.ceil(Math.log2(range) / 8));
+    const bytesNeeded = Math.ceil(Math.log2(range) / 8);
     const maxValue = Math.pow(256, bytesNeeded);
     const threshold = maxValue - maxValue % range;
-    const bucketSize = threshold / range;
     let randomValue;
     do {
       const randomBytes = crypto.getRandomValues(new Uint8Array(bytesNeeded));
@@ -8212,22 +8211,23 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         randomValue = randomValue << 8 | randomBytes[i];
       }
     } while (randomValue >= threshold);
-    return min + Math.floor(randomValue / bucketSize);
+    return min + randomValue % range;
   }
-  // Helper: unbiased float in [minFloat, maxFloat] with optional precision
-  getUnbiasedRandomFloat(minFloat, maxFloat, scale = 100) {
+  // Safe helper: unbiased float in [minFloat, maxFloat] with scale
+  getSafeRandomFloat(minFloat, maxFloat, scale = 100) {
     const minInt = Math.round(minFloat * scale);
     const maxInt = Math.round(maxFloat * scale);
-    const intVal = this.getUnbiasedRandomInRange(minInt, maxInt);
+    const intVal = this.getSafeRandomInt(minInt, maxInt);
     return intVal / scale;
   }
   // Generate fingerprint mask
   generateFingerprintMask() {
     const cryptoRandom = crypto.getRandomValues(new Uint8Array(128));
     const mask = {
-      timingOffset: this.getUnbiasedRandomInRange(0, 1500),
-      sizeVariation: this.getUnbiasedRandomFloat(0.75, 1.25),
-      // float, unbiased
+      timingOffset: this.getSafeRandomInt(0, 1500),
+      // 0–1500ms
+      sizeVariation: this.getSafeRandomFloat(0.75, 1.25),
+      // unbiased float
       noisePattern: Array.from(crypto.getRandomValues(new Uint8Array(64))),
       headerVariations: [
         "X-Client-Version",
@@ -8242,10 +8242,12 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         "X-Anonymous",
         "X-Private"
       ],
-      noiseIntensity: this.getUnbiasedRandomInRange(50, 150),
-      sizeMultiplier: this.getUnbiasedRandomFloat(0.75, 1.25),
-      // float, unbiased
-      timingVariation: this.getUnbiasedRandomInRange(100, 1100)
+      noiseIntensity: this.getSafeRandomInt(50, 150),
+      // 50–150%
+      sizeMultiplier: this.getSafeRandomFloat(0.75, 1.25),
+      // unbiased float
+      timingVariation: this.getSafeRandomInt(100, 1100)
+      // 100–1100ms
     };
     return mask;
   }
