@@ -13238,7 +13238,17 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           operationId,
           errorType: error.constructor.name
         });
-        throw error;
+        if (error.message.includes("Session expired")) {
+          throw new Error("Session expired. Please enter your password to unlock.");
+        } else if (error.message.includes("Encryption keys not initialized")) {
+          throw new Error("Session expired due to inactivity. Please reconnect to the chat.");
+        } else if (error.message.includes("Connection lost")) {
+          throw new Error("Connection lost. Please check your Internet connection.");
+        } else if (error.message.includes("Rate limit exceeded")) {
+          throw new Error("Message rate limit exceeded. Please wait before sending another message.");
+        } else {
+          throw error;
+        }
       }
     }, 2e3);
   }
@@ -13509,7 +13519,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       if (error.message.includes("Connection not ready")) {
         throw new Error("Connection not ready for file transfer. Check connection status.");
       } else if (error.message.includes("Encryption keys not initialized")) {
-        throw new Error("Encryption keys not initialized. Try reconnecting.");
+        throw new Error("Session expired due to inactivity. Please reconnect to the chat.");
       } else if (error.message.includes("Transfer timeout")) {
         throw new Error("File transfer timeout. Check connection and try again.");
       } else {
@@ -14703,8 +14713,8 @@ var SecureMasterKeyManager = class {
     this._isUnlocked = false;
     this._sessionTimeout = null;
     this._lastActivity = null;
-    this._sessionTimeoutMs = 15 * 60 * 1e3;
-    this._inactivityTimeoutMs = 5 * 60 * 1e3;
+    this._sessionTimeoutMs = 60 * 60 * 1e3;
+    this._inactivityTimeoutMs = 30 * 60 * 1e3;
     this._pbkdf2Iterations = 1e5;
     this._saltSize = 32;
     this._indexedDB = indexedDBWrapper || new SecureIndexedDBWrapper();

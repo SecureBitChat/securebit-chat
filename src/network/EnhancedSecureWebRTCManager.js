@@ -11154,6 +11154,10 @@ async processMessage(data) {
                 throw new Error('Connection lost during message preparation');
             }
             
+            // Note: master key session is managed by SecureMasterKeyManager
+            // Do not gate here on _isUnlocked to avoid false blocking
+            // Session timers are handled inside the master key manager on key access
+            
             // Validate keys inside critical section
             if (!this.encryptionKey || !this.macKey || !this.metadataKey) {
                 throw new Error('Encryption keys not initialized');
@@ -11210,7 +11214,19 @@ async processMessage(data) {
                     operationId: operationId,
                     errorType: error.constructor.name
                 });
-                throw error;
+                
+                // Improved user-facing error messages (English)
+                if (error.message.includes('Session expired')) {
+                    throw new Error('Session expired. Please enter your password to unlock.');
+                } else if (error.message.includes('Encryption keys not initialized')) {
+                    throw new Error('Session expired due to inactivity. Please reconnect to the chat.');
+                } else if (error.message.includes('Connection lost')) {
+                    throw new Error('Connection lost. Please check your Internet connection.');
+                } else if (error.message.includes('Rate limit exceeded')) {
+                    throw new Error('Message rate limit exceeded. Please wait before sending another message.');
+                } else {
+                    throw error;
+                }
             }
         }, 2000); // Reduced timeout for crypto operations
     }
@@ -11566,7 +11582,7 @@ async processMessage(data) {
             if (error.message.includes('Connection not ready')) {
                 throw new Error('Connection not ready for file transfer. Check connection status.');
             } else if (error.message.includes('Encryption keys not initialized')) {
-                throw new Error('Encryption keys not initialized. Try reconnecting.');
+                throw new Error('Session expired due to inactivity. Please reconnect to the chat.');
             } else if (error.message.includes('Transfer timeout')) {
                 throw new Error('File transfer timeout. Check connection and try again.');
             } else {
@@ -13093,8 +13109,8 @@ class SecureMasterKeyManager {
         this._lastActivity = null;
         
         // Configuration
-        this._sessionTimeoutMs = 15 * 60 * 1000; // 15 minutes
-        this._inactivityTimeoutMs = 5 * 60 * 1000; // 5 minutes
+        this._sessionTimeoutMs = 60 * 60 * 1000; // 60 minutes (увеличено с 15 минут)
+        this._inactivityTimeoutMs = 30 * 60 * 1000; // 30 minutes (увеличено с 5 минут)
         
         // PBKDF2 parameters
         this._pbkdf2Iterations = 100000; // 100k iterations
