@@ -404,12 +404,13 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 
             // 3. Fake Traffic Generation
             this.fakeTrafficConfig = {
-                enabled: this._config.fakeTraffic.enabled,
-                minInterval: this._config.fakeTraffic.minInterval,
-                maxInterval: this._config.fakeTraffic.maxInterval,
-                minSize: this._config.fakeTraffic.minSize,
-                maxSize: this._config.fakeTraffic.maxSize,
-                patterns: this._config.fakeTraffic.patterns
+                enabled: this._config.fakeTraffic?.enabled || false,
+                minInterval: this._config.fakeTraffic?.minInterval || 15000,
+                maxInterval: this._config.fakeTraffic?.maxInterval || 30000,
+                minSize: this._config.fakeTraffic?.minSize || 64,
+                maxSize: this._config.fakeTraffic?.maxSize || 1024,
+                patterns: this._config.fakeTraffic?.patterns || ['heartbeat', 'status', 'ping'],
+                randomDecoyIntervals: this._config.fakeTraffic?.randomDecoyIntervals || true
             };
             this.fakeTrafficTimer = null;
             this.lastFakeTraffic = 0;
@@ -3620,7 +3621,14 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
 
             const dv = new DataView(bits);
             const n = (dv.getUint32(0) ^ dv.getUint32(4)) >>> 0;
-            const sasCode = String(n % 10_000_000).padStart(7, '0'); 
+            
+            // Use rejection sampling to avoid bias in SAS code generation
+            let sasValue;
+            do {
+                sasValue = crypto.getRandomValues(new Uint32Array(1))[0];
+            } while (sasValue >= 4294967296 - (4294967296 % 10_000_000));
+            
+            const sasCode = String(sasValue % 10_000_000).padStart(7, '0'); 
 
 
             this._secureLog('info', 'SAS code computed successfully', {
@@ -4461,22 +4469,52 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         }
     }
     
+    // Helper function to generate unbiased random values in a range
+    getUnbiasedRandomInRange(min, max) {
+        const range = max - min + 1;
+        
+        // If range is larger than 256, use multiple bytes
+        if (range > 256) {
+            const bytesNeeded = Math.ceil(Math.log2(range) / 8);
+            const maxValue = Math.pow(256, bytesNeeded);
+            const threshold = maxValue - (maxValue % range);
+            
+            let randomValue;
+            do {
+                const randomBytes = crypto.getRandomValues(new Uint8Array(bytesNeeded));
+                randomValue = 0;
+                for (let i = 0; i < bytesNeeded; i++) {
+                    randomValue = (randomValue << 8) + randomBytes[i];
+                }
+            } while (randomValue >= threshold);
+            
+            return (randomValue % range) + min;
+        }
+        
+        // For ranges <= 256, use single byte with rejection sampling
+        let randomValue;
+        do {
+            randomValue = crypto.getRandomValues(new Uint8Array(1))[0];
+        } while (randomValue >= 256 - (256 % range));
+        return (randomValue % range) + min;
+    }
+
     //   Generate fingerprint mask for anti-fingerprinting with enhanced randomization
     generateFingerprintMask() {
         //   Enhanced randomization to prevent side-channel attacks
         const cryptoRandom = crypto.getRandomValues(new Uint8Array(128));
         
         const mask = {
-            timingOffset: cryptoRandom[0] % 1000 + cryptoRandom[1] % 500, // 0-1500ms
-            sizeVariation: (cryptoRandom[2] % 50 + 75) / 100, // 0.75 to 1.25
+            timingOffset: this.getUnbiasedRandomInRange(0, 1500), // 0-1500ms
+            sizeVariation: this.getUnbiasedRandomInRange(75, 125) / 100, // 0.75 to 1.25
             noisePattern: Array.from(crypto.getRandomValues(new Uint8Array(64))), // Increased size
             headerVariations: [
                 'X-Client-Version', 'X-Session-ID', 'X-Request-ID', 'X-Timestamp', 'X-Signature',
                 'X-Secure', 'X-Encrypted', 'X-Protected', 'X-Safe', 'X-Anonymous', 'X-Private'
             ],
-            noiseIntensity: cryptoRandom[3] % 100 + 50, // 50-150%
-            sizeMultiplier: (cryptoRandom[4] % 50 + 75) / 100, // 0.75-1.25
-            timingVariation: cryptoRandom[5] % 1000 + 100 // 100-1100ms
+            noiseIntensity: this.getUnbiasedRandomInRange(50, 150), // 50-150%
+            sizeMultiplier: this.getUnbiasedRandomInRange(75, 125) / 100, // 0.75-1.25
+            timingVariation: this.getUnbiasedRandomInRange(100, 1100) // 100-1100ms
         };
         return mask;
     }
@@ -4914,8 +4952,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 
                 // FIX: Increase intervals to reduce load
                 const nextInterval = this.fakeTrafficConfig.randomDecoyIntervals ? 
-                    Math.random() * (this.fakeTrafficConfig.maxInterval - this.fakeTrafficConfig.minInterval) + 
-                    this.fakeTrafficConfig.minInterval :
+                    this.getUnbiasedRandomInRange(this.fakeTrafficConfig.minInterval, Math.min(this.fakeTrafficConfig.maxInterval, 60000)) : // Cap at 60 seconds
                     this.fakeTrafficConfig.minInterval;
                 
                 // Minimum interval 15 seconds for stability
@@ -4931,7 +4968,10 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         };
 
         // Start fake traffic generation with longer initial delay
-        const initialDelay = Math.random() * this.fakeTrafficConfig.maxInterval + EnhancedSecureWebRTCManager.TIMEOUTS.DECOY_INITIAL_DELAY; // Add 5 seconds minimum
+        // Use a reasonable range for initial delay (5-30 seconds)
+        const minDelay = EnhancedSecureWebRTCManager.TIMEOUTS.DECOY_INITIAL_DELAY;
+        const maxDelay = Math.min(this.fakeTrafficConfig.maxInterval, 30000); // Cap at 30 seconds
+        const initialDelay = this.getUnbiasedRandomInRange(minDelay, maxDelay);
         this.fakeTrafficTimer = setTimeout(sendFakeMessage, initialDelay);
     }
 
@@ -4943,13 +4983,10 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     generateFakeMessage() {
-        const pattern = this.fakeTrafficConfig.patterns[
-            Math.floor(Math.random() * this.fakeTrafficConfig.patterns.length)
-        ];
+        const patternIndex = this.getUnbiasedRandomInRange(0, this.fakeTrafficConfig.patterns.length - 1);
+        const pattern = this.fakeTrafficConfig.patterns[patternIndex];
         
-        const size = Math.floor(Math.random() * 
-            (this.fakeTrafficConfig.maxSize - this.fakeTrafficConfig.minSize + 1)) + 
-            this.fakeTrafficConfig.minSize;
+        const size = this.getUnbiasedRandomInRange(this.fakeTrafficConfig.minSize, this.fakeTrafficConfig.maxSize);
         
         const fakeData = crypto.getRandomValues(new Uint8Array(size));
         
@@ -5550,7 +5587,7 @@ async processOrderedPackets() {
 
     addNoise(data) {
         const dataArray = new Uint8Array(data);
-        const noiseSize = Math.floor(Math.random() * 32) + 8; // 8-40 bytes
+        const noiseSize = this.getUnbiasedRandomInRange(8, 40); // 8-40 bytes
         const noise = crypto.getRandomValues(new Uint8Array(noiseSize));
         
         const result = new Uint8Array(dataArray.length + noiseSize);
@@ -5595,12 +5632,12 @@ async processOrderedPackets() {
 
     addRandomHeaders(data) {
         const dataArray = new Uint8Array(data);
-        const headerCount = Math.floor(Math.random() * 3) + 1; // 1-3 headers
+        const headerCount = this.getUnbiasedRandomInRange(1, 3); // 1-3 headers
         let totalHeaderSize = 0;
         
         // Calculate total header size
         for (let i = 0; i < headerCount; i++) {
-            totalHeaderSize += 4 + Math.floor(Math.random() * 16) + 4; // size + data + checksum
+            totalHeaderSize += 4 + this.getUnbiasedRandomInRange(0, 15) + 4; // size + data + checksum
         }
         
         const result = new Uint8Array(totalHeaderSize + dataArray.length);
@@ -5608,10 +5645,21 @@ async processOrderedPackets() {
         
         // Add random headers
         for (let i = 0; i < headerCount; i++) {
-            const headerName = this.fingerprintMask.headerVariations[
-                Math.floor(Math.random() * this.fingerprintMask.headerVariations.length)
-            ];
-            const headerData = crypto.getRandomValues(new Uint8Array(Math.floor(Math.random() * 16) + 4));
+            // Generate unbiased random index for header selection
+            let headerIndex;
+            do {
+                headerIndex = crypto.getRandomValues(new Uint8Array(1))[0];
+            } while (headerIndex >= 256 - (256 % this.fingerprintMask.headerVariations.length));
+            
+            const headerName = this.fingerprintMask.headerVariations[headerIndex % this.fingerprintMask.headerVariations.length];
+            
+            // Generate unbiased random size for header data (4-19 bytes)
+            let headerSize;
+            do {
+                headerSize = crypto.getRandomValues(new Uint8Array(1))[0];
+            } while (headerSize >= 256 - (256 % 16));
+            
+            const headerData = crypto.getRandomValues(new Uint8Array((headerSize % 16) + 4));
             
             // Header structure: [size:4][name:4][data:variable][checksum:4]
             const headerView = new DataView(result.buffer, offset);

@@ -224,13 +224,18 @@ class EnhancedSecureCryptoUtils {
     // Generate secure password for data exchange
     static generateSecurePassword() {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?';
+        const charCount = chars.length;
         const length = 32; 
-        const randomValues = new Uint32Array(length);
-        crypto.getRandomValues(randomValues);
-        
         let password = '';
+        
+        // Use rejection sampling to avoid bias
         for (let i = 0; i < length; i++) {
-            password += chars[randomValues[i] % chars.length];
+            let randomValue;
+            do {
+                randomValue = crypto.getRandomValues(new Uint32Array(1))[0];
+            } while (randomValue >= 4294967296 - (4294967296 % charCount)); // Reject biased values
+            
+            password += chars[randomValue % charCount];
         }
         return password;
     }
@@ -2322,11 +2327,19 @@ class EnhancedSecureCryptoUtils {
     // Generate verification code for out-of-band authentication
     static generateVerificationCode() {
         const chars = '0123456789ABCDEF';
+        const charCount = chars.length;
         let result = '';
-        const values = crypto.getRandomValues(new Uint8Array(6));
+        
+        // Use rejection sampling to avoid bias
         for (let i = 0; i < 6; i++) {
-            result += chars[values[i] % chars.length];
+            let randomByte;
+            do {
+                randomByte = crypto.getRandomValues(new Uint8Array(1))[0];
+            } while (randomByte >= 256 - (256 % charCount)); // Reject biased values
+            
+            result += chars[randomByte % charCount];
         }
+        
         return result.match(/.{1,2}/g).join('-');
     }
 
