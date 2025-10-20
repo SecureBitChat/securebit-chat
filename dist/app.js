@@ -296,8 +296,8 @@ var EnhancedConnectionSetup = ({
       if (!window.isSecureContext && window.location.protocol !== "https:" && window.location.hostname !== "localhost") {
         return;
       }
-      const currentPermission = Notification.permission;
-      if (currentPermission === "default") {
+      const currentPermission = typeof Notification !== "undefined" && Notification ? Notification.permission : "denied";
+      if (currentPermission === "default" && typeof Notification !== "undefined" && Notification) {
         const permission = await Notification.requestPermission();
         if (permission === "granted") {
           try {
@@ -1678,7 +1678,7 @@ var EnhancedSecureP2PChat = () => {
       handleAnswerError,
       handleVerificationStateChange
     );
-    if (Notification.permission === "granted" && window.NotificationIntegration && !notificationIntegrationRef.current) {
+    if (typeof Notification !== "undefined" && Notification && Notification.permission === "granted" && window.NotificationIntegration && !notificationIntegrationRef.current) {
       try {
         const integration = new window.NotificationIntegration(webrtcManagerRef2.current);
         integration.init().then(() => {

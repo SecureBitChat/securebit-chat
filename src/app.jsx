@@ -320,10 +320,12 @@
                             }
                             
                             // Check current permission status
-                            const currentPermission = Notification.permission;
+                            const currentPermission = (typeof Notification !== 'undefined' && Notification) 
+                                ? Notification.permission 
+                                : 'denied';
                             
                             // Only request if permission is default (not granted or denied)
-                            if (currentPermission === 'default') {
+                            if (currentPermission === 'default' && typeof Notification !== 'undefined' && Notification) {
                                 const permission = await Notification.requestPermission();
                                 
                                 if (permission === 'granted') {
@@ -1909,7 +1911,7 @@
                         );
         
                         // Initialize notification integration if permission was already granted
-                        if (Notification.permission === 'granted' && window.NotificationIntegration && !notificationIntegrationRef.current) {
+                        if (typeof Notification !== 'undefined' && Notification && Notification.permission === 'granted' && window.NotificationIntegration && !notificationIntegrationRef.current) {
                             try {
                                 const integration = new window.NotificationIntegration(webrtcManagerRef.current);
                                 integration.init().then(() => {
