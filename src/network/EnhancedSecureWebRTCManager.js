@@ -4482,32 +4482,57 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
     
     // Helper function: unbiased integer in [min, max]
-        getSafeRandomInt(min, max) {
+       getSafeRandomInt(min, max) {
             if (!Number.isInteger(min) || !Number.isInteger(max)) {
                 throw new Error('getSafeRandomInt requires integer min and max');
             }
             const range = max - min + 1;
             if (range <= 0) throw new Error('Invalid range');
 
-            // Для больших диапазонов используем несколько байт
-            const bytesNeeded = Math.ceil(Math.log2(range) / 8);
-            const maxValue = Math.pow(256, bytesNeeded);
-            const threshold = maxValue - (maxValue % range);
+            if (range <= 256) {
+                const threshold = 256 - (256 % range);
+                let randomValue;
+                do {
+                    randomValue = crypto.getRandomValues(new Uint8Array(1))[0];
+                } while (randomValue >= threshold);
+                return min + (randomValue % range);
+            }
 
+            if (range <= 65536) {
+                const maxValue = 65536;
+                const threshold = maxValue - (maxValue % range);
+                let randomValue;
+                do {
+                    const randomBytes = crypto.getRandomValues(new Uint8Array(2));
+                    randomValue = (randomBytes[0] << 8) | randomBytes[1];
+                } while (randomValue >= threshold);
+                return min + (randomValue % range);
+            }
+
+            const maxUint32 = 0x100000000; // 2^32
+            const threshold = maxUint32 - (maxUint32 % range);
+            
             let randomValue;
             do {
-                const randomBytes = crypto.getRandomValues(new Uint8Array(bytesNeeded));
-                randomValue = 0;
-                for (let i = 0; i < bytesNeeded; i++) {
-                    randomValue = (randomValue << 8) | randomBytes[i];
-                }
+                const randomBytes = crypto.getRandomValues(new Uint8Array(4));
+                randomValue = ((randomBytes[0] << 24) | 
+                            (randomBytes[1] << 16) | 
+                            (randomBytes[2] << 8) | 
+                            randomBytes[3]) >>> 0;
             } while (randomValue >= threshold);
-
+            
             return min + (randomValue % range);
         }
 
         // Safe helper: unbiased float in [minFloat, maxFloat] with scale
-        getSafeRandomFloat(minFloat, maxFloat, scale = 100) {
+        getSafeRandomFloat(minFloat, maxFloat, scale = 1000) {
+            if (typeof minFloat !== 'number' || typeof maxFloat !== 'number') {
+                throw new Error('getSafeRandomFloat requires numeric min and max');
+            }
+            if (minFloat >= maxFloat) {
+                throw new Error('minFloat must be less than maxFloat');
+            }
+            
             const minInt = Math.round(minFloat * scale);
             const maxInt = Math.round(maxFloat * scale);
             const intVal = this.getSafeRandomInt(minInt, maxInt);
@@ -4516,19 +4541,17 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
 
         // Generate fingerprint mask
         generateFingerprintMask() {
-            const cryptoRandom = crypto.getRandomValues(new Uint8Array(128));
-
             const mask = {
-                timingOffset: this.getSafeRandomInt(0, 1500),            // 0–1500ms
-                sizeVariation: this.getSafeRandomFloat(0.75, 1.25),      // unbiased float
+                timingOffset: this.getSafeRandomInt(0, 1500),
+                sizeVariation: this.getSafeRandomFloat(0.75, 1.25, 1000), // изменен scale
                 noisePattern: Array.from(crypto.getRandomValues(new Uint8Array(64))),
                 headerVariations: [
                     'X-Client-Version', 'X-Session-ID', 'X-Request-ID', 'X-Timestamp', 'X-Signature',
                     'X-Secure', 'X-Encrypted', 'X-Protected', 'X-Safe', 'X-Anonymous', 'X-Private'
                 ],
-                noiseIntensity: this.getSafeRandomInt(50, 150),          // 50–150%
-                sizeMultiplier: this.getSafeRandomFloat(0.75, 1.25),     // unbiased float
-                timingVariation: this.getSafeRandomInt(100, 1100)        // 100–1100ms
+                noiseIntensity: this.getSafeRandomInt(50, 150),
+                sizeMultiplier: this.getSafeRandomFloat(0.75, 1.25, 1000), // изменен scale
+                timingVariation: this.getSafeRandomInt(100, 1100)
             };
             return mask;
         }
