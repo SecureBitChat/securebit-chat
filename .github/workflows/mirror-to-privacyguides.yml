@@ -1,0 +1,29 @@
+name: Mirror to PrivacyGuides
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PRIVACYGUIDES_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan code.privacyguides.dev >> ~/.ssh/known_hosts
+
+      - name: Push to PrivacyGuides
+        run: |
+          git remote remove privacyguides || true
+          git remote add privacyguides git@code.privacyguides.dev:SecureBitChat/securebit-chat.git
+          git push privacyguides main --force
