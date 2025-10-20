@@ -8198,36 +8198,24 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     if (!Number.isInteger(min) || !Number.isInteger(max)) {
       throw new Error("getSafeRandomInt requires integer min and max");
     }
+    if (min >= max) {
+      throw new Error("min must be less than max");
+    }
     const range = max - min + 1;
-    if (range <= 0) throw new Error("Invalid range");
-    if (range <= 256) {
-      const threshold2 = 256 - 256 % range;
-      let randomValue2;
-      do {
-        randomValue2 = crypto.getRandomValues(new Uint8Array(1))[0];
-      } while (randomValue2 >= threshold2);
-      return min + randomValue2 % range;
-    }
-    if (range <= 65536) {
-      const maxValue = 65536;
-      const threshold2 = maxValue - maxValue % range;
-      let randomValue2;
-      do {
-        const randomBytes = crypto.getRandomValues(new Uint8Array(2));
-        randomValue2 = randomBytes[0] << 8 | randomBytes[1];
-      } while (randomValue2 >= threshold2);
-      return min + randomValue2 % range;
-    }
-    const maxUint32 = 4294967296;
-    const threshold = maxUint32 - maxUint32 % range;
+    const bitsNeeded = Math.ceil(Math.log2(range));
+    const bytesNeeded = Math.ceil(bitsNeeded / 8);
+    const mask = (1 << bitsNeeded) - 1;
     let randomValue;
     do {
-      const randomBytes = crypto.getRandomValues(new Uint8Array(4));
-      randomValue = (randomBytes[0] << 24 | randomBytes[1] << 16 | randomBytes[2] << 8 | randomBytes[3]) >>> 0;
-    } while (randomValue >= threshold);
-    return min + randomValue % range;
+      const randomBytes = crypto.getRandomValues(new Uint8Array(bytesNeeded));
+      randomValue = 0;
+      for (let i = 0; i < bytesNeeded; i++) {
+        randomValue = randomValue * 256 + randomBytes[i];
+      }
+      randomValue = randomValue & mask;
+    } while (randomValue >= range);
+    return min + randomValue;
   }
-  // Safe helper: unbiased float in [minFloat, maxFloat] with scale
   getSafeRandomFloat(minFloat, maxFloat, scale = 1e3) {
     if (typeof minFloat !== "number" || typeof maxFloat !== "number") {
       throw new Error("getSafeRandomFloat requires numeric min and max");
@@ -8240,12 +8228,10 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     const intVal = this.getSafeRandomInt(minInt, maxInt);
     return intVal / scale;
   }
-  // Generate fingerprint mask
   generateFingerprintMask() {
     const mask = {
       timingOffset: this.getSafeRandomInt(0, 1500),
       sizeVariation: this.getSafeRandomFloat(0.75, 1.25, 1e3),
-      // изменен scale
       noisePattern: Array.from(crypto.getRandomValues(new Uint8Array(64))),
       headerVariations: [
         "X-Client-Version",
@@ -8262,7 +8248,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       ],
       noiseIntensity: this.getSafeRandomInt(50, 150),
       sizeMultiplier: this.getSafeRandomFloat(0.75, 1.25, 1e3),
-      // изменен scale
       timingVariation: this.getSafeRandomInt(100, 1100)
     };
     return mask;
