@@ -2,11 +2,11 @@ name: "CodeQL Analysis"
 
 on:
   push:
-    branches: [ "main" ]          
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]         
+    branches: ["main"]
   schedule:
-    - cron: '0 3 * * *'           
+    - cron: '0 3 * * *'
 
 jobs:
   analyze:
@@ -14,21 +14,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v2
         with:
-          languages:
-            - javascript
-            - typescript
+          languages: javascript,typescript  
 
-      # 3. Автоматическая сборка (если есть)
       - name: Autobuild
         uses: github/codeql-action/autobuild@v2
 
-      # 4. Анализ кода с помощью CodeQL
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v2
