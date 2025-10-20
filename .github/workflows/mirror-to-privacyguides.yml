@@ -15,15 +15,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.PRIVACYGUIDES_SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan code.privacyguides.dev >> ~/.ssh/known_hosts
-
-      - name: Push to PrivacyGuides
+      - name: Push to PrivacyGuides (HTTPS)
+        env:
+          PRIVACYGUIDES_TOKEN: ${{ secrets.PRIVACYGUIDES_TOKEN }}
         run: |
           git remote remove privacyguides || true
-          git remote add privacyguides git@code.privacyguides.dev:SecureBitChat/securebit-chat.git
+          git remote add privacyguides https://SecureBitChat:${PRIVACYGUIDES_TOKEN}@code.privacyguides.dev/SecureBitChat/securebit-chat.git
           git push privacyguides main --force
