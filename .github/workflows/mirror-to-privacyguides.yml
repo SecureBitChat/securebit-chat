@@ -22,3 +22,4 @@ jobs:
           git remote remove privacyguides || true
           git remote add privacyguides https://SecureBitChat:${PRIVACYGUIDES_TOKEN}@code.privacyguides.dev/SecureBitChat/securebit-chat.git
           git push privacyguides main --force
+#New
