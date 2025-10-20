@@ -8196,24 +8196,18 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   // Helper function to generate unbiased random values in a range
   getUnbiasedRandomInRange(min, max) {
     const range = max - min + 1;
-    if (range > 256) {
-      const bytesNeeded = Math.ceil(Math.log2(range) / 8);
-      const maxValue = Math.pow(256, bytesNeeded);
-      const threshold = maxValue - maxValue % range;
-      let randomValue2;
-      do {
-        const randomBytes = crypto.getRandomValues(new Uint8Array(bytesNeeded));
-        randomValue2 = 0;
-        for (let i = 0; i < bytesNeeded; i++) {
-          randomValue2 = (randomValue2 << 8) + randomBytes[i];
-        }
-      } while (randomValue2 >= threshold);
-      return randomValue2 % range + min;
-    }
+    if (range <= 0) throw new Error("Invalid range");
+    const bytesNeeded = Math.ceil(Math.log2(range) / 8);
+    const maxValue = Math.pow(256, bytesNeeded);
+    const threshold = maxValue - maxValue % range;
     let randomValue;
     do {
-      randomValue = crypto.getRandomValues(new Uint8Array(1))[0];
-    } while (randomValue >= 256 - 256 % range);
+      const randomBytes = crypto.getRandomValues(new Uint8Array(bytesNeeded));
+      randomValue = 0;
+      for (let i = 0; i < bytesNeeded; i++) {
+        randomValue = randomValue << 8 | randomBytes[i];
+      }
+    } while (randomValue >= threshold);
     return randomValue % range + min;
   }
   //   Generate fingerprint mask for anti-fingerprinting with enhanced randomization
@@ -8221,11 +8215,10 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     const cryptoRandom = crypto.getRandomValues(new Uint8Array(128));
     const mask = {
       timingOffset: this.getUnbiasedRandomInRange(0, 1500),
-      // 0-1500ms
+      // 0–1500ms
       sizeVariation: this.getUnbiasedRandomInRange(75, 125) / 100,
-      // 0.75 to 1.25
+      // 0.75–1.25
       noisePattern: Array.from(crypto.getRandomValues(new Uint8Array(64))),
-      // Increased size
       headerVariations: [
         "X-Client-Version",
         "X-Session-ID",
@@ -8240,11 +8233,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         "X-Private"
       ],
       noiseIntensity: this.getUnbiasedRandomInRange(50, 150),
-      // 50-150%
+      // 50–150%
       sizeMultiplier: this.getUnbiasedRandomInRange(75, 125) / 100,
-      // 0.75-1.25
       timingVariation: this.getUnbiasedRandomInRange(100, 1100)
-      // 100-1100ms
     };
     return mask;
   }

@@ -4483,53 +4483,46 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     
     // Helper function to generate unbiased random values in a range
     getUnbiasedRandomInRange(min, max) {
-        const range = max - min + 1;
-        
-        // If range is larger than 256, use multiple bytes
-        if (range > 256) {
-            const bytesNeeded = Math.ceil(Math.log2(range) / 8);
-            const maxValue = Math.pow(256, bytesNeeded);
-            const threshold = maxValue - (maxValue % range);
-            
-            let randomValue;
-            do {
-                const randomBytes = crypto.getRandomValues(new Uint8Array(bytesNeeded));
-                randomValue = 0;
-                for (let i = 0; i < bytesNeeded; i++) {
-                    randomValue = (randomValue << 8) + randomBytes[i];
-                }
-            } while (randomValue >= threshold);
-            
-            return (randomValue % range) + min;
-        }
-        
-        // For ranges <= 256, use single byte with rejection sampling
+    const range = max - min + 1;
+        if (range <= 0) throw new Error('Invalid range');
+
+        // Use rejection sampling to avoid modulo bias
+        const bytesNeeded = Math.ceil(Math.log2(range) / 8);
+        const maxValue = Math.pow(256, bytesNeeded);
+        const threshold = maxValue - (maxValue % range);
+
         let randomValue;
         do {
-            randomValue = crypto.getRandomValues(new Uint8Array(1))[0];
-        } while (randomValue >= 256 - (256 % range));
+            const randomBytes = crypto.getRandomValues(new Uint8Array(bytesNeeded));
+            randomValue = 0;
+            for (let i = 0; i < bytesNeeded; i++) {
+                randomValue = (randomValue << 8) | randomBytes[i];
+            }
+        } while (randomValue >= threshold); // discard biased values
+
         return (randomValue % range) + min;
     }
+
     
     //   Generate fingerprint mask for anti-fingerprinting with enhanced randomization
     generateFingerprintMask() {
-        //   Enhanced randomization to prevent side-channel attacks
         const cryptoRandom = crypto.getRandomValues(new Uint8Array(128));
-        
+
         const mask = {
-            timingOffset: this.getUnbiasedRandomInRange(0, 1500), // 0-1500ms
-            sizeVariation: this.getUnbiasedRandomInRange(75, 125) / 100, // 0.75 to 1.25
-            noisePattern: Array.from(crypto.getRandomValues(new Uint8Array(64))), // Increased size
+            timingOffset: this.getUnbiasedRandomInRange(0, 1500), // 0–1500ms
+            sizeVariation: this.getUnbiasedRandomInRange(75, 125) / 100, // 0.75–1.25
+            noisePattern: Array.from(crypto.getRandomValues(new Uint8Array(64))),
             headerVariations: [
                 'X-Client-Version', 'X-Session-ID', 'X-Request-ID', 'X-Timestamp', 'X-Signature',
                 'X-Secure', 'X-Encrypted', 'X-Protected', 'X-Safe', 'X-Anonymous', 'X-Private'
             ],
-            noiseIntensity: this.getUnbiasedRandomInRange(50, 150), // 50-150%
-            sizeMultiplier: this.getUnbiasedRandomInRange(75, 125) / 100, // 0.75-1.25
-            timingVariation: this.getUnbiasedRandomInRange(100, 1100) // 100-1100ms
+            noiseIntensity: this.getUnbiasedRandomInRange(50, 150), // 50–150%
+            sizeMultiplier: this.getUnbiasedRandomInRange(75, 125) / 100,
+            timingVariation: this.getUnbiasedRandomInRange(100, 1100)
         };
         return mask;
     }
+
 
     // Security configuration - all features enabled by default
     configureSecurityForSession() {
