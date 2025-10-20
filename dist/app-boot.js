@@ -8216,17 +8216,16 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     } while (randomValue >= range);
     return min + randomValue;
   }
-  getSafeRandomFloat(minFloat, maxFloat, scale = 1e3) {
+  getSafeRandomFloat(minFloat, maxFloat, steps = 1e3) {
     if (typeof minFloat !== "number" || typeof maxFloat !== "number") {
       throw new Error("getSafeRandomFloat requires numeric min and max");
     }
     if (minFloat >= maxFloat) {
       throw new Error("minFloat must be less than maxFloat");
     }
-    const minInt = Math.round(minFloat * scale);
-    const maxInt = Math.round(maxFloat * scale);
-    const intVal = this.getSafeRandomInt(minInt, maxInt);
-    return intVal / scale;
+    const randomIndex = this.getSafeRandomInt(0, steps);
+    const step = (maxFloat - minFloat) / steps;
+    return minFloat + randomIndex * step;
   }
   generateFingerprintMask() {
     const mask = {
