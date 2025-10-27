@@ -1,4 +1,4 @@
-# SecureBit.chat v4.4.18
+# SecureBit.chat v4.4.99
 
 <div align="center">
 
@@ -31,7 +31,7 @@ SecureBit.chat is a revolutionary peer-to-peer messenger that prioritizes your p
 
 ---
 
-## ✨ What's New in v4.4.18
+## ✨ What's New in v4.4.99
 
 ### 🔔 Secure Browser Notifications
 - Smart delivery when user is away from chat tab
@@ -54,6 +54,7 @@ SecureBit.chat is a revolutionary peer-to-peer messenger that prioritizes your p
 - **Enhanced MITM Protection** - Multi-layer defense system
 - **Secure Key Storage** - WeakMap-based isolation
 - **Production-Ready Logging** - Data sanitization and privacy protection
+- **HKDF Key Derivation** - RFC 5869 compliant key separation and derivation
 
 ---
 
@@ -93,7 +94,7 @@ SecureBit.chat is a revolutionary peer-to-peer messenger that prioritizes your p
 16. ASN.1 complete key structure verification
 17. OID validation for algorithms and curves
 18. EC point format and structure verification
-19. Smart notifications with XSS protection
+19. HKDF key derivation with proper key separation
 
 ---
 
@@ -169,7 +170,7 @@ Modern browser with WebRTC support (Chrome 60+, Firefox 60+, Safari 12+), HTTPS 
 
 ## 🗺️ Roadmap
 
-**Current: v4.4.18** - Browser Notifications & Code Cleanup ✅
+**Current: v4.4.99** - Browser Notifications & Code Cleanup ✅
 
 **Next Releases:**
 
@@ -335,7 +336,7 @@ MIT License - see **LICENSE** file for details.
 
 ---
 
-**Latest Release: v4.4.18** - Browser Notifications & Code Cleanup
+**Latest Release: v4.4.99** - Browser Notifications & Code Cleanup
 
 [🚀 Try Now](https://securebitchat.github.io/securebit-chat/) • [⭐ Star on GitHub](https://github.com/SecureBitChat/securebit-chat)
 

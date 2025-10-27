@@ -101,7 +101,7 @@ class EnhancedSecureWebRTCManager {
     };
 
     //   Static debug flag instead of this._debugMode
-    static DEBUG_MODE = false; // Set to true during development, false in production
+    static DEBUG_MODE = true; // Set to true during development, false in production
 
 
     constructor(onMessage, onStatusChange, onKeyExchange, onVerificationRequired, onAnswerError = null, onVerificationStateChange = null, config = {}) {
@@ -9766,22 +9766,47 @@ async processMessage(data) {
                 let derivedKeys;
                 
                 try {
+                    this._secureLog('debug', 'About to call deriveSharedKeys', {
+                        operationId: operationId,
+                        privateKeyType: typeof this.ecdhKeyPair.privateKey,
+                        publicKeyType: typeof peerECDHPublicKey,
+                        saltLength: this.sessionSalt?.length,
+                        privateKeyAlgorithm: this.ecdhKeyPair.privateKey?.algorithm?.name,
+                        publicKeyAlgorithm: peerECDHPublicKey?.algorithm?.name
+                    });
+                    
                     derivedKeys = await window.EnhancedSecureCryptoUtils.deriveSharedKeys(
                         this.ecdhKeyPair.privateKey,
                         peerECDHPublicKey,
                         this.sessionSalt
                     );
+                    
+                    this._secureLog('debug', 'deriveSharedKeys completed successfully', {
+                        operationId: operationId,
+                        hasMessageKey: !!derivedKeys.messageKey,
+                        hasMacKey: !!derivedKeys.macKey,
+                        hasPfsKey: !!derivedKeys.pfsKey,
+                        hasMetadataKey: !!derivedKeys.metadataKey,
+                        hasFingerprint: !!derivedKeys.fingerprint
+                    });
                 } catch (error) {
                     this._secureLog('error', 'Failed to derive shared keys', {
                         operationId: operationId,
-                        errorType: error.constructor.name
+                        errorType: error.constructor.name,
+                        errorMessage: error.message,
+                        errorStack: error.stack,
+                        privateKeyType: typeof this.ecdhKeyPair.privateKey,
+                        publicKeyType: typeof peerECDHPublicKey,
+                        saltLength: this.sessionSalt?.length,
+                        privateKeyAlgorithm: this.ecdhKeyPair.privateKey?.algorithm?.name,
+                        publicKeyAlgorithm: peerECDHPublicKey?.algorithm?.name
                     });
                     this._throwSecureError(error, 'key_derivation');
                 }
                 
                 // Securely set keys via helper
                 await this._setEncryptionKeys(
-                    derivedKeys.encryptionKey,
+                    derivedKeys.messageKey,
                     derivedKeys.macKey,
                     derivedKeys.metadataKey,
                     derivedKeys.fingerprint
@@ -10524,7 +10549,7 @@ async processMessage(data) {
                 this.sessionSalt
             );
             
-            this.encryptionKey = derivedKeys.encryptionKey;
+            this.encryptionKey = derivedKeys.messageKey;
             this.macKey = derivedKeys.macKey;
             this.metadataKey = derivedKeys.metadataKey;
             this.keyFingerprint = derivedKeys.fingerprint;

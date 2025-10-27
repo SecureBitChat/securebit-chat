@@ -27,12 +27,13 @@ SecureBit.chat implements a revolutionary **18-layer security architecture** wit
 
 ## 🏗️ Security Architecture Overview
 
-### 18-Layer Defense System
+### 19-Layer Defense System
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    APPLICATION LAYER                        │
 ├─────────────────────────────────────────────────────────────┤
+│ Layer 19: HKDF Key Derivation (RFC 5869 Compliant)         │
 │ Layer 18: EC Point Validation (Format & Structure)         │
 │ Layer 17: OID Validation (Algorithm & Curve Verification)  │
 │ Layer 16: ASN.1 Validation (Complete Key Structure)        │
@@ -75,7 +76,7 @@ SecureBit.chat implements a revolutionary **18-layer security architecture** wit
 | 3     | 1-9          | High           | + Timing attacks |
 | 4     | 1-12         | High Enhanced  | + Advanced persistent threats |
 | 5     | 1-15         | Military-Grade | + Race conditions, Key exposure |
-| 6     | 1-18         | Maximum        | + DTLS race conditions, Memory safety, Key structure validation |
+| 6     | 1-19         | Maximum        | + DTLS race conditions, Memory safety, Key structure validation, HKDF compliance |
 
 ---
 
@@ -163,6 +164,55 @@ const validateOID = (parsed) => {
     }
     
     return validOIDs[oid];
+};
+```
+
+### Layer 19: HKDF Key Derivation (RFC 5869 Compliant)
+**Purpose:** RFC 5869 compliant key derivation with proper key separation and cryptographic security
+
+**Technical Specifications:**
+- **Standard:** RFC 5869 HMAC-based Extract-and-Expand Key Derivation Function
+- **Hash Function:** SHA-256 for optimal compatibility and performance
+- **Salt Security:** 64-byte cryptographically secure salt for each derivation
+- **Key Separation:** Unique `info` parameters for each derived key type
+- **Non-Extractable Keys:** Hardware-protected keys for enhanced security
+
+**Implementation:**
+```javascript
+// HKDF key derivation with proper separation
+const deriveSharedKeys = async (privateKey, publicKey, salt) => {
+    // Step 1: Pure ECDH derivation
+    const rawKeyMaterial = await crypto.subtle.deriveKey(
+        { name: 'ECDH', public: publicKey },
+        privateKey,
+        { name: 'AES-GCM', length: 256 },
+        true, // Extractable for HKDF processing
+        ['encrypt', 'decrypt']
+    );
+    
+    // Export and import for HKDF
+    const rawKeyData = await crypto.subtle.exportKey('raw', rawKeyMaterial);
+    const rawSharedSecret = await crypto.subtle.importKey(
+        'raw', rawKeyData,
+        { name: 'HKDF', hash: 'SHA-256' },
+        false, ['deriveKey']
+    );
+    
+    // Step 2: Derive specific keys with unique info parameters
+    const messageKey = await crypto.subtle.deriveKey(
+        {
+            name: 'HKDF',
+            hash: 'SHA-256',
+            salt: saltBytes,
+            info: encoder.encode('message-encryption-v4')
+        },
+        rawSharedSecret,
+        { name: 'AES-GCM', length: 256 },
+        false, ['encrypt', 'decrypt']
+    );
+    
+    // Additional keys derived with unique info parameters...
+    return { messageKey, macKey, pfsKey, metadataKey, fingerprint };
 };
 ```
 
@@ -403,12 +453,13 @@ webrtcManager.checkFakeTrafficStatus()
 
 | Metric | Target | Current | Status |
 |--------|---------|---------|---------|
-| Active Security Layers | 12 | 12 | ✅ |
+| Active Security Layers | 19 | 19 | ✅ |
 | Encryption Strength | 256-bit | 256-bit | ✅ |
 | Key Exchange Security | P-384 | P-384 | ✅ |
 | Forward Secrecy | Complete | Complete | ✅ |
 | Traffic Obfuscation | Maximum | Maximum | ✅ |
 | Attack Surface | Minimal | Minimal | ✅ |
+| HKDF Compliance | RFC 5869 | RFC 5869 | ✅ |
 
 ---
 

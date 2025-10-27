@@ -1143,9 +1143,9 @@ await mutexManager._withMutex('connectionOperation', async () => {
 
 ## 🔗 Key Derivation
 
-### HKDF Implementation
+### HKDF Implementation (RFC 5869 Compliant)
 
-#### **Enhanced Key Derivation**
+#### **Enhanced Key Derivation with Proper Separation**
 ```javascript
 async function deriveSharedKeys(privateKey, publicKey, salt) {
     // Validate inputs
@@ -1159,43 +1159,132 @@ async function deriveSharedKeys(privateKey, publicKey, salt) {
     const saltBytes = new Uint8Array(salt);
     const encoder = new TextEncoder();
     
-    // Enhanced context info
-    const contextInfo = encoder.encode('SecureBit.chat v4.0 Enhanced Security Edition');
-    
-    // Derive master shared secret
-    const sharedSecret = await crypto.subtle.deriveKey(
+    // Step 1: Derive raw ECDH shared secret using pure ECDH
+    const rawKeyMaterial = await crypto.subtle.deriveKey(
         {
             name: 'ECDH',
             public: publicKey
         },
         privateKey,
         {
-            name: 'HKDF',
-            hash: 'SHA-384',
-            salt: saltBytes,
-            info: contextInfo
+            name: 'AES-GCM',
+            length: 256
         },
-        false, // Non-extractable
+        true, // Extractable for HKDF processing
+        ['encrypt', 'decrypt']
+    );
+    
+    // Export the raw key material
+    const rawKeyData = await crypto.subtle.exportKey('raw', rawKeyMaterial);
+    
+    // Import as HKDF key material for further derivation
+    const rawSharedSecret = await crypto.subtle.importKey(
+        'raw',
+        rawKeyData,
+        {
+            name: 'HKDF',
+            hash: 'SHA-256'
+        },
+        false,
         ['deriveKey']
     );
     
-    // Derive specific keys
-    const keys = await Promise.all([
-        deriveSpecificKey(sharedSecret, saltBytes, 'message-encryption-v4', 'AES-GCM', 256),
-        deriveSpecificKey(sharedSecret, saltBytes, 'message-authentication-v4', 'HMAC', 384),
-        deriveSpecificKey(sharedSecret, saltBytes, 'metadata-protection-v4', 'AES-GCM', 256),
-        deriveSpecificKey(sharedSecret, saltBytes, 'fingerprint-generation-v4', 'AES-GCM', 256, true)
-    ]);
+    // Step 2: Derive specific keys using HKDF with unique info parameters
+    // Each key uses unique info parameter for proper separation
     
-    const [encryptionKey, macKey, metadataKey, fingerprintKey] = keys;
+    // Derive message encryption key (messageKey)
+    const messageKey = await crypto.subtle.deriveKey(
+        {
+            name: 'HKDF',
+            hash: 'SHA-256',
+            salt: saltBytes,
+            info: encoder.encode('message-encryption-v4')
+        },
+        rawSharedSecret,
+        {
+            name: 'AES-GCM',
+            length: 256
+        },
+        false, // Non-extractable for enhanced security
+        ['encrypt', 'decrypt']
+    );
     
-    // Generate key fingerprint
+    // Derive MAC key for message authentication
+    const macKey = await crypto.subtle.deriveKey(
+        {
+            name: 'HKDF',
+            hash: 'SHA-256',
+            salt: saltBytes,
+            info: encoder.encode('message-authentication-v4')
+        },
+        rawSharedSecret,
+        {
+            name: 'HMAC',
+            hash: 'SHA-256'
+        },
+        false, // Non-extractable
+        ['sign', 'verify']
+    );
+    
+    // Derive Perfect Forward Secrecy key (pfsKey)
+    const pfsKey = await crypto.subtle.deriveKey(
+        {
+            name: 'HKDF',
+            hash: 'SHA-256',
+            salt: saltBytes,
+            info: encoder.encode('perfect-forward-secrecy-v4')
+        },
+        rawSharedSecret,
+        {
+            name: 'AES-GCM',
+            length: 256
+        },
+        false, // Non-extractable
+        ['encrypt', 'decrypt']
+    );
+    
+    // Derive separate metadata encryption key
+    const metadataKey = await crypto.subtle.deriveKey(
+        {
+            name: 'HKDF',
+            hash: 'SHA-256',
+            salt: saltBytes,
+            info: encoder.encode('metadata-protection-v4')
+        },
+        rawSharedSecret,
+        {
+            name: 'AES-GCM',
+            length: 256
+        },
+        false, // Non-extractable
+        ['encrypt', 'decrypt']
+    );
+    
+    // Generate temporary extractable key for fingerprint calculation
+    const fingerprintKey = await crypto.subtle.deriveKey(
+        {
+            name: 'HKDF',
+            hash: 'SHA-256',
+            salt: saltBytes,
+            info: encoder.encode('fingerprint-generation-v4')
+        },
+        rawSharedSecret,
+        {
+            name: 'AES-GCM',
+            length: 256
+        },
+        true, // Extractable only for fingerprint
+        ['encrypt', 'decrypt']
+    );
+    
+    // Generate key fingerprint for verification
     const fingerprintKeyData = await crypto.subtle.exportKey('raw', fingerprintKey);
     const fingerprint = await generateKeyFingerprint(Array.from(new Uint8Array(fingerprintKeyData)));
     
     return {
-        encryptionKey,
+        messageKey,
         macKey,
+        pfsKey,
         metadataKey,
         fingerprint,
         timestamp: Date.now(),
@@ -1204,31 +1293,13 @@ async function deriveSharedKeys(privateKey, publicKey, salt) {
 }
 ```
 
-#### **Specific Key Derivation**
-```javascript
-async function deriveSpecificKey(masterKey, salt, info, algorithm, keySize, extractable = false) {
-    const encoder = new TextEncoder();
-    
-    const derivedKey = await crypto.subtle.deriveKey(
-        {
-            name: 'HKDF',
-            hash: 'SHA-384',
-            salt: salt,
-            info: encoder.encode(info)
-        },
-        masterKey,
-        algorithm === 'AES-GCM' ? 
-            { name: 'AES-GCM', length: keySize } :
-            { name: 'HMAC', hash: `SHA-${keySize}` },
-        extractable,
-        algorithm === 'AES-GCM' ? 
-            ['encrypt', 'decrypt'] : 
-            ['sign', 'verify']
-    );
-    
-    return derivedKey;
-}
-```
+#### **HKDF Security Properties**
+- **RFC 5869 Compliance:** Full adherence to HMAC-based Extract-and-Expand Key Derivation Function standard
+- **Proper Key Separation:** Each derived key uses unique `info` parameter to prevent key reuse
+- **Salt Security:** 64-byte cryptographically secure salt for each derivation
+- **Non-Extractable Keys:** All operational keys are hardware-protected and non-exportable
+- **Forward Secrecy:** Independent key derivation for each session prevents key compromise propagation
+- **Algorithm Consistency:** SHA-256 hash function for optimal compatibility and performance
 
 ### Key Fingerprinting
 

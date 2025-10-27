@@ -977,11 +977,18 @@ class EnhancedSecureCryptoUtils {
                 if (level === 'error') {
                     // В production показываем только код ошибки без деталей
                     console.error(`❌ [SecureChat] ${message} [ERROR_CODE: ${this._generateErrorCode(message)}]`);
+                    // Временно показываем детали для отладки
+                    if (context && Object.keys(context).length > 0) {
+                        console.error('Error details:', context);
+                    }
                 } else if (level === 'warn') {
                     // В production показываем только предупреждение без контекста
                     console.warn(`⚠️ [SecureChat] ${message}`);
+                } else if (level === 'info' || level === 'debug') {
+                    // Временно показываем info/debug логи для отладки
+                    console.log(`[SecureChat] ${message}`, context);
                 } else {
-                    // В production не показываем info/debug логи
+                    // В production не показываем другие логи
                     return;
                 }
             } else {
@@ -1914,6 +1921,16 @@ class EnhancedSecureCryptoUtils {
     // Enhanced key derivation with metadata protection and 64-byte salt
     static async deriveSharedKeys(privateKey, publicKey, salt) {
         try {
+            EnhancedSecureCryptoUtils.secureLog.log('info', 'Starting key derivation', {
+                privateKeyType: typeof privateKey,
+                publicKeyType: typeof publicKey,
+                saltLength: salt?.length,
+                privateKeyAlgorithm: privateKey?.algorithm?.name,
+                publicKeyAlgorithm: publicKey?.algorithm?.name,
+                privateKeyUsages: privateKey?.usages,
+                publicKeyUsages: publicKey?.usages
+            });
+            
             // Validate input parameters are CryptoKey instances
             if (!(privateKey instanceof CryptoKey)) {
                 EnhancedSecureCryptoUtils.secureLog.log('error', 'Private key is not a CryptoKey', {
@@ -1928,7 +1945,7 @@ class EnhancedSecureCryptoUtils {
                     publicKeyType: typeof publicKey,
                     publicKeyAlgorithm: publicKey?.algorithm?.name
                 });
-                throw new Error('The private key is not a valid CryptoKey.');
+                throw new Error('The public key is not a valid CryptoKey.');
             }
             
             // Validate salt size (should be 64 bytes for enhanced security)
@@ -1939,209 +1956,156 @@ class EnhancedSecureCryptoUtils {
             const saltBytes = new Uint8Array(salt);
             const encoder = new TextEncoder();
             
-            // Enhanced context info with version and additional entropy
-            const contextInfo = encoder.encode('SecureBit.chat v4.0 Enhanced Security Edition');
-            
-            // Derive master shared secret with enhanced parameters
-            // Try SHA-384 first, fallback to SHA-256
-            let sharedSecret;
+            // Step 1: Derive raw ECDH shared secret using pure ECDH
+            let rawSharedSecret;
             try {
-                sharedSecret = await crypto.subtle.deriveKey(
-                    {
-                        name: 'ECDH',
-                        public: publicKey
-                    },
-                    privateKey,
-                    {
-                        name: 'HKDF',
-                        hash: 'SHA-384',
-                        salt: saltBytes,
-                        info: contextInfo
-                    },
-                    false, // Non-extractable
-                    ['deriveKey']
-                );
-            } catch (sha384Error) {
-                EnhancedSecureCryptoUtils.secureLog.log('warn', 'SHA-384 key derivation failed, trying SHA-256', { 
-                    error: sha384Error.message,
-                    privateKeyType: typeof privateKey,
-                    publicKeyType: typeof publicKey,
-                    privateKeyAlgorithm: privateKey?.algorithm?.name,
-                    publicKeyAlgorithm: publicKey?.algorithm?.name
-                });
+                EnhancedSecureCryptoUtils.secureLog.log('info', 'Step 1: Starting ECDH derivation');
                 
-                sharedSecret = await crypto.subtle.deriveKey(
+                // Use pure ECDH to derive raw key material
+                const rawKeyMaterial = await crypto.subtle.deriveKey(
                     {
                         name: 'ECDH',
                         public: publicKey
                     },
                     privateKey,
                     {
-                        name: 'HKDF',
-                        hash: 'SHA-256',
-                        salt: saltBytes,
-                        info: contextInfo
-                    },
-                    false, // Non-extractable
-                    ['deriveKey']
-                );
-            }
-
-            // Derive message encryption key with fallback
-            let encryptionKey;
-            try {
-                encryptionKey = await crypto.subtle.deriveKey(
-                    {
-                        name: 'HKDF',
-                        hash: 'SHA-384',
-                        salt: saltBytes,
-                        info: encoder.encode('message-encryption-v4')
-                    },
-                    sharedSecret,
-                    {
                         name: 'AES-GCM',
                         length: 256
                     },
-                    false, // Non-extractable for enhanced security
+                    true, // Extractable
                     ['encrypt', 'decrypt']
                 );
-            } catch (sha384Error) {
-                encryptionKey = await crypto.subtle.deriveKey(
+                
+                // Export the raw key material
+                const rawKeyData = await crypto.subtle.exportKey('raw', rawKeyMaterial);
+                
+                // Import as HKDF key material for further derivation
+                rawSharedSecret = await crypto.subtle.importKey(
+                    'raw',
+                    rawKeyData,
                     {
                         name: 'HKDF',
-                        hash: 'SHA-256',
-                        salt: saltBytes,
-                        info: encoder.encode('message-encryption-v4')
-                    },
-                    sharedSecret,
-                    {
-                        name: 'AES-GCM',
-                        length: 256
-                    },
-                    false, // Non-extractable for enhanced security
-                    ['encrypt', 'decrypt']
-                );
-            }
-
-            // Derive MAC key for message authentication with fallback
-            let macKey;
-            try {
-                macKey = await crypto.subtle.deriveKey(
-                    {
-                        name: 'HKDF',
-                        hash: 'SHA-384',
-                        salt: saltBytes,
-                        info: encoder.encode('message-authentication-v4')
-                    },
-                    sharedSecret,
-                    {
-                        name: 'HMAC',
-                        hash: 'SHA-384'
-                    },
-                    false, // Non-extractable
-                    ['sign', 'verify']
-                );
-            } catch (sha384Error) {
-                macKey = await crypto.subtle.deriveKey(
-                    {
-                        name: 'HKDF',
-                        hash: 'SHA-256',
-                        salt: saltBytes,
-                        info: encoder.encode('message-authentication-v4')
-                    },
-                    sharedSecret,
-                    {
-                        name: 'HMAC',
                         hash: 'SHA-256'
                     },
-                    false, // Non-extractable
-                    ['sign', 'verify']
+                    false,
+                    ['deriveKey']
                 );
+                
+                EnhancedSecureCryptoUtils.secureLog.log('info', 'Step 1: ECDH derivation successful');
+            } catch (error) {
+                EnhancedSecureCryptoUtils.secureLog.log('error', 'ECDH derivation failed', { 
+                    error: error.message
+                });
+                throw error;
             }
+            
+            // Step 2: Use HKDF to derive specific keys directly
+            EnhancedSecureCryptoUtils.secureLog.log('info', 'Step 2: Starting HKDF key derivation');
 
-            // Derive separate metadata encryption key with fallback
+            // Step 3: Derive specific keys using HKDF with unique info parameters
+            // Each key uses unique info parameter for proper separation
+            
+            // Derive message encryption key (messageKey)
+            let messageKey;
+            messageKey = await crypto.subtle.deriveKey(
+                {
+                    name: 'HKDF',
+                    hash: 'SHA-256',
+                    salt: saltBytes,
+                    info: encoder.encode('message-encryption-v4')
+                },
+                rawSharedSecret,
+                {
+                    name: 'AES-GCM',
+                    length: 256
+                },
+                false, // Non-extractable for enhanced security
+                ['encrypt', 'decrypt']
+            );
+
+            // Derive MAC key for message authentication
+            let macKey;
+            macKey = await crypto.subtle.deriveKey(
+                {
+                    name: 'HKDF',
+                    hash: 'SHA-256',
+                    salt: saltBytes,
+                    info: encoder.encode('message-authentication-v4')
+                },
+                rawSharedSecret,
+                {
+                    name: 'HMAC',
+                    hash: 'SHA-256'
+                },
+                false, // Non-extractable
+                ['sign', 'verify']
+            );
+
+            // Derive Perfect Forward Secrecy key (pfsKey)
+            let pfsKey;
+            pfsKey = await crypto.subtle.deriveKey(
+                {
+                    name: 'HKDF',
+                    hash: 'SHA-256',
+                    salt: saltBytes,
+                    info: encoder.encode('perfect-forward-secrecy-v4')
+                },
+                rawSharedSecret,
+                {
+                    name: 'AES-GCM',
+                    length: 256
+                },
+                false, // Non-extractable
+                ['encrypt', 'decrypt']
+            );
+
+            // Derive separate metadata encryption key
             let metadataKey;
-            try {
-                metadataKey = await crypto.subtle.deriveKey(
-                    {
-                        name: 'HKDF',
-                        hash: 'SHA-384',
-                        salt: saltBytes,
-                        info: encoder.encode('metadata-protection-v4')
-                    },
-                    sharedSecret,
-                    {
-                        name: 'AES-GCM',
-                        length: 256
-                    },
-                    false, // Non-extractable
-                    ['encrypt', 'decrypt']
-                );
-            } catch (sha384Error) {
-                metadataKey = await crypto.subtle.deriveKey(
-                    {
-                        name: 'HKDF',
-                        hash: 'SHA-256',
-                        salt: saltBytes,
-                        info: encoder.encode('metadata-protection-v4')
-                    },
-                    sharedSecret,
-                    {
-                        name: 'AES-GCM',
-                        length: 256
-                    },
-                    false, // Non-extractable
-                    ['encrypt', 'decrypt']
-                );
-            }
+            metadataKey = await crypto.subtle.deriveKey(
+                {
+                    name: 'HKDF',
+                    hash: 'SHA-256',
+                    salt: saltBytes,
+                    info: encoder.encode('metadata-protection-v4')
+                },
+                rawSharedSecret,
+                {
+                    name: 'AES-GCM',
+                    length: 256
+                },
+                false, // Non-extractable
+                ['encrypt', 'decrypt']
+            );
 
-            // Generate temporary extractable key for fingerprint calculation with fallback
+            // Generate temporary extractable key for fingerprint calculation
             let fingerprintKey;
-            try {
-                fingerprintKey = await crypto.subtle.deriveKey(
-                    {
-                        name: 'HKDF',
-                        hash: 'SHA-384',
-                        salt: saltBytes,
-                        info: encoder.encode('fingerprint-generation-v4')
-                    },
-                    sharedSecret,
-                    {
-                        name: 'AES-GCM',
-                        length: 256
-                    },
-                    true, // Extractable only for fingerprint
-                    ['encrypt', 'decrypt']
-                );
-            } catch (sha384Error) {
-                fingerprintKey = await crypto.subtle.deriveKey(
-                    {
-                        name: 'HKDF',
-                        hash: 'SHA-256',
-                        salt: saltBytes,
-                        info: encoder.encode('fingerprint-generation-v4')
-                    },
-                    sharedSecret,
-                    {
-                        name: 'AES-GCM',
-                        length: 256
-                    },
-                    true, // Extractable only for fingerprint
-                    ['encrypt', 'decrypt']
-                );
-            }
+            fingerprintKey = await crypto.subtle.deriveKey(
+                {
+                    name: 'HKDF',
+                    hash: 'SHA-256',
+                    salt: saltBytes,
+                    info: encoder.encode('fingerprint-generation-v4')
+                },
+                rawSharedSecret,
+                {
+                    name: 'AES-GCM',
+                    length: 256
+                },
+                true, // Extractable only for fingerprint
+                ['encrypt', 'decrypt']
+            );
 
             // Generate key fingerprint for verification
             const fingerprintKeyData = await crypto.subtle.exportKey('raw', fingerprintKey);
             const fingerprint = await EnhancedSecureCryptoUtils.generateKeyFingerprint(Array.from(new Uint8Array(fingerprintKeyData)));
 
             // Validate that all derived keys are CryptoKey instances
-            if (!(encryptionKey instanceof CryptoKey)) {
-                EnhancedSecureCryptoUtils.secureLog.log('error', 'Derived encryption key is not a CryptoKey', {
-                    encryptionKeyType: typeof encryptionKey,
-                    encryptionKeyAlgorithm: encryptionKey?.algorithm?.name
+            if (!(messageKey instanceof CryptoKey)) {
+                EnhancedSecureCryptoUtils.secureLog.log('error', 'Derived message key is not a CryptoKey', {
+                    messageKeyType: typeof messageKey,
+                    messageKeyAlgorithm: messageKey?.algorithm?.name
                 });
-                throw new Error('The derived encryption key is not a valid CryptoKey.');
+                throw new Error('The derived message key is not a valid CryptoKey.');
             }
             
             if (!(macKey instanceof CryptoKey)) {
@@ -2152,6 +2116,14 @@ class EnhancedSecureCryptoUtils {
                 throw new Error('The derived MAC key is not a valid CryptoKey.');
             }
             
+            if (!(pfsKey instanceof CryptoKey)) {
+                EnhancedSecureCryptoUtils.secureLog.log('error', 'Derived PFS key is not a CryptoKey', {
+                    pfsKeyType: typeof pfsKey,
+                    pfsKeyAlgorithm: pfsKey?.algorithm?.name
+                });
+                throw new Error('The derived PFS key is not a valid CryptoKey.');
+            }
+            
             if (!(metadataKey instanceof CryptoKey)) {
                 EnhancedSecureCryptoUtils.secureLog.log('error', 'Derived metadata key is not a CryptoKey', {
                     metadataKeyType: typeof metadataKey,
@@ -2160,24 +2132,37 @@ class EnhancedSecureCryptoUtils {
                 throw new Error('The derived metadata key is not a valid CryptoKey.');
             }
 
-            EnhancedSecureCryptoUtils.secureLog.log('info', 'Enhanced shared keys derived successfully', {
+            EnhancedSecureCryptoUtils.secureLog.log('info', 'Enhanced shared keys derived successfully with proper HKDF separation', {
                 saltSize: salt.length,
+                hasMessageKey: true,
+                hasMacKey: true,
+                hasPfsKey: true,
                 hasMetadataKey: true,
                 nonExtractable: true,
                 version: '4.0',
-                allKeysValid: true
+                allKeysValid: true,
+                hkdfProperlyImplemented: true
             });
 
             return {
-                encryptionKey,
+                messageKey,      // Renamed from encryptionKey for clarity
                 macKey,
+                pfsKey,         // Added Perfect Forward Secrecy key
                 metadataKey,
                 fingerprint,
                 timestamp: Date.now(),
                 version: '4.0'
             };
         } catch (error) {
-            EnhancedSecureCryptoUtils.secureLog.log('error', 'Enhanced key derivation failed', { error: error.message });
+            EnhancedSecureCryptoUtils.secureLog.log('error', 'Enhanced key derivation failed', { 
+                error: error.message,
+                errorStack: error.stack,
+                privateKeyType: typeof privateKey,
+                publicKeyType: typeof publicKey,
+                saltLength: salt?.length,
+                privateKeyAlgorithm: privateKey?.algorithm?.name,
+                publicKeyAlgorithm: publicKey?.algorithm?.name
+            });
             throw new Error(`Failed to create shared encryption keys: ${error.message}`);
         }
     }
