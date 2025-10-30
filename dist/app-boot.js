@@ -1225,9 +1225,6 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
   }
   static async verifyReplayProtection(securityManager) {
     try {
-      console.log("\u{1F50D} verifyReplayProtection debug:");
-      console.log("  - securityManager.replayProtection:", securityManager.replayProtection);
-      console.log("  - securityManager keys:", Object.keys(securityManager));
       if (!securityManager.replayProtection) {
         return { passed: false, details: "Replay protection not enabled" };
       }
@@ -1238,8 +1235,6 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
   }
   static async verifyDTLSFingerprint(securityManager) {
     try {
-      console.log("\u{1F50D} verifyDTLSFingerprint debug:");
-      console.log("  - securityManager.dtlsFingerprint:", securityManager.dtlsFingerprint);
       if (!securityManager.dtlsFingerprint) {
         return { passed: false, details: "DTLS fingerprint not available" };
       }
@@ -1250,8 +1245,6 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
   }
   static async verifySASVerification(securityManager) {
     try {
-      console.log("\u{1F50D} verifySASVerification debug:");
-      console.log("  - securityManager.sasCode:", securityManager.sasCode);
       if (!securityManager.sasCode) {
         return { passed: false, details: "SAS code not available" };
       }
@@ -1262,8 +1255,6 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
   }
   static async verifyTrafficObfuscation(securityManager) {
     try {
-      console.log("\u{1F50D} verifyTrafficObfuscation debug:");
-      console.log("  - securityManager.trafficObfuscation:", securityManager.trafficObfuscation);
       if (!securityManager.trafficObfuscation) {
         return { passed: false, details: "Traffic obfuscation not enabled" };
       }
@@ -1593,13 +1584,9 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
           // Non-extractable for enhanced security
           ["deriveKey"]
         );
-        _EnhancedSecureCryptoUtils.secureLog.log("info", "ECDH key pair generated successfully (P-384)", {
-          curve: "P-384",
-          extractable: false
-        });
         return keyPair;
       } catch (p384Error) {
-        _EnhancedSecureCryptoUtils.secureLog.log("warn", "P-384 generation failed, trying P-256", { error: p384Error.message });
+        _EnhancedSecureCryptoUtils.secureLog.log("warn", "Elliptic curve P-384 generation failed, switching curve", { error: p384Error.message });
         const keyPair = await crypto.subtle.generateKey(
           {
             name: "ECDH",
@@ -1609,10 +1596,6 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
           // Non-extractable for enhanced security
           ["deriveKey"]
         );
-        _EnhancedSecureCryptoUtils.secureLog.log("info", "ECDH key pair generated successfully (P-256 fallback)", {
-          curve: "P-256",
-          extractable: false
-        });
         return keyPair;
       }
     } catch (error) {
@@ -1633,13 +1616,9 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
           // Non-extractable for enhanced security
           ["sign", "verify"]
         );
-        _EnhancedSecureCryptoUtils.secureLog.log("info", "ECDSA key pair generated successfully (P-384)", {
-          curve: "P-384",
-          extractable: false
-        });
         return keyPair;
       } catch (p384Error) {
-        _EnhancedSecureCryptoUtils.secureLog.log("warn", "P-384 generation failed, trying P-256", { error: p384Error.message });
+        _EnhancedSecureCryptoUtils.secureLog.log("warn", "Elliptic curve P-384 generation failed, switching curve", { error: p384Error.message });
         const keyPair = await crypto.subtle.generateKey(
           {
             name: "ECDSA",
@@ -1649,10 +1628,6 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
           // Non-extractable for enhanced security
           ["sign", "verify"]
         );
-        _EnhancedSecureCryptoUtils.secureLog.log("info", "ECDSA key pair generated successfully (P-256 fallback)", {
-          curve: "P-256",
-          extractable: false
-        });
         return keyPair;
       }
     } catch (error) {
@@ -1695,18 +1670,10 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
   // Verify ECDSA signature (P-384 or P-256)
   static async verifySignature(publicKey, signature, data) {
     try {
-      console.log("DEBUG: verifySignature called with:", {
-        publicKey,
-        signature,
-        data
-      });
       const encoder = new TextEncoder();
       const dataBuffer = typeof data === "string" ? encoder.encode(data) : data;
       const signatureBuffer = new Uint8Array(signature);
-      console.log("DEBUG: verifySignature dataBuffer:", dataBuffer);
-      console.log("DEBUG: verifySignature signatureBuffer:", signatureBuffer);
       try {
-        console.log("DEBUG: Trying SHA-384 verification...");
         const isValid = await crypto.subtle.verify(
           {
             name: "ECDSA",
@@ -1716,16 +1683,8 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
           signatureBuffer,
           dataBuffer
         );
-        console.log("DEBUG: SHA-384 verification result:", isValid);
-        _EnhancedSecureCryptoUtils.secureLog.log("info", "Signature verification completed (SHA-384)", {
-          isValid,
-          dataSize: dataBuffer.length
-        });
         return isValid;
       } catch (sha384Error) {
-        console.log("DEBUG: SHA-384 verification failed, trying SHA-256:", sha384Error);
-        _EnhancedSecureCryptoUtils.secureLog.log("warn", "SHA-384 verification failed, trying SHA-256", { error: sha384Error.message });
-        console.log("DEBUG: Trying SHA-256 verification...");
         const isValid = await crypto.subtle.verify(
           {
             name: "ECDSA",
@@ -1735,11 +1694,6 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
           signatureBuffer,
           dataBuffer
         );
-        console.log("DEBUG: SHA-256 verification result:", isValid);
-        _EnhancedSecureCryptoUtils.secureLog.log("info", "Signature verification completed (SHA-256 fallback)", {
-          isValid,
-          dataSize: dataBuffer.length
-        });
         return isValid;
       }
     } catch (error) {
@@ -1812,10 +1766,6 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
         if (!validCurves[curveOidString]) {
           throw new Error(`Invalid or unsupported curve OID: ${curveOidString}`);
         }
-        _EnhancedSecureCryptoUtils.secureLog.log("info", "EC key curve validated", {
-          curve: validCurves[curveOidString],
-          oid: curveOidString
-        });
       }
       const publicKeyBitString = asn1.children[1];
       if (publicKeyBitString.tag !== 3) {
@@ -1859,13 +1809,6 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
           throw new Error(`Key import validation failed: ${importError.message}`);
         }
       }
-      _EnhancedSecureCryptoUtils.secureLog.log("info", "Key structure validation passed", {
-        keyLen: keyBytes.length,
-        algorithm: expectedAlgorithm,
-        asn1Valid: true,
-        oidValid: true,
-        importValid: true
-      });
       return true;
     } catch (err) {
       _EnhancedSecureCryptoUtils.secureLog.log("error", "Key structure validation failed", {
@@ -1979,11 +1922,6 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
         ...keyPackage,
         signature
       };
-      _EnhancedSecureCryptoUtils.secureLog.log("info", "Public key exported with signature", {
-        keyType,
-        keySize: keyData.length,
-        signed: true
-      });
       return signedPackage;
     } catch (error) {
       _EnhancedSecureCryptoUtils.secureLog.log("error", "Public key export failed", {
@@ -1996,11 +1934,6 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
   // Import and verify signed public key
   static async importSignedPublicKey(signedPackage, verifyingKey, expectedKeyType = "ECDH") {
     try {
-      console.log("DEBUG: importSignedPublicKey called with:", {
-        signedPackage,
-        verifyingKey,
-        expectedKeyType
-      });
       if (!signedPackage || typeof signedPackage !== "object") {
         throw new Error("Invalid signed package format");
       }
@@ -2018,11 +1951,7 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
       await _EnhancedSecureCryptoUtils.validateKeyStructure(keyData, keyType);
       const packageCopy = { keyType, keyData, timestamp, version };
       const packageString = JSON.stringify(packageCopy);
-      console.log("DEBUG: Web version package string for verification:", packageString);
-      console.log("DEBUG: Web version signature to verify:", signature);
-      console.log("DEBUG: Web version verifying key:", verifyingKey);
       const isValidSignature = await _EnhancedSecureCryptoUtils.verifySignature(verifyingKey, signature, packageString);
-      console.log("DEBUG: Web version signature verification result:", isValidSignature);
       if (!isValidSignature) {
         throw new Error("Invalid signature on key package - possible MITM attack");
       }
@@ -2038,16 +1967,9 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
           // Non-extractable
           keyUsages
         );
-        _EnhancedSecureCryptoUtils.secureLog.log("info", "Signed public key imported successfully (P-384)", {
-          keyType,
-          signatureValid: true,
-          keyAge: Math.round(keyAge / 1e3) + "s"
-        });
         return publicKey;
       } catch (p384Error) {
-        _EnhancedSecureCryptoUtils.secureLog.log("warn", "P-384 import failed, trying P-256", {
-          error: p384Error.message
-        });
+        _EnhancedSecureCryptoUtils.secureLog.log("warn", "Elliptic curve P-384 import failed, switching curve", { error: p384Error.message });
         const algorithm = keyType === "ECDH" ? { name: "ECDH", namedCurve: "P-256" } : { name: "ECDSA", namedCurve: "P-256" };
         const keyUsages = keyType === "ECDH" ? [] : ["verify"];
         const publicKey = await crypto.subtle.importKey(
@@ -2058,11 +1980,6 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
           // Non-extractable
           keyUsages
         );
-        _EnhancedSecureCryptoUtils.secureLog.log("info", "Signed public key imported successfully (P-256 fallback)", {
-          keyType,
-          signatureValid: true,
-          keyAge: Math.round(keyAge / 1e3) + "s"
-        });
         return publicKey;
       }
     } catch (error) {
@@ -2079,7 +1996,6 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
       const exported = await crypto.subtle.exportKey("spki", publicKey);
       const keyData = Array.from(new Uint8Array(exported));
       await _EnhancedSecureCryptoUtils.validateKeyStructure(keyData, "ECDH");
-      _EnhancedSecureCryptoUtils.secureLog.log("info", "Legacy public key exported", { keySize: keyData.length });
       return keyData;
     } catch (error) {
       _EnhancedSecureCryptoUtils.secureLog.log("error", "Legacy public key export failed", { error: error.message });
@@ -2103,7 +2019,6 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
           // Non-extractable
           []
         );
-        _EnhancedSecureCryptoUtils.secureLog.log("info", "Legacy public key imported (P-384)", { keySize: keyData.length });
         return publicKey;
       } catch (p384Error) {
         _EnhancedSecureCryptoUtils.secureLog.log("warn", "P-384 import failed, trying P-256", { error: p384Error.message });
@@ -2118,7 +2033,6 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
           // Non-extractable
           []
         );
-        _EnhancedSecureCryptoUtils.secureLog.log("info", "Legacy public key imported (P-256 fallback)", { keySize: keyData.length });
         return publicKey;
       }
     } catch (error) {
@@ -2176,16 +2090,6 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
         throw new Error("CRITICAL SECURITY ERROR: Invalid key signature detected. This indicates a possible MITM attack attempt. Key import rejected.");
       }
       const keyFingerprint = await _EnhancedSecureCryptoUtils.calculateKeyFingerprint(signedPackage.keyData);
-      _EnhancedSecureCryptoUtils.secureLog.log("info", "SECURE: Signature verification passed for signed package", {
-        keyType: signedPackage.keyType,
-        keySize: signedPackage.keyData.length,
-        timestamp: signedPackage.timestamp,
-        version: signedPackage.version,
-        signatureVerified: true,
-        securityLevel: "HIGH",
-        keyFingerprint: keyFingerprint.substring(0, 8)
-        // Only log first 8 chars for security
-      });
       const keyBytes = new Uint8Array(signedPackage.keyData);
       const keyType = signedPackage.keyType || "ECDH";
       try {
@@ -2237,15 +2141,6 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
   // Enhanced key derivation with metadata protection and 64-byte salt
   static async deriveSharedKeys(privateKey, publicKey, salt) {
     try {
-      _EnhancedSecureCryptoUtils.secureLog.log("info", "Starting key derivation", {
-        privateKeyType: typeof privateKey,
-        publicKeyType: typeof publicKey,
-        saltLength: salt?.length,
-        privateKeyAlgorithm: privateKey?.algorithm?.name,
-        publicKeyAlgorithm: publicKey?.algorithm?.name,
-        privateKeyUsages: privateKey?.usages,
-        publicKeyUsages: publicKey?.usages
-      });
       if (!(privateKey instanceof CryptoKey)) {
         _EnhancedSecureCryptoUtils.secureLog.log("error", "Private key is not a CryptoKey", {
           privateKeyType: typeof privateKey,
@@ -2267,7 +2162,6 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
       const encoder = new TextEncoder();
       let rawSharedSecret;
       try {
-        _EnhancedSecureCryptoUtils.secureLog.log("info", "Step 1: Starting ECDH derivation");
         const rawKeyMaterial = await crypto.subtle.deriveKey(
           {
             name: "ECDH",
@@ -2293,14 +2187,12 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
           false,
           ["deriveKey"]
         );
-        _EnhancedSecureCryptoUtils.secureLog.log("info", "Step 1: ECDH derivation successful");
       } catch (error) {
         _EnhancedSecureCryptoUtils.secureLog.log("error", "ECDH derivation failed", {
           error: error.message
         });
         throw error;
       }
-      _EnhancedSecureCryptoUtils.secureLog.log("info", "Step 2: Starting HKDF key derivation");
       let messageKey;
       messageKey = await crypto.subtle.deriveKey(
         {
@@ -2416,17 +2308,6 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
         });
         throw new Error("The derived metadata key is not a valid CryptoKey.");
       }
-      _EnhancedSecureCryptoUtils.secureLog.log("info", "Enhanced shared keys derived successfully with proper HKDF separation", {
-        saltSize: salt.length,
-        hasMessageKey: true,
-        hasMacKey: true,
-        hasPfsKey: true,
-        hasMetadataKey: true,
-        nonExtractable: true,
-        version: "4.0",
-        allKeysValid: true,
-        hkdfProperlyImplemented: true
-      });
       return {
         messageKey,
         // Renamed from encryptionKey for clarity
@@ -2798,10 +2679,6 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
       const hashBuffer = await crypto.subtle.digest("SHA-256", keyBytes);
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       const fingerprint = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-      _EnhancedSecureCryptoUtils.secureLog.log("info", "Key fingerprint calculated", {
-        keySize: keyData.length,
-        fingerprintLength: fingerprint.length
-      });
       return fingerprint;
     } catch (error) {
       _EnhancedSecureCryptoUtils.secureLog.log("error", "Key fingerprint calculation failed", { error: error.message });
@@ -4662,7 +4539,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     SYSTEM_MESSAGE: "SYSTEM_MESSAGE_FILTERED"
   };
   //   Static debug flag instead of this._debugMode
-  static DEBUG_MODE = true;
+  static DEBUG_MODE = false;
   // Set to true during development, false in production
   constructor(onMessage, onStatusChange, onKeyExchange, onVerificationRequired, onAnswerError = null, onVerificationStateChange = null, config = {}) {
     this._isProductionMode = this._detectProductionMode();
@@ -7428,15 +7305,12 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       if (normalizedReceived !== normalizedExpected) {
         this._secureLog("error", "DTLS fingerprint mismatch - possible MITM attack", {
           context,
-          receivedHash: await this._createSafeLogHash(normalizedReceived, "dtls_fingerprint"),
-          expectedHash: await this._createSafeLogHash(normalizedExpected, "dtls_fingerprint"),
           timestamp: Date.now()
         });
         throw new Error(`DTLS fingerprint mismatch - possible MITM attack in ${context}`);
       }
       this._secureLog("info", "DTLS fingerprint validation successful", {
         context,
-        fingerprintHash: await this._createSafeLogHash(normalizedReceived, "dtls_fingerprint"),
         timestamp: Date.now()
       });
       return true;
@@ -7653,7 +7527,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         sessionId
       });
       this._secureLog("info", "\u2705 Ephemeral ECDH keys generated for PFS", {
-        sessionIdHash: await this._createSafeLogHash(sessionId, "session_id"),
         timestamp: Date.now()
       });
       return ephemeralKeyPair;
@@ -8429,7 +8302,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       result.set(uniqueIV, 0);
       result.set(new Uint8Array(encrypted), _EnhancedSecureWebRTCManager.SIZES.NESTED_ENCRYPTION_IV_SIZE);
       this._secureLog("debug", "\u2705 Nested encryption applied with secure IV", {
-        ivHash: await this._createSafeLogHash(uniqueIV, "nestedEncryption"),
         ivSize: uniqueIV.length,
         dataSize: data.byteLength,
         encryptedSize: encrypted.byteLength
@@ -10847,8 +10719,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           }
           this._secureLog("debug", "Ephemeral ECDH keys generated and validated for PFS", {
             operationId,
-            privateKeyHash: await this._createSafeLogHash(ecdhKeyPair.privateKey, "ecdh_private"),
-            publicKeyHash: await this._createSafeLogHash(ecdhKeyPair.publicKey, "ecdh_public"),
             privateKeyType: ecdhKeyPair.privateKey.algorithm?.name,
             publicKeyType: ecdhKeyPair.publicKey.algorithm?.name,
             isEphemeral: true
@@ -10870,8 +10740,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           }
           this._secureLog("debug", "ECDSA keys generated and validated", {
             operationId,
-            privateKeyHash: await this._createSafeLogHash(ecdsaKeyPair.privateKey, "ecdsa_private"),
-            publicKeyHash: await this._createSafeLogHash(ecdsaKeyPair.publicKey, "ecdsa_public"),
             privateKeyType: ecdsaKeyPair.privateKey.algorithm?.name,
             publicKeyType: ecdsaKeyPair.publicKey.algorithm?.name
           });
@@ -12637,10 +12505,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         throw new Error("Missing required fields in response data \u2013 possible MITM attack");
       }
       if (answerData.sessionId && this.sessionId && answerData.sessionId !== this.sessionId) {
-        window.EnhancedSecureCryptoUtils.secureLog.log("error", "Session ID mismatch detected - possible MITM attack", {
-          expectedSessionIdHash: await this._createSafeLogHash(this.sessionId, "session_id"),
-          receivedSessionIdHash: await this._createSafeLogHash(answerData.sessionId, "session_id")
-        });
+        window.EnhancedSecureCryptoUtils.secureLog.log("error", "Session ID mismatch detected - possible MITM attack", {});
         throw new Error("Session ID mismatch \u2013 possible MITM attack");
       }
       const answerAge = Date.now() - answerData.timestamp;
@@ -13980,7 +13845,6 @@ var SecureKeyStorage = class {
       return null;
     } catch (error) {
       this._secureLog("error", "Failed to retrieve key", {
-        keyIdHash: await this._createSafeLogHash(keyId, "key_id"),
         errorType: error?.constructor?.name || "Unknown"
       });
       return null;
@@ -14127,7 +13991,6 @@ var SecureKeyStorage = class {
       return true;
     } catch (error) {
       this._secureLog("error", "Failed to delete key", {
-        keyIdHash: await this._createSafeLogHash(keyId, "key_id"),
         errorType: error?.constructor?.name || "Unknown"
       });
       return false;

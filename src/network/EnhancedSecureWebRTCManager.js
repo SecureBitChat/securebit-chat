@@ -101,7 +101,7 @@ class EnhancedSecureWebRTCManager {
     };
 
     //   Static debug flag instead of this._debugMode
-    static DEBUG_MODE = true; // Set to true during development, false in production
+    static DEBUG_MODE = false; // Set to true during development, false in production
 
 
     constructor(onMessage, onStatusChange, onKeyExchange, onVerificationRequired, onAnswerError = null, onVerificationStateChange = null, config = {}) {
@@ -3548,8 +3548,6 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             if (normalizedReceived !== normalizedExpected) {
                 this._secureLog('error', 'DTLS fingerprint mismatch - possible MITM attack', {
                     context: context,
-                    receivedHash: await this._createSafeLogHash(normalizedReceived, 'dtls_fingerprint'),
-                    expectedHash: await this._createSafeLogHash(normalizedExpected, 'dtls_fingerprint'),
                     timestamp: Date.now()
                 });
                 
@@ -3558,7 +3556,6 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
 
             this._secureLog('info', 'DTLS fingerprint validation successful', {
                 context: context,
-                fingerprintHash: await this._createSafeLogHash(normalizedReceived, 'dtls_fingerprint'),
                 timestamp: Date.now()
             });
 
@@ -3829,7 +3826,6 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             });
 
             this._secureLog('info', '✅ Ephemeral ECDH keys generated for PFS', {
-                sessionIdHash: await this._createSafeLogHash(sessionId, 'session_id'),
                 timestamp: Date.now()
             });
 
@@ -4789,7 +4785,6 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             result.set(new Uint8Array(encrypted), EnhancedSecureWebRTCManager.SIZES.NESTED_ENCRYPTION_IV_SIZE);
             
             this._secureLog('debug', '✅ Nested encryption applied with secure IV', {
-                ivHash: await this._createSafeLogHash(uniqueIV, 'nestedEncryption'),
                 ivSize: uniqueIV.length,
                 dataSize: data.byteLength,
                 encryptedSize: encrypted.byteLength
@@ -8019,8 +8014,6 @@ async processMessage(data) {
                     
                     this._secureLog('debug', 'Ephemeral ECDH keys generated and validated for PFS', {
                         operationId: operationId,
-                        privateKeyHash: await this._createSafeLogHash(ecdhKeyPair.privateKey, 'ecdh_private'),
-                        publicKeyHash: await this._createSafeLogHash(ecdhKeyPair.publicKey, 'ecdh_public'),
                         privateKeyType: ecdhKeyPair.privateKey.algorithm?.name,
                         publicKeyType: ecdhKeyPair.publicKey.algorithm?.name,
                         isEphemeral: true
@@ -8050,8 +8043,6 @@ async processMessage(data) {
                     
                     this._secureLog('debug', 'ECDSA keys generated and validated', {
                         operationId: operationId,
-                        privateKeyHash: await this._createSafeLogHash(ecdsaKeyPair.privateKey, 'ecdsa_private'),
-                        publicKeyHash: await this._createSafeLogHash(ecdsaKeyPair.publicKey, 'ecdsa_public'),
                         privateKeyType: ecdsaKeyPair.privateKey.algorithm?.name,
                         publicKeyType: ecdsaKeyPair.publicKey.algorithm?.name
                     });
@@ -10451,10 +10442,7 @@ async processMessage(data) {
 
             // MITM Protection: Verify session ID if present (for enhanced security)
             if (answerData.sessionId && this.sessionId && answerData.sessionId !== this.sessionId) {
-                window.EnhancedSecureCryptoUtils.secureLog.log('error', 'Session ID mismatch detected - possible MITM attack', {
-                    expectedSessionIdHash: await this._createSafeLogHash(this.sessionId, 'session_id'),
-                    receivedSessionIdHash: await this._createSafeLogHash(answerData.sessionId, 'session_id')
-                });
+                window.EnhancedSecureCryptoUtils.secureLog.log('error', 'Session ID mismatch detected - possible MITM attack', {});
                 throw new Error('Session ID mismatch – possible MITM attack');
             }
 
@@ -12189,7 +12177,6 @@ class SecureKeyStorage {
             
         } catch (error) {
             this._secureLog('error', 'Failed to retrieve key', {
-                keyIdHash: await this._createSafeLogHash(keyId, 'key_id'),
                 errorType: error?.constructor?.name || 'Unknown'
             });
             return null;
@@ -12383,7 +12370,6 @@ class SecureKeyStorage {
             
         } catch (error) {
             this._secureLog('error', 'Failed to delete key', {
-                keyIdHash: await this._createSafeLogHash(keyId, 'key_id'),
                 errorType: error?.constructor?.name || 'Unknown'
             });
             return false;
