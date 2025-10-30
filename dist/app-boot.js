@@ -2507,12 +2507,6 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
         encoder.encode(payloadStr)
       );
       payload.mac = Array.from(new Uint8Array(mac));
-      _EnhancedSecureCryptoUtils.secureLog.log("info", "Message encrypted with metadata protection", {
-        messageId,
-        sequenceNumber,
-        hasMetadataProtection: true,
-        hasPadding: true
-      });
       return payload;
     } catch (error) {
       _EnhancedSecureCryptoUtils.secureLog.log("error", "Message encryption failed", {
@@ -13781,11 +13775,10 @@ var SecureKeyStorage = class {
   /**
    * Get master key (with automatic unlock if needed)
    */
-  async _getMasterKey() {
+  async _ensureMasterKeyUnlocked() {
     if (!this._masterKeyManager.isUnlocked()) {
       await this._masterKeyManager.unlock();
     }
-    return this._masterKeyManager.getMasterKey();
   }
   async storeKey(keyId, cryptoKey, metadata = {}) {
     if (!(cryptoKey instanceof CryptoKey)) {
@@ -13854,27 +13847,18 @@ var SecureKeyStorage = class {
     const dataToEncrypt = typeof keyData === "object" ? JSON.stringify(keyData) : keyData;
     const encoder = new TextEncoder();
     const data = encoder.encode(dataToEncrypt);
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const masterKey = await this._getMasterKey();
-    const encryptedData = await crypto.subtle.encrypt(
-      { name: "AES-GCM", iv },
-      masterKey,
-      data
-    );
+    await this._ensureMasterKeyUnlocked();
+    const { encryptedData, iv } = await this._masterKeyManager.encryptBytes(data);
     const result = new Uint8Array(iv.length + encryptedData.byteLength);
     result.set(iv, 0);
-    result.set(new Uint8Array(encryptedData), iv.length);
+    result.set(encryptedData, iv.length);
     return result;
   }
   async _decryptKeyData(encryptedData) {
     const iv = encryptedData.slice(0, 12);
     const data = encryptedData.slice(12);
-    const masterKey = await this._getMasterKey();
-    const decryptedData = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv },
-      masterKey,
-      data
-    );
+    await this._ensureMasterKeyUnlocked();
+    const decryptedData = await this._masterKeyManager.decryptBytes(data, iv);
     const decoder = new TextDecoder();
     const jsonString = decoder.decode(decryptedData);
     try {
@@ -14418,8 +14402,7 @@ var SecurePersistentKeyStorage = class {
     try {
       await this._ensureDBInitialized();
       const jwkData = await crypto.subtle.exportKey("jwk", cryptoKey);
-      const masterKey = this._masterKeyManager.getMasterKey();
-      const { encryptedData, iv } = await this._encryptKeyData(jwkData, masterKey);
+      const { encryptedData, iv } = await this._encryptKeyData(jwkData);
       await this._indexedDB.storeEncryptedKey(
         keyId,
         encryptedData,
@@ -14449,8 +14432,7 @@ var SecurePersistentKeyStorage = class {
       if (!keyRecord) {
         return null;
       }
-      const masterKey = this._masterKeyManager.getMasterKey();
-      const jwkData = await this._decryptKeyData(keyRecord.encryptedData, keyRecord.iv, masterKey);
+      const jwkData = await this._decryptKeyData(keyRecord.encryptedData, keyRecord.iv);
       const restoredKey = await this._importAsNonExtractable(jwkData, keyRecord.algorithm, keyRecord.usages);
       this._keyReferences.set(keyId, restoredKey);
       await this._indexedDB.updateKeyMetadata(keyId, { lastAccessed: Date.now() });
@@ -14499,29 +14481,18 @@ var SecurePersistentKeyStorage = class {
   /**
    * Encrypt key data using master key
    */
-  async _encryptKeyData(jwkData, masterKey) {
+  async _encryptKeyData(jwkData) {
     const jsonString = JSON.stringify(jwkData);
     const data = new TextEncoder().encode(jsonString);
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const encryptedData = await crypto.subtle.encrypt(
-      { name: "AES-GCM", iv },
-      masterKey,
-      data
-    );
-    return {
-      encryptedData: new Uint8Array(encryptedData),
-      iv
-    };
+    await this._ensureMasterKeyUnlocked();
+    return await this._masterKeyManager.encryptBytes(data);
   }
   /**
    * Decrypt key data using master key
    */
-  async _decryptKeyData(encryptedData, iv, masterKey) {
-    const decryptedData = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv },
-      masterKey,
-      encryptedData
-    );
+  async _decryptKeyData(encryptedData, iv) {
+    await this._ensureMasterKeyUnlocked();
+    const decryptedData = await this._masterKeyManager.decryptBytes(encryptedData, iv);
     const jsonString = new TextDecoder().decode(decryptedData);
     return JSON.parse(jsonString);
   }
@@ -14564,7 +14535,7 @@ var SecurePersistentKeyStorage = class {
 };
 var SecureMasterKeyManager = class {
   constructor(indexedDBWrapper = null) {
-    this._masterKey = null;
+    this._keyHandle = null;
     this._isUnlocked = false;
     this._sessionTimeout = null;
     this._lastActivity = null;
@@ -14773,7 +14744,7 @@ var SecureMasterKeyManager = class {
         password = await this._requestPassword(false);
       }
       const salt = await this._getOrCreateSalt();
-      this._masterKey = await this._deriveKeyFromPassword(password, salt);
+      this._keyHandle = await this._deriveKeyFromPassword(password, salt);
       this._isUnlocked = true;
       this._lastActivity = Date.now();
       this._startSessionTimer();
@@ -14796,12 +14767,23 @@ var SecureMasterKeyManager = class {
   /**
    * Get master key (only if unlocked)
    */
-  getMasterKey() {
-    if (!this._isUnlocked || !this._masterKey) {
+  // Prevent direct key access; provide operations only
+  async encryptBytes(plainBytes) {
+    if (!this._isUnlocked || !this._keyHandle) {
       throw new Error("Master key is locked");
     }
     this._updateActivity();
-    return this._masterKey;
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, this._keyHandle, plainBytes);
+    return { encryptedData: new Uint8Array(encrypted), iv };
+  }
+  async decryptBytes(encryptedBytes, iv) {
+    if (!this._isUnlocked || !this._keyHandle) {
+      throw new Error("Master key is locked");
+    }
+    this._updateActivity();
+    const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, this._keyHandle, encryptedBytes);
+    return new Uint8Array(decrypted);
   }
   /**
    * Check if master key is unlocked
@@ -14824,8 +14806,8 @@ var SecureMasterKeyManager = class {
    * Securely wipe master key from memory
    */
   _secureWipeMasterKey() {
-    if (this._masterKey) {
-      this._masterKey = null;
+    if (this._keyHandle) {
+      this._keyHandle = null;
     }
     this._clearTimers();
   }
@@ -14896,10 +14878,8 @@ var EnhancedMinimalHeader = ({
           } else if (window.DEBUG_MODE) {
           }
         } else {
-          console.warn(" Security calculation returned invalid data");
         }
       } catch (error) {
-        console.error(" Error in real security calculation:", error);
       } finally {
         isUpdating = false;
       }
@@ -14940,10 +14920,8 @@ var EnhancedMinimalHeader = ({
           if (securityData && securityData.isRealData !== false) {
             setRealSecurityLevel(securityData);
             setLastSecurityUpdate(Date.now());
-            console.log("\u2705 Header security level force-updated");
           }
         }).catch((error) => {
-          console.error("\u274C Force update failed:", error);
         });
       } else {
         setLastSecurityUpdate(0);
@@ -14971,9 +14949,6 @@ var EnhancedMinimalHeader = ({
       setSessionType("premium");
     };
     const handleConnectionCleaned = () => {
-      if (window.DEBUG_MODE) {
-        console.log("\u{1F9F9} Connection cleaned - clearing security data in header");
-      }
       setRealSecurityLevel(null);
       setLastSecurityUpdate(0);
       setHasActiveSession(false);
@@ -14981,9 +14956,6 @@ var EnhancedMinimalHeader = ({
       setSessionType("unknown");
     };
     const handlePeerDisconnect = () => {
-      if (window.DEBUG_MODE) {
-        console.log("\u{1F44B} Peer disconnect detected - clearing security data in header");
-      }
       setRealSecurityLevel(null);
       setLastSecurityUpdate(0);
     };
@@ -15018,15 +14990,9 @@ var EnhancedMinimalHeader = ({
     if (webrtcManager && window.EnhancedSecureCryptoUtils) {
       try {
         realTestResults = await window.EnhancedSecureCryptoUtils.calculateSecurityLevel(webrtcManager);
-        console.log("\u2705 Real security tests completed:", realTestResults);
       } catch (error) {
-        console.error("\u274C Real security tests failed:", error);
       }
     } else {
-      console.log("\u26A0\uFE0F Cannot run security tests:", {
-        webrtcManager: !!webrtcManager,
-        cryptoUtils: !!window.EnhancedSecureCryptoUtils
-      });
     }
     if (!realTestResults && !realSecurityLevel) {
       alert("Security verification in progress...\nPlease wait for real-time cryptographic verification to complete.");
@@ -15045,7 +15011,6 @@ var EnhancedMinimalHeader = ({
         passedChecks: 0,
         totalChecks: 0
       };
-      console.log("Using fallback security data:", securityData);
     }
     let message = `REAL-TIME SECURITY VERIFICATION
 
@@ -15261,18 +15226,7 @@ Right-click or Ctrl+click to disconnect`,
   };
   const securityDetails = getSecurityIndicatorDetails();
   React.useEffect(() => {
-    window.debugHeaderSecurity = () => {
-      console.log("\u{1F50D} Header Security Debug:", {
-        realSecurityLevel,
-        lastSecurityUpdate,
-        isConnected,
-        webrtcManagerProp: !!webrtcManager,
-        windowWebrtcManager: !!window.webrtcManager,
-        cryptoUtils: !!window.EnhancedSecureCryptoUtils,
-        displaySecurityLevel,
-        securityDetails
-      });
-    };
+    window.debugHeaderSecurity = void 0;
     return () => {
       delete window.debugHeaderSecurity;
     };

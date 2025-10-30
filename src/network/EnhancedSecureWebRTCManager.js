@@ -12094,11 +12094,10 @@ class SecureKeyStorage {
     /**
      * Get master key (with automatic unlock if needed)
      */
-    async _getMasterKey() {
+    async _ensureMasterKeyUnlocked() {
         if (!this._masterKeyManager.isUnlocked()) {
             await this._masterKeyManager.unlock();
         }
-        return this._masterKeyManager.getMasterKey();
     }
 
     async storeKey(keyId, cryptoKey, metadata = {}) {
@@ -12191,20 +12190,12 @@ class SecureKeyStorage {
         const encoder = new TextEncoder();
         const data = encoder.encode(dataToEncrypt);
         
-        const iv = crypto.getRandomValues(new Uint8Array(12));
-        
-        const masterKey = await this._getMasterKey();
-        const encryptedData = await crypto.subtle.encrypt(
-            { name: 'AES-GCM', iv },
-            masterKey,
-            data
-        );
-
+        await this._ensureMasterKeyUnlocked();
+        const { encryptedData, iv } = await this._masterKeyManager.encryptBytes(data);
         // Return IV + encrypted data
         const result = new Uint8Array(iv.length + encryptedData.byteLength);
         result.set(iv, 0);
-        result.set(new Uint8Array(encryptedData), iv.length);
-        
+        result.set(encryptedData, iv.length);
         return result;
     }
 
@@ -12212,12 +12203,8 @@ class SecureKeyStorage {
         const iv = encryptedData.slice(0, 12);
         const data = encryptedData.slice(12);
         
-        const masterKey = await this._getMasterKey();
-        const decryptedData = await crypto.subtle.decrypt(
-            { name: 'AES-GCM', iv },
-            masterKey,
-            data
-        );
+        await this._ensureMasterKeyUnlocked();
+        const decryptedData = await this._masterKeyManager.decryptBytes(data, iv);
 
         const decoder = new TextDecoder();
         const jsonString = decoder.decode(decryptedData);
@@ -12906,11 +12893,8 @@ class SecurePersistentKeyStorage {
             // Export key to JWK
             const jwkData = await crypto.subtle.exportKey('jwk', cryptoKey);
             
-            // Get master key for encryption
-            const masterKey = this._masterKeyManager.getMasterKey();
-            
             // Encrypt JWK data
-            const { encryptedData, iv } = await this._encryptKeyData(jwkData, masterKey);
+            const { encryptedData, iv } = await this._encryptKeyData(jwkData);
             
             // Store encrypted data in IndexedDB
             await this._indexedDB.storeEncryptedKey(
@@ -12952,11 +12936,8 @@ class SecurePersistentKeyStorage {
                 return null;
             }
             
-            // Get master key for decryption
-            const masterKey = this._masterKeyManager.getMasterKey();
-            
             // Decrypt JWK data
-            const jwkData = await this._decryptKeyData(keyRecord.encryptedData, keyRecord.iv, masterKey);
+            const jwkData = await this._decryptKeyData(keyRecord.encryptedData, keyRecord.iv);
             
             // Import as non-extractable key
             const restoredKey = await this._importAsNonExtractable(jwkData, keyRecord.algorithm, keyRecord.usages);
@@ -13029,37 +13010,21 @@ class SecurePersistentKeyStorage {
     /**
      * Encrypt key data using master key
      */
-    async _encryptKeyData(jwkData, masterKey) {
+    async _encryptKeyData(jwkData) {
         // Convert JWK to JSON string and then to bytes
         const jsonString = JSON.stringify(jwkData);
         const data = new TextEncoder().encode(jsonString);
         
-        // Generate random IV
-        const iv = crypto.getRandomValues(new Uint8Array(12));
-        
-        // Encrypt with AES-GCM
-        const encryptedData = await crypto.subtle.encrypt(
-            { name: 'AES-GCM', iv },
-            masterKey,
-            data
-        );
-        
-        return {
-            encryptedData: new Uint8Array(encryptedData),
-            iv: iv
-        };
+        await this._ensureMasterKeyUnlocked();
+        return await this._masterKeyManager.encryptBytes(data);
     }
     
     /**
      * Decrypt key data using master key
      */
-    async _decryptKeyData(encryptedData, iv, masterKey) {
-        // Decrypt with AES-GCM
-        const decryptedData = await crypto.subtle.decrypt(
-            { name: 'AES-GCM', iv },
-            masterKey,
-            encryptedData
-        );
+    async _decryptKeyData(encryptedData, iv) {
+        await this._ensureMasterKeyUnlocked();
+        const decryptedData = await this._masterKeyManager.decryptBytes(encryptedData, iv);
         
         // Convert back to JWK
         const jsonString = new TextDecoder().decode(decryptedData);
@@ -13114,7 +13079,7 @@ class SecurePersistentKeyStorage {
 class SecureMasterKeyManager {
     constructor(indexedDBWrapper = null) {
         // Session state
-        this._masterKey = null;
+        this._keyHandle = null; // non-extractable CryptoKey
         this._isUnlocked = false;
         this._sessionTimeout = null;
         this._lastActivity = null;
@@ -13372,8 +13337,8 @@ class SecureMasterKeyManager {
             // Get or create persistent salt
             const salt = await this._getOrCreateSalt();
             
-            // Derive master key
-            this._masterKey = await this._deriveKeyFromPassword(password, salt);
+            // Derive non-extractable key handle
+            this._keyHandle = await this._deriveKeyFromPassword(password, salt);
             
             // Mark as unlocked
             this._isUnlocked = true;
@@ -13408,13 +13373,24 @@ class SecureMasterKeyManager {
     /**
      * Get master key (only if unlocked)
      */
-    getMasterKey() {
-        if (!this._isUnlocked || !this._masterKey) {
+    // Prevent direct key access; provide operations only
+    async encryptBytes(plainBytes) {
+        if (!this._isUnlocked || !this._keyHandle) {
             throw new Error('Master key is locked');
         }
-        
         this._updateActivity();
-        return this._masterKey;
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, this._keyHandle, plainBytes);
+        return { encryptedData: new Uint8Array(encrypted), iv };
+    }
+
+    async decryptBytes(encryptedBytes, iv) {
+        if (!this._isUnlocked || !this._keyHandle) {
+            throw new Error('Master key is locked');
+        }
+        this._updateActivity();
+        const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, this._keyHandle, encryptedBytes);
+        return new Uint8Array(decrypted);
     }
     
     /**
@@ -13440,10 +13416,10 @@ class SecureMasterKeyManager {
      * Securely wipe master key from memory
      */
     _secureWipeMasterKey() {
-        if (this._masterKey) {
+        if (this._keyHandle) {
             // CryptoKey objects are automatically garbage collected
             // but we clear the reference immediately
-            this._masterKey = null;
+            this._keyHandle = null;
         }
         this._clearTimers();
     }

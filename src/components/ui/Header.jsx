@@ -63,11 +63,11 @@ const EnhancedMinimalHeader = ({
                         } else if (window.DEBUG_MODE) {
                     }
                 } else {
-                    console.warn(' Security calculation returned invalid data');
+                    
                 }
                 
             } catch (error) {
-                console.error(' Error in real security calculation:', error);
+                
             } finally {
                 isUpdating = false;
             }
@@ -125,11 +125,11 @@ const EnhancedMinimalHeader = ({
                         if (securityData && securityData.isRealData !== false) {
                             setRealSecurityLevel(securityData);
                             setLastSecurityUpdate(Date.now());
-                            console.log('✅ Header security level force-updated');
+                            
                         }
                     })
                     .catch(error => {
-                        console.error('❌ Force update failed:', error);
+                        
                     });
             } else {
                 setLastSecurityUpdate(0); 
@@ -170,9 +170,7 @@ const EnhancedMinimalHeader = ({
 
         // Connection cleanup handler (use existing event from module)
         const handleConnectionCleaned = () => {
-            if (window.DEBUG_MODE) {
-                console.log('🧹 Connection cleaned - clearing security data in header');
-            }
+            
 
             setRealSecurityLevel(null);
             setLastSecurityUpdate(0);
@@ -183,9 +181,7 @@ const EnhancedMinimalHeader = ({
         };
 
         const handlePeerDisconnect = () => {
-            if (window.DEBUG_MODE) {
-                console.log('👋 Peer disconnect detected - clearing security data in header');
-            }
+            
 
             setRealSecurityLevel(null);
             setLastSecurityUpdate(0);
@@ -236,15 +232,12 @@ const EnhancedMinimalHeader = ({
         if (webrtcManager && window.EnhancedSecureCryptoUtils) {
             try {
                 realTestResults = await window.EnhancedSecureCryptoUtils.calculateSecurityLevel(webrtcManager);
-                console.log('✅ Real security tests completed:', realTestResults);
+                
             } catch (error) {
-                console.error('❌ Real security tests failed:', error);
+                
             }
         } else {
-            console.log('⚠️ Cannot run security tests:', {
-                webrtcManager: !!webrtcManager,
-                cryptoUtils: !!window.EnhancedSecureCryptoUtils
-            });
+            
         }
 
         // If no real test results and no existing security level, show progress message
@@ -269,7 +262,7 @@ const EnhancedMinimalHeader = ({
                 passedChecks: 0,
                 totalChecks: 0
             };
-            console.log('Using fallback security data:', securityData);
+            
         }
 
         // Detailed information about the REAL security check
@@ -501,18 +494,7 @@ const EnhancedMinimalHeader = ({
     // ============================================
 
     React.useEffect(() => {
-        window.debugHeaderSecurity = () => {
-            console.log('🔍 Header Security Debug:', {
-                realSecurityLevel,
-                lastSecurityUpdate,
-                isConnected,
-                webrtcManagerProp: !!webrtcManager,
-                windowWebrtcManager: !!window.webrtcManager,
-                cryptoUtils: !!window.EnhancedSecureCryptoUtils,
-                displaySecurityLevel: displaySecurityLevel,
-                securityDetails: securityDetails
-            });
-        };
+        window.debugHeaderSecurity = undefined;
         
         return () => {
             delete window.debugHeaderSecurity;

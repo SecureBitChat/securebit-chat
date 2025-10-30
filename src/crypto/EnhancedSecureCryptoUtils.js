@@ -2308,12 +2308,7 @@ class EnhancedSecureCryptoUtils {
 
             payload.mac = Array.from(new Uint8Array(mac));
 
-            EnhancedSecureCryptoUtils.secureLog.log('info', 'Message encrypted with metadata protection', {
-                messageId,
-                sequenceNumber,
-                hasMetadataProtection: true,
-                hasPadding: true
-            });
+            // Logging removed to avoid noisy console output
 
             return payload;
         } catch (error) {
