@@ -13089,7 +13089,7 @@ class SecureMasterKeyManager {
         this._inactivityTimeoutMs = 30 * 60 * 1000; // 30 minutes (увеличено с 5 минут)
         
         // PBKDF2 parameters
-        this._pbkdf2Iterations = 100000; // 100k iterations
+        this._pbkdf2Iterations = 310000; // OWASP 2025 recommendation for PBKDF2-SHA256
         this._saltSize = 32; // 256 bits
         
         // IndexedDB wrapper for persistent salt storage

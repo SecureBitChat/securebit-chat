@@ -823,7 +823,7 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
         {
           name: "PBKDF2",
           salt,
-          iterations: 1e5,
+          iterations: 31e4,
           hash: "SHA-256"
         },
         keyMaterial,
@@ -876,7 +876,7 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
         {
           name: "PBKDF2",
           salt,
-          iterations: 1e5,
+          iterations: 31e4,
           hash: "SHA-256"
         },
         keyMaterial,
@@ -14541,7 +14541,7 @@ var SecureMasterKeyManager = class {
     this._lastActivity = null;
     this._sessionTimeoutMs = 60 * 60 * 1e3;
     this._inactivityTimeoutMs = 30 * 60 * 1e3;
-    this._pbkdf2Iterations = 1e5;
+    this._pbkdf2Iterations = 31e4;
     this._saltSize = 32;
     this._indexedDB = indexedDBWrapper || new SecureIndexedDBWrapper();
     this._dbInitialized = false;
