@@ -95,6 +95,18 @@ class PWAOfflineManager {
             
             request.onsuccess = () => {
                 this.offlineDB = request.result;
+                
+                // Listen for database close events
+                this.offlineDB.onclose = () => {
+                    console.log('🔒 IndexedDB connection closed');
+                    this.offlineDB = null;
+                };
+                
+                // Listen for database errors
+                this.offlineDB.onerror = (event) => {
+                    console.error('❌ IndexedDB error:', event);
+                };
+                
                 resolve(this.offlineDB);
             };
             
@@ -120,6 +132,37 @@ class PWAOfflineManager {
                 });
             };
         });
+    }
+
+    /**
+     * Ensure database is open, reopen if necessary
+     */
+    async ensureDatabaseOpen() {
+        // Check if database exists and is open
+        if (this.offlineDB && this.offlineDB.objectStoreNames.length > 0) {
+            // Check if database connection is still valid
+            try {
+                // Try to access objectStoreNames to verify connection is active
+                const storeNames = this.offlineDB.objectStoreNames;
+                if (storeNames.length > 0) {
+                    return; // Database is open and valid
+                }
+            } catch (error) {
+                // Database connection is invalid, need to reopen
+                console.warn('⚠️ Database connection invalid, reopening...');
+                this.offlineDB = null;
+            }
+        }
+
+        // Database is closed or invalid, reopen it
+        if (!this.offlineDB) {
+            try {
+                await this.initOfflineDB();
+            } catch (error) {
+                console.error('❌ Failed to reopen database:', error);
+                throw new Error('Database unavailable');
+            }
+        }
     }
 
     setupEventListeners() {
@@ -345,12 +388,6 @@ class PWAOfflineManager {
     }
 
     async queueOfflineAction(action) {
-        if (!this.offlineDB) {
-            console.warn('⚠️ Offline database not available');
-            this.offlineQueue.push(action);
-            return;
-        }
-
         const queueItem = {
             ...action,
             id: Date.now() + Math.random(),
@@ -360,21 +397,32 @@ class PWAOfflineManager {
             maxRetries: action.maxRetries || 3
         };
 
+        // Always add to memory queue as fallback
+        this.offlineQueue.push(queueItem);
+
+        if (!this.offlineDB) {
+            console.warn('⚠️ Offline database not available, using memory queue only');
+            return;
+        }
+
         try {
+            await this.ensureDatabaseOpen();
+            
             const transaction = this.offlineDB.transaction(['offlineQueue'], 'readwrite');
             const store = transaction.objectStore('offlineQueue');
             await this.promisifyRequest(store.add(queueItem));
-
-            this.offlineQueue.push(queueItem);
             
             // Try to register background sync
             if (this.registration) {
                 await this.registration.sync.register('offline-sync');
             }
         } catch (error) {
-            console.error('❌ Failed to queue offline action:', error);
-            // Fallback to memory queue
-            this.offlineQueue.push(queueItem);
+            if (error.name === 'InvalidStateError' || error.message.includes('closing')) {
+                console.warn('⚠️ Database was closing, item added to memory queue only');
+            } else {
+                console.error('❌ Failed to queue offline action:', error);
+            }
+            // Item already in memory queue, so no action needed
         }
     }
 
@@ -391,9 +439,32 @@ class PWAOfflineManager {
         try {
             // Process database queue
             if (this.offlineDB) {
-                const transaction = this.offlineDB.transaction(['offlineQueue'], 'readwrite');
-                const store = transaction.objectStore('offlineQueue');
-                const allItems = await this.promisifyRequest(store.getAll());
+                // Ensure database is open before processing
+                await this.ensureDatabaseOpen();
+                
+                // Check if database is still open
+                if (!this.offlineDB || this.offlineDB.objectStoreNames.length === 0) {
+                    console.warn('⚠️ Database not available, skipping queue processing');
+                    return;
+                }
+
+                // Get all items first in a single transaction
+                let allItems = [];
+                try {
+                    const readTransaction = this.offlineDB.transaction(['offlineQueue'], 'readonly');
+                    const readStore = readTransaction.objectStore('offlineQueue');
+                    allItems = await this.promisifyRequest(readStore.getAll());
+                } catch (error) {
+                    if (error.name === 'InvalidStateError' || error.message.includes('closing')) {
+                        console.warn('⚠️ Database was closing during read, retrying...');
+                        await this.ensureDatabaseOpen();
+                        const retryTransaction = this.offlineDB.transaction(['offlineQueue'], 'readonly');
+                        const retryStore = retryTransaction.objectStore('offlineQueue');
+                        allItems = await this.promisifyRequest(retryStore.getAll());
+                    } else {
+                        throw error;
+                    }
+                }
                 
                 // Sort by priority and timestamp
                 allItems.sort((a, b) => {
@@ -403,10 +474,17 @@ class PWAOfflineManager {
                     return a.timestamp - b.timestamp; // Older first
                 });
                 
+                // Process each item with its own transaction to avoid "database closing" errors
                 for (const item of allItems) {
                     try {
                         await this.processQueueItem(item);
-                        await this.promisifyRequest(store.delete(item.id));
+                        
+                        // Create a new transaction for each delete operation
+                        await this.ensureDatabaseOpen();
+                        const deleteTransaction = this.offlineDB.transaction(['offlineQueue'], 'readwrite');
+                        const deleteStore = deleteTransaction.objectStore('offlineQueue');
+                        await this.promisifyRequest(deleteStore.delete(item.id));
+                        
                         processedCount++;
                     } catch (error) {
                         console.error('❌ Failed to process offline action:', error);
@@ -417,11 +495,25 @@ class PWAOfflineManager {
                         
                         if (item.retryCount >= item.maxRetries) {
                             // Max retries reached, remove from queue
-                            await this.promisifyRequest(store.delete(item.id));
-                            console.log('❌ Max retries reached for action:', item.type);
+                            try {
+                                await this.ensureDatabaseOpen();
+                                const removeTransaction = this.offlineDB.transaction(['offlineQueue'], 'readwrite');
+                                const removeStore = removeTransaction.objectStore('offlineQueue');
+                                await this.promisifyRequest(removeStore.delete(item.id));
+                                console.log('❌ Max retries reached for action:', item.type);
+                            } catch (removeError) {
+                                console.error('❌ Failed to remove item after max retries:', removeError);
+                            }
                         } else {
                             // Update retry count in database
-                            await this.promisifyRequest(store.put(item));
+                            try {
+                                await this.ensureDatabaseOpen();
+                                const updateTransaction = this.offlineDB.transaction(['offlineQueue'], 'readwrite');
+                                const updateStore = updateTransaction.objectStore('offlineQueue');
+                                await this.promisifyRequest(updateStore.put(item));
+                            } catch (updateError) {
+                                console.error('❌ Failed to update retry count:', updateError);
+                            }
                         }
                     }
                 }
@@ -640,6 +732,8 @@ class PWAOfflineManager {
         if (!this.offlineDB) return;
 
         try {
+            await this.ensureDatabaseOpen();
+            
             const appState = {
                 component: 'app_state',
                 timestamp: Date.now(),
@@ -669,7 +763,11 @@ class PWAOfflineManager {
             await this.promisifyRequest(store.put(appState));
 
         } catch (error) {
-            console.error('❌ Failed to save application state:', error);
+            if (error.name === 'InvalidStateError' || error.message.includes('closing')) {
+                console.warn('⚠️ Database was closing, could not save application state');
+            } else {
+                console.error('❌ Failed to save application state:', error);
+            }
         }
     }
 
@@ -695,9 +793,20 @@ class PWAOfflineManager {
             throw new Error('Offline database not available');
         }
 
-        const transaction = this.offlineDB.transaction([storeName], 'readwrite');
-        const store = transaction.objectStore(storeName);
-        return this.promisifyRequest(store.put(data));
+        try {
+            await this.ensureDatabaseOpen();
+            const transaction = this.offlineDB.transaction([storeName], 'readwrite');
+            const store = transaction.objectStore(storeName);
+            return await this.promisifyRequest(store.put(data));
+        } catch (error) {
+            if (error.name === 'InvalidStateError' || error.message.includes('closing')) {
+                await this.ensureDatabaseOpen();
+                const retryTransaction = this.offlineDB.transaction([storeName], 'readwrite');
+                const retryStore = retryTransaction.objectStore(storeName);
+                return await this.promisifyRequest(retryStore.put(data));
+            }
+            throw error;
+        }
     }
 
     async getStoredData(storeName, key) {
@@ -706,11 +815,24 @@ class PWAOfflineManager {
         }
 
         try {
+            await this.ensureDatabaseOpen();
             const transaction = this.offlineDB.transaction([storeName], 'readonly');
             const store = transaction.objectStore(storeName);
             const result = await this.promisifyRequest(store.get(key));
             return result;
         } catch (error) {
+            if (error.name === 'InvalidStateError' || error.message.includes('closing')) {
+                console.warn(`⚠️ Database was closing during get from ${storeName}, retrying...`);
+                try {
+                    await this.ensureDatabaseOpen();
+                    const retryTransaction = this.offlineDB.transaction([storeName], 'readonly');
+                    const retryStore = retryTransaction.objectStore(storeName);
+                    return await this.promisifyRequest(retryStore.get(key));
+                } catch (retryError) {
+                    console.error(`❌ Failed to get stored data from ${storeName} after retry:`, retryError);
+                    return null;
+                }
+            }
             console.error(`❌ Failed to get stored data from ${storeName}:`, error);
             return null;
         }
@@ -720,6 +842,7 @@ class PWAOfflineManager {
         if (!this.offlineDB) return;
 
         try {
+            await this.ensureDatabaseOpen();
             const transaction = this.offlineDB.transaction([storeName], 'readwrite');
             const store = transaction.objectStore(storeName);
             
@@ -730,7 +853,11 @@ class PWAOfflineManager {
             }
 
         } catch (error) {
-            console.error(`❌ Failed to clear stored data from ${storeName}:`, error);
+            if (error.name === 'InvalidStateError' || error.message.includes('closing')) {
+                console.warn(`⚠️ Database was closing during clear from ${storeName}`);
+            } else {
+                console.error(`❌ Failed to clear stored data from ${storeName}:`, error);
+            }
         }
     }
 
@@ -758,6 +885,8 @@ class PWAOfflineManager {
         const cutoffTime = Date.now() - maxAge;
 
         try {
+            await this.ensureDatabaseOpen();
+            
             const transaction = this.offlineDB.transaction(['offlineQueue', 'messageQueue'], 'readwrite');
             
             // Clean offline queue
@@ -790,7 +919,11 @@ class PWAOfflineManager {
 
             console.log('🧹 Old offline data cleaned up');
         } catch (error) {
-            console.error('❌ Failed to cleanup old data:', error);
+            if (error.name === 'InvalidStateError' || error.message.includes('closing')) {
+                console.warn('⚠️ Database was closing during cleanup, skipping...');
+            } else {
+                console.error('❌ Failed to cleanup old data:', error);
+            }
         }
     }
 
@@ -1030,10 +1163,25 @@ class PWAOfflineManager {
     destroy() {
         if (this.reconnectInterval) {
             clearInterval(this.reconnectInterval);
+            this.reconnectInterval = null;
         }
         
+        // Set sync flag to prevent new operations
+        this.syncInProgress = true;
+        
+        // Close database connection
         if (this.offlineDB) {
-            this.offlineDB.close();
+            try {
+                // Only close if database is not in a transaction
+                // IndexedDB will automatically close when all transactions complete
+                if (this.offlineDB.objectStoreNames.length > 0) {
+                    this.offlineDB.close();
+                }
+                this.offlineDB = null;
+            } catch (error) {
+                console.warn('⚠️ Error closing database:', error);
+                this.offlineDB = null;
+            }
         }
         
         console.log('🧹 Offline Manager destroyed');

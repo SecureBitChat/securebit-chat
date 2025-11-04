@@ -4724,7 +4724,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     };
     this.onFileReceived = null;
     this.onFileError = null;
-    this.keyRotationInterval = _EnhancedSecureWebRTCManager.TIMEOUTS.KEY_ROTATION_INTERVAL;
+    this.keyRotationInterval = null;
     this.lastKeyRotation = Date.now();
     this.currentKeyVersion = 0;
     this.keyVersions = /* @__PURE__ */ new Map();
@@ -4761,6 +4761,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       packetPadding: this._config.packetPadding.enabled,
       antiFingerprinting: this._config.antiFingerprinting.enabled
     });
+    this.sessionMode = "ratchet";
     this._hardenDebugModeReferences();
     this._initializeUnifiedScheduler();
     this._syncSecurityFeaturesWithTariff();
@@ -5356,9 +5357,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   _monitorKeySecurity() {
     if (this._keyStorageStats.activeKeys > 10) {
       this._secureLog("warn", "\u26A0\uFE0F High number of active keys detected. Consider rotation.");
-    }
-    if (Date.now() - (this._keyStorageStats.lastRotation || 0) > 36e5) {
-      this._rotateKeys();
     }
   }
   /**
@@ -6791,7 +6789,12 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   async _performPeriodicMemoryCleanup() {
     try {
       this._secureMemoryManager.isCleaning = true;
-      this._secureCleanupCryptographicMaterials();
+      const shouldPreserveActiveKeys = this.sessionMode === "ratchet" && this.isConnected && this.dataChannel && this.dataChannel.readyState === "open";
+      if (shouldPreserveActiveKeys) {
+        this._secureLog("debug", "\u{1F9F9} Skipping crypto key wipe during periodic cleanup (ratchet mode, active connection)");
+      } else {
+        this._secureCleanupCryptographicMaterials();
+      }
       if (this.messageQueue && this.messageQueue.length > 100) {
         const excessMessages = this.messageQueue.splice(0, this.messageQueue.length - 50);
         excessMessages.forEach((message, index) => {
@@ -7296,6 +7299,14 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       }
       const normalizedReceived = receivedFingerprint.toLowerCase().replace(/:/g, "");
       const normalizedExpected = expectedFingerprint.toLowerCase().replace(/:/g, "");
+      if (this.sessionMode === "ratchet" && normalizedExpected === normalizedReceived) {
+        this._secureLog("info", "Same fingerprint detected \u2014 skip MITM warning (ratchet mode)", {
+          context,
+          timestamp: Date.now()
+        });
+        this.isVerified = true;
+        return true;
+      }
       if (normalizedReceived !== normalizedExpected) {
         this._secureLog("error", "DTLS fingerprint mismatch - possible MITM attack", {
           context,
@@ -7663,6 +7674,38 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       throw new Error("Encryption keys not initialized");
     }
     return hasAllKeys;
+  }
+  /**
+   * Attempt to reinitialize encryption keys if missing
+   * Uses existing ECDH key pair, peer public key, and session salt
+   * Returns true if keys were (re)initialized successfully
+   */
+  async _tryReinitializeEncryptionKeys() {
+    try {
+      if (this.encryptionKey && this.macKey && this.metadataKey) {
+        return true;
+      }
+      const hasECDH = !!(this.ecdhKeyPair?.privateKey && (this.peerPublicKey || this.peerECDHPublicKey));
+      const peerPublicKey = this.peerPublicKey || this.peerECDHPublicKey;
+      if (!hasECDH || !peerPublicKey || !this.sessionSalt) {
+        return false;
+      }
+      const derivedKeys = await window.EnhancedSecureCryptoUtils.deriveSharedKeys(
+        this.ecdhKeyPair.privateKey,
+        peerPublicKey,
+        this.sessionSalt
+      );
+      await this._setEncryptionKeys(
+        derivedKeys.messageKey,
+        derivedKeys.macKey,
+        derivedKeys.metadataKey,
+        derivedKeys.fingerprint
+      );
+      return !!(this.encryptionKey && this.macKey && this.metadataKey);
+    } catch (error) {
+      this._secureLog("error", "Failed to reinitialize encryption keys", { error: error.message });
+      return false;
+    }
   }
   /**
    * Checks whether a message is a file-transfer message
@@ -9261,6 +9304,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       throw new Error("Data channel not ready");
     }
     try {
+      if (!(this.encryptionKey && this.macKey && this.metadataKey)) {
+        await this._tryReinitializeEncryptionKeys();
+      }
       this._secureLog("debug", "sendMessage called", {
         hasDataChannel: !!this.dataChannel,
         dataChannelReady: this.dataChannel?.readyState === "open",
@@ -15265,7 +15311,7 @@ Right-click or Ctrl+click to disconnect`,
             React.createElement("p", {
               key: "subtitle",
               className: "text-xs sm:text-sm text-muted hidden sm:block"
-            }, "End-to-end freedom v4.4.99")
+            }, "End-to-end freedom v4.5.22")
           ])
         ]),
         // Status and Controls - Responsive
@@ -16020,7 +16066,7 @@ function Roadmap() {
     },
     // current and future phases
     {
-      version: "v4.4.99",
+      version: "v4.5.22",
       title: "Enhanced Security Edition",
       status: "current",
       date: "Now",

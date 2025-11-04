@@ -1,9 +1,9 @@
 // SecureBit.chat Service Worker
-// Conservative PWA Edition v4.4.99 - Minimal Caching Strategy
+// Conservative PWA Edition v4.5.22 - Minimal Caching Strategy
 
-const CACHE_NAME = 'securebit-pwa-v4.4.99';
-const STATIC_CACHE = 'securebit-pwa-static-v4.4.99';
-const DYNAMIC_CACHE = 'securebit-pwa-dynamic-v4.4.99';
+const CACHE_NAME = 'securebit-pwa-v4.5.22';
+const STATIC_CACHE = 'securebit-pwa-static-v4.5.22';
+const DYNAMIC_CACHE = 'securebit-pwa-dynamic-v4.5.22';
 
 // Essential files for PWA offline functionality
 const STATIC_ASSETS = [

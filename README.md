@@ -1,4 +1,4 @@
-# SecureBit.chat v4.4.99
+# SecureBit.chat v4.5.22
 
 <div align="center">
 
@@ -31,22 +31,16 @@ SecureBit.chat is a revolutionary peer-to-peer messenger that prioritizes your p
 
 ---
 
-## ✨ What's New in v4.4.99
+## ✨ What's New in v4.5.22
 
-### 🔔 Secure Browser Notifications
-- Smart delivery when user is away from chat tab
-- Cross-browser compatibility (Chrome, Firefox, Safari, Edge)
-- Page Visibility API integration with proper tab focus detection
-- XSS protection with text sanitization and URL validation
-- Rate limiting and spam protection
-- Automatic cleanup and memory management
+### fix: prevent encryption key loss and IndexedDB connection errors
 
-### 🧹 Code Cleanup & Architecture
-- Removed session management logic for simplified architecture
-- Eliminated experimental Bluetooth module
-- Cleaned debug logging from production code
-- Removed test functions from production build
-- Enhanced error handling for production stability
+- Disable timer-based key rotation for Double Ratchet mode
+- Auto-reinitialize encryption keys when missing but ECDH available
+- Preserve active keys during periodic cleanup in ratchet sessions
+- Fix IndexedDB "database closing" errors with connection checking
+- Add individual transactions per queue item to prevent race conditions
+
 
 ### 🛡️ Security Enhancements
 - **ECDH + DTLS + SAS System** - Triple-layer security verification
@@ -170,7 +164,7 @@ Modern browser with WebRTC support (Chrome 60+, Firefox 60+, Safari 12+), HTTPS 
 
 ## 🗺️ Roadmap
 
-**Current: v4.4.99** - Browser Notifications & Code Cleanup ✅
+**Current: v4.5.22** - Browser Notifications & Code Cleanup ✅
 
 **Next Releases:**
 
@@ -336,7 +330,7 @@ MIT License - see **LICENSE** file for details.
 
 ---
 
-**Latest Release: v4.4.99** - Browser Notifications & Code Cleanup
+**Latest Release: v4.5.22** - Browser Notifications & Code Cleanup
 
 [🚀 Try Now](https://securebitchat.github.io/securebit-chat/) • [⭐ Star on GitHub](https://github.com/SecureBitChat/securebit-chat)
 

@@ -330,7 +330,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     this.onFileError = null;
     
     // PFS (Perfect Forward Secrecy) Implementation
-    this.keyRotationInterval = EnhancedSecureWebRTCManager.TIMEOUTS.KEY_ROTATION_INTERVAL;
+    this.keyRotationInterval = null; // отключаем таймерную ротацию
     this.lastKeyRotation = Date.now();
     this.currentKeyVersion = 0;
     this.keyVersions = new Map(); // Store key versions for PFS
@@ -372,6 +372,9 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             antiFingerprinting: this._config.antiFingerprinting.enabled
         });
         
+        //   Session mode: 'time' | 'ratchet' (Double Ratchet controls key lifecycle)
+        this.sessionMode = 'ratchet';
+
         //   XSS Hardening - replace all window.DEBUG_MODE references
         this._hardenDebugModeReferences();
         
@@ -1183,9 +1186,6 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             this._secureLog('warn', '⚠️ High number of active keys detected. Consider rotation.');
         }
         
-        if (Date.now() - (this._keyStorageStats.lastRotation || 0) > 3600000) {
-            this._rotateKeys();
-        }
     }
 
     /**
@@ -2900,8 +2900,13 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         try {
             this._secureMemoryManager.isCleaning = true;
             
-            //   Clean up any remaining sensitive data
-            this._secureCleanupCryptographicMaterials();
+            //   Clean up sensitive data, but DO NOT wipe active crypto in ratchet session
+            const shouldPreserveActiveKeys = (this.sessionMode === 'ratchet') && this.isConnected && this.dataChannel && this.dataChannel.readyState === 'open';
+            if (shouldPreserveActiveKeys) {
+                this._secureLog('debug', '🧹 Skipping crypto key wipe during periodic cleanup (ratchet mode, active connection)');
+            } else {
+                this._secureCleanupCryptographicMaterials();
+            }
             
             //   Clean up message queue if it's too large
             if (this.messageQueue && this.messageQueue.length > 100) {
@@ -3545,6 +3550,16 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             const normalizedReceived = receivedFingerprint.toLowerCase().replace(/:/g, '');
             const normalizedExpected = expectedFingerprint.toLowerCase().replace(/:/g, '');
 
+            // Ratchet mode: if fingerprint hasn't changed, treat as verified and skip warnings
+            if (this.sessionMode === 'ratchet' && normalizedExpected === normalizedReceived) {
+                this._secureLog('info', 'Same fingerprint detected — skip MITM warning (ratchet mode)', {
+                    context: context,
+                    timestamp: Date.now()
+                });
+                this.isVerified = true;
+                return true;
+            }
+
             if (normalizedReceived !== normalizedExpected) {
                 this._secureLog('error', 'DTLS fingerprint mismatch - possible MITM attack', {
                     context: context,
@@ -4012,6 +4027,46 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         }
         
         return hasAllKeys;
+    }
+
+    /**
+     * Attempt to reinitialize encryption keys if missing
+     * Uses existing ECDH key pair, peer public key, and session salt
+     * Returns true if keys were (re)initialized successfully
+     */
+    async _tryReinitializeEncryptionKeys() {
+        try {
+            // If keys already present, nothing to do
+            if (this.encryptionKey && this.macKey && this.metadataKey) {
+                return true;
+            }
+
+            // Require ECDH materials and session salt to derive keys
+            const hasECDH = !!(this.ecdhKeyPair?.privateKey && (this.peerPublicKey || this.peerECDHPublicKey));
+            const peerPublicKey = this.peerPublicKey || this.peerECDHPublicKey;
+            if (!hasECDH || !peerPublicKey || !this.sessionSalt) {
+                return false;
+            }
+
+            // Derive fresh keys
+            const derivedKeys = await window.EnhancedSecureCryptoUtils.deriveSharedKeys(
+                this.ecdhKeyPair.privateKey,
+                peerPublicKey,
+                this.sessionSalt
+            );
+
+            await this._setEncryptionKeys(
+                derivedKeys.messageKey,
+                derivedKeys.macKey,
+                derivedKeys.metadataKey,
+                derivedKeys.fingerprint
+            );
+
+            return !!(this.encryptionKey && this.macKey && this.metadataKey);
+        } catch (error) {
+            this._secureLog('error', 'Failed to reinitialize encryption keys', { error: error.message });
+            return false;
+        }
     }
 
     /**
@@ -6056,6 +6111,11 @@ async processOrderedPackets() {
         }
 
         try {
+            // Ensure encryption keys are available; try to reinitialize if needed
+            if (!(this.encryptionKey && this.macKey && this.metadataKey)) {
+                await this._tryReinitializeEncryptionKeys();
+            }
+
             this._secureLog('debug', 'sendMessage called', {
                 hasDataChannel: !!this.dataChannel,
                 dataChannelReady: this.dataChannel?.readyState === 'open',
