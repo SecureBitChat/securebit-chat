@@ -16,6 +16,28 @@
 
 ---
 
+## 🚧 Project Update: Transition to Desktop & Mobile Versions
+
+The **web version of SecureBit.chat** will remain available and stable,  
+but **no major updates** are planned in the near future.
+
+We are now focusing on developing **next-generation desktop and mobile applications** powered by **Tauri v2**,  
+bringing new features that will be **fully backward-compatible** with the current web version:
+
+- **Offline communication** via LoRa & mesh networking  
+- **Improved encryption performance** with native crypto modules  
+- **Cross-platform synchronization** between devices  
+- **Local secure storage & hardware key integration**
+
+These new builds will enable true **serverless communication** even under restricted or offline conditions.
+
+If you appreciate our mission to build **decentralized, censorship-resistant communication**,  
+please **support the project by starring it on GitHub** — your support helps development and visibility!
+
+👉 [⭐ Star SecureBit.chat on GitHub](https://github.com/SecureBitChat/securebit-chat)
+
+---
+
 ## 🎯 Overview
 
 SecureBit.chat is a revolutionary peer-to-peer messenger that prioritizes your privacy with military-grade encryption. No servers, no registration, no data collection - just pure, secure communication.
@@ -41,7 +63,6 @@ SecureBit.chat is a revolutionary peer-to-peer messenger that prioritizes your p
 - Fix IndexedDB "database closing" errors with connection checking
 - Add individual transactions per queue item to prevent race conditions
 
-
 ### 🛡️ Security Enhancements
 - **ECDH + DTLS + SAS System** - Triple-layer security verification
 - **ASN.1 Full Structure Validation** - Complete key structure verification
@@ -52,227 +73,21 @@ SecureBit.chat is a revolutionary peer-to-peer messenger that prioritizes your p
 
 ---
 
-## 🏆 Why SecureBit.chat?
-
-### Security Comparison
-
-| Feature | **SecureBit.chat** | Signal | Threema | Session |
-|---------|-------------------|--------|---------|---------|
-| Architecture | 🏆 Pure P2P WebRTC | ❌ Centralized | ❌ Centralized | ⚠️ Onion network |
-| File Transfer | 🏆 P2P encrypted | ✅ Via servers | ✅ Via servers | ✅ Via servers |
-| PWA Support | 🏆 Full PWA | ❌ None | ❌ None | ❌ None |
-| Registration | 🏆 Anonymous | ❌ Phone required | ✅ ID generated | ✅ Random ID |
-| Traffic Obfuscation | 🏆 Advanced | ❌ None | ❌ None | ✅ Onion routing |
-| Data Storage | 🏆 Zero storage | ⚠️ Local database | ⚠️ Local + backup | ⚠️ Local database |
-| ASN.1 Validation | 🏆 Complete | ⚠️ Basic | ⚠️ Basic | ⚠️ Basic |
-
-**Legend:** 🏆 Category Leader • ✅ Excellent • ⚠️ Partial/Limited • ❌ Not Available
-
-### 19-Layer Military Security
-
-1. WebRTC DTLS transport encryption
-2. ECDH P-384 perfect forward secrecy
-3. AES-GCM 256 authenticated encryption
-4. ECDSA P-384 message integrity
-5. Replay protection with timestamp validation
-6. Automatic key rotation (every 5 min/100 messages)
-7. MITM verification with out-of-band codes
-8. Traffic obfuscation and pattern masking
-9. Complete metadata protection
-10. Memory protection with no persistent storage
-11. Hardware security with non-extractable keys
-12. Session isolation and complete cleanup
-13. Mutex framework for race condition protection
-14. Secure key storage with WeakMap isolation
-15. Production logging with data sanitization
-16. ASN.1 complete key structure verification
-17. OID validation for algorithms and curves
-18. EC point format and structure verification
-19. HKDF key derivation with proper key separation
-
----
-
-## 🚀 Quick Start
-
-### Option 1: Use Online (Recommended)
-
-1. Visit [securebitchat.github.io/securebit-chat](https://securebitchat.github.io/securebit-chat/)
-2. Install PWA by clicking "Install" button for native app experience
-3. Choose "Create Channel" or "Join Channel"
-4. Complete secure key exchange with verification
-5. Verify security codes and start chatting
-6. Communicate with military-grade encryption
-
-### Option 2: Self-Host
-
-```bash
-# Clone repository
-git clone https://github.com/SecureBitChat/securebit-chat.git
-cd securebit-chat
-
-# Serve locally
-python -m http.server 8000        # Python
-npx serve .                       # Node.js
-php -S localhost:8000             # PHP
-
-# Open browser
-open http://localhost:8000
-```
-
----
-
-## 📂 Secure File Transfer
-
-### Features
-- **P2P Direct Transfer** - No servers, direct WebRTC channels
-- **Military-Grade Encryption** - AES-GCM 256-bit + ECDH P-384
-- **Chunk-Level Security** - Individual encryption per file chunk
-- **Hash Validation** - SHA-384 checksums prevent tampering
-- **Automatic Recovery** - Retry mechanisms for interruptions
-- **Stream Isolation** - Separate channels from chat messages
-
-### Supported Files
-Documents (PDF, DOC, TXT), Images (JPG, PNG, GIF), Archives (ZIP, RAR), Media (MP3, MP4), and any file type up to size limits.
-
----
-
-## 🔧 Technical Architecture
-
-### Cryptographic Stack
-
-```
-📂 File Transfer:     AES-GCM 256-bit + SHA-384 + Chunking
-🔐 Application:       AES-GCM 256-bit + ECDSA P-384
-🔑 Key Exchange:      ECDH P-384 (Perfect Forward Secrecy)
-🛡️ Transport:         WebRTC DTLS 1.2
-🌐 Network:           P2P WebRTC Data Channels
-📱 PWA:               Service Workers + Cache API
-🔒 Validation:        Complete ASN.1 DER parsing
-```
-
-### Standards Compliance
-- NIST SP 800-56A (ECDH Key Agreement)
-- NIST SP 800-186 (Elliptic Curve Cryptography)
-- RFC 8446 (TLS 1.3 for WebRTC)
-- RFC 5280 (X.509 Certificate Structure)
-- RFC 5480 (EC Subject Public Key Information)
-
-### Browser Requirements
-Modern browser with WebRTC support (Chrome 60+, Firefox 60+, Safari 12+), HTTPS connection, JavaScript enabled, Service Worker support for PWA.
-
----
-
 ## 🗺️ Roadmap
 
 **Current: v4.5.22** - Browser Notifications & Code Cleanup ✅
 
 **Next Releases:**
 
-- **v4.5 (Q2 2025)** - Mobile & Desktop Apps
-  - Native mobile applications (iOS/Android)
-  - Electron desktop application
-  - Push notifications and cross-device sync
+- **v4.5 (Q2 2025)** - Mobile & Desktop Apps  
+  - Native mobile applications (iOS/Android)  
+  - **Tauri v2 desktop clients (Windows/macOS/Linux)**  
+  - Push notifications and cross-device sync  
 
-- **v5.0 (Q4 2025)** - Quantum-Resistant Edition
-  - CRYSTALS-Kyber post-quantum key exchange
-  - SPHINCS+ post-quantum signatures
-  - Hybrid classical + post-quantum schemes
-
-- **v5.5 (Q2 2026)** - Group Communications
-  - P2P group chats (up to 8 participants)
-  - Mesh networking topology
-  - Anonymous group administration
-
-- **v6.0 (2027)** - Decentralized Network
-  - DHT-based peer discovery
-  - Built-in onion routing
-  - Decentralized identity system
-
----
-
-## 💻 Development
-
-### Project Structure
-
-```
-securebit-chat/
-├── index.html                    # Main application
-├── manifest.json                 # PWA manifest
-├── sw.js                         # Service worker
-├── src/
-│   ├── components/ui/            # React UI components
-│   ├── crypto/                   # Cryptographic utilities
-│   │   └── ASN1Validator.js     # ASN.1 DER parser
-│   ├── network/                  # WebRTC P2P manager
-│   ├── notifications/            # Browser notifications
-│   ├── transfer/                 # File transfer system
-│   ├── pwa/                      # PWA management
-│   └── styles/                   # CSS styling
-├── logo/                         # Icons and logos
-└── docs/                         # Documentation
-```
-
-### Build Workflow
-
-```bash
-# CSS changes (Tailwind)
-npm run build:css
-
-# JavaScript/JSX changes
-npm run build:js
-
-# Full rebuild (recommended)
-npm run build
-
-# Development with live server
-npm run dev
-```
-
-**Important:** Always rebuild after changes. Source files are in `src/`, generated files in `assets/` and `dist/`. Never edit generated files directly.
-
-### Technology Stack
-- **Frontend:** Pure JavaScript + React (via CDN)
-- **PWA:** Service Workers + Cache API + Web App Manifest
-- **Cryptography:** Web Crypto API + custom ECDH/ECDSA + ASN.1 parser
-- **Network:** WebRTC P2P Data Channels
-- **Notifications:** Browser Notifications API + Page Visibility API
-- **File Transfer:** Enhanced secure P2P streaming with chunked encryption
-- **Styling:** TailwindCSS + custom CSS
-
----
-
-## 🛡️ Security
-
-### Audit Status
-- ✅ Internal cryptographic review completed
-- ✅ P2P protocol security analysis completed
-- ✅ File transfer security validation completed
-- ✅ ASN.1 validation and key verification completed
-- 🔄 Professional security audit planned Q3 2025
-
-### Vulnerability Reporting
-Contact: **SecureBitChat@proton.me**
-
-See **SECURITY.md** for detailed security policy.
-
-### Security Features
-- Perfect Forward Secrecy for messages and files
-- Out-of-band verification prevents MITM attacks
-- Traffic obfuscation defeats network analysis
-- Memory protection with no persistent storage
-- Complete ASN.1 key structure validation
-- File integrity with SHA-384 hash validation
-
----
-
-## 📊 Performance
-
-- **Connection setup:** < 3 seconds
-- **Message latency:** < 100 ms (P2P direct)
-- **File transfer speed:** Up to 5 MB/s
-- **Memory usage:** < 50 MB active session
-- **PWA install size:** < 2 MB
-- **Key validation:** < 10 ms (ASN.1 parsing)
+- **v5.0 (Q4 2025)** - Quantum-Resistant Edition  
+  - CRYSTALS-Kyber post-quantum key exchange  
+  - SPHINCS+ post-quantum signatures  
+  - Hybrid classical + post-quantum schemes  
 
 ---
 
@@ -280,43 +95,14 @@ See **SECURITY.md** for detailed security policy.
 
 We welcome contributions! Here's how:
 
-1. Fork the repository
-2. Create feature branch: `git checkout -b feature/amazing-feature`
-3. Commit changes: `git commit -m "Add amazing feature"`
-4. Push to branch: `git push origin feature/amazing-feature`
-5. Open Pull Request
+1. Fork the repository  
+2. Create feature branch: `git checkout -b feature/amazing-feature`  
+3. Commit changes: `git commit -m "Add amazing feature"`  
+4. Push to branch: `git push origin feature/amazing-feature`  
+5. Open Pull Request  
 
-### Contribution Areas
-🔐 Cryptography • 🌐 Network • 🔔 Notifications • 📂 File Transfer • 📱 PWA • 🎨 UI/UX • 📚 Documentation • 🔒 ASN.1 Validation
-
----
-
-## 📞 Contact & Support
-
-- **Email:** SecureBitChat@proton.me
-- **GitHub:** Issues & Discussions
-- **Security:** SecureBitChat@proton.me
-
----
-
-## ⚠️ Important Disclaimers
-
-### Security Notice
-While SecureBit.chat implements military-grade cryptography, no system is 100% secure. Always verify security codes out-of-band and keep devices updated.
-
-### Legal Notice
-This software is provided "as is" for educational and research purposes. Users are responsible for compliance with local laws regarding cryptographic software and private communications.
-
-### Privacy Statement
-SecureBit.chat collects zero data, stores nothing, requires no registration, and uses no servers. All data exists only in browser memory with direct P2P connections.
-
----
-
-## 📄 License
-
-MIT License - see **LICENSE** file for details.
-
-100% open source with full transparency, no telemetry, and zero data collection.
+If you support the mission — **please star the repo!**  
+[⭐ Star SecureBit.chat on GitHub](https://github.com/SecureBitChat/securebit-chat)
 
 ---
 
