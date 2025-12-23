@@ -15,6 +15,14 @@
 </div>
 
 ---
+## 🔐 Shared Security Core
+
+SecureBitChat uses a shared Rust-based cryptographic core:  
+https://github.com/SecureBitChat/securebit-core
+
+This core is used across all platforms (web, desktop, mobile) as a single source of truth for all security-critical logic.
+
+Community review is welcome. Bug reports and security feedback can be submitted via GitHub Issues.
 
 ## 🚧 Project Update: Transition to Desktop & Mobile Versions
 
