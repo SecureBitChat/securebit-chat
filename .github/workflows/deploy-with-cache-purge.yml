@@ -1,0 +1,47 @@
+name: Deploy Application
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build application
+        run: npm run build
+      
+      - name: Deploy to server
+        # Добавьте ваш процесс деплоя здесь
+        # Например: rsync, scp, FTP, etc.
+        run: |
+          echo "Deploying to server..."
+          # Ваш скрипт деплоя
+          # Пример для rsync:
+          # rsync -avz --delete dist/ user@server:/var/www/securebit-chat/public/
+      
+      # Автоматическая очистка кеша Cloudflare отключена
+      # Для ручной очистки используйте: node scripts/purge-cloudflare-cache.js
+      # Или очистите кеш через Cloudflare Dashboard
+      
+      - name: Verify deployment
+        run: |
+          echo "✅ Deployment completed"
+          echo "Note: Cloudflare cache purge is disabled. Clear cache manually if needed."
+

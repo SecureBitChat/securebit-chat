@@ -1688,7 +1688,7 @@ var EnhancedSecureP2PChat = () => {
       } catch (error) {
       }
     }
-    handleMessage(" SecureBit.chat Enhanced Security Edition v4.7.53 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.", "system");
+    handleMessage(" SecureBit.chat Enhanced Security Edition v4.7.55 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.", "system");
     const handleBeforeUnload = (event) => {
       if (event.type === "beforeunload" && !isTabSwitching) {
         if (webrtcManagerRef2.current && webrtcManagerRef2.current.isConnected()) {
@@ -3235,9 +3235,22 @@ var EnhancedSecureP2PChat = () => {
     ])
   ]);
 };
+var UpdateCheckerWrapper = ({ children }) => {
+  if (typeof window !== "undefined" && window.UpdateChecker) {
+    return React.createElement(window.UpdateChecker, {
+      debug: false
+    }, children);
+  }
+  return children;
+};
 function initializeApp() {
   if (window.EnhancedSecureCryptoUtils && window.EnhancedSecureWebRTCManager) {
-    ReactDOM.render(React.createElement(EnhancedSecureP2PChat), document.getElementById("root"));
+    const AppWithUpdateChecker = React.createElement(
+      UpdateCheckerWrapper,
+      null,
+      React.createElement(EnhancedSecureP2PChat)
+    );
+    ReactDOM.render(AppWithUpdateChecker, document.getElementById("root"));
   } else {
     console.error("\u041C\u043E\u0434\u0443\u043B\u0438 \u043D\u0435 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043D\u044B:", {
       hasCrypto: !!window.EnhancedSecureCryptoUtils,
@@ -3258,5 +3271,22 @@ if (typeof window !== "undefined") {
     window.initializeApp = initializeApp;
   }
 }
-ReactDOM.render(React.createElement(EnhancedSecureP2PChat), document.getElementById("root"));
+if (window.EnhancedSecureCryptoUtils && window.EnhancedSecureWebRTCManager) {
+  const UpdateCheckerWrapper2 = ({ children }) => {
+    if (typeof window !== "undefined" && window.UpdateChecker) {
+      return React.createElement(window.UpdateChecker, {
+        debug: false
+      }, children);
+    }
+    return children;
+  };
+  const AppWithUpdateChecker = React.createElement(
+    UpdateCheckerWrapper2,
+    null,
+    React.createElement(EnhancedSecureP2PChat)
+  );
+  ReactDOM.render(AppWithUpdateChecker, document.getElementById("root"));
+} else {
+  ReactDOM.render(React.createElement(EnhancedSecureP2PChat), document.getElementById("root"));
+}
 //# sourceMappingURL=app.js.map

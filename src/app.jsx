@@ -1924,7 +1924,7 @@
                             }
                         }
         
-                        handleMessage(' SecureBit.chat Enhanced Security Edition v4.7.53 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.', 'system');
+                        handleMessage(' SecureBit.chat Enhanced Security Edition v4.7.55 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.', 'system');
         
                         const handleBeforeUnload = (event) => {
                             if (event.type === 'beforeunload' && !isTabSwitching) {
@@ -3747,9 +3747,25 @@
                         
                     ]);
                 };
+                // UpdateChecker компонент для автоматической проверки обновлений
+                const UpdateCheckerWrapper = ({ children }) => {
+                    // Проверяем доступность UpdateChecker
+                    if (typeof window !== 'undefined' && window.UpdateChecker) {
+                        return React.createElement(window.UpdateChecker, {
+                            debug: false
+                        }, children);
+                    }
+                    // Fallback если UpdateChecker не загружен
+                    return children;
+                };
+
                 function initializeApp() {
                     if (window.EnhancedSecureCryptoUtils && window.EnhancedSecureWebRTCManager) {
-                        ReactDOM.render(React.createElement(EnhancedSecureP2PChat), document.getElementById('root'));
+                        // Оборачиваем приложение в UpdateChecker для автоматической проверки обновлений
+                        const AppWithUpdateChecker = React.createElement(UpdateCheckerWrapper, null,
+                            React.createElement(EnhancedSecureP2PChat)
+                        );
+                        ReactDOM.render(AppWithUpdateChecker, document.getElementById('root'));
                     } else {
                         console.error('Модули не загружены:', {
                             hasCrypto: !!window.EnhancedSecureCryptoUtils,
@@ -3776,5 +3792,20 @@
                     }
                 };
                 
-                // Render Enhanced Application
-                ReactDOM.render(React.createElement(EnhancedSecureP2PChat), document.getElementById('root'));
+                // Render Enhanced Application with UpdateChecker
+                if (window.EnhancedSecureCryptoUtils && window.EnhancedSecureWebRTCManager) {
+                    const UpdateCheckerWrapper = ({ children }) => {
+                        if (typeof window !== 'undefined' && window.UpdateChecker) {
+                            return React.createElement(window.UpdateChecker, {
+                                debug: false
+                            }, children);
+                        }
+                        return children;
+                    };
+                    const AppWithUpdateChecker = React.createElement(UpdateCheckerWrapper, null,
+                        React.createElement(EnhancedSecureP2PChat)
+                    );
+                    ReactDOM.render(AppWithUpdateChecker, document.getElementById('root'));
+                } else {
+                    ReactDOM.render(React.createElement(EnhancedSecureP2PChat), document.getElementById('root'));
+                }

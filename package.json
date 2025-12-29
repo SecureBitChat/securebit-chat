@@ -1,12 +1,13 @@
 {
   "name": "securebit-chat",
-  "version": "1.0.0",
+  "version": "4.7.55",
   "description": "Secure P2P Communication Application with End-to-End Encryption",
   "main": "index.html",
   "scripts": {
-    "build": "npm run build:css && npm run build:js",
+    "build": "npm run build:css && npm run build:js && npm run post-build",
     "build:css": "npx tailwindcss -i src/styles/tw-input.css -o assets/tailwind.css --minify --content \"./index.html,./src/**/*.jsx,./src/**/*.js\"",
     "build:js": "npx esbuild src/app.jsx --bundle --format=esm --outfile=dist/app.js --sourcemap && npx esbuild src/scripts/app-boot.js --bundle --format=esm --outfile=dist/app-boot.js --sourcemap && npx esbuild src/scripts/qr-local.js --bundle --format=esm --outfile=dist/qr-local.js --sourcemap",
+    "post-build": "node scripts/post-build.js",
     "dev": "npm run build && python -m http.server 8000",
     "watch": "npx tailwindcss -i src/styles/tw-input.css -o assets/tailwind.css --watch",
     "serve": "npx http-server -p 8000",

@@ -1,0 +1,189 @@
+# SecureBit.chat - Apache Configuration
+# Comprehensive caching configuration for forced updates
+
+# Enable mod_rewrite
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+</IfModule>
+
+# ============================================
+# CRITICAL FILES - NO CACHING
+# ============================================
+
+# meta.json - versioning file (never cache)
+<FilesMatch "meta\.json$">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "no-cache, no-store, must-revalidate, max-age=0"
+        Header set Pragma "no-cache"
+        Header set Expires "0"
+        Header set X-Content-Type-Options "nosniff"
+    </IfModule>
+</FilesMatch>
+
+# HTML files - always fresh
+<FilesMatch "\.(html|htm)$">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "no-cache, no-store, must-revalidate, max-age=0"
+        Header set Pragma "no-cache"
+        Header set Expires "0"
+        # Remove ETag for validation
+        Header unset ETag
+        FileETag None
+    </IfModule>
+</FilesMatch>
+
+# Service Worker - no cache
+<FilesMatch "sw\.js$">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "no-cache, no-store, must-revalidate, max-age=0"
+        Header set Pragma "no-cache"
+        Header set Expires "0"
+        Header set Service-Worker-Allowed "/"
+    </IfModule>
+</FilesMatch>
+
+# manifest.json - no cache
+<FilesMatch "manifest\.json$">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "no-cache, no-store, must-revalidate, max-age=0"
+        Header set Pragma "no-cache"
+        Header set Expires "0"
+    </IfModule>
+</FilesMatch>
+
+# ============================================
+# STATIC RESOURCES - AGGRESSIVE CACHING
+# ============================================
+
+# JavaScript files in dist/ - no cache (for updates)
+<FilesMatch "^dist/.*\.(js|mjs)$">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "no-cache, no-store, must-revalidate, max-age=0"
+        Header set Pragma "no-cache"
+        Header set Expires "0"
+        Header set X-Content-Type-Options "nosniff"
+    </IfModule>
+</FilesMatch>
+
+# JavaScript files with hashes in other locations - long cache
+<FilesMatch "\.(js|mjs)$">
+    <IfModule mod_headers.c>
+        # Files with hashes in name - cache for one year
+        Header set Cache-Control "public, max-age=31536000, immutable"
+        Header set X-Content-Type-Options "nosniff"
+    </IfModule>
+</FilesMatch>
+
+# CSS files - long cache
+<FilesMatch "\.css$">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </IfModule>
+</FilesMatch>
+
+# Images - long cache
+<FilesMatch "\.(jpg|jpeg|png|gif|webp|svg|ico)$">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </IfModule>
+</FilesMatch>
+
+# Fonts - long cache
+<FilesMatch "\.(woff|woff2|ttf|otf|eot)$">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "public, max-age=31536000, immutable"
+        Header set Access-Control-Allow-Origin "*"
+    </IfModule>
+</FilesMatch>
+
+# Audio/Video - long cache
+<FilesMatch "\.(mp3|mp4|webm|ogg)$">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </IfModule>
+</FilesMatch>
+
+# ============================================
+# SECURITY
+# ============================================
+
+# XSS Protection
+<IfModule mod_headers.c>
+    Header set X-XSS-Protection "1; mode=block"
+    Header set X-Content-Type-Options "nosniff"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    Header set X-Frame-Options "DENY"
+</IfModule>
+
+# Content Security Policy (already configured in HTML, but can add header)
+<IfModule mod_headers.c>
+    # Header set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';"
+</IfModule>
+
+# ============================================
+# GZIP COMPRESSION
+# ============================================
+
+<IfModule mod_deflate.c>
+    # Compress text files
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/json application/xml
+    
+    # Compress fonts
+    AddOutputFilterByType DEFLATE font/woff font/woff2 application/font-woff application/font-woff2
+</IfModule>
+
+# ============================================
+# MIME TYPES
+# ============================================
+
+<IfModule mod_mime.c>
+    # JavaScript modules
+    AddType application/javascript .js .mjs
+    AddType application/json .json
+    
+    # Fonts
+    AddType font/woff .woff
+    AddType font/woff2 .woff2
+    AddType application/font-woff .woff
+    AddType application/font-woff2 .woff2
+    
+    # Service Worker
+    AddType application/javascript .js
+    AddType application/manifest+json .webmanifest
+</IfModule>
+
+# ============================================
+# CLOUDFLARE RULES
+# ============================================
+
+# Cloudflare can cache static files, but should not cache:
+# - meta.json
+# - index.html
+# - sw.js
+# - manifest.json
+
+# These rules are applied at Cloudflare Page Rules level
+# (see CLOUDFLARE_SETUP.md documentation)
+
+# ============================================
+# SPA FALLBACK
+# ============================================
+
+# If file not found, redirect to index.html (for SPA routing)
+<IfModule mod_rewrite.c>
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} !^/meta\.json$
+    RewriteCond %{REQUEST_URI} !^/sw\.js$
+    RewriteCond %{REQUEST_URI} !^/manifest\.json$
+    RewriteRule ^(.*)$ /index.html [L]
+</IfModule>
+
+# ============================================
+# LOGGING (optional)
+# ============================================
+
+# Uncomment for debugging
+# LogLevel rewrite:trace3
+

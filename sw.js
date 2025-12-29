@@ -1,19 +1,46 @@
 // SecureBit.chat Service Worker
-// Conservative PWA Edition v4.7.53 - Minimal Caching Strategy
+// Conservative PWA Edition v4.7.55 - Minimal Caching Strategy
+// Enhanced with version-aware cache management
 
-const CACHE_NAME = 'securebit-pwa-v4.7.53';
-const STATIC_CACHE = 'securebit-pwa-static-v4.7.53';
-const DYNAMIC_CACHE = 'securebit-pwa-dynamic-v4.7.53';
+// Dynamic version detection from meta.json
+let APP_VERSION = 'v4.7.55';
+let CACHE_NAME = 'securebit-pwa-v4.7.55';
+let STATIC_CACHE = 'securebit-pwa-static-v4.7.55';
+let DYNAMIC_CACHE = 'securebit-pwa-dynamic-v4.7.55';
+
+// Load version from meta.json on install
+async function getAppVersion() {
+    try {
+        const response = await fetch('/meta.json?t=' + Date.now(), {
+            cache: 'no-store',
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate'
+            }
+        });
+        if (response.ok) {
+            const meta = await response.json();
+            const version = meta.version || meta.buildVersion || 'v4.7.55';
+            APP_VERSION = version;
+            CACHE_NAME = `securebit-pwa-${version}`;
+            STATIC_CACHE = `securebit-pwa-static-${version}`;
+            DYNAMIC_CACHE = `securebit-pwa-dynamic-${version}`;
+            return version;
+        }
+    } catch (error) {
+        console.warn('⚠️ Failed to load version from meta.json, using default');
+    }
+    return APP_VERSION;
+}
 
 // Essential files for PWA offline functionality
+// DO NOT include JS files from dist/ - they should load from network for updates
 const STATIC_ASSETS = [
     '/',
     '/index.html',
     '/manifest.json',
     
-    // Core PWA files only
-    '/dist/app.js',
-    '/dist/app-boot.js',
+    // DO NOT cache /dist/app.js and /dist/app-boot.js - they should be updated
+    // This allows the update system to work correctly
     
     // Essential styles for PWA
     '/src/styles/pwa.css',
@@ -73,34 +100,43 @@ self.addEventListener('message', (event) => {
 self.addEventListener('install', (event) => {
     
     event.waitUntil(
-        caches.open(STATIC_CACHE)
-            .then(async (cache) => {
-                
-                // Cache assets one by one to handle failures gracefully
-                const cachePromises = STATIC_ASSETS.map(async (url) => {
-                    try {
-                        // Skip sensitive patterns
-                        if (SENSITIVE_PATTERNS.some(pattern => pattern.test(url))) {
-                            return;
+        getAppVersion().then(async (version) => {
+            console.log('📦 Service Worker installing with version:', version);
+            
+            return caches.open(STATIC_CACHE)
+                .then(async (cache) => {
+                    
+                    // Cache assets one by one to handle failures gracefully
+                    const cachePromises = STATIC_ASSETS.map(async (url) => {
+                        try {
+                            // Skip sensitive patterns
+                            if (SENSITIVE_PATTERNS.some(pattern => pattern.test(url))) {
+                                return;
+                            }
+                            
+                            // Add cache-busting for meta.json
+                            if (url.includes('meta.json')) {
+                                url = url + '?t=' + Date.now();
+                            }
+                            
+                            await cache.add(url);
+                        } catch (error) {
+                            console.warn(`⚠️ Failed to cache ${url}:`, error.message);
+                            // Continue with other assets even if one fails
                         }
-                        
-                        await cache.add(url);
-                    } catch (error) {
-                        console.warn(`⚠️ Failed to cache ${url}:`, error.message);
-                        // Continue with other assets even if one fails
-                    }
+                    });
+                    
+                    await Promise.allSettled(cachePromises);
+                    
+                    // Force activation of new service worker
+                    return self.skipWaiting();
+                })
+                .catch((error) => {
+                    console.error('❌ Failed to open cache:', error);
+                    // Still skip waiting to activate the service worker
+                    return self.skipWaiting();
                 });
-                
-                await Promise.allSettled(cachePromises);
-                
-                // Force activation of new service worker
-                return self.skipWaiting();
-            })
-            .catch((error) => {
-                console.error('❌ Failed to open cache:', error);
-                // Still skip waiting to activate the service worker
-                return self.skipWaiting();
-            })
+        })
     );
 });
 
@@ -108,17 +144,24 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
     
     event.waitUntil(
-        caches.keys().then(cacheNames => {
-            return Promise.all(
-                cacheNames.map(cacheName => {
-                    // Remove old caches
-                    if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE && cacheName !== CACHE_NAME) {
-                        console.log(`🗑️ Removing old cache: ${cacheName}`);
-                        return caches.delete(cacheName);
-                    }
-                })
-            );
-        }).then(() => {
+        getAppVersion().then(async (version) => {
+            console.log('✅ Service Worker activating with version:', version);
+            
+            const cacheNames = await caches.keys();
+            
+            // Remove all old caches that don't match current version
+            const deletePromises = cacheNames.map(cacheName => {
+                // Remove caches that don't match current version
+                if (cacheName !== STATIC_CACHE && 
+                    cacheName !== DYNAMIC_CACHE && 
+                    cacheName !== CACHE_NAME &&
+                    cacheName.startsWith('securebit-pwa-')) {
+                    console.log(`🗑️ Removing old cache: ${cacheName}`);
+                    return caches.delete(cacheName);
+                }
+            });
+            
+            await Promise.all(deletePromises);
             
             // Notify all clients about the update
             return self.clients.claim().then(() => {
@@ -126,6 +169,7 @@ self.addEventListener('activate', (event) => {
                     clients.forEach(client => {
                         client.postMessage({
                             type: 'SW_ACTIVATED',
+                            version: version,
                             timestamp: Date.now()
                         });
                     });
@@ -135,7 +179,7 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// Удаляем дублирующийся код activate event
+// Removed duplicate activate event code
 
 // Fetch event - handle requests with security-aware caching
 self.addEventListener('fetch', (event) => {
@@ -154,6 +198,45 @@ self.addEventListener('fetch', (event) => {
     
     // Skip chrome-extension and non-http requests
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        return;
+    }
+    
+    // Network-first for meta.json (never cache)
+    if (url.pathname === '/meta.json' || url.pathname.endsWith('/meta.json')) {
+        event.respondWith(
+            fetch(event.request, {
+                cache: 'no-store',
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache'
+                }
+            }).catch(() => {
+                // Fallback if network is unavailable
+                return new Response(JSON.stringify({ 
+                    version: APP_VERSION,
+                    error: 'Network unavailable'
+                }), {
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            })
+        );
+        return;
+    }
+    
+    // Network-first for JS files from dist/ (don't cache for updates)
+    if (url.pathname.startsWith('/dist/') && (url.pathname.endsWith('.js') || url.pathname.endsWith('.mjs'))) {
+        event.respondWith(
+            fetch(event.request, {
+                cache: 'no-store',
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache'
+                }
+            }).catch(() => {
+                // Fallback if network is unavailable - return error
+                return new Response('Network unavailable', { status: 503 });
+            })
+        );
         return;
     }
     
