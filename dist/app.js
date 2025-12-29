@@ -213,7 +213,7 @@ var EnhancedChatMessage = ({ message, type, timestamp }) => {
       }, [
         React.createElement("div", {
           key: "message",
-          className: "text-sm"
+          className: "text-sm break-words whitespace-normal"
         }, message),
         timestamp && React.createElement("div", {
           key: "meta",
@@ -1688,7 +1688,7 @@ var EnhancedSecureP2PChat = () => {
       } catch (error) {
       }
     }
-    handleMessage(" SecureBit.chat Enhanced Security Edition v4.5.22 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.", "system");
+    handleMessage(" SecureBit.chat Enhanced Security Edition v4.7.53 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.", "system");
     const handleBeforeUnload = (event) => {
       if (event.type === "beforeunload" && !isTabSwitching) {
         if (webrtcManagerRef2.current && webrtcManagerRef2.current.isConnected()) {

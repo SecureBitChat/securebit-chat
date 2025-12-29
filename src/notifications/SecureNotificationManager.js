@@ -545,6 +545,9 @@ class SecureP2PChat {
     
     const textEl = document.createElement('span');
     textEl.textContent = message.text;
+    textEl.style.wordWrap = 'break-word';
+    textEl.style.overflowWrap = 'break-word';
+    textEl.style.whiteSpace = 'normal';
     
     const timeEl = document.createElement('small');
     timeEl.textContent = new Date(message.timestamp).toLocaleTimeString();

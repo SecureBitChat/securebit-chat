@@ -476,6 +476,21 @@ button i {
     scroll-margin-bottom: 20px;
 }
 
+.message {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    max-width: 100%;
+}
+
+.message span {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    display: inline-block;
+    max-width: 100%;
+}
+
 .chat-messages-area {
     scroll-behavior: smooth;
     scroll-padding-bottom: 20px;

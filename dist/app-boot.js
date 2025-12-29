@@ -449,6 +449,9 @@ var require_SecureNotificationManager = __commonJS({
         nameEl.textContent = message.senderName + ": ";
         const textEl = document.createElement("span");
         textEl.textContent = message.text;
+        textEl.style.wordWrap = "break-word";
+        textEl.style.overflowWrap = "break-word";
+        textEl.style.whiteSpace = "normal";
         const timeEl = document.createElement("small");
         timeEl.textContent = new Date(message.timestamp).toLocaleTimeString();
         messageEl.appendChild(nameEl);
@@ -4533,7 +4536,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     SYSTEM_MESSAGE: "SYSTEM_MESSAGE_FILTERED"
   };
   //   Static debug flag instead of this._debugMode
-  static DEBUG_MODE = false;
+  static DEBUG_MODE = true;
   // Set to true during development, false in production
   constructor(onMessage, onStatusChange, onKeyExchange, onVerificationRequired, onAnswerError = null, onVerificationStateChange = null, config = {}) {
     this._isProductionMode = this._detectProductionMode();
@@ -15311,7 +15314,7 @@ Right-click or Ctrl+click to disconnect`,
             React.createElement("p", {
               key: "subtitle",
               className: "text-xs sm:text-sm text-muted hidden sm:block"
-            }, "End-to-end freedom v4.5.22")
+            }, "End-to-end freedom v4.7.53")
           ])
         ]),
         // Status and Controls - Responsive
@@ -15429,9 +15432,9 @@ window.EnhancedMinimalHeader = EnhancedMinimalHeader;
 var DownloadApps = () => {
   const apps = [
     { id: "web", name: "Web App", subtitle: "Browser Version", icon: "fas fa-globe", platform: "Web", isActive: true, url: "https://securebit.chat/", color: "green" },
-    { id: "windows", name: "Windows", subtitle: "Desktop App", icon: "fab fa-windows", platform: "Desktop", isActive: false, url: "https://securebit.chat/download/windows/SecureBit%20Chat%20Setup%204.1.222.exe", color: "blue" },
-    { id: "macos", name: "macOS", subtitle: "Desktop App", icon: "fab fa-safari", platform: "Desktop", isActive: false, url: "#", color: "gray" },
-    { id: "linux", name: "Linux", subtitle: "Desktop App", icon: "fab fa-linux", platform: "Desktop", isActive: false, url: "#", color: "orange" },
+    { id: "windows", name: "Windows", subtitle: "Desktop App", icon: "fab fa-windows", platform: "Desktop", isActive: true, url: "https://github.com/SecureBitChat/securebit-desktop/releases/latest/download/SecureBit.Chat_0.1.0_x64-setup.exe", color: "blue" },
+    { id: "macos", name: "macOS", subtitle: "Desktop App", icon: "fab fa-safari", platform: "Desktop", isActive: true, url: "https://github.com/SecureBitChat/securebit-desktop/releases/latest/download/SecureBitChat.zip", color: "gray" },
+    { id: "linux", name: "Linux", subtitle: "Desktop App", icon: "fab fa-linux", platform: "Desktop", isActive: true, url: "https://github.com/SecureBitChat/securebit-desktop/releases/latest/download/SecureBit.Chat_0.1.0_amd64.AppImage", color: "orange" },
     { id: "ios", name: "iOS", subtitle: "iPhone & iPad", icon: "fab fa-apple", platform: "Mobile", isActive: false, url: "https://apps.apple.com/app/securebit-chat/", color: "white" },
     { id: "android", name: "Android", subtitle: "Google Play", icon: "fab fa-android", platform: "Mobile", isActive: false, url: "https://play.google.com/store/apps/details?id=com.securebit.chat", color: "green" },
     { id: "chrome", name: "Chrome", subtitle: "Browser Extension", icon: "fab fa-chrome", platform: "Browser", isActive: false, url: "#", color: "yellow" },
@@ -16066,11 +16069,11 @@ function Roadmap() {
     },
     // current and future phases
     {
-      version: "v4.5.22",
+      version: "v4.5",
       title: "Enhanced Security Edition",
-      status: "current",
+      status: "done",
       date: "Now",
-      description: "Current version with ECDH + DTLS + SAS security, 18-layer military-grade cryptography and complete ASN.1 validation",
+      description: "Version with ECDH + DTLS + SAS security, 18-layer military-grade cryptography and complete ASN.1 validation",
       features: [
         "ECDH + DTLS + SAS triple-layer security",
         "ECDH P-384 + AES-GCM 256-bit encryption",
@@ -16087,17 +16090,17 @@ function Roadmap() {
       ]
     },
     {
-      version: "v4.5",
-      title: "Mobile & Desktop Edition",
-      status: "development",
-      date: "Q2 2025",
-      description: "Native apps for all platforms",
+      version: "v4.7",
+      title: "Desktop Edition",
+      status: "current",
+      date: "Now",
+      description: "Native desktop applications for Windows, macOS, and Linux",
       features: [
-        "PWA app for mobile",
-        "Electron app for desktop",
+        "Windows desktop app (Tauri v2)",
+        "macOS desktop app (Tauri v2)",
+        "Linux AppImage support (Tauri v2)",
         "Real-time notifications",
         "Automatic reconnection",
-        "Battery optimization",
         "Cross-device synchronization",
         "Improved UX/UI",
         "Support for files up to 100MB"
@@ -16105,9 +16108,26 @@ function Roadmap() {
     },
     {
       version: "v5.0",
+      title: "Mobile Edition",
+      status: "development",
+      date: "Q1 2026",
+      description: "Native mobile applications for iOS and Android",
+      features: [
+        "iOS native app (Swift/SwiftUI)",
+        "Android native app (Kotlin/Jetpack Compose)",
+        "PWA support for mobile browsers",
+        "Real-time push notifications",
+        "Battery optimization",
+        "Mobile-optimized UX/UI",
+        "Offline message queuing",
+        "Biometric authentication"
+      ]
+    },
+    {
+      version: "v5.5",
       title: "Quantum-Resistant Edition",
       status: "planned",
-      date: "Q4 2025",
+      date: "Q2 2026",
       description: "Protection against quantum computers",
       features: [
         "Post-quantum cryptography CRYSTALS-Kyber",
@@ -16121,10 +16141,10 @@ function Roadmap() {
       ]
     },
     {
-      version: "v5.5",
+      version: "v6.0",
       title: "Group Communications",
       status: "planned",
-      date: "Q2 2026",
+      date: "Q4 2026",
       description: "Group chats with preserved privacy",
       features: [
         "P2P group connections up to 8 participants",
@@ -16137,7 +16157,7 @@ function Roadmap() {
       ]
     },
     {
-      version: "v6.0",
+      version: "v6.5",
       title: "Decentralized Network",
       status: "research",
       date: "2027",

@@ -75,11 +75,11 @@ function Roadmap() {
         
                     // current and future phases
                     {
-                                          version: "v4.5.22",
+                        version: "v4.5",
                         title: "Enhanced Security Edition",
-                        status: "current",
+                        status: "done",
                         date: "Now",
-                        description: "Current version with ECDH + DTLS + SAS security, 18-layer military-grade cryptography and complete ASN.1 validation",
+                        description: "Version with ECDH + DTLS + SAS security, 18-layer military-grade cryptography and complete ASN.1 validation",
                         features: [
                         "ECDH + DTLS + SAS triple-layer security",
                         "ECDH P-384 + AES-GCM 256-bit encryption",
@@ -96,17 +96,17 @@ function Roadmap() {
                         ]
                     },
                     {
-                        version: "v4.5",
-                        title: "Mobile & Desktop Edition",
-                        status: "development",
-                        date: "Q2 2025",
-                        description: "Native apps for all platforms",
+                        version: "v4.7",
+                        title: "Desktop Edition",
+                        status: "current",
+                        date: "Now",
+                        description: "Native desktop applications for Windows, macOS, and Linux",
                         features: [
-                        "PWA app for mobile",
-                        "Electron app for desktop",
+                        "Windows desktop app (Tauri v2)",
+                        "macOS desktop app (Tauri v2)",
+                        "Linux AppImage support (Tauri v2)",
                         "Real-time notifications",
                         "Automatic reconnection",
-                        "Battery optimization",
                         "Cross-device synchronization",
                         "Improved UX/UI",
                         "Support for files up to 100MB"
@@ -114,9 +114,26 @@ function Roadmap() {
                     },
                     {
                         version: "v5.0",
+                        title: "Mobile Edition",
+                        status: "development",
+                        date: "Q1 2026",
+                        description: "Native mobile applications for iOS and Android",
+                        features: [
+                        "iOS native app (Swift/SwiftUI)",
+                        "Android native app (Kotlin/Jetpack Compose)",
+                        "PWA support for mobile browsers",
+                        "Real-time push notifications",
+                        "Battery optimization",
+                        "Mobile-optimized UX/UI",
+                        "Offline message queuing",
+                        "Biometric authentication"
+                        ]
+                    },
+                    {
+                        version: "v5.5",
                         title: "Quantum-Resistant Edition",
                         status: "planned",
-                        date: "Q4 2025",
+                        date: "Q2 2026",
                         description: "Protection against quantum computers",
                         features: [
                         "Post-quantum cryptography CRYSTALS-Kyber",
@@ -130,10 +147,10 @@ function Roadmap() {
                         ]
                     },
                     {
-                        version: "v5.5",
+                        version: "v6.0",
                         title: "Group Communications",
                         status: "planned",
-                        date: "Q2 2026",
+                        date: "Q4 2026",
                         description: "Group chats with preserved privacy",
                         features: [
                         "P2P group connections up to 8 participants",
@@ -146,7 +163,7 @@ function Roadmap() {
                         ]
                     },
                     {
-                        version: "v6.0",
+                        version: "v6.5",
                         title: "Decentralized Network",
                         status: "research",
                         date: "2027",
