@@ -1,4 +1,4 @@
-# SecureBit.chat v4.7.55
+# SecureBit.chat v4.7.56
 
 <div align="center">
 
@@ -59,7 +59,7 @@ Community review is welcome. Bug reports and security feedback can be submitted 
 │   Web Version    │  Desktop Apps    │   Mobile (Coming)   │
 │   (This Repo)    │  (Tauri v2)      │      (Q1 2026)      │
 │   Browser PWA    │  Windows/Mac/    │    iOS/Android      │
-│   v4.7.55        │     Linux        │   Native Apps       │
+│   v4.7.56        │     Linux        │   Native Apps       │
 │                  │   v0.1.0 Beta    │                      │
 └────────┬─────────┴────────┬─────────┴──────────┬───────────┘
          │                  │                    │
@@ -100,7 +100,7 @@ SecureBit.chat is a revolutionary peer-to-peer messenger that prioritizes your p
 
 | Platform | Status | Version | Link |
 |----------|--------|---------|------|
-| **Web Browser** | Production | v4.7.55 | [Launch Web App](https://securebitchat.github.io/securebit-chat/) |
+| **Web Browser** | Production | v4.7.56 | [Launch Web App](https://securebitchat.github.io/securebit-chat/) |
 | **Windows Desktop** | Beta | v0.1.0 | [Download](https://github.com/SecureBitChat/securebit-desktop/releases/latest) |
 | **macOS Desktop** | Beta | v0.1.0 | [Download](https://github.com/SecureBitChat/securebit-desktop/releases/latest) |
 | **Linux Desktop** | Beta | v0.1.0 | [Download](https://github.com/SecureBitChat/securebit-desktop/releases/latest) |
@@ -123,7 +123,7 @@ SecureBit.chat is a revolutionary peer-to-peer messenger that prioritizes your p
 
 ---
 
-## ✨ What's New in v4.7.55
+## ✨ What's New in v4.7.56
 
 ### Desktop Edition Release
 
@@ -198,7 +198,7 @@ SecureBit.chat is a revolutionary peer-to-peer messenger that prioritizes your p
 
 ## 🗺️ Roadmap
 
-**Current: v4.7.55** - Desktop Edition Available 
+**Current: v4.7.56** - Desktop Edition Available 
 
 ### Released Versions
 
@@ -417,7 +417,7 @@ Want to improve security? Contribute to the cryptographic core:
 | Project | Description | Status | License |
 |---------|-------------|--------|---------|
 | **[securebit-core](https://github.com/SecureBitChat/securebit-core)** | Cryptographic kernel (Rust) | ✅ Production | Apache 2.0 |
-| **[securebit-chat](https://github.com/SecureBitChat/securebit-chat)** | Web application (this repo) | ✅ Production v4.7.55 | MIT |
+| **[securebit-chat](https://github.com/SecureBitChat/securebit-chat)** | Web application (this repo) | ✅ Production v4.7.56 | MIT |
 | **[securebit-desktop](https://github.com/SecureBitChat/securebit-desktop)** | Desktop apps (Windows/Mac/Linux) | ✅ Beta v0.1.0 | Proprietary* |
 | **securebit-mobile** | Mobile apps (iOS/Android) | 🔄 Coming Q1 2026 | TBD |
 
@@ -547,7 +547,7 @@ Want to improve security? Contribute to the core:
 ## Project Status
 
 ### Active Development
-- **Web Version** - Stable (v4.7.55), receiving bug fixes and improvements
+- **Web Version** - Stable (v4.7.56), receiving bug fixes and improvements
 - **Desktop Apps** - Public beta (v0.1.0), active development
 - **Cryptographic Core** - Stable, production-ready
 - **Mobile Apps** - In development (Q1 2026)
@@ -575,7 +575,7 @@ Want to improve security? Contribute to the core:
 
 ---
 
-**Latest Release: v4.7.55** - Desktop Edition Available  
+**Latest Release: v4.7.56** - Desktop Edition Available  
 **Desktop Apps: v0.1.0** - Public Beta Available  
 **Mobile Apps: Coming Q1 2026**
 

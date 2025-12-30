@@ -1,12 +1,12 @@
 // SecureBit.chat Service Worker
-// Conservative PWA Edition v4.7.55 - Minimal Caching Strategy
+// Conservative PWA Edition v4.7.56 - Minimal Caching Strategy
 // Enhanced with version-aware cache management
 
 // Dynamic version detection from meta.json
-let APP_VERSION = 'v4.7.55';
-let CACHE_NAME = 'securebit-pwa-v4.7.55';
-let STATIC_CACHE = 'securebit-pwa-static-v4.7.55';
-let DYNAMIC_CACHE = 'securebit-pwa-dynamic-v4.7.55';
+let APP_VERSION = 'v4.7.56';
+let CACHE_NAME = 'securebit-pwa-v4.7.56';
+let STATIC_CACHE = 'securebit-pwa-static-v4.7.56';
+let DYNAMIC_CACHE = 'securebit-pwa-dynamic-v4.7.56';
 
 // Load version from meta.json on install
 async function getAppVersion() {
@@ -19,7 +19,7 @@ async function getAppVersion() {
         });
         if (response.ok) {
             const meta = await response.json();
-            const version = meta.version || meta.buildVersion || 'v4.7.55';
+            const version = meta.version || meta.buildVersion || 'v4.7.56';
             APP_VERSION = version;
             CACHE_NAME = `securebit-pwa-${version}`;
             STATIC_CACHE = `securebit-pwa-static-${version}`;

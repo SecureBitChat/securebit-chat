@@ -1,6 +1,6 @@
 {
   "name": "securebit-chat",
-  "version": "4.7.55",
+  "version": "4.7.56",
   "description": "Secure P2P Communication Application with End-to-End Encryption",
   "main": "index.html",
   "scripts": {
