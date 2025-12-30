@@ -29,6 +29,7 @@
     const componentModules = await Promise.all([
       import(`../components/ui/Header.jsx?v=${timestamp}`),
       import(`../components/ui/DownloadApps.jsx?v=${timestamp}`),
+      import(`../components/ui/BecomePartner.jsx?v=${timestamp}`),
       import(`../components/ui/ComparisonTable.jsx?v=${timestamp}`),
       import(`../components/ui/UniqueFeatureSlider.jsx?v=${timestamp}`),
       import(`../components/ui/SecurityFeatures.jsx?v=${timestamp}`),

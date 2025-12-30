@@ -542,6 +542,7 @@ var EnhancedConnectionSetup = ({
         React.createElement(Testimonials, { key: "testimonials" }),
         React.createElement(UniqueFeatureSlider, { key: "unique-features-slider" }),
         React.createElement(DownloadApps, { key: "download-apps" }),
+        React.createElement(BecomePartner, { key: "become-partner" }),
         React.createElement(ComparisonTable, { key: "comparison-table" }),
         React.createElement(Roadmap, { key: "roadmap" })
       ])
