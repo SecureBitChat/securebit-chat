@@ -6,20 +6,17 @@
 <meta http-equiv="Content-Security-Policy"
   content="default-src 'self';
            script-src 'self';
-           style-src 'self';
-           font-src 'self';
+           style-src 'self' 'unsafe-inline';
+           font-src 'self' https://fonts.gstatic.com data:;
            connect-src 'self' https: wss: ws:;
            img-src 'self' data: https:;
            media-src 'none';
            object-src 'none';
            frame-src 'none';
-           frame-ancestors 'none';
            worker-src 'self';
            manifest-src 'self';
            form-action 'self';
-           upgrade-insecure-requests;
-           report-uri /csp-report;
-           report-to csp-endpoint;">
+           upgrade-insecure-requests;">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta http-equiv="X-XSS-Protection" content="1; mode=block">
     <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
@@ -150,13 +147,13 @@
     <!-- Update Manager - система принудительного обновления -->
     <script src="src/utils/updateManager.js"></script>
     <script type="module" src="src/components/UpdateChecker.jsx"></script>
-    <script type="module" src="dist/qr-local.js?v=1767082143567"></script>
-    <script type="module" src="src/components/QRScanner.js?v=1767082143567"></script>
+    <script type="module" src="dist/qr-local.js?v=1767754446404"></script>
+    <script type="module" src="src/components/QRScanner.js?v=1767754446404"></script>
 </head>
 <body>
     <div id="root"></div>
-    <script type="module" src="dist/app-boot.js?v=1767082143567"></script>
-    <script type="module" src="dist/app.js?v=1767082143567"></script>
+    <script type="module" src="dist/app-boot.js?v=1767754446404"></script>
+    <script type="module" src="dist/app.js?v=1767754446404"></script>
 
 <script src="src/scripts/pwa-register.js"></script>
 <script src="./src/pwa/install-prompt.js" type="module"></script>

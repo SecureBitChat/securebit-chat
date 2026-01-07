@@ -232,9 +232,22 @@ self.addEventListener('fetch', (event) => {
                     'Cache-Control': 'no-cache, no-store, must-revalidate',
                     'Pragma': 'no-cache'
                 }
-            }).catch(() => {
-                // Fallback if network is unavailable - return error
-                return new Response('Network unavailable', { status: 503 });
+            }).catch((error) => {
+                // Log error for debugging
+                console.warn('⚠️ Failed to fetch JS file:', url.pathname, error.message);
+                // Try to get from cache as fallback
+                return caches.match(event.request).then(cachedResponse => {
+                    if (cachedResponse) {
+                        console.log('📦 Using cached version of:', url.pathname);
+                        return cachedResponse;
+                    }
+                    // Only return 503 if no cache available
+                    return new Response('Network unavailable', { 
+                        status: 503,
+                        statusText: 'Service Unavailable',
+                        headers: { 'Content-Type': 'text/plain' }
+                    });
+                });
             })
         );
         return;
@@ -299,10 +312,18 @@ async function networkFirst(request) {
                 // Clone the response before caching
                 const responseToCache = networkResponse.clone();
                 const cache = await caches.open(DYNAMIC_CACHE);
-                cache.put(request, responseToCache);
+                cache.put(request, responseToCache).catch(err => {
+                    console.warn('⚠️ Cache put failed (non-critical):', err.message);
+                });
             }
+            return networkResponse;
         }
-        return networkResponse;
+        // If response is not ok, try cache
+        const cachedResponse = await caches.match(request);
+        if (cachedResponse) {
+            return cachedResponse;
+        }
+        return networkResponse; // Return the non-ok response anyway
     } catch (error) {
         console.warn('⚠️ Network-first strategy failed:', error.message);
         const cachedResponse = await caches.match(request);

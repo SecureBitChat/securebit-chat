@@ -1,6 +1,35 @@
 # SecureBit.chat - Apache Configuration
 # Comprehensive caching configuration for forced updates
 
+# ============================================
+# MIME TYPES - MUST BE FIRST (before other rules)
+# ============================================
+# Critical: Set MIME types BEFORE any other rules to ensure correct Content-Type headers
+<IfModule mod_mime.c>
+    # JavaScript modules - explicit order matters
+    AddType application/javascript .jsx
+    AddType application/javascript .mjs
+    AddType application/javascript .js
+    AddType application/json .json
+    
+    # Fonts
+    AddType font/woff .woff
+    AddType font/woff2 .woff2
+    AddType application/font-woff .woff
+    AddType application/font-woff2 .woff2
+    
+    # Service Worker
+    AddType application/manifest+json .webmanifest
+</IfModule>
+
+# Force Content-Type headers (override any server defaults)
+<IfModule mod_headers.c>
+    # All JavaScript files including JSX - CRITICAL for ES modules
+    <FilesMatch "\.(js|mjs|jsx)$">
+        Header always set Content-Type "application/javascript; charset=utf-8"
+    </FilesMatch>
+</IfModule>
+
 # Enable mod_rewrite
 <IfModule mod_rewrite.c>
     RewriteEngine On
@@ -116,9 +145,9 @@
     Header set X-Frame-Options "DENY"
 </IfModule>
 
-# Content Security Policy (already configured in HTML, but can add header)
+# Content Security Policy (frame-ancestors and report-uri only work in HTTP headers, not meta tags)
 <IfModule mod_headers.c>
-    # Header set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';"
+    Header set Content-Security-Policy "frame-ancestors 'none'; report-uri /csp-report; report-to csp-endpoint;"
 </IfModule>
 
 # ============================================
@@ -133,25 +162,6 @@
     AddOutputFilterByType DEFLATE font/woff font/woff2 application/font-woff application/font-woff2
 </IfModule>
 
-# ============================================
-# MIME TYPES
-# ============================================
-
-<IfModule mod_mime.c>
-    # JavaScript modules
-    AddType application/javascript .js .mjs
-    AddType application/json .json
-    
-    # Fonts
-    AddType font/woff .woff
-    AddType font/woff2 .woff2
-    AddType application/font-woff .woff
-    AddType application/font-woff2 .woff2
-    
-    # Service Worker
-    AddType application/javascript .js
-    AddType application/manifest+json .webmanifest
-</IfModule>
 
 # ============================================
 # CLOUDFLARE RULES
