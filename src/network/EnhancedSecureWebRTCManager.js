@@ -100,6 +100,9 @@ class EnhancedSecureWebRTCManager {
         SYSTEM_MESSAGE: 'SYSTEM_MESSAGE_FILTERED'
     };
 
+    static PROTOCOL_VERSION = '4.1';
+    static MAX_SAS_ATTEMPTS = 3;
+
     //   Static debug flag instead of this._debugMode
     static DEBUG_MODE = true; // Set to true during development, false in production
 
@@ -141,8 +144,19 @@ class EnhancedSecureWebRTCManager {
                 addNoise: config.antiFingerprinting?.addNoise ?? true,
                 maskPatterns: config.antiFingerprinting?.maskPatterns ?? false,
                 useRandomHeaders: config.antiFingerprinting?.useRandomHeaders ?? false
+            },
+            webrtc: {
+                relayOnly: config.webrtc?.relayOnly ?? false,
+                iceServers: config.webrtc?.iceServers ?? [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { urls: 'stun:stun3.l.google.com:19302' },
+                    { urls: 'stun:stun4.l.google.com:19302' }
+                ]
             }
         };
+        this._ipLeakWarningShown = false;
 
             //   Initialize own logging system
         this._initializeSecureLogging();
@@ -213,6 +227,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             this.verificationCode = null;
         this.pendingSASCode = null;
         this.isVerified = false;
+        this.sasValidationAttempts = 0;
         this.processedMessageIds = new Set();
         
         // Mutual verification states
@@ -243,6 +258,10 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     this.peerPublicKey = null; // Store peer's public key for PFS
     this.rateLimiterId = null;
     this.intentionalDisconnect = false;
+    this._sessionAlive = true;
+    this._fileTransferInitRetryTimers = new Set();
+    this._peerDisconnectCleanupTimer = null;
+    this._logCleanupInterval = null;
     this.lastCleanupTime = Date.now();
     
     // Reset notification flags for new connection
@@ -913,6 +932,17 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         
         //   Store scheduler reference for cleanup
         this._activeTimers = new Set([this._maintenanceScheduler]);
+    }
+
+    _trackActiveTimer(timer) {
+        if (!timer) return timer;
+        if (!this._activeTimers) this._activeTimers = new Set();
+        this._activeTimers.add(timer);
+        return timer;
+    }
+
+    _untrackActiveTimer(timer) {
+        if (timer && this._activeTimers) this._activeTimers.delete(timer);
     }
 
     /**
@@ -3334,9 +3364,9 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         this._startSecurityMonitoring();
         
         // Start periodic log cleanup
-        setInterval(() => {
+        this._logCleanupInterval = this._trackActiveTimer(setInterval(() => {
             this._cleanupLogs();
-        }, 300000);
+        }, 300000));
         
         this._secureLog('info', '✅ Secure WebRTC Manager initialization completed');
         this._secureLog('info', '🔒 Global exposure protection: Monitoring only, no automatic removal');
@@ -3646,13 +3676,9 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             const dv = new DataView(bits);
             const n = (dv.getUint32(0) ^ dv.getUint32(4)) >>> 0;
             
-            // Use rejection sampling to avoid bias in SAS code generation
-            let sasValue;
-            do {
-                sasValue = crypto.getRandomValues(new Uint32Array(1))[0];
-            } while (sasValue >= 4294967296 - (4294967296 % 10_000_000));
-            
-            const sasCode = String(sasValue % 10_000_000).padStart(7, '0'); 
+            // Deterministic SAS: both peers derive the same display code from the
+            // same shared key material and canonicalized DTLS fingerprints.
+            const sasCode = String(n % 10_000_000).padStart(7, '0');
 
 
             this._secureLog('info', 'SAS code computed successfully', {
@@ -4430,6 +4456,10 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
 
     initializeFileTransfer() {
         try {
+            if (this._sessionAlive === false) {
+                return;
+            }
+
             this._secureLog('info', '🔧 Initializing Enhanced Secure File Transfer system...');
 
             if (this.fileTransferSystem) {
@@ -4453,7 +4483,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
 
             if (!this.isVerified) {
                 this._secureLog('warn', '⚠️ Connection not verified yet, deferring file transfer initialization');
-                setTimeout(() => this.initializeFileTransfer(), 500);
+                this._scheduleFileTransferInitRetry(500);
                 return;
             }
             
@@ -4467,7 +4497,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             //   Ensure encryption keys are present
             if (!this.encryptionKey || !this.macKey) {
                 this._secureLog('warn', '⚠️ Encryption keys not ready, deferring file transfer initialization');
-                setTimeout(() => this.initializeFileTransfer(), 1000);
+                this._scheduleFileTransferInitRetry(1000);
                 return;
             }
             
@@ -4490,7 +4520,8 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 this.onFileProgress || null,
                 safeOnComplete,
                 this.onFileError || null,
-                this.onFileReceived || null
+                this.onFileReceived || null,
+                this.onIncomingFileRequest || null
             );
             
             this._fileTransferActive = true;
@@ -4506,6 +4537,21 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             this.fileTransferSystem = null;
             this._fileTransferActive = false;
         }
+    }
+
+    _scheduleFileTransferInitRetry(delay) {
+        if (this._sessionAlive === false) return null;
+        if (!this._fileTransferInitRetryTimers) this._fileTransferInitRetryTimers = new Set();
+
+        const timer = this._trackActiveTimer(setTimeout(() => {
+            this._fileTransferInitRetryTimers.delete(timer);
+            this._untrackActiveTimer(timer);
+            if (this._sessionAlive === false) return;
+            this.initializeFileTransfer();
+        }, delay));
+
+        this._fileTransferInitRetryTimers.add(timer);
+        return timer;
     }
 
     // ============================================
@@ -4664,6 +4710,14 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             currentFeatures: this.securityFeatures
         });
     }
+    _sanitizeIncomingChatMessage(message) {
+        if (typeof message !== 'string') {
+            return message;
+        }
+
+        return window.EnhancedSecureCryptoUtils.sanitizeMessage(message);
+    }
+
     deliverMessageToUI(message, type = 'received') {
         try {
             // Add debug logs
@@ -4735,9 +4789,13 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 }
             }
 
+            const uiMessage = type === 'received'
+                ? this._sanitizeIncomingChatMessage(message)
+                : message;
+
             if (this.onMessage) {
-                this._secureLog('debug', '📤 Calling this.onMessage callback', { message, type });
-                this.onMessage(message, type);
+                this._secureLog('debug', '📤 Calling this.onMessage callback', { message: uiMessage, type });
+                this.onMessage(uiMessage, type);
             } else {
                 this._secureLog('warn', '⚠️ this.onMessage callback is null or undefined');
             }
@@ -6897,52 +6955,6 @@ async processMessage(data) {
         }
     }
 
-    disconnect() {
-        try {
-            
-            // Cleanup file transfer system
-            if (this.fileTransferSystem) {
-                this.fileTransferSystem.cleanup();
-                this.fileTransferSystem = null;
-            }
-            
-            // Stop fake traffic generation
-            this.stopFakeTrafficGeneration();
-            
-            // Stop decoy traffic
-            for (const [channelName, timer] of this.decoyTimers.entries()) {
-                clearTimeout(timer);
-            }
-            this.decoyTimers.clear();
-            
-            // Close decoy channels
-            for (const [channelName, channel] of this.decoyChannels.entries()) {
-                if (channel.readyState === 'open') {
-                    channel.close();
-                }
-            }
-            this.decoyChannels.clear();
-            
-            // Clean up packet buffer
-            this.packetBuffer.clear();
-            
-            // Clean up chunk queue
-            this.chunkQueue = [];
-            
-            //   Wipe ephemeral keys for PFS on disconnect
-            this._wipeEphemeralKeys();
-            
-            //   Hard wipe old keys for PFS
-            this._hardWipeOldKeys();
-
-            //   Clear verification states
-            this._clearVerificationStates();
-
-        } catch (error) {
-            this._secureLog('error', '❌ Error during enhanced disconnect:', { errorType: error?.constructor?.name || 'Unknown' });
-        }
-    }
-
     /**
      *   Clear all verification states and data
      * Called when verification is rejected or connection is terminated
@@ -6957,6 +6969,7 @@ async processMessage(data) {
             this.isVerified = false;
             this.verificationCode = null;
             this.pendingSASCode = null;
+            this.sasValidationAttempts = 0;
             
             // Clear key fingerprint and connection data
             this.keyFingerprint = null;
@@ -7152,18 +7165,38 @@ async processMessage(data) {
         return null;
     }
 
-    createPeerConnection() {
+    _hasTurnServer() {
+        return (this._config.webrtc.iceServers || []).some(server => {
+            const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
+            return urls.some(url => typeof url === 'string' && url.toLowerCase().startsWith('turn:'));
+        });
+    }
+
+    _buildPeerConnectionConfig() {
         const config = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' },
-                { urls: 'stun:stun3.l.google.com:19302' },
-                { urls: 'stun:stun4.l.google.com:19302' }
-            ],
+            iceServers: this._config.webrtc.iceServers,
             iceCandidatePoolSize: 10,
             bundlePolicy: 'balanced'
         };
+        if (this._config.webrtc.relayOnly) {
+            config.iceTransportPolicy = 'relay';
+        }
+        return config;
+    }
+
+    _warnIfTurnMissing() {
+        if (this._hasTurnServer() || this._ipLeakWarningShown) return;
+        this._ipLeakWarningShown = true;
+        const message = this._config.webrtc.relayOnly
+            ? 'Privacy mode is enabled, but no TURN server is configured. Relay-only mode cannot connect until TURN is configured; STUN alone does not hide IP addresses.'
+            : 'Privacy warning: no TURN server is configured. Direct WebRTC connections may expose IP addresses; STUN alone does not provide IP protection.';
+        this.deliverMessageToUI(message, 'system');
+    }
+
+    createPeerConnection() {
+        this._sessionAlive = true;
+        const config = this._buildPeerConnectionConfig();
+        this._warnIfTurnMissing();
 
         this.peerConnection = new RTCPeerConnection(config);
 
@@ -9432,7 +9465,7 @@ async processMessage(data) {
                     // Core information (minimal)
                     t: 'offer', // type
                     s: this.peerConnection.localDescription.sdp, // sdp
-                    v: '4.0', // version
+                    v: EnhancedSecureWebRTCManager.PROTOCOL_VERSION, // version
                     ts: currentTimestamp, // timestamp
                     
                     // Cryptographic keys (essential)
@@ -9692,17 +9725,13 @@ async processMessage(data) {
                 
                 // Protocol version compatibility check (support both formats)
                 const protocolVersion = version; // Use the version we already extracted
-                if (protocolVersion !== '4.0') {
+                if (protocolVersion !== EnhancedSecureWebRTCManager.PROTOCOL_VERSION) {
                     this._secureLog('warn', 'Protocol version mismatch detected', {
                         operationId: operationId,
-                        expectedVersion: '4.0',
+                        expectedVersion: EnhancedSecureWebRTCManager.PROTOCOL_VERSION,
                         receivedVersion: protocolVersion
                     });
-                    
-                    // For backward compatibility with v3.0, a fallback can be added
-                    if (protocolVersion !== '3.0') {
-                        throw new Error(`Unsupported protocol version: ${protocolVersion}`);
-                    }
+                    throw new Error(`Version mismatch: expected protocol ${EnhancedSecureWebRTCManager.PROTOCOL_VERSION}, received ${protocolVersion}`);
                 }
                 
                 // ============================================
@@ -9717,7 +9746,7 @@ async processMessage(data) {
                     throw new Error('Invalid session salt format - must be array');
                 }
                 
-                const expectedSaltLength = protocolVersion === '4.0' ? 64 : 32;
+                const expectedSaltLength = 64;
                 if (this.sessionSalt.length !== expectedSaltLength) {
                     throw new Error(`Invalid session salt length: expected ${expectedSaltLength}, got ${this.sessionSalt.length}`);
                 }
@@ -9877,8 +9906,9 @@ async processMessage(data) {
                     throw new Error('Invalid key types after derivation');
                 }
                 
-                // Set verification code from offer
-                this.verificationCode = offerData.verificationCode;
+                // Preserve the invitation code only as a temporary legacy field.
+                // The real SAS is recomputed locally after the DTLS fingerprints exist.
+                this.verificationCode = offerData.vc || offerData.verificationCode || null;
                 
                 this._secureLog('info', 'Encryption keys derived and set successfully', {
                     operationId: operationId,
@@ -10052,6 +10082,23 @@ async processMessage(data) {
                     this._secureLog('error', 'Failed to extract DTLS fingerprint from answer', { error: error.message });
                     // Continue without fingerprint validation (fallback mode)
                 }
+
+                // Compute the same SAS locally on the answer side. This keeps the
+                // protocol honest: the peer may announce its SAS later, but it must
+                // match what we independently derived from the session.
+                try {
+                    const remoteFP = this._extractDTLSFingerprintFromSDP(offerData.s || offerData.sdp);
+                    const localFP = this.expectedDTLSFingerprint;
+                    const keyBytes = this._decodeKeyFingerprint(this.keyFingerprint);
+                    this.verificationCode = await this._computeSAS(keyBytes, localFP, remoteFP);
+                    this.onStatusChange?.('verifying');
+                    this.onVerificationRequired(this.verificationCode);
+                } catch (sasError) {
+                    this._secureLog('error', 'SAS computation failed in createSecureAnswer (Answer side)', {
+                        errorType: sasError?.constructor?.name || 'Unknown'
+                    });
+                    throw new Error(`SAS computation failed: ${sasError.message}`);
+                }
                 
                 
                 // Await ICE gathering
@@ -10134,7 +10181,7 @@ async processMessage(data) {
                     // Core information (minimal)
                     t: 'answer', // type
                     s: this.peerConnection.localDescription.sdp, // sdp
-                    v: '4.0', // version
+                    v: EnhancedSecureWebRTCManager.PROTOCOL_VERSION, // version
                     ts: currentTimestamp, // timestamp
                     
                     // Cryptographic keys (essential)
@@ -10448,6 +10495,11 @@ async processMessage(data) {
                     hasSdp: !!(answerData.sdp || answerData.s)
                 });
                 throw new Error('CRITICAL SECURITY FAILURE: Invalid answer format - hard abort required');
+            }
+
+            const answerVersion = answerData.v || answerData.version;
+            if (answerVersion !== EnhancedSecureWebRTCManager.PROTOCOL_VERSION) {
+                throw new Error(`Version mismatch: expected protocol ${EnhancedSecureWebRTCManager.PROTOCOL_VERSION}, received ${answerVersion || 'unknown'}`);
             }
 
             // CRITICAL: Strict validation of ECDH public key structure
@@ -10774,19 +10826,56 @@ async processMessage(data) {
         }
     }
 
-    confirmVerification() {
+    /**
+     * Normalizes and validates the user-entered SAS code.
+     * Users may enter the same shared SAS with spaces or hyphens.
+     * @param {string} input
+     * @returns {boolean}
+     */
+    _validateSASCode(input) {
+        if (!input || typeof input !== 'string' || !this.verificationCode || typeof this.verificationCode !== 'string') {
+            return false;
+        }
+
+        const normalizedInput = input.replace(/[-\s]/g, '').toUpperCase();
+        const normalizedActual = this.verificationCode.replace(/[-\s]/g, '').toUpperCase();
+
+        if (normalizedInput.length !== normalizedActual.length) {
+            return false;
+        }
+
+        return window.EnhancedSecureCryptoUtils.constantTimeCompare(normalizedInput, normalizedActual);
+    }
+
+    confirmVerification(userCode) {
         
         try {
+            if (!this._validateSASCode(userCode)) {
+                this.sasValidationAttempts = (this.sasValidationAttempts || 0) + 1;
+                this._secureLog('warn', 'SAS validation failed: user entered incorrect code', {
+                    attempts: this.sasValidationAttempts,
+                    maxAttempts: EnhancedSecureWebRTCManager.MAX_SAS_ATTEMPTS
+                });
+
+                if (this.sasValidationAttempts >= EnhancedSecureWebRTCManager.MAX_SAS_ATTEMPTS) {
+                    this.deliverMessageToUI('Verification failed 3 times. Session reset for safety.', 'system');
+                    this.disconnect();
+                    throw new Error('SAS_MAX_ATTEMPTS');
+                }
+
+                throw new Error('SAS_MISMATCH');
+            }
             
             // Mark local verification as confirmed
             this.localVerificationConfirmed = true;
+            this.sasValidationAttempts = 0;
             
             // Send confirmation to peer
             const confirmationPayload = {
                 type: 'verification_confirmed',
                 data: {
                     timestamp: Date.now(),
-                    verificationMethod: 'SAS',
+                    verificationMethod: 'MANUAL_SAS_ENTRY',
                     securityLevel: 'MITM_PROTECTION_REQUIRED'
                 }
             };
@@ -10806,12 +10895,17 @@ async processMessage(data) {
             this._checkBothVerificationsConfirmed();
             
             // Notify UI about local confirmation
-            this.deliverMessageToUI('You confirmed the verification code. Waiting for peer confirmation...', 'system');
+            this.deliverMessageToUI('Code verified locally. Waiting for peer confirmation...', 'system');
             
             this.processMessageQueue();
         } catch (error) {
-            this._secureLog('error', 'SAS verification failed:', { errorType: error?.constructor?.name || 'Unknown' });
-            this.deliverMessageToUI('SAS verification failed', 'system');
+            if (error.message === 'SAS_MISMATCH') {
+                this.deliverMessageToUI('Verification failed: the code you entered is incorrect.', 'system');
+            } else if (error.message !== 'SAS_MAX_ATTEMPTS') {
+                this._secureLog('error', 'SAS verification failed:', { errorType: error?.constructor?.name || 'Unknown' });
+                this.deliverMessageToUI('SAS verification failed', 'system');
+            }
+            throw error;
         }
     }
 
@@ -10946,8 +11040,18 @@ async processMessage(data) {
     }
 
     handleSASCode(data) {
+        if (!data?.code || typeof data.code !== 'string') {
+            this._secureLog('warn', 'Invalid SAS announcement received from peer');
+            return;
+        }
 
-        
+        if (this.verificationCode && !this._validateSASCode(data.code)) {
+            this._secureLog('error', 'Peer-announced SAS does not match locally computed SAS');
+            this.deliverMessageToUI('Version or SAS mismatch detected. Connection aborted for safety.', 'system');
+            this.disconnect();
+            return;
+        }
+
         this.verificationCode = data.code;
         this.onStatusChange?.('verifying'); 
         this.onVerificationRequired(this.verificationCode);
@@ -11015,8 +11119,8 @@ async processMessage(data) {
             // Basic required fields will be validated after format detection
 
             // Check if this is v4.0 compact format or legacy format
-            const isV4CompactFormat = offerData.v === '4.0' && offerData.e && offerData.d;
-            const isV4Format = offerData.version === '4.0' && offerData.ecdhPublicKey && offerData.ecdsaPublicKey;
+            const isV4CompactFormat = offerData.v === EnhancedSecureWebRTCManager.PROTOCOL_VERSION && offerData.e && offerData.d;
+            const isV4Format = offerData.version === EnhancedSecureWebRTCManager.PROTOCOL_VERSION && offerData.ecdhPublicKey && offerData.ecdsaPublicKey;
             
             // Validate offer type (support compact, legacy v3.0 and v4.0 formats)
             const isValidType = isV4CompactFormat ? 
@@ -11028,14 +11132,14 @@ async processMessage(data) {
             }
             
             if (isV4CompactFormat) {
-                // v4.0 compact format validation
+                // v4.1 compact format validation
                 const compactRequiredFields = [
                     'e', 'd', 'sl', 'vc', 'si', 'ci', 'ac', 'slv'
                 ];
                 
                 for (const field of compactRequiredFields) {
                 if (!offerData[field]) {
-                        throw new Error(`Missing required v4.0 compact field: ${field}`);
+                        throw new Error(`Missing required v4.1 compact field: ${field}`);
                     }
                 }
                 
@@ -11050,7 +11154,7 @@ async processMessage(data) {
                 
                 // Validate salt length
                 if (!Array.isArray(offerData.sl) || offerData.sl.length !== 64) {
-                    throw new Error('Salt must be exactly 64 bytes for v4.0');
+                    throw new Error('Salt must be exactly 64 bytes for v4.1');
                 }
                 
                 // Validate verification code format
@@ -11069,7 +11173,7 @@ async processMessage(data) {
                     throw new Error('Offer is too old (older than 1 hour)');
                 }
                 
-                this._secureLog('info', 'v4.0 compact offer validation passed', {
+                this._secureLog('info', 'v4.1 compact offer validation passed', {
                     version: offerData.v,
                     hasECDH: !!offerData.e,
                     hasECDSA: !!offerData.d,
@@ -11079,7 +11183,7 @@ async processMessage(data) {
                     offerAge: Math.round(offerAge / 1000) + 's'
                 });
             } else if (isV4Format) {
-                // v4.0 enhanced validation
+                // v4.1 enhanced validation
                 const v4RequiredFields = [
                     'ecdhPublicKey', 'ecdsaPublicKey', 'salt', 'verificationCode',
                     'authChallenge', 'timestamp', 'version', 'securityLevel'
@@ -11087,13 +11191,13 @@ async processMessage(data) {
 
                 for (const field of v4RequiredFields) {
                     if (!offerData[field]) {
-                        throw new Error(`Missing v4.0 field: ${field}`);
+                        throw new Error(`Missing v4.1 field: ${field}`);
                     }
                 }
 
                 // Validate salt (must be 64 bytes for v4.0)
                 if (!Array.isArray(offerData.salt) || offerData.salt.length !== 64) {
-                    throw new Error('Salt must be exactly 64 bytes for v4.0');
+                    throw new Error('Salt must be exactly 64 bytes for v4.1');
                 }
 
                 // Validate timestamp (not older than 1 hour)
@@ -11142,35 +11246,14 @@ async processMessage(data) {
                     throw new Error('Invalid SAS verification code format - MITM protection required');
                 }
 
-                this._secureLog('info', 'v4.0 offer validation passed', {
+                this._secureLog('info', 'v4.1 offer validation passed', {
                     version: offerData.version,
                     hasSecurityLevel: !!offerData.securityLevel?.level,
                     offerAge: Math.round(offerAge / 1000) + 's'
                 });
             } else {
-                // v3.0 backward compatibility validation
-                // NOTE: v3.0 has limited security - SAS verification is still critical
-                const v3RequiredFields = ['publicKey', 'salt', 'verificationCode'];
-                for (const field of v3RequiredFields) {
-                    if (!offerData[field]) {
-                        throw new Error(`Missing v3.0 field: ${field}`);
-                    }
-                }
-
-                // Validate salt (32 bytes for v3.0)
-                if (!Array.isArray(offerData.salt) || offerData.salt.length !== 32) {
-                    throw new Error('Salt must be exactly 32 bytes for v3.0');
-                }
-
-                // Validate public key
-                if (!Array.isArray(offerData.publicKey)) {
-                    throw new Error('Invalid public key format for v3.0');
-                }
-
-                window.EnhancedSecureCryptoUtils.secureLog.log('info', 'v3.0 offer validation passed (backward compatibility)', {
-                    version: 'v3.0',
-                    legacy: true
-                });
+                const receivedVersion = offerData.v || offerData.version || 'unknown';
+                throw new Error(`Version mismatch: expected protocol ${EnhancedSecureWebRTCManager.PROTOCOL_VERSION}, received ${receivedVersion}`);
             }
 
             // Validate SDP structure (basic check for all versions)
@@ -11350,10 +11433,18 @@ async processMessage(data) {
         // Clear all timer references
         if (this._activeTimers) {
             this._activeTimers.forEach(timer => {
-                if (timer) clearInterval(timer);
+                if (timer) {
+                    clearInterval(timer);
+                    clearTimeout(timer);
+                }
             });
             this._activeTimers.clear();
         }
+
+        if (this._fileTransferInitRetryTimers) {
+            this._fileTransferInitRetryTimers.clear();
+        }
+        this._logCleanupInterval = null;
         
         this._secureLog('info', 'All timers stopped successfully');
     }
@@ -11413,31 +11504,6 @@ async processMessage(data) {
         };
     }
 
-    disconnect() {
-        //   Stop all timers first
-        this._stopAllTimers();
-        
-        if (this.fileTransferSystem) {
-            this.fileTransferSystem.cleanup();
-        }
-        this.intentionalDisconnect = true;
-        
-        window.EnhancedSecureCryptoUtils.secureLog.log('info', 'Starting intentional disconnect');
-
-        this.sendDisconnectNotification();
-
-        setTimeout(() => {
-            this.sendDisconnectNotification(); 
-        }, 100);
-
-        document.dispatchEvent(new CustomEvent('peer-disconnect', {
-            detail: { 
-                reason: 'user_disconnect',
-                timestamp: Date.now()
-            }
-        }));
-    }
-    
     handleUnexpectedDisconnect() {
         this.sendDisconnectNotification();
         this.isVerified = false;
@@ -11531,9 +11597,15 @@ async processMessage(data) {
             }
         }));
 
-        setTimeout(() => {
-            this.disconnect();
-        }, 2000);
+        if (!this._peerDisconnectCleanupTimer) {
+            this._peerDisconnectCleanupTimer = this._trackActiveTimer(setTimeout(() => {
+                const timer = this._peerDisconnectCleanupTimer;
+                this._peerDisconnectCleanupTimer = null;
+                this._untrackActiveTimer(timer);
+                if (this._sessionAlive === false) return;
+                this.disconnect();
+            }, 2000));
+        }
         
         window.EnhancedSecureCryptoUtils.secureLog.log('info', 'Peer disconnect notification processed', {
             reason: reason
@@ -11544,80 +11616,129 @@ async processMessage(data) {
      *   Secure disconnect with complete memory cleanup
      */
     disconnect() {
-        this.stopHeartbeat();
-        this.isVerified = false;
-        this.processedMessageIds.clear();
-        this.messageCounter = 0;
-        
-        //   Secure cleanup of cryptographic materials
-        this._secureCleanupCryptographicMaterials();
-        
-        //   Secure wipe of PFS key versions
-        this.keyVersions.clear();
-        this.oldKeys.clear();
-        this.currentKeyVersion = 0;
-        this.lastKeyRotation = Date.now();
-        
-        //   Reset message counters
-        this.sequenceNumber = 0;
-        this.expectedSequenceNumber = 0;
-        this.replayWindow.clear(); //   Clear replay window
-        
-        //   Reset security features
-        this.securityFeatures = {
-            hasEncryption: true,
-            hasECDH: true,
-            hasECDSA: true,  
-            hasMutualAuth: true,  
-            hasMetadataProtection: true,  
-            hasEnhancedReplayProtection: true,  
-            hasNonExtractableKeys: true,  
-            hasRateLimiting: true,  
-            hasEnhancedValidation: true,  
-            hasPFS: true  
-        };
-        
-        //   Close connections
-        if (this.dataChannel) {
-            this.dataChannel.close();
-            this.dataChannel = null;
-        }
-        if (this.peerConnection) {
-            this.peerConnection.close();
-            this.peerConnection = null;
-        }
-        
-        //   Secure wipe of message queue
-        if (this.messageQueue && this.messageQueue.length > 0) {
-            this.messageQueue.forEach((message, index) => {
-                this._secureWipeMemory(message, `messageQueue[${index}]`);
+        try {
+            this._sessionAlive = false;
+
+            // Preserve the explicit-disconnect notification flow before channels are closed.
+            this.intentionalDisconnect = true;
+            window.EnhancedSecureCryptoUtils.secureLog.log('info', 'Starting intentional disconnect');
+            this.sendDisconnectNotification();
+            setTimeout(() => {
+                this.sendDisconnectNotification();
+            }, 100);
+
+            // Stop every timer-backed subsystem first.
+            this._stopAllTimers();
+            this._peerDisconnectCleanupTimer = null;
+            this.stopHeartbeat();
+            this.stopFakeTrafficGeneration();
+            for (const timer of this.decoyTimers.entries()) {
+                clearTimeout(timer[1]);
+            }
+            this.decoyTimers.clear();
+
+            // Pending file transfers must not survive a disconnect.
+            if (this.fileTransferSystem) {
+                this.fileTransferSystem.cleanup();
+                this.fileTransferSystem = null;
+            }
+
+            // Close auxiliary channels alongside the primary channel.
+            for (const channel of this.decoyChannels.values()) {
+                if (channel.readyState === 'open') channel.close();
+            }
+            this.decoyChannels.clear();
+            if (this.heartbeatChannel) {
+                this.heartbeatChannel.close();
+                this.heartbeatChannel = null;
+            }
+
+            // Reset transport-independent state.
+            this.isVerified = false;
+            this.processedMessageIds.clear();
+            this.messageCounter = 0;
+            this.packetBuffer.clear();
+            this.chunkQueue = [];
+
+            // Preserve all key/material cleanup from the former implementations.
+            this._wipeEphemeralKeys();
+            this._hardWipeOldKeys();
+            this._secureCleanupCryptographicMaterials();
+            this.keyVersions.clear();
+            this.oldKeys.clear();
+            this.currentKeyVersion = 0;
+            this.lastKeyRotation = Date.now();
+            this.sequenceNumber = 0;
+            this.expectedSequenceNumber = 0;
+            this.replayWindow.clear();
+            this._clearVerificationStates();
+
+            this.securityFeatures = {
+                hasEncryption: true,
+                hasECDH: true,
+                hasECDSA: true,
+                hasMutualAuth: true,
+                hasMetadataProtection: true,
+                hasEnhancedReplayProtection: true,
+                hasNonExtractableKeys: true,
+                hasRateLimiting: true,
+                hasEnhancedValidation: true,
+                hasPFS: true
+            };
+
+            // Close live transports, then release their listeners/references.
+            if (this.dataChannel) {
+                this.dataChannel.close();
+                this.dataChannel.onopen = null;
+                this.dataChannel.onclose = null;
+                this.dataChannel.onmessage = null;
+                this.dataChannel.onerror = null;
+                this.dataChannel = null;
+            }
+            if (this.peerConnection) {
+                this.peerConnection.close();
+                this.peerConnection.onconnectionstatechange = null;
+                this.peerConnection.ondatachannel = null;
+                this.peerConnection = null;
+            }
+
+            if (this.messageQueue && this.messageQueue.length > 0) {
+                this.messageQueue.forEach((message, index) => {
+                    this._secureWipeMemory(message, `messageQueue[${index}]`);
+                });
+                this.messageQueue = [];
+            }
+
+            this._forceGarbageCollection().catch(error => {
+                this._secureLog('error', 'Cleanup failed during disconnect', {
+                    errorType: error?.constructor?.name || 'Unknown'
+                });
             });
-            this.messageQueue = [];
-        }
-        
-        //   Schedule natural cleanup
-        this._forceGarbageCollection().catch(error => {
-            this._secureLog('error', 'Cleanup failed during disconnect', {
+
+            document.dispatchEvent(new CustomEvent('peer-disconnect', {
+                detail: {
+                    reason: 'user_disconnect',
+                    timestamp: Date.now()
+                }
+            }));
+            document.dispatchEvent(new CustomEvent('connection-cleaned', {
+                detail: {
+                    timestamp: Date.now(),
+                    reason: 'user_cleanup'
+                }
+            }));
+
+            this.onStatusChange('disconnected');
+            this.onKeyExchange('');
+            this.onVerificationRequired('');
+            this._secureLog('info', 'Connection securely cleaned up with complete memory wipe');
+        } catch (error) {
+            this._secureLog('error', '❌ Error during enhanced disconnect:', {
                 errorType: error?.constructor?.name || 'Unknown'
             });
-        });
-        
-        document.dispatchEvent(new CustomEvent('connection-cleaned', {
-            detail: { 
-                timestamp: Date.now(),
-                reason: this.intentionalDisconnect ? 'user_cleanup' : 'automatic_cleanup'
-            }
-        }));
-
-        //   Notify UI about complete cleanup
-        this.onStatusChange('disconnected');
-        this.onKeyExchange('');
-        this.onVerificationRequired('');
-        
-        this._secureLog('info', 'Connection securely cleaned up with complete memory wipe');
-        
-        //   Reset the intentional disconnect flag
-        this.intentionalDisconnect = false;
+        } finally {
+            this.intentionalDisconnect = false;
+        }
     }
     // Public method to send files
     async sendFile(file) {
@@ -11751,15 +11872,34 @@ async processMessage(data) {
     }
 
     // Set file transfer callbacks
-    setFileTransferCallbacks(onProgress, onReceived, onError) {
+    setFileTransferCallbacks(onProgress, onReceived, onError, onIncomingRequest = null) {
         this.onFileProgress = onProgress;
         this.onFileReceived = onReceived;
         this.onFileError = onError;
+        this.onIncomingFileRequest = onIncomingRequest;
         
-        // Reinitialize file transfer system if it exists to update callbacks
+        // Propagate callback updates into the live transfer system.
         if (this.fileTransferSystem) {
-            this.initializeFileTransfer();
+            this.fileTransferSystem.onProgress = onProgress;
+            this.fileTransferSystem.onFileReceived = onReceived;
+            this.fileTransferSystem.onError = onError;
+            this.fileTransferSystem.onIncomingFileRequest = onIncomingRequest;
         }
+    }
+
+    getPendingIncomingFiles() {
+        if (!this.fileTransferSystem) return [];
+        return this.fileTransferSystem.getPendingIncomingTransfers();
+    }
+
+    async acceptIncomingFile(fileId) {
+        if (!this.fileTransferSystem) return false;
+        return this.fileTransferSystem.acceptIncomingFile(fileId);
+    }
+
+    async rejectIncomingFile(fileId) {
+        if (!this.fileTransferSystem) return false;
+        return this.fileTransferSystem.rejectIncomingFile(fileId);
     }
 
     // ============================================
@@ -12708,18 +12848,10 @@ class SecureIndexedDBWrapper {
             iv: Array.from(new Uint8Array(iv)),
             algorithm: algorithm,
             usages: usages,
-            type: type,
-            timestamp: Date.now()
+            type: type
         };
         
-        const metadataRecord = {
-            keyId: keyId,
-            ...metadata,
-            created: Date.now(),
-            lastAccessed: Date.now(),
-            extractable: true,
-            persistent: true
-        };
+        const metadataRecord = { keyId, ...metadata };
         
         return new Promise((resolve, reject) => {
             const keysRequest = transaction.objectStore(this.KEYS_STORE).put(keyRecord);
@@ -12788,6 +12920,28 @@ class SecureIndexedDBWrapper {
             getRequest.onerror = () => reject(new Error(`Failed to get metadata: ${getRequest.error}`));
         });
     }
+
+    async getKeyMetadataRecord(keyId) {
+        if (!this.db) throw new Error('Database not initialized');
+        const transaction = this.db.transaction([this.METADATA_STORE], 'readonly');
+        const store = transaction.objectStore(this.METADATA_STORE);
+        return new Promise((resolve, reject) => {
+            const request = store.get(keyId);
+            request.onsuccess = () => resolve(request.result || null);
+            request.onerror = () => reject(new Error(`Failed to get metadata: ${request.error}`));
+        });
+    }
+
+    async putKeyMetadataRecord(record) {
+        if (!this.db) throw new Error('Database not initialized');
+        const transaction = this.db.transaction([this.METADATA_STORE], 'readwrite');
+        const store = transaction.objectStore(this.METADATA_STORE);
+        return new Promise((resolve, reject) => {
+            const request = store.put(record);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(new Error(`Failed to store metadata: ${request.error}`));
+        });
+    }
     
     /**
      * Delete key and its metadata
@@ -12840,8 +12994,7 @@ class SecureIndexedDBWrapper {
         
         const saltRecord = {
             id: 'master_salt',
-            salt: Array.from(new Uint8Array(salt)),
-            created: Date.now()
+            salt: Array.from(new Uint8Array(salt))
         };
         
         return new Promise((resolve, reject) => {
@@ -12934,6 +13087,12 @@ class SecurePersistentKeyStorage {
             this._dbInitialized = true;
         }
     }
+
+    async _ensureMasterKeyUnlocked() {
+        if (typeof this._masterKeyManager.isUnlocked === 'function' && !this._masterKeyManager.isUnlocked()) {
+            await this._masterKeyManager.unlock();
+        }
+    }
     
     /**
      * Store extractable key with encryption
@@ -12957,6 +13116,14 @@ class SecurePersistentKeyStorage {
             const { encryptedData, iv } = await this._encryptKeyData(jwkData);
             
             // Store encrypted data in IndexedDB
+            const encryptedMetadata = await this._encryptMetadata({
+                ...metadata,
+                created: Date.now(),
+                lastAccessed: Date.now(),
+                extractable: true,
+                persistent: true
+            });
+
             await this._indexedDB.storeEncryptedKey(
                 keyId,
                 encryptedData,
@@ -12964,7 +13131,7 @@ class SecurePersistentKeyStorage {
                 cryptoKey.algorithm,
                 cryptoKey.usages,
                 cryptoKey.type,
-                metadata
+                encryptedMetadata
             );
             
             // Store non-extractable reference in memory cache
@@ -13006,7 +13173,7 @@ class SecurePersistentKeyStorage {
             this._keyReferences.set(keyId, restoredKey);
             
             // Update last accessed time
-            await this._indexedDB.updateKeyMetadata(keyId, { lastAccessed: Date.now() });
+            await this._updateEncryptedMetadata(keyId, { lastAccessed: Date.now() });
             
             return restoredKey;
             
@@ -13041,7 +13208,13 @@ class SecurePersistentKeyStorage {
     async listStoredKeys() {
         try {
             await this._ensureDBInitialized();
-            return await this._indexedDB.listKeys();
+            const records = await this._indexedDB.listKeys();
+            const results = [];
+            for (const record of records) {
+                const metadata = await this._readMetadataWithMigration(record);
+                if (metadata) results.push({ keyId: record.keyId, ...metadata });
+            }
+            return results;
         } catch (error) {
             throw new Error(`Failed to list keys: ${error.message}`);
         }
@@ -13089,6 +13262,58 @@ class SecurePersistentKeyStorage {
         // Convert back to JWK
         const jsonString = new TextDecoder().decode(decryptedData);
         return JSON.parse(jsonString);
+    }
+
+    async _encryptMetadata(metadata) {
+        const data = new TextEncoder().encode(JSON.stringify(metadata));
+        await this._ensureMasterKeyUnlocked();
+        const { encryptedData, iv } = await this._masterKeyManager.encryptBytes(data);
+        return {
+            metadataVersion: 1,
+            encryptedMetadata: Array.from(encryptedData),
+            metadataIv: Array.from(iv)
+        };
+    }
+
+    async _decryptMetadataRecord(record) {
+        if (!record?.encryptedMetadata || !record?.metadataIv) {
+            throw new Error('Encrypted metadata missing');
+        }
+        await this._ensureMasterKeyUnlocked();
+        const decrypted = await this._masterKeyManager.decryptBytes(
+            new Uint8Array(record.encryptedMetadata),
+            new Uint8Array(record.metadataIv)
+        );
+        return JSON.parse(new TextDecoder().decode(decrypted));
+    }
+
+    async _readMetadataWithMigration(record) {
+        if (!record) return null;
+        if (record.encryptedMetadata) {
+            try {
+                return await this._decryptMetadataRecord(record);
+            } catch (error) {
+                // Corrupted encrypted metadata must not be exposed or trusted.
+                return null;
+            }
+        }
+
+        // Legacy plaintext record: read once, then migrate to encrypted envelope.
+        const { keyId, ...legacyMetadata } = record;
+        const encryptedRecord = { keyId, ...(await this._encryptMetadata(legacyMetadata)) };
+        await this._indexedDB.putKeyMetadataRecord(encryptedRecord);
+        return legacyMetadata;
+    }
+
+    async _updateEncryptedMetadata(keyId, updates) {
+        const record = await this._indexedDB.getKeyMetadataRecord(keyId);
+        if (!record) throw new Error(`Key metadata not found: ${keyId}`);
+        const current = await this._readMetadataWithMigration(record);
+        if (!current) throw new Error(`Key metadata corrupted: ${keyId}`);
+        await this._indexedDB.putKeyMetadataRecord({
+            keyId,
+            ...(await this._encryptMetadata({ ...current, ...updates }))
+        });
     }
     
     /**

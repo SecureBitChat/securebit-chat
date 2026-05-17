@@ -256,12 +256,13 @@ class SecureMemoryManager {
 }
 
 class EnhancedSecureFileTransfer {
-    constructor(webrtcManager, onProgress, onComplete, onError, onFileReceived) {
+    constructor(webrtcManager, onProgress, onComplete, onError, onFileReceived, onIncomingFileRequest) {
         this.webrtcManager = webrtcManager;
         this.onProgress = onProgress;
         this.onComplete = onComplete;
         this.onError = onError;
         this.onFileReceived = onFileReceived;
+        this.onIncomingFileRequest = onIncomingFileRequest;
         
         // Validate webrtcManager
         if (!webrtcManager) {
@@ -284,87 +285,58 @@ class EnhancedSecureFileTransfer {
         this.RETRY_ATTEMPTS = 3;
 
         this.FILE_TYPE_RESTRICTIONS = {
-            documents: {
-                extensions: ['.pdf', '.doc', '.docx', '.txt', '.md', '.rtf', '.odt'],
-                mimeTypes: [
-                    'application/pdf',
-                    'application/msword',
-                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                    'text/plain',
-                    'text/markdown',
-                    'application/rtf',
-                    'application/vnd.oasis.opendocument.text'
-                ],
-                maxSize: 50 * 1024 * 1024, // 50 MB
-                category: 'Documents',
-                description: 'PDF, DOC, TXT, MD, RTF, ODT'
+            pdf: {
+                extensions: ['.pdf'],
+                mimeTypes: ['application/pdf'],
+                maxSize: 50 * 1024 * 1024,
+                category: 'PDF',
+                description: 'PDF'
+            },
+
+            text: {
+                extensions: ['.txt'],
+                mimeTypes: ['text/plain'],
+                maxSize: 10 * 1024 * 1024,
+                category: 'Plain text',
+                description: 'TXT'
             },
             
             images: {
-                extensions: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.ico'],
+                extensions: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.ico'],
                 mimeTypes: [
                     'image/jpeg',
                     'image/png',
                     'image/gif',
                     'image/webp',
                     'image/bmp',
-                    'image/svg+xml',
                     'image/x-icon'
                 ],
                 maxSize: 25 * 1024 * 1024, // 25 MB
                 category: 'Images',
-                description: 'JPG, PNG, GIF, WEBP, BMP, SVG, ICO'
+                description: 'JPG, JPEG, PNG, GIF, WEBP, BMP, ICO'
             },
             
             archives: {
-                extensions: ['.zip', '.rar', '.7z', '.tar', '.gz', '.bz2', '.xz'],
-                mimeTypes: [
-                    'application/zip',
-                    'application/x-rar-compressed',
-                    'application/x-7z-compressed',
-                    'application/x-tar',
-                    'application/gzip',
-                    'application/x-bzip2',
-                    'application/x-xz'
-                ],
+                extensions: ['.zip'],
+                mimeTypes: ['application/zip'],
                 maxSize: 100 * 1024 * 1024, // 100 MB
                 category: 'Archives',
-                description: 'ZIP, RAR, 7Z, TAR, GZ, BZ2, XZ'
-            },
-            
-            media: {
-                extensions: ['.mp3', '.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.ogg', '.wav'],
-                mimeTypes: [
-                    'audio/mpeg',
-                    'video/mp4',
-                    'video/x-msvideo',
-                    'video/x-matroska',
-                    'video/quicktime',
-                    'video/x-ms-wmv',
-                    'video/x-flv',
-                    'video/webm',
-                    'audio/ogg',
-                    'audio/wav'
-                ],
-                maxSize: 100 * 1024 * 1024, // 100 MB
-                category: 'Media',
-                description: 'MP3, MP4, AVI, MKV, MOV, WMV, FLV, WEBM, OGG, WAV'
-            },
-            
-            general: {
-                extensions: [], 
-                mimeTypes: [], 
-                maxSize: 50 * 1024 * 1024, // 50 MB
-                category: 'General',
-                description: 'Any file type up to size limits'
+                description: 'ZIP'
             }
         };
+        this.BLOCKED_EXTENSIONS = new Set([
+            '.exe', '.bat', '.cmd', '.sh', '.js', '.msi', '.dmg', '.app',
+            '.jar', '.scr', '.ps1', '.vbs', '.html', '.svg'
+        ]);
         
         // Active transfers tracking
         this.activeTransfers = new Map(); // fileId -> transfer state
         this.receivingTransfers = new Map(); // fileId -> receiving state
+        this.pendingIncomingTransfers = new Map(); // fileId -> validated metadata awaiting consent
         this.transferQueue = []; // Queue for pending transfers
         this.pendingChunks = new Map();
+        this.incomingOfferLimiter = new RateLimiter(5, 60000);
+        this.MAX_PENDING_INCOMING_TRANSFERS = 3;
         
         // Session key derivation
         this.sessionKeys = new Map(); // fileId -> derived session key
@@ -373,6 +345,7 @@ class EnhancedSecureFileTransfer {
         this.processedChunks = new Set(); // Prevent replay attacks
         this.transferNonces = new Map(); // fileId -> current nonce counter
         this.receivedFileBuffers = new Map(); // fileId -> { buffer:ArrayBuffer, type:string, name:string, size:number }
+        this.MAX_RETAINED_RECEIVED_FILE_BUFFERS = 3;
 
         this.setupFileMessageHandlers();
 
@@ -386,24 +359,15 @@ class EnhancedSecureFileTransfer {
     // ============================================
 
     getFileType(file) {
-        const fileName = file.name.toLowerCase();
-        const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
-        const mimeType = file.type.toLowerCase();
+        const fileName = String(file?.name || '').toLowerCase();
+        const extensionIndex = fileName.lastIndexOf('.');
+        const fileExtension = extensionIndex >= 0 ? fileName.substring(extensionIndex) : '';
+        const mimeType = String(file?.type || '').toLowerCase();
 
         for (const [typeKey, typeConfig] of Object.entries(this.FILE_TYPE_RESTRICTIONS)) {
-            if (typeKey === 'general') continue; // Пропускаем общий тип
-
-            if (typeConfig.extensions.includes(fileExtension)) {
-                return {
-                    type: typeKey,
-                    category: typeConfig.category,
-                    description: typeConfig.description,
-                    maxSize: typeConfig.maxSize,
-                    allowed: true
-                };
-            }
-
-            if (typeConfig.mimeTypes.includes(mimeType)) {
+            const extensionAllowed = typeConfig.extensions.includes(fileExtension);
+            const mimeAllowed = typeConfig.mimeTypes.includes(mimeType);
+            if (extensionAllowed && mimeAllowed) {
                 return {
                     type: typeKey,
                     category: typeConfig.category,
@@ -414,26 +378,42 @@ class EnhancedSecureFileTransfer {
             }
         }
 
-        const generalConfig = this.FILE_TYPE_RESTRICTIONS.general;
         return {
-            type: 'general',
-            category: generalConfig.category,
-            description: generalConfig.description,
-            maxSize: generalConfig.maxSize,
-            allowed: true
+            type: 'blocked',
+            category: 'Unsupported',
+            description: 'Allowed: JPG, JPEG, PNG, GIF, WEBP, BMP, ICO, PDF, TXT, ZIP',
+            maxSize: this.MAX_FILE_SIZE,
+            allowed: false,
+            extension: fileExtension,
+            mimeType
         };
     }
 
     validateFile(file) {
         const fileType = this.getFileType(file);
         const errors = [];
+        const fileName = String(file?.name || '');
+        const lowerName = fileName.toLowerCase();
+        const extensionIndex = lowerName.lastIndexOf('.');
+        const fileExtension = extensionIndex >= 0 ? lowerName.substring(extensionIndex) : '';
+        const mimeType = String(file?.type || '').toLowerCase();
+
+        if (this.BLOCKED_EXTENSIONS.has(fileExtension)) {
+            errors.push(`File rejected: ${fileExtension} files are not allowed for security reasons.`);
+        }
+
+        if (!mimeType) {
+            errors.push('File rejected: missing MIME type is unsafe.');
+        }
 
         if (file.size > fileType.maxSize) {
             errors.push(`File size (${this.formatFileSize(file.size)}) exceeds maximum allowed for ${fileType.category} (${this.formatFileSize(fileType.maxSize)})`);
         }
 
         if (!fileType.allowed) {
-            errors.push(`File type not allowed. Supported types: ${fileType.description}`);
+            if (mimeType && !this.BLOCKED_EXTENSIONS.has(fileExtension)) {
+                errors.push(`File rejected: extension and MIME type must match an allowed type. Supported types: ${fileType.description}`);
+            }
         }
 
         if (file.size > this.MAX_FILE_SIZE) {
@@ -449,6 +429,48 @@ class EnhancedSecureFileTransfer {
         };
     }
 
+    normalizeDisplayFileName(fileName) {
+        return String(fileName || '')
+            .normalize('NFKC')
+            .replace(/[\u0000-\u001F\u007F]/g, '')
+            .replace(/[\\/]+/g, '_')
+            .trim()
+            .slice(0, 255);
+    }
+
+    validateIncomingMetadata(metadata) {
+        const errors = [];
+        if (!metadata || typeof metadata !== 'object') errors.push('Invalid file transfer metadata');
+        if (!metadata?.fileId || typeof metadata.fileId !== 'string') errors.push('Invalid file id');
+        if (!Number.isSafeInteger(metadata?.fileSize) || metadata.fileSize <= 0) errors.push('Invalid file size');
+        if (!Number.isSafeInteger(metadata?.totalChunks) || metadata.totalChunks <= 0) errors.push('Invalid chunk count');
+        if (!Number.isSafeInteger(metadata?.chunkSize) || metadata.chunkSize <= 0 || metadata.chunkSize > this.CHUNK_SIZE) errors.push('Invalid chunk size');
+        if (!Array.isArray(metadata?.salt) || metadata.salt.length !== 32) errors.push('Invalid salt');
+
+        const rawName = typeof metadata?.fileName === 'string' ? metadata.fileName : '';
+        const displayName = this.normalizeDisplayFileName(rawName);
+        const hasDangerousName =
+            !rawName ||
+            rawName !== rawName.trim() ||
+            /[\u0000-\u001F\u007F]/.test(rawName) ||
+            /[\\/]/.test(rawName) ||
+            rawName === '.' ||
+            rawName === '..' ||
+            displayName.length === 0;
+        if (hasDangerousName) errors.push('Dangerous file name');
+
+        if (errors.length === 0) {
+            const validation = this.validateFile({
+                name: displayName,
+                size: metadata.fileSize,
+                type: metadata.fileType || 'application/octet-stream'
+            });
+            if (!validation.isValid) errors.push(...validation.errors);
+        }
+
+        return { isValid: errors.length === 0, errors, displayName };
+    }
+
     formatFileSize(bytes) {
         if (bytes === 0) return '0 B';
         const k = 1024;
@@ -461,8 +483,6 @@ class EnhancedSecureFileTransfer {
         const supportedTypes = {};
         
         for (const [typeKey, typeConfig] of Object.entries(this.FILE_TYPE_RESTRICTIONS)) {
-            if (typeKey === 'general') continue;
-            
             supportedTypes[typeKey] = {
                 category: typeConfig.category,
                 description: typeConfig.description,
@@ -878,10 +898,21 @@ class EnhancedSecureFileTransfer {
             this.activeTransfers.set(fileId, transferState);
             this.transferNonces.set(fileId, 0);
 
+            const consentPromise = new Promise((resolve, reject) => {
+                transferState.resolveConsent = resolve;
+                transferState.rejectConsent = reject;
+                transferState.consentTimeout = setTimeout(() => {
+                    transferState.consentTimeout = null;
+                    reject(new Error('Transfer timeout'));
+                }, 30000);
+            });
+
             // Send file metadata first
             await this.sendFileMetadata(transferState);
             
-            // Start chunk transmission
+            // Wait for explicit receiver consent before any chunks are sent.
+            await consentPromise;
+            
             await this.startChunkTransmission(transferState);
             
             return fileId;
@@ -1106,10 +1137,13 @@ class EnhancedSecureFileTransfer {
 
     async handleFileTransferStart(metadata) {
         try {
-            // Validate metadata
-            if (!metadata.fileId || !metadata.fileName || !metadata.fileSize) {
-                throw new Error('Invalid file transfer metadata');
+            const clientId = this.getClientIdentifier();
+            if (!this.incomingOfferLimiter.isAllowed(clientId)) {
+                throw new Error('Incoming file request rate limit exceeded');
             }
+
+            const validation = this.validateIncomingMetadata(metadata);
+            if (!validation.isValid) throw new Error(validation.errors.join('. '));
 
             if (metadata.signature && this.verificationKey) {
                 try {
@@ -1137,55 +1171,30 @@ class EnhancedSecureFileTransfer {
             }
             
             // Check if we already have this transfer
-            if (this.receivingTransfers.has(metadata.fileId)) {
+            if (this.receivingTransfers.has(metadata.fileId) || this.pendingIncomingTransfers.has(metadata.fileId)) {
                 return;
             }
-            
-            // Derive session key from salt
-            const sessionKey = await this.deriveFileSessionKeyFromSalt(
-                metadata.fileId,
-                metadata.salt
-            );
-            
-            // Create receiving transfer state
-            const receivingState = {
-                fileId: metadata.fileId,
-                fileName: metadata.fileName,
-                fileSize: metadata.fileSize,
-                fileType: metadata.fileType || 'application/octet-stream',
-                fileHash: metadata.fileHash,
-                totalChunks: metadata.totalChunks,
-                chunkSize: metadata.chunkSize || this.CHUNK_SIZE,
-                sessionKey: sessionKey,
-                salt: metadata.salt,
-                receivedChunks: new Map(),
-                receivedCount: 0,
-                startTime: Date.now(),
-                lastChunkTime: Date.now(),
-                status: 'receiving'
-            };
-            
-            this.receivingTransfers.set(metadata.fileId, receivingState);
-            
-            // Send acceptance response
-            const response = {
-                type: 'file_transfer_response',
-                fileId: metadata.fileId,
-                accepted: true,
-                timestamp: Date.now()
-            };
-            
-            await this.sendSecureMessage(response);
 
-            // Process buffered chunks if any
-            if (this.pendingChunks.has(metadata.fileId)) {
-                const bufferedChunks = this.pendingChunks.get(metadata.fileId);
-                
-                for (const [chunkIndex, chunkMessage] of bufferedChunks.entries()) {
-                    await this.handleFileChunk(chunkMessage);
-                }
-                
-                this.pendingChunks.delete(metadata.fileId);
+            if (this.pendingIncomingTransfers.size >= this.MAX_PENDING_INCOMING_TRANSFERS) {
+                throw new Error('Too many pending incoming file requests');
+            }
+
+            const pendingMetadata = {
+                ...metadata,
+                fileName: validation.displayName,
+                receivedAt: Date.now()
+            };
+            this.pendingIncomingTransfers.set(metadata.fileId, pendingMetadata);
+
+            if (typeof this.onIncomingFileRequest === 'function') {
+                this.onIncomingFileRequest({
+                    fileId: pendingMetadata.fileId,
+                    fileName: pendingMetadata.fileName,
+                    fileSize: pendingMetadata.fileSize,
+                    mimeType: pendingMetadata.fileType || 'application/octet-stream'
+                });
+            } else {
+                await this.rejectIncomingFile(metadata.fileId, 'User consent unavailable');
             }
             
         } catch (error) {
@@ -1211,13 +1220,8 @@ class EnhancedSecureFileTransfer {
                 try {
                     let receivingState = this.receivingTransfers.get(chunkMessage.fileId);
                 
-                    // Buffer early chunks if transfer not yet initialized
+                    // Never buffer chunks before explicit consent.
                     if (!receivingState) {
-                        if (!this.pendingChunks.has(chunkMessage.fileId)) {
-                            this.pendingChunks.set(chunkMessage.fileId, new Map());
-                        }
-                        
-                        this.pendingChunks.get(chunkMessage.fileId).set(chunkMessage.chunkIndex, chunkMessage);
                         return;
                     }
                     
@@ -1352,7 +1356,7 @@ class EnhancedSecureFileTransfer {
             receivingState.endTime = Date.now();
             receivingState.status = 'completed';
 
-            this.receivedFileBuffers.set(receivingState.fileId, {
+            this._storeReceivedFileBuffer(receivingState.fileId, {
                 buffer: fileBuffer,
                 type: receivingState.fileType,
                 name: receivingState.fileName,
@@ -1360,7 +1364,13 @@ class EnhancedSecureFileTransfer {
             });
 
             if (this.onFileReceived) {
-                const getBlob = async () => new Blob([this.receivedFileBuffers.get(receivingState.fileId).buffer], { type: receivingState.fileType });
+                const getBlob = async () => {
+                    const blob = await this.getBlob(receivingState.fileId);
+                    if (!blob) {
+                        throw new Error('This file is no longer available for download.');
+                    }
+                    return blob;
+                };
                 const getObjectURL = async () => {
                     const blob = await getBlob();
                     return URL.createObjectURL(blob);
@@ -1443,8 +1453,18 @@ class EnhancedSecureFileTransfer {
             
             if (response.accepted) {
                 transferState.status = 'accepted';
+                if (transferState.consentTimeout) clearTimeout(transferState.consentTimeout);
+                transferState.consentTimeout = null;
+                transferState.resolveConsent?.();
+                transferState.resolveConsent = null;
+                transferState.rejectConsent = null;
             } else {
                 transferState.status = 'rejected';
+                if (transferState.consentTimeout) clearTimeout(transferState.consentTimeout);
+                transferState.consentTimeout = null;
+                transferState.rejectConsent?.(new Error(response.error || 'Transfer rejected'));
+                transferState.rejectConsent = null;
+                transferState.resolveConsent = null;
                 
                 if (this.onError) {
                     this.onError(`Transfer rejected: ${response.error || 'Unknown reason'}`);
@@ -1555,6 +1575,48 @@ class EnhancedSecureFileTransfer {
         }));
     }
 
+    getPendingIncomingTransfers() {
+        return Array.from(this.pendingIncomingTransfers.values()).map(transfer => ({
+            fileId: transfer.fileId,
+            fileName: transfer.fileName,
+            fileSize: transfer.fileSize,
+            mimeType: transfer.fileType || 'application/octet-stream',
+            receivedAt: transfer.receivedAt
+        }));
+    }
+
+    async acceptIncomingFile(fileId) {
+        const metadata = this.pendingIncomingTransfers.get(fileId);
+        if (!metadata) return false;
+        const sessionKey = await this.deriveFileSessionKeyFromSalt(fileId, metadata.salt);
+        this.receivingTransfers.set(fileId, {
+            fileId,
+            fileName: metadata.fileName,
+            fileSize: metadata.fileSize,
+            fileType: metadata.fileType || 'application/octet-stream',
+            fileHash: metadata.fileHash,
+            totalChunks: metadata.totalChunks,
+            chunkSize: metadata.chunkSize || this.CHUNK_SIZE,
+            sessionKey,
+            salt: metadata.salt,
+            receivedChunks: new Map(),
+            receivedCount: 0,
+            startTime: Date.now(),
+            lastChunkTime: Date.now(),
+            status: 'receiving'
+        });
+        this.pendingIncomingTransfers.delete(fileId);
+        await this.sendSecureMessage({ type: 'file_transfer_response', fileId, accepted: true, timestamp: Date.now() });
+        return true;
+    }
+
+    async rejectIncomingFile(fileId, error = 'Rejected by user') {
+        if (!this.pendingIncomingTransfers.has(fileId)) return false;
+        this.pendingIncomingTransfers.delete(fileId);
+        await this.sendSecureMessage({ type: 'file_transfer_response', fileId, accepted: false, error, timestamp: Date.now() });
+        return true;
+    }
+
     cancelTransfer(fileId) {
         try {
             if (this.activeTransfers.has(fileId)) {
@@ -1573,6 +1635,19 @@ class EnhancedSecureFileTransfer {
     }
 
     cleanupTransfer(fileId) {
+        const transferState = this.activeTransfers.get(fileId);
+        if (transferState) {
+            if (transferState.consentTimeout) {
+                clearTimeout(transferState.consentTimeout);
+                transferState.consentTimeout = null;
+            }
+            if (transferState.rejectConsent) {
+                transferState.rejectConsent(new Error('Transfer cancelled during cleanup or disconnect'));
+                transferState.rejectConsent = null;
+                transferState.resolveConsent = null;
+            }
+        }
+
         this.activeTransfers.delete(fileId);
         this.sessionKeys.delete(fileId);
         this.transferNonces.delete(fileId);
@@ -1583,6 +1658,28 @@ class EnhancedSecureFileTransfer {
                 this.processedChunks.delete(chunkId);
             }
         }
+    }
+
+    _storeReceivedFileBuffer(fileId, entry) {
+        this.receivedFileBuffers.set(fileId, entry);
+        while (this.receivedFileBuffers.size > this.MAX_RETAINED_RECEIVED_FILE_BUFFERS) {
+            const oldestFileId = this.receivedFileBuffers.keys().next().value;
+            this._discardReceivedFileBuffer(oldestFileId);
+        }
+    }
+
+    _discardReceivedFileBuffer(fileId) {
+        const fileBuffer = this.receivedFileBuffers.get(fileId);
+        if (!fileBuffer) return;
+        try {
+            if (fileBuffer.buffer) {
+                SecureMemoryManager.secureWipe(fileBuffer.buffer);
+                new Uint8Array(fileBuffer.buffer).fill(0);
+            }
+        } catch (_) {
+            // Best-effort wipe; deletion must still proceed.
+        }
+        this.receivedFileBuffers.delete(fileId);
     }
 
     // ✅ УЛУЧШЕННАЯ безопасная очистка памяти для предотвращения use-after-free
@@ -1809,12 +1906,17 @@ class EnhancedSecureFileTransfer {
         
         // Clear all state
         this.pendingChunks.clear();
+        this.pendingIncomingTransfers.clear();
         this.activeTransfers.clear();
         this.receivingTransfers.clear();
         this.transferQueue.length = 0;
         this.sessionKeys.clear();
         this.transferNonces.clear();
         this.processedChunks.clear();
+
+        for (const fileId of Array.from(this.receivedFileBuffers.keys())) {
+            this._discardReceivedFileBuffer(fileId);
+        }
 
         this.clearKeys();
     }

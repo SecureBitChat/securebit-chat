@@ -2998,12 +2998,13 @@ var SecureMemoryManager = class {
   }
 };
 var EnhancedSecureFileTransfer = class {
-  constructor(webrtcManager, onProgress, onComplete, onError, onFileReceived) {
+  constructor(webrtcManager, onProgress, onComplete, onError, onFileReceived, onIncomingFileRequest) {
     this.webrtcManager = webrtcManager;
     this.onProgress = onProgress;
     this.onComplete = onComplete;
     this.onError = onError;
     this.onFileReceived = onFileReceived;
+    this.onIncomingFileRequest = onIncomingFileRequest;
     if (!webrtcManager) {
       throw new Error("webrtcManager is required for EnhancedSecureFileTransfer");
     }
@@ -3018,90 +3019,72 @@ var EnhancedSecureFileTransfer = class {
     this.CHUNK_TIMEOUT = 3e4;
     this.RETRY_ATTEMPTS = 3;
     this.FILE_TYPE_RESTRICTIONS = {
-      documents: {
-        extensions: [".pdf", ".doc", ".docx", ".txt", ".md", ".rtf", ".odt"],
-        mimeTypes: [
-          "application/pdf",
-          "application/msword",
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          "text/plain",
-          "text/markdown",
-          "application/rtf",
-          "application/vnd.oasis.opendocument.text"
-        ],
+      pdf: {
+        extensions: [".pdf"],
+        mimeTypes: ["application/pdf"],
         maxSize: 50 * 1024 * 1024,
-        // 50 MB
-        category: "Documents",
-        description: "PDF, DOC, TXT, MD, RTF, ODT"
+        category: "PDF",
+        description: "PDF"
+      },
+      text: {
+        extensions: [".txt"],
+        mimeTypes: ["text/plain"],
+        maxSize: 10 * 1024 * 1024,
+        category: "Plain text",
+        description: "TXT"
       },
       images: {
-        extensions: [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg", ".ico"],
+        extensions: [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".ico"],
         mimeTypes: [
           "image/jpeg",
           "image/png",
           "image/gif",
           "image/webp",
           "image/bmp",
-          "image/svg+xml",
           "image/x-icon"
         ],
         maxSize: 25 * 1024 * 1024,
         // 25 MB
         category: "Images",
-        description: "JPG, PNG, GIF, WEBP, BMP, SVG, ICO"
+        description: "JPG, JPEG, PNG, GIF, WEBP, BMP, ICO"
       },
       archives: {
-        extensions: [".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz"],
-        mimeTypes: [
-          "application/zip",
-          "application/x-rar-compressed",
-          "application/x-7z-compressed",
-          "application/x-tar",
-          "application/gzip",
-          "application/x-bzip2",
-          "application/x-xz"
-        ],
+        extensions: [".zip"],
+        mimeTypes: ["application/zip"],
         maxSize: 100 * 1024 * 1024,
         // 100 MB
         category: "Archives",
-        description: "ZIP, RAR, 7Z, TAR, GZ, BZ2, XZ"
-      },
-      media: {
-        extensions: [".mp3", ".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv", ".webm", ".ogg", ".wav"],
-        mimeTypes: [
-          "audio/mpeg",
-          "video/mp4",
-          "video/x-msvideo",
-          "video/x-matroska",
-          "video/quicktime",
-          "video/x-ms-wmv",
-          "video/x-flv",
-          "video/webm",
-          "audio/ogg",
-          "audio/wav"
-        ],
-        maxSize: 100 * 1024 * 1024,
-        // 100 MB
-        category: "Media",
-        description: "MP3, MP4, AVI, MKV, MOV, WMV, FLV, WEBM, OGG, WAV"
-      },
-      general: {
-        extensions: [],
-        mimeTypes: [],
-        maxSize: 50 * 1024 * 1024,
-        // 50 MB
-        category: "General",
-        description: "Any file type up to size limits"
+        description: "ZIP"
       }
     };
+    this.BLOCKED_EXTENSIONS = /* @__PURE__ */ new Set([
+      ".exe",
+      ".bat",
+      ".cmd",
+      ".sh",
+      ".js",
+      ".msi",
+      ".dmg",
+      ".app",
+      ".jar",
+      ".scr",
+      ".ps1",
+      ".vbs",
+      ".html",
+      ".svg"
+    ]);
     this.activeTransfers = /* @__PURE__ */ new Map();
     this.receivingTransfers = /* @__PURE__ */ new Map();
+    this.pendingIncomingTransfers = /* @__PURE__ */ new Map();
     this.transferQueue = [];
     this.pendingChunks = /* @__PURE__ */ new Map();
+    this.incomingOfferLimiter = new RateLimiter(5, 6e4);
+    this.MAX_PENDING_INCOMING_TRANSFERS = 3;
     this.sessionKeys = /* @__PURE__ */ new Map();
     this.processedChunks = /* @__PURE__ */ new Set();
     this.transferNonces = /* @__PURE__ */ new Map();
     this.receivedFileBuffers = /* @__PURE__ */ new Map();
+    this.MAX_RETAINED_RECEIVED_FILE_BUFFERS = 3;
     this.setupFileMessageHandlers();
     if (this.webrtcManager) {
       this.webrtcManager.fileTransferSystem = this;
@@ -3111,21 +3094,14 @@ var EnhancedSecureFileTransfer = class {
   // FILE TYPE VALIDATION SYSTEM
   // ============================================
   getFileType(file) {
-    const fileName = file.name.toLowerCase();
-    const fileExtension = fileName.substring(fileName.lastIndexOf("."));
-    const mimeType = file.type.toLowerCase();
+    const fileName = String(file?.name || "").toLowerCase();
+    const extensionIndex = fileName.lastIndexOf(".");
+    const fileExtension = extensionIndex >= 0 ? fileName.substring(extensionIndex) : "";
+    const mimeType = String(file?.type || "").toLowerCase();
     for (const [typeKey, typeConfig] of Object.entries(this.FILE_TYPE_RESTRICTIONS)) {
-      if (typeKey === "general") continue;
-      if (typeConfig.extensions.includes(fileExtension)) {
-        return {
-          type: typeKey,
-          category: typeConfig.category,
-          description: typeConfig.description,
-          maxSize: typeConfig.maxSize,
-          allowed: true
-        };
-      }
-      if (typeConfig.mimeTypes.includes(mimeType)) {
+      const extensionAllowed = typeConfig.extensions.includes(fileExtension);
+      const mimeAllowed = typeConfig.mimeTypes.includes(mimeType);
+      if (extensionAllowed && mimeAllowed) {
         return {
           type: typeKey,
           category: typeConfig.category,
@@ -3135,23 +3111,37 @@ var EnhancedSecureFileTransfer = class {
         };
       }
     }
-    const generalConfig = this.FILE_TYPE_RESTRICTIONS.general;
     return {
-      type: "general",
-      category: generalConfig.category,
-      description: generalConfig.description,
-      maxSize: generalConfig.maxSize,
-      allowed: true
+      type: "blocked",
+      category: "Unsupported",
+      description: "Allowed: JPG, JPEG, PNG, GIF, WEBP, BMP, ICO, PDF, TXT, ZIP",
+      maxSize: this.MAX_FILE_SIZE,
+      allowed: false,
+      extension: fileExtension,
+      mimeType
     };
   }
   validateFile(file) {
     const fileType = this.getFileType(file);
     const errors = [];
+    const fileName = String(file?.name || "");
+    const lowerName = fileName.toLowerCase();
+    const extensionIndex = lowerName.lastIndexOf(".");
+    const fileExtension = extensionIndex >= 0 ? lowerName.substring(extensionIndex) : "";
+    const mimeType = String(file?.type || "").toLowerCase();
+    if (this.BLOCKED_EXTENSIONS.has(fileExtension)) {
+      errors.push(`File rejected: ${fileExtension} files are not allowed for security reasons.`);
+    }
+    if (!mimeType) {
+      errors.push("File rejected: missing MIME type is unsafe.");
+    }
     if (file.size > fileType.maxSize) {
       errors.push(`File size (${this.formatFileSize(file.size)}) exceeds maximum allowed for ${fileType.category} (${this.formatFileSize(fileType.maxSize)})`);
     }
     if (!fileType.allowed) {
-      errors.push(`File type not allowed. Supported types: ${fileType.description}`);
+      if (mimeType && !this.BLOCKED_EXTENSIONS.has(fileExtension)) {
+        errors.push(`File rejected: extension and MIME type must match an allowed type. Supported types: ${fileType.description}`);
+      }
     }
     if (file.size > this.MAX_FILE_SIZE) {
       errors.push(`File size (${this.formatFileSize(file.size)}) exceeds general limit (${this.formatFileSize(this.MAX_FILE_SIZE)})`);
@@ -3164,6 +3154,31 @@ var EnhancedSecureFileTransfer = class {
       formattedSize: this.formatFileSize(file.size)
     };
   }
+  normalizeDisplayFileName(fileName) {
+    return String(fileName || "").normalize("NFKC").replace(/[\u0000-\u001F\u007F]/g, "").replace(/[\\/]+/g, "_").trim().slice(0, 255);
+  }
+  validateIncomingMetadata(metadata) {
+    const errors = [];
+    if (!metadata || typeof metadata !== "object") errors.push("Invalid file transfer metadata");
+    if (!metadata?.fileId || typeof metadata.fileId !== "string") errors.push("Invalid file id");
+    if (!Number.isSafeInteger(metadata?.fileSize) || metadata.fileSize <= 0) errors.push("Invalid file size");
+    if (!Number.isSafeInteger(metadata?.totalChunks) || metadata.totalChunks <= 0) errors.push("Invalid chunk count");
+    if (!Number.isSafeInteger(metadata?.chunkSize) || metadata.chunkSize <= 0 || metadata.chunkSize > this.CHUNK_SIZE) errors.push("Invalid chunk size");
+    if (!Array.isArray(metadata?.salt) || metadata.salt.length !== 32) errors.push("Invalid salt");
+    const rawName = typeof metadata?.fileName === "string" ? metadata.fileName : "";
+    const displayName = this.normalizeDisplayFileName(rawName);
+    const hasDangerousName = !rawName || rawName !== rawName.trim() || /[\u0000-\u001F\u007F]/.test(rawName) || /[\\/]/.test(rawName) || rawName === "." || rawName === ".." || displayName.length === 0;
+    if (hasDangerousName) errors.push("Dangerous file name");
+    if (errors.length === 0) {
+      const validation = this.validateFile({
+        name: displayName,
+        size: metadata.fileSize,
+        type: metadata.fileType || "application/octet-stream"
+      });
+      if (!validation.isValid) errors.push(...validation.errors);
+    }
+    return { isValid: errors.length === 0, errors, displayName };
+  }
   formatFileSize(bytes) {
     if (bytes === 0) return "0 B";
     const k = 1024;
@@ -3174,7 +3189,6 @@ var EnhancedSecureFileTransfer = class {
   getSupportedFileTypes() {
     const supportedTypes = {};
     for (const [typeKey, typeConfig] of Object.entries(this.FILE_TYPE_RESTRICTIONS)) {
-      if (typeKey === "general") continue;
       supportedTypes[typeKey] = {
         category: typeConfig.category,
         description: typeConfig.description,
@@ -3511,7 +3525,16 @@ var EnhancedSecureFileTransfer = class {
       };
       this.activeTransfers.set(fileId, transferState);
       this.transferNonces.set(fileId, 0);
+      const consentPromise = new Promise((resolve, reject) => {
+        transferState.resolveConsent = resolve;
+        transferState.rejectConsent = reject;
+        transferState.consentTimeout = setTimeout(() => {
+          transferState.consentTimeout = null;
+          reject(new Error("Transfer timeout"));
+        }, 3e4);
+      });
       await this.sendFileMetadata(transferState);
+      await consentPromise;
       await this.startChunkTransmission(transferState);
       return fileId;
     } catch (error) {
@@ -3695,9 +3718,12 @@ var EnhancedSecureFileTransfer = class {
   // ============================================
   async handleFileTransferStart(metadata) {
     try {
-      if (!metadata.fileId || !metadata.fileName || !metadata.fileSize) {
-        throw new Error("Invalid file transfer metadata");
+      const clientId = this.getClientIdentifier();
+      if (!this.incomingOfferLimiter.isAllowed(clientId)) {
+        throw new Error("Incoming file request rate limit exceeded");
       }
+      const validation = this.validateIncomingMetadata(metadata);
+      if (!validation.isValid) throw new Error(validation.errors.join(". "));
       if (metadata.signature && this.verificationKey) {
         try {
           const isValid = await FileMetadataSigner.verifyFileMetadata(
@@ -3720,43 +3746,27 @@ var EnhancedSecureFileTransfer = class {
           throw new Error("File metadata verification failed");
         }
       }
-      if (this.receivingTransfers.has(metadata.fileId)) {
+      if (this.receivingTransfers.has(metadata.fileId) || this.pendingIncomingTransfers.has(metadata.fileId)) {
         return;
       }
-      const sessionKey = await this.deriveFileSessionKeyFromSalt(
-        metadata.fileId,
-        metadata.salt
-      );
-      const receivingState = {
-        fileId: metadata.fileId,
-        fileName: metadata.fileName,
-        fileSize: metadata.fileSize,
-        fileType: metadata.fileType || "application/octet-stream",
-        fileHash: metadata.fileHash,
-        totalChunks: metadata.totalChunks,
-        chunkSize: metadata.chunkSize || this.CHUNK_SIZE,
-        sessionKey,
-        salt: metadata.salt,
-        receivedChunks: /* @__PURE__ */ new Map(),
-        receivedCount: 0,
-        startTime: Date.now(),
-        lastChunkTime: Date.now(),
-        status: "receiving"
+      if (this.pendingIncomingTransfers.size >= this.MAX_PENDING_INCOMING_TRANSFERS) {
+        throw new Error("Too many pending incoming file requests");
+      }
+      const pendingMetadata = {
+        ...metadata,
+        fileName: validation.displayName,
+        receivedAt: Date.now()
       };
-      this.receivingTransfers.set(metadata.fileId, receivingState);
-      const response = {
-        type: "file_transfer_response",
-        fileId: metadata.fileId,
-        accepted: true,
-        timestamp: Date.now()
-      };
-      await this.sendSecureMessage(response);
-      if (this.pendingChunks.has(metadata.fileId)) {
-        const bufferedChunks = this.pendingChunks.get(metadata.fileId);
-        for (const [chunkIndex, chunkMessage] of bufferedChunks.entries()) {
-          await this.handleFileChunk(chunkMessage);
-        }
-        this.pendingChunks.delete(metadata.fileId);
+      this.pendingIncomingTransfers.set(metadata.fileId, pendingMetadata);
+      if (typeof this.onIncomingFileRequest === "function") {
+        this.onIncomingFileRequest({
+          fileId: pendingMetadata.fileId,
+          fileName: pendingMetadata.fileName,
+          fileSize: pendingMetadata.fileSize,
+          mimeType: pendingMetadata.fileType || "application/octet-stream"
+        });
+      } else {
+        await this.rejectIncomingFile(metadata.fileId, "User consent unavailable");
       }
     } catch (error) {
       const safeError = SecurityErrorHandler.sanitizeError(error);
@@ -3778,10 +3788,6 @@ var EnhancedSecureFileTransfer = class {
         try {
           let receivingState = this.receivingTransfers.get(chunkMessage.fileId);
           if (!receivingState) {
-            if (!this.pendingChunks.has(chunkMessage.fileId)) {
-              this.pendingChunks.set(chunkMessage.fileId, /* @__PURE__ */ new Map());
-            }
-            this.pendingChunks.get(chunkMessage.fileId).set(chunkMessage.chunkIndex, chunkMessage);
             return;
           }
           receivingState.lastChunkTime = Date.now();
@@ -3876,14 +3882,20 @@ var EnhancedSecureFileTransfer = class {
       const fileBlob = new Blob([fileBuffer], { type: receivingState.fileType });
       receivingState.endTime = Date.now();
       receivingState.status = "completed";
-      this.receivedFileBuffers.set(receivingState.fileId, {
+      this._storeReceivedFileBuffer(receivingState.fileId, {
         buffer: fileBuffer,
         type: receivingState.fileType,
         name: receivingState.fileName,
         size: receivingState.fileSize
       });
       if (this.onFileReceived) {
-        const getBlob = async () => new Blob([this.receivedFileBuffers.get(receivingState.fileId).buffer], { type: receivingState.fileType });
+        const getBlob = async () => {
+          const blob = await this.getBlob(receivingState.fileId);
+          if (!blob) {
+            throw new Error("This file is no longer available for download.");
+          }
+          return blob;
+        };
         const getObjectURL = async () => {
           const blob = await getBlob();
           return URL.createObjectURL(blob);
@@ -3954,8 +3966,18 @@ var EnhancedSecureFileTransfer = class {
       }
       if (response.accepted) {
         transferState.status = "accepted";
+        if (transferState.consentTimeout) clearTimeout(transferState.consentTimeout);
+        transferState.consentTimeout = null;
+        transferState.resolveConsent?.();
+        transferState.resolveConsent = null;
+        transferState.rejectConsent = null;
       } else {
         transferState.status = "rejected";
+        if (transferState.consentTimeout) clearTimeout(transferState.consentTimeout);
+        transferState.consentTimeout = null;
+        transferState.rejectConsent?.(new Error(response.error || "Transfer rejected"));
+        transferState.rejectConsent = null;
+        transferState.resolveConsent = null;
         if (this.onError) {
           this.onError(`Transfer rejected: ${response.error || "Unknown reason"}`);
         }
@@ -4048,6 +4070,45 @@ var EnhancedSecureFileTransfer = class {
       startTime: transfer.startTime
     }));
   }
+  getPendingIncomingTransfers() {
+    return Array.from(this.pendingIncomingTransfers.values()).map((transfer) => ({
+      fileId: transfer.fileId,
+      fileName: transfer.fileName,
+      fileSize: transfer.fileSize,
+      mimeType: transfer.fileType || "application/octet-stream",
+      receivedAt: transfer.receivedAt
+    }));
+  }
+  async acceptIncomingFile(fileId) {
+    const metadata = this.pendingIncomingTransfers.get(fileId);
+    if (!metadata) return false;
+    const sessionKey = await this.deriveFileSessionKeyFromSalt(fileId, metadata.salt);
+    this.receivingTransfers.set(fileId, {
+      fileId,
+      fileName: metadata.fileName,
+      fileSize: metadata.fileSize,
+      fileType: metadata.fileType || "application/octet-stream",
+      fileHash: metadata.fileHash,
+      totalChunks: metadata.totalChunks,
+      chunkSize: metadata.chunkSize || this.CHUNK_SIZE,
+      sessionKey,
+      salt: metadata.salt,
+      receivedChunks: /* @__PURE__ */ new Map(),
+      receivedCount: 0,
+      startTime: Date.now(),
+      lastChunkTime: Date.now(),
+      status: "receiving"
+    });
+    this.pendingIncomingTransfers.delete(fileId);
+    await this.sendSecureMessage({ type: "file_transfer_response", fileId, accepted: true, timestamp: Date.now() });
+    return true;
+  }
+  async rejectIncomingFile(fileId, error = "Rejected by user") {
+    if (!this.pendingIncomingTransfers.has(fileId)) return false;
+    this.pendingIncomingTransfers.delete(fileId);
+    await this.sendSecureMessage({ type: "file_transfer_response", fileId, accepted: false, error, timestamp: Date.now() });
+    return true;
+  }
   cancelTransfer(fileId) {
     try {
       if (this.activeTransfers.has(fileId)) {
@@ -4065,6 +4126,18 @@ var EnhancedSecureFileTransfer = class {
     }
   }
   cleanupTransfer(fileId) {
+    const transferState = this.activeTransfers.get(fileId);
+    if (transferState) {
+      if (transferState.consentTimeout) {
+        clearTimeout(transferState.consentTimeout);
+        transferState.consentTimeout = null;
+      }
+      if (transferState.rejectConsent) {
+        transferState.rejectConsent(new Error("Transfer cancelled during cleanup or disconnect"));
+        transferState.rejectConsent = null;
+        transferState.resolveConsent = null;
+      }
+    }
     this.activeTransfers.delete(fileId);
     this.sessionKeys.delete(fileId);
     this.transferNonces.delete(fileId);
@@ -4073,6 +4146,25 @@ var EnhancedSecureFileTransfer = class {
         this.processedChunks.delete(chunkId);
       }
     }
+  }
+  _storeReceivedFileBuffer(fileId, entry) {
+    this.receivedFileBuffers.set(fileId, entry);
+    while (this.receivedFileBuffers.size > this.MAX_RETAINED_RECEIVED_FILE_BUFFERS) {
+      const oldestFileId = this.receivedFileBuffers.keys().next().value;
+      this._discardReceivedFileBuffer(oldestFileId);
+    }
+  }
+  _discardReceivedFileBuffer(fileId) {
+    const fileBuffer = this.receivedFileBuffers.get(fileId);
+    if (!fileBuffer) return;
+    try {
+      if (fileBuffer.buffer) {
+        SecureMemoryManager.secureWipe(fileBuffer.buffer);
+        new Uint8Array(fileBuffer.buffer).fill(0);
+      }
+    } catch (_) {
+    }
+    this.receivedFileBuffers.delete(fileId);
   }
   // ✅ УЛУЧШЕННАЯ безопасная очистка памяти для предотвращения use-after-free
   cleanupReceivingTransfer(fileId) {
@@ -4248,12 +4340,16 @@ var EnhancedSecureFileTransfer = class {
       this.rateLimiter.requests.clear();
     }
     this.pendingChunks.clear();
+    this.pendingIncomingTransfers.clear();
     this.activeTransfers.clear();
     this.receivingTransfers.clear();
     this.transferQueue.length = 0;
     this.sessionKeys.clear();
     this.transferNonces.clear();
     this.processedChunks.clear();
+    for (const fileId of Array.from(this.receivedFileBuffers.keys())) {
+      this._discardReceivedFileBuffer(fileId);
+    }
     this.clearKeys();
   }
   // ============================================
@@ -4535,6 +4631,8 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     FILE_MESSAGE: "FILE_MESSAGE_FILTERED",
     SYSTEM_MESSAGE: "SYSTEM_MESSAGE_FILTERED"
   };
+  static PROTOCOL_VERSION = "4.1";
+  static MAX_SAS_ATTEMPTS = 3;
   //   Static debug flag instead of this._debugMode
   static DEBUG_MODE = true;
   // Set to true during development, false in production
@@ -4571,8 +4669,19 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         addNoise: config.antiFingerprinting?.addNoise ?? true,
         maskPatterns: config.antiFingerprinting?.maskPatterns ?? false,
         useRandomHeaders: config.antiFingerprinting?.useRandomHeaders ?? false
+      },
+      webrtc: {
+        relayOnly: config.webrtc?.relayOnly ?? false,
+        iceServers: config.webrtc?.iceServers ?? [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" },
+          { urls: "stun:stun2.l.google.com:19302" },
+          { urls: "stun:stun3.l.google.com:19302" },
+          { urls: "stun:stun4.l.google.com:19302" }
+        ]
       }
     };
+    this._ipLeakWarningShown = false;
     this._initializeSecureLogging();
     this._setupOwnLogger();
     this._setupProductionLogging();
@@ -4629,6 +4738,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     this.verificationCode = null;
     this.pendingSASCode = null;
     this.isVerified = false;
+    this.sasValidationAttempts = 0;
     this.processedMessageIds = /* @__PURE__ */ new Set();
     this.localVerificationConfirmed = false;
     this.remoteVerificationConfirmed = false;
@@ -4650,6 +4760,10 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     this.peerPublicKey = null;
     this.rateLimiterId = null;
     this.intentionalDisconnect = false;
+    this._sessionAlive = true;
+    this._fileTransferInitRetryTimers = /* @__PURE__ */ new Set();
+    this._peerDisconnectCleanupTimer = null;
+    this._logCleanupInterval = null;
     this.lastCleanupTime = Date.now();
     this._resetNotificationFlags();
     this.verificationInitiationSent = false;
@@ -5176,6 +5290,15 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     }, 3e5);
     this._secureLog("info", "\u{1F527} Unified maintenance scheduler initialized (5-minute cycle)");
     this._activeTimers = /* @__PURE__ */ new Set([this._maintenanceScheduler]);
+  }
+  _trackActiveTimer(timer) {
+    if (!timer) return timer;
+    if (!this._activeTimers) this._activeTimers = /* @__PURE__ */ new Set();
+    this._activeTimers.add(timer);
+    return timer;
+  }
+  _untrackActiveTimer(timer) {
+    if (timer && this._activeTimers) this._activeTimers.delete(timer);
   }
   /**
    *   Execute all maintenance tasks in a single cycle
@@ -7126,9 +7249,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       return;
     }
     this._startSecurityMonitoring();
-    setInterval(() => {
+    this._logCleanupInterval = this._trackActiveTimer(setInterval(() => {
       this._cleanupLogs();
-    }, 3e5);
+    }, 3e5));
     this._secureLog("info", "\u2705 Secure WebRTC Manager initialization completed");
     this._secureLog("info", "\u{1F512} Global exposure protection: Monitoring only, no automatic removal");
   }
@@ -7382,11 +7505,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       );
       const dv = new DataView(bits);
       const n = (dv.getUint32(0) ^ dv.getUint32(4)) >>> 0;
-      let sasValue;
-      do {
-        sasValue = crypto.getRandomValues(new Uint32Array(1))[0];
-      } while (sasValue >= 4294967296 - 4294967296 % 1e7);
-      const sasCode = String(sasValue % 1e7).padStart(7, "0");
+      const sasCode = String(n % 1e7).padStart(7, "0");
       this._secureLog("info", "SAS code computed successfully", {
         localFP: localFP.substring(0, 16) + "...",
         remoteFP: remoteFP.substring(0, 16) + "...",
@@ -8016,6 +8135,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   }
   initializeFileTransfer() {
     try {
+      if (this._sessionAlive === false) {
+        return;
+      }
       this._secureLog("info", "\u{1F527} Initializing Enhanced Secure File Transfer system...");
       if (this.fileTransferSystem) {
         this._secureLog("info", "\u2705 File transfer system already initialized");
@@ -8035,7 +8157,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       }
       if (!this.isVerified) {
         this._secureLog("warn", "\u26A0\uFE0F Connection not verified yet, deferring file transfer initialization");
-        setTimeout(() => this.initializeFileTransfer(), 500);
+        this._scheduleFileTransferInitRetry(500);
         return;
       }
       if (this.fileTransferSystem) {
@@ -8045,7 +8167,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       }
       if (!this.encryptionKey || !this.macKey) {
         this._secureLog("warn", "\u26A0\uFE0F Encryption keys not ready, deferring file transfer initialization");
-        setTimeout(() => this.initializeFileTransfer(), 1e3);
+        this._scheduleFileTransferInitRetry(1e3);
         return;
       }
       const safeOnComplete = (summary) => {
@@ -8063,7 +8185,8 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         this.onFileProgress || null,
         safeOnComplete,
         this.onFileError || null,
-        this.onFileReceived || null
+        this.onFileReceived || null,
+        this.onIncomingFileRequest || null
       );
       this._fileTransferActive = true;
       this._secureLog("info", "\u2705 Enhanced Secure File Transfer system initialized successfully");
@@ -8074,6 +8197,18 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       this.fileTransferSystem = null;
       this._fileTransferActive = false;
     }
+  }
+  _scheduleFileTransferInitRetry(delay) {
+    if (this._sessionAlive === false) return null;
+    if (!this._fileTransferInitRetryTimers) this._fileTransferInitRetryTimers = /* @__PURE__ */ new Set();
+    const timer = this._trackActiveTimer(setTimeout(() => {
+      this._fileTransferInitRetryTimers.delete(timer);
+      this._untrackActiveTimer(timer);
+      if (this._sessionAlive === false) return;
+      this.initializeFileTransfer();
+    }, delay));
+    this._fileTransferInitRetryTimers.add(timer);
+    return timer;
   }
   // ============================================
   // ENHANCED SECURITY INITIALIZATION
@@ -8206,6 +8341,12 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       currentFeatures: this.securityFeatures
     });
   }
+  _sanitizeIncomingChatMessage(message) {
+    if (typeof message !== "string") {
+      return message;
+    }
+    return window.EnhancedSecureCryptoUtils.sanitizeMessage(message);
+  }
   deliverMessageToUI(message, type = "received") {
     try {
       this._secureLog("debug", "\u{1F4E4} deliverMessageToUI called", {
@@ -8270,9 +8411,10 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         } catch (parseError) {
         }
       }
+      const uiMessage = type === "received" ? this._sanitizeIncomingChatMessage(message) : message;
       if (this.onMessage) {
-        this._secureLog("debug", "\u{1F4E4} Calling this.onMessage callback", { message, type });
-        this.onMessage(message, type);
+        this._secureLog("debug", "\u{1F4E4} Calling this.onMessage callback", { message: uiMessage, type });
+        this.onMessage(uiMessage, type);
       } else {
         this._secureLog("warn", "\u26A0\uFE0F this.onMessage callback is null or undefined");
       }
@@ -9896,32 +10038,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       throw error;
     }
   }
-  disconnect() {
-    try {
-      if (this.fileTransferSystem) {
-        this.fileTransferSystem.cleanup();
-        this.fileTransferSystem = null;
-      }
-      this.stopFakeTrafficGeneration();
-      for (const [channelName, timer] of this.decoyTimers.entries()) {
-        clearTimeout(timer);
-      }
-      this.decoyTimers.clear();
-      for (const [channelName, channel] of this.decoyChannels.entries()) {
-        if (channel.readyState === "open") {
-          channel.close();
-        }
-      }
-      this.decoyChannels.clear();
-      this.packetBuffer.clear();
-      this.chunkQueue = [];
-      this._wipeEphemeralKeys();
-      this._hardWipeOldKeys();
-      this._clearVerificationStates();
-    } catch (error) {
-      this._secureLog("error", "\u274C Error during enhanced disconnect:", { errorType: error?.constructor?.name || "Unknown" });
-    }
-  }
   /**
    *   Clear all verification states and data
    * Called when verification is rejected or connection is terminated
@@ -9934,6 +10050,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       this.isVerified = false;
       this.verificationCode = null;
       this.pendingSASCode = null;
+      this.sasValidationAttempts = 0;
       this.keyFingerprint = null;
       this.expectedDTLSFingerprint = null;
       this.connectionId = null;
@@ -10084,18 +10201,33 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     });
     return null;
   }
-  createPeerConnection() {
+  _hasTurnServer() {
+    return (this._config.webrtc.iceServers || []).some((server) => {
+      const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
+      return urls.some((url) => typeof url === "string" && url.toLowerCase().startsWith("turn:"));
+    });
+  }
+  _buildPeerConnectionConfig() {
     const config = {
-      iceServers: [
-        { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:stun1.l.google.com:19302" },
-        { urls: "stun:stun2.l.google.com:19302" },
-        { urls: "stun:stun3.l.google.com:19302" },
-        { urls: "stun:stun4.l.google.com:19302" }
-      ],
+      iceServers: this._config.webrtc.iceServers,
       iceCandidatePoolSize: 10,
       bundlePolicy: "balanced"
     };
+    if (this._config.webrtc.relayOnly) {
+      config.iceTransportPolicy = "relay";
+    }
+    return config;
+  }
+  _warnIfTurnMissing() {
+    if (this._hasTurnServer() || this._ipLeakWarningShown) return;
+    this._ipLeakWarningShown = true;
+    const message = this._config.webrtc.relayOnly ? "Privacy mode is enabled, but no TURN server is configured. Relay-only mode cannot connect until TURN is configured; STUN alone does not hide IP addresses." : "Privacy warning: no TURN server is configured. Direct WebRTC connections may expose IP addresses; STUN alone does not provide IP protection.";
+    this.deliverMessageToUI(message, "system");
+  }
+  createPeerConnection() {
+    this._sessionAlive = true;
+    const config = this._buildPeerConnectionConfig();
+    this._warnIfTurnMissing();
     this.peerConnection = new RTCPeerConnection(config);
     this.peerConnection.onconnectionstatechange = () => {
       const state = this.peerConnection.connectionState;
@@ -11765,7 +11897,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           // type
           s: this.peerConnection.localDescription.sdp,
           // sdp
-          v: "4.0",
+          v: _EnhancedSecureWebRTCManager.PROTOCOL_VERSION,
           // version
           ts: currentTimestamp,
           // timestamp
@@ -11960,21 +12092,19 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           throw new Error("Offer data is too old \u2013 possible replay attack");
         }
         const protocolVersion = version;
-        if (protocolVersion !== "4.0") {
+        if (protocolVersion !== _EnhancedSecureWebRTCManager.PROTOCOL_VERSION) {
           this._secureLog("warn", "Protocol version mismatch detected", {
             operationId,
-            expectedVersion: "4.0",
+            expectedVersion: _EnhancedSecureWebRTCManager.PROTOCOL_VERSION,
             receivedVersion: protocolVersion
           });
-          if (protocolVersion !== "3.0") {
-            throw new Error(`Unsupported protocol version: ${protocolVersion}`);
-          }
+          throw new Error(`Version mismatch: expected protocol ${_EnhancedSecureWebRTCManager.PROTOCOL_VERSION}, received ${protocolVersion}`);
         }
         this.sessionSalt = offerData.sl || offerData.salt;
         if (!Array.isArray(this.sessionSalt)) {
           throw new Error("Invalid session salt format - must be array");
         }
-        const expectedSaltLength = protocolVersion === "4.0" ? 64 : 32;
+        const expectedSaltLength = 64;
         if (this.sessionSalt.length !== expectedSaltLength) {
           throw new Error(`Invalid session salt length: expected ${expectedSaltLength}, got ${this.sessionSalt.length}`);
         }
@@ -12088,7 +12218,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           });
           throw new Error("Invalid key types after derivation");
         }
-        this.verificationCode = offerData.verificationCode;
+        this.verificationCode = offerData.vc || offerData.verificationCode || null;
         this._secureLog("info", "Encryption keys derived and set successfully", {
           operationId,
           hasEncryptionKey: !!this.encryptionKey,
@@ -12212,6 +12342,19 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         } catch (error) {
           this._secureLog("error", "Failed to extract DTLS fingerprint from answer", { error: error.message });
         }
+        try {
+          const remoteFP = this._extractDTLSFingerprintFromSDP(offerData.s || offerData.sdp);
+          const localFP = this.expectedDTLSFingerprint;
+          const keyBytes = this._decodeKeyFingerprint(this.keyFingerprint);
+          this.verificationCode = await this._computeSAS(keyBytes, localFP, remoteFP);
+          this.onStatusChange?.("verifying");
+          this.onVerificationRequired(this.verificationCode);
+        } catch (sasError) {
+          this._secureLog("error", "SAS computation failed in createSecureAnswer (Answer side)", {
+            errorType: sasError?.constructor?.name || "Unknown"
+          });
+          throw new Error(`SAS computation failed: ${sasError.message}`);
+        }
         await this.waitForIceGathering();
         this._secureLog("debug", "ICE gathering completed for answer", {
           operationId,
@@ -12268,7 +12411,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           // type
           s: this.peerConnection.localDescription.sdp,
           // sdp
-          v: "4.0",
+          v: _EnhancedSecureWebRTCManager.PROTOCOL_VERSION,
           // version
           ts: currentTimestamp,
           // timestamp
@@ -12508,6 +12651,10 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           hasSdp: !!(answerData.sdp || answerData.s)
         });
         throw new Error("CRITICAL SECURITY FAILURE: Invalid answer format - hard abort required");
+      }
+      const answerVersion = answerData.v || answerData.version;
+      if (answerVersion !== _EnhancedSecureWebRTCManager.PROTOCOL_VERSION) {
+        throw new Error(`Version mismatch: expected protocol ${_EnhancedSecureWebRTCManager.PROTOCOL_VERSION}, received ${answerVersion || "unknown"}`);
       }
       const ecdhKey = answerData.ecdhPublicKey || answerData.e;
       const ecdsaKey = answerData.ecdsaPublicKey || answerData.d;
@@ -12759,14 +12906,45 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       this.deliverMessageToUI("Waiting for verification code from peer...", "system");
     }
   }
-  confirmVerification() {
+  /**
+   * Normalizes and validates the user-entered SAS code.
+   * Users may enter the same shared SAS with spaces or hyphens.
+   * @param {string} input
+   * @returns {boolean}
+   */
+  _validateSASCode(input) {
+    if (!input || typeof input !== "string" || !this.verificationCode || typeof this.verificationCode !== "string") {
+      return false;
+    }
+    const normalizedInput = input.replace(/[-\s]/g, "").toUpperCase();
+    const normalizedActual = this.verificationCode.replace(/[-\s]/g, "").toUpperCase();
+    if (normalizedInput.length !== normalizedActual.length) {
+      return false;
+    }
+    return window.EnhancedSecureCryptoUtils.constantTimeCompare(normalizedInput, normalizedActual);
+  }
+  confirmVerification(userCode) {
     try {
+      if (!this._validateSASCode(userCode)) {
+        this.sasValidationAttempts = (this.sasValidationAttempts || 0) + 1;
+        this._secureLog("warn", "SAS validation failed: user entered incorrect code", {
+          attempts: this.sasValidationAttempts,
+          maxAttempts: _EnhancedSecureWebRTCManager.MAX_SAS_ATTEMPTS
+        });
+        if (this.sasValidationAttempts >= _EnhancedSecureWebRTCManager.MAX_SAS_ATTEMPTS) {
+          this.deliverMessageToUI("Verification failed 3 times. Session reset for safety.", "system");
+          this.disconnect();
+          throw new Error("SAS_MAX_ATTEMPTS");
+        }
+        throw new Error("SAS_MISMATCH");
+      }
       this.localVerificationConfirmed = true;
+      this.sasValidationAttempts = 0;
       const confirmationPayload = {
         type: "verification_confirmed",
         data: {
           timestamp: Date.now(),
-          verificationMethod: "SAS",
+          verificationMethod: "MANUAL_SAS_ENTRY",
           securityLevel: "MITM_PROTECTION_REQUIRED"
         }
       };
@@ -12779,11 +12957,16 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         });
       }
       this._checkBothVerificationsConfirmed();
-      this.deliverMessageToUI("You confirmed the verification code. Waiting for peer confirmation...", "system");
+      this.deliverMessageToUI("Code verified locally. Waiting for peer confirmation...", "system");
       this.processMessageQueue();
     } catch (error) {
-      this._secureLog("error", "SAS verification failed:", { errorType: error?.constructor?.name || "Unknown" });
-      this.deliverMessageToUI("SAS verification failed", "system");
+      if (error.message === "SAS_MISMATCH") {
+        this.deliverMessageToUI("Verification failed: the code you entered is incorrect.", "system");
+      } else if (error.message !== "SAS_MAX_ATTEMPTS") {
+        this._secureLog("error", "SAS verification failed:", { errorType: error?.constructor?.name || "Unknown" });
+        this.deliverMessageToUI("SAS verification failed", "system");
+      }
+      throw error;
     }
   }
   _checkBothVerificationsConfirmed() {
@@ -12885,6 +13068,16 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     }
   }
   handleSASCode(data) {
+    if (!data?.code || typeof data.code !== "string") {
+      this._secureLog("warn", "Invalid SAS announcement received from peer");
+      return;
+    }
+    if (this.verificationCode && !this._validateSASCode(data.code)) {
+      this._secureLog("error", "Peer-announced SAS does not match locally computed SAS");
+      this.deliverMessageToUI("Version or SAS mismatch detected. Connection aborted for safety.", "system");
+      this.disconnect();
+      return;
+    }
     this.verificationCode = data.code;
     this.onStatusChange?.("verifying");
     this.onVerificationRequired(this.verificationCode);
@@ -12927,8 +13120,8 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         });
         throw new Error("CRITICAL SECURITY FAILURE: Offer data must be a non-null object");
       }
-      const isV4CompactFormat = offerData.v === "4.0" && offerData.e && offerData.d;
-      const isV4Format = offerData.version === "4.0" && offerData.ecdhPublicKey && offerData.ecdsaPublicKey;
+      const isV4CompactFormat = offerData.v === _EnhancedSecureWebRTCManager.PROTOCOL_VERSION && offerData.e && offerData.d;
+      const isV4Format = offerData.version === _EnhancedSecureWebRTCManager.PROTOCOL_VERSION && offerData.ecdhPublicKey && offerData.ecdsaPublicKey;
       const isValidType = isV4CompactFormat ? ["offer"].includes(offerData.t) : ["enhanced_secure_offer", "secure_offer"].includes(offerData.type);
       if (!isValidType) {
         throw new Error("Invalid offer type");
@@ -12946,7 +13139,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         ];
         for (const field of compactRequiredFields) {
           if (!offerData[field]) {
-            throw new Error(`Missing required v4.0 compact field: ${field}`);
+            throw new Error(`Missing required v4.1 compact field: ${field}`);
           }
         }
         if (!offerData.e || typeof offerData.e !== "object" || Array.isArray(offerData.e)) {
@@ -12956,7 +13149,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           throw new Error("CRITICAL SECURITY FAILURE: Invalid ECDSA public key structure");
         }
         if (!Array.isArray(offerData.sl) || offerData.sl.length !== 64) {
-          throw new Error("Salt must be exactly 64 bytes for v4.0");
+          throw new Error("Salt must be exactly 64 bytes for v4.1");
         }
         if (typeof offerData.vc !== "string" || offerData.vc.length < 6) {
           throw new Error("Invalid verification code format");
@@ -12968,7 +13161,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         if (offerAge > 36e5) {
           throw new Error("Offer is too old (older than 1 hour)");
         }
-        this._secureLog("info", "v4.0 compact offer validation passed", {
+        this._secureLog("info", "v4.1 compact offer validation passed", {
           version: offerData.v,
           hasECDH: !!offerData.e,
           hasECDSA: !!offerData.d,
@@ -12990,11 +13183,11 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         ];
         for (const field of v4RequiredFields) {
           if (!offerData[field]) {
-            throw new Error(`Missing v4.0 field: ${field}`);
+            throw new Error(`Missing v4.1 field: ${field}`);
           }
         }
         if (!Array.isArray(offerData.salt) || offerData.salt.length !== 64) {
-          throw new Error("Salt must be exactly 64 bytes for v4.0");
+          throw new Error("Salt must be exactly 64 bytes for v4.1");
         }
         const offerAge = Date.now() - offerData.timestamp;
         if (offerAge > 36e5) {
@@ -13033,28 +13226,14 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         if (typeof offerData.verificationCode !== "string" || offerData.verificationCode.length < 6) {
           throw new Error("Invalid SAS verification code format - MITM protection required");
         }
-        this._secureLog("info", "v4.0 offer validation passed", {
+        this._secureLog("info", "v4.1 offer validation passed", {
           version: offerData.version,
           hasSecurityLevel: !!offerData.securityLevel?.level,
           offerAge: Math.round(offerAge / 1e3) + "s"
         });
       } else {
-        const v3RequiredFields = ["publicKey", "salt", "verificationCode"];
-        for (const field of v3RequiredFields) {
-          if (!offerData[field]) {
-            throw new Error(`Missing v3.0 field: ${field}`);
-          }
-        }
-        if (!Array.isArray(offerData.salt) || offerData.salt.length !== 32) {
-          throw new Error("Salt must be exactly 32 bytes for v3.0");
-        }
-        if (!Array.isArray(offerData.publicKey)) {
-          throw new Error("Invalid public key format for v3.0");
-        }
-        window.EnhancedSecureCryptoUtils.secureLog.log("info", "v3.0 offer validation passed (backward compatibility)", {
-          version: "v3.0",
-          legacy: true
-        });
+        const receivedVersion = offerData.v || offerData.version || "unknown";
+        throw new Error(`Version mismatch: expected protocol ${_EnhancedSecureWebRTCManager.PROTOCOL_VERSION}, received ${receivedVersion}`);
       }
       const sdp = isV4CompactFormat ? offerData.s : offerData.sdp;
       if (typeof sdp !== "string" || !sdp.includes("v=0")) {
@@ -13185,10 +13364,17 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     }
     if (this._activeTimers) {
       this._activeTimers.forEach((timer) => {
-        if (timer) clearInterval(timer);
+        if (timer) {
+          clearInterval(timer);
+          clearTimeout(timer);
+        }
       });
       this._activeTimers.clear();
     }
+    if (this._fileTransferInitRetryTimers) {
+      this._fileTransferInitRetryTimers.clear();
+    }
+    this._logCleanupInterval = null;
     this._secureLog("info", "All timers stopped successfully");
   }
   waitForIceGathering() {
@@ -13236,24 +13422,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       iceConnectionState: this.peerConnection?.iceConnectionState,
       verificationCode: this.verificationCode
     };
-  }
-  disconnect() {
-    this._stopAllTimers();
-    if (this.fileTransferSystem) {
-      this.fileTransferSystem.cleanup();
-    }
-    this.intentionalDisconnect = true;
-    window.EnhancedSecureCryptoUtils.secureLog.log("info", "Starting intentional disconnect");
-    this.sendDisconnectNotification();
-    setTimeout(() => {
-      this.sendDisconnectNotification();
-    }, 100);
-    document.dispatchEvent(new CustomEvent("peer-disconnect", {
-      detail: {
-        reason: "user_disconnect",
-        timestamp: Date.now()
-      }
-    }));
   }
   handleUnexpectedDisconnect() {
     this.sendDisconnectNotification();
@@ -13329,9 +13497,15 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         timestamp: Date.now()
       }
     }));
-    setTimeout(() => {
-      this.disconnect();
-    }, 2e3);
+    if (!this._peerDisconnectCleanupTimer) {
+      this._peerDisconnectCleanupTimer = this._trackActiveTimer(setTimeout(() => {
+        const timer = this._peerDisconnectCleanupTimer;
+        this._peerDisconnectCleanupTimer = null;
+        this._untrackActiveTimer(timer);
+        if (this._sessionAlive === false) return;
+        this.disconnect();
+      }, 2e3));
+    }
     window.EnhancedSecureCryptoUtils.secureLog.log("info", "Peer disconnect notification processed", {
       reason
     });
@@ -13340,60 +13514,110 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
    *   Secure disconnect with complete memory cleanup
    */
   disconnect() {
-    this.stopHeartbeat();
-    this.isVerified = false;
-    this.processedMessageIds.clear();
-    this.messageCounter = 0;
-    this._secureCleanupCryptographicMaterials();
-    this.keyVersions.clear();
-    this.oldKeys.clear();
-    this.currentKeyVersion = 0;
-    this.lastKeyRotation = Date.now();
-    this.sequenceNumber = 0;
-    this.expectedSequenceNumber = 0;
-    this.replayWindow.clear();
-    this.securityFeatures = {
-      hasEncryption: true,
-      hasECDH: true,
-      hasECDSA: true,
-      hasMutualAuth: true,
-      hasMetadataProtection: true,
-      hasEnhancedReplayProtection: true,
-      hasNonExtractableKeys: true,
-      hasRateLimiting: true,
-      hasEnhancedValidation: true,
-      hasPFS: true
-    };
-    if (this.dataChannel) {
-      this.dataChannel.close();
-      this.dataChannel = null;
-    }
-    if (this.peerConnection) {
-      this.peerConnection.close();
-      this.peerConnection = null;
-    }
-    if (this.messageQueue && this.messageQueue.length > 0) {
-      this.messageQueue.forEach((message, index) => {
-        this._secureWipeMemory(message, `messageQueue[${index}]`);
+    try {
+      this._sessionAlive = false;
+      this.intentionalDisconnect = true;
+      window.EnhancedSecureCryptoUtils.secureLog.log("info", "Starting intentional disconnect");
+      this.sendDisconnectNotification();
+      setTimeout(() => {
+        this.sendDisconnectNotification();
+      }, 100);
+      this._stopAllTimers();
+      this._peerDisconnectCleanupTimer = null;
+      this.stopHeartbeat();
+      this.stopFakeTrafficGeneration();
+      for (const timer of this.decoyTimers.entries()) {
+        clearTimeout(timer[1]);
+      }
+      this.decoyTimers.clear();
+      if (this.fileTransferSystem) {
+        this.fileTransferSystem.cleanup();
+        this.fileTransferSystem = null;
+      }
+      for (const channel of this.decoyChannels.values()) {
+        if (channel.readyState === "open") channel.close();
+      }
+      this.decoyChannels.clear();
+      if (this.heartbeatChannel) {
+        this.heartbeatChannel.close();
+        this.heartbeatChannel = null;
+      }
+      this.isVerified = false;
+      this.processedMessageIds.clear();
+      this.messageCounter = 0;
+      this.packetBuffer.clear();
+      this.chunkQueue = [];
+      this._wipeEphemeralKeys();
+      this._hardWipeOldKeys();
+      this._secureCleanupCryptographicMaterials();
+      this.keyVersions.clear();
+      this.oldKeys.clear();
+      this.currentKeyVersion = 0;
+      this.lastKeyRotation = Date.now();
+      this.sequenceNumber = 0;
+      this.expectedSequenceNumber = 0;
+      this.replayWindow.clear();
+      this._clearVerificationStates();
+      this.securityFeatures = {
+        hasEncryption: true,
+        hasECDH: true,
+        hasECDSA: true,
+        hasMutualAuth: true,
+        hasMetadataProtection: true,
+        hasEnhancedReplayProtection: true,
+        hasNonExtractableKeys: true,
+        hasRateLimiting: true,
+        hasEnhancedValidation: true,
+        hasPFS: true
+      };
+      if (this.dataChannel) {
+        this.dataChannel.close();
+        this.dataChannel.onopen = null;
+        this.dataChannel.onclose = null;
+        this.dataChannel.onmessage = null;
+        this.dataChannel.onerror = null;
+        this.dataChannel = null;
+      }
+      if (this.peerConnection) {
+        this.peerConnection.close();
+        this.peerConnection.onconnectionstatechange = null;
+        this.peerConnection.ondatachannel = null;
+        this.peerConnection = null;
+      }
+      if (this.messageQueue && this.messageQueue.length > 0) {
+        this.messageQueue.forEach((message, index) => {
+          this._secureWipeMemory(message, `messageQueue[${index}]`);
+        });
+        this.messageQueue = [];
+      }
+      this._forceGarbageCollection().catch((error) => {
+        this._secureLog("error", "Cleanup failed during disconnect", {
+          errorType: error?.constructor?.name || "Unknown"
+        });
       });
-      this.messageQueue = [];
-    }
-    this._forceGarbageCollection().catch((error) => {
-      this._secureLog("error", "Cleanup failed during disconnect", {
+      document.dispatchEvent(new CustomEvent("peer-disconnect", {
+        detail: {
+          reason: "user_disconnect",
+          timestamp: Date.now()
+        }
+      }));
+      document.dispatchEvent(new CustomEvent("connection-cleaned", {
+        detail: {
+          timestamp: Date.now(),
+          reason: "user_cleanup"
+        }
+      }));
+      this.onStatusChange("disconnected");
+      this.onKeyExchange("");
+      this.onVerificationRequired("");
+      this._secureLog("info", "Connection securely cleaned up with complete memory wipe");
+    } catch (error) {
+      this._secureLog("error", "\u274C Error during enhanced disconnect:", {
         errorType: error?.constructor?.name || "Unknown"
       });
-    });
-    document.dispatchEvent(new CustomEvent("connection-cleaned", {
-      detail: {
-        timestamp: Date.now(),
-        reason: this.intentionalDisconnect ? "user_cleanup" : "automatic_cleanup"
-      }
-    }));
-    this.onStatusChange("disconnected");
-    this.onKeyExchange("");
-    this.onVerificationRequired("");
-    this._secureLog("info", "Connection securely cleaned up with complete memory wipe");
-    this.intentionalDisconnect = false;
+    } finally {
+      this.intentionalDisconnect = false;
+    }
   }
   // Public method to send files
   async sendFile(file) {
@@ -13502,13 +13726,29 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     }
   }
   // Set file transfer callbacks
-  setFileTransferCallbacks(onProgress, onReceived, onError) {
+  setFileTransferCallbacks(onProgress, onReceived, onError, onIncomingRequest = null) {
     this.onFileProgress = onProgress;
     this.onFileReceived = onReceived;
     this.onFileError = onError;
+    this.onIncomingFileRequest = onIncomingRequest;
     if (this.fileTransferSystem) {
-      this.initializeFileTransfer();
+      this.fileTransferSystem.onProgress = onProgress;
+      this.fileTransferSystem.onFileReceived = onReceived;
+      this.fileTransferSystem.onError = onError;
+      this.fileTransferSystem.onIncomingFileRequest = onIncomingRequest;
     }
+  }
+  getPendingIncomingFiles() {
+    if (!this.fileTransferSystem) return [];
+    return this.fileTransferSystem.getPendingIncomingTransfers();
+  }
+  async acceptIncomingFile(fileId) {
+    if (!this.fileTransferSystem) return false;
+    return this.fileTransferSystem.acceptIncomingFile(fileId);
+  }
+  async rejectIncomingFile(fileId) {
+    if (!this.fileTransferSystem) return false;
+    return this.fileTransferSystem.rejectIncomingFile(fileId);
   }
   // ============================================
   // SESSION ACTIVATION HANDLING
@@ -14258,17 +14498,9 @@ var SecureIndexedDBWrapper = class {
       iv: Array.from(new Uint8Array(iv)),
       algorithm,
       usages,
-      type,
-      timestamp: Date.now()
+      type
     };
-    const metadataRecord = {
-      keyId,
-      ...metadata,
-      created: Date.now(),
-      lastAccessed: Date.now(),
-      extractable: true,
-      persistent: true
-    };
+    const metadataRecord = { keyId, ...metadata };
     return new Promise((resolve, reject) => {
       const keysRequest = transaction.objectStore(this.KEYS_STORE).put(keyRecord);
       const metadataRequest = transaction.objectStore(this.METADATA_STORE).put(metadataRecord);
@@ -14323,6 +14555,26 @@ var SecureIndexedDBWrapper = class {
       getRequest.onerror = () => reject(new Error(`Failed to get metadata: ${getRequest.error}`));
     });
   }
+  async getKeyMetadataRecord(keyId) {
+    if (!this.db) throw new Error("Database not initialized");
+    const transaction = this.db.transaction([this.METADATA_STORE], "readonly");
+    const store = transaction.objectStore(this.METADATA_STORE);
+    return new Promise((resolve, reject) => {
+      const request = store.get(keyId);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(new Error(`Failed to get metadata: ${request.error}`));
+    });
+  }
+  async putKeyMetadataRecord(record) {
+    if (!this.db) throw new Error("Database not initialized");
+    const transaction = this.db.transaction([this.METADATA_STORE], "readwrite");
+    const store = transaction.objectStore(this.METADATA_STORE);
+    return new Promise((resolve, reject) => {
+      const request = store.put(record);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(new Error(`Failed to store metadata: ${request.error}`));
+    });
+  }
   /**
    * Delete key and its metadata
    */
@@ -14364,8 +14616,7 @@ var SecureIndexedDBWrapper = class {
     const store = transaction.objectStore(this.SALT_STORE);
     const saltRecord = {
       id: "master_salt",
-      salt: Array.from(new Uint8Array(salt)),
-      created: Date.now()
+      salt: Array.from(new Uint8Array(salt))
     };
     return new Promise((resolve, reject) => {
       const request = store.put(saltRecord);
@@ -14438,6 +14689,11 @@ var SecurePersistentKeyStorage = class {
       this._dbInitialized = true;
     }
   }
+  async _ensureMasterKeyUnlocked() {
+    if (typeof this._masterKeyManager.isUnlocked === "function" && !this._masterKeyManager.isUnlocked()) {
+      await this._masterKeyManager.unlock();
+    }
+  }
   /**
    * Store extractable key with encryption
    */
@@ -14452,6 +14708,13 @@ var SecurePersistentKeyStorage = class {
       await this._ensureDBInitialized();
       const jwkData = await crypto.subtle.exportKey("jwk", cryptoKey);
       const { encryptedData, iv } = await this._encryptKeyData(jwkData);
+      const encryptedMetadata = await this._encryptMetadata({
+        ...metadata,
+        created: Date.now(),
+        lastAccessed: Date.now(),
+        extractable: true,
+        persistent: true
+      });
       await this._indexedDB.storeEncryptedKey(
         keyId,
         encryptedData,
@@ -14459,7 +14722,7 @@ var SecurePersistentKeyStorage = class {
         cryptoKey.algorithm,
         cryptoKey.usages,
         cryptoKey.type,
-        metadata
+        encryptedMetadata
       );
       const nonExtractableKey = await this._importAsNonExtractable(jwkData, cryptoKey.algorithm, cryptoKey.usages);
       this._keyReferences.set(keyId, nonExtractableKey);
@@ -14484,7 +14747,7 @@ var SecurePersistentKeyStorage = class {
       const jwkData = await this._decryptKeyData(keyRecord.encryptedData, keyRecord.iv);
       const restoredKey = await this._importAsNonExtractable(jwkData, keyRecord.algorithm, keyRecord.usages);
       this._keyReferences.set(keyId, restoredKey);
-      await this._indexedDB.updateKeyMetadata(keyId, { lastAccessed: Date.now() });
+      await this._updateEncryptedMetadata(keyId, { lastAccessed: Date.now() });
       return restoredKey;
     } catch (error) {
       throw new Error(`Failed to retrieve key: ${error.message}`);
@@ -14509,7 +14772,13 @@ var SecurePersistentKeyStorage = class {
   async listStoredKeys() {
     try {
       await this._ensureDBInitialized();
-      return await this._indexedDB.listKeys();
+      const records = await this._indexedDB.listKeys();
+      const results = [];
+      for (const record of records) {
+        const metadata = await this._readMetadataWithMigration(record);
+        if (metadata) results.push({ keyId: record.keyId, ...metadata });
+      }
+      return results;
     } catch (error) {
       throw new Error(`Failed to list keys: ${error.message}`);
     }
@@ -14544,6 +14813,51 @@ var SecurePersistentKeyStorage = class {
     const decryptedData = await this._masterKeyManager.decryptBytes(encryptedData, iv);
     const jsonString = new TextDecoder().decode(decryptedData);
     return JSON.parse(jsonString);
+  }
+  async _encryptMetadata(metadata) {
+    const data = new TextEncoder().encode(JSON.stringify(metadata));
+    await this._ensureMasterKeyUnlocked();
+    const { encryptedData, iv } = await this._masterKeyManager.encryptBytes(data);
+    return {
+      metadataVersion: 1,
+      encryptedMetadata: Array.from(encryptedData),
+      metadataIv: Array.from(iv)
+    };
+  }
+  async _decryptMetadataRecord(record) {
+    if (!record?.encryptedMetadata || !record?.metadataIv) {
+      throw new Error("Encrypted metadata missing");
+    }
+    await this._ensureMasterKeyUnlocked();
+    const decrypted = await this._masterKeyManager.decryptBytes(
+      new Uint8Array(record.encryptedMetadata),
+      new Uint8Array(record.metadataIv)
+    );
+    return JSON.parse(new TextDecoder().decode(decrypted));
+  }
+  async _readMetadataWithMigration(record) {
+    if (!record) return null;
+    if (record.encryptedMetadata) {
+      try {
+        return await this._decryptMetadataRecord(record);
+      } catch (error) {
+        return null;
+      }
+    }
+    const { keyId, ...legacyMetadata } = record;
+    const encryptedRecord = { keyId, ...await this._encryptMetadata(legacyMetadata) };
+    await this._indexedDB.putKeyMetadataRecord(encryptedRecord);
+    return legacyMetadata;
+  }
+  async _updateEncryptedMetadata(keyId, updates) {
+    const record = await this._indexedDB.getKeyMetadataRecord(keyId);
+    if (!record) throw new Error(`Key metadata not found: ${keyId}`);
+    const current = await this._readMetadataWithMigration(record);
+    if (!current) throw new Error(`Key metadata corrupted: ${keyId}`);
+    await this._indexedDB.putKeyMetadataRecord({
+      keyId,
+      ...await this._encryptMetadata({ ...current, ...updates })
+    });
   }
   /**
    * Import JWK as non-extractable key
@@ -15314,7 +15628,7 @@ Right-click or Ctrl+click to disconnect`,
             React.createElement("p", {
               key: "subtitle",
               className: "text-xs sm:text-sm text-muted hidden sm:block"
-            }, "End-to-end freedom v4.7.56")
+            }, "End-to-end freedom v4.8.5")
           ])
         ]),
         // Status and Controls - Responsive
@@ -16517,6 +16831,7 @@ var FileTransferComponent = ({ webrtcManager, isConnected }) => {
   const [dragOver, setDragOver] = React.useState(false);
   const [transfers, setTransfers] = React.useState({ sending: [], receiving: [] });
   const [readyFiles, setReadyFiles] = React.useState([]);
+  const [pendingIncomingFiles, setPendingIncomingFiles] = React.useState([]);
   const fileInputRef = React.useRef(null);
   React.useEffect(() => {
     if (!isConnected || !webrtcManager) return;
@@ -16527,6 +16842,12 @@ var FileTransferComponent = ({ webrtcManager, isConnected }) => {
     const interval = setInterval(updateTransfers, 500);
     return () => clearInterval(interval);
   }, [isConnected, webrtcManager]);
+  React.useEffect(() => {
+    if (isConnected) return;
+    setReadyFiles([]);
+    setPendingIncomingFiles([]);
+    setTransfers({ sending: [], receiving: [] });
+  }, [isConnected]);
   React.useEffect(() => {
     if (!webrtcManager) return;
     webrtcManager.setFileTransferCallbacks(
@@ -16556,8 +16877,18 @@ var FileTransferComponent = ({ webrtcManager, isConnected }) => {
       (error) => {
         const currentTransfers = webrtcManager.getFileTransfers();
         setTransfers(currentTransfers);
+      },
+      // Incoming file request callback - user consent is mandatory
+      (fileRequest) => {
+        setPendingIncomingFiles((prev) => {
+          if (prev.some((file) => file.fileId === fileRequest.fileId)) return prev;
+          return [...prev, fileRequest];
+        });
       }
     );
+    return () => {
+      webrtcManager.setFileTransferCallbacks(null, null, null, null);
+    };
   }, [webrtcManager]);
   const handleFileSelect = async (files) => {
     if (!isConnected || !webrtcManager) {
@@ -16654,6 +16985,18 @@ var FileTransferComponent = ({ webrtcManager, isConnected }) => {
         return status;
     }
   };
+  const handleIncomingDecision = async (fileId, accepted) => {
+    try {
+      if (accepted) {
+        await webrtcManager.acceptIncomingFile(fileId);
+      } else {
+        await webrtcManager.rejectIncomingFile(fileId);
+      }
+    } finally {
+      setPendingIncomingFiles((prev) => prev.filter((file) => file.fileId !== fileId));
+      setTransfers(webrtcManager.getFileTransfers());
+    }
+  };
   if (!isConnected) {
     return React.createElement("div", {
       className: "p-4 text-center text-muted"
@@ -16710,6 +17053,44 @@ var FileTransferComponent = ({ webrtcManager, isConnected }) => {
       className: "hidden",
       onChange: handleFileInputChange
     }),
+    pendingIncomingFiles.length > 0 && React.createElement("div", {
+      key: "incoming-consent",
+      className: "mt-4 space-y-2"
+    }, pendingIncomingFiles.map((file) => React.createElement("div", {
+      key: file.fileId,
+      className: "rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3"
+    }, [
+      React.createElement("div", {
+        key: "info",
+        className: "mb-3 flex items-center justify-between gap-3"
+      }, [
+        React.createElement("div", { key: "text" }, [
+          React.createElement("div", {
+            key: "title",
+            className: "text-sm font-medium text-primary"
+          }, "Incoming file request"),
+          React.createElement("div", {
+            key: "meta",
+            className: "text-xs text-secondary"
+          }, `${file.fileName} \xB7 ${formatFileSize(file.fileSize)} \xB7 ${file.mimeType}`)
+        ])
+      ]),
+      React.createElement("div", {
+        key: "actions",
+        className: "flex gap-2"
+      }, [
+        React.createElement("button", {
+          key: "accept",
+          onClick: () => handleIncomingDecision(file.fileId, true),
+          className: "rounded-md bg-green-500/20 px-3 py-2 text-sm text-green-300 hover:bg-green-500/30"
+        }, "Accept"),
+        React.createElement("button", {
+          key: "reject",
+          onClick: () => handleIncomingDecision(file.fileId, false),
+          className: "rounded-md bg-red-500/20 px-3 py-2 text-sm text-red-300 hover:bg-red-500/30"
+        }, "Reject")
+      ])
+    ]))),
     // Active Transfers
     (transfers.sending.length > 0 || transfers.receiving.length > 0) && React.createElement("div", {
       key: "transfers",
@@ -16835,7 +17216,7 @@ var FileTransferComponent = ({ webrtcManager, isConnected }) => {
                       a.click();
                       rf.revokeObjectURL(url);
                     } catch (e) {
-                      alert("Failed to start download: " + e.message);
+                      alert(e.message || "This file is no longer available for download.");
                     }
                   }
                 }, [

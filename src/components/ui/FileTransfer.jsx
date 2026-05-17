@@ -3,6 +3,7 @@ const FileTransferComponent = ({ webrtcManager, isConnected }) => {
     const [dragOver, setDragOver] = React.useState(false);
     const [transfers, setTransfers] = React.useState({ sending: [], receiving: [] });
     const [readyFiles, setReadyFiles] = React.useState([]); // файлы, готовые к скачиванию
+    const [pendingIncomingFiles, setPendingIncomingFiles] = React.useState([]);
     const fileInputRef = React.useRef(null);
 
     // Update transfers periodically
@@ -17,6 +18,14 @@ const FileTransferComponent = ({ webrtcManager, isConnected }) => {
         const interval = setInterval(updateTransfers, 500);
         return () => clearInterval(interval);
     }, [isConnected, webrtcManager]);
+
+    // Clear session-local UI state when the connection ends so reconnect starts clean.
+    React.useEffect(() => {
+        if (isConnected) return;
+        setReadyFiles([]);
+        setPendingIncomingFiles([]);
+        setTransfers({ sending: [], receiving: [] });
+    }, [isConnected]);
 
     // Setup file transfer callbacks - ИСПРАВЛЕНИЕ: НЕ отправляем промежуточные сообщения в чат
     React.useEffect(() => {
@@ -61,8 +70,20 @@ const FileTransferComponent = ({ webrtcManager, isConnected }) => {
                 
                 // ИСПРАВЛЕНИЕ: НЕ дублируем сообщения об ошибках
                 // Уведомления об ошибках уже отправляются в WebRTC менеджере
+            },
+
+            // Incoming file request callback - user consent is mandatory
+            (fileRequest) => {
+                setPendingIncomingFiles(prev => {
+                    if (prev.some(file => file.fileId === fileRequest.fileId)) return prev;
+                    return [...prev, fileRequest];
+                });
             }
         );
+
+        return () => {
+            webrtcManager.setFileTransferCallbacks(null, null, null, null);
+        };
     }, [webrtcManager]);
 
     const handleFileSelect = async (files) => {
@@ -177,6 +198,19 @@ const FileTransferComponent = ({ webrtcManager, isConnected }) => {
         }
     };
 
+    const handleIncomingDecision = async (fileId, accepted) => {
+        try {
+            if (accepted) {
+                await webrtcManager.acceptIncomingFile(fileId);
+            } else {
+                await webrtcManager.rejectIncomingFile(fileId);
+            }
+        } finally {
+            setPendingIncomingFiles(prev => prev.filter(file => file.fileId !== fileId));
+            setTransfers(webrtcManager.getFileTransfers());
+        }
+    };
+
     if (!isConnected) {
         return React.createElement('div', {
             className: "p-4 text-center text-muted"
@@ -238,6 +272,45 @@ const FileTransferComponent = ({ webrtcManager, isConnected }) => {
             className: 'hidden',
             onChange: handleFileInputChange
         }),
+
+        pendingIncomingFiles.length > 0 && React.createElement('div', {
+            key: 'incoming-consent',
+            className: "mt-4 space-y-2"
+        }, pendingIncomingFiles.map(file => React.createElement('div', {
+            key: file.fileId,
+            className: "rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3"
+        }, [
+            React.createElement('div', {
+                key: 'info',
+                className: "mb-3 flex items-center justify-between gap-3"
+            }, [
+                React.createElement('div', { key: 'text' }, [
+                    React.createElement('div', {
+                        key: 'title',
+                        className: "text-sm font-medium text-primary"
+                    }, 'Incoming file request'),
+                    React.createElement('div', {
+                        key: 'meta',
+                        className: "text-xs text-secondary"
+                    }, `${file.fileName} · ${formatFileSize(file.fileSize)} · ${file.mimeType}`)
+                ])
+            ]),
+            React.createElement('div', {
+                key: 'actions',
+                className: "flex gap-2"
+            }, [
+                React.createElement('button', {
+                    key: 'accept',
+                    onClick: () => handleIncomingDecision(file.fileId, true),
+                    className: "rounded-md bg-green-500/20 px-3 py-2 text-sm text-green-300 hover:bg-green-500/30"
+                }, 'Accept'),
+                React.createElement('button', {
+                    key: 'reject',
+                    onClick: () => handleIncomingDecision(file.fileId, false),
+                    className: "rounded-md bg-red-500/20 px-3 py-2 text-sm text-red-300 hover:bg-red-500/30"
+                }, 'Reject')
+            ])
+        ]))),
 
         // Active Transfers
         (transfers.sending.length > 0 || transfers.receiving.length > 0) && React.createElement('div', {
@@ -366,7 +439,7 @@ const FileTransferComponent = ({ webrtcManager, isConnected }) => {
                                             a.click();
                                             rf.revokeObjectURL(url);
                                         } catch (e) {
-                                            alert('Failed to start download: ' + e.message);
+                                            alert(e.message || 'This file is no longer available for download.');
                                         }
                                     }
                                 }, [

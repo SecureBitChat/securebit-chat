@@ -30,6 +30,28 @@ var EnhancedCopyButton = ({ text, className = "", children }) => {
   ]);
 };
 var VerificationStep = ({ verificationCode, onConfirm, onReject, localConfirmed, remoteConfirmed, bothConfirmed }) => {
+  const [sasInput, setSasInput] = React.useState("");
+  const [error, setError] = React.useState("");
+  const normalizedExpectedLength = (verificationCode || "").replace(/[-\s]/g, "").length;
+  const normalizedInputLength = sasInput.replace(/[-\s]/g, "").length;
+  const canConfirm = !localConfirmed && normalizedExpectedLength > 0 && normalizedInputLength === normalizedExpectedLength;
+  React.useEffect(() => {
+    setSasInput("");
+    setError("");
+  }, [verificationCode]);
+  const handleConfirm = async () => {
+    try {
+      setError("");
+      await onConfirm(sasInput);
+    } catch (confirmationError) {
+      setSasInput("");
+      if (confirmationError?.message === "SAS_MAX_ATTEMPTS") {
+        setError("Too many incorrect attempts. Session reset for safety.");
+      } else {
+        setError("Incorrect code. Check it with your peer and try again.");
+      }
+    }
+  };
   return React.createElement("div", {
     className: "card-minimal rounded-xl p-6 border-purple-500/20"
   }, [
@@ -57,7 +79,7 @@ var VerificationStep = ({ verificationCode, onConfirm, onReject, localConfirmed,
       React.createElement("p", {
         key: "description",
         className: "text-secondary text-sm"
-      }, "Verify the security code with your contact via another communication channel (voice, SMS, etc.):"),
+      }, "Compare this code with your peer out-of-band, then type the same code below to unlock the chat."),
       React.createElement("div", {
         key: "code-display",
         className: "text-center"
@@ -66,6 +88,36 @@ var VerificationStep = ({ verificationCode, onConfirm, onReject, localConfirmed,
           key: "code",
           className: "verification-code text-2xl py-4"
         }, verificationCode)
+      ]),
+      React.createElement("div", {
+        key: "sas-input-wrap",
+        className: "space-y-2"
+      }, [
+        React.createElement("label", {
+          key: "sas-label",
+          className: "block text-sm text-secondary"
+        }, "Enter the verified code"),
+        React.createElement("input", {
+          key: "sas-input",
+          type: "text",
+          value: sasInput,
+          onChange: (event) => {
+            setSasInput(event.target.value.toUpperCase());
+            if (error) setError("");
+          },
+          autoFocus: true,
+          autoComplete: "off",
+          spellCheck: false,
+          inputMode: "text",
+          disabled: localConfirmed,
+          placeholder: verificationCode ? "Type code here" : "Waiting for code\u2026",
+          className: "w-full rounded-lg border border-purple-500/30 bg-black/20 px-4 py-3 text-center text-xl tracking-[0.3em] text-primary uppercase focus:border-purple-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60",
+          style: { fontFamily: "monospace", textTransform: "uppercase" }
+        }),
+        error && React.createElement("p", {
+          key: "sas-error",
+          className: "text-sm text-red-400"
+        }, error)
       ]),
       // Verification status indicators
       React.createElement("div", {
@@ -136,14 +188,14 @@ var VerificationStep = ({ verificationCode, onConfirm, onReject, localConfirmed,
       }, [
         React.createElement("button", {
           key: "confirm",
-          onClick: onConfirm,
-          disabled: localConfirmed,
-          className: `flex-1 py-3 px-4 rounded-lg font-medium transition-all duration-200 ${localConfirmed ? "bg-gray-500/20 text-gray-400 cursor-not-allowed" : "btn-verify text-white"}`
+          onClick: handleConfirm,
+          disabled: !canConfirm,
+          className: `flex-1 py-3 px-4 rounded-lg font-medium transition-all duration-200 ${!canConfirm ? "bg-gray-500/20 text-gray-400 cursor-not-allowed" : "btn-verify text-white"}`
         }, [
           React.createElement("i", {
             className: `fas ${localConfirmed ? "fa-check-circle" : "fa-check"} mr-2`
           }),
-          localConfirmed ? "Confirmed" : "The codes match"
+          localConfirmed ? "Confirmed" : "Confirm code"
         ]),
         React.createElement("button", {
           key: "reject",
@@ -270,7 +322,9 @@ var EnhancedConnectionSetup = ({
   markAnswerCreated,
   notificationIntegrationRef,
   isGeneratingKeys,
-  handleCreateOffer
+  handleCreateOffer,
+  relayOnlyMode,
+  setRelayOnlyMode
 }) => {
   const [mode, setMode] = React.useState("select");
   const [notificationPermissionRequested, setNotificationPermissionRequested] = React.useState(false);
@@ -279,11 +333,11 @@ var EnhancedConnectionSetup = ({
     setIsGeneratingKeys(false);
     onClearData();
   };
-  const handleVerificationConfirm = () => {
-    onVerifyConnection(true);
+  const handleVerificationConfirm = (userCode) => {
+    return onVerifyConnection(userCode);
   };
   const handleVerificationReject = () => {
-    onVerifyConnection(false);
+    onVerifyConnection(null, false);
   };
   const requestNotificationPermissionOnInteraction = async () => {
     if (notificationPermissionRequested) {
@@ -394,6 +448,28 @@ var EnhancedConnectionSetup = ({
             key: "subtitle",
             className: "text-secondary max-w-2xl mx-auto"
           }, "Choose a connection method for a secure channel with ECDH encryption and Perfect Forward Secrecy.")
+        ]),
+        React.createElement("label", {
+          key: "privacy-mode",
+          className: "mb-6 mx-auto flex max-w-2xl items-start gap-3 rounded-xl border border-purple-500/20 bg-purple-500/10 p-4 text-left"
+        }, [
+          React.createElement("input", {
+            key: "input",
+            type: "checkbox",
+            checked: relayOnlyMode,
+            onChange: (event) => setRelayOnlyMode(event.target.checked),
+            className: "mt-1"
+          }),
+          React.createElement("span", { key: "copy" }, [
+            React.createElement("span", {
+              key: "title",
+              className: "block text-sm font-medium text-primary"
+            }, "Privacy mode: relay-only WebRTC"),
+            React.createElement("span", {
+              key: "desc",
+              className: "block text-sm text-secondary"
+            }, "Uses TURN relay-only when configured. Without TURN, direct WebRTC may expose IP addresses and relay-only connections cannot start.")
+          ])
         ]),
         React.createElement("div", {
           key: "options",
@@ -1352,6 +1428,13 @@ var EnhancedChatInterface = ({
 var EnhancedSecureP2PChat = () => {
   const [messages, setMessages] = React.useState([]);
   const [connectionStatus, setConnectionStatus] = React.useState("disconnected");
+  const [relayOnlyMode, setRelayOnlyMode] = React.useState(() => {
+    try {
+      return localStorage.getItem("securebit_relay_only_mode") === "true";
+    } catch {
+      return false;
+    }
+  });
   const [messageInput, setMessageInput] = React.useState("");
   const [offerData, setOfferData] = React.useState("");
   const [answerData, setAnswerData] = React.useState("");
@@ -1501,6 +1584,15 @@ var EnhancedSecureP2PChat = () => {
   }, []);
   const chatMessagesRef = React.useRef(null);
   const scrollToBottom = createScrollToBottomFunction(chatMessagesRef);
+  React.useEffect(() => {
+    try {
+      localStorage.setItem("securebit_relay_only_mode", String(relayOnlyMode));
+    } catch {
+    }
+    if (webrtcManagerRef2.current?._config?.webrtc) {
+      webrtcManagerRef2.current._config.webrtc.relayOnly = relayOnlyMode;
+    }
+  }, [relayOnlyMode]);
   React.useEffect(() => {
     if (messages.length > 0 && chatMessagesRef.current) {
       scrollToBottom();
@@ -1677,7 +1769,13 @@ var EnhancedSecureP2PChat = () => {
       handleKeyExchange,
       handleVerificationRequired,
       handleAnswerError,
-      handleVerificationStateChange
+      handleVerificationStateChange,
+      {
+        webrtc: {
+          relayOnly: relayOnlyMode,
+          iceServers: Array.isArray(window.SECUREBIT_ICE_SERVERS) ? window.SECUREBIT_ICE_SERVERS : void 0
+        }
+      }
     );
     if (typeof Notification !== "undefined" && Notification && Notification.permission === "granted" && window.NotificationIntegration && !notificationIntegrationRef.current) {
       try {
@@ -1689,7 +1787,7 @@ var EnhancedSecureP2PChat = () => {
       } catch (error) {
       }
     }
-    handleMessage(" SecureBit.chat Enhanced Security Edition v4.7.56 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.", "system");
+    handleMessage(" SecureBit.chat Enhanced Security Edition v4.8.5 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.", "system");
     const handleBeforeUnload = (event) => {
       if (event.type === "beforeunload" && !isTabSwitching) {
         if (webrtcManagerRef2.current && webrtcManagerRef2.current.isConnected()) {
@@ -2809,9 +2907,9 @@ var EnhancedSecureP2PChat = () => {
       setConnectionStatus("failed");
     }
   };
-  const handleVerifyConnection = async (isValid) => {
+  const handleVerifyConnection = async (userCode, isValid = true) => {
     if (isValid) {
-      webrtcManagerRef2.current.confirmVerification();
+      webrtcManagerRef2.current.confirmVerification(userCode);
       setLocalVerificationConfirmed(true);
       try {
         if (window.NotificationIntegration && webrtcManagerRef2.current && !notificationIntegrationRef.current) {
@@ -3157,7 +3255,9 @@ var EnhancedSecureP2PChat = () => {
         markAnswerCreated,
         notificationIntegrationRef,
         isGeneratingKeys,
-        handleCreateOffer
+        handleCreateOffer,
+        relayOnlyMode,
+        setRelayOnlyMode
       })
     ),
     // QR Scanner Modal

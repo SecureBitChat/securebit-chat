@@ -1,6 +1,6 @@
 {
   "name": "securebit-chat",
-  "version": "4.7.56",
+  "version": "4.8.5",
   "description": "Secure P2P Communication Application with End-to-End Encryption",
   "main": "index.html",
   "scripts": {
@@ -11,7 +11,7 @@
     "dev": "npm run build && python -m http.server 8000",
     "watch": "npx tailwindcss -i src/styles/tw-input.css -o assets/tailwind.css --watch",
     "serve": "npx http-server -p 8000",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node tests/sas-verification.test.mjs && node tests/file-transfer-consent.test.mjs && node tests/incoming-message-sanitization.test.mjs && node tests/file-type-allowlist.test.mjs && node tests/webrtc-privacy-mode.test.mjs && node tests/indexeddb-metadata-encryption.test.mjs && node tests/disconnect-cleanup.test.mjs && node tests/timer-lifecycle.test.mjs && node tests/file-transfer-cleanup.test.mjs && node tests/file-transfer-ui-cleanup.test.mjs && node tests/file-transfer-callback-propagation.test.mjs"
   },
   "keywords": [
     "p2p",
@@ -24,15 +24,15 @@
   "author": "SecureBit Team",
   "license": "MIT",
   "devDependencies": {
-    "esbuild": "^0.25.9",
-    "tailwindcss": "^3.4.17"
+    "esbuild": "0.25.9",
+    "tailwindcss": "3.4.17"
   },
   "dependencies": {
-    "base64-js": "^1.5.1",
-    "cbor-js": "^0.1.0",
-    "html5-qrcode": "^2.3.8",
-    "pako": "^2.1.0",
-    "qr-scanner": "^1.4.2",
-    "qrcode": "^1.5.4"
+    "base64-js": "1.5.1",
+    "cbor-js": "0.1.0",
+    "html5-qrcode": "2.3.8",
+    "pako": "2.1.0",
+    "qr-scanner": "1.4.2",
+    "qrcode": "1.5.4"
   }
 }
