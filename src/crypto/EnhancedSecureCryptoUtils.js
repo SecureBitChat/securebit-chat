@@ -1,6 +1,9 @@
+import createDOMPurify from 'dompurify';
+
 class EnhancedSecureCryptoUtils {
 
     static _keyMetadata = new WeakMap();
+    static _messageSanitizer = null;
     
     // Initialize secure logging system after class definition
 
@@ -2420,86 +2423,43 @@ class EnhancedSecureCryptoUtils {
         }
     }
 
-    // Enhanced input sanitization with iterative processing to handle edge cases
+    static _getMessageSanitizer() {
+        if (EnhancedSecureCryptoUtils._messageSanitizer) {
+            return EnhancedSecureCryptoUtils._messageSanitizer;
+        }
+
+        if (typeof window === 'undefined' || !window?.document) {
+            throw new Error('DOMPurify requires a browser-like window for message sanitization');
+        }
+
+        EnhancedSecureCryptoUtils._messageSanitizer = createDOMPurify(window);
+        return EnhancedSecureCryptoUtils._messageSanitizer;
+    }
+
+    // Centralized chat-message sanitization. Messages are rendered as plain text,
+    // so the safest compatible output is text-only content with no markup surface.
     static sanitizeMessage(message) {
         if (typeof message !== 'string') {
             throw new Error('Message must be a string');
         }
-        
-        // Helper function to apply replacement until stable
-        function replaceUntilStable(str, pattern, replacement = '') {
-            let previous;
-            do {
-                previous = str;
-                str = str.replace(pattern, replacement);
-            } while (str !== previous);
-            return str;
-        }
-        
-        // Define all dangerous patterns that need to be removed
-        const dangerousPatterns = [
-            // Script tags with various formats
-            /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,
-            /<script\b[^>]*>[\s\S]*?<\/script\s+[^>]*>/gi,
-            /<script\b[^>]*>[\s\S]*$/gi,
-            // Other dangerous tags
-            /<iframe\b[^>]*>[\s\S]*?<\/iframe\s*>/gi,
-            /<object\b[^>]*>[\s\S]*?<\/object\s*>/gi,
-            /<embed\b[^>]*>/gi,
-            /<applet\b[^>]*>[\s\S]*?<\/applet\s*>/gi,
-            /<style\b[^>]*>[\s\S]*?<\/style\s*>/gi,
-            // Dangerous protocols
-            /javascript\s*:/gi,
-            /data\s*:/gi,
-            /vbscript\s*:/gi,
-            // Event handlers
-            /on\w+\s*=/gi,
-            // HTML comments
-            /<!--[\s\S]*?-->/g,
-            // Link and meta tags with javascript
-            /<link\b[^>]*javascript[^>]*>/gi,
-            /<meta\b[^>]*javascript[^>]*>/gi,
-            // Any remaining script-like content
-            /<[^>]*script[^>]*>/gi,
-            /<[^>]*on\w+\s*=[^>]*>/gi
-        ];
-        
-        // Iterative sanitization to handle edge cases
-        let sanitized = message;
-        let previousLength;
-        let iterations = 0;
-        const maxIterations = 10; // Prevent infinite loops
-        
-        do {
-            previousLength = sanitized.length;
-            
-            // Apply all dangerous patterns with stable replacement
-            for (const pattern of dangerousPatterns) {
-                sanitized = replaceUntilStable(sanitized, pattern);
+
+        const sanitized = EnhancedSecureCryptoUtils._getMessageSanitizer().sanitize(message, {
+            ALLOWED_TAGS: [],
+            ALLOWED_ATTR: [],
+            ALLOW_UNKNOWN_PROTOCOLS: false,
+            FORBID_TAGS: ['script', 'style', 'svg', 'math', 'template'],
+            FORBID_ATTR: ['style'],
+            KEEP_CONTENT: true,
+            RETURN_TRUSTED_TYPE: false,
+            USE_PROFILES: {
+                html: false,
+                svg: false,
+                svgFilters: false,
+                mathMl: false
             }
-            
-            // Additional cleanup for edge cases - each applied until stable
-            sanitized = replaceUntilStable(sanitized, /<[^>]*>/g);
-            sanitized = replaceUntilStable(sanitized, /^\w+:/gi);
-            sanitized = replaceUntilStable(sanitized, /\bon\w+\s*=\s*["'][^"']*["']/gi);
-            sanitized = replaceUntilStable(sanitized, /\bon\w+\s*=\s*[^>\s]+/gi);
-            
-            // Single character removal is inherently safe
-            sanitized = sanitized.replace(/[<>]/g, '').trim();
-            
-            iterations++;
-        } while (sanitized.length !== previousLength && iterations < maxIterations);
-        
-        // Final security pass with stable replacements
-        sanitized = replaceUntilStable(sanitized, /<[^>]*>/g);
-        sanitized = replaceUntilStable(sanitized, /^\w+:/gi);
-        sanitized = replaceUntilStable(sanitized, /\bon\w+\s*=\s*["'][^"']*["']/gi);
-        sanitized = replaceUntilStable(sanitized, /\bon\w+\s*=\s*[^>\s]+/gi);
-        
-        // Final single character cleanup
-        sanitized = sanitized.replace(/[<>]/g, '').trim();
-        
-        return sanitized.substring(0, 2000); // Limit length
+        });
+
+        return String(sanitized).trim().substring(0, 2000);
     }
 
     // Generate cryptographically secure salt (64 bytes for enhanced security)
