@@ -14,6 +14,7 @@ function fake(config = {}) {
     return {
         _config: {
             webrtc: {
+                privacyMode: config.privacyMode ?? (config.relayOnly ? 'relay-only' : 'standard'),
                 relayOnly: config.relayOnly ?? false,
                 iceServers: config.iceServers ?? [{ urls: 'stun:stun.example.test:3478' }]
             }
@@ -23,11 +24,12 @@ function fake(config = {}) {
         deliverMessageToUI(message, type) {
             this.delivered.push({ message, type });
         },
-        _hasTurnServer: EnhancedSecureWebRTCManager.prototype._hasTurnServer
+        _hasTurnServer: EnhancedSecureWebRTCManager.prototype._hasTurnServer,
+        _isRelayOnlyMode: EnhancedSecureWebRTCManager.prototype._isRelayOnlyMode
     };
 }
 
-// Default mode preserves current behavior.
+// Standard mode remains usable, but it is not relay-only.
 {
     const manager = fake();
     const config = EnhancedSecureWebRTCManager.prototype._buildPeerConnectionConfig.call(manager);
@@ -35,26 +37,53 @@ function fake(config = {}) {
     assert.equal(config.iceServers[0].urls, 'stun:stun.example.test:3478');
 }
 
-// Privacy mode uses relay-only transport.
+// Explicit privacy mode uses relay-only transport, suppressing host/srflx usage.
+{
+    const manager = fake({ privacyMode: 'relay-only', iceServers: [{ urls: 'turn:turn.example.test:3478' }] });
+    const config = EnhancedSecureWebRTCManager.prototype._buildPeerConnectionConfig.call(manager);
+    assert.equal(config.iceTransportPolicy, 'relay');
+}
+
+// Backward-compatible relayOnly alias still enables relay transport.
 {
     const manager = fake({ relayOnly: true, iceServers: [{ urls: 'turn:turn.example.test:3478' }] });
     const config = EnhancedSecureWebRTCManager.prototype._buildPeerConnectionConfig.call(manager);
     assert.equal(config.iceTransportPolicy, 'relay');
 }
 
-// Missing TURN warns clearly.
+// Missing TURN in standard mode warns clearly and visibly.
 {
     const manager = fake();
     EnhancedSecureWebRTCManager.prototype._warnIfTurnMissing.call(manager);
-    assert.match(manager.delivered[0].message, /may expose IP addresses/i);
+    assert.equal(manager.delivered[0].type, 'system');
+    assert.match(manager.delivered[0].message, /relay-only mode is disabled/i);
+    assert.match(manager.delivered[0].message, /may expose host or server-reflexive IP addresses/i);
 }
 
 // STUN-only config does not claim IP protection, even with privacy mode selected.
 {
-    const manager = fake({ relayOnly: true, iceServers: [{ urls: 'stun:stun.example.test:3478' }] });
+    const manager = fake({ privacyMode: 'relay-only', iceServers: [{ urls: 'stun:stun.example.test:3478' }] });
     assert.equal(EnhancedSecureWebRTCManager.prototype._hasTurnServer.call(manager), false);
     EnhancedSecureWebRTCManager.prototype._warnIfTurnMissing.call(manager);
     assert.match(manager.delivered[0].message, /STUN alone does not hide IP addresses/i);
+}
+
+// Non-private mode warns even when TURN exists because direct candidates remain allowed.
+{
+    const manager = fake({ iceServers: [{ urls: 'turn:turn.example.test:3478' }] });
+    EnhancedSecureWebRTCManager.prototype._warnIfTurnMissing.call(manager);
+    assert.equal(manager.delivered[0].type, 'system');
+    assert.match(manager.delivered[0].message, /relay-only mode is disabled/i);
+    assert.match(manager.delivered[0].message, /may expose host or server-reflexive IP addresses/i);
+}
+
+// ICE defaults are centralized and operator overrides remain untouched.
+{
+    assert.equal(Array.isArray(EnhancedSecureWebRTCManager.DEFAULT_ICE_SERVERS), true);
+    const overrideServers = [{ urls: ['stun:operator.example.test:3478', 'turn:operator.example.test:3478'] }];
+    const manager = fake({ iceServers: overrideServers });
+    const config = EnhancedSecureWebRTCManager.prototype._buildPeerConnectionConfig.call(manager);
+    assert.equal(config.iceServers, overrideServers);
 }
 
 console.log('WebRTC privacy mode tests passed');

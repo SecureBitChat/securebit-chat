@@ -102,6 +102,13 @@ class EnhancedSecureWebRTCManager {
 
     static PROTOCOL_VERSION = '4.1';
     static MAX_SAS_ATTEMPTS = 3;
+    static DEFAULT_ICE_SERVERS = Object.freeze([
+        Object.freeze({ urls: 'stun:stun.l.google.com:19302' }),
+        Object.freeze({ urls: 'stun:stun1.l.google.com:19302' }),
+        Object.freeze({ urls: 'stun:stun2.l.google.com:19302' }),
+        Object.freeze({ urls: 'stun:stun3.l.google.com:19302' }),
+        Object.freeze({ urls: 'stun:stun4.l.google.com:19302' })
+    ]);
 
     //   Static debug flag instead of this._debugMode
     static DEBUG_MODE = true; // Set to true during development, false in production
@@ -146,14 +153,14 @@ class EnhancedSecureWebRTCManager {
                 useRandomHeaders: config.antiFingerprinting?.useRandomHeaders ?? false
             },
             webrtc: {
-                relayOnly: config.webrtc?.relayOnly ?? false,
-                iceServers: config.webrtc?.iceServers ?? [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'stun:stun2.l.google.com:19302' },
-                    { urls: 'stun:stun3.l.google.com:19302' },
-                    { urls: 'stun:stun4.l.google.com:19302' }
-                ]
+                // `privacyMode` is the explicit operator-facing setting.
+                // Keep `relayOnly` as a backward-compatible alias.
+                privacyMode: config.webrtc?.privacyMode
+                    ?? (config.webrtc?.relayOnly ? 'relay-only' : 'standard'),
+                relayOnly: config.webrtc?.relayOnly
+                    ?? config.webrtc?.privacyMode === 'relay-only',
+                iceServers: config.webrtc?.iceServers
+                    ?? EnhancedSecureWebRTCManager.DEFAULT_ICE_SERVERS.map(server => ({ ...server }))
             }
         };
         this._ipLeakWarningShown = false;
@@ -7193,23 +7200,40 @@ async processMessage(data) {
     }
 
     _buildPeerConnectionConfig() {
+        const relayOnly = this._isRelayOnlyMode();
         const config = {
             iceServers: this._config.webrtc.iceServers,
             iceCandidatePoolSize: 10,
             bundlePolicy: 'balanced'
         };
-        if (this._config.webrtc.relayOnly) {
+        if (relayOnly) {
             config.iceTransportPolicy = 'relay';
         }
         return config;
     }
 
+    _isRelayOnlyMode() {
+        return this._config.webrtc.privacyMode === 'relay-only'
+            || this._config.webrtc.relayOnly === true;
+    }
+
     _warnIfTurnMissing() {
-        if (this._hasTurnServer() || this._ipLeakWarningShown) return;
+        if (this._ipLeakWarningShown) return;
         this._ipLeakWarningShown = true;
-        const message = this._config.webrtc.relayOnly
-            ? 'Privacy mode is enabled, but no TURN server is configured. Relay-only mode cannot connect until TURN is configured; STUN alone does not hide IP addresses.'
-            : 'Privacy warning: no TURN server is configured. Direct WebRTC connections may expose IP addresses; STUN alone does not provide IP protection.';
+
+        const relayOnly = this._isRelayOnlyMode();
+        const hasTurnServer = this._hasTurnServer();
+        let message = null;
+
+        if (relayOnly && !hasTurnServer) {
+            message = 'Privacy mode is relay-only, but no TURN server is configured. Relay-only mode cannot connect until TURN is configured; STUN alone does not hide IP addresses.';
+        } else if (!relayOnly && !hasTurnServer) {
+            message = 'Privacy warning: relay-only mode is disabled and no TURN server is configured. Direct WebRTC connections may expose host or server-reflexive IP addresses; STUN alone does not provide IP protection.';
+        } else if (!relayOnly) {
+            message = 'Privacy warning: relay-only mode is disabled. Direct WebRTC connectivity may expose host or server-reflexive IP addresses even when TURN is available.';
+        }
+
+        if (!message) return;
         this.deliverMessageToUI(message, 'system');
     }
 
