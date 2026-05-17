@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { webcrypto } from 'node:crypto';
 
 let compareCalls = 0;
 globalThis.window = {
@@ -35,6 +36,12 @@ function createFakeManager() {
         },
         _checkBothVerificationsConfirmed() {},
         processMessageQueue() {}
+    };
+}
+
+function createSASManager() {
+    return {
+        _secureLog() {}
     };
 }
 
@@ -82,6 +89,87 @@ function createFakeManager() {
     assert.equal(validManager.localVerificationConfirmed, true);
     assert.equal(validManager.sent[0].type, 'verification_confirmed');
     assert.equal(validManager.sent[0].data.verificationMethod, 'MANUAL_SAS_ENTRY');
+}
+
+// SAS is deterministic for the same key material and normalized fingerprints,
+// and changes when either fingerprint changes.
+{
+    const manager = createSASManager();
+    const keyMaterial = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
+    const computeSAS = EnhancedSecureWebRTCManager.prototype._computeSAS;
+
+    const baseline = await computeSAS.call(manager, keyMaterial, ' AA:BB ', 'CC:DD');
+    const sameInputsNormalized = await computeSAS.call(manager, keyMaterial, 'aa:bb', ' cc:dd ');
+    const changedLocal = await computeSAS.call(manager, keyMaterial, 'AA:BC', 'CC:DD');
+    const changedRemote = await computeSAS.call(manager, keyMaterial, 'AA:BB', 'CC:DE');
+
+    assert.equal(baseline, sameInputsNormalized);
+    assert.notEqual(baseline, changedLocal);
+    assert.notEqual(baseline, changedRemote);
+}
+
+// SAS rejects non-string or empty fingerprints instead of allowing JS coercion.
+{
+    const manager = createSASManager();
+    const keyMaterial = new Uint8Array([1, 2, 3, 4]);
+    const computeSAS = EnhancedSecureWebRTCManager.prototype._computeSAS;
+    const invalidFingerprints = [{ fingerprint: 'aa' }, ['aa'], null, ''];
+
+    for (const invalidFingerprint of invalidFingerprints) {
+        await assert.rejects(
+            () => computeSAS.call(manager, keyMaterial, invalidFingerprint, 'CC:DD'),
+            /Security error: localFP must be a non-empty DTLS fingerprint string/
+        );
+        await assert.rejects(
+            () => computeSAS.call(manager, keyMaterial, 'AA:BB', invalidFingerprint),
+            /Security error: remoteFP must be a non-empty DTLS fingerprint string/
+        );
+    }
+}
+
+// The salt is built only from normalized fingerprint strings.
+{
+    const manager = createSASManager();
+    const keyMaterial = new Uint8Array([9, 8, 7, 6]);
+    let capturedSalt = '';
+    const originalCryptoDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
+
+    Object.defineProperty(globalThis, 'crypto', {
+        configurable: true,
+        value: {
+            subtle: {
+                importKey: (...args) => webcrypto.subtle.importKey(...args),
+                deriveBits: async (params, ...args) => {
+                    capturedSalt = new TextDecoder().decode(params.salt);
+                    return webcrypto.subtle.deriveBits(params, ...args);
+                }
+            }
+        }
+    });
+
+    try {
+        await EnhancedSecureWebRTCManager.prototype._computeSAS.call(manager, keyMaterial, ' AA:BB ', 'CC:DD ');
+        assert.equal(capturedSalt, 'webrtc-sas|aa:bb|cc:dd');
+        assert.equal(capturedSalt.includes('[object Object]'), false);
+    } finally {
+        Object.defineProperty(globalThis, 'crypto', originalCryptoDescriptor);
+    }
+}
+
+// Extraction returns a deterministic primary string for SAS binding.
+{
+    const manager = createSASManager();
+    const sdp = [
+        'v=0',
+        'a=fingerprint:sha-512 FF:EE',
+        'a=fingerprint:sha-256 BB:BB',
+        'a=fingerprint:sha-256 AA:AA'
+    ].join('\r\n');
+
+    assert.equal(
+        EnhancedSecureWebRTCManager.prototype._extractDTLSFingerprintFromSDP.call(manager, sdp),
+        'AA:AA'
+    );
 }
 
 console.log('SAS verification tests passed');

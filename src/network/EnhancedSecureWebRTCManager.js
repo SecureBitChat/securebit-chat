@@ -3526,7 +3526,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             while ((match = fingerprintRegex.exec(sdp)) !== null) {
                 fingerprints.push({
                     algorithm: match[1].toLowerCase(),
-                    fingerprint: match[2].toLowerCase().replace(/:/g, '')
+                    fingerprint: match[2].trim()
                 });
             }
 
@@ -3536,7 +3536,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 while ((match = altFingerprintRegex.exec(sdp)) !== null) {
                     fingerprints.push({
                         algorithm: match[1].toLowerCase(),
-                        fingerprint: match[2].toLowerCase().replace(/:/g, '')
+                        fingerprint: match[2].trim()
                     });
                 }
             }
@@ -3549,14 +3549,24 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 throw new Error('No DTLS fingerprints found in SDP');
             }
 
-            // Prefer SHA-256 fingerprints
-            const sha256Fingerprint = fingerprints.find(fp => fp.algorithm === 'sha-256');
-            if (sha256Fingerprint) {
-                return sha256Fingerprint.fingerprint;
-            }
+            // Prefer SHA-256, then choose lexicographically so multiple SDP
+            // fingerprint lines resolve to the same deterministic primary value.
+            const primaryFingerprint = [...fingerprints].sort((a, b) => {
+                const aIsSha256 = a.algorithm === 'sha-256';
+                const bIsSha256 = b.algorithm === 'sha-256';
+                if (aIsSha256 !== bIsSha256) {
+                    return aIsSha256 ? -1 : 1;
+                }
 
-            // Fallback to first available fingerprint
-            return fingerprints[0].fingerprint;
+                const algorithmComparison = a.algorithm.localeCompare(b.algorithm);
+                if (algorithmComparison !== 0) {
+                    return algorithmComparison;
+                }
+
+                return a.fingerprint.localeCompare(b.fingerprint);
+            })[0];
+
+            return primaryFingerprint.fingerprint;
         } catch (error) {
             this._secureLog('error', 'Failed to extract DTLS fingerprint from SDP', { 
                 error: error.message,
@@ -3625,18 +3635,28 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     async _computeSAS(keyMaterialRaw, localFP, remoteFP) {
         try {
             
-            if (!keyMaterialRaw || !localFP || !remoteFP) {
+            if (!keyMaterialRaw) {
                 const missing = [];
                 if (!keyMaterialRaw) missing.push('keyMaterialRaw');
-                if (!localFP) missing.push('localFP');
-                if (!remoteFP) missing.push('remoteFP');
                 throw new Error(`Missing required parameters for SAS computation: ${missing.join(', ')}`);
             }
 
             const enc = new TextEncoder();
+            const normalizeFingerprintForSAS = (fingerprint, label) => {
+                if (typeof fingerprint !== 'string' || fingerprint.trim().length === 0) {
+                    throw new Error(
+                        `Security error: ${label} must be a non-empty DTLS fingerprint string for SAS computation`
+                    );
+                }
+
+                return fingerprint.trim().toLowerCase();
+            };
+
+            const normalizedLocalFP = normalizeFingerprintForSAS(localFP, 'localFP');
+            const normalizedRemoteFP = normalizeFingerprintForSAS(remoteFP, 'remoteFP');
 
             const salt = enc.encode(
-                'webrtc-sas|' + [localFP, remoteFP].sort().join('|')
+                'webrtc-sas|' + [normalizedLocalFP, normalizedRemoteFP].sort().join('|')
             );
 
             let keyBuffer;
@@ -3682,8 +3702,8 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
 
 
             this._secureLog('info', 'SAS code computed successfully', {
-                localFP: localFP.substring(0, 16) + '...',
-                remoteFP: remoteFP.substring(0, 16) + '...',
+                localFP: normalizedLocalFP.substring(0, 16) + '...',
+                remoteFP: normalizedRemoteFP.substring(0, 16) + '...',
                 sasLength: sasCode.length,
                 timestamp: Date.now()
             });
