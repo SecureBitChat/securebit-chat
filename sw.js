@@ -87,6 +87,30 @@ const CACHE_FIRST_PATTERNS = [
     /src\/scripts\/pwa-.*\.js$/
 ];
 
+// Explicit allowlist for any response that may be written to Cache Storage.
+// Unknown GET responses are deliberately excluded by default.
+const CACHEABLE_PATHS = new Set([
+    '/',
+    '/index.html',
+    '/manifest.json',
+    '/src/styles/pwa.css',
+    '/logo/icon-192x192.png',
+    '/logo/icon-512x512.png',
+    '/logo/favicon.ico',
+    '/src/pwa/pwa-manager.js',
+    '/src/pwa/install-prompt.js',
+    '/src/scripts/pwa-register.js',
+    '/src/scripts/pwa-offline-test.js'
+]);
+
+function isSensitivePath(pathname) {
+    return SENSITIVE_PATTERNS.some(pattern => pattern.test(pathname));
+}
+
+function isCacheableStaticPath(pathname) {
+    return CACHEABLE_PATHS.has(pathname);
+}
+
 self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'PWA_INSTALLED') {
         self.clients.matchAll().then(clients => {
@@ -191,7 +215,7 @@ self.addEventListener('fetch', (event) => {
     }
     
     // Skip sensitive endpoints
-    if (SENSITIVE_PATTERNS.some(pattern => pattern.test(url.pathname))) {
+    if (isSensitivePath(url.pathname)) {
         console.log('🔒 Skipping cache for sensitive endpoint:', url.pathname);
         return;
     }
@@ -304,11 +328,16 @@ async function cacheFirst(request) {
 
 // Network First strategy with Response cloning fix
 async function networkFirst(request) {
+    const url = new URL(request.url);
     try {
         const networkResponse = await fetch(request);
         if (networkResponse && networkResponse.ok) {
-            // Only cache non-sensitive successful responses
-            if (!SENSITIVE_PATTERNS.some(pattern => pattern.test(request.url))) {
+            // Only cache explicitly known-safe static responses.
+            if (
+                url.origin === self.location.origin &&
+                isCacheableStaticPath(url.pathname) &&
+                !isSensitivePath(url.pathname)
+            ) {
                 // Clone the response before caching
                 const responseToCache = networkResponse.clone();
                 const cache = await caches.open(DYNAMIC_CACHE);
@@ -336,12 +365,18 @@ async function networkFirst(request) {
 
 // Stale While Revalidate strategy with Response cloning fix
 async function staleWhileRevalidate(request) {
+    const url = new URL(request.url);
     const cachedResponse = await caches.match(request);
     
     const networkResponsePromise = fetch(request)
         .then((networkResponse) => {
-            if (networkResponse && networkResponse.ok && 
-                !SENSITIVE_PATTERNS.some(pattern => pattern.test(request.url))) {
+            if (
+                networkResponse &&
+                networkResponse.ok &&
+                url.origin === self.location.origin &&
+                isCacheableStaticPath(url.pathname) &&
+                !isSensitivePath(url.pathname)
+            ) {
                 // Clone the response before caching
                 const responseToCache = networkResponse.clone();
                 caches.open(DYNAMIC_CACHE)
