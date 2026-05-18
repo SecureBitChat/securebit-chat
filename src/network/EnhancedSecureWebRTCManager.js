@@ -102,13 +102,6 @@ class EnhancedSecureWebRTCManager {
 
     static PROTOCOL_VERSION = '4.1';
     static MAX_SAS_ATTEMPTS = 3;
-    static DEFAULT_ICE_SERVERS = Object.freeze([
-        Object.freeze({ urls: 'stun:stun.l.google.com:19302' }),
-        Object.freeze({ urls: 'stun:stun1.l.google.com:19302' }),
-        Object.freeze({ urls: 'stun:stun2.l.google.com:19302' }),
-        Object.freeze({ urls: 'stun:stun3.l.google.com:19302' }),
-        Object.freeze({ urls: 'stun:stun4.l.google.com:19302' })
-    ]);
 
     //   Static debug flag instead of this._debugMode
     static DEBUG_MODE = true; // Set to true during development, false in production
@@ -153,14 +146,14 @@ class EnhancedSecureWebRTCManager {
                 useRandomHeaders: config.antiFingerprinting?.useRandomHeaders ?? false
             },
             webrtc: {
-                // `privacyMode` is the explicit operator-facing setting.
-                // Keep `relayOnly` as a backward-compatible alias.
-                privacyMode: config.webrtc?.privacyMode
-                    ?? (config.webrtc?.relayOnly ? 'relay-only' : 'standard'),
-                relayOnly: config.webrtc?.relayOnly
-                    ?? config.webrtc?.privacyMode === 'relay-only',
-                iceServers: config.webrtc?.iceServers
-                    ?? EnhancedSecureWebRTCManager.DEFAULT_ICE_SERVERS.map(server => ({ ...server }))
+                relayOnly: config.webrtc?.relayOnly ?? false,
+                iceServers: config.webrtc?.iceServers ?? [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { urls: 'stun:stun3.l.google.com:19302' },
+                    { urls: 'stun:stun4.l.google.com:19302' }
+                ]
             }
         };
         this._ipLeakWarningShown = false;
@@ -3533,7 +3526,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             while ((match = fingerprintRegex.exec(sdp)) !== null) {
                 fingerprints.push({
                     algorithm: match[1].toLowerCase(),
-                    fingerprint: match[2].trim()
+                    fingerprint: match[2].toLowerCase().replace(/:/g, '')
                 });
             }
 
@@ -3543,7 +3536,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 while ((match = altFingerprintRegex.exec(sdp)) !== null) {
                     fingerprints.push({
                         algorithm: match[1].toLowerCase(),
-                        fingerprint: match[2].trim()
+                        fingerprint: match[2].toLowerCase().replace(/:/g, '')
                     });
                 }
             }
@@ -3556,24 +3549,14 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 throw new Error('No DTLS fingerprints found in SDP');
             }
 
-            // Prefer SHA-256, then choose lexicographically so multiple SDP
-            // fingerprint lines resolve to the same deterministic primary value.
-            const primaryFingerprint = [...fingerprints].sort((a, b) => {
-                const aIsSha256 = a.algorithm === 'sha-256';
-                const bIsSha256 = b.algorithm === 'sha-256';
-                if (aIsSha256 !== bIsSha256) {
-                    return aIsSha256 ? -1 : 1;
-                }
+            // Prefer SHA-256 fingerprints
+            const sha256Fingerprint = fingerprints.find(fp => fp.algorithm === 'sha-256');
+            if (sha256Fingerprint) {
+                return sha256Fingerprint.fingerprint;
+            }
 
-                const algorithmComparison = a.algorithm.localeCompare(b.algorithm);
-                if (algorithmComparison !== 0) {
-                    return algorithmComparison;
-                }
-
-                return a.fingerprint.localeCompare(b.fingerprint);
-            })[0];
-
-            return primaryFingerprint.fingerprint;
+            // Fallback to first available fingerprint
+            return fingerprints[0].fingerprint;
         } catch (error) {
             this._secureLog('error', 'Failed to extract DTLS fingerprint from SDP', { 
                 error: error.message,
@@ -3642,28 +3625,18 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     async _computeSAS(keyMaterialRaw, localFP, remoteFP) {
         try {
             
-            if (!keyMaterialRaw) {
+            if (!keyMaterialRaw || !localFP || !remoteFP) {
                 const missing = [];
                 if (!keyMaterialRaw) missing.push('keyMaterialRaw');
+                if (!localFP) missing.push('localFP');
+                if (!remoteFP) missing.push('remoteFP');
                 throw new Error(`Missing required parameters for SAS computation: ${missing.join(', ')}`);
             }
 
             const enc = new TextEncoder();
-            const normalizeFingerprintForSAS = (fingerprint, label) => {
-                if (typeof fingerprint !== 'string' || fingerprint.trim().length === 0) {
-                    throw new Error(
-                        `Security error: ${label} must be a non-empty DTLS fingerprint string for SAS computation`
-                    );
-                }
-
-                return fingerprint.trim().toLowerCase();
-            };
-
-            const normalizedLocalFP = normalizeFingerprintForSAS(localFP, 'localFP');
-            const normalizedRemoteFP = normalizeFingerprintForSAS(remoteFP, 'remoteFP');
 
             const salt = enc.encode(
-                'webrtc-sas|' + [normalizedLocalFP, normalizedRemoteFP].sort().join('|')
+                'webrtc-sas|' + [localFP, remoteFP].sort().join('|')
             );
 
             let keyBuffer;
@@ -3709,8 +3682,8 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
 
 
             this._secureLog('info', 'SAS code computed successfully', {
-                localFP: normalizedLocalFP.substring(0, 16) + '...',
-                remoteFP: normalizedRemoteFP.substring(0, 16) + '...',
+                localFP: localFP.substring(0, 16) + '...',
+                remoteFP: remoteFP.substring(0, 16) + '...',
                 sasLength: sasCode.length,
                 timestamp: Date.now()
             });
@@ -7200,40 +7173,23 @@ async processMessage(data) {
     }
 
     _buildPeerConnectionConfig() {
-        const relayOnly = this._isRelayOnlyMode();
         const config = {
             iceServers: this._config.webrtc.iceServers,
             iceCandidatePoolSize: 10,
             bundlePolicy: 'balanced'
         };
-        if (relayOnly) {
+        if (this._config.webrtc.relayOnly) {
             config.iceTransportPolicy = 'relay';
         }
         return config;
     }
 
-    _isRelayOnlyMode() {
-        return this._config.webrtc.privacyMode === 'relay-only'
-            || this._config.webrtc.relayOnly === true;
-    }
-
     _warnIfTurnMissing() {
-        if (this._ipLeakWarningShown) return;
+        if (this._hasTurnServer() || this._ipLeakWarningShown) return;
         this._ipLeakWarningShown = true;
-
-        const relayOnly = this._isRelayOnlyMode();
-        const hasTurnServer = this._hasTurnServer();
-        let message = null;
-
-        if (relayOnly && !hasTurnServer) {
-            message = 'Privacy mode is relay-only, but no TURN server is configured. Relay-only mode cannot connect until TURN is configured; STUN alone does not hide IP addresses.';
-        } else if (!relayOnly && !hasTurnServer) {
-            message = 'Privacy warning: relay-only mode is disabled and no TURN server is configured. Direct WebRTC connections may expose host or server-reflexive IP addresses; STUN alone does not provide IP protection.';
-        } else if (!relayOnly) {
-            message = 'Privacy warning: relay-only mode is disabled. Direct WebRTC connectivity may expose host or server-reflexive IP addresses even when TURN is available.';
-        }
-
-        if (!message) return;
+        const message = this._config.webrtc.relayOnly
+            ? 'Privacy mode is enabled, but no TURN server is configured. Relay-only mode cannot connect until TURN is configured; STUN alone does not hide IP addresses.'
+            : 'Privacy warning: no TURN server is configured. Direct WebRTC connections may expose IP addresses; STUN alone does not provide IP protection.';
         this.deliverMessageToUI(message, 'system');
     }
 

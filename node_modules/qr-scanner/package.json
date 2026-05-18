@@ -1,0 +1,59 @@
+{
+  "name": "qr-scanner",
+  "version": "1.4.2",
+  "description": "A javascript QR scanner library",
+  "main": "qr-scanner.umd.min.js",
+  "module": "qr-scanner.min.js",
+  "types": "types/qr-scanner.d.ts",
+  "files": [
+    "LICENSE",
+    "qr-scanner.min.js",
+    "qr-scanner.min.js.map",
+    "qr-scanner.umd.min.js",
+    "qr-scanner.umd.min.js.map",
+    "qr-scanner.legacy.min.js",
+    "qr-scanner.legacy.min.js.map",
+    "qr-scanner-worker.min.js",
+    "qr-scanner-worker.min.js.map",
+    "types/qr-scanner.d.ts"
+  ],
+  "scripts": {
+    "build": "rollup --config && tsc src/qr-scanner.ts --target esnext --module esnext --declaration --declarationDir types --emitDeclarationOnly"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nimiq/qr-scanner.git"
+  },
+  "keywords": [
+    "qr",
+    "scanner",
+    "reader",
+    "js",
+    "javascript",
+    "lightweight",
+    "small",
+    "fast",
+    "web"
+  ],
+  "author": "Nimiq (https://nimiq.com)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/nimiq/qr-scanner/issues"
+  },
+  "homepage": "https://github.com/nimiq/qr-scanner#readme",
+  "dependencies": {
+    "@types/offscreencanvas": "^2019.6.4"
+  },
+  "devDependencies": {
+    "@ampproject/rollup-plugin-closure-compiler": "^0.27.0",
+    "@rollup/plugin-alias": "^3.1.9",
+    "@rollup/plugin-typescript": "^8.3.0",
+    "acorn": "^8.7.0",
+    "google-closure-compiler": "^20220104.0.0",
+    "jsqr-es6": "^1.4.0-1",
+    "rollup": "^2.21.0",
+    "rollup-plugin-sourcemaps": "^0.6.2",
+    "tslib": "^2.3.1",
+    "typescript": "^4.5.5"
+  }
+}
