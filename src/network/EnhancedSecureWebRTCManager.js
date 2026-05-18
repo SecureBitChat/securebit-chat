@@ -103,6 +103,9 @@ class EnhancedSecureWebRTCManager {
     static PROTOCOL_VERSION = '4.1';
     static MAX_SAS_ATTEMPTS = 3;
     static DEFAULT_ICE_SERVERS = Object.freeze([
+        // Keep multiple independent public STUN defaults so one provider-side
+        // DNS/path failure does not strand standard-mode connectivity.
+        Object.freeze({ urls: 'stun:stun.cloudflare.com:3478' }),
         Object.freeze({ urls: 'stun:stun.l.google.com:19302' }),
         Object.freeze({ urls: 'stun:stun1.l.google.com:19302' }),
         Object.freeze({ urls: 'stun:stun2.l.google.com:19302' }),
@@ -951,6 +954,123 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
 
     _untrackActiveTimer(timer) {
         if (timer && this._activeTimers) this._activeTimers.delete(timer);
+    }
+
+    _setSASMaterialReady(localFingerprint, remoteFingerprint) {
+        this._sasLocalFingerprint = localFingerprint;
+        this._sasRemoteFingerprint = remoteFingerprint;
+    }
+
+    _isVerificationReady() {
+        const hasDescriptions = !!(
+            this.peerConnection?.localDescription &&
+            this.peerConnection?.remoteDescription
+        );
+        const hasOpenDataChannel = this.dataChannel?.readyState === 'open';
+        const hasVerificationCode = typeof this.verificationCode === 'string' &&
+            this.verificationCode.trim().length > 0;
+        const hasFingerprintMaterial = typeof this._sasLocalFingerprint === 'string' &&
+            this._sasLocalFingerprint.trim().length > 0 &&
+            typeof this._sasRemoteFingerprint === 'string' &&
+            this._sasRemoteFingerprint.trim().length > 0;
+
+        return hasDescriptions && hasOpenDataChannel && hasVerificationCode && hasFingerprintMaterial;
+    }
+
+    _notifyVerificationReadyIfPossible() {
+        if (!this._isVerificationReady()) {
+            return false;
+        }
+
+        if (!this._verificationUiOpened) {
+            this._verificationUiOpened = true;
+            this.onStatusChange?.('verifying');
+            this.onVerificationRequired?.(this.verificationCode);
+        }
+
+        return true;
+    }
+
+    _countIceCandidatesInSDP(sdp) {
+        if (typeof sdp !== 'string') return 0;
+        return (sdp.match(/^a=candidate:/gm) || []).length;
+    }
+
+    _summarizeIceCandidatesInSDP(sdp) {
+        const summary = {
+            total: 0,
+            host: 0,
+            srflx: 0,
+            relay: 0,
+            prflx: 0,
+            unknown: 0
+        };
+
+        if (typeof sdp !== 'string') return summary;
+
+        for (const line of sdp.match(/^a=candidate:.*$/gm) || []) {
+            summary.total += 1;
+            const match = line.match(/\btyp\s+(host|srflx|relay|prflx)\b/i);
+            const type = match?.[1]?.toLowerCase();
+
+            if (type && Object.prototype.hasOwnProperty.call(summary, type)) {
+                summary[type] += 1;
+            } else {
+                summary.unknown += 1;
+            }
+        }
+
+        return summary;
+    }
+
+    async _collectIceFailureDiagnostics() {
+        if (!this.peerConnection?.getStats) return null;
+
+        try {
+            const stats = await this.peerConnection.getStats();
+            const candidates = new Map();
+            const candidatePairs = [];
+
+            stats.forEach((report) => {
+                if (report.type === 'local-candidate' || report.type === 'remote-candidate') {
+                    candidates.set(report.id, {
+                        type: report.type,
+                        candidateType: report.candidateType,
+                        protocol: report.protocol,
+                        address: report.address || report.ip || null,
+                        port: report.port || null,
+                        networkType: report.networkType || null
+                    });
+                }
+            });
+
+            stats.forEach((report) => {
+                if (report.type !== 'candidate-pair') return;
+                candidatePairs.push({
+                    state: report.state,
+                    nominated: !!report.nominated,
+                    writable: !!report.writable,
+                    bytesSent: report.bytesSent || 0,
+                    bytesReceived: report.bytesReceived || 0,
+                    currentRoundTripTime: report.currentRoundTripTime ?? null,
+                    local: candidates.get(report.localCandidateId) || null,
+                    remote: candidates.get(report.remoteCandidateId) || null
+                });
+            });
+
+            return {
+                pairCount: candidatePairs.length,
+                states: candidatePairs.reduce((acc, pair) => {
+                    acc[pair.state || 'unknown'] = (acc[pair.state || 'unknown'] || 0) + 1;
+                    return acc;
+                }, {}),
+                pairs: candidatePairs
+            };
+        } catch (error) {
+            return {
+                error: error?.message || 'Failed to collect ICE diagnostics'
+            };
+        }
     }
 
     /**
@@ -4310,6 +4430,9 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         this.lastSecurityLevelNotification = null;
         this.verificationNotificationSent = false;
         this.verificationInitiationSent = false;
+        this._verificationUiOpened = false;
+        this._sasLocalFingerprint = null;
+        this._sasRemoteFingerprint = null;
         this.disconnectNotificationSent = false;
         this.reconnectionFailedNotificationSent = false;
         this.peerDisconnectNotificationSent = false;
@@ -7048,6 +7171,9 @@ async processMessage(data) {
             this.verificationCode = null;
             this.pendingSASCode = null;
             this.sasValidationAttempts = 0;
+            this._verificationUiOpened = false;
+            this._sasLocalFingerprint = null;
+            this._sasRemoteFingerprint = null;
             
             // Clear key fingerprint and connection data
             this.keyFingerprint = null;
@@ -7302,9 +7428,14 @@ async processMessage(data) {
 
         this.peerConnection.onconnectionstatechange = () => {
             const state = this.peerConnection.connectionState;
+            console.info('[SecureBit ICE] connection state changed', {
+                connectionState: state,
+                iceConnectionState: this.peerConnection.iceConnectionState,
+                iceGatheringState: this.peerConnection.iceGatheringState
+            });
             
             if (state === 'connected' && !this.isVerified) {
-                this.onStatusChange('verifying');
+                this._notifyVerificationReadyIfPossible();
             } else if (state === 'connected' && this.isVerified) {
                 this.onStatusChange('connected');
             } else if (state === 'disconnected' || state === 'closed') {
@@ -7313,17 +7444,46 @@ async processMessage(data) {
                     this.onStatusChange('disconnected');
                     setTimeout(() => this.disconnect(), 100);
                 } else {
-                    this.onStatusChange('disconnected');
-                    // Clear verification states on unexpected disconnect
-                    this._clearVerificationStates();
+                    // Only emit disconnect if we were already verified (active session),
+                    // otherwise keep the UI alive so the user can copy the answer.
+                    if (this.isVerified || state === 'closed') {
+                        this.onStatusChange('disconnected');
+                        // Clear verification states on unexpected disconnect
+                        this._clearVerificationStates();
+                    } else {
+                        console.warn(`[SecureBit ICE] State is ${state} but not verified yet. Keeping session open for manual exchange.`);
+                    }
                 }
             } else if (state === 'failed') {
-                // Do not auto-reconnect to avoid closing the session on errors
-                this.onStatusChange('disconnected');
-
+                this._collectIceFailureDiagnostics().then((diagnostics) => {
+                    console.warn('[SecureBit ICE] failure diagnostics', diagnostics);
+                });
+                
+                // Do not auto-reconnect or close session during setup.
+                if (this.isVerified) {
+                    this.onStatusChange('disconnected');
+                } else {
+                    console.warn('[SecureBit ICE] State is failed but not verified yet. Keeping session open for manual exchange.');
+                }
             } else {
                 this.onStatusChange(state);
             }
+        };
+
+        this.peerConnection.oniceconnectionstatechange = () => {
+            console.info('[SecureBit ICE] ICE connection state changed', {
+                connectionState: this.peerConnection.connectionState,
+                iceConnectionState: this.peerConnection.iceConnectionState,
+                iceGatheringState: this.peerConnection.iceGatheringState
+            });
+        };
+
+        this.peerConnection.onicecandidateerror = (event) => {
+            console.warn('[SecureBit ICE] ICE candidate error', {
+                url: event.url,
+                errorCode: event.errorCode,
+                errorText: event.errorText
+            });
         };
 
         this.peerConnection.ondatachannel = (event) => {
@@ -7395,7 +7555,7 @@ async processMessage(data) {
                     this.notifySecurityUpdate();
                 }, 500);
             } else {
-                this.onStatusChange('verifying');
+                this._notifyVerificationReadyIfPossible();
                 this.initiateVerification();
             }
             this.startHeartbeat();
@@ -9503,8 +9663,34 @@ async processMessage(data) {
                     // Continue without fingerprint validation (fallback mode)
                 }
                 
-                // Await ICE gathering
-                await this.waitForIceGathering();
+                // Await ICE gathering. Manual out-of-band exchange does not use
+                // trickle ICE, so exporting an SDP before completion can strand
+                // late candidates that the remote peer will never receive.
+                const offerIceGatheringStartedAt = Date.now();
+                const offerIceGatheringCompleted = await this.waitForIceGathering();
+                const offerCandidateSummary = this._summarizeIceCandidatesInSDP(this.peerConnection.localDescription?.sdp);
+                const offerCandidateCount = offerCandidateSummary.total;
+                if (!offerIceGatheringCompleted && offerCandidateCount === 0) {
+                    throw new Error('ICE gathering did not produce candidates before invitation export');
+                }
+                this._secureLog(offerCandidateCount > 0 ? 'info' : 'warn', 'ICE candidates captured for offer export', {
+                    candidateSummary: offerCandidateSummary,
+                    iceGatheringState: this.peerConnection.iceGatheringState,
+                    iceGatheringDurationMs: Date.now() - offerIceGatheringStartedAt,
+                    iceGatheringCompleted: offerIceGatheringCompleted
+                });
+                console.info('[SecureBit ICE] offer export', {
+                    candidateSummary: offerCandidateSummary,
+                    iceGatheringState: this.peerConnection.iceGatheringState,
+                    iceGatheringDurationMs: Date.now() - offerIceGatheringStartedAt,
+                    iceGatheringCompleted: offerIceGatheringCompleted
+                });
+                if (!offerIceGatheringCompleted) {
+                    this.deliverMessageToUI('ICE gathering timed out before completion, but available candidates were included in the invitation. Connectivity may still fail on restrictive networks.', 'system');
+                }
+                if (offerCandidateCount === 0) {
+                    this.deliverMessageToUI('No ICE candidates were gathered for the invitation yet. The peer connection may fail unless network candidates become available.', 'system');
+                }
                 
                 this._secureLog('debug', 'ICE gathering completed', {
                     operationId: operationId,
@@ -9663,7 +9849,7 @@ async processMessage(data) {
                 // Re-throw for upper-level handling
                 throw error;
             }
-        }, 15000); // 15 seconds timeout for the entire offer creation
+        }, 60000); // 60 seconds timeout for the entire offer creation
     }
 
     /**
@@ -10136,6 +10322,10 @@ async processMessage(data) {
                         type: 'offer',
                         sdp: offerData.s || offerData.sdp
                     }));
+                    console.info('[SecureBit ICE] remote offer applied', {
+                        candidateSummary: this._summarizeIceCandidatesInSDP(this.peerConnection.remoteDescription?.sdp),
+                        signalingState: this.peerConnection.signalingState
+                    });
                     
                     this._secureLog('debug', 'Remote description set successfully', {
                         operationId: operationId,
@@ -10203,8 +10393,7 @@ async processMessage(data) {
                     const localFP = this.expectedDTLSFingerprint;
                     const keyBytes = this._decodeKeyFingerprint(this.keyFingerprint);
                     this.verificationCode = await this._computeSAS(keyBytes, localFP, remoteFP);
-                    this.onStatusChange?.('verifying');
-                    this.onVerificationRequired(this.verificationCode);
+                    this._setSASMaterialReady(localFP, remoteFP);
                 } catch (sasError) {
                     this._secureLog('error', 'SAS computation failed in createSecureAnswer (Answer side)', {
                         errorType: sasError?.constructor?.name || 'Unknown'
@@ -10213,8 +10402,34 @@ async processMessage(data) {
                 }
                 
                 
-                // Await ICE gathering
-                await this.waitForIceGathering();
+                // Await ICE gathering. Manual out-of-band exchange does not use
+                // trickle ICE, so exporting an SDP before completion can strand
+                // late candidates that the remote peer will never receive.
+                const answerIceGatheringStartedAt = Date.now();
+                const answerIceGatheringCompleted = await this.waitForIceGathering();
+                const answerCandidateSummary = this._summarizeIceCandidatesInSDP(this.peerConnection.localDescription?.sdp);
+                const answerCandidateCount = answerCandidateSummary.total;
+                if (!answerIceGatheringCompleted && answerCandidateCount === 0) {
+                    throw new Error('ICE gathering did not produce candidates before response export');
+                }
+                this._secureLog(answerCandidateCount > 0 ? 'info' : 'warn', 'ICE candidates captured for answer export', {
+                    candidateSummary: answerCandidateSummary,
+                    iceGatheringState: this.peerConnection.iceGatheringState,
+                    iceGatheringDurationMs: Date.now() - answerIceGatheringStartedAt,
+                    iceGatheringCompleted: answerIceGatheringCompleted
+                });
+                console.info('[SecureBit ICE] answer export', {
+                    candidateSummary: answerCandidateSummary,
+                    iceGatheringState: this.peerConnection.iceGatheringState,
+                    iceGatheringDurationMs: Date.now() - answerIceGatheringStartedAt,
+                    iceGatheringCompleted: answerIceGatheringCompleted
+                });
+                if (!answerIceGatheringCompleted) {
+                    this.deliverMessageToUI('ICE gathering timed out before completion, but available candidates were included in the response. Connectivity may still fail on restrictive networks.', 'system');
+                }
+                if (answerCandidateCount === 0) {
+                    this.deliverMessageToUI('No ICE candidates were gathered for the response yet. The peer connection may fail unless network candidates become available.', 'system');
+                }
                 
                 this._secureLog('debug', 'ICE gathering completed for answer', {
                     operationId: operationId,
@@ -10426,7 +10641,7 @@ async processMessage(data) {
                 // Re-throw for upper-level handling
                 throw error;
             }
-        }, 20000); // 20 seconds timeout for the entire answer creation (longer than offer)
+        }, 60000); // 60 seconds timeout for the entire answer creation (longer than offer)
     }
 
     /**
@@ -10686,11 +10901,12 @@ async processMessage(data) {
                 throw new Error('Response data is too old – possible replay attack');
             }
 
-            // Check protocol version compatibility
-            if (answerData.version !== '4.0') {
+            // Check protocol version compatibility using the normalized field so
+            // compact and legacy answer payloads are handled consistently.
+            if (answerVersion !== EnhancedSecureWebRTCManager.PROTOCOL_VERSION) {
                 window.EnhancedSecureCryptoUtils.secureLog.log('warn', 'Incompatible protocol version in answer', {
-                    expectedVersion: '4.0',
-                    receivedVersion: answerData.version
+                    expectedVersion: EnhancedSecureWebRTCManager.PROTOCOL_VERSION,
+                    receivedVersion: answerVersion
                 });
             }
 
@@ -10818,8 +11034,7 @@ async processMessage(data) {
                 const keyBytes = this._decodeKeyFingerprint(this.keyFingerprint); 
 
                 this.verificationCode = await this._computeSAS(keyBytes, localFP, remoteFP);
-                this.onStatusChange?.('verifying'); 
-                this.onVerificationRequired(this.verificationCode);
+                this._setSASMaterialReady(localFP, remoteFP);
                 
                 // CRITICAL: Store SAS code to send when data channel opens
                 this.pendingSASCode = this.verificationCode;
@@ -10869,6 +11084,13 @@ async processMessage(data) {
 
             // Support both full and compact SDP field names
             const sdpData = answerData.sdp || answerData.s;
+
+            if (this.peerConnection?.signalingState !== 'have-local-offer') {
+                this._secureLog('warn', 'Ignoring answer outside have-local-offer state', {
+                    signalingState: this.peerConnection?.signalingState || 'unknown'
+                });
+                return;
+            }
             
             this._secureLog('debug', 'Setting remote description from answer', {
                 sdpLength: sdpData?.length || 0,
@@ -10878,6 +11100,10 @@ async processMessage(data) {
             await this.peerConnection.setRemoteDescription({
                 type: 'answer',
                 sdp: sdpData
+            });
+            console.info('[SecureBit ICE] remote answer applied', {
+                candidateSummary: this._summarizeIceCandidatesInSDP(this.peerConnection.remoteDescription?.sdp),
+                signalingState: this.peerConnection.signalingState
             });
             
             this._secureLog('debug', 'Remote description set successfully from answer', {
@@ -11165,8 +11391,7 @@ async processMessage(data) {
         }
 
         this.verificationCode = data.code;
-        this.onStatusChange?.('verifying'); 
-        this.onVerificationRequired(this.verificationCode);
+        this._notifyVerificationReadyIfPossible();
         
         this._secureLog('info', 'SAS code received from Offer side', {
             sasCode: this.verificationCode,
@@ -11565,14 +11790,14 @@ async processMessage(data) {
     waitForIceGathering() {
         return new Promise((resolve) => {
             if (this.peerConnection.iceGatheringState === 'complete') {
-                resolve();
+                resolve(true);
                 return;
             }
 
             const checkState = () => {
                 if (this.peerConnection && this.peerConnection.iceGatheringState === 'complete') {
                     this.peerConnection.removeEventListener('icegatheringstatechange', checkState);
-                    resolve();
+                    resolve(true);
                 }
             };
             
@@ -11582,7 +11807,7 @@ async processMessage(data) {
                 if (this.peerConnection) {
                     this.peerConnection.removeEventListener('icegatheringstatechange', checkState);
                 }
-                resolve();
+                resolve(this.peerConnection?.iceGatheringState === 'complete');
             }, EnhancedSecureWebRTCManager.TIMEOUTS.ICE_GATHERING_TIMEOUT);
         });
     }

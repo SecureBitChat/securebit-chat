@@ -102,6 +102,10 @@ function fake(config = {}) {
 // ICE defaults are centralized and operator overrides remain untouched.
 {
     assert.equal(Array.isArray(EnhancedSecureWebRTCManager.DEFAULT_ICE_SERVERS), true);
+    assert.equal(
+        EnhancedSecureWebRTCManager.DEFAULT_ICE_SERVERS.some(server => server.urls === 'stun:stun.cloudflare.com:3478'),
+        true
+    );
     const overrideServers = [{ urls: ['stun:operator.example.test:3478', 'turn:operator.example.test:3478'] }];
     const manager = fake({ iceServers: overrideServers });
     const config = EnhancedSecureWebRTCManager.prototype._buildPeerConnectionConfig.call(manager);

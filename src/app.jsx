@@ -338,9 +338,11 @@ import { installDebugWindowHooks } from './utils/debugWindowHooks.js';
                     markAnswerCreated,
                     notificationIntegrationRef,
                     isGeneratingKeys,
+                    setIsGeneratingKeys,
                     handleCreateOffer,
                     relayOnlyMode,
-                    setRelayOnlyMode
+                    setRelayOnlyMode,
+                    webrtcManagerRef
                 }) => {
                     const [mode, setMode] = React.useState('select');
                     const [notificationPermissionRequested, setNotificationPermissionRequested] = React.useState(false);
@@ -784,6 +786,7 @@ import { installDebugWindowHooks } from './utils/debugWindowHooks.js';
                                                 text: (() => {
                                                     try {
                                                         const min = typeof offerData === 'object' ? JSON.stringify(offerData) : (offerData || '');
+                                                        if (!min) return '';
                                                         if (typeof window.encodeBinaryToPrefixed === 'function') {
                                                             return window.encodeBinaryToPrefixed(min);
                                                         }
@@ -1111,6 +1114,7 @@ import { installDebugWindowHooks } from './utils/debugWindowHooks.js';
                                             text: (() => {
                                                 try {
                                                     const min = typeof answerData === 'object' ? JSON.stringify(answerData) : (answerData || '');
+                                                    if (!min) return '';
                                                     if (typeof window.encodeBinaryToPrefixed === 'function') {
                                                         return window.encodeBinaryToPrefixed(min);
                                                     }
@@ -1609,22 +1613,16 @@ import { installDebugWindowHooks } from './utils/debugWindowHooks.js';
                     
                     // Check if we should preserve answer data
                     const shouldPreserveAnswerData = () => {
-                        const now = Date.now();
-                        const answerAge = now - (connectionState.answerCreatedAt || 0);
-                        const maxPreserveTime = 300000;
-        
+                        const hasAnswerData = !!answerData || 
+                                            (answerInput && typeof answerInput === 'string' && answerInput.trim().length > 0);
 
-                        const hasAnswerData = (answerData && typeof answerData === 'string' && answerData.trim().length > 0) || 
-                                            (answerInput && answerInput.trim().length > 0);
-
-                        const hasAnswerQR = qrCodeUrl && qrCodeUrl.trim().length > 0;
+                        const hasAnswerQR = qrCodeUrl && typeof qrCodeUrl === 'string' && qrCodeUrl.trim().length > 0;
                         
                         const shouldPreserve = (connectionState.hasActiveAnswer && 
-                               answerAge < maxPreserveTime && 
                                !connectionState.isUserInitiatedDisconnect) ||
-                               (hasAnswerData && answerAge < maxPreserveTime && 
+                               (hasAnswerData && 
                                !connectionState.isUserInitiatedDisconnect) ||
-                               (hasAnswerQR && answerAge < maxPreserveTime && 
+                               (hasAnswerQR && 
                                !connectionState.isUserInitiatedDisconnect);
                         
                         
@@ -3107,12 +3105,13 @@ import { installDebugWindowHooks } from './utils/debugWindowHooks.js';
                                         console.warn('Answer QR generation failed:', e);
                                     }
                                     
-                                    // Mark answer as created for state management
-                                    if (answerInput.trim().length > 0) {
+                                    // Mark generated answers as active immediately.
+                                    // `answerInput` is empty on the joiner path
+                                    // because the response was created locally,
+                                    // not pasted by the user.
                                     if (typeof markAnswerCreated === 'function') {
                                         markAnswerCreated();
                                     }
-                                }
 
         
                                 const existingResponseMessages = messages.filter(m => 
@@ -3747,9 +3746,11 @@ import { installDebugWindowHooks } from './utils/debugWindowHooks.js';
                                     markAnswerCreated: markAnswerCreated,
                                     notificationIntegrationRef: notificationIntegrationRef,
                                     isGeneratingKeys: isGeneratingKeys,
+                                    setIsGeneratingKeys: setIsGeneratingKeys,
                                     handleCreateOffer: handleCreateOffer,
                                     relayOnlyMode: relayOnlyMode,
-                                    setRelayOnlyMode: setRelayOnlyMode
+                                    setRelayOnlyMode: setRelayOnlyMode,
+                                    webrtcManagerRef: webrtcManagerRef
                                 })
                         ),
                         

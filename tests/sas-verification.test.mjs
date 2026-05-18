@@ -45,6 +45,32 @@ function createSASManager() {
     };
 }
 
+function createVerificationReadinessManager({
+    localDescription = { type: 'answer' },
+    remoteDescription = { type: 'offer' },
+    dataChannelState = 'connecting',
+    verificationCode = 'A1-B2-C3',
+    localFingerprint = 'AA:BB',
+    remoteFingerprint = 'CC:DD'
+} = {}) {
+    const notifications = [];
+    return {
+        peerConnection: { localDescription, remoteDescription },
+        dataChannel: { readyState: dataChannelState },
+        verificationCode,
+        _sasLocalFingerprint: localFingerprint,
+        _sasRemoteFingerprint: remoteFingerprint,
+        notifications,
+        _isVerificationReady: EnhancedSecureWebRTCManager.prototype._isVerificationReady,
+        onStatusChange(status) {
+            notifications.push({ kind: 'status', value: status });
+        },
+        onVerificationRequired(code) {
+            notifications.push({ kind: 'verification', value: code });
+        }
+    };
+}
+
 // testSASNormalization
 {
     const manager = createFakeManager();
@@ -169,6 +195,212 @@ function createSASManager() {
     assert.equal(
         EnhancedSecureWebRTCManager.prototype._extractDTLSFingerprintFromSDP.call(manager, sdp),
         'AA:AA'
+    );
+}
+
+// ICE diagnostics classify candidate types so connectivity failures are visible.
+{
+    const manager = createSASManager();
+    const sdp = [
+        'v=0',
+        'a=candidate:1 1 UDP 2122252543 192.168.1.2 54400 typ host',
+        'a=candidate:2 1 UDP 1686052607 203.0.113.10 40000 typ srflx raddr 192.168.1.2 rport 54400',
+        'a=candidate:3 1 UDP 41819902 198.51.100.20 50000 typ relay raddr 0.0.0.0 rport 0',
+        'a=candidate:4 1 UDP 1518280447 198.51.100.30 60000 typ prflx',
+        'a=candidate:5 1 UDP 1518280447 198.51.100.40 61000 generation 0'
+    ].join('\r\n');
+
+    assert.deepEqual(
+        EnhancedSecureWebRTCManager.prototype._summarizeIceCandidatesInSDP.call(manager, sdp),
+        { total: 5, host: 1, srflx: 1, relay: 1, prflx: 1, unknown: 1 }
+    );
+}
+
+// Manual exchange must not treat an ICE gathering timeout as completion.
+{
+    const listeners = new Map();
+    const manager = {
+        peerConnection: {
+            iceGatheringState: 'gathering',
+            addEventListener(eventName, handler) {
+                listeners.set(eventName, handler);
+            },
+            removeEventListener(eventName) {
+                listeners.delete(eventName);
+            }
+        }
+    };
+
+    const originalTimeout = EnhancedSecureWebRTCManager.TIMEOUTS.ICE_GATHERING_TIMEOUT;
+    EnhancedSecureWebRTCManager.TIMEOUTS.ICE_GATHERING_TIMEOUT = 0;
+    try {
+        assert.equal(
+            await EnhancedSecureWebRTCManager.prototype.waitForIceGathering.call(manager),
+            false
+        );
+    } finally {
+        EnhancedSecureWebRTCManager.TIMEOUTS.ICE_GATHERING_TIMEOUT = originalTimeout;
+    }
+}
+
+// A timed-out ICE gathering can still yield usable candidates for manual export.
+{
+    const summary = EnhancedSecureWebRTCManager.prototype._summarizeIceCandidatesInSDP.call(
+        createSASManager(),
+        'a=candidate:1 1 UDP 2122252543 192.168.1.2 54400 typ host\r\n'
+    );
+    assert.equal(summary.total > 0, true);
+}
+
+// ICE gathering resolves positively only after the peer reports completion.
+{
+    let listener = null;
+    const manager = {
+        peerConnection: {
+            iceGatheringState: 'gathering',
+            addEventListener(_eventName, handler) {
+                listener = handler;
+            },
+            removeEventListener() {}
+        }
+    };
+
+    const gathering = EnhancedSecureWebRTCManager.prototype.waitForIceGathering.call(manager);
+    manager.peerConnection.iceGatheringState = 'complete';
+    listener();
+    assert.equal(await gathering, true);
+}
+
+// ICE failure diagnostics summarize candidate-pair states without crashing.
+{
+    const reports = new Map([
+        ['local-1', { id: 'local-1', type: 'local-candidate', candidateType: 'host', protocol: 'udp', address: '192.168.1.2', port: 5000 }],
+        ['remote-1', { id: 'remote-1', type: 'remote-candidate', candidateType: 'srflx', protocol: 'udp', address: '203.0.113.10', port: 6000 }],
+        ['pair-1', { id: 'pair-1', type: 'candidate-pair', state: 'failed', nominated: false, writable: false, bytesSent: 0, bytesReceived: 0, localCandidateId: 'local-1', remoteCandidateId: 'remote-1' }]
+    ]);
+
+    const manager = {
+        peerConnection: {
+            async getStats() {
+                return reports;
+            }
+        }
+    };
+
+    assert.deepEqual(
+        await EnhancedSecureWebRTCManager.prototype._collectIceFailureDiagnostics.call(manager),
+        {
+            pairCount: 1,
+            states: { failed: 1 },
+            pairs: [{
+                state: 'failed',
+                nominated: false,
+                writable: false,
+                bytesSent: 0,
+                bytesReceived: 0,
+                currentRoundTripTime: null,
+                local: {
+                    type: 'local-candidate',
+                    candidateType: 'host',
+                    protocol: 'udp',
+                    address: '192.168.1.2',
+                    port: 5000,
+                    networkType: null
+                },
+                remote: {
+                    type: 'remote-candidate',
+                    candidateType: 'srflx',
+                    protocol: 'udp',
+                    address: '203.0.113.10',
+                    port: 6000,
+                    networkType: null
+                }
+            }]
+        }
+    );
+}
+
+// Remote SDP candidate summaries use the same parser as local diagnostics.
+{
+    const sdp = [
+        'v=0',
+        'a=candidate:1 1 UDP 2122252543 192.168.1.2 54400 typ host',
+        'a=candidate:2 1 UDP 1686052607 203.0.113.10 40000 typ srflx'
+    ].join('\r\n');
+    assert.deepEqual(
+        EnhancedSecureWebRTCManager.prototype._summarizeIceCandidatesInSDP.call(createSASManager(), sdp),
+        { total: 2, host: 1, srflx: 1, relay: 0, prflx: 0, unknown: 0 }
+    );
+}
+
+// Joining with an offer and generating an answer does not open verification
+// before the answer has been applied by the creator and the channel opens.
+{
+    const joiner = createVerificationReadinessManager({
+        dataChannelState: 'connecting'
+    });
+    assert.equal(EnhancedSecureWebRTCManager.prototype._isVerificationReady.call(joiner), false);
+    assert.equal(
+        EnhancedSecureWebRTCManager.prototype._notifyVerificationReadyIfPossible.call(joiner),
+        false
+    );
+    assert.deepEqual(joiner.notifications, []);
+}
+
+// The creator has applied the answer only once both descriptions exist; even
+// then verification waits for a real ready transport.
+{
+    const creatorBeforeAnswer = createVerificationReadinessManager({
+        remoteDescription: null,
+        dataChannelState: 'open'
+    });
+    assert.equal(EnhancedSecureWebRTCManager.prototype._isVerificationReady.call(creatorBeforeAnswer), false);
+
+    const creatorAfterAnswerBeforeOpen = createVerificationReadinessManager({
+        dataChannelState: 'connecting'
+    });
+    assert.equal(EnhancedSecureWebRTCManager.prototype._isVerificationReady.call(creatorAfterAnswerBeforeOpen), false);
+}
+
+// Verification opens only after negotiated descriptions, open data channel, and
+// valid SAS fingerprint material are all present.
+{
+    const missingFingerprint = createVerificationReadinessManager({
+        dataChannelState: 'open',
+        remoteFingerprint: ''
+    });
+    assert.equal(EnhancedSecureWebRTCManager.prototype._isVerificationReady.call(missingFingerprint), false);
+
+    const ready = createVerificationReadinessManager({
+        dataChannelState: 'open'
+    });
+    assert.equal(EnhancedSecureWebRTCManager.prototype._isVerificationReady.call(ready), true);
+    assert.equal(
+        EnhancedSecureWebRTCManager.prototype._notifyVerificationReadyIfPossible.call(ready),
+        true
+    );
+    assert.deepEqual(ready.notifications, [
+        { kind: 'status', value: 'verifying' },
+        { kind: 'verification', value: 'A1-B2-C3' }
+    ]);
+
+    // Existing happy path stays idempotent after the UI is opened once.
+    EnhancedSecureWebRTCManager.prototype._notifyVerificationReadyIfPossible.call(ready);
+    assert.equal(ready.notifications.length, 2);
+}
+
+// SDP diagnostics distinguish candidate-less exports from usable manual payloads.
+{
+    assert.equal(
+        EnhancedSecureWebRTCManager.prototype._countIceCandidatesInSDP.call({}, 'v=0\r\na=mid:0'),
+        0
+    );
+    assert.equal(
+        EnhancedSecureWebRTCManager.prototype._countIceCandidatesInSDP.call(
+            {},
+            'v=0\r\na=candidate:1 1 udp 1 192.0.2.1 1234 typ host\r\na=candidate:2 1 udp 1 198.51.100.1 2345 typ srflx'
+        ),
+        2
     );
 }
 
