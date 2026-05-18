@@ -1,0 +1,6 @@
+# Dependencies
+node_modules/
+
+# Local environment noise
+.npm/
+npm-debug.log*
