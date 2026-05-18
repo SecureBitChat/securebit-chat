@@ -153,12 +153,13 @@ class EnhancedSecureWebRTCManager {
                 useRandomHeaders: config.antiFingerprinting?.useRandomHeaders ?? false
             },
             webrtc: {
-                // `privacyMode` is the explicit operator-facing setting.
-                // Keep `relayOnly` as a backward-compatible alias.
+                // `privacyMode` is canonical; `relayOnly` remains a
+                // backward-compatible input alias at construction time.
                 privacyMode: config.webrtc?.privacyMode
                     ?? (config.webrtc?.relayOnly ? 'relay-only' : 'standard'),
-                relayOnly: config.webrtc?.relayOnly
-                    ?? config.webrtc?.privacyMode === 'relay-only',
+                relayOnly: config.webrtc?.privacyMode
+                    ? config.webrtc.privacyMode === 'relay-only'
+                    : config.webrtc?.relayOnly ?? false,
                 iceServers: config.webrtc?.iceServers
                     ?? EnhancedSecureWebRTCManager.DEFAULT_ICE_SERVERS.map(server => ({ ...server }))
             }
@@ -7263,8 +7264,13 @@ async processMessage(data) {
     }
 
     _isRelayOnlyMode() {
-        return this._config.webrtc.privacyMode === 'relay-only'
-            || this._config.webrtc.relayOnly === true;
+        return this._config.webrtc.privacyMode === 'relay-only';
+    }
+
+    _setRelayOnlyMode(relayOnly) {
+        const enabled = relayOnly === true;
+        this._config.webrtc.privacyMode = enabled ? 'relay-only' : 'standard';
+        this._config.webrtc.relayOnly = enabled;
     }
 
     _warnIfTurnMissing() {

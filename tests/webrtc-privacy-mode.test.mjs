@@ -25,7 +25,8 @@ function fake(config = {}) {
             this.delivered.push({ message, type });
         },
         _hasTurnServer: EnhancedSecureWebRTCManager.prototype._hasTurnServer,
-        _isRelayOnlyMode: EnhancedSecureWebRTCManager.prototype._isRelayOnlyMode
+        _isRelayOnlyMode: EnhancedSecureWebRTCManager.prototype._isRelayOnlyMode,
+        _setRelayOnlyMode: EnhancedSecureWebRTCManager.prototype._setRelayOnlyMode
     };
 }
 
@@ -49,6 +50,27 @@ function fake(config = {}) {
     const manager = fake({ relayOnly: true, iceServers: [{ urls: 'turn:turn.example.test:3478' }] });
     const config = EnhancedSecureWebRTCManager.prototype._buildPeerConnectionConfig.call(manager);
     assert.equal(config.iceTransportPolicy, 'relay');
+}
+
+// Runtime toggles keep the canonical privacy state synchronized.
+{
+    const manager = fake({ privacyMode: 'standard', iceServers: [{ urls: 'turn:turn.example.test:3478' }] });
+    manager._setRelayOnlyMode(true);
+    assert.equal(manager._config.webrtc.privacyMode, 'relay-only');
+    assert.equal(manager._config.webrtc.relayOnly, true);
+    assert.equal(EnhancedSecureWebRTCManager.prototype._buildPeerConnectionConfig.call(manager).iceTransportPolicy, 'relay');
+
+    manager._setRelayOnlyMode(false);
+    assert.equal(manager._config.webrtc.privacyMode, 'standard');
+    assert.equal(manager._config.webrtc.relayOnly, false);
+    assert.equal(EnhancedSecureWebRTCManager.prototype._buildPeerConnectionConfig.call(manager).iceTransportPolicy, undefined);
+}
+
+// Canonical privacyMode wins over a stale legacy alias.
+{
+    const manager = fake({ privacyMode: 'standard', relayOnly: true, iceServers: [{ urls: 'turn:turn.example.test:3478' }] });
+    assert.equal(manager._isRelayOnlyMode(), false);
+    assert.equal(EnhancedSecureWebRTCManager.prototype._buildPeerConnectionConfig.call(manager).iceTransportPolicy, undefined);
 }
 
 // Missing TURN in standard mode warns clearly and visibly.

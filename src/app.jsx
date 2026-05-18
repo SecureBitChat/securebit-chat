@@ -1752,7 +1752,7 @@ import { installDebugWindowHooks } from './utils/debugWindowHooks.js';
                     React.useEffect(() => {
                         try { localStorage.setItem('securebit_relay_only_mode', String(relayOnlyMode)); } catch {}
                         if (webrtcManagerRef.current?._config?.webrtc) {
-                            webrtcManagerRef.current._config.webrtc.relayOnly = relayOnlyMode;
+                            webrtcManagerRef.current._setRelayOnlyMode(relayOnlyMode);
                         }
                     }, [relayOnlyMode]);
                     
