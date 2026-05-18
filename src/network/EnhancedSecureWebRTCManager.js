@@ -11735,9 +11735,6 @@ async processMessage(data) {
             this.intentionalDisconnect = true;
             window.EnhancedSecureCryptoUtils.secureLog.log('info', 'Starting intentional disconnect');
             this.sendDisconnectNotification();
-            setTimeout(() => {
-                this.sendDisconnectNotification();
-            }, 100);
 
             // Stop every timer-backed subsystem first.
             this._stopAllTimers();

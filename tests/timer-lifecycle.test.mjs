@@ -114,6 +114,62 @@ try {
         assert.equal(scheduled[0].cleared, true);
         assert.equal(disconnectCalls, 0);
     }
+
+    // Intentional disconnect performs notification before teardown without leaving a delayed retry timer behind.
+    {
+        let notifications = 0;
+        const manager = {
+            _sessionAlive: true,
+            _activeTimers: new Set(),
+            intentionalDisconnect: false,
+            fileTransferSystem: null,
+            dataChannel: null,
+            heartbeatChannel: null,
+            peerConnection: null,
+            decoyTimers: new Map(),
+            decoyChannels: new Map(),
+            packetBuffer: new Map(),
+            chunkQueue: [],
+            processedMessageIds: new Set(),
+            messageCounter: 0,
+            keyVersions: new Map(),
+            oldKeys: new Map(),
+            currentKeyVersion: 0,
+            lastKeyRotation: 0,
+            sequenceNumber: 0,
+            expectedSequenceNumber: 0,
+            replayWindow: new Set(),
+            messageQueue: [],
+            _heartbeatConfig: {},
+            _secureLog() {},
+            _stopAllTimers: EnhancedSecureWebRTCManager.prototype._stopAllTimers,
+            stopHeartbeat() {},
+            stopFakeTrafficGeneration() {},
+            _wipeEphemeralKeys() {},
+            _hardWipeOldKeys() {},
+            _secureCleanupCryptographicMaterials() {},
+            _clearVerificationStates() {},
+            _secureWipeMemory() {},
+            _forceGarbageCollection() { return Promise.resolve(); },
+            sendDisconnectNotification() { notifications += 1; },
+            onStatusChange() {},
+            onKeyExchange() {},
+            onVerificationRequired() {}
+        };
+
+        const timersBeforeDisconnect = timers.length;
+        EnhancedSecureWebRTCManager.prototype.disconnect.call(manager);
+        assert.equal(notifications, 1);
+        assert.equal(manager._activeTimers.size, 0);
+        assert.equal(timers.length, timersBeforeDisconnect);
+
+        // A second disconnect/reconnect-style cycle still does not accumulate deferred timers.
+        manager._sessionAlive = true;
+        EnhancedSecureWebRTCManager.prototype.disconnect.call(manager);
+        assert.equal(notifications, 2);
+        assert.equal(manager._activeTimers.size, 0);
+        assert.equal(timers.length, timersBeforeDisconnect);
+    }
 } finally {
     globalThis.setTimeout = realSetTimeout;
     globalThis.clearTimeout = realClearTimeout;
