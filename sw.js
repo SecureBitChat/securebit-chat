@@ -286,7 +286,12 @@ async function handleRequest(request) {
     
     try {
         // Strategy 1: Cache First (only for essential PWA assets)
-        if (CACHE_FIRST_PATTERNS.some(pattern => pattern.test(url.pathname))) {
+        if (
+            url.origin === self.location.origin &&
+            isCacheableStaticPath(url.pathname) &&
+            !isSensitivePath(url.pathname) &&
+            CACHE_FIRST_PATTERNS.some(pattern => pattern.test(url.pathname))
+        ) {
             return await cacheFirst(request);
         }
         
@@ -306,6 +311,7 @@ async function handleRequest(request) {
 
 // Cache First strategy with Response cloning fix
 async function cacheFirst(request) {
+    const url = new URL(request.url);
     const cachedResponse = await caches.match(request);
     if (cachedResponse) {
         return cachedResponse;
@@ -313,7 +319,13 @@ async function cacheFirst(request) {
     
     try {
         const networkResponse = await fetch(request);
-        if (networkResponse && networkResponse.ok) {
+        if (
+            networkResponse &&
+            networkResponse.ok &&
+            url.origin === self.location.origin &&
+            isCacheableStaticPath(url.pathname) &&
+            !isSensitivePath(url.pathname)
+        ) {
             // Clone the response before using it
             const responseToCache = networkResponse.clone();
             const cache = await caches.open(STATIC_CACHE);
