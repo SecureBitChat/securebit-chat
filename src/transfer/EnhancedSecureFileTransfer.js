@@ -336,6 +336,9 @@ class EnhancedSecureFileTransfer {
         this.transferQueue = []; // Queue for pending transfers
         this.pendingChunks = new Map();
         this.incomingOfferLimiter = new RateLimiter(5, 60000);
+        this.incomingChunkLimiter = new RateLimiter(240, 60000);
+        this.incomingTransferChunkLimiters = new Map();
+        this.MAX_INCOMING_CHUNKS_PER_TRANSFER_PER_MINUTE = 120;
         this.MAX_PENDING_INCOMING_TRANSFERS = 3;
         
         // Session key derivation
@@ -1224,6 +1227,12 @@ class EnhancedSecureFileTransfer {
                     if (!receivingState) {
                         return;
                     }
+
+                    if (!this._isIncomingChunkAllowed(chunkMessage.fileId)) {
+                        console.warn('⚠️ Incoming file chunk rate limit exceeded; cleaning up transfer:', chunkMessage.fileId);
+                        this.cleanupReceivingTransfer(chunkMessage.fileId);
+                        return;
+                    }
                     
                     // Update last chunk time
                     receivingState.lastChunkTime = Date.now();
@@ -1308,6 +1317,35 @@ class EnhancedSecureFileTransfer {
                 }
             }
         );
+    }
+
+    _isIncomingChunkAllowed(fileId) {
+        const clientId = this.getClientIdentifier();
+        if (!this.incomingChunkLimiter.isAllowed(clientId)) {
+            SecurityErrorHandler.logSecurityEvent('incoming_chunk_aggregate_rate_limit_exceeded', {
+                clientId,
+                fileId
+            });
+            return false;
+        }
+
+        if (!this.incomingTransferChunkLimiters.has(fileId)) {
+            this.incomingTransferChunkLimiters.set(
+                fileId,
+                new RateLimiter(this.MAX_INCOMING_CHUNKS_PER_TRANSFER_PER_MINUTE, 60000)
+            );
+        }
+
+        const transferLimiter = this.incomingTransferChunkLimiters.get(fileId);
+        if (!transferLimiter.isAllowed(fileId)) {
+            SecurityErrorHandler.logSecurityEvent('incoming_chunk_transfer_rate_limit_exceeded', {
+                clientId,
+                fileId
+            });
+            return false;
+        }
+
+        return true;
     }
 
     async assembleFile(receivingState) {
@@ -1651,6 +1689,7 @@ class EnhancedSecureFileTransfer {
         this.activeTransfers.delete(fileId);
         this.sessionKeys.delete(fileId);
         this.transferNonces.delete(fileId);
+        this.incomingTransferChunkLimiters.delete(fileId);
         
         // Remove processed chunk IDs for this transfer
         for (const chunkId of this.processedChunks) {
@@ -1751,6 +1790,7 @@ class EnhancedSecureFileTransfer {
             // Удаляем из основных коллекций
             this.receivingTransfers.delete(fileId);
             this.sessionKeys.delete(fileId);
+            this.incomingTransferChunkLimiters.delete(fileId);
             
             // ✅ БЕЗОПАСНАЯ очистка финального буфера файла
             const fileBuffer = this.receivedFileBuffers.get(fileId);
@@ -1903,6 +1943,10 @@ class EnhancedSecureFileTransfer {
         if (this.rateLimiter) {
             this.rateLimiter.requests.clear();
         }
+        if (this.incomingChunkLimiter) {
+            this.incomingChunkLimiter.requests.clear();
+        }
+        this.incomingTransferChunkLimiters.clear();
         
         // Clear all state
         this.pendingChunks.clear();
