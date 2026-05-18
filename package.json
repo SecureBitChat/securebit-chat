@@ -11,7 +11,7 @@
     "dev": "npm run build && python -m http.server 8000",
     "watch": "npx tailwindcss -i src/styles/tw-input.css -o assets/tailwind.css --watch",
     "serve": "npx http-server -p 8000",
-    "test": "node tests/sas-verification.test.mjs && node tests/file-transfer-consent.test.mjs && node tests/incoming-message-sanitization.test.mjs && node tests/file-type-allowlist.test.mjs && node tests/webrtc-privacy-mode.test.mjs && node tests/indexeddb-metadata-encryption.test.mjs && node tests/disconnect-cleanup.test.mjs && node tests/timer-lifecycle.test.mjs && node tests/file-transfer-cleanup.test.mjs && node tests/file-transfer-ui-cleanup.test.mjs && node tests/file-transfer-callback-propagation.test.mjs && node tests/debug-window-hooks.test.mjs"
+    "test": "node tests/sas-verification.test.mjs && node tests/file-transfer-consent.test.mjs && node tests/incoming-message-sanitization.test.mjs && node tests/file-type-allowlist.test.mjs && node tests/webrtc-privacy-mode.test.mjs && node tests/indexeddb-metadata-encryption.test.mjs && node tests/disconnect-cleanup.test.mjs && node tests/timer-lifecycle.test.mjs && node tests/file-transfer-cleanup.test.mjs && node tests/file-transfer-ui-cleanup.test.mjs && node tests/file-transfer-callback-propagation.test.mjs && node tests/debug-window-hooks.test.mjs && node tests/inbound-message-rate-limit.test.mjs"
   },
   "keywords": [
     "p2p",

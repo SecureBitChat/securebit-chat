@@ -1486,6 +1486,47 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         return true;
     }
 
+    /**
+     * Dedicated receiver-side limiter. Keep separate from outbound quotas so a
+     * noisy peer cannot consume local send capacity or force decrypt/render work.
+     */
+    _checkInboundRateLimit(context = 'incoming_message') {
+        const now = Date.now();
+
+        if (!this._inboundRateLimiter) {
+            this._inboundRateLimiter = {
+                messageCount: 0,
+                lastReset: now,
+                burstCount: 0,
+                lastBurstReset: now
+            };
+        }
+
+        if (now - this._inboundRateLimiter.lastReset > 60000) {
+            this._inboundRateLimiter.messageCount = 0;
+            this._inboundRateLimiter.lastReset = now;
+        }
+
+        if (now - this._inboundRateLimiter.lastBurstReset > 1000) {
+            this._inboundRateLimiter.burstCount = 0;
+            this._inboundRateLimiter.lastBurstReset = now;
+        }
+
+        if (this._inboundRateLimiter.burstCount >= this._inputValidationLimits.rateLimitBurstSize) {
+            this._secureLog('warn', '⚠️ Inbound message burst limit exceeded; dropping message', { context });
+            return false;
+        }
+
+        if (this._inboundRateLimiter.messageCount >= this._inputValidationLimits.rateLimitMessagesPerMinute) {
+            this._secureLog('warn', '⚠️ Inbound message rate limit exceeded; dropping message', { context });
+            return false;
+        }
+
+        this._inboundRateLimiter.messageCount++;
+        this._inboundRateLimiter.burstCount++;
+        return true;
+    }
+
     // ============================================
     // SECURE KEY STORAGE MANAGEMENT
     // ============================================
@@ -6416,6 +6457,9 @@ async processMessage(data) {
                 
                 if (parsed.type === 'enhanced_message') {
                     this._secureLog('debug', '🔐 Enhanced message detected in processMessage');
+                    if (!this._checkInboundRateLimit('processMessage:enhanced_message')) {
+                        return;
+                    }
                     
                     try {
                         // Decrypt enhanced message
@@ -6458,6 +6502,9 @@ async processMessage(data) {
                 
                 if (parsed.type === 'message') {
                     this._secureLog('debug', '📝 Regular user message detected in processMessage');
+                    if (!this._checkInboundRateLimit('processMessage:message')) {
+                        return;
+                    }
                     if (this.onMessage && parsed.data) {
                         this.deliverMessageToUI(parsed.data, 'received');
                     }
@@ -6484,6 +6531,9 @@ async processMessage(data) {
                 
             } catch (jsonError) {
                 // Not JSON — treat as text WITHOUT mutex
+                if (!this._checkInboundRateLimit('processMessage:text')) {
+                    return;
+                }
                 if (this.onMessage) {
                     this.deliverMessageToUI(data, 'received');
                 }
@@ -7448,6 +7498,9 @@ async processMessage(data) {
                         // ============================================
                         
                         if (parsed.type === 'message' && parsed.data) {
+                            if (!this._checkInboundRateLimit('dataChannel:message')) {
+                                return;
+                            }
                             if (this.onMessage) {
                                 this.deliverMessageToUI(parsed.data, 'received');
                             }
@@ -7466,6 +7519,9 @@ async processMessage(data) {
                         
                     } catch (jsonError) {
                         // Not JSON — treat as regular text message
+                        if (!this._checkInboundRateLimit('dataChannel:text')) {
+                            return;
+                        }
                         if (this.onMessage) {
                             this.deliverMessageToUI(event.data, 'received');
                         }
@@ -7484,6 +7540,9 @@ async processMessage(data) {
         // FIX 4: New method for processing binary data WITHOUT mutex
     async _processBinaryDataWithoutMutex(data) {
         try {
+            if (!this._checkInboundRateLimit('binary_message')) {
+                return;
+            }
             
             // Apply security layers WITHOUT mutex
             let processedData = data;
@@ -7546,6 +7605,9 @@ async processMessage(data) {
     // FIX 3: New method for processing enhanced messages WITHOUT mutex
     async _processEnhancedMessageWithoutMutex(parsedMessage) {
         try {
+            if (!this._checkInboundRateLimit('enhanced_message')) {
+                return;
+            }
             
             if (!this.encryptionKey || !this.macKey || !this.metadataKey) {
                 this._secureLog('error', 'Missing encryption keys for enhanced message');
