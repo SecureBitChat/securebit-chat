@@ -1,4 +1,4 @@
-# SecureBit.chat v4.8.5
+# SecureBit.chat v4.8.6
 
 SecureBit.chat is a browser-based peer-to-peer chat application built on WebRTC and Web Crypto APIs. It is designed for direct encrypted communication, explicit peer verification, and a small operational footprint without account registration or server-side message storage.
 
@@ -15,20 +15,18 @@ SecureBit.chat uses:
 
 A session is not treated as verified until both peers complete the interactive SAS flow. Each user must compare the displayed code with the peer through an out-of-band channel and enter the matching code manually. Three failed SAS attempts terminate the session.
 
-## Highlights in v4.8.5
+## Highlights in v4.8.6
 
-This release consolidates several months of security hardening work by the project team:
+This patch release strengthens the existing security model with a focused hardening pass:
 
-- mandatory interactive SAS verification instead of passive click-through confirmation
-- deterministic SAS computation from shared session material
-- protocol version `4.1` negotiation with mismatch rejection
-- optional TURN relay-only privacy mode with clear warnings when TURN is unavailable
-- encrypted IndexedDB metadata with lazy migration from legacy plaintext records
-- explicit file-transfer consent before any receive buffers are allocated
-- strict file-type allowlist using both MIME type and extension checks
-- incoming decrypted message sanitization before UI delivery
-- improved disconnect, timer, file-transfer, and React UI cleanup behavior
-- pinned dependency versions and a clean `npm audit` baseline
+- SAS verification is bound to the actual DTLS fingerprint strings of both peers
+- chat sanitization uses DOMPurify-backed text-only output
+- WebRTC privacy mode is explicit and relay-only state stays synchronized at runtime
+- production debug window hooks are gated behind an explicit debug flag
+- receiver-side throttling covers inbound messages and file chunks
+- service-worker caching is restricted to an explicit safe-asset allowlist
+- disconnect cleanup leaves no orphaned delayed timer behind
+- `node_modules` is no longer tracked in Git
 
 ## Quick start
 
