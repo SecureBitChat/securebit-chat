@@ -1,4 +1,4 @@
-
+import { installDebugWindowHooks } from './utils/debugWindowHooks.js';
                 // Enhanced Copy Button with better UX
                 const EnhancedCopyButton = ({ text, className = "", children }) => {
                     const [copied, setCopied] = React.useState(false);
@@ -1639,32 +1639,18 @@
                         });
                     };
                     
-                    // Global functions for cleanup
-                    React.useEffect(() => {
-                        window.forceCleanup = () => {
-                            handleClearData();
-                            if (webrtcManagerRef.current) {
-                                webrtcManagerRef.current.disconnect();
-                            }
-                        };
-
-                        window.clearLogs = () => {
-                            if (typeof console.clear === 'function') {
-                                console.clear();
-                            }
-                        };
-                        
-                        return () => {
-                            delete window.forceCleanup;
-                            delete window.clearLogs;
-                        };
-                    }, []);
-        
                     const webrtcManagerRef = React.useRef(null);
                     const notificationIntegrationRef = React.useRef(null);
-                    // Expose for modules/UI that run outside this closure (e.g., inline handlers)
-                    // Safe because it's a ref object and we maintain it centrally here
-                    window.webrtcManagerRef = webrtcManagerRef;
+
+                    // Development-only debug helpers. Production never exposes
+                    // manager internals or cleanup controls on `window`.
+                    React.useEffect(() => {
+                        return installDebugWindowHooks({
+                            targetWindow: window,
+                            webrtcManagerRef,
+                            onClearData: handleClearData
+                        });
+                    }, []);
         
                     const addMessageWithAutoScroll = React.useCallback((message, type) => {
                         const newMessage = {
