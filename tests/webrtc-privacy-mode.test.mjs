@@ -112,4 +112,30 @@ function fake(config = {}) {
     assert.equal(config.iceServers, overrideServers);
 }
 
+// ICE config diagnostics reveal whether TURN credentials were loaded without
+// printing sensitive usernames or passwords.
+{
+    const manager = fake({
+        iceServers: [
+            { urls: 'stun:stun.example.test:3478' },
+            {
+                urls: ['turn:turn.example.test:3478?transport=udp', 'turns:turn.example.test:443?transport=tcp'],
+                username: 'user',
+                credential: 'secret'
+            }
+        ]
+    });
+    const summary = EnhancedSecureWebRTCManager.prototype._summarizeIceServerConfig.call(
+        manager,
+        manager._config.webrtc.iceServers
+    );
+    assert.deepEqual(summary, {
+        serverCount: 2,
+        stun: 1,
+        turn: 1,
+        turns: 1,
+        hasCredentials: true
+    });
+}
+
 console.log('WebRTC privacy mode tests passed');

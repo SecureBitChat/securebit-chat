@@ -1,3 +1,36 @@
+// src/utils/debugWindowHooks.js
+function isSecureBitDebugEnabled(targetWindow = globalThis.window) {
+  return targetWindow?.SECUREBIT_DEBUG === true;
+}
+function installDebugWindowHooks({
+  targetWindow = globalThis.window,
+  webrtcManagerRef,
+  onClearData,
+  clearConsole = () => {
+    if (typeof console.clear === "function") {
+      console.clear();
+    }
+  }
+}) {
+  if (!isSecureBitDebugEnabled(targetWindow)) {
+    return () => {
+    };
+  }
+  targetWindow.forceCleanup = () => {
+    onClearData();
+    if (webrtcManagerRef.current) {
+      webrtcManagerRef.current.disconnect();
+    }
+  };
+  targetWindow.clearLogs = clearConsole;
+  targetWindow.webrtcManagerRef = webrtcManagerRef;
+  return () => {
+    delete targetWindow.forceCleanup;
+    delete targetWindow.clearLogs;
+    delete targetWindow.webrtcManagerRef;
+  };
+}
+
 // src/app.jsx
 var EnhancedCopyButton = ({ text, className = "", children }) => {
   const [copied, setCopied] = React.useState(false);
@@ -322,9 +355,11 @@ var EnhancedConnectionSetup = ({
   markAnswerCreated,
   notificationIntegrationRef,
   isGeneratingKeys,
+  setIsGeneratingKeys,
   handleCreateOffer,
   relayOnlyMode,
-  setRelayOnlyMode
+  setRelayOnlyMode,
+  webrtcManagerRef
 }) => {
   const [mode, setMode] = React.useState("select");
   const [notificationPermissionRequested, setNotificationPermissionRequested] = React.useState(false);
@@ -714,6 +749,7 @@ var EnhancedConnectionSetup = ({
                   text: (() => {
                     try {
                       const min = typeof offerData === "object" ? JSON.stringify(offerData) : offerData || "";
+                      if (!min) return "";
                       if (typeof window.encodeBinaryToPrefixed === "function") {
                         return window.encodeBinaryToPrefixed(min);
                       }
@@ -1032,6 +1068,7 @@ var EnhancedConnectionSetup = ({
               text: (() => {
                 try {
                   const min = typeof answerData === "object" ? JSON.stringify(answerData) : answerData || "";
+                  if (!min) return "";
                   if (typeof window.encodeBinaryToPrefixed === "function") {
                     return window.encodeBinaryToPrefixed(min);
                   }
@@ -1449,7 +1486,7 @@ var EnhancedSecureP2PChat = () => {
   const [qrCodeUrl, setQrCodeUrl] = React.useState("");
   const [showQRScanner, setShowQRScanner] = React.useState(false);
   const [showQRScannerModal, setShowQRScannerModal] = React.useState(false);
-  const [isGeneratingKeys, setIsGeneratingKeys2] = React.useState(false);
+  const [isGeneratingKeys, setIsGeneratingKeys] = React.useState(false);
   const [isVerified, setIsVerified] = React.useState(false);
   const [securityLevel, setSecurityLevel] = React.useState(null);
   const [sessionTimeLeft, setSessionTimeLeft] = React.useState(0);
@@ -1474,12 +1511,9 @@ var EnhancedSecureP2PChat = () => {
     }));
   };
   const shouldPreserveAnswerData = () => {
-    const now = Date.now();
-    const answerAge = now - (connectionState.answerCreatedAt || 0);
-    const maxPreserveTime = 3e5;
-    const hasAnswerData = answerData && typeof answerData === "string" && answerData.trim().length > 0 || answerInput && answerInput.trim().length > 0;
-    const hasAnswerQR = qrCodeUrl && qrCodeUrl.trim().length > 0;
-    const shouldPreserve = connectionState.hasActiveAnswer && answerAge < maxPreserveTime && !connectionState.isUserInitiatedDisconnect || hasAnswerData && answerAge < maxPreserveTime && !connectionState.isUserInitiatedDisconnect || hasAnswerQR && answerAge < maxPreserveTime && !connectionState.isUserInitiatedDisconnect;
+    const hasAnswerData = !!answerData || answerInput && typeof answerInput === "string" && answerInput.trim().length > 0;
+    const hasAnswerQR = qrCodeUrl && typeof qrCodeUrl === "string" && qrCodeUrl.trim().length > 0;
+    const shouldPreserve = connectionState.hasActiveAnswer && !connectionState.isUserInitiatedDisconnect || hasAnswerData && !connectionState.isUserInitiatedDisconnect || hasAnswerQR && !connectionState.isUserInitiatedDisconnect;
     return shouldPreserve;
   };
   const markAnswerCreated = () => {
@@ -1488,26 +1522,15 @@ var EnhancedSecureP2PChat = () => {
       answerCreatedAt: Date.now()
     });
   };
-  React.useEffect(() => {
-    window.forceCleanup = () => {
-      handleClearData();
-      if (webrtcManagerRef2.current) {
-        webrtcManagerRef2.current.disconnect();
-      }
-    };
-    window.clearLogs = () => {
-      if (typeof console.clear === "function") {
-        console.clear();
-      }
-    };
-    return () => {
-      delete window.forceCleanup;
-      delete window.clearLogs;
-    };
-  }, []);
-  const webrtcManagerRef2 = React.useRef(null);
+  const webrtcManagerRef = React.useRef(null);
   const notificationIntegrationRef = React.useRef(null);
-  window.webrtcManagerRef = webrtcManagerRef2;
+  React.useEffect(() => {
+    return installDebugWindowHooks({
+      targetWindow: window,
+      webrtcManagerRef,
+      onClearData: handleClearData
+    });
+  }, []);
   const addMessageWithAutoScroll = React.useCallback((message, type) => {
     const newMessage = {
       message,
@@ -1548,7 +1571,7 @@ var EnhancedSecureP2PChat = () => {
     }
     window.isUpdatingSecurity = true;
     try {
-      if (webrtcManagerRef2.current) {
+      if (webrtcManagerRef.current) {
         setSecurityLevel({
           level: "MAXIMUM",
           score: 100,
@@ -1559,7 +1582,7 @@ var EnhancedSecureP2PChat = () => {
           isRealData: true
         });
         if (window.DEBUG_MODE) {
-          const currentLevel = webrtcManagerRef2.current.ecdhKeyPair && webrtcManagerRef2.current.ecdsaKeyPair ? await webrtcManagerRef2.current.calculateSecurityLevel() : {
+          const currentLevel = webrtcManagerRef.current.ecdhKeyPair && webrtcManagerRef.current.ecdsaKeyPair ? await webrtcManagerRef.current.calculateSecurityLevel() : {
             level: "MAXIMUM",
             score: 100,
             sessionType: "premium",
@@ -1589,8 +1612,8 @@ var EnhancedSecureP2PChat = () => {
       localStorage.setItem("securebit_relay_only_mode", String(relayOnlyMode));
     } catch {
     }
-    if (webrtcManagerRef2.current?._config?.webrtc) {
-      webrtcManagerRef2.current._config.webrtc.relayOnly = relayOnlyMode;
+    if (webrtcManagerRef.current?._config?.webrtc) {
+      webrtcManagerRef.current._setRelayOnlyMode(relayOnlyMode);
     }
   }, [relayOnlyMode]);
   React.useEffect(() => {
@@ -1601,7 +1624,7 @@ var EnhancedSecureP2PChat = () => {
     }
   }, [messages]);
   React.useEffect(() => {
-    if (webrtcManagerRef2.current) {
+    if (webrtcManagerRef.current) {
       console.log("\u26A0\uFE0F WebRTC Manager already initialized, skipping...");
       return;
     }
@@ -1763,7 +1786,7 @@ var EnhancedSecureP2PChat = () => {
     if (typeof console.clear === "function") {
       console.clear();
     }
-    webrtcManagerRef2.current = new EnhancedSecureWebRTCManager(
+    webrtcManagerRef.current = new EnhancedSecureWebRTCManager(
       handleMessage,
       handleStatusChange,
       handleKeyExchange,
@@ -1779,7 +1802,7 @@ var EnhancedSecureP2PChat = () => {
     );
     if (typeof Notification !== "undefined" && Notification && Notification.permission === "granted" && window.NotificationIntegration && !notificationIntegrationRef.current) {
       try {
-        const integration = new window.NotificationIntegration(webrtcManagerRef2.current);
+        const integration = new window.NotificationIntegration(webrtcManagerRef.current);
         integration.init().then(() => {
           notificationIntegrationRef.current = integration;
         }).catch((error) => {
@@ -1787,12 +1810,12 @@ var EnhancedSecureP2PChat = () => {
       } catch (error) {
       }
     }
-    handleMessage(" SecureBit.chat Enhanced Security Edition v4.8.5 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.", "system");
+    handleMessage(" SecureBit.chat Enhanced Security Edition v4.8.7 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.", "system");
     const handleBeforeUnload = (event) => {
       if (event.type === "beforeunload" && !isTabSwitching) {
-        if (webrtcManagerRef2.current && webrtcManagerRef2.current.isConnected()) {
+        if (webrtcManagerRef.current && webrtcManagerRef.current.isConnected()) {
           try {
-            webrtcManagerRef2.current.sendSystemMessage({
+            webrtcManagerRef.current.sendSystemMessage({
               type: "peer_disconnect",
               reason: "user_disconnect",
               timestamp: Date.now()
@@ -1800,12 +1823,12 @@ var EnhancedSecureP2PChat = () => {
           } catch (error) {
           }
           setTimeout(() => {
-            if (webrtcManagerRef2.current) {
-              webrtcManagerRef2.current.disconnect();
+            if (webrtcManagerRef.current) {
+              webrtcManagerRef.current.disconnect();
             }
           }, 100);
-        } else if (webrtcManagerRef2.current) {
-          webrtcManagerRef2.current.disconnect();
+        } else if (webrtcManagerRef.current) {
+          webrtcManagerRef.current.disconnect();
         }
       } else if (isTabSwitching) {
         event.preventDefault();
@@ -1833,8 +1856,8 @@ var EnhancedSecureP2PChat = () => {
       }
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    if (webrtcManagerRef2.current) {
-      webrtcManagerRef2.current.setFileTransferCallbacks(
+    if (webrtcManagerRef.current) {
+      webrtcManagerRef.current.setFileTransferCallbacks(
         // Progress callback
         (progress) => {
           console.log("File progress:", progress);
@@ -1886,9 +1909,9 @@ var EnhancedSecureP2PChat = () => {
         clearTimeout(tabSwitchTimeout);
         tabSwitchTimeout = null;
       }
-      if (webrtcManagerRef2.current) {
-        webrtcManagerRef2.current.disconnect();
-        webrtcManagerRef2.current = null;
+      if (webrtcManagerRef.current) {
+        webrtcManagerRef.current.disconnect();
+        webrtcManagerRef.current = null;
       }
     };
   }, []);
@@ -2553,12 +2576,12 @@ var EnhancedSecureP2PChat = () => {
   };
   const handleCreateOffer = async () => {
     try {
-      setIsGeneratingKeys2(true);
+      setIsGeneratingKeys(true);
       setOfferData("");
       setShowOfferStep(false);
       setShowQRCode(false);
       setQrCodeUrl("");
-      const offer = await webrtcManagerRef2.current.createSecureOffer();
+      const offer = await webrtcManagerRef.current.createSecureOffer();
       setOfferData(offer);
       setShowOfferStep(true);
       const offerString = typeof offer === "object" ? JSON.stringify(offer) : offer;
@@ -2643,7 +2666,7 @@ var EnhancedSecureP2PChat = () => {
         timestamp: Date.now()
       }]);
     } finally {
-      setIsGeneratingKeys2(false);
+      setIsGeneratingKeys(false);
     }
   };
   const handleCreateAnswer = async () => {
@@ -2683,7 +2706,7 @@ var EnhancedSecureP2PChat = () => {
         if (!isValidOfferType) {
           throw new Error("Invalid invitation type. Expected offer or enhanced_secure_offer");
         }
-        const answer = await webrtcManagerRef2.current.createSecureAnswer(offer);
+        const answer = await webrtcManagerRef.current.createSecureAnswer(offer);
         setAnswerData(answer);
         setShowAnswerStep(true);
         const answerString = typeof answer === "object" ? JSON.stringify(answer) : answer;
@@ -2740,10 +2763,8 @@ var EnhancedSecureP2PChat = () => {
         } catch (e) {
           console.warn("Answer QR generation failed:", e);
         }
-        if (answerInput.trim().length > 0) {
-          if (typeof markAnswerCreated === "function") {
-            markAnswerCreated();
-          }
+        if (typeof markAnswerCreated === "function") {
+          markAnswerCreated();
         }
         const existingResponseMessages = messages.filter(
           (m) => m.type === "system" && (m.message.includes("Secure response created") || m.message.includes("Send the response"))
@@ -2821,7 +2842,7 @@ var EnhancedSecureP2PChat = () => {
         if (!answerType || answerType !== "answer" && answerType !== "enhanced_secure_answer") {
           throw new Error("Invalid response type. Expected answer or enhanced_secure_answer");
         }
-        await webrtcManagerRef2.current.handleSecureAnswer(answer);
+        await webrtcManagerRef.current.handleSecureAnswer(answer);
         if (pendingSession) {
           setPendingSession(null);
           setMessages((prev) => [...prev, {
@@ -2909,11 +2930,11 @@ var EnhancedSecureP2PChat = () => {
   };
   const handleVerifyConnection = async (userCode, isValid = true) => {
     if (isValid) {
-      webrtcManagerRef2.current.confirmVerification(userCode);
+      webrtcManagerRef.current.confirmVerification(userCode);
       setLocalVerificationConfirmed(true);
       try {
-        if (window.NotificationIntegration && webrtcManagerRef2.current && !notificationIntegrationRef.current) {
-          const integration = new window.NotificationIntegration(webrtcManagerRef2.current);
+        if (window.NotificationIntegration && webrtcManagerRef.current && !notificationIntegrationRef.current) {
+          const integration = new window.NotificationIntegration(webrtcManagerRef.current);
           await integration.init();
           notificationIntegrationRef.current = integration;
           const status = integration.getStatus();
@@ -2971,15 +2992,15 @@ var EnhancedSecureP2PChat = () => {
     if (!messageInput.trim()) {
       return;
     }
-    if (!webrtcManagerRef2.current) {
+    if (!webrtcManagerRef.current) {
       return;
     }
-    if (!webrtcManagerRef2.current.isConnected()) {
+    if (!webrtcManagerRef.current.isConnected()) {
       return;
     }
     try {
       addMessageWithAutoScroll(messageInput.trim(), "sent");
-      await webrtcManagerRef2.current.sendMessage(messageInput);
+      await webrtcManagerRef.current.sendMessage(messageInput);
       setMessageInput("");
     } catch (error) {
       const msg = String(error?.message || error);
@@ -2994,7 +3015,7 @@ var EnhancedSecureP2PChat = () => {
     setOfferInput("");
     setAnswerInput("");
     setShowOfferStep(false);
-    setIsGeneratingKeys2(false);
+    setIsGeneratingKeys(false);
     if (!shouldPreserveAnswerData()) {
       setShowAnswerStep(false);
     }
@@ -3030,8 +3051,8 @@ var EnhancedSecureP2PChat = () => {
         status: "disconnected",
         isUserInitiatedDisconnect: true
       });
-      if (webrtcManagerRef2.current) {
-        webrtcManagerRef2.current.disconnect();
+      if (webrtcManagerRef.current) {
+        webrtcManagerRef.current.disconnect();
       }
       if (notificationIntegrationRef.current) {
         notificationIntegrationRef.current.cleanup();
@@ -3052,7 +3073,7 @@ var EnhancedSecureP2PChat = () => {
       setAnswerInput("");
       setShowOfferStep(false);
       setShowAnswerStep(false);
-      setIsGeneratingKeys2(false);
+      setIsGeneratingKeys(false);
       setShowQRCode(false);
       setQrCodeUrl("");
       setShowQRScanner(false);
@@ -3195,7 +3216,7 @@ var EnhancedSecureP2PChat = () => {
       isConnected: isConnectedAndVerified,
       securityLevel,
       // sessionManager removed - all features enabled by default
-      webrtcManager: webrtcManagerRef2.current
+      webrtcManager: webrtcManagerRef.current
     }),
     React.createElement(
       "main",
@@ -3215,7 +3236,7 @@ var EnhancedSecureP2PChat = () => {
           isVerified,
           chatMessagesRef,
           scrollToBottom,
-          webrtcManager: webrtcManagerRef2.current
+          webrtcManager: webrtcManagerRef.current
         });
       })() : React.createElement(EnhancedConnectionSetup, {
         onCreateOffer: handleCreateOffer,
@@ -3255,9 +3276,11 @@ var EnhancedSecureP2PChat = () => {
         markAnswerCreated,
         notificationIntegrationRef,
         isGeneratingKeys,
+        setIsGeneratingKeys,
         handleCreateOffer,
         relayOnlyMode,
-        setRelayOnlyMode
+        setRelayOnlyMode,
+        webrtcManagerRef
       })
     ),
     // QR Scanner Modal

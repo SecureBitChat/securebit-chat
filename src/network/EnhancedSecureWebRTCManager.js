@@ -257,6 +257,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     this.sequenceNumber = 0;
     this.expectedSequenceNumber = 0;
     this.sessionSalt = null;
+    this._pendingOfferContext = null;
     
     //   Anti-Replay and Message Ordering Protection
     this.replayWindowSize = 64; // Sliding window for replay protection
@@ -1023,6 +1024,83 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         return summary;
     }
 
+    _describeIceCandidatesInSDP(sdp) {
+        if (typeof sdp !== 'string') return [];
+
+        return (sdp.match(/^a=candidate:.*$/gm) || []).map((line) => {
+            const parts = line.slice('a=candidate:'.length).trim().split(/\s+/);
+            const typIndex = parts.findIndex(part => part.toLowerCase() === 'typ');
+            const address = parts[4] || '';
+            const port = parts[5] || '';
+            const candidateType = typIndex >= 0 ? parts[typIndex + 1] || 'unknown' : 'unknown';
+            const protocol = (parts[2] || 'unknown').toLowerCase();
+
+            let addressKind = 'unknown';
+            if (/\.local$/i.test(address)) {
+                addressKind = 'mdns';
+            } else if (/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(address)) {
+                addressKind = 'private-ipv4';
+            } else if (/^\d{1,3}(\.\d{1,3}){3}$/.test(address)) {
+                addressKind = 'public-ipv4';
+            } else if (address.includes(':')) {
+                addressKind = 'ipv6';
+            }
+
+            return {
+                candidateType,
+                protocol,
+                addressKind,
+                portPresent: !!port,
+                tcpType: (() => {
+                    const tcpIndex = parts.findIndex(part => part.toLowerCase() === 'tcptype');
+                    return tcpIndex >= 0 ? parts[tcpIndex + 1] || null : null;
+                })()
+            };
+        });
+    }
+
+    _logIceCandidateDiagnostics(label, sdp, extra = {}) {
+        const candidateSummary = this._summarizeIceCandidatesInSDP(sdp);
+        const candidateDetails = this._describeIceCandidatesInSDP(sdp);
+        console.info(`[SecureBit ICE] ${label}`, {
+            candidateSummary,
+            candidateDetails,
+            candidateDetailsJson: JSON.stringify(candidateDetails),
+            ...extra
+        });
+        return { candidateSummary, candidateDetails };
+    }
+
+    _hasOnlyMdnsHostCandidates(sdp) {
+        const summary = this._summarizeIceCandidatesInSDP(sdp);
+        const details = this._describeIceCandidatesInSDP(sdp);
+
+        return summary.total > 0 &&
+            summary.srflx === 0 &&
+            summary.relay === 0 &&
+            summary.prflx === 0 &&
+            details.every(candidate =>
+                candidate.candidateType === 'host' &&
+                candidate.addressKind === 'mdns'
+            );
+    }
+
+    _warnIfRemoteCandidatesNeedRelay(context, sdp) {
+        if (!this._hasOnlyMdnsHostCandidates(sdp)) return false;
+
+        const message = context === 'answer'
+            ? 'Connection warning: the response contains only browser-masked mDNS host candidates and no server-reflexive or TURN relay candidates. This network/browser combination may not connect until TURN is configured.'
+            : 'Connection warning: the invitation contains only browser-masked mDNS host candidates and no server-reflexive or TURN relay candidates. This network/browser combination may not connect until TURN is configured.';
+
+        this._secureLog('warn', 'Remote ICE candidates require TURN or usable non-mDNS candidates', {
+            context,
+            candidateSummary: this._summarizeIceCandidatesInSDP(sdp),
+            candidateDetails: this._describeIceCandidatesInSDP(sdp)
+        });
+        this.deliverMessageToUI(message, 'system');
+        return true;
+    }
+
     async _collectIceFailureDiagnostics() {
         if (!this.peerConnection?.getStats) return null;
 
@@ -1071,6 +1149,50 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 error: error?.message || 'Failed to collect ICE diagnostics'
             };
         }
+    }
+
+    _storePendingOfferContext() {
+        this._pendingOfferContext = {
+            sessionSalt: Array.isArray(this.sessionSalt) ? [...this.sessionSalt] : null,
+            sessionId: this.sessionId || null,
+            connectionId: this.connectionId || null,
+            keyFingerprint: this.keyFingerprint || null,
+            createdAt: Date.now()
+        };
+    }
+
+    _restorePendingOfferContextIfNeeded() {
+        const saltIsValid = Array.isArray(this.sessionSalt) && this.sessionSalt.length === 64;
+        if (saltIsValid) return true;
+
+        const pendingSalt = this._pendingOfferContext?.sessionSalt;
+        if (!Array.isArray(pendingSalt) || pendingSalt.length !== 64) {
+            return false;
+        }
+
+        this.sessionSalt = [...pendingSalt];
+        if (!this.sessionId && this._pendingOfferContext.sessionId) {
+            this.sessionId = this._pendingOfferContext.sessionId;
+        }
+        if (!this.connectionId && this._pendingOfferContext.connectionId) {
+            this.connectionId = this._pendingOfferContext.connectionId;
+        }
+        if (!this.keyFingerprint && this._pendingOfferContext.keyFingerprint) {
+            this.keyFingerprint = this._pendingOfferContext.keyFingerprint;
+        }
+
+        this._secureLog('warn', 'Restored pending offer context before applying answer', {
+            pendingContextAgeMs: Date.now() - (this._pendingOfferContext.createdAt || Date.now())
+        });
+
+        return true;
+    }
+
+    _clearPendingOfferContext() {
+        if (this._pendingOfferContext?.sessionSalt) {
+            this._secureWipeMemory(this._pendingOfferContext.sessionSalt, 'pendingOfferContext.sessionSalt');
+        }
+        this._pendingOfferContext = null;
     }
 
     /**
@@ -3066,6 +3188,8 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 this._secureWipeMemory(this.connectionId, 'connectionId');
                 this.connectionId = null;
             }
+
+            this._clearPendingOfferContext();
             
             this._secureLog('info', '🔒 Cryptographic materials securely cleaned up');
             
@@ -7389,6 +7513,33 @@ async processMessage(data) {
         return config;
     }
 
+    _summarizeIceServerConfig(iceServers = []) {
+        const summary = {
+            serverCount: 0,
+            stun: 0,
+            turn: 0,
+            turns: 0,
+            hasCredentials: false
+        };
+
+        for (const server of iceServers || []) {
+            summary.serverCount += 1;
+            if (server?.username || server?.credential) {
+                summary.hasCredentials = true;
+            }
+
+            const urls = Array.isArray(server?.urls) ? server.urls : [server?.urls];
+            for (const rawUrl of urls) {
+                const url = String(rawUrl || '').toLowerCase();
+                if (url.startsWith('stun:')) summary.stun += 1;
+                if (url.startsWith('turn:')) summary.turn += 1;
+                if (url.startsWith('turns:')) summary.turns += 1;
+            }
+        }
+
+        return summary;
+    }
+
     _isRelayOnlyMode() {
         return this._config.webrtc.privacyMode === 'relay-only';
     }
@@ -7423,6 +7574,7 @@ async processMessage(data) {
         this._sessionAlive = true;
         const config = this._buildPeerConnectionConfig();
         this._warnIfTurnMissing();
+        console.info('[SecureBit ICE] peer connection config', this._summarizeIceServerConfig(config.iceServers));
 
         this.peerConnection = new RTCPeerConnection(config);
 
@@ -9679,8 +9831,7 @@ async processMessage(data) {
                     iceGatheringDurationMs: Date.now() - offerIceGatheringStartedAt,
                     iceGatheringCompleted: offerIceGatheringCompleted
                 });
-                console.info('[SecureBit ICE] offer export', {
-                    candidateSummary: offerCandidateSummary,
+                this._logIceCandidateDiagnostics('offer export', this.peerConnection.localDescription?.sdp, {
                     iceGatheringState: this.peerConnection.iceGatheringState,
                     iceGatheringDurationMs: Date.now() - offerIceGatheringStartedAt,
                     iceGatheringCompleted: offerIceGatheringCompleted
@@ -9736,6 +9887,7 @@ async processMessage(data) {
                 // Generate connection ID for AAD
                 this.connectionId = Array.from(crypto.getRandomValues(new Uint8Array(8)))
                     .map(b => b.toString(16).padStart(2, '0')).join('');
+                this._storePendingOfferContext();
                 
                 // ============================================
                 // PHASE 11: SECURITY LEVEL CALCULATION
@@ -10322,10 +10474,10 @@ async processMessage(data) {
                         type: 'offer',
                         sdp: offerData.s || offerData.sdp
                     }));
-                    console.info('[SecureBit ICE] remote offer applied', {
-                        candidateSummary: this._summarizeIceCandidatesInSDP(this.peerConnection.remoteDescription?.sdp),
+                    this._logIceCandidateDiagnostics('remote offer applied', this.peerConnection.remoteDescription?.sdp, {
                         signalingState: this.peerConnection.signalingState
                     });
+                    this._warnIfRemoteCandidatesNeedRelay('offer', this.peerConnection.remoteDescription?.sdp);
                     
                     this._secureLog('debug', 'Remote description set successfully', {
                         operationId: operationId,
@@ -10418,8 +10570,7 @@ async processMessage(data) {
                     iceGatheringDurationMs: Date.now() - answerIceGatheringStartedAt,
                     iceGatheringCompleted: answerIceGatheringCompleted
                 });
-                console.info('[SecureBit ICE] answer export', {
-                    candidateSummary: answerCandidateSummary,
+                this._logIceCandidateDiagnostics('answer export', this.peerConnection.localDescription?.sdp, {
                     iceGatheringState: this.peerConnection.iceGatheringState,
                     iceGatheringDurationMs: Date.now() - answerIceGatheringStartedAt,
                     iceGatheringCompleted: answerIceGatheringCompleted
@@ -10676,6 +10827,7 @@ async processMessage(data) {
     _cleanupFailedAnswerCreation() {
         try {
             //   Secure wipe of cryptographic materials
+            this._clearPendingOfferContext();
             this._secureCleanupCryptographicMaterials();
             
             //   Secure wipe of PFS key versions
@@ -10930,11 +11082,12 @@ async processMessage(data) {
             );
             
             // Additional MITM protection: Verify session salt integrity
+            this._restorePendingOfferContextIfNeeded();
             if (!this.sessionSalt || this.sessionSalt.length !== 64) {
                 window.EnhancedSecureCryptoUtils.secureLog.log('error', 'Invalid session salt detected - possible session hijacking', {
                     saltLength: this.sessionSalt ? this.sessionSalt.length : 0
                 });
-                throw new Error('Invalid session salt – possible session hijacking attempt');
+                throw new Error('Missing pending offer context. Apply the response in the original creator window that generated the invitation.');
             }
 
             // Verify that the session salt hasn't been tampered with
@@ -11101,10 +11254,10 @@ async processMessage(data) {
                 type: 'answer',
                 sdp: sdpData
             });
-            console.info('[SecureBit ICE] remote answer applied', {
-                candidateSummary: this._summarizeIceCandidatesInSDP(this.peerConnection.remoteDescription?.sdp),
+            this._logIceCandidateDiagnostics('remote answer applied', this.peerConnection.remoteDescription?.sdp, {
                 signalingState: this.peerConnection.signalingState
             });
+            this._warnIfRemoteCandidatesNeedRelay('answer', this.peerConnection.remoteDescription?.sdp);
             
             this._secureLog('debug', 'Remote description set successfully from answer', {
                 signalingState: this.peerConnection.signalingState

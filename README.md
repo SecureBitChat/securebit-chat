@@ -1,4 +1,4 @@
-# SecureBit.chat v4.8.6
+# SecureBit.chat v4.8.7
 
 SecureBit.chat is a browser-based peer-to-peer chat application built on WebRTC and Web Crypto APIs. It is designed for direct encrypted communication, explicit peer verification, and a small operational footprint without account registration or server-side message storage.
 
@@ -15,7 +15,11 @@ SecureBit.chat uses:
 
 A session is not treated as verified until both peers complete the interactive SAS flow. Each user must compare the displayed code with the peer through an out-of-band channel and enter the matching code manually. Three failed SAS attempts terminate the session.
 
-## Highlights in v4.8.6
+## Highlights in v4.8.7
+
+- Manual WebRTC setup now preserves pending offer/answer state during slow out-of-band exchange.
+- TURN relay fallback can be configured through `config/ice-servers.js` for restrictive networks.
+- ICE diagnostics now identify mDNS-only candidate failures without exposing full peer IPs.
 
 This patch release strengthens the existing security model with a focused hardening pass:
 

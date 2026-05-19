@@ -333,6 +333,105 @@ function createVerificationReadinessManager({
     );
 }
 
+// ICE candidate details are redacted but still expose routing-relevant classes.
+{
+    const sdp = [
+        'v=0',
+        'a=candidate:1 1 UDP 2122252543 192.168.1.2 54400 typ host',
+        'a=candidate:2 1 UDP 1686052607 203.0.113.10 40000 typ srflx',
+        'a=candidate:3 1 TCP 1518280447 abcdef.local 9 typ host tcptype passive'
+    ].join('\r\n');
+
+    assert.deepEqual(
+        EnhancedSecureWebRTCManager.prototype._describeIceCandidatesInSDP.call(createSASManager(), sdp),
+        [
+            { candidateType: 'host', protocol: 'udp', addressKind: 'private-ipv4', portPresent: true, tcpType: null },
+            { candidateType: 'srflx', protocol: 'udp', addressKind: 'public-ipv4', portPresent: true, tcpType: null },
+            { candidateType: 'host', protocol: 'tcp', addressKind: 'mdns', portPresent: true, tcpType: 'passive' }
+        ]
+    );
+}
+
+// ICE diagnostics include a copyable JSON string so browser logs do not hide
+// candidate details behind collapsed DevTools objects.
+{
+    const logs = [];
+    const originalConsoleInfo = console.info;
+    console.info = (...args) => logs.push(args);
+    try {
+        const manager = {
+            _summarizeIceCandidatesInSDP: EnhancedSecureWebRTCManager.prototype._summarizeIceCandidatesInSDP,
+            _describeIceCandidatesInSDP: EnhancedSecureWebRTCManager.prototype._describeIceCandidatesInSDP,
+            _logIceCandidateDiagnostics: EnhancedSecureWebRTCManager.prototype._logIceCandidateDiagnostics
+        };
+        manager._logIceCandidateDiagnostics('test candidates', 'a=candidate:1 1 UDP 1 192.168.1.2 5000 typ host', {
+            signalingState: 'stable'
+        });
+
+        assert.equal(logs[0][0], '[SecureBit ICE] test candidates');
+        assert.equal(typeof logs[0][1].candidateDetailsJson, 'string');
+        assert.match(logs[0][1].candidateDetailsJson, /private-ipv4/);
+        assert.equal(logs[0][1].signalingState, 'stable');
+    } finally {
+        console.info = originalConsoleInfo;
+    }
+}
+
+// Remote mDNS-only candidates are surfaced as a user-visible TURN warning.
+{
+    const messages = [];
+    const manager = {
+        _secureLog() {},
+        deliverMessageToUI(message, type) {
+            messages.push({ message, type });
+        },
+        _summarizeIceCandidatesInSDP: EnhancedSecureWebRTCManager.prototype._summarizeIceCandidatesInSDP,
+        _describeIceCandidatesInSDP: EnhancedSecureWebRTCManager.prototype._describeIceCandidatesInSDP,
+        _hasOnlyMdnsHostCandidates: EnhancedSecureWebRTCManager.prototype._hasOnlyMdnsHostCandidates,
+        _warnIfRemoteCandidatesNeedRelay: EnhancedSecureWebRTCManager.prototype._warnIfRemoteCandidatesNeedRelay
+    };
+    const mdnsOnlySdp = 'a=candidate:1 1 UDP 1 abcdef.local 5000 typ host';
+    const srflxSdp = 'a=candidate:1 1 UDP 1 203.0.113.10 5000 typ srflx';
+
+    assert.equal(manager._hasOnlyMdnsHostCandidates(mdnsOnlySdp), true);
+    assert.equal(manager._warnIfRemoteCandidatesNeedRelay('answer', mdnsOnlySdp), true);
+    assert.equal(messages[0].type, 'system');
+    assert.match(messages[0].message, /TURN is configured/i);
+    assert.equal(manager._hasOnlyMdnsHostCandidates(srflxSdp), false);
+}
+
+// Pending offer context preserves the creator's manual-exchange salt until the
+// answer is applied, even if transient ICE/UI state temporarily loses it.
+{
+    const manager = {
+        sessionSalt: Array.from({ length: 64 }, (_, index) => index),
+        sessionId: 'session-a',
+        connectionId: 'connection-a',
+        keyFingerprint: 'AA:BB',
+        _secureLog() {},
+        _secureWipeMemory() {},
+        _storePendingOfferContext: EnhancedSecureWebRTCManager.prototype._storePendingOfferContext,
+        _restorePendingOfferContextIfNeeded: EnhancedSecureWebRTCManager.prototype._restorePendingOfferContextIfNeeded,
+        _clearPendingOfferContext: EnhancedSecureWebRTCManager.prototype._clearPendingOfferContext
+    };
+
+    manager._storePendingOfferContext();
+    manager.sessionSalt = null;
+    manager.sessionId = null;
+    manager.connectionId = null;
+    manager.keyFingerprint = null;
+
+    assert.equal(manager._restorePendingOfferContextIfNeeded(), true);
+    assert.equal(manager.sessionSalt.length, 64);
+    assert.equal(manager.sessionId, 'session-a');
+    assert.equal(manager.connectionId, 'connection-a');
+    assert.equal(manager.keyFingerprint, 'AA:BB');
+
+    manager._clearPendingOfferContext();
+    manager.sessionSalt = null;
+    assert.equal(manager._restorePendingOfferContextIfNeeded(), false);
+}
+
 // Joining with an offer and generating an answer does not open verification
 // before the answer has been applied by the creator and the channel opens.
 {

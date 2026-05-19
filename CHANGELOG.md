@@ -1,6 +1,25 @@
 # Changelog
 
-## v4.8.6 — Security hardening patch release
+## v4.8.7 — WebRTC manual join reliability patch
+
+This patch improves manual WebRTC setup across separate devices and restrictive local networks.
+
+### Fixed
+
+- Stabilized the manual offer/answer join flow so verification waits for real transport readiness.
+- Preserved generated response data during manual exchange instead of resetting the joiner screen prematurely.
+- Preserved pending creator-side offer context so responses can be applied after transient ICE failures without false session-salt hijacking errors.
+- Added operator ICE override support through `config/ice-servers.js`.
+- Added ExpressTURN TURN/STUN configuration for relay fallback in environments where mDNS host candidates cannot connect.
+- Added user-visible warning when a remote peer provides only mDNS host candidates and no `srflx` or `relay` route.
+- Added safer ICE diagnostics that report candidate classes without exposing full IP addresses or TURN credentials.
+
+### Verification
+
+- `npm test`
+- `npm run build`
+
+## v4.8.7 — Security hardening patch release
 
 This patch release strengthens SecureBit.chat across verification, sanitization, privacy, transport abuse resistance, cache safety, and repository hygiene.
 
@@ -29,7 +48,7 @@ This patch release strengthens SecureBit.chat across verification, sanitization,
 - Clean install succeeds with `npm ci`.
 - Production build succeeds with `npm run build`.
 
-## v4.8.5 — Security hardening release
+## v4.8.7 — Security hardening release
 
 This release consolidates several months of security, privacy, and lifecycle hardening work by the SecureBit.chat team.
 

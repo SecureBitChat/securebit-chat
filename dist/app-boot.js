@@ -160,12 +160,12 @@ var require_SecureNotificationManager = __commonJS({
        * @returns {string} Sanitized text
        * @private
        */
-      sanitizeText(text) {
-        if (typeof text !== "string") {
+      sanitizeText(text2) {
+        if (typeof text2 !== "string") {
           return "";
         }
         const div = document.createElement("div");
-        div.textContent = text;
+        div.textContent = text2;
         return div.innerHTML.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#x27;").substring(0, 500);
       }
       /**
@@ -721,9 +721,1124 @@ var require_NotificationIntegration = __commonJS({
   }
 });
 
+// node_modules/dompurify/dist/purify.es.mjs
+function _arrayLikeToArray(r, a) {
+  (null == a || a > r.length) && (a = r.length);
+  for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e];
+  return n;
+}
+function _arrayWithHoles(r) {
+  if (Array.isArray(r)) return r;
+}
+function _iterableToArrayLimit(r, l) {
+  var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"];
+  if (null != t) {
+    var e, n, i, u, a = [], f = true, o = false;
+    try {
+      if (i = (t = t.call(r)).next, 0 === l) ;
+      else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = true) ;
+    } catch (r2) {
+      o = true, n = r2;
+    } finally {
+      try {
+        if (!f && null != t.return && (u = t.return(), Object(u) !== u)) return;
+      } finally {
+        if (o) throw n;
+      }
+    }
+    return a;
+  }
+}
+function _nonIterableRest() {
+  throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+}
+function _slicedToArray(r, e) {
+  return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest();
+}
+function _unsupportedIterableToArray(r, a) {
+  if (r) {
+    if ("string" == typeof r) return _arrayLikeToArray(r, a);
+    var t = {}.toString.call(r).slice(8, -1);
+    return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0;
+  }
+}
+var entries = Object.entries;
+var setPrototypeOf = Object.setPrototypeOf;
+var isFrozen = Object.isFrozen;
+var getPrototypeOf = Object.getPrototypeOf;
+var getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
+var freeze = Object.freeze;
+var seal = Object.seal;
+var create = Object.create;
+var _ref = typeof Reflect !== "undefined" && Reflect;
+var apply = _ref.apply;
+var construct = _ref.construct;
+if (!freeze) {
+  freeze = function freeze2(x) {
+    return x;
+  };
+}
+if (!seal) {
+  seal = function seal2(x) {
+    return x;
+  };
+}
+if (!apply) {
+  apply = function apply2(func, thisArg) {
+    for (var _len = arguments.length, args = new Array(_len > 2 ? _len - 2 : 0), _key = 2; _key < _len; _key++) {
+      args[_key - 2] = arguments[_key];
+    }
+    return func.apply(thisArg, args);
+  };
+}
+if (!construct) {
+  construct = function construct2(Func) {
+    for (var _len2 = arguments.length, args = new Array(_len2 > 1 ? _len2 - 1 : 0), _key2 = 1; _key2 < _len2; _key2++) {
+      args[_key2 - 1] = arguments[_key2];
+    }
+    return new Func(...args);
+  };
+}
+var arrayForEach = unapply(Array.prototype.forEach);
+var arrayLastIndexOf = unapply(Array.prototype.lastIndexOf);
+var arrayPop = unapply(Array.prototype.pop);
+var arrayPush = unapply(Array.prototype.push);
+var arraySplice = unapply(Array.prototype.splice);
+var arrayIsArray = Array.isArray;
+var stringToLowerCase = unapply(String.prototype.toLowerCase);
+var stringToString = unapply(String.prototype.toString);
+var stringMatch = unapply(String.prototype.match);
+var stringReplace = unapply(String.prototype.replace);
+var stringIndexOf = unapply(String.prototype.indexOf);
+var stringTrim = unapply(String.prototype.trim);
+var numberToString = unapply(Number.prototype.toString);
+var booleanToString = unapply(Boolean.prototype.toString);
+var bigintToString = typeof BigInt === "undefined" ? null : unapply(BigInt.prototype.toString);
+var symbolToString = typeof Symbol === "undefined" ? null : unapply(Symbol.prototype.toString);
+var objectHasOwnProperty = unapply(Object.prototype.hasOwnProperty);
+var objectToString = unapply(Object.prototype.toString);
+var regExpTest = unapply(RegExp.prototype.test);
+var typeErrorCreate = unconstruct(TypeError);
+function unapply(func) {
+  return function(thisArg) {
+    if (thisArg instanceof RegExp) {
+      thisArg.lastIndex = 0;
+    }
+    for (var _len3 = arguments.length, args = new Array(_len3 > 1 ? _len3 - 1 : 0), _key3 = 1; _key3 < _len3; _key3++) {
+      args[_key3 - 1] = arguments[_key3];
+    }
+    return apply(func, thisArg, args);
+  };
+}
+function unconstruct(Func) {
+  return function() {
+    for (var _len4 = arguments.length, args = new Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
+      args[_key4] = arguments[_key4];
+    }
+    return construct(Func, args);
+  };
+}
+function addToSet(set, array) {
+  let transformCaseFunc = arguments.length > 2 && arguments[2] !== void 0 ? arguments[2] : stringToLowerCase;
+  if (setPrototypeOf) {
+    setPrototypeOf(set, null);
+  }
+  if (!arrayIsArray(array)) {
+    return set;
+  }
+  let l = array.length;
+  while (l--) {
+    let element = array[l];
+    if (typeof element === "string") {
+      const lcElement = transformCaseFunc(element);
+      if (lcElement !== element) {
+        if (!isFrozen(array)) {
+          array[l] = lcElement;
+        }
+        element = lcElement;
+      }
+    }
+    set[element] = true;
+  }
+  return set;
+}
+function cleanArray(array) {
+  for (let index = 0; index < array.length; index++) {
+    const isPropertyExist = objectHasOwnProperty(array, index);
+    if (!isPropertyExist) {
+      array[index] = null;
+    }
+  }
+  return array;
+}
+function clone(object) {
+  const newObject = create(null);
+  for (const _ref2 of entries(object)) {
+    var _ref3 = _slicedToArray(_ref2, 2);
+    const property = _ref3[0];
+    const value = _ref3[1];
+    const isPropertyExist = objectHasOwnProperty(object, property);
+    if (isPropertyExist) {
+      if (arrayIsArray(value)) {
+        newObject[property] = cleanArray(value);
+      } else if (value && typeof value === "object" && value.constructor === Object) {
+        newObject[property] = clone(value);
+      } else {
+        newObject[property] = value;
+      }
+    }
+  }
+  return newObject;
+}
+function stringifyValue(value) {
+  switch (typeof value) {
+    case "string": {
+      return value;
+    }
+    case "number": {
+      return numberToString(value);
+    }
+    case "boolean": {
+      return booleanToString(value);
+    }
+    case "bigint": {
+      return bigintToString ? bigintToString(value) : "0";
+    }
+    case "symbol": {
+      return symbolToString ? symbolToString(value) : "Symbol()";
+    }
+    case "undefined": {
+      return objectToString(value);
+    }
+    case "function":
+    case "object": {
+      if (value === null) {
+        return objectToString(value);
+      }
+      const valueAsRecord = value;
+      const valueToString = lookupGetter(valueAsRecord, "toString");
+      if (typeof valueToString === "function") {
+        const stringified = valueToString(valueAsRecord);
+        return typeof stringified === "string" ? stringified : objectToString(stringified);
+      }
+      return objectToString(value);
+    }
+    default: {
+      return objectToString(value);
+    }
+  }
+}
+function lookupGetter(object, prop) {
+  while (object !== null) {
+    const desc = getOwnPropertyDescriptor(object, prop);
+    if (desc) {
+      if (desc.get) {
+        return unapply(desc.get);
+      }
+      if (typeof desc.value === "function") {
+        return unapply(desc.value);
+      }
+    }
+    object = getPrototypeOf(object);
+  }
+  function fallbackValue() {
+    return null;
+  }
+  return fallbackValue;
+}
+function isRegex(value) {
+  try {
+    regExpTest(value, "");
+    return true;
+  } catch (_unused) {
+    return false;
+  }
+}
+var html$1 = freeze(["a", "abbr", "acronym", "address", "area", "article", "aside", "audio", "b", "bdi", "bdo", "big", "blink", "blockquote", "body", "br", "button", "canvas", "caption", "center", "cite", "code", "col", "colgroup", "content", "data", "datalist", "dd", "decorator", "del", "details", "dfn", "dialog", "dir", "div", "dl", "dt", "element", "em", "fieldset", "figcaption", "figure", "font", "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6", "head", "header", "hgroup", "hr", "html", "i", "img", "input", "ins", "kbd", "label", "legend", "li", "main", "map", "mark", "marquee", "menu", "menuitem", "meter", "nav", "nobr", "ol", "optgroup", "option", "output", "p", "picture", "pre", "progress", "q", "rp", "rt", "ruby", "s", "samp", "search", "section", "select", "selectedcontent", "shadow", "slot", "small", "source", "spacer", "span", "strike", "strong", "style", "sub", "summary", "sup", "table", "tbody", "td", "template", "textarea", "tfoot", "th", "thead", "time", "tr", "track", "tt", "u", "ul", "var", "video", "wbr"]);
+var svg$1 = freeze(["svg", "a", "altglyph", "altglyphdef", "altglyphitem", "animatecolor", "animatemotion", "animatetransform", "circle", "clippath", "defs", "desc", "ellipse", "enterkeyhint", "exportparts", "filter", "font", "g", "glyph", "glyphref", "hkern", "image", "inputmode", "line", "lineargradient", "marker", "mask", "metadata", "mpath", "part", "path", "pattern", "polygon", "polyline", "radialgradient", "rect", "stop", "style", "switch", "symbol", "text", "textpath", "title", "tref", "tspan", "view", "vkern"]);
+var svgFilters = freeze(["feBlend", "feColorMatrix", "feComponentTransfer", "feComposite", "feConvolveMatrix", "feDiffuseLighting", "feDisplacementMap", "feDistantLight", "feDropShadow", "feFlood", "feFuncA", "feFuncB", "feFuncG", "feFuncR", "feGaussianBlur", "feImage", "feMerge", "feMergeNode", "feMorphology", "feOffset", "fePointLight", "feSpecularLighting", "feSpotLight", "feTile", "feTurbulence"]);
+var svgDisallowed = freeze(["animate", "color-profile", "cursor", "discard", "font-face", "font-face-format", "font-face-name", "font-face-src", "font-face-uri", "foreignobject", "hatch", "hatchpath", "mesh", "meshgradient", "meshpatch", "meshrow", "missing-glyph", "script", "set", "solidcolor", "unknown", "use"]);
+var mathMl$1 = freeze(["math", "menclose", "merror", "mfenced", "mfrac", "mglyph", "mi", "mlabeledtr", "mmultiscripts", "mn", "mo", "mover", "mpadded", "mphantom", "mroot", "mrow", "ms", "mspace", "msqrt", "mstyle", "msub", "msup", "msubsup", "mtable", "mtd", "mtext", "mtr", "munder", "munderover", "mprescripts"]);
+var mathMlDisallowed = freeze(["maction", "maligngroup", "malignmark", "mlongdiv", "mscarries", "mscarry", "msgroup", "mstack", "msline", "msrow", "semantics", "annotation", "annotation-xml", "mprescripts", "none"]);
+var text = freeze(["#text"]);
+var html = freeze(["accept", "action", "align", "alt", "autocapitalize", "autocomplete", "autopictureinpicture", "autoplay", "background", "bgcolor", "border", "capture", "cellpadding", "cellspacing", "checked", "cite", "class", "clear", "color", "cols", "colspan", "command", "commandfor", "controls", "controlslist", "coords", "crossorigin", "datetime", "decoding", "default", "dir", "disabled", "disablepictureinpicture", "disableremoteplayback", "download", "draggable", "enctype", "enterkeyhint", "exportparts", "face", "for", "headers", "height", "hidden", "high", "href", "hreflang", "id", "inert", "inputmode", "integrity", "ismap", "kind", "label", "lang", "list", "loading", "loop", "low", "max", "maxlength", "media", "method", "min", "minlength", "multiple", "muted", "name", "nonce", "noshade", "novalidate", "nowrap", "open", "optimum", "part", "pattern", "placeholder", "playsinline", "popover", "popovertarget", "popovertargetaction", "poster", "preload", "pubdate", "radiogroup", "readonly", "rel", "required", "rev", "reversed", "role", "rows", "rowspan", "spellcheck", "scope", "selected", "shape", "size", "sizes", "slot", "span", "srclang", "start", "src", "srcset", "step", "style", "summary", "tabindex", "title", "translate", "type", "usemap", "valign", "value", "width", "wrap", "xmlns"]);
+var svg = freeze(["accent-height", "accumulate", "additive", "alignment-baseline", "amplitude", "ascent", "attributename", "attributetype", "azimuth", "basefrequency", "baseline-shift", "begin", "bias", "by", "class", "clip", "clippathunits", "clip-path", "clip-rule", "color", "color-interpolation", "color-interpolation-filters", "color-profile", "color-rendering", "cx", "cy", "d", "dx", "dy", "diffuseconstant", "direction", "display", "divisor", "dur", "edgemode", "elevation", "end", "exponent", "fill", "fill-opacity", "fill-rule", "filter", "filterunits", "flood-color", "flood-opacity", "font-family", "font-size", "font-size-adjust", "font-stretch", "font-style", "font-variant", "font-weight", "fx", "fy", "g1", "g2", "glyph-name", "glyphref", "gradientunits", "gradienttransform", "height", "href", "id", "image-rendering", "in", "in2", "intercept", "k", "k1", "k2", "k3", "k4", "kerning", "keypoints", "keysplines", "keytimes", "lang", "lengthadjust", "letter-spacing", "kernelmatrix", "kernelunitlength", "lighting-color", "local", "marker-end", "marker-mid", "marker-start", "markerheight", "markerunits", "markerwidth", "maskcontentunits", "maskunits", "max", "mask", "mask-type", "media", "method", "mode", "min", "name", "numoctaves", "offset", "operator", "opacity", "order", "orient", "orientation", "origin", "overflow", "paint-order", "path", "pathlength", "patterncontentunits", "patterntransform", "patternunits", "points", "preservealpha", "preserveaspectratio", "primitiveunits", "r", "rx", "ry", "radius", "refx", "refy", "repeatcount", "repeatdur", "restart", "result", "rotate", "scale", "seed", "shape-rendering", "slope", "specularconstant", "specularexponent", "spreadmethod", "startoffset", "stddeviation", "stitchtiles", "stop-color", "stop-opacity", "stroke-dasharray", "stroke-dashoffset", "stroke-linecap", "stroke-linejoin", "stroke-miterlimit", "stroke-opacity", "stroke", "stroke-width", "style", "surfacescale", "systemlanguage", "tabindex", "tablevalues", "targetx", "targety", "transform", "transform-origin", "text-anchor", "text-decoration", "text-rendering", "textlength", "type", "u1", "u2", "unicode", "values", "viewbox", "visibility", "version", "vert-adv-y", "vert-origin-x", "vert-origin-y", "width", "word-spacing", "wrap", "writing-mode", "xchannelselector", "ychannelselector", "x", "x1", "x2", "xmlns", "y", "y1", "y2", "z", "zoomandpan"]);
+var mathMl = freeze(["accent", "accentunder", "align", "bevelled", "close", "columnalign", "columnlines", "columnspacing", "columnspan", "denomalign", "depth", "dir", "display", "displaystyle", "encoding", "fence", "frame", "height", "href", "id", "largeop", "length", "linethickness", "lquote", "lspace", "mathbackground", "mathcolor", "mathsize", "mathvariant", "maxsize", "minsize", "movablelimits", "notation", "numalign", "open", "rowalign", "rowlines", "rowspacing", "rowspan", "rspace", "rquote", "scriptlevel", "scriptminsize", "scriptsizemultiplier", "selection", "separator", "separators", "stretchy", "subscriptshift", "supscriptshift", "symmetric", "voffset", "width", "xmlns"]);
+var xml = freeze(["xlink:href", "xml:id", "xlink:title", "xml:space", "xmlns:xlink"]);
+var MUSTACHE_EXPR = seal(/{{[\w\W]*|^[\w\W]*}}/g);
+var ERB_EXPR = seal(/<%[\w\W]*|^[\w\W]*%>/g);
+var TMPLIT_EXPR = seal(/\${[\w\W]*/g);
+var DATA_ATTR = seal(/^data-[\-\w.\u00B7-\uFFFF]+$/);
+var ARIA_ATTR = seal(/^aria-[\-\w]+$/);
+var IS_ALLOWED_URI = seal(
+  /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|matrix):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i
+  // eslint-disable-line no-useless-escape
+);
+var IS_SCRIPT_OR_DATA = seal(/^(?:\w+script|data):/i);
+var ATTR_WHITESPACE = seal(
+  /[\u0000-\u0020\u00A0\u1680\u180E\u2000-\u2029\u205F\u3000]/g
+  // eslint-disable-line no-control-regex
+);
+var DOCTYPE_NAME = seal(/^html$/i);
+var CUSTOM_ELEMENT = seal(/^[a-z][.\w]*(-[.\w]+)+$/i);
+var NODE_TYPE = {
+  element: 1,
+  text: 3,
+  // Deprecated
+  progressingInstruction: 7,
+  comment: 8,
+  document: 9
+};
+var getGlobal = function getGlobal2() {
+  return typeof window === "undefined" ? null : window;
+};
+var _createTrustedTypesPolicy = function _createTrustedTypesPolicy2(trustedTypes, purifyHostElement) {
+  if (typeof trustedTypes !== "object" || typeof trustedTypes.createPolicy !== "function") {
+    return null;
+  }
+  let suffix = null;
+  const ATTR_NAME = "data-tt-policy-suffix";
+  if (purifyHostElement && purifyHostElement.hasAttribute(ATTR_NAME)) {
+    suffix = purifyHostElement.getAttribute(ATTR_NAME);
+  }
+  const policyName = "dompurify" + (suffix ? "#" + suffix : "");
+  try {
+    return trustedTypes.createPolicy(policyName, {
+      createHTML(html2) {
+        return html2;
+      },
+      createScriptURL(scriptUrl) {
+        return scriptUrl;
+      }
+    });
+  } catch (_) {
+    console.warn("TrustedTypes policy " + policyName + " could not be created.");
+    return null;
+  }
+};
+var _createHooksMap = function _createHooksMap2() {
+  return {
+    afterSanitizeAttributes: [],
+    afterSanitizeElements: [],
+    afterSanitizeShadowDOM: [],
+    beforeSanitizeAttributes: [],
+    beforeSanitizeElements: [],
+    beforeSanitizeShadowDOM: [],
+    uponSanitizeAttribute: [],
+    uponSanitizeElement: [],
+    uponSanitizeShadowNode: []
+  };
+};
+function createDOMPurify() {
+  let window2 = arguments.length > 0 && arguments[0] !== void 0 ? arguments[0] : getGlobal();
+  const DOMPurify = (root) => createDOMPurify(root);
+  DOMPurify.version = "3.4.4";
+  DOMPurify.removed = [];
+  if (!window2 || !window2.document || window2.document.nodeType !== NODE_TYPE.document || !window2.Element) {
+    DOMPurify.isSupported = false;
+    return DOMPurify;
+  }
+  let document2 = window2.document;
+  const originalDocument = document2;
+  const currentScript = originalDocument.currentScript;
+  const DocumentFragment = window2.DocumentFragment, HTMLTemplateElement = window2.HTMLTemplateElement, Node = window2.Node, Element = window2.Element, NodeFilter = window2.NodeFilter, _window$NamedNodeMap = window2.NamedNodeMap, NamedNodeMap = _window$NamedNodeMap === void 0 ? window2.NamedNodeMap || window2.MozNamedAttrMap : _window$NamedNodeMap, HTMLFormElement = window2.HTMLFormElement, DOMParser = window2.DOMParser, trustedTypes = window2.trustedTypes;
+  const ElementPrototype = Element.prototype;
+  const cloneNode = lookupGetter(ElementPrototype, "cloneNode");
+  const remove = lookupGetter(ElementPrototype, "remove");
+  const getNextSibling = lookupGetter(ElementPrototype, "nextSibling");
+  const getChildNodes = lookupGetter(ElementPrototype, "childNodes");
+  const getParentNode = lookupGetter(ElementPrototype, "parentNode");
+  const getNodeType = Node && Node.prototype ? lookupGetter(Node.prototype, "nodeType") : null;
+  if (typeof HTMLTemplateElement === "function") {
+    const template = document2.createElement("template");
+    if (template.content && template.content.ownerDocument) {
+      document2 = template.content.ownerDocument;
+    }
+  }
+  let trustedTypesPolicy;
+  let emptyHTML = "";
+  const _document = document2, implementation = _document.implementation, createNodeIterator = _document.createNodeIterator, createDocumentFragment = _document.createDocumentFragment, getElementsByTagName = _document.getElementsByTagName;
+  const importNode = originalDocument.importNode;
+  let hooks = _createHooksMap();
+  DOMPurify.isSupported = typeof entries === "function" && typeof getParentNode === "function" && implementation && implementation.createHTMLDocument !== void 0;
+  const MUSTACHE_EXPR$1 = MUSTACHE_EXPR, ERB_EXPR$1 = ERB_EXPR, TMPLIT_EXPR$1 = TMPLIT_EXPR, DATA_ATTR$1 = DATA_ATTR, ARIA_ATTR$1 = ARIA_ATTR, IS_SCRIPT_OR_DATA$1 = IS_SCRIPT_OR_DATA, ATTR_WHITESPACE$1 = ATTR_WHITESPACE, CUSTOM_ELEMENT$1 = CUSTOM_ELEMENT;
+  let IS_ALLOWED_URI$1 = IS_ALLOWED_URI;
+  let ALLOWED_TAGS = null;
+  const DEFAULT_ALLOWED_TAGS = addToSet({}, [...html$1, ...svg$1, ...svgFilters, ...mathMl$1, ...text]);
+  let ALLOWED_ATTR = null;
+  const DEFAULT_ALLOWED_ATTR = addToSet({}, [...html, ...svg, ...mathMl, ...xml]);
+  let CUSTOM_ELEMENT_HANDLING = Object.seal(create(null, {
+    tagNameCheck: {
+      writable: true,
+      configurable: false,
+      enumerable: true,
+      value: null
+    },
+    attributeNameCheck: {
+      writable: true,
+      configurable: false,
+      enumerable: true,
+      value: null
+    },
+    allowCustomizedBuiltInElements: {
+      writable: true,
+      configurable: false,
+      enumerable: true,
+      value: false
+    }
+  }));
+  let FORBID_TAGS = null;
+  let FORBID_ATTR = null;
+  const EXTRA_ELEMENT_HANDLING = Object.seal(create(null, {
+    tagCheck: {
+      writable: true,
+      configurable: false,
+      enumerable: true,
+      value: null
+    },
+    attributeCheck: {
+      writable: true,
+      configurable: false,
+      enumerable: true,
+      value: null
+    }
+  }));
+  let ALLOW_ARIA_ATTR = true;
+  let ALLOW_DATA_ATTR = true;
+  let ALLOW_UNKNOWN_PROTOCOLS = false;
+  let ALLOW_SELF_CLOSE_IN_ATTR = true;
+  let SAFE_FOR_TEMPLATES = false;
+  let SAFE_FOR_XML = true;
+  let WHOLE_DOCUMENT = false;
+  let SET_CONFIG = false;
+  let FORCE_BODY = false;
+  let RETURN_DOM = false;
+  let RETURN_DOM_FRAGMENT = false;
+  let RETURN_TRUSTED_TYPE = false;
+  let SANITIZE_DOM = true;
+  let SANITIZE_NAMED_PROPS = false;
+  const SANITIZE_NAMED_PROPS_PREFIX = "user-content-";
+  let KEEP_CONTENT = true;
+  let IN_PLACE = false;
+  let USE_PROFILES = {};
+  let FORBID_CONTENTS = null;
+  const DEFAULT_FORBID_CONTENTS = addToSet({}, ["annotation-xml", "audio", "colgroup", "desc", "foreignobject", "head", "iframe", "math", "mi", "mn", "mo", "ms", "mtext", "noembed", "noframes", "noscript", "plaintext", "script", "style", "svg", "template", "thead", "title", "video", "xmp"]);
+  let DATA_URI_TAGS = null;
+  const DEFAULT_DATA_URI_TAGS = addToSet({}, ["audio", "video", "img", "source", "image", "track"]);
+  let URI_SAFE_ATTRIBUTES = null;
+  const DEFAULT_URI_SAFE_ATTRIBUTES = addToSet({}, ["alt", "class", "for", "id", "label", "name", "pattern", "placeholder", "role", "summary", "title", "value", "style", "xmlns"]);
+  const MATHML_NAMESPACE = "http://www.w3.org/1998/Math/MathML";
+  const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+  const HTML_NAMESPACE = "http://www.w3.org/1999/xhtml";
+  let NAMESPACE = HTML_NAMESPACE;
+  let IS_EMPTY_INPUT = false;
+  let ALLOWED_NAMESPACES = null;
+  const DEFAULT_ALLOWED_NAMESPACES = addToSet({}, [MATHML_NAMESPACE, SVG_NAMESPACE, HTML_NAMESPACE], stringToString);
+  let MATHML_TEXT_INTEGRATION_POINTS = addToSet({}, ["mi", "mo", "mn", "ms", "mtext"]);
+  let HTML_INTEGRATION_POINTS = addToSet({}, ["annotation-xml"]);
+  const COMMON_SVG_AND_HTML_ELEMENTS = addToSet({}, ["title", "style", "font", "a", "script"]);
+  let PARSER_MEDIA_TYPE = null;
+  const SUPPORTED_PARSER_MEDIA_TYPES = ["application/xhtml+xml", "text/html"];
+  const DEFAULT_PARSER_MEDIA_TYPE = "text/html";
+  let transformCaseFunc = null;
+  let CONFIG = null;
+  const formElement = document2.createElement("form");
+  const isRegexOrFunction = function isRegexOrFunction2(testValue) {
+    return testValue instanceof RegExp || testValue instanceof Function;
+  };
+  const _parseConfig = function _parseConfig2() {
+    let cfg = arguments.length > 0 && arguments[0] !== void 0 ? arguments[0] : {};
+    if (CONFIG && CONFIG === cfg) {
+      return;
+    }
+    if (!cfg || typeof cfg !== "object") {
+      cfg = {};
+    }
+    cfg = clone(cfg);
+    PARSER_MEDIA_TYPE = // eslint-disable-next-line unicorn/prefer-includes
+    SUPPORTED_PARSER_MEDIA_TYPES.indexOf(cfg.PARSER_MEDIA_TYPE) === -1 ? DEFAULT_PARSER_MEDIA_TYPE : cfg.PARSER_MEDIA_TYPE;
+    transformCaseFunc = PARSER_MEDIA_TYPE === "application/xhtml+xml" ? stringToString : stringToLowerCase;
+    ALLOWED_TAGS = objectHasOwnProperty(cfg, "ALLOWED_TAGS") && arrayIsArray(cfg.ALLOWED_TAGS) ? addToSet({}, cfg.ALLOWED_TAGS, transformCaseFunc) : DEFAULT_ALLOWED_TAGS;
+    ALLOWED_ATTR = objectHasOwnProperty(cfg, "ALLOWED_ATTR") && arrayIsArray(cfg.ALLOWED_ATTR) ? addToSet({}, cfg.ALLOWED_ATTR, transformCaseFunc) : DEFAULT_ALLOWED_ATTR;
+    ALLOWED_NAMESPACES = objectHasOwnProperty(cfg, "ALLOWED_NAMESPACES") && arrayIsArray(cfg.ALLOWED_NAMESPACES) ? addToSet({}, cfg.ALLOWED_NAMESPACES, stringToString) : DEFAULT_ALLOWED_NAMESPACES;
+    URI_SAFE_ATTRIBUTES = objectHasOwnProperty(cfg, "ADD_URI_SAFE_ATTR") && arrayIsArray(cfg.ADD_URI_SAFE_ATTR) ? addToSet(clone(DEFAULT_URI_SAFE_ATTRIBUTES), cfg.ADD_URI_SAFE_ATTR, transformCaseFunc) : DEFAULT_URI_SAFE_ATTRIBUTES;
+    DATA_URI_TAGS = objectHasOwnProperty(cfg, "ADD_DATA_URI_TAGS") && arrayIsArray(cfg.ADD_DATA_URI_TAGS) ? addToSet(clone(DEFAULT_DATA_URI_TAGS), cfg.ADD_DATA_URI_TAGS, transformCaseFunc) : DEFAULT_DATA_URI_TAGS;
+    FORBID_CONTENTS = objectHasOwnProperty(cfg, "FORBID_CONTENTS") && arrayIsArray(cfg.FORBID_CONTENTS) ? addToSet({}, cfg.FORBID_CONTENTS, transformCaseFunc) : DEFAULT_FORBID_CONTENTS;
+    FORBID_TAGS = objectHasOwnProperty(cfg, "FORBID_TAGS") && arrayIsArray(cfg.FORBID_TAGS) ? addToSet({}, cfg.FORBID_TAGS, transformCaseFunc) : clone({});
+    FORBID_ATTR = objectHasOwnProperty(cfg, "FORBID_ATTR") && arrayIsArray(cfg.FORBID_ATTR) ? addToSet({}, cfg.FORBID_ATTR, transformCaseFunc) : clone({});
+    USE_PROFILES = objectHasOwnProperty(cfg, "USE_PROFILES") ? cfg.USE_PROFILES && typeof cfg.USE_PROFILES === "object" ? clone(cfg.USE_PROFILES) : cfg.USE_PROFILES : false;
+    ALLOW_ARIA_ATTR = cfg.ALLOW_ARIA_ATTR !== false;
+    ALLOW_DATA_ATTR = cfg.ALLOW_DATA_ATTR !== false;
+    ALLOW_UNKNOWN_PROTOCOLS = cfg.ALLOW_UNKNOWN_PROTOCOLS || false;
+    ALLOW_SELF_CLOSE_IN_ATTR = cfg.ALLOW_SELF_CLOSE_IN_ATTR !== false;
+    SAFE_FOR_TEMPLATES = cfg.SAFE_FOR_TEMPLATES || false;
+    SAFE_FOR_XML = cfg.SAFE_FOR_XML !== false;
+    WHOLE_DOCUMENT = cfg.WHOLE_DOCUMENT || false;
+    RETURN_DOM = cfg.RETURN_DOM || false;
+    RETURN_DOM_FRAGMENT = cfg.RETURN_DOM_FRAGMENT || false;
+    RETURN_TRUSTED_TYPE = cfg.RETURN_TRUSTED_TYPE || false;
+    FORCE_BODY = cfg.FORCE_BODY || false;
+    SANITIZE_DOM = cfg.SANITIZE_DOM !== false;
+    SANITIZE_NAMED_PROPS = cfg.SANITIZE_NAMED_PROPS || false;
+    KEEP_CONTENT = cfg.KEEP_CONTENT !== false;
+    IN_PLACE = cfg.IN_PLACE || false;
+    IS_ALLOWED_URI$1 = isRegex(cfg.ALLOWED_URI_REGEXP) ? cfg.ALLOWED_URI_REGEXP : IS_ALLOWED_URI;
+    NAMESPACE = typeof cfg.NAMESPACE === "string" ? cfg.NAMESPACE : HTML_NAMESPACE;
+    MATHML_TEXT_INTEGRATION_POINTS = objectHasOwnProperty(cfg, "MATHML_TEXT_INTEGRATION_POINTS") && cfg.MATHML_TEXT_INTEGRATION_POINTS && typeof cfg.MATHML_TEXT_INTEGRATION_POINTS === "object" ? clone(cfg.MATHML_TEXT_INTEGRATION_POINTS) : addToSet({}, ["mi", "mo", "mn", "ms", "mtext"]);
+    HTML_INTEGRATION_POINTS = objectHasOwnProperty(cfg, "HTML_INTEGRATION_POINTS") && cfg.HTML_INTEGRATION_POINTS && typeof cfg.HTML_INTEGRATION_POINTS === "object" ? clone(cfg.HTML_INTEGRATION_POINTS) : addToSet({}, ["annotation-xml"]);
+    const customElementHandling = objectHasOwnProperty(cfg, "CUSTOM_ELEMENT_HANDLING") && cfg.CUSTOM_ELEMENT_HANDLING && typeof cfg.CUSTOM_ELEMENT_HANDLING === "object" ? clone(cfg.CUSTOM_ELEMENT_HANDLING) : create(null);
+    CUSTOM_ELEMENT_HANDLING = create(null);
+    if (objectHasOwnProperty(customElementHandling, "tagNameCheck") && isRegexOrFunction(customElementHandling.tagNameCheck)) {
+      CUSTOM_ELEMENT_HANDLING.tagNameCheck = customElementHandling.tagNameCheck;
+    }
+    if (objectHasOwnProperty(customElementHandling, "attributeNameCheck") && isRegexOrFunction(customElementHandling.attributeNameCheck)) {
+      CUSTOM_ELEMENT_HANDLING.attributeNameCheck = customElementHandling.attributeNameCheck;
+    }
+    if (objectHasOwnProperty(customElementHandling, "allowCustomizedBuiltInElements") && typeof customElementHandling.allowCustomizedBuiltInElements === "boolean") {
+      CUSTOM_ELEMENT_HANDLING.allowCustomizedBuiltInElements = customElementHandling.allowCustomizedBuiltInElements;
+    }
+    if (SAFE_FOR_TEMPLATES) {
+      ALLOW_DATA_ATTR = false;
+    }
+    if (RETURN_DOM_FRAGMENT) {
+      RETURN_DOM = true;
+    }
+    if (USE_PROFILES) {
+      ALLOWED_TAGS = addToSet({}, text);
+      ALLOWED_ATTR = create(null);
+      if (USE_PROFILES.html === true) {
+        addToSet(ALLOWED_TAGS, html$1);
+        addToSet(ALLOWED_ATTR, html);
+      }
+      if (USE_PROFILES.svg === true) {
+        addToSet(ALLOWED_TAGS, svg$1);
+        addToSet(ALLOWED_ATTR, svg);
+        addToSet(ALLOWED_ATTR, xml);
+      }
+      if (USE_PROFILES.svgFilters === true) {
+        addToSet(ALLOWED_TAGS, svgFilters);
+        addToSet(ALLOWED_ATTR, svg);
+        addToSet(ALLOWED_ATTR, xml);
+      }
+      if (USE_PROFILES.mathMl === true) {
+        addToSet(ALLOWED_TAGS, mathMl$1);
+        addToSet(ALLOWED_ATTR, mathMl);
+        addToSet(ALLOWED_ATTR, xml);
+      }
+    }
+    EXTRA_ELEMENT_HANDLING.tagCheck = null;
+    EXTRA_ELEMENT_HANDLING.attributeCheck = null;
+    if (objectHasOwnProperty(cfg, "ADD_TAGS")) {
+      if (typeof cfg.ADD_TAGS === "function") {
+        EXTRA_ELEMENT_HANDLING.tagCheck = cfg.ADD_TAGS;
+      } else if (arrayIsArray(cfg.ADD_TAGS)) {
+        if (ALLOWED_TAGS === DEFAULT_ALLOWED_TAGS) {
+          ALLOWED_TAGS = clone(ALLOWED_TAGS);
+        }
+        addToSet(ALLOWED_TAGS, cfg.ADD_TAGS, transformCaseFunc);
+      }
+    }
+    if (objectHasOwnProperty(cfg, "ADD_ATTR")) {
+      if (typeof cfg.ADD_ATTR === "function") {
+        EXTRA_ELEMENT_HANDLING.attributeCheck = cfg.ADD_ATTR;
+      } else if (arrayIsArray(cfg.ADD_ATTR)) {
+        if (ALLOWED_ATTR === DEFAULT_ALLOWED_ATTR) {
+          ALLOWED_ATTR = clone(ALLOWED_ATTR);
+        }
+        addToSet(ALLOWED_ATTR, cfg.ADD_ATTR, transformCaseFunc);
+      }
+    }
+    if (objectHasOwnProperty(cfg, "ADD_URI_SAFE_ATTR") && arrayIsArray(cfg.ADD_URI_SAFE_ATTR)) {
+      addToSet(URI_SAFE_ATTRIBUTES, cfg.ADD_URI_SAFE_ATTR, transformCaseFunc);
+    }
+    if (objectHasOwnProperty(cfg, "FORBID_CONTENTS") && arrayIsArray(cfg.FORBID_CONTENTS)) {
+      if (FORBID_CONTENTS === DEFAULT_FORBID_CONTENTS) {
+        FORBID_CONTENTS = clone(FORBID_CONTENTS);
+      }
+      addToSet(FORBID_CONTENTS, cfg.FORBID_CONTENTS, transformCaseFunc);
+    }
+    if (objectHasOwnProperty(cfg, "ADD_FORBID_CONTENTS") && arrayIsArray(cfg.ADD_FORBID_CONTENTS)) {
+      if (FORBID_CONTENTS === DEFAULT_FORBID_CONTENTS) {
+        FORBID_CONTENTS = clone(FORBID_CONTENTS);
+      }
+      addToSet(FORBID_CONTENTS, cfg.ADD_FORBID_CONTENTS, transformCaseFunc);
+    }
+    if (KEEP_CONTENT) {
+      ALLOWED_TAGS["#text"] = true;
+    }
+    if (WHOLE_DOCUMENT) {
+      addToSet(ALLOWED_TAGS, ["html", "head", "body"]);
+    }
+    if (ALLOWED_TAGS.table) {
+      addToSet(ALLOWED_TAGS, ["tbody"]);
+      delete FORBID_TAGS.tbody;
+    }
+    if (cfg.TRUSTED_TYPES_POLICY) {
+      if (typeof cfg.TRUSTED_TYPES_POLICY.createHTML !== "function") {
+        throw typeErrorCreate('TRUSTED_TYPES_POLICY configuration option must provide a "createHTML" hook.');
+      }
+      if (typeof cfg.TRUSTED_TYPES_POLICY.createScriptURL !== "function") {
+        throw typeErrorCreate('TRUSTED_TYPES_POLICY configuration option must provide a "createScriptURL" hook.');
+      }
+      trustedTypesPolicy = cfg.TRUSTED_TYPES_POLICY;
+      emptyHTML = trustedTypesPolicy.createHTML("");
+    } else {
+      if (trustedTypesPolicy === void 0) {
+        trustedTypesPolicy = _createTrustedTypesPolicy(trustedTypes, currentScript);
+      }
+      if (trustedTypesPolicy !== null && typeof emptyHTML === "string") {
+        emptyHTML = trustedTypesPolicy.createHTML("");
+      }
+    }
+    if (freeze) {
+      freeze(cfg);
+    }
+    CONFIG = cfg;
+  };
+  const ALL_SVG_TAGS = addToSet({}, [...svg$1, ...svgFilters, ...svgDisallowed]);
+  const ALL_MATHML_TAGS = addToSet({}, [...mathMl$1, ...mathMlDisallowed]);
+  const _checkValidNamespace = function _checkValidNamespace2(element) {
+    let parent = getParentNode(element);
+    if (!parent || !parent.tagName) {
+      parent = {
+        namespaceURI: NAMESPACE,
+        tagName: "template"
+      };
+    }
+    const tagName = stringToLowerCase(element.tagName);
+    const parentTagName = stringToLowerCase(parent.tagName);
+    if (!ALLOWED_NAMESPACES[element.namespaceURI]) {
+      return false;
+    }
+    if (element.namespaceURI === SVG_NAMESPACE) {
+      if (parent.namespaceURI === HTML_NAMESPACE) {
+        return tagName === "svg";
+      }
+      if (parent.namespaceURI === MATHML_NAMESPACE) {
+        return tagName === "svg" && (parentTagName === "annotation-xml" || MATHML_TEXT_INTEGRATION_POINTS[parentTagName]);
+      }
+      return Boolean(ALL_SVG_TAGS[tagName]);
+    }
+    if (element.namespaceURI === MATHML_NAMESPACE) {
+      if (parent.namespaceURI === HTML_NAMESPACE) {
+        return tagName === "math";
+      }
+      if (parent.namespaceURI === SVG_NAMESPACE) {
+        return tagName === "math" && HTML_INTEGRATION_POINTS[parentTagName];
+      }
+      return Boolean(ALL_MATHML_TAGS[tagName]);
+    }
+    if (element.namespaceURI === HTML_NAMESPACE) {
+      if (parent.namespaceURI === SVG_NAMESPACE && !HTML_INTEGRATION_POINTS[parentTagName]) {
+        return false;
+      }
+      if (parent.namespaceURI === MATHML_NAMESPACE && !MATHML_TEXT_INTEGRATION_POINTS[parentTagName]) {
+        return false;
+      }
+      return !ALL_MATHML_TAGS[tagName] && (COMMON_SVG_AND_HTML_ELEMENTS[tagName] || !ALL_SVG_TAGS[tagName]);
+    }
+    if (PARSER_MEDIA_TYPE === "application/xhtml+xml" && ALLOWED_NAMESPACES[element.namespaceURI]) {
+      return true;
+    }
+    return false;
+  };
+  const _forceRemove = function _forceRemove2(node) {
+    arrayPush(DOMPurify.removed, {
+      element: node
+    });
+    try {
+      getParentNode(node).removeChild(node);
+    } catch (_) {
+      remove(node);
+    }
+  };
+  const _removeAttribute = function _removeAttribute2(name, element) {
+    try {
+      arrayPush(DOMPurify.removed, {
+        attribute: element.getAttributeNode(name),
+        from: element
+      });
+    } catch (_) {
+      arrayPush(DOMPurify.removed, {
+        attribute: null,
+        from: element
+      });
+    }
+    element.removeAttribute(name);
+    if (name === "is") {
+      if (RETURN_DOM || RETURN_DOM_FRAGMENT) {
+        try {
+          _forceRemove(element);
+        } catch (_) {
+        }
+      } else {
+        try {
+          element.setAttribute(name, "");
+        } catch (_) {
+        }
+      }
+    }
+  };
+  const _initDocument = function _initDocument2(dirty) {
+    let doc = null;
+    let leadingWhitespace = null;
+    if (FORCE_BODY) {
+      dirty = "<remove></remove>" + dirty;
+    } else {
+      const matches = stringMatch(dirty, /^[\r\n\t ]+/);
+      leadingWhitespace = matches && matches[0];
+    }
+    if (PARSER_MEDIA_TYPE === "application/xhtml+xml" && NAMESPACE === HTML_NAMESPACE) {
+      dirty = '<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body>' + dirty + "</body></html>";
+    }
+    const dirtyPayload = trustedTypesPolicy ? trustedTypesPolicy.createHTML(dirty) : dirty;
+    if (NAMESPACE === HTML_NAMESPACE) {
+      try {
+        doc = new DOMParser().parseFromString(dirtyPayload, PARSER_MEDIA_TYPE);
+      } catch (_) {
+      }
+    }
+    if (!doc || !doc.documentElement) {
+      doc = implementation.createDocument(NAMESPACE, "template", null);
+      try {
+        doc.documentElement.innerHTML = IS_EMPTY_INPUT ? emptyHTML : dirtyPayload;
+      } catch (_) {
+      }
+    }
+    const body = doc.body || doc.documentElement;
+    if (dirty && leadingWhitespace) {
+      body.insertBefore(document2.createTextNode(leadingWhitespace), body.childNodes[0] || null);
+    }
+    if (NAMESPACE === HTML_NAMESPACE) {
+      return getElementsByTagName.call(doc, WHOLE_DOCUMENT ? "html" : "body")[0];
+    }
+    return WHOLE_DOCUMENT ? doc.documentElement : body;
+  };
+  const _createNodeIterator = function _createNodeIterator2(root) {
+    return createNodeIterator.call(
+      root.ownerDocument || root,
+      root,
+      // eslint-disable-next-line no-bitwise
+      NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_COMMENT | NodeFilter.SHOW_TEXT | NodeFilter.SHOW_PROCESSING_INSTRUCTION | NodeFilter.SHOW_CDATA_SECTION,
+      null
+    );
+  };
+  const _scrubTemplateExpressions = function _scrubTemplateExpressions2(node) {
+    node.normalize();
+    const walker = createNodeIterator.call(
+      node.ownerDocument || node,
+      node,
+      // eslint-disable-next-line no-bitwise
+      NodeFilter.SHOW_TEXT | NodeFilter.SHOW_COMMENT | NodeFilter.SHOW_CDATA_SECTION | NodeFilter.SHOW_PROCESSING_INSTRUCTION,
+      null
+    );
+    let currentNode = walker.nextNode();
+    while (currentNode) {
+      let data = currentNode.data;
+      arrayForEach([MUSTACHE_EXPR$1, ERB_EXPR$1, TMPLIT_EXPR$1], (expr) => {
+        data = stringReplace(data, expr, " ");
+      });
+      currentNode.data = data;
+      currentNode = walker.nextNode();
+    }
+  };
+  const _isClobbered = function _isClobbered2(element) {
+    return element instanceof HTMLFormElement && (typeof element.nodeName !== "string" || typeof element.textContent !== "string" || typeof element.removeChild !== "function" || !(element.attributes instanceof NamedNodeMap) || typeof element.removeAttribute !== "function" || typeof element.setAttribute !== "function" || typeof element.namespaceURI !== "string" || typeof element.insertBefore !== "function" || typeof element.hasChildNodes !== "function");
+  };
+  const _isNode = function _isNode2(value) {
+    if (!getNodeType || typeof value !== "object" || value === null) {
+      return false;
+    }
+    try {
+      return typeof getNodeType(value) === "number";
+    } catch (_) {
+      return false;
+    }
+  };
+  function _executeHooks(hooks2, currentNode, data) {
+    arrayForEach(hooks2, (hook) => {
+      hook.call(DOMPurify, currentNode, data, CONFIG);
+    });
+  }
+  const _sanitizeElements = function _sanitizeElements2(currentNode) {
+    let content = null;
+    _executeHooks(hooks.beforeSanitizeElements, currentNode, null);
+    if (_isClobbered(currentNode)) {
+      _forceRemove(currentNode);
+      return true;
+    }
+    const tagName = transformCaseFunc(currentNode.nodeName);
+    _executeHooks(hooks.uponSanitizeElement, currentNode, {
+      tagName,
+      allowedTags: ALLOWED_TAGS
+    });
+    if (SAFE_FOR_XML && currentNode.hasChildNodes() && !_isNode(currentNode.firstElementChild) && regExpTest(/<[/\w!]/g, currentNode.innerHTML) && regExpTest(/<[/\w!]/g, currentNode.textContent)) {
+      _forceRemove(currentNode);
+      return true;
+    }
+    if (SAFE_FOR_XML && currentNode.namespaceURI === HTML_NAMESPACE && tagName === "style" && _isNode(currentNode.firstElementChild)) {
+      _forceRemove(currentNode);
+      return true;
+    }
+    if (currentNode.nodeType === NODE_TYPE.progressingInstruction) {
+      _forceRemove(currentNode);
+      return true;
+    }
+    if (SAFE_FOR_XML && currentNode.nodeType === NODE_TYPE.comment && regExpTest(/<[/\w]/g, currentNode.data)) {
+      _forceRemove(currentNode);
+      return true;
+    }
+    if (FORBID_TAGS[tagName] || !(EXTRA_ELEMENT_HANDLING.tagCheck instanceof Function && EXTRA_ELEMENT_HANDLING.tagCheck(tagName)) && !ALLOWED_TAGS[tagName]) {
+      if (!FORBID_TAGS[tagName] && _isBasicCustomElement(tagName)) {
+        if (CUSTOM_ELEMENT_HANDLING.tagNameCheck instanceof RegExp && regExpTest(CUSTOM_ELEMENT_HANDLING.tagNameCheck, tagName)) {
+          return false;
+        }
+        if (CUSTOM_ELEMENT_HANDLING.tagNameCheck instanceof Function && CUSTOM_ELEMENT_HANDLING.tagNameCheck(tagName)) {
+          return false;
+        }
+      }
+      if (KEEP_CONTENT && !FORBID_CONTENTS[tagName]) {
+        const parentNode = getParentNode(currentNode) || currentNode.parentNode;
+        const childNodes = getChildNodes(currentNode) || currentNode.childNodes;
+        if (childNodes && parentNode) {
+          const childCount = childNodes.length;
+          for (let i = childCount - 1; i >= 0; --i) {
+            const childClone = cloneNode(childNodes[i], true);
+            parentNode.insertBefore(childClone, getNextSibling(currentNode));
+          }
+        }
+      }
+      _forceRemove(currentNode);
+      return true;
+    }
+    if (currentNode instanceof Element && !_checkValidNamespace(currentNode)) {
+      _forceRemove(currentNode);
+      return true;
+    }
+    if ((tagName === "noscript" || tagName === "noembed" || tagName === "noframes") && regExpTest(/<\/no(script|embed|frames)/i, currentNode.innerHTML)) {
+      _forceRemove(currentNode);
+      return true;
+    }
+    if (SAFE_FOR_TEMPLATES && currentNode.nodeType === NODE_TYPE.text) {
+      content = currentNode.textContent;
+      arrayForEach([MUSTACHE_EXPR$1, ERB_EXPR$1, TMPLIT_EXPR$1], (expr) => {
+        content = stringReplace(content, expr, " ");
+      });
+      if (currentNode.textContent !== content) {
+        arrayPush(DOMPurify.removed, {
+          element: currentNode.cloneNode()
+        });
+        currentNode.textContent = content;
+      }
+    }
+    _executeHooks(hooks.afterSanitizeElements, currentNode, null);
+    return false;
+  };
+  const _isValidAttribute = function _isValidAttribute2(lcTag, lcName, value) {
+    if (FORBID_ATTR[lcName]) {
+      return false;
+    }
+    if (SANITIZE_DOM && (lcName === "id" || lcName === "name") && (value in document2 || value in formElement)) {
+      return false;
+    }
+    const nameIsPermitted = ALLOWED_ATTR[lcName] || EXTRA_ELEMENT_HANDLING.attributeCheck instanceof Function && EXTRA_ELEMENT_HANDLING.attributeCheck(lcName, lcTag);
+    if (ALLOW_DATA_ATTR && !FORBID_ATTR[lcName] && regExpTest(DATA_ATTR$1, lcName)) ;
+    else if (ALLOW_ARIA_ATTR && regExpTest(ARIA_ATTR$1, lcName)) ;
+    else if (!nameIsPermitted || FORBID_ATTR[lcName]) {
+      if (
+        // First condition does a very basic check if a) it's basically a valid custom element tagname AND
+        // b) if the tagName passes whatever the user has configured for CUSTOM_ELEMENT_HANDLING.tagNameCheck
+        // and c) if the attribute name passes whatever the user has configured for CUSTOM_ELEMENT_HANDLING.attributeNameCheck
+        _isBasicCustomElement(lcTag) && (CUSTOM_ELEMENT_HANDLING.tagNameCheck instanceof RegExp && regExpTest(CUSTOM_ELEMENT_HANDLING.tagNameCheck, lcTag) || CUSTOM_ELEMENT_HANDLING.tagNameCheck instanceof Function && CUSTOM_ELEMENT_HANDLING.tagNameCheck(lcTag)) && (CUSTOM_ELEMENT_HANDLING.attributeNameCheck instanceof RegExp && regExpTest(CUSTOM_ELEMENT_HANDLING.attributeNameCheck, lcName) || CUSTOM_ELEMENT_HANDLING.attributeNameCheck instanceof Function && CUSTOM_ELEMENT_HANDLING.attributeNameCheck(lcName, lcTag)) || // Alternative, second condition checks if it's an `is`-attribute, AND
+        // the value passes whatever the user has configured for CUSTOM_ELEMENT_HANDLING.tagNameCheck
+        lcName === "is" && CUSTOM_ELEMENT_HANDLING.allowCustomizedBuiltInElements && (CUSTOM_ELEMENT_HANDLING.tagNameCheck instanceof RegExp && regExpTest(CUSTOM_ELEMENT_HANDLING.tagNameCheck, value) || CUSTOM_ELEMENT_HANDLING.tagNameCheck instanceof Function && CUSTOM_ELEMENT_HANDLING.tagNameCheck(value))
+      ) ;
+      else {
+        return false;
+      }
+    } else if (URI_SAFE_ATTRIBUTES[lcName]) ;
+    else if (regExpTest(IS_ALLOWED_URI$1, stringReplace(value, ATTR_WHITESPACE$1, ""))) ;
+    else if ((lcName === "src" || lcName === "xlink:href" || lcName === "href") && lcTag !== "script" && stringIndexOf(value, "data:") === 0 && DATA_URI_TAGS[lcTag]) ;
+    else if (ALLOW_UNKNOWN_PROTOCOLS && !regExpTest(IS_SCRIPT_OR_DATA$1, stringReplace(value, ATTR_WHITESPACE$1, ""))) ;
+    else if (value) {
+      return false;
+    } else ;
+    return true;
+  };
+  const RESERVED_CUSTOM_ELEMENT_NAMES = addToSet({}, ["annotation-xml", "color-profile", "font-face", "font-face-format", "font-face-name", "font-face-src", "font-face-uri", "missing-glyph"]);
+  const _isBasicCustomElement = function _isBasicCustomElement2(tagName) {
+    return !RESERVED_CUSTOM_ELEMENT_NAMES[stringToLowerCase(tagName)] && regExpTest(CUSTOM_ELEMENT$1, tagName);
+  };
+  const _sanitizeAttributes = function _sanitizeAttributes2(currentNode) {
+    _executeHooks(hooks.beforeSanitizeAttributes, currentNode, null);
+    const attributes = currentNode.attributes;
+    if (!attributes || _isClobbered(currentNode)) {
+      return;
+    }
+    const hookEvent = {
+      attrName: "",
+      attrValue: "",
+      keepAttr: true,
+      allowedAttributes: ALLOWED_ATTR,
+      forceKeepAttr: void 0
+    };
+    let l = attributes.length;
+    while (l--) {
+      const attr = attributes[l];
+      const name = attr.name, namespaceURI = attr.namespaceURI, attrValue = attr.value;
+      const lcName = transformCaseFunc(name);
+      const initValue = attrValue;
+      let value = name === "value" ? initValue : stringTrim(initValue);
+      hookEvent.attrName = lcName;
+      hookEvent.attrValue = value;
+      hookEvent.keepAttr = true;
+      hookEvent.forceKeepAttr = void 0;
+      _executeHooks(hooks.uponSanitizeAttribute, currentNode, hookEvent);
+      value = hookEvent.attrValue;
+      if (SANITIZE_NAMED_PROPS && (lcName === "id" || lcName === "name") && stringIndexOf(value, SANITIZE_NAMED_PROPS_PREFIX) !== 0) {
+        _removeAttribute(name, currentNode);
+        value = SANITIZE_NAMED_PROPS_PREFIX + value;
+      }
+      if (SAFE_FOR_XML && regExpTest(/((--!?|])>)|<\/(style|script|title|xmp|textarea|noscript|iframe|noembed|noframes)/i, value)) {
+        _removeAttribute(name, currentNode);
+        continue;
+      }
+      if (lcName === "attributename" && stringMatch(value, "href")) {
+        _removeAttribute(name, currentNode);
+        continue;
+      }
+      if (hookEvent.forceKeepAttr) {
+        continue;
+      }
+      if (!hookEvent.keepAttr) {
+        _removeAttribute(name, currentNode);
+        continue;
+      }
+      if (!ALLOW_SELF_CLOSE_IN_ATTR && regExpTest(/\/>/i, value)) {
+        _removeAttribute(name, currentNode);
+        continue;
+      }
+      if (SAFE_FOR_TEMPLATES) {
+        arrayForEach([MUSTACHE_EXPR$1, ERB_EXPR$1, TMPLIT_EXPR$1], (expr) => {
+          value = stringReplace(value, expr, " ");
+        });
+      }
+      const lcTag = transformCaseFunc(currentNode.nodeName);
+      if (!_isValidAttribute(lcTag, lcName, value)) {
+        _removeAttribute(name, currentNode);
+        continue;
+      }
+      if (trustedTypesPolicy && typeof trustedTypes === "object" && typeof trustedTypes.getAttributeType === "function") {
+        if (namespaceURI) ;
+        else {
+          switch (trustedTypes.getAttributeType(lcTag, lcName)) {
+            case "TrustedHTML": {
+              value = trustedTypesPolicy.createHTML(value);
+              break;
+            }
+            case "TrustedScriptURL": {
+              value = trustedTypesPolicy.createScriptURL(value);
+              break;
+            }
+          }
+        }
+      }
+      if (value !== initValue) {
+        try {
+          if (namespaceURI) {
+            currentNode.setAttributeNS(namespaceURI, name, value);
+          } else {
+            currentNode.setAttribute(name, value);
+          }
+          if (_isClobbered(currentNode)) {
+            _forceRemove(currentNode);
+          } else {
+            arrayPop(DOMPurify.removed);
+          }
+        } catch (_) {
+          _removeAttribute(name, currentNode);
+        }
+      }
+    }
+    _executeHooks(hooks.afterSanitizeAttributes, currentNode, null);
+  };
+  const _sanitizeShadowDOM2 = function _sanitizeShadowDOM(fragment) {
+    let shadowNode = null;
+    const shadowIterator = _createNodeIterator(fragment);
+    _executeHooks(hooks.beforeSanitizeShadowDOM, fragment, null);
+    while (shadowNode = shadowIterator.nextNode()) {
+      _executeHooks(hooks.uponSanitizeShadowNode, shadowNode, null);
+      _sanitizeElements(shadowNode);
+      _sanitizeAttributes(shadowNode);
+      if (shadowNode.content instanceof DocumentFragment) {
+        _sanitizeShadowDOM2(shadowNode.content);
+      }
+    }
+    _executeHooks(hooks.afterSanitizeShadowDOM, fragment, null);
+  };
+  const _sanitizeAttachedShadowRoots2 = function _sanitizeAttachedShadowRoots(root) {
+    if (root.nodeType === NODE_TYPE.element && root.shadowRoot instanceof DocumentFragment) {
+      const sr = root.shadowRoot;
+      _sanitizeAttachedShadowRoots2(sr);
+      _sanitizeShadowDOM2(sr);
+    }
+    const childNodes = root.childNodes;
+    if (!childNodes) {
+      return;
+    }
+    const snapshot = [];
+    arrayForEach(childNodes, (child) => {
+      arrayPush(snapshot, child);
+    });
+    for (const child of snapshot) {
+      _sanitizeAttachedShadowRoots2(child);
+    }
+  };
+  DOMPurify.sanitize = function(dirty) {
+    let cfg = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : {};
+    let body = null;
+    let importedNode = null;
+    let currentNode = null;
+    let returnNode = null;
+    IS_EMPTY_INPUT = !dirty;
+    if (IS_EMPTY_INPUT) {
+      dirty = "<!-->";
+    }
+    if (typeof dirty !== "string" && !_isNode(dirty)) {
+      dirty = stringifyValue(dirty);
+      if (typeof dirty !== "string") {
+        throw typeErrorCreate("dirty is not a string, aborting");
+      }
+    }
+    if (!DOMPurify.isSupported) {
+      return dirty;
+    }
+    if (!SET_CONFIG) {
+      _parseConfig(cfg);
+    }
+    DOMPurify.removed = [];
+    if (typeof dirty === "string") {
+      IN_PLACE = false;
+    }
+    if (IN_PLACE) {
+      const nn = dirty.nodeName;
+      if (typeof nn === "string") {
+        const tagName = transformCaseFunc(nn);
+        if (!ALLOWED_TAGS[tagName] || FORBID_TAGS[tagName]) {
+          throw typeErrorCreate("root node is forbidden and cannot be sanitized in-place");
+        }
+      }
+      _sanitizeAttachedShadowRoots2(dirty);
+    } else if (_isNode(dirty)) {
+      body = _initDocument("<!---->");
+      importedNode = body.ownerDocument.importNode(dirty, true);
+      if (importedNode.nodeType === NODE_TYPE.element && importedNode.nodeName === "BODY") {
+        body = importedNode;
+      } else if (importedNode.nodeName === "HTML") {
+        body = importedNode;
+      } else {
+        body.appendChild(importedNode);
+      }
+      _sanitizeAttachedShadowRoots2(importedNode);
+    } else {
+      if (!RETURN_DOM && !SAFE_FOR_TEMPLATES && !WHOLE_DOCUMENT && // eslint-disable-next-line unicorn/prefer-includes
+      dirty.indexOf("<") === -1) {
+        return trustedTypesPolicy && RETURN_TRUSTED_TYPE ? trustedTypesPolicy.createHTML(dirty) : dirty;
+      }
+      body = _initDocument(dirty);
+      if (!body) {
+        return RETURN_DOM ? null : RETURN_TRUSTED_TYPE ? emptyHTML : "";
+      }
+    }
+    if (body && FORCE_BODY) {
+      _forceRemove(body.firstChild);
+    }
+    const nodeIterator = _createNodeIterator(IN_PLACE ? dirty : body);
+    while (currentNode = nodeIterator.nextNode()) {
+      _sanitizeElements(currentNode);
+      _sanitizeAttributes(currentNode);
+      if (currentNode.content instanceof DocumentFragment) {
+        _sanitizeShadowDOM2(currentNode.content);
+      }
+    }
+    if (IN_PLACE) {
+      if (SAFE_FOR_TEMPLATES) {
+        _scrubTemplateExpressions(dirty);
+      }
+      return dirty;
+    }
+    if (RETURN_DOM) {
+      if (SAFE_FOR_TEMPLATES) {
+        _scrubTemplateExpressions(body);
+      }
+      if (RETURN_DOM_FRAGMENT) {
+        returnNode = createDocumentFragment.call(body.ownerDocument);
+        while (body.firstChild) {
+          returnNode.appendChild(body.firstChild);
+        }
+      } else {
+        returnNode = body;
+      }
+      if (ALLOWED_ATTR.shadowroot || ALLOWED_ATTR.shadowrootmode) {
+        returnNode = importNode.call(originalDocument, returnNode, true);
+      }
+      return returnNode;
+    }
+    let serializedHTML = WHOLE_DOCUMENT ? body.outerHTML : body.innerHTML;
+    if (WHOLE_DOCUMENT && ALLOWED_TAGS["!doctype"] && body.ownerDocument && body.ownerDocument.doctype && body.ownerDocument.doctype.name && regExpTest(DOCTYPE_NAME, body.ownerDocument.doctype.name)) {
+      serializedHTML = "<!DOCTYPE " + body.ownerDocument.doctype.name + ">\n" + serializedHTML;
+    }
+    if (SAFE_FOR_TEMPLATES) {
+      arrayForEach([MUSTACHE_EXPR$1, ERB_EXPR$1, TMPLIT_EXPR$1], (expr) => {
+        serializedHTML = stringReplace(serializedHTML, expr, " ");
+      });
+    }
+    return trustedTypesPolicy && RETURN_TRUSTED_TYPE ? trustedTypesPolicy.createHTML(serializedHTML) : serializedHTML;
+  };
+  DOMPurify.setConfig = function() {
+    let cfg = arguments.length > 0 && arguments[0] !== void 0 ? arguments[0] : {};
+    _parseConfig(cfg);
+    SET_CONFIG = true;
+  };
+  DOMPurify.clearConfig = function() {
+    CONFIG = null;
+    SET_CONFIG = false;
+  };
+  DOMPurify.isValidAttribute = function(tag, attr, value) {
+    if (!CONFIG) {
+      _parseConfig({});
+    }
+    const lcTag = transformCaseFunc(tag);
+    const lcName = transformCaseFunc(attr);
+    return _isValidAttribute(lcTag, lcName, value);
+  };
+  DOMPurify.addHook = function(entryPoint, hookFunction) {
+    if (typeof hookFunction !== "function") {
+      return;
+    }
+    arrayPush(hooks[entryPoint], hookFunction);
+  };
+  DOMPurify.removeHook = function(entryPoint, hookFunction) {
+    if (hookFunction !== void 0) {
+      const index = arrayLastIndexOf(hooks[entryPoint], hookFunction);
+      return index === -1 ? void 0 : arraySplice(hooks[entryPoint], index, 1)[0];
+    }
+    return arrayPop(hooks[entryPoint]);
+  };
+  DOMPurify.removeHooks = function(entryPoint) {
+    hooks[entryPoint] = [];
+  };
+  DOMPurify.removeAllHooks = function() {
+    hooks = _createHooksMap();
+  };
+  return DOMPurify;
+}
+var purify = createDOMPurify();
+
 // src/crypto/EnhancedSecureCryptoUtils.js
 var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
   static _keyMetadata = /* @__PURE__ */ new WeakMap();
+  static _messageSanitizer = null;
   // Initialize secure logging system after class definition
   // Utility to sort object keys for deterministic serialization
   static sortObjectKeys(obj) {
@@ -2602,67 +3717,38 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
       throw new Error(`Failed to decrypt the message: ${error.message}`);
     }
   }
-  // Enhanced input sanitization with iterative processing to handle edge cases
+  static _getMessageSanitizer() {
+    if (_EnhancedSecureCryptoUtils._messageSanitizer) {
+      return _EnhancedSecureCryptoUtils._messageSanitizer;
+    }
+    if (typeof window === "undefined" || !window?.document) {
+      throw new Error("DOMPurify requires a browser-like window for message sanitization");
+    }
+    _EnhancedSecureCryptoUtils._messageSanitizer = purify(window);
+    return _EnhancedSecureCryptoUtils._messageSanitizer;
+  }
+  // Centralized chat-message sanitization. Messages are rendered as plain text,
+  // so the safest compatible output is text-only content with no markup surface.
   static sanitizeMessage(message) {
     if (typeof message !== "string") {
       throw new Error("Message must be a string");
     }
-    function replaceUntilStable(str, pattern, replacement = "") {
-      let previous;
-      do {
-        previous = str;
-        str = str.replace(pattern, replacement);
-      } while (str !== previous);
-      return str;
-    }
-    const dangerousPatterns = [
-      // Script tags with various formats
-      /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,
-      /<script\b[^>]*>[\s\S]*?<\/script\s+[^>]*>/gi,
-      /<script\b[^>]*>[\s\S]*$/gi,
-      // Other dangerous tags
-      /<iframe\b[^>]*>[\s\S]*?<\/iframe\s*>/gi,
-      /<object\b[^>]*>[\s\S]*?<\/object\s*>/gi,
-      /<embed\b[^>]*>/gi,
-      /<applet\b[^>]*>[\s\S]*?<\/applet\s*>/gi,
-      /<style\b[^>]*>[\s\S]*?<\/style\s*>/gi,
-      // Dangerous protocols
-      /javascript\s*:/gi,
-      /data\s*:/gi,
-      /vbscript\s*:/gi,
-      // Event handlers
-      /on\w+\s*=/gi,
-      // HTML comments
-      /<!--[\s\S]*?-->/g,
-      // Link and meta tags with javascript
-      /<link\b[^>]*javascript[^>]*>/gi,
-      /<meta\b[^>]*javascript[^>]*>/gi,
-      // Any remaining script-like content
-      /<[^>]*script[^>]*>/gi,
-      /<[^>]*on\w+\s*=[^>]*>/gi
-    ];
-    let sanitized = message;
-    let previousLength;
-    let iterations = 0;
-    const maxIterations = 10;
-    do {
-      previousLength = sanitized.length;
-      for (const pattern of dangerousPatterns) {
-        sanitized = replaceUntilStable(sanitized, pattern);
+    const sanitized = _EnhancedSecureCryptoUtils._getMessageSanitizer().sanitize(message, {
+      ALLOWED_TAGS: [],
+      ALLOWED_ATTR: [],
+      ALLOW_UNKNOWN_PROTOCOLS: false,
+      FORBID_TAGS: ["script", "style", "svg", "math", "template"],
+      FORBID_ATTR: ["style"],
+      KEEP_CONTENT: true,
+      RETURN_TRUSTED_TYPE: false,
+      USE_PROFILES: {
+        html: false,
+        svg: false,
+        svgFilters: false,
+        mathMl: false
       }
-      sanitized = replaceUntilStable(sanitized, /<[^>]*>/g);
-      sanitized = replaceUntilStable(sanitized, /^\w+:/gi);
-      sanitized = replaceUntilStable(sanitized, /\bon\w+\s*=\s*["'][^"']*["']/gi);
-      sanitized = replaceUntilStable(sanitized, /\bon\w+\s*=\s*[^>\s]+/gi);
-      sanitized = sanitized.replace(/[<>]/g, "").trim();
-      iterations++;
-    } while (sanitized.length !== previousLength && iterations < maxIterations);
-    sanitized = replaceUntilStable(sanitized, /<[^>]*>/g);
-    sanitized = replaceUntilStable(sanitized, /^\w+:/gi);
-    sanitized = replaceUntilStable(sanitized, /\bon\w+\s*=\s*["'][^"']*["']/gi);
-    sanitized = replaceUntilStable(sanitized, /\bon\w+\s*=\s*[^>\s]+/gi);
-    sanitized = sanitized.replace(/[<>]/g, "").trim();
-    return sanitized.substring(0, 2e3);
+    });
+    return String(sanitized).trim().substring(0, 2e3);
   }
   // Generate cryptographically secure salt (64 bytes for enhanced security)
   static generateSalt() {
@@ -3079,6 +4165,9 @@ var EnhancedSecureFileTransfer = class {
     this.transferQueue = [];
     this.pendingChunks = /* @__PURE__ */ new Map();
     this.incomingOfferLimiter = new RateLimiter(5, 6e4);
+    this.incomingChunkLimiter = new RateLimiter(240, 6e4);
+    this.incomingTransferChunkLimiters = /* @__PURE__ */ new Map();
+    this.MAX_INCOMING_CHUNKS_PER_TRANSFER_PER_MINUTE = 120;
     this.MAX_PENDING_INCOMING_TRANSFERS = 3;
     this.sessionKeys = /* @__PURE__ */ new Map();
     this.processedChunks = /* @__PURE__ */ new Set();
@@ -3790,6 +4879,11 @@ var EnhancedSecureFileTransfer = class {
           if (!receivingState) {
             return;
           }
+          if (!this._isIncomingChunkAllowed(chunkMessage.fileId)) {
+            console.warn("\u26A0\uFE0F Incoming file chunk rate limit exceeded; cleaning up transfer:", chunkMessage.fileId);
+            this.cleanupReceivingTransfer(chunkMessage.fileId);
+            return;
+          }
           receivingState.lastChunkTime = Date.now();
           if (receivingState.receivedChunks.has(chunkMessage.chunkIndex)) {
             return;
@@ -3850,6 +4944,31 @@ var EnhancedSecureFileTransfer = class {
         }
       }
     );
+  }
+  _isIncomingChunkAllowed(fileId) {
+    const clientId = this.getClientIdentifier();
+    if (!this.incomingChunkLimiter.isAllowed(clientId)) {
+      SecurityErrorHandler.logSecurityEvent("incoming_chunk_aggregate_rate_limit_exceeded", {
+        clientId,
+        fileId
+      });
+      return false;
+    }
+    if (!this.incomingTransferChunkLimiters.has(fileId)) {
+      this.incomingTransferChunkLimiters.set(
+        fileId,
+        new RateLimiter(this.MAX_INCOMING_CHUNKS_PER_TRANSFER_PER_MINUTE, 6e4)
+      );
+    }
+    const transferLimiter = this.incomingTransferChunkLimiters.get(fileId);
+    if (!transferLimiter.isAllowed(fileId)) {
+      SecurityErrorHandler.logSecurityEvent("incoming_chunk_transfer_rate_limit_exceeded", {
+        clientId,
+        fileId
+      });
+      return false;
+    }
+    return true;
   }
   async assembleFile(receivingState) {
     try {
@@ -4141,6 +5260,7 @@ var EnhancedSecureFileTransfer = class {
     this.activeTransfers.delete(fileId);
     this.sessionKeys.delete(fileId);
     this.transferNonces.delete(fileId);
+    this.incomingTransferChunkLimiters.delete(fileId);
     for (const chunkId of this.processedChunks) {
       if (chunkId.startsWith(fileId)) {
         this.processedChunks.delete(chunkId);
@@ -4220,6 +5340,7 @@ var EnhancedSecureFileTransfer = class {
       }
       this.receivingTransfers.delete(fileId);
       this.sessionKeys.delete(fileId);
+      this.incomingTransferChunkLimiters.delete(fileId);
       const fileBuffer = this.receivedFileBuffers.get(fileId);
       if (fileBuffer) {
         try {
@@ -4339,6 +5460,10 @@ var EnhancedSecureFileTransfer = class {
     if (this.rateLimiter) {
       this.rateLimiter.requests.clear();
     }
+    if (this.incomingChunkLimiter) {
+      this.incomingChunkLimiter.requests.clear();
+    }
+    this.incomingTransferChunkLimiters.clear();
     this.pendingChunks.clear();
     this.pendingIncomingTransfers.clear();
     this.activeTransfers.clear();
@@ -4633,6 +5758,16 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   };
   static PROTOCOL_VERSION = "4.1";
   static MAX_SAS_ATTEMPTS = 3;
+  static DEFAULT_ICE_SERVERS = Object.freeze([
+    // Keep multiple independent public STUN defaults so one provider-side
+    // DNS/path failure does not strand standard-mode connectivity.
+    Object.freeze({ urls: "stun:stun.cloudflare.com:3478" }),
+    Object.freeze({ urls: "stun:stun.l.google.com:19302" }),
+    Object.freeze({ urls: "stun:stun1.l.google.com:19302" }),
+    Object.freeze({ urls: "stun:stun2.l.google.com:19302" }),
+    Object.freeze({ urls: "stun:stun3.l.google.com:19302" }),
+    Object.freeze({ urls: "stun:stun4.l.google.com:19302" })
+  ]);
   //   Static debug flag instead of this._debugMode
   static DEBUG_MODE = true;
   // Set to true during development, false in production
@@ -4671,14 +5806,11 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         useRandomHeaders: config.antiFingerprinting?.useRandomHeaders ?? false
       },
       webrtc: {
-        relayOnly: config.webrtc?.relayOnly ?? false,
-        iceServers: config.webrtc?.iceServers ?? [
-          { urls: "stun:stun.l.google.com:19302" },
-          { urls: "stun:stun1.l.google.com:19302" },
-          { urls: "stun:stun2.l.google.com:19302" },
-          { urls: "stun:stun3.l.google.com:19302" },
-          { urls: "stun:stun4.l.google.com:19302" }
-        ]
+        // `privacyMode` is canonical; `relayOnly` remains a
+        // backward-compatible input alias at construction time.
+        privacyMode: config.webrtc?.privacyMode ?? (config.webrtc?.relayOnly ? "relay-only" : "standard"),
+        relayOnly: config.webrtc?.privacyMode ? config.webrtc.privacyMode === "relay-only" : config.webrtc?.relayOnly ?? false,
+        iceServers: config.webrtc?.iceServers ?? _EnhancedSecureWebRTCManager.DEFAULT_ICE_SERVERS.map((server) => ({ ...server }))
       }
     };
     this._ipLeakWarningShown = false;
@@ -4751,6 +5883,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     this.sequenceNumber = 0;
     this.expectedSequenceNumber = 0;
     this.sessionSalt = null;
+    this._pendingOfferContext = null;
     this.replayWindowSize = 64;
     this.replayWindow = /* @__PURE__ */ new Set();
     this.maxSequenceGap = 100;
@@ -5300,6 +6433,196 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   _untrackActiveTimer(timer) {
     if (timer && this._activeTimers) this._activeTimers.delete(timer);
   }
+  _setSASMaterialReady(localFingerprint, remoteFingerprint) {
+    this._sasLocalFingerprint = localFingerprint;
+    this._sasRemoteFingerprint = remoteFingerprint;
+  }
+  _isVerificationReady() {
+    const hasDescriptions = !!(this.peerConnection?.localDescription && this.peerConnection?.remoteDescription);
+    const hasOpenDataChannel = this.dataChannel?.readyState === "open";
+    const hasVerificationCode = typeof this.verificationCode === "string" && this.verificationCode.trim().length > 0;
+    const hasFingerprintMaterial = typeof this._sasLocalFingerprint === "string" && this._sasLocalFingerprint.trim().length > 0 && typeof this._sasRemoteFingerprint === "string" && this._sasRemoteFingerprint.trim().length > 0;
+    return hasDescriptions && hasOpenDataChannel && hasVerificationCode && hasFingerprintMaterial;
+  }
+  _notifyVerificationReadyIfPossible() {
+    if (!this._isVerificationReady()) {
+      return false;
+    }
+    if (!this._verificationUiOpened) {
+      this._verificationUiOpened = true;
+      this.onStatusChange?.("verifying");
+      this.onVerificationRequired?.(this.verificationCode);
+    }
+    return true;
+  }
+  _countIceCandidatesInSDP(sdp) {
+    if (typeof sdp !== "string") return 0;
+    return (sdp.match(/^a=candidate:/gm) || []).length;
+  }
+  _summarizeIceCandidatesInSDP(sdp) {
+    const summary = {
+      total: 0,
+      host: 0,
+      srflx: 0,
+      relay: 0,
+      prflx: 0,
+      unknown: 0
+    };
+    if (typeof sdp !== "string") return summary;
+    for (const line of sdp.match(/^a=candidate:.*$/gm) || []) {
+      summary.total += 1;
+      const match = line.match(/\btyp\s+(host|srflx|relay|prflx)\b/i);
+      const type = match?.[1]?.toLowerCase();
+      if (type && Object.prototype.hasOwnProperty.call(summary, type)) {
+        summary[type] += 1;
+      } else {
+        summary.unknown += 1;
+      }
+    }
+    return summary;
+  }
+  _describeIceCandidatesInSDP(sdp) {
+    if (typeof sdp !== "string") return [];
+    return (sdp.match(/^a=candidate:.*$/gm) || []).map((line) => {
+      const parts = line.slice("a=candidate:".length).trim().split(/\s+/);
+      const typIndex = parts.findIndex((part) => part.toLowerCase() === "typ");
+      const address = parts[4] || "";
+      const port = parts[5] || "";
+      const candidateType = typIndex >= 0 ? parts[typIndex + 1] || "unknown" : "unknown";
+      const protocol = (parts[2] || "unknown").toLowerCase();
+      let addressKind = "unknown";
+      if (/\.local$/i.test(address)) {
+        addressKind = "mdns";
+      } else if (/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(address)) {
+        addressKind = "private-ipv4";
+      } else if (/^\d{1,3}(\.\d{1,3}){3}$/.test(address)) {
+        addressKind = "public-ipv4";
+      } else if (address.includes(":")) {
+        addressKind = "ipv6";
+      }
+      return {
+        candidateType,
+        protocol,
+        addressKind,
+        portPresent: !!port,
+        tcpType: (() => {
+          const tcpIndex = parts.findIndex((part) => part.toLowerCase() === "tcptype");
+          return tcpIndex >= 0 ? parts[tcpIndex + 1] || null : null;
+        })()
+      };
+    });
+  }
+  _logIceCandidateDiagnostics(label, sdp, extra = {}) {
+    const candidateSummary = this._summarizeIceCandidatesInSDP(sdp);
+    const candidateDetails = this._describeIceCandidatesInSDP(sdp);
+    console.info(`[SecureBit ICE] ${label}`, {
+      candidateSummary,
+      candidateDetails,
+      candidateDetailsJson: JSON.stringify(candidateDetails),
+      ...extra
+    });
+    return { candidateSummary, candidateDetails };
+  }
+  _hasOnlyMdnsHostCandidates(sdp) {
+    const summary = this._summarizeIceCandidatesInSDP(sdp);
+    const details = this._describeIceCandidatesInSDP(sdp);
+    return summary.total > 0 && summary.srflx === 0 && summary.relay === 0 && summary.prflx === 0 && details.every(
+      (candidate) => candidate.candidateType === "host" && candidate.addressKind === "mdns"
+    );
+  }
+  _warnIfRemoteCandidatesNeedRelay(context, sdp) {
+    if (!this._hasOnlyMdnsHostCandidates(sdp)) return false;
+    const message = context === "answer" ? "Connection warning: the response contains only browser-masked mDNS host candidates and no server-reflexive or TURN relay candidates. This network/browser combination may not connect until TURN is configured." : "Connection warning: the invitation contains only browser-masked mDNS host candidates and no server-reflexive or TURN relay candidates. This network/browser combination may not connect until TURN is configured.";
+    this._secureLog("warn", "Remote ICE candidates require TURN or usable non-mDNS candidates", {
+      context,
+      candidateSummary: this._summarizeIceCandidatesInSDP(sdp),
+      candidateDetails: this._describeIceCandidatesInSDP(sdp)
+    });
+    this.deliverMessageToUI(message, "system");
+    return true;
+  }
+  async _collectIceFailureDiagnostics() {
+    if (!this.peerConnection?.getStats) return null;
+    try {
+      const stats = await this.peerConnection.getStats();
+      const candidates = /* @__PURE__ */ new Map();
+      const candidatePairs = [];
+      stats.forEach((report) => {
+        if (report.type === "local-candidate" || report.type === "remote-candidate") {
+          candidates.set(report.id, {
+            type: report.type,
+            candidateType: report.candidateType,
+            protocol: report.protocol,
+            address: report.address || report.ip || null,
+            port: report.port || null,
+            networkType: report.networkType || null
+          });
+        }
+      });
+      stats.forEach((report) => {
+        if (report.type !== "candidate-pair") return;
+        candidatePairs.push({
+          state: report.state,
+          nominated: !!report.nominated,
+          writable: !!report.writable,
+          bytesSent: report.bytesSent || 0,
+          bytesReceived: report.bytesReceived || 0,
+          currentRoundTripTime: report.currentRoundTripTime ?? null,
+          local: candidates.get(report.localCandidateId) || null,
+          remote: candidates.get(report.remoteCandidateId) || null
+        });
+      });
+      return {
+        pairCount: candidatePairs.length,
+        states: candidatePairs.reduce((acc, pair) => {
+          acc[pair.state || "unknown"] = (acc[pair.state || "unknown"] || 0) + 1;
+          return acc;
+        }, {}),
+        pairs: candidatePairs
+      };
+    } catch (error) {
+      return {
+        error: error?.message || "Failed to collect ICE diagnostics"
+      };
+    }
+  }
+  _storePendingOfferContext() {
+    this._pendingOfferContext = {
+      sessionSalt: Array.isArray(this.sessionSalt) ? [...this.sessionSalt] : null,
+      sessionId: this.sessionId || null,
+      connectionId: this.connectionId || null,
+      keyFingerprint: this.keyFingerprint || null,
+      createdAt: Date.now()
+    };
+  }
+  _restorePendingOfferContextIfNeeded() {
+    const saltIsValid = Array.isArray(this.sessionSalt) && this.sessionSalt.length === 64;
+    if (saltIsValid) return true;
+    const pendingSalt = this._pendingOfferContext?.sessionSalt;
+    if (!Array.isArray(pendingSalt) || pendingSalt.length !== 64) {
+      return false;
+    }
+    this.sessionSalt = [...pendingSalt];
+    if (!this.sessionId && this._pendingOfferContext.sessionId) {
+      this.sessionId = this._pendingOfferContext.sessionId;
+    }
+    if (!this.connectionId && this._pendingOfferContext.connectionId) {
+      this.connectionId = this._pendingOfferContext.connectionId;
+    }
+    if (!this.keyFingerprint && this._pendingOfferContext.keyFingerprint) {
+      this.keyFingerprint = this._pendingOfferContext.keyFingerprint;
+    }
+    this._secureLog("warn", "Restored pending offer context before applying answer", {
+      pendingContextAgeMs: Date.now() - (this._pendingOfferContext.createdAt || Date.now())
+    });
+    return true;
+  }
+  _clearPendingOfferContext() {
+    if (this._pendingOfferContext?.sessionSalt) {
+      this._secureWipeMemory(this._pendingOfferContext.sessionSalt, "pendingOfferContext.sessionSalt");
+    }
+    this._pendingOfferContext = null;
+  }
   /**
    *   Execute all maintenance tasks in a single cycle
    */
@@ -5683,6 +7006,40 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     }
     this._rateLimiter.messageCount++;
     this._rateLimiter.burstCount++;
+    return true;
+  }
+  /**
+   * Dedicated receiver-side limiter. Keep separate from outbound quotas so a
+   * noisy peer cannot consume local send capacity or force decrypt/render work.
+   */
+  _checkInboundRateLimit(context = "incoming_message") {
+    const now = Date.now();
+    if (!this._inboundRateLimiter) {
+      this._inboundRateLimiter = {
+        messageCount: 0,
+        lastReset: now,
+        burstCount: 0,
+        lastBurstReset: now
+      };
+    }
+    if (now - this._inboundRateLimiter.lastReset > 6e4) {
+      this._inboundRateLimiter.messageCount = 0;
+      this._inboundRateLimiter.lastReset = now;
+    }
+    if (now - this._inboundRateLimiter.lastBurstReset > 1e3) {
+      this._inboundRateLimiter.burstCount = 0;
+      this._inboundRateLimiter.lastBurstReset = now;
+    }
+    if (this._inboundRateLimiter.burstCount >= this._inputValidationLimits.rateLimitBurstSize) {
+      this._secureLog("warn", "\u26A0\uFE0F Inbound message burst limit exceeded; dropping message", { context });
+      return false;
+    }
+    if (this._inboundRateLimiter.messageCount >= this._inputValidationLimits.rateLimitMessagesPerMinute) {
+      this._secureLog("warn", "\u26A0\uFE0F Inbound message rate limit exceeded; dropping message", { context });
+      return false;
+    }
+    this._inboundRateLimiter.messageCount++;
+    this._inboundRateLimiter.burstCount++;
     return true;
   }
   // ============================================
@@ -6888,6 +8245,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         this._secureWipeMemory(this.connectionId, "connectionId");
         this.connectionId = null;
       }
+      this._clearPendingOfferContext();
       this._secureLog("info", "\u{1F512} Cryptographic materials securely cleaned up");
     } catch (error) {
       this._secureLog("error", "\u274C Failed to cleanup cryptographic materials", {
@@ -7382,7 +8740,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       while ((match = fingerprintRegex.exec(sdp)) !== null) {
         fingerprints.push({
           algorithm: match[1].toLowerCase(),
-          fingerprint: match[2].toLowerCase().replace(/:/g, "")
+          fingerprint: match[2].trim()
         });
       }
       if (fingerprints.length === 0) {
@@ -7390,7 +8748,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         while ((match = altFingerprintRegex.exec(sdp)) !== null) {
           fingerprints.push({
             algorithm: match[1].toLowerCase(),
-            fingerprint: match[2].toLowerCase().replace(/:/g, "")
+            fingerprint: match[2].trim()
           });
         }
       }
@@ -7401,11 +8759,19 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         });
         throw new Error("No DTLS fingerprints found in SDP");
       }
-      const sha256Fingerprint = fingerprints.find((fp) => fp.algorithm === "sha-256");
-      if (sha256Fingerprint) {
-        return sha256Fingerprint.fingerprint;
-      }
-      return fingerprints[0].fingerprint;
+      const primaryFingerprint = [...fingerprints].sort((a, b) => {
+        const aIsSha256 = a.algorithm === "sha-256";
+        const bIsSha256 = b.algorithm === "sha-256";
+        if (aIsSha256 !== bIsSha256) {
+          return aIsSha256 ? -1 : 1;
+        }
+        const algorithmComparison = a.algorithm.localeCompare(b.algorithm);
+        if (algorithmComparison !== 0) {
+          return algorithmComparison;
+        }
+        return a.fingerprint.localeCompare(b.fingerprint);
+      })[0];
+      return primaryFingerprint.fingerprint;
     } catch (error) {
       this._secureLog("error", "Failed to extract DTLS fingerprint from SDP", {
         error: error.message,
@@ -7463,16 +8829,24 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
    */
   async _computeSAS(keyMaterialRaw, localFP, remoteFP) {
     try {
-      if (!keyMaterialRaw || !localFP || !remoteFP) {
+      if (!keyMaterialRaw) {
         const missing = [];
         if (!keyMaterialRaw) missing.push("keyMaterialRaw");
-        if (!localFP) missing.push("localFP");
-        if (!remoteFP) missing.push("remoteFP");
         throw new Error(`Missing required parameters for SAS computation: ${missing.join(", ")}`);
       }
       const enc = new TextEncoder();
+      const normalizeFingerprintForSAS = (fingerprint, label) => {
+        if (typeof fingerprint !== "string" || fingerprint.trim().length === 0) {
+          throw new Error(
+            `Security error: ${label} must be a non-empty DTLS fingerprint string for SAS computation`
+          );
+        }
+        return fingerprint.trim().toLowerCase();
+      };
+      const normalizedLocalFP = normalizeFingerprintForSAS(localFP, "localFP");
+      const normalizedRemoteFP = normalizeFingerprintForSAS(remoteFP, "remoteFP");
       const salt = enc.encode(
-        "webrtc-sas|" + [localFP, remoteFP].sort().join("|")
+        "webrtc-sas|" + [normalizedLocalFP, normalizedRemoteFP].sort().join("|")
       );
       let keyBuffer;
       if (keyMaterialRaw instanceof ArrayBuffer) {
@@ -7507,8 +8881,8 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       const n = (dv.getUint32(0) ^ dv.getUint32(4)) >>> 0;
       const sasCode = String(n % 1e7).padStart(7, "0");
       this._secureLog("info", "SAS code computed successfully", {
-        localFP: localFP.substring(0, 16) + "...",
-        remoteFP: remoteFP.substring(0, 16) + "...",
+        localFP: normalizedLocalFP.substring(0, 16) + "...",
+        remoteFP: normalizedRemoteFP.substring(0, 16) + "...",
         sasLength: sasCode.length,
         timestamp: Date.now()
       });
@@ -7957,6 +9331,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     this.lastSecurityLevelNotification = null;
     this.verificationNotificationSent = false;
     this.verificationInitiationSent = false;
+    this._verificationUiOpened = false;
+    this._sasLocalFingerprint = null;
+    this._sasRemoteFingerprint = null;
     this.disconnectNotificationSent = false;
     this.reconnectionFailedNotificationSent = false;
     this.peerDisconnectNotificationSent = false;
@@ -9603,6 +10980,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           }
           if (parsed.type === "enhanced_message") {
             this._secureLog("debug", "\u{1F510} Enhanced message detected in processMessage");
+            if (!this._checkInboundRateLimit("processMessage:enhanced_message")) {
+              return;
+            }
             try {
               const decryptedData = await window.EnhancedSecureCryptoUtils.decryptMessage(
                 parsed.data,
@@ -9631,6 +11011,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           }
           if (parsed.type === "message") {
             this._secureLog("debug", "\u{1F4DD} Regular user message detected in processMessage");
+            if (!this._checkInboundRateLimit("processMessage:message")) {
+              return;
+            }
             if (this.onMessage && parsed.data) {
               this.deliverMessageToUI(parsed.data, "received");
             }
@@ -9645,6 +11028,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
             return;
           }
         } catch (jsonError) {
+          if (!this._checkInboundRateLimit("processMessage:text")) {
+            return;
+          }
           if (this.onMessage) {
             this.deliverMessageToUI(data, "received");
           }
@@ -10051,6 +11437,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       this.verificationCode = null;
       this.pendingSASCode = null;
       this.sasValidationAttempts = 0;
+      this._verificationUiOpened = false;
+      this._sasLocalFingerprint = null;
+      this._sasRemoteFingerprint = null;
       this.keyFingerprint = null;
       this.expectedDTLSFingerprint = null;
       this.connectionId = null;
@@ -10208,31 +11597,79 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     });
   }
   _buildPeerConnectionConfig() {
+    const relayOnly = this._isRelayOnlyMode();
     const config = {
       iceServers: this._config.webrtc.iceServers,
       iceCandidatePoolSize: 10,
       bundlePolicy: "balanced"
     };
-    if (this._config.webrtc.relayOnly) {
+    if (relayOnly) {
       config.iceTransportPolicy = "relay";
     }
     return config;
   }
+  _summarizeIceServerConfig(iceServers = []) {
+    const summary = {
+      serverCount: 0,
+      stun: 0,
+      turn: 0,
+      turns: 0,
+      hasCredentials: false
+    };
+    for (const server of iceServers || []) {
+      summary.serverCount += 1;
+      if (server?.username || server?.credential) {
+        summary.hasCredentials = true;
+      }
+      const urls = Array.isArray(server?.urls) ? server.urls : [server?.urls];
+      for (const rawUrl of urls) {
+        const url = String(rawUrl || "").toLowerCase();
+        if (url.startsWith("stun:")) summary.stun += 1;
+        if (url.startsWith("turn:")) summary.turn += 1;
+        if (url.startsWith("turns:")) summary.turns += 1;
+      }
+    }
+    return summary;
+  }
+  _isRelayOnlyMode() {
+    return this._config.webrtc.privacyMode === "relay-only";
+  }
+  _setRelayOnlyMode(relayOnly) {
+    const enabled = relayOnly === true;
+    this._config.webrtc.privacyMode = enabled ? "relay-only" : "standard";
+    this._config.webrtc.relayOnly = enabled;
+  }
   _warnIfTurnMissing() {
-    if (this._hasTurnServer() || this._ipLeakWarningShown) return;
+    if (this._ipLeakWarningShown) return;
     this._ipLeakWarningShown = true;
-    const message = this._config.webrtc.relayOnly ? "Privacy mode is enabled, but no TURN server is configured. Relay-only mode cannot connect until TURN is configured; STUN alone does not hide IP addresses." : "Privacy warning: no TURN server is configured. Direct WebRTC connections may expose IP addresses; STUN alone does not provide IP protection.";
+    const relayOnly = this._isRelayOnlyMode();
+    const hasTurnServer = this._hasTurnServer();
+    let message = null;
+    if (relayOnly && !hasTurnServer) {
+      message = "Privacy mode is relay-only, but no TURN server is configured. Relay-only mode cannot connect until TURN is configured; STUN alone does not hide IP addresses.";
+    } else if (!relayOnly && !hasTurnServer) {
+      message = "Privacy warning: relay-only mode is disabled and no TURN server is configured. Direct WebRTC connections may expose host or server-reflexive IP addresses; STUN alone does not provide IP protection.";
+    } else if (!relayOnly) {
+      message = "Privacy warning: relay-only mode is disabled. Direct WebRTC connectivity may expose host or server-reflexive IP addresses even when TURN is available.";
+    }
+    if (!message) return;
     this.deliverMessageToUI(message, "system");
   }
   createPeerConnection() {
     this._sessionAlive = true;
     const config = this._buildPeerConnectionConfig();
     this._warnIfTurnMissing();
+    console.info("[SecureBit ICE] peer connection config", this._summarizeIceServerConfig(config.iceServers));
     this.peerConnection = new RTCPeerConnection(config);
     this.peerConnection.onconnectionstatechange = () => {
       const state = this.peerConnection.connectionState;
+      console.info("[SecureBit ICE] connection state changed", {
+        connectionState: state,
+        iceConnectionState: this.peerConnection.iceConnectionState,
+        iceGatheringState: this.peerConnection.iceGatheringState
+      });
       if (state === "connected" && !this.isVerified) {
-        this.onStatusChange("verifying");
+        this._notifyVerificationReadyIfPossible();
       } else if (state === "connected" && this.isVerified) {
         this.onStatusChange("connected");
       } else if (state === "disconnected" || state === "closed") {
@@ -10240,14 +11677,39 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           this.onStatusChange("disconnected");
           setTimeout(() => this.disconnect(), 100);
         } else {
-          this.onStatusChange("disconnected");
-          this._clearVerificationStates();
+          if (this.isVerified || state === "closed") {
+            this.onStatusChange("disconnected");
+            this._clearVerificationStates();
+          } else {
+            console.warn(`[SecureBit ICE] State is ${state} but not verified yet. Keeping session open for manual exchange.`);
+          }
         }
       } else if (state === "failed") {
-        this.onStatusChange("disconnected");
+        this._collectIceFailureDiagnostics().then((diagnostics) => {
+          console.warn("[SecureBit ICE] failure diagnostics", diagnostics);
+        });
+        if (this.isVerified) {
+          this.onStatusChange("disconnected");
+        } else {
+          console.warn("[SecureBit ICE] State is failed but not verified yet. Keeping session open for manual exchange.");
+        }
       } else {
         this.onStatusChange(state);
       }
+    };
+    this.peerConnection.oniceconnectionstatechange = () => {
+      console.info("[SecureBit ICE] ICE connection state changed", {
+        connectionState: this.peerConnection.connectionState,
+        iceConnectionState: this.peerConnection.iceConnectionState,
+        iceGatheringState: this.peerConnection.iceGatheringState
+      });
+    };
+    this.peerConnection.onicecandidateerror = (event) => {
+      console.warn("[SecureBit ICE] ICE candidate error", {
+        url: event.url,
+        errorCode: event.errorCode,
+        errorText: event.errorText
+      });
     };
     this.peerConnection.ondatachannel = (event) => {
       if (event.channel.label === "securechat") {
@@ -10301,7 +11763,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           this.notifySecurityUpdate();
         }, 500);
       } else {
-        this.onStatusChange("verifying");
+        this._notifyVerificationReadyIfPossible();
         this.initiateVerification();
       }
       this.startHeartbeat();
@@ -10377,6 +11839,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
               return;
             }
             if (parsed.type === "message" && parsed.data) {
+              if (!this._checkInboundRateLimit("dataChannel:message")) {
+                return;
+              }
               if (this.onMessage) {
                 this.deliverMessageToUI(parsed.data, "received");
               }
@@ -10387,6 +11852,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
               return;
             }
           } catch (jsonError) {
+            if (!this._checkInboundRateLimit("dataChannel:text")) {
+              return;
+            }
             if (this.onMessage) {
               this.deliverMessageToUI(event.data, "received");
             }
@@ -10404,6 +11872,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   // FIX 4: New method for processing binary data WITHOUT mutex
   async _processBinaryDataWithoutMutex(data) {
     try {
+      if (!this._checkInboundRateLimit("binary_message")) {
+        return;
+      }
       let processedData = data;
       if (this.securityFeatures.hasNestedEncryption && this.nestedEncryptionKey && processedData instanceof ArrayBuffer && processedData.byteLength > 12) {
         try {
@@ -10446,6 +11917,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   // FIX 3: New method for processing enhanced messages WITHOUT mutex
   async _processEnhancedMessageWithoutMutex(parsedMessage) {
     try {
+      if (!this._checkInboundRateLimit("enhanced_message")) {
+        return;
+      }
       if (!this.encryptionKey || !this.macKey || !this.metadataKey) {
         this._secureLog("error", "Missing encryption keys for enhanced message");
         return;
@@ -11862,7 +13336,30 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         } catch (error) {
           this._secureLog("error", "Failed to extract DTLS fingerprint from offer", { error: error.message });
         }
-        await this.waitForIceGathering();
+        const offerIceGatheringStartedAt = Date.now();
+        const offerIceGatheringCompleted = await this.waitForIceGathering();
+        const offerCandidateSummary = this._summarizeIceCandidatesInSDP(this.peerConnection.localDescription?.sdp);
+        const offerCandidateCount = offerCandidateSummary.total;
+        if (!offerIceGatheringCompleted && offerCandidateCount === 0) {
+          throw new Error("ICE gathering did not produce candidates before invitation export");
+        }
+        this._secureLog(offerCandidateCount > 0 ? "info" : "warn", "ICE candidates captured for offer export", {
+          candidateSummary: offerCandidateSummary,
+          iceGatheringState: this.peerConnection.iceGatheringState,
+          iceGatheringDurationMs: Date.now() - offerIceGatheringStartedAt,
+          iceGatheringCompleted: offerIceGatheringCompleted
+        });
+        this._logIceCandidateDiagnostics("offer export", this.peerConnection.localDescription?.sdp, {
+          iceGatheringState: this.peerConnection.iceGatheringState,
+          iceGatheringDurationMs: Date.now() - offerIceGatheringStartedAt,
+          iceGatheringCompleted: offerIceGatheringCompleted
+        });
+        if (!offerIceGatheringCompleted) {
+          this.deliverMessageToUI("ICE gathering timed out before completion, but available candidates were included in the invitation. Connectivity may still fail on restrictive networks.", "system");
+        }
+        if (offerCandidateCount === 0) {
+          this.deliverMessageToUI("No ICE candidates were gathered for the invitation yet. The peer connection may fail unless network candidates become available.", "system");
+        }
         this._secureLog("debug", "ICE gathering completed", {
           operationId,
           iceGatheringState: this.peerConnection.iceGatheringState,
@@ -11881,6 +13378,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           throw new Error("Failed to generate valid session ID");
         }
         this.connectionId = Array.from(crypto.getRandomValues(new Uint8Array(8))).map((b) => b.toString(16).padStart(2, "0")).join("");
+        this._storePendingOfferContext();
         const securityLevel = {
           level: "MAXIMUM",
           score: 100,
@@ -11966,7 +13464,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         this.onStatusChange("disconnected");
         throw error;
       }
-    }, 15e3);
+    }, 6e4);
   }
   /**
    * HELPER: Determine the phase where the error occurred
@@ -12301,6 +13799,10 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
             type: "offer",
             sdp: offerData.s || offerData.sdp
           }));
+          this._logIceCandidateDiagnostics("remote offer applied", this.peerConnection.remoteDescription?.sdp, {
+            signalingState: this.peerConnection.signalingState
+          });
+          this._warnIfRemoteCandidatesNeedRelay("offer", this.peerConnection.remoteDescription?.sdp);
           this._secureLog("debug", "Remote description set successfully", {
             operationId,
             signalingState: this.peerConnection.signalingState
@@ -12347,15 +13849,37 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           const localFP = this.expectedDTLSFingerprint;
           const keyBytes = this._decodeKeyFingerprint(this.keyFingerprint);
           this.verificationCode = await this._computeSAS(keyBytes, localFP, remoteFP);
-          this.onStatusChange?.("verifying");
-          this.onVerificationRequired(this.verificationCode);
+          this._setSASMaterialReady(localFP, remoteFP);
         } catch (sasError) {
           this._secureLog("error", "SAS computation failed in createSecureAnswer (Answer side)", {
             errorType: sasError?.constructor?.name || "Unknown"
           });
           throw new Error(`SAS computation failed: ${sasError.message}`);
         }
-        await this.waitForIceGathering();
+        const answerIceGatheringStartedAt = Date.now();
+        const answerIceGatheringCompleted = await this.waitForIceGathering();
+        const answerCandidateSummary = this._summarizeIceCandidatesInSDP(this.peerConnection.localDescription?.sdp);
+        const answerCandidateCount = answerCandidateSummary.total;
+        if (!answerIceGatheringCompleted && answerCandidateCount === 0) {
+          throw new Error("ICE gathering did not produce candidates before response export");
+        }
+        this._secureLog(answerCandidateCount > 0 ? "info" : "warn", "ICE candidates captured for answer export", {
+          candidateSummary: answerCandidateSummary,
+          iceGatheringState: this.peerConnection.iceGatheringState,
+          iceGatheringDurationMs: Date.now() - answerIceGatheringStartedAt,
+          iceGatheringCompleted: answerIceGatheringCompleted
+        });
+        this._logIceCandidateDiagnostics("answer export", this.peerConnection.localDescription?.sdp, {
+          iceGatheringState: this.peerConnection.iceGatheringState,
+          iceGatheringDurationMs: Date.now() - answerIceGatheringStartedAt,
+          iceGatheringCompleted: answerIceGatheringCompleted
+        });
+        if (!answerIceGatheringCompleted) {
+          this.deliverMessageToUI("ICE gathering timed out before completion, but available candidates were included in the response. Connectivity may still fail on restrictive networks.", "system");
+        }
+        if (answerCandidateCount === 0) {
+          this.deliverMessageToUI("No ICE candidates were gathered for the response yet. The peer connection may fail unless network candidates become available.", "system");
+        }
         this._secureLog("debug", "ICE gathering completed for answer", {
           operationId,
           iceGatheringState: this.peerConnection.iceGatheringState,
@@ -12511,7 +14035,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         }
         throw error;
       }
-    }, 2e4);
+    }, 6e4);
   }
   /**
    * HELPER: Determine error phase for answer
@@ -12541,6 +14065,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
    */
   _cleanupFailedAnswerCreation() {
     try {
+      this._clearPendingOfferContext();
       this._secureCleanupCryptographicMaterials();
       this.currentKeyVersion = 0;
       this.keyVersions.clear();
@@ -12709,10 +14234,10 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         }
         throw new Error("Response data is too old \u2013 possible replay attack");
       }
-      if (answerData.version !== "4.0") {
+      if (answerVersion !== _EnhancedSecureWebRTCManager.PROTOCOL_VERSION) {
         window.EnhancedSecureCryptoUtils.secureLog.log("warn", "Incompatible protocol version in answer", {
-          expectedVersion: "4.0",
-          receivedVersion: answerData.version
+          expectedVersion: _EnhancedSecureWebRTCManager.PROTOCOL_VERSION,
+          receivedVersion: answerVersion
         });
       }
       const peerECDSAPublicKey = await crypto.subtle.importKey(
@@ -12729,11 +14254,12 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         ecdhKey,
         peerECDSAPublicKey
       );
+      this._restorePendingOfferContextIfNeeded();
       if (!this.sessionSalt || this.sessionSalt.length !== 64) {
         window.EnhancedSecureCryptoUtils.secureLog.log("error", "Invalid session salt detected - possible session hijacking", {
           saltLength: this.sessionSalt ? this.sessionSalt.length : 0
         });
-        throw new Error("Invalid session salt \u2013 possible session hijacking attempt");
+        throw new Error("Missing pending offer context. Apply the response in the original creator window that generated the invitation.");
       }
       const expectedSaltHash = await window.EnhancedSecureCryptoUtils.calculateKeyFingerprint(this.sessionSalt);
       window.EnhancedSecureCryptoUtils.secureLog.log("info", "Session salt integrity verified", {
@@ -12808,8 +14334,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         const localFP = this.expectedDTLSFingerprint;
         const keyBytes = this._decodeKeyFingerprint(this.keyFingerprint);
         this.verificationCode = await this._computeSAS(keyBytes, localFP, remoteFP);
-        this.onStatusChange?.("verifying");
-        this.onVerificationRequired(this.verificationCode);
+        this._setSASMaterialReady(localFP, remoteFP);
         this.pendingSASCode = this.verificationCode;
         this._secureLog("info", "SAS verification code generated for MITM protection (Offer side)", {
           sasCode: this.verificationCode,
@@ -12849,6 +14374,12 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         this._secureLog("info", "DTLS fingerprint validation disabled - proceeding without validation");
       }
       const sdpData = answerData.sdp || answerData.s;
+      if (this.peerConnection?.signalingState !== "have-local-offer") {
+        this._secureLog("warn", "Ignoring answer outside have-local-offer state", {
+          signalingState: this.peerConnection?.signalingState || "unknown"
+        });
+        return;
+      }
       this._secureLog("debug", "Setting remote description from answer", {
         sdpLength: sdpData?.length || 0,
         usingCompactSDP: !answerData.sdp && !!answerData.s
@@ -12857,6 +14388,10 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         type: "answer",
         sdp: sdpData
       });
+      this._logIceCandidateDiagnostics("remote answer applied", this.peerConnection.remoteDescription?.sdp, {
+        signalingState: this.peerConnection.signalingState
+      });
+      this._warnIfRemoteCandidatesNeedRelay("answer", this.peerConnection.remoteDescription?.sdp);
       this._secureLog("debug", "Remote description set successfully from answer", {
         signalingState: this.peerConnection.signalingState
       });
@@ -13079,8 +14614,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       return;
     }
     this.verificationCode = data.code;
-    this.onStatusChange?.("verifying");
-    this.onVerificationRequired(this.verificationCode);
+    this._notifyVerificationReadyIfPossible();
     this._secureLog("info", "SAS code received from Offer side", {
       sasCode: this.verificationCode,
       timestamp: Date.now()
@@ -13380,13 +14914,13 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   waitForIceGathering() {
     return new Promise((resolve) => {
       if (this.peerConnection.iceGatheringState === "complete") {
-        resolve();
+        resolve(true);
         return;
       }
       const checkState = () => {
         if (this.peerConnection && this.peerConnection.iceGatheringState === "complete") {
           this.peerConnection.removeEventListener("icegatheringstatechange", checkState);
-          resolve();
+          resolve(true);
         }
       };
       this.peerConnection.addEventListener("icegatheringstatechange", checkState);
@@ -13394,7 +14928,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         if (this.peerConnection) {
           this.peerConnection.removeEventListener("icegatheringstatechange", checkState);
         }
-        resolve();
+        resolve(this.peerConnection?.iceGatheringState === "complete");
       }, _EnhancedSecureWebRTCManager.TIMEOUTS.ICE_GATHERING_TIMEOUT);
     });
   }
@@ -13519,9 +15053,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       this.intentionalDisconnect = true;
       window.EnhancedSecureCryptoUtils.secureLog.log("info", "Starting intentional disconnect");
       this.sendDisconnectNotification();
-      setTimeout(() => {
-        this.sendDisconnectNotification();
-      }, 100);
       this._stopAllTimers();
       this._peerDisconnectCleanupTimer = null;
       this.stopHeartbeat();
@@ -16170,8 +17701,8 @@ var Testimonials = () => {
     const cloneCards = (container) => {
       const cards = Array.from(container.children);
       cards.forEach((card) => {
-        const clone = card.cloneNode(true);
-        container.appendChild(clone);
+        const clone2 = card.cloneNode(true);
+        container.appendChild(clone2);
       });
     };
     cloneCards(colUp);
@@ -17303,4 +18834,9 @@ if (document.readyState === "loading") {
  * @author SecureBit Team
  * @license MIT
  */
+/*! Bundled license information:
+
+dompurify/dist/purify.es.mjs:
+  (*! @license DOMPurify 3.4.4 | (c) Cure53 and other contributors | Released under the Apache license 2.0 and Mozilla Public License 2.0 | github.com/cure53/DOMPurify/blob/3.4.4/LICENSE *)
+*/
 //# sourceMappingURL=app-boot.js.map
