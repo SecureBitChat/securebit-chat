@@ -1,12 +1,10 @@
 // File Transfer Component for Chat Interface - Fixed Version
-const FileTransferComponent = ({ webrtcManager, isConnected }) => {
+const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFiles = [], onIncomingDecision }) => {
     const [dragOver, setDragOver] = React.useState(false);
     const [transfers, setTransfers] = React.useState({ sending: [], receiving: [] });
-    const [readyFiles, setReadyFiles] = React.useState([]); // файлы, готовые к скачиванию
-    const [pendingIncomingFiles, setPendingIncomingFiles] = React.useState([]);
     const fileInputRef = React.useRef(null);
 
-    // Update transfers periodically
+    // Update transfers periodically via polling — no callback registration needed here
     React.useEffect(() => {
         if (!isConnected || !webrtcManager) return;
 
@@ -19,72 +17,11 @@ const FileTransferComponent = ({ webrtcManager, isConnected }) => {
         return () => clearInterval(interval);
     }, [isConnected, webrtcManager]);
 
-    // Clear session-local UI state when the connection ends so reconnect starts clean.
+    // Clear transfers UI when connection drops
     React.useEffect(() => {
         if (isConnected) return;
-        setReadyFiles([]);
-        setPendingIncomingFiles([]);
         setTransfers({ sending: [], receiving: [] });
     }, [isConnected]);
-
-    // Setup file transfer callbacks - ИСПРАВЛЕНИЕ: НЕ отправляем промежуточные сообщения в чат
-    React.useEffect(() => {
-        if (!webrtcManager) return;
-
-        webrtcManager.setFileTransferCallbacks(
-            // Progress callback - ТОЛЬКО обновляем UI, НЕ отправляем в чат
-            (progress) => {
-                // Обновляем только локальное состояние
-                const currentTransfers = webrtcManager.getFileTransfers();
-                setTransfers(currentTransfers);
-                
-                // НЕ отправляем сообщения в чат!
-            },
-            
-            // File received callback - добавляем кнопку скачивания в UI
-            (fileData) => {
-                // Добавляем в список готовых к скачиванию
-                setReadyFiles(prev => {
-                    // избегаем дублей по fileId
-                    if (prev.some(f => f.fileId === fileData.fileId)) return prev;
-                    return [...prev, {
-                        fileId: fileData.fileId,
-                        fileName: fileData.fileName,
-                        fileSize: fileData.fileSize,
-                        mimeType: fileData.mimeType,
-                        getBlob: fileData.getBlob,
-                        getObjectURL: fileData.getObjectURL,
-                        revokeObjectURL: fileData.revokeObjectURL
-                    }];
-                });
-
-                // Обновляем список активных передач
-                const currentTransfers = webrtcManager.getFileTransfers();
-                setTransfers(currentTransfers);
-            },
-            
-            // Error callback
-            (error) => {
-                const currentTransfers = webrtcManager.getFileTransfers();
-                setTransfers(currentTransfers);
-                
-                // ИСПРАВЛЕНИЕ: НЕ дублируем сообщения об ошибках
-                // Уведомления об ошибках уже отправляются в WebRTC менеджере
-            },
-
-            // Incoming file request callback - user consent is mandatory
-            (fileRequest) => {
-                setPendingIncomingFiles(prev => {
-                    if (prev.some(file => file.fileId === fileRequest.fileId)) return prev;
-                    return [...prev, fileRequest];
-                });
-            }
-        );
-
-        return () => {
-            webrtcManager.setFileTransferCallbacks(null, null, null, null);
-        };
-    }, [webrtcManager]);
 
     const handleFileSelect = async (files) => {
         if (!isConnected || !webrtcManager) {
@@ -199,16 +136,10 @@ const FileTransferComponent = ({ webrtcManager, isConnected }) => {
     };
 
     const handleIncomingDecision = async (fileId, accepted) => {
-        try {
-            if (accepted) {
-                await webrtcManager.acceptIncomingFile(fileId);
-            } else {
-                await webrtcManager.rejectIncomingFile(fileId);
-            }
-        } finally {
-            setPendingIncomingFiles(prev => prev.filter(file => file.fileId !== fileId));
-            setTransfers(webrtcManager.getFileTransfers());
+        if (typeof onIncomingDecision === 'function') {
+            await onIncomingDecision(fileId, accepted);
         }
+        setTransfers(webrtcManager.getFileTransfers());
     };
 
     if (!isConnected) {
@@ -424,29 +355,26 @@ const FileTransferComponent = ({ webrtcManager, isConnected }) => {
                             }, formatFileSize(transfer.fileSize))
                         ]),
                         React.createElement('div', { key: 'actions', className: 'flex items-center space-x-2' }, [
-                            (() => {
-                                const rf = readyFiles.find(f => f.fileId === transfer.fileId);
-                                if (!rf || transfer.status !== 'completed') return null;
-                                return React.createElement('button', {
-                                    key: 'download',
-                                    className: 'text-green-400 hover:text-green-300 text-xs flex items-center',
-                                    onClick: async () => {
-                                        try {
-                                            const url = await rf.getObjectURL();
-                                            const a = document.createElement('a');
-                                            a.href = url;
-                                            a.download = rf.fileName || 'file';
-                                            a.click();
-                                            rf.revokeObjectURL(url);
-                                        } catch (e) {
-                                            alert(e.message || 'This file is no longer available for download.');
-                                        }
+                            transfer.status === 'completed' ? React.createElement('button', {
+                                key: 'download',
+                                className: 'text-green-400 hover:text-green-300 text-xs flex items-center',
+                                onClick: async () => {
+                                    try {
+                                        const url = await webrtcManager.getReceivedFileObjectURL(transfer.fileId);
+                                        if (!url) { alert('This file is no longer available for download.'); return; }
+                                        const a = document.createElement('a');
+                                        a.href = url;
+                                        a.download = transfer.fileName || 'file';
+                                        a.click();
+                                        setTimeout(() => webrtcManager.revokeReceivedFileObjectURL(url), 10000);
+                                    } catch (e) {
+                                        alert(e.message || 'This file is no longer available for download.');
                                     }
-                                }, [
-                                    React.createElement('i', { key: 'i', className: 'fas fa-download mr-1' }),
-                                    'Download'
-                                ]);
-                            })(),
+                                }
+                            }, [
+                                React.createElement('i', { key: 'i', className: 'fas fa-download mr-1' }),
+                                'Download'
+                            ]) : null,
                             React.createElement('button', {
                                 key: 'cancel',
                                 onClick: () => webrtcManager.cancelFileTransfer(transfer.fileId),

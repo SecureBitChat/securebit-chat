@@ -1241,10 +1241,19 @@ import { installDebugWindowHooks } from './utils/debugWindowHooks.js';
             isVerified,
             chatMessagesRef,
             scrollToBottom,
-            webrtcManager
+            webrtcManager,
+            pendingIncomingFiles = [],
+            onIncomingDecision
         }) => {
             const [showScrollButton, setShowScrollButton] = React.useState(false);
             const [showFileTransfer, setShowFileTransfer] = React.useState(false);
+
+            // Auto-open the file transfer panel when an incoming request arrives
+            React.useEffect(() => {
+                if (pendingIncomingFiles.length > 0) {
+                    setShowFileTransfer(true);
+                }
+            }, [pendingIncomingFiles.length]);
 
             React.useEffect(() => {
                 if (chatMessagesRef.current && messages.length > 0) {
@@ -1475,7 +1484,9 @@ import { installDebugWindowHooks } from './utils/debugWindowHooks.js';
                                         }, 'FileTransferComponent not loaded')
                                     ), {
                                         webrtcManager: webrtcManager,
-                                        isConnected: isFileTransferReady()
+                                        isConnected: isFileTransferReady(),
+                                        pendingIncomingFiles: pendingIncomingFiles,
+                                        onIncomingDecision: onIncomingDecision
                                     })
                             ]
                         )
@@ -1584,9 +1595,11 @@ import { installDebugWindowHooks } from './utils/debugWindowHooks.js';
                     const [pendingSession, setPendingSession] = React.useState(null);
                     
                     // All security features are enabled by default - no payment required
-        
-        
-                    
+
+                    const [pendingIncomingFiles, setPendingIncomingFiles] = React.useState([]);
+
+
+
                     // ============================================
                     // CENTRALIZED CONNECTION STATE MANAGEMENT
                     // ============================================
@@ -2103,7 +2116,7 @@ import { installDebugWindowHooks } from './utils/debugWindowHooks.js';
                             // Error callback
                             (error) => {
                                 console.error('File transfer error:', error);
-                                
+
                                 if (error.includes('Connection not ready')) {
                                     addMessageWithAutoScroll(` File transfer error: connection not ready. Try again later.`, 'system');
                                 } else if (error.includes('File too large')) {
@@ -2111,6 +2124,14 @@ import { installDebugWindowHooks } from './utils/debugWindowHooks.js';
                                 } else {
                                     addMessageWithAutoScroll(` File transfer error: ${error}`, 'system');
                                 }
+                            },
+
+                            // Incoming file request callback — receiver must explicitly accept before any data is sent
+                            (fileRequest) => {
+                                setPendingIncomingFiles(prev => {
+                                    if (prev.some(f => f.fileId === fileRequest.fileId)) return prev;
+                                    return [...prev, fileRequest];
+                                });
                             }
                         );
                     }
@@ -3464,6 +3485,18 @@ import { installDebugWindowHooks } from './utils/debugWindowHooks.js';
                         // Session manager removed - all features enabled by default
                     };
         
+                    const handleIncomingDecision = React.useCallback(async (fileId, accepted) => {
+                        try {
+                            if (accepted) {
+                                await webrtcManagerRef.current?.acceptIncomingFile(fileId);
+                            } else {
+                                await webrtcManagerRef.current?.rejectIncomingFile(fileId);
+                            }
+                        } finally {
+                            setPendingIncomingFiles(prev => prev.filter(f => f.fileId !== fileId));
+                        }
+                    }, []);
+
                     const handleDisconnect = () => {
                         try {
                             setSessionTimeLeft(0);
@@ -3513,7 +3546,8 @@ import { installDebugWindowHooks } from './utils/debugWindowHooks.js';
             
                             // Clear messages
                         setMessages([]);
-        
+                        setPendingIncomingFiles([]);
+
                             // Clear console
                         if (typeof console.clear === 'function') {
                             console.clear();
@@ -3705,7 +3739,9 @@ import { installDebugWindowHooks } from './utils/debugWindowHooks.js';
                                         isVerified: isVerified,
                                         chatMessagesRef: chatMessagesRef,
                                         scrollToBottom: scrollToBottom,
-                                        webrtcManager: webrtcManagerRef.current
+                                        webrtcManager: webrtcManagerRef.current,
+                                        pendingIncomingFiles: pendingIncomingFiles,
+                                        onIncomingDecision: handleIncomingDecision
                                     });
                                 })()
                                 : React.createElement(EnhancedConnectionSetup, {

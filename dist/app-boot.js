@@ -15281,6 +15281,14 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     if (!this.fileTransferSystem) return false;
     return this.fileTransferSystem.rejectIncomingFile(fileId);
   }
+  async getReceivedFileObjectURL(fileId) {
+    if (!this.fileTransferSystem) return null;
+    return this.fileTransferSystem.getObjectURL(fileId);
+  }
+  revokeReceivedFileObjectURL(url) {
+    if (!this.fileTransferSystem) return;
+    this.fileTransferSystem.revokeObjectURL(url);
+  }
   // ============================================
   // SESSION ACTIVATION HANDLING
   // ============================================
@@ -18358,11 +18366,9 @@ function Roadmap() {
 window.Roadmap = Roadmap;
 
 // src/components/ui/FileTransfer.jsx
-var FileTransferComponent = ({ webrtcManager, isConnected }) => {
+var FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFiles = [], onIncomingDecision }) => {
   const [dragOver, setDragOver] = React.useState(false);
   const [transfers, setTransfers] = React.useState({ sending: [], receiving: [] });
-  const [readyFiles, setReadyFiles] = React.useState([]);
-  const [pendingIncomingFiles, setPendingIncomingFiles] = React.useState([]);
   const fileInputRef = React.useRef(null);
   React.useEffect(() => {
     if (!isConnected || !webrtcManager) return;
@@ -18375,52 +18381,8 @@ var FileTransferComponent = ({ webrtcManager, isConnected }) => {
   }, [isConnected, webrtcManager]);
   React.useEffect(() => {
     if (isConnected) return;
-    setReadyFiles([]);
-    setPendingIncomingFiles([]);
     setTransfers({ sending: [], receiving: [] });
   }, [isConnected]);
-  React.useEffect(() => {
-    if (!webrtcManager) return;
-    webrtcManager.setFileTransferCallbacks(
-      // Progress callback - ТОЛЬКО обновляем UI, НЕ отправляем в чат
-      (progress) => {
-        const currentTransfers = webrtcManager.getFileTransfers();
-        setTransfers(currentTransfers);
-      },
-      // File received callback - добавляем кнопку скачивания в UI
-      (fileData) => {
-        setReadyFiles((prev) => {
-          if (prev.some((f) => f.fileId === fileData.fileId)) return prev;
-          return [...prev, {
-            fileId: fileData.fileId,
-            fileName: fileData.fileName,
-            fileSize: fileData.fileSize,
-            mimeType: fileData.mimeType,
-            getBlob: fileData.getBlob,
-            getObjectURL: fileData.getObjectURL,
-            revokeObjectURL: fileData.revokeObjectURL
-          }];
-        });
-        const currentTransfers = webrtcManager.getFileTransfers();
-        setTransfers(currentTransfers);
-      },
-      // Error callback
-      (error) => {
-        const currentTransfers = webrtcManager.getFileTransfers();
-        setTransfers(currentTransfers);
-      },
-      // Incoming file request callback - user consent is mandatory
-      (fileRequest) => {
-        setPendingIncomingFiles((prev) => {
-          if (prev.some((file) => file.fileId === fileRequest.fileId)) return prev;
-          return [...prev, fileRequest];
-        });
-      }
-    );
-    return () => {
-      webrtcManager.setFileTransferCallbacks(null, null, null, null);
-    };
-  }, [webrtcManager]);
   const handleFileSelect = async (files) => {
     if (!isConnected || !webrtcManager) {
       alert("\u0421\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435 \u043D\u0435 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u043E. \u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u0435 \u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435.");
@@ -18517,16 +18479,10 @@ var FileTransferComponent = ({ webrtcManager, isConnected }) => {
     }
   };
   const handleIncomingDecision = async (fileId, accepted) => {
-    try {
-      if (accepted) {
-        await webrtcManager.acceptIncomingFile(fileId);
-      } else {
-        await webrtcManager.rejectIncomingFile(fileId);
-      }
-    } finally {
-      setPendingIncomingFiles((prev) => prev.filter((file) => file.fileId !== fileId));
-      setTransfers(webrtcManager.getFileTransfers());
+    if (typeof onIncomingDecision === "function") {
+      await onIncomingDecision(fileId, accepted);
     }
+    setTransfers(webrtcManager.getFileTransfers());
   };
   if (!isConnected) {
     return React.createElement("div", {
@@ -18732,29 +18688,29 @@ var FileTransferComponent = ({ webrtcManager, isConnected }) => {
               }, formatFileSize(transfer.fileSize))
             ]),
             React.createElement("div", { key: "actions", className: "flex items-center space-x-2" }, [
-              (() => {
-                const rf = readyFiles.find((f) => f.fileId === transfer.fileId);
-                if (!rf || transfer.status !== "completed") return null;
-                return React.createElement("button", {
-                  key: "download",
-                  className: "text-green-400 hover:text-green-300 text-xs flex items-center",
-                  onClick: async () => {
-                    try {
-                      const url = await rf.getObjectURL();
-                      const a = document.createElement("a");
-                      a.href = url;
-                      a.download = rf.fileName || "file";
-                      a.click();
-                      rf.revokeObjectURL(url);
-                    } catch (e) {
-                      alert(e.message || "This file is no longer available for download.");
+              transfer.status === "completed" ? React.createElement("button", {
+                key: "download",
+                className: "text-green-400 hover:text-green-300 text-xs flex items-center",
+                onClick: async () => {
+                  try {
+                    const url = await webrtcManager.getReceivedFileObjectURL(transfer.fileId);
+                    if (!url) {
+                      alert("This file is no longer available for download.");
+                      return;
                     }
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = transfer.fileName || "file";
+                    a.click();
+                    setTimeout(() => webrtcManager.revokeReceivedFileObjectURL(url), 1e4);
+                  } catch (e) {
+                    alert(e.message || "This file is no longer available for download.");
                   }
-                }, [
-                  React.createElement("i", { key: "i", className: "fas fa-download mr-1" }),
-                  "Download"
-                ]);
-              })(),
+                }
+              }, [
+                React.createElement("i", { key: "i", className: "fas fa-download mr-1" }),
+                "Download"
+              ]) : null,
               React.createElement("button", {
                 key: "cancel",
                 onClick: () => webrtcManager.cancelFileTransfer(transfer.fileId),

@@ -12389,6 +12389,16 @@ async processMessage(data) {
         return this.fileTransferSystem.rejectIncomingFile(fileId);
     }
 
+    async getReceivedFileObjectURL(fileId) {
+        if (!this.fileTransferSystem) return null;
+        return this.fileTransferSystem.getObjectURL(fileId);
+    }
+
+    revokeReceivedFileObjectURL(url) {
+        if (!this.fileTransferSystem) return;
+        this.fileTransferSystem.revokeObjectURL(url);
+    }
+
     // ============================================
     // SESSION ACTIVATION HANDLING
     // ============================================

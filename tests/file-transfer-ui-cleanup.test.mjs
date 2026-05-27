@@ -58,18 +58,26 @@ const manager = {
     isVerified: false
 };
 
-context.window.FileTransferComponent({ webrtcManager: manager, isConnected: false });
+// Component no longer manages callbacks — consent is handled by the parent (app.jsx).
+// pendingIncomingFiles and onIncomingDecision are passed as props.
+context.window.FileTransferComponent({ webrtcManager: manager, isConnected: false, pendingIncomingFiles: [], onIncomingDecision: null });
 const cleanups = effects.map(effect => effect()).filter(Boolean);
 
-assert.ok(setterCalls.some(call => call.index === 2 && Array.isArray(call.value) && call.value.length === 0));
-assert.ok(setterCalls.some(call => call.index === 3 && Array.isArray(call.value) && call.value.length === 0));
+// State index 0 = dragOver, index 1 = transfers.
+// Transfers state should be reset to empty on disconnect.
 assert.ok(setterCalls.some(call => call.index === 1 && call.value.sending.length === 0 && call.value.receiving.length === 0));
 
+// Component must NOT call setFileTransferCallbacks — that is the parent's responsibility.
+assert.equal(callbackCalls.length, 0, 'FileTransferComponent must not register its own callbacks');
+
+// Cleanup effects must not null-out the manager's callbacks either.
 cleanups.forEach(cleanup => cleanup());
-assert.deepEqual(callbackCalls.at(-1), [null, null, null, null]);
-assert.equal(manager.fileTransferSystem.onProgress, null);
-assert.equal(manager.fileTransferSystem.onFileReceived, null);
-assert.equal(manager.fileTransferSystem.onError, null);
-assert.equal(manager.fileTransferSystem.onIncomingFileRequest, null);
+assert.equal(callbackCalls.length, 0, 'cleanup must not call setFileTransferCallbacks');
+
+// fileTransferSystem callbacks are untouched by the component.
+assert.equal(typeof manager.fileTransferSystem.onProgress, 'function');
+assert.equal(typeof manager.fileTransferSystem.onFileReceived, 'function');
+assert.equal(typeof manager.fileTransferSystem.onError, 'function');
+assert.equal(typeof manager.fileTransferSystem.onIncomingFileRequest, 'function');
 
 console.log('File transfer UI cleanup tests passed');

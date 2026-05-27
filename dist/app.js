@@ -1186,10 +1186,17 @@ var EnhancedChatInterface = ({
   isVerified,
   chatMessagesRef,
   scrollToBottom,
-  webrtcManager
+  webrtcManager,
+  pendingIncomingFiles = [],
+  onIncomingDecision
 }) => {
   const [showScrollButton, setShowScrollButton] = React.useState(false);
   const [showFileTransfer, setShowFileTransfer] = React.useState(false);
+  React.useEffect(() => {
+    if (pendingIncomingFiles.length > 0) {
+      setShowFileTransfer(true);
+    }
+  }, [pendingIncomingFiles.length]);
   React.useEffect(() => {
     if (chatMessagesRef.current && messages.length > 0) {
       const { scrollTop, scrollHeight, clientHeight } = chatMessagesRef.current;
@@ -1398,7 +1405,9 @@ var EnhancedChatInterface = ({
               className: "p-4 text-center text-red-400"
             }, "FileTransferComponent not loaded")), {
               webrtcManager,
-              isConnected: isFileTransferReady()
+              isConnected: isFileTransferReady(),
+              pendingIncomingFiles,
+              onIncomingDecision
             })
           ]
         )
@@ -1494,6 +1503,7 @@ var EnhancedSecureP2PChat = () => {
   const [remoteVerificationConfirmed, setRemoteVerificationConfirmed] = React.useState(false);
   const [bothVerificationsConfirmed, setBothVerificationsConfirmed] = React.useState(false);
   const [pendingSession, setPendingSession] = React.useState(null);
+  const [pendingIncomingFiles, setPendingIncomingFiles] = React.useState([]);
   const [connectionState, setConnectionState] = React.useState({
     status: "disconnected",
     hasActiveAnswer: false,
@@ -1899,6 +1909,13 @@ var EnhancedSecureP2PChat = () => {
           } else {
             addMessageWithAutoScroll(` File transfer error: ${error}`, "system");
           }
+        },
+        // Incoming file request callback — receiver must explicitly accept before any data is sent
+        (fileRequest) => {
+          setPendingIncomingFiles((prev) => {
+            if (prev.some((f) => f.fileId === fileRequest.fileId)) return prev;
+            return [...prev, fileRequest];
+          });
         }
       );
     }
@@ -3044,6 +3061,17 @@ var EnhancedSecureP2PChat = () => {
     setPendingSession(null);
     document.dispatchEvent(new CustomEvent("peer-disconnect"));
   };
+  const handleIncomingDecision = React.useCallback(async (fileId, accepted) => {
+    try {
+      if (accepted) {
+        await webrtcManagerRef.current?.acceptIncomingFile(fileId);
+      } else {
+        await webrtcManagerRef.current?.rejectIncomingFile(fileId);
+      }
+    } finally {
+      setPendingIncomingFiles((prev) => prev.filter((f) => f.fileId !== fileId));
+    }
+  }, []);
   const handleDisconnect = () => {
     try {
       setSessionTimeLeft(0);
@@ -3079,6 +3107,7 @@ var EnhancedSecureP2PChat = () => {
       setShowQRScanner(false);
       setShowQRScannerModal(false);
       setMessages([]);
+      setPendingIncomingFiles([]);
       if (typeof console.clear === "function") {
         console.clear();
       }
@@ -3236,7 +3265,9 @@ var EnhancedSecureP2PChat = () => {
           isVerified,
           chatMessagesRef,
           scrollToBottom,
-          webrtcManager: webrtcManagerRef.current
+          webrtcManager: webrtcManagerRef.current,
+          pendingIncomingFiles,
+          onIncomingDecision: handleIncomingDecision
         });
       })() : React.createElement(EnhancedConnectionSetup, {
         onCreateOffer: handleCreateOffer,

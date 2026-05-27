@@ -1,5 +1,27 @@
 # Changelog
 
+## v4.8.8 — File transfer consent fix
+
+This patch completes the mandatory receiver-consent gate for incoming file transfers and resolves a callback ownership conflict that caused every incoming file request to be silently auto-rejected.
+
+### Fixed
+
+- Wired up the missing fourth `onIncomingFileRequest` callback in the main `setFileTransferCallbacks` call. Without it, `handleFileTransferStart` always saw `null` for the consent handler and auto-rejected every incoming file silently.
+- Removed independent callback registration from `FileTransferComponent`. The component was overwriting the application-level callbacks on mount and nulling all four on unmount, which destroyed the progress, received, and error handlers whenever the panel was hidden.
+- Centralized incoming-consent state (`pendingIncomingFiles`) in the root application component so consent prompts appear regardless of whether the file-transfer panel is currently visible.
+- Auto-opens the file-transfer panel when an incoming request arrives so the user sees the Accept / Reject prompt immediately.
+- Added `getReceivedFileObjectURL` / `revokeReceivedFileObjectURL` helpers to `EnhancedSecureWebRTCManager` so the panel can offer a download button for completed transfers without relying on captured callback closures.
+- Updated `file-transfer-ui-cleanup` regression test to match the new single-owner callback architecture.
+
+### Security
+
+No change to the cryptographic or transport-level security model. Sender chunks are still gated behind an explicit `file_transfer_response` from the receiver before any data is transmitted.
+
+### Verification
+
+- `npm test` — all 14 tests pass.
+- `npm run build` — clean production build.
+
 ## v4.8.7 — WebRTC manual join reliability patch
 
 This patch improves manual WebRTC setup across separate devices and restrictive local networks.
