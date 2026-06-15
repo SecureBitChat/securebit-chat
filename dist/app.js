@@ -604,28 +604,6 @@ var EnhancedConnectionSetup = ({
             className: "text-secondary max-w-2xl mx-auto"
           }, "Choose a connection method for a secure channel with ECDH encryption and Perfect Forward Secrecy.")
         ]),
-        React.createElement("label", {
-          key: "privacy-mode",
-          className: "mb-6 mx-auto flex max-w-2xl items-start gap-3 rounded-xl border border-purple-500/20 bg-purple-500/10 p-4 text-left"
-        }, [
-          React.createElement("input", {
-            key: "input",
-            type: "checkbox",
-            checked: relayOnlyMode,
-            onChange: (event) => setRelayOnlyMode(event.target.checked),
-            className: "mt-1"
-          }),
-          React.createElement("span", { key: "copy" }, [
-            React.createElement("span", {
-              key: "title",
-              className: "block text-sm font-medium text-primary"
-            }, "Privacy mode: relay-only WebRTC"),
-            React.createElement("span", {
-              key: "desc",
-              className: "block text-sm text-secondary"
-            }, "Uses TURN relay-only when configured. Without TURN, direct WebRTC may expose IP addresses and relay-only connections cannot start.")
-          ])
-        ]),
         React.createElement("div", {
           key: "advanced-network",
           className: "mb-6 mx-auto max-w-2xl flex flex-wrap items-center justify-between gap-3"
@@ -633,31 +611,17 @@ var EnhancedConnectionSetup = ({
           React.createElement("span", {
             key: "status",
             className: "text-sm text-secondary"
-          }, Array.isArray(customIceServers) && customIceServers.length ? `Using ${customIceServers.length} custom ICE server(s)` : "Using public ICE servers"),
+          }, "STUN/TURN servers"),
           React.createElement("button", {
             key: "btn",
             type: "button",
-            onClick: () => setShowIceSettings(true),
+            onClick: () => window.dispatchEvent(new CustomEvent("securebit:open-network-settings")),
             className: "px-3 py-2 text-sm rounded-lg border border-purple-500/30 text-primary"
           }, [
             React.createElement("i", { key: "i", className: "fas fa-network-wired mr-2" }),
             "Advanced network settings"
           ])
         ]),
-        typeof window !== "undefined" && window.IceServerSettings ? React.createElement(window.IceServerSettings, {
-          key: "ice-settings-modal",
-          isOpen: showIceSettings,
-          onClose: () => setShowIceSettings(false),
-          initial: {
-            useCustom: Array.isArray(customIceServers) && customIceServers.length > 0,
-            serversText: iceServersText,
-            privacyMode: relayOnlyMode ? "relay-only" : "standard",
-            persisted: iceSettingsPersisted
-          },
-          hasSaved: iceSettingsPersisted,
-          onApply: handleApplyIceSettings,
-          onForget: handleForgetIceSettings
-        }) : null,
         React.createElement("div", {
           key: "options",
           className: "flex flex-col md:flex-row items-center justify-center gap-6 max-w-3xl mx-auto"
@@ -1633,10 +1597,10 @@ var EnhancedSecureP2PChat = () => {
       return false;
     }
   });
-  const [customIceServers2, setCustomIceServers] = React.useState(null);
-  const [iceServersText2, setIceServersText] = React.useState("");
-  const [iceSettingsPersisted2, setIceSettingsPersisted] = React.useState(false);
-  const [showIceSettings2, setShowIceSettings2] = React.useState(false);
+  const [customIceServers, setCustomIceServers] = React.useState(null);
+  const [iceServersText, setIceServersText] = React.useState("");
+  const [iceSettingsPersisted, setIceSettingsPersisted] = React.useState(false);
+  const [showIceSettings, setShowIceSettings] = React.useState(false);
   React.useEffect(() => {
     let cancelled = false;
     loadIceSettings().then((saved) => {
@@ -1655,23 +1619,28 @@ var EnhancedSecureP2PChat = () => {
       cancelled = true;
     };
   }, []);
-  const handleApplyIceSettings2 = React.useCallback((next, persist) => {
+  React.useEffect(() => {
+    const open = () => setShowIceSettings(true);
+    window.addEventListener("securebit:open-network-settings", open);
+    return () => window.removeEventListener("securebit:open-network-settings", open);
+  }, []);
+  const handleApplyIceSettings = React.useCallback((next, persist) => {
     const servers = next.useCustom && Array.isArray(next.servers) ? next.servers : null;
     setCustomIceServers(servers && servers.length ? servers : null);
     setIceServersText(next.serversText || "");
     setRelayOnlyMode(next.privacyMode === "relay-only");
-    setShowIceSettings2(false);
+    setShowIceSettings(false);
     if (persist) {
       setIceSettingsPersisted(true);
       saveIceSettings({ servers: servers || [], privacyMode: next.privacyMode }).catch(() => {
       });
-    } else if (iceSettingsPersisted2) {
+    } else if (iceSettingsPersisted) {
       setIceSettingsPersisted(false);
       clearIceSettings().catch(() => {
       });
     }
-  }, [iceSettingsPersisted2]);
-  const handleForgetIceSettings2 = React.useCallback(async () => {
+  }, [iceSettingsPersisted]);
+  const handleForgetIceSettings = React.useCallback(async () => {
     await clearIceSettings().catch(() => {
     });
     setIceSettingsPersisted(false);
@@ -2004,7 +1973,7 @@ var EnhancedSecureP2PChat = () => {
         webrtc: {
           relayOnly: relayOnlyMode,
           // Priority: user's custom servers > operator override > built-in defaults.
-          iceServers: Array.isArray(customIceServers2) && customIceServers2.length ? customIceServers2 : Array.isArray(window.SECUREBIT_ICE_SERVERS) ? window.SECUREBIT_ICE_SERVERS : void 0
+          iceServers: Array.isArray(customIceServers) && customIceServers.length ? customIceServers : Array.isArray(window.SECUREBIT_ICE_SERVERS) ? window.SECUREBIT_ICE_SERVERS : void 0
         }
       }
     );
@@ -2018,7 +1987,7 @@ var EnhancedSecureP2PChat = () => {
       } catch (error) {
       }
     }
-    handleMessage(" SecureBit.chat Enhanced Security Edition v4.8.9 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.", "system");
+    handleMessage(" SecureBit.chat Enhanced Security Edition v4.8.10 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.", "system");
     const handleBeforeUnload = (event) => {
       if (event.type === "beforeunload" && !isTabSwitching) {
         if (webrtcManagerRef.current && webrtcManagerRef.current.isConnected()) {
@@ -3434,6 +3403,20 @@ var EnhancedSecureP2PChat = () => {
   return React.createElement("div", {
     className: "minimal-bg min-h-screen"
   }, [
+    typeof window !== "undefined" && window.IceServerSettings ? React.createElement(window.IceServerSettings, {
+      key: "ice-settings-modal",
+      isOpen: showIceSettings,
+      onClose: () => setShowIceSettings(false),
+      initial: {
+        useCustom: Array.isArray(customIceServers) && customIceServers.length > 0,
+        serversText: iceServersText,
+        privacyMode: relayOnlyMode ? "relay-only" : "standard",
+        persisted: iceSettingsPersisted
+      },
+      hasSaved: iceSettingsPersisted,
+      onApply: handleApplyIceSettings,
+      onForget: handleForgetIceSettings
+    }) : null,
     window.EnhancedMinimalHeader && React.createElement(window.EnhancedMinimalHeader, {
       key: "header",
       status: connectionStatus,

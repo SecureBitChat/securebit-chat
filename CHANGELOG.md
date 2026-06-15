@@ -1,5 +1,22 @@
 # Changelog
 
+## v4.8.10 — User-configurable STUN/TURN servers
+
+Adds optional, advanced control over WebRTC connectivity for power and privacy-focused users. Public servers remain the zero-config default.
+
+### Added
+
+- "Advanced network settings" panel (header gear icon and the connection-creation screen) where users can supply their own STUN/TURN servers instead of the bundled public defaults.
+- Allowlist-based validation of user input: only `stun:`/`stuns:`/`turn:`/`turns:` URLs with valid hosts are accepted; `javascript:`, `data:`, `http(s):`, `ws(s):`, control characters, and oversized input are rejected before anything reaches `RTCPeerConnection`.
+- Optional on-device persistence, encrypted at rest with a non-extractable AES-GCM device key in IndexedDB, with an explicit save prompt and a "Forget saved" action.
+- "Test servers" button that gathers ICE candidates against the entered configuration and reports STUN/TURN reachability.
+- Privacy guidance in the panel: a TURN relay sees peer IPs and traffic timing (never message contents), so only a trusted/self-hosted relay improves privacy.
+
+### Changed
+
+- Relay-only privacy mode now lives in the advanced settings panel. The standalone relay-only toggle on the start screen was removed to declutter the initial view.
+- Server selection priority: user custom servers > operator override (`config/ice-servers.js`) > built-in public defaults.
+
 ## v4.8.9 — Security hardening patch
 
 This release closes a vulnerable dependency, removes committed TURN credentials, and tightens production logging.

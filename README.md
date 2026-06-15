@@ -1,4 +1,4 @@
-# SecureBit.chat v4.8.9
+# SecureBit.chat v4.8.10
 
 SecureBit.chat is a browser-based peer-to-peer chat application built on WebRTC and Web Crypto APIs. It is designed for direct encrypted communication, explicit peer verification, and a small operational footprint without account registration or server-side message storage.
 
@@ -15,13 +15,16 @@ SecureBit.chat uses:
 
 A session is not treated as verified until both peers complete the interactive SAS flow. Each user must compare the displayed code with the peer through an out-of-band channel and enter the matching code manually. Three failed SAS attempts terminate the session.
 
-## Highlights in v4.8.9
+## Highlights in v4.8.10
+
+- New: users can configure their own STUN/TURN servers under "Advanced network settings" (header gear or the connection-creation screen). Input is allowlist-validated, optionally saved encrypted on-device, and a built-in "Test servers" check reports STUN/TURN reachability.
+- Relay-only privacy mode moved into the advanced settings panel; the standalone start-screen toggle was removed.
+
+Earlier in the v4.8 hardening line:
 
 - Patched a high-severity XSS advisory in the DOMPurify dependency (the message sanitizer) by upgrading to a fixed release.
 - Operator TURN credentials are no longer committed to the repository; use `config/ice-servers.example.js` as a template.
 - The production logger no longer prints error context or info/debug output, only opaque error codes.
-
-This patch release builds on the earlier hardening pass:
 
 - Manual WebRTC setup preserves pending offer/answer state during slow out-of-band exchange.
 - TURN relay fallback can be configured through `config/ice-servers.js` for restrictive networks.

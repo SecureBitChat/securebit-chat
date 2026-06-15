@@ -539,7 +539,7 @@ const EnhancedMinimalHeader = ({
                         React.createElement('p', {
                             key: 'subtitle',
                             className: 'text-xs sm:text-sm text-muted hidden sm:block'
-                        }, 'End-to-end freedom v4.8.9')
+                        }, 'End-to-end freedom v4.8.10')
                     ])
                 ]),
 
@@ -548,6 +548,17 @@ const EnhancedMinimalHeader = ({
                     key: 'status-section',
                     className: 'flex items-center space-x-2 sm:space-x-3'
                 }, [
+
+                    React.createElement('button', {
+                        key: 'network-settings',
+                        type: 'button',
+                        onClick: () => window.dispatchEvent(new CustomEvent('securebit:open-network-settings')),
+                        title: 'Advanced network settings (STUN/TURN)',
+                        'aria-label': 'Advanced network settings',
+                        className: 'w-8 h-8 rounded-full flex items-center justify-center text-muted hover:text-primary hover:bg-white/5 transition-colors duration-200'
+                    }, [
+                        React.createElement('i', { key: 'i', className: 'fas fa-network-wired text-sm' })
+                    ]),
 
                     displaySecurityLevel && React.createElement('div', {
                         key: 'security-level',
