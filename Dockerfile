@@ -9,6 +9,12 @@ COPY deploy/nginx.conf /etc/nginx/nginx.conf
 # Serve the repository (src/, assets/, libs/, dist/, config/, logo/, sw.js, ...).
 COPY . /usr/share/nginx/html
 
+# config/ice-servers.js is git-ignored (it can hold operator TURN credentials),
+# so it is absent from the build context. Provide the public-STUN production
+# override so the operator-override path is populated and nothing 404s.
+RUN cp /usr/share/nginx/html/config/ice-servers.prod.js \
+       /usr/share/nginx/html/config/ice-servers.js
+
 # Fly.io health checks and routing target this port.
 EXPOSE 8080
 
