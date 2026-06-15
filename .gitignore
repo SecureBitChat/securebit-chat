@@ -4,3 +4,9 @@ node_modules/
 # Local environment noise
 .npm/
 npm-debug.log*
+.DS_Store
+**/.DS_Store
+
+# Operator ICE override holds TURN credentials — never commit it.
+# Use config/ice-servers.example.js as the template.
+config/ice-servers.js

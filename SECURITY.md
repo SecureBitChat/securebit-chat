@@ -4,7 +4,8 @@
 
 | Release | Status | Protocol |
 | --- | --- | --- |
-| v4.1.x | Supported | 4.1 |
+| v4.8.x | Supported | 4.1 |
+| v4.1.x – v4.7.x | Unsupported | 4.1 |
 | earlier releases | Unsupported | legacy |
 
 Users should run the current supported release line to receive the latest verification, storage, and file-transfer protections.

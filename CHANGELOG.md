@@ -1,5 +1,21 @@
 # Changelog
 
+## v4.8.9 — Security hardening patch
+
+This release closes a vulnerable dependency, removes committed TURN credentials, and tightens production logging.
+
+### Security
+
+- Upgraded DOMPurify from 3.4.4 to a patched release, resolving a high-severity XSS advisory (GHSA-87xg-pxx2-7hvx) in the incoming-message sanitizer.
+- Upgraded the `esbuild` build dependency to clear a high-severity advisory in the toolchain. `npm audit` now reports zero vulnerabilities.
+- Stopped tracking `config/ice-servers.js` (operator TURN credentials) in Git and added `config/ice-servers.example.js` as a template. Operators must rotate any previously committed credentials.
+- Removed temporary debug branches from the production logger so it no longer prints error context or info/debug payloads — only an opaque error code.
+
+### Documentation
+
+- Updated the supported-release table in `SECURITY.md` to the v4.8.x line.
+- Synchronized the version string across the header, manifest, README, and in-app initialization message.
+
 ## v4.8.8 — File transfer consent fix
 
 This patch completes the mandatory receiver-consent gate for incoming file transfers and resolves a callback ownership conflict that caused every incoming file request to be silently auto-rejected.

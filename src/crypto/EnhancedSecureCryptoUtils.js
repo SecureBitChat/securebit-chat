@@ -973,20 +973,13 @@ class EnhancedSecureCryptoUtils {
             // Production-safe console output
             if (this.isProductionMode) {
                 if (level === 'error') {
-                    // В production показываем только код ошибки без деталей
+                    // In production expose only an opaque error code, never the context.
                     console.error(`❌ [SecureChat] ${message} [ERROR_CODE: ${this._generateErrorCode(message)}]`);
-                    // Временно показываем детали для отладки
-                    if (context && Object.keys(context).length > 0) {
-                        console.error('Error details:', context);
-                    }
                 } else if (level === 'warn') {
-                    // В production показываем только предупреждение без контекста
+                    // Warning text only, no context payload.
                     console.warn(`⚠️ [SecureChat] ${message}`);
-                } else if (level === 'info' || level === 'debug') {
-                    // Временно показываем info/debug логи для отладки
-                    console.log(`[SecureChat] ${message}`, context);
                 } else {
-                    // В production не показываем другие логи
+                    // info/debug and any other level: suppressed entirely in production.
                     return;
                 }
             } else {

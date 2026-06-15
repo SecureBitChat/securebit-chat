@@ -1,6 +1,6 @@
 {
   "name": "securebit-chat",
-  "version": "4.8.8",
+  "version": "4.8.9",
   "description": "Secure P2P Communication Application with End-to-End Encryption",
   "main": "index.html",
   "scripts": {
@@ -24,7 +24,7 @@
   "author": "SecureBit Team",
   "license": "MIT",
   "devDependencies": {
-    "esbuild": "0.25.9",
+    "esbuild": "^0.28.1",
     "jsdom": "^28.1.0",
     "tailwindcss": "3.4.17"
   },
