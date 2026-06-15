@@ -13,6 +13,7 @@ import '../components/ui/Testimonials.jsx';
 import '../components/ui/ComparisonTable.jsx';
 import '../components/ui/Roadmap.jsx';
 import '../components/ui/FileTransfer.jsx';
+import '../components/ui/IceServerSettings.jsx';
 
 // Expose to global for legacy usage inside app code
 window.EnhancedSecureCryptoUtils = EnhancedSecureCryptoUtils;

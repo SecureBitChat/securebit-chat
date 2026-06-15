@@ -36,6 +36,7 @@
       import(`../components/ui/Testimonials.jsx?v=${timestamp}`),
       import(`../components/ui/Roadmap.jsx?v=${timestamp}`),
       import(`../components/ui/FileTransfer.jsx?v=${timestamp}`),
+      import(`../components/ui/IceServerSettings.jsx?v=${timestamp}`),
     ]);
 
     // Components are automatically registered on window by their respective modules

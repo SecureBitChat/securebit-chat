@@ -31,6 +31,126 @@ function installDebugWindowHooks({
   };
 }
 
+// src/network/iceSettingsStore.js
+var DB_NAME = "securebit-net";
+var DB_VERSION = 1;
+var STORE = "kv";
+var KEY_RECORD = "ice-device-key";
+var SETTINGS_RECORD = "ice-settings";
+var SETTINGS_VERSION = 1;
+function isSupported() {
+  return typeof indexedDB !== "undefined" && typeof crypto !== "undefined" && !!crypto.subtle;
+}
+function openDb() {
+  return new Promise((resolve, reject) => {
+    let request;
+    try {
+      request = indexedDB.open(DB_NAME, DB_VERSION);
+    } catch (error) {
+      reject(error);
+      return;
+    }
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE)) {
+        db.createObjectStore(STORE);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+function idbGet(db, key) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readonly");
+    const req = tx.objectStore(STORE).get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+function idbPut(db, key, value) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    tx.objectStore(STORE).put(value, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+function idbDelete(db, key) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    tx.objectStore(STORE).delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function getOrCreateDeviceKey(db) {
+  const existing = await idbGet(db, KEY_RECORD);
+  if (existing instanceof CryptoKey) {
+    return existing;
+  }
+  const key = await crypto.subtle.generateKey(
+    { name: "AES-GCM", length: 256 },
+    false,
+    // non-extractable
+    ["encrypt", "decrypt"]
+  );
+  await idbPut(db, KEY_RECORD, key);
+  return key;
+}
+async function saveIceSettings(settings) {
+  if (!isSupported()) throw new Error("Persistent storage is not available in this browser");
+  const db = await openDb();
+  const key = await getOrCreateDeviceKey(db);
+  const payload = JSON.stringify({
+    version: SETTINGS_VERSION,
+    servers: Array.isArray(settings?.servers) ? settings.servers : [],
+    privacyMode: settings?.privacyMode === "relay-only" ? "relay-only" : "standard"
+  });
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    new TextEncoder().encode(payload)
+  );
+  await idbPut(db, SETTINGS_RECORD, {
+    iv: Array.from(iv),
+    data: Array.from(new Uint8Array(ciphertext))
+  });
+}
+async function loadIceSettings() {
+  if (!isSupported()) return null;
+  try {
+    const db = await openDb();
+    const record = await idbGet(db, SETTINGS_RECORD);
+    if (!record || !Array.isArray(record.iv) || !Array.isArray(record.data)) {
+      return null;
+    }
+    const key = await idbGet(db, KEY_RECORD);
+    if (!(key instanceof CryptoKey)) return null;
+    const plaintext = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: new Uint8Array(record.iv) },
+      key,
+      new Uint8Array(record.data)
+    );
+    const parsed = JSON.parse(new TextDecoder().decode(plaintext));
+    return {
+      servers: Array.isArray(parsed.servers) ? parsed.servers : [],
+      privacyMode: parsed.privacyMode === "relay-only" ? "relay-only" : "standard"
+    };
+  } catch {
+    return null;
+  }
+}
+async function clearIceSettings() {
+  if (!isSupported()) return;
+  try {
+    const db = await openDb();
+    await idbDelete(db, SETTINGS_RECORD);
+  } catch {
+  }
+}
+
 // src/app.jsx
 var EnhancedCopyButton = ({ text, className = "", children }) => {
   const [copied, setCopied] = React.useState(false);
@@ -506,6 +626,38 @@ var EnhancedConnectionSetup = ({
             }, "Uses TURN relay-only when configured. Without TURN, direct WebRTC may expose IP addresses and relay-only connections cannot start.")
           ])
         ]),
+        React.createElement("div", {
+          key: "advanced-network",
+          className: "mb-6 mx-auto max-w-2xl flex flex-wrap items-center justify-between gap-3"
+        }, [
+          React.createElement("span", {
+            key: "status",
+            className: "text-sm text-secondary"
+          }, Array.isArray(customIceServers) && customIceServers.length ? `Using ${customIceServers.length} custom ICE server(s)` : "Using public ICE servers"),
+          React.createElement("button", {
+            key: "btn",
+            type: "button",
+            onClick: () => setShowIceSettings(true),
+            className: "px-3 py-2 text-sm rounded-lg border border-purple-500/30 text-primary"
+          }, [
+            React.createElement("i", { key: "i", className: "fas fa-network-wired mr-2" }),
+            "Advanced network settings"
+          ])
+        ]),
+        typeof window !== "undefined" && window.IceServerSettings ? React.createElement(window.IceServerSettings, {
+          key: "ice-settings-modal",
+          isOpen: showIceSettings,
+          onClose: () => setShowIceSettings(false),
+          initial: {
+            useCustom: Array.isArray(customIceServers) && customIceServers.length > 0,
+            serversText: iceServersText,
+            privacyMode: relayOnlyMode ? "relay-only" : "standard",
+            persisted: iceSettingsPersisted
+          },
+          hasSaved: iceSettingsPersisted,
+          onApply: handleApplyIceSettings,
+          onForget: handleForgetIceSettings
+        }) : null,
         React.createElement("div", {
           key: "options",
           className: "flex flex-col md:flex-row items-center justify-center gap-6 max-w-3xl mx-auto"
@@ -1481,6 +1633,51 @@ var EnhancedSecureP2PChat = () => {
       return false;
     }
   });
+  const [customIceServers2, setCustomIceServers] = React.useState(null);
+  const [iceServersText2, setIceServersText] = React.useState("");
+  const [iceSettingsPersisted2, setIceSettingsPersisted] = React.useState(false);
+  const [showIceSettings2, setShowIceSettings2] = React.useState(false);
+  React.useEffect(() => {
+    let cancelled = false;
+    loadIceSettings().then((saved) => {
+      if (cancelled || !saved) return;
+      if (Array.isArray(saved.servers) && saved.servers.length > 0) {
+        setCustomIceServers(saved.servers);
+        setIceServersText(JSON.stringify(saved.servers, null, 2));
+      }
+      if (saved.privacyMode === "relay-only") {
+        setRelayOnlyMode(true);
+      }
+      setIceSettingsPersisted(true);
+    }).catch(() => {
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const handleApplyIceSettings2 = React.useCallback((next, persist) => {
+    const servers = next.useCustom && Array.isArray(next.servers) ? next.servers : null;
+    setCustomIceServers(servers && servers.length ? servers : null);
+    setIceServersText(next.serversText || "");
+    setRelayOnlyMode(next.privacyMode === "relay-only");
+    setShowIceSettings2(false);
+    if (persist) {
+      setIceSettingsPersisted(true);
+      saveIceSettings({ servers: servers || [], privacyMode: next.privacyMode }).catch(() => {
+      });
+    } else if (iceSettingsPersisted2) {
+      setIceSettingsPersisted(false);
+      clearIceSettings().catch(() => {
+      });
+    }
+  }, [iceSettingsPersisted2]);
+  const handleForgetIceSettings2 = React.useCallback(async () => {
+    await clearIceSettings().catch(() => {
+    });
+    setIceSettingsPersisted(false);
+    setCustomIceServers(null);
+    setIceServersText("");
+  }, []);
   const [messageInput, setMessageInput] = React.useState("");
   const [offerData, setOfferData] = React.useState("");
   const [answerData, setAnswerData] = React.useState("");
@@ -1806,7 +2003,8 @@ var EnhancedSecureP2PChat = () => {
       {
         webrtc: {
           relayOnly: relayOnlyMode,
-          iceServers: Array.isArray(window.SECUREBIT_ICE_SERVERS) ? window.SECUREBIT_ICE_SERVERS : void 0
+          // Priority: user's custom servers > operator override > built-in defaults.
+          iceServers: Array.isArray(customIceServers2) && customIceServers2.length ? customIceServers2 : Array.isArray(window.SECUREBIT_ICE_SERVERS) ? window.SECUREBIT_ICE_SERVERS : void 0
         }
       }
     );

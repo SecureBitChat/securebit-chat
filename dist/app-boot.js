@@ -19071,6 +19071,387 @@ var FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFiles 
 };
 window.FileTransferComponent = FileTransferComponent;
 
+// src/network/iceServers.js
+var ICE_LIMITS = Object.freeze({
+  MAX_SERVERS: 10,
+  MAX_URLS_PER_SERVER: 8,
+  MAX_STRING_LENGTH: 512
+});
+var ALLOWED_ICE_SCHEMES = Object.freeze(["stun", "stuns", "turn", "turns"]);
+var SCHEME_RE = /^(stuns?|turns?):/i;
+var HOST_RE = /^(\[[0-9a-f:]+\]|[a-z0-9.-]+)(:\d{1,5})?$/i;
+var TRANSPORT_RE = /^transport=(udp|tcp)$/i;
+function hasControlChars(value) {
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i);
+    if (code < 32 || code === 127) return true;
+  }
+  return false;
+}
+function validateIceUrl(url) {
+  if (typeof url !== "string") return "URL must be a string";
+  const trimmed = url.trim();
+  if (!trimmed) return "URL is empty";
+  if (trimmed.length > ICE_LIMITS.MAX_STRING_LENGTH) return "URL is too long";
+  if (hasControlChars(trimmed)) return "URL contains invalid characters";
+  const scheme = trimmed.match(SCHEME_RE);
+  if (!scheme) {
+    return "URL must start with stun:, stuns:, turn: or turns:";
+  }
+  const rest = trimmed.slice(scheme[0].length);
+  const [hostPort, query, ...extra] = rest.split("?");
+  if (extra.length > 0) return "URL has an invalid query";
+  if (!hostPort) return "URL is missing a host";
+  if (!HOST_RE.test(hostPort)) return "URL has an invalid host or port";
+  if (query !== void 0 && !TRANSPORT_RE.test(query)) {
+    return "URL query must be transport=udp or transport=tcp";
+  }
+  return null;
+}
+function isTurnUrl(url) {
+  return typeof url === "string" && /^turns?:/i.test(url.trim());
+}
+function validateSecret(value, label) {
+  if (value === void 0 || value === null || value === "") return null;
+  if (typeof value !== "string") return `${label} must be a string`;
+  if (value.length > ICE_LIMITS.MAX_STRING_LENGTH) return `${label} is too long`;
+  if (hasControlChars(value)) return `${label} contains invalid characters`;
+  return null;
+}
+function normalizeIceServers(entries2) {
+  const errors = [];
+  const warnings = [];
+  const servers = [];
+  if (!Array.isArray(entries2)) {
+    return { servers: [], errors: ["Server list must be an array"], warnings: [] };
+  }
+  if (entries2.length === 0) {
+    return { servers: [], errors: [], warnings: [] };
+  }
+  if (entries2.length > ICE_LIMITS.MAX_SERVERS) {
+    errors.push(`Too many servers (max ${ICE_LIMITS.MAX_SERVERS})`);
+    return { servers: [], errors, warnings };
+  }
+  entries2.forEach((entry, index) => {
+    const label = `Server #${index + 1}`;
+    if (!entry || typeof entry !== "object") {
+      errors.push(`${label}: invalid entry`);
+      return;
+    }
+    const rawUrls = Array.isArray(entry.urls) ? entry.urls : [entry.urls];
+    if (rawUrls.length === 0 || rawUrls.length > ICE_LIMITS.MAX_URLS_PER_SERVER) {
+      errors.push(`${label}: between 1 and ${ICE_LIMITS.MAX_URLS_PER_SERVER} URLs required`);
+      return;
+    }
+    const cleanUrls = [];
+    let entryHasTurn = false;
+    for (const rawUrl of rawUrls) {
+      const err = validateIceUrl(rawUrl);
+      if (err) {
+        errors.push(`${label}: ${err}`);
+        continue;
+      }
+      const trimmed = rawUrl.trim();
+      cleanUrls.push(trimmed);
+      if (isTurnUrl(trimmed)) entryHasTurn = true;
+    }
+    if (cleanUrls.length === 0) return;
+    const userErr = validateSecret(entry.username, `${label} username`);
+    if (userErr) errors.push(userErr);
+    const credErr = validateSecret(entry.credential, `${label} credential`);
+    if (credErr) errors.push(credErr);
+    const server = { urls: cleanUrls.length === 1 ? cleanUrls[0] : cleanUrls };
+    if (entry.username) server.username = String(entry.username);
+    if (entry.credential) server.credential = String(entry.credential);
+    if (entryHasTurn && (!server.username || !server.credential)) {
+      warnings.push(`${label}: TURN servers usually require a username and credential`);
+    }
+    servers.push(server);
+  });
+  return { servers, errors, warnings };
+}
+function parseIceServersInput(text2) {
+  if (typeof text2 !== "string" || !text2.trim()) {
+    return { servers: [], errors: [], warnings: [] };
+  }
+  const trimmed = text2.trim();
+  if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+    let parsed;
+    try {
+      parsed = JSON.parse(trimmed);
+    } catch {
+      return { servers: [], errors: ["Invalid JSON"], warnings: [] };
+    }
+    const arr = Array.isArray(parsed) ? parsed : [parsed];
+    return normalizeIceServers(arr);
+  }
+  const entries2 = trimmed.split("\n").map((line) => line.trim()).filter(Boolean).map((url) => ({ urls: url }));
+  return normalizeIceServers(entries2);
+}
+function listHasTurn(servers) {
+  if (!Array.isArray(servers)) return false;
+  return servers.some((server) => {
+    const urls = Array.isArray(server?.urls) ? server.urls : [server?.urls];
+    return urls.some(isTurnUrl);
+  });
+}
+
+// src/components/ui/IceServerSettings.jsx
+var React2 = window.React;
+var PLACEHOLDER = [
+  "# One URL per line, e.g.:",
+  "stun:stun.example.com:3478",
+  "turn:turn.example.com:3478?transport=udp",
+  "",
+  "# Or paste JSON for servers with credentials:",
+  '[{"urls":"turns:turn.example.com:5349","username":"user","credential":"secret"}]'
+].join("\n");
+async function testIceServers(servers, timeoutMs = 6e3) {
+  const found = { host: 0, srflx: 0, relay: 0 };
+  if (typeof RTCPeerConnection === "undefined") {
+    return { ...found, error: "WebRTC is not available in this browser" };
+  }
+  let pc;
+  try {
+    pc = new RTCPeerConnection({ iceServers: servers });
+  } catch (error) {
+    return { ...found, error: error.message || "Invalid server configuration" };
+  }
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try {
+        pc.close();
+      } catch {
+      }
+      resolve(found);
+    };
+    const timer = setTimeout(finish, timeoutMs);
+    pc.onicecandidate = (event) => {
+      if (!event.candidate) {
+        finish();
+        return;
+      }
+      const c = event.candidate.candidate || "";
+      if (/ typ host/.test(c)) found.host++;
+      else if (/ typ srflx/.test(c)) found.srflx++;
+      else if (/ typ relay/.test(c)) found.relay++;
+    };
+    try {
+      pc.createDataChannel("securebit-ice-test");
+      pc.createOffer().then((offer) => pc.setLocalDescription(offer)).catch(() => finish());
+    } catch {
+      finish();
+    }
+  });
+}
+var IceServerSettings = ({ isOpen, onClose, initial, hasSaved, onApply, onForget }) => {
+  if (!isOpen) return null;
+  const [useCustom, setUseCustom] = React2.useState(initial?.useCustom || false);
+  const [serversText, setServersText] = React2.useState(initial?.serversText || "");
+  const [relayOnly, setRelayOnly] = React2.useState(initial?.privacyMode === "relay-only");
+  const [persist, setPersist] = React2.useState(initial?.persisted || false);
+  const [testState, setTestState] = React2.useState("idle");
+  const [testResult, setTestResult] = React2.useState(null);
+  const parsed = useCustom ? parseIceServersInput(serversText) : { servers: [], errors: [], warnings: [] };
+  const hasTurn = listHasTurn(parsed.servers);
+  const canApply = !useCustom || parsed.servers.length > 0 && parsed.errors.length === 0;
+  const handleTest = async () => {
+    setTestState("running");
+    setTestResult(null);
+    const result = await testIceServers(parsed.servers);
+    setTestResult(result);
+    setTestState("done");
+  };
+  const handleApply = () => {
+    if (!canApply) return;
+    onApply(
+      {
+        useCustom,
+        servers: useCustom ? parsed.servers : [],
+        privacyMode: relayOnly ? "relay-only" : "standard",
+        serversText
+      },
+      persist
+    );
+  };
+  const handleForget = async () => {
+    if (onForget) await onForget();
+    setPersist(false);
+  };
+  const labelCls = "block text-sm font-medium text-primary";
+  const descCls = "block text-sm text-secondary";
+  const children = [];
+  children.push(React2.createElement("div", { key: "header", className: "flex items-center mb-4" }, [
+    React2.createElement("div", {
+      key: "icon",
+      className: "w-10 h-10 bg-purple-500/10 border border-purple-500/20 rounded-lg flex items-center justify-center mr-3"
+    }, [React2.createElement("i", { className: "fas fa-network-wired accent-purple" })]),
+    React2.createElement("h3", { key: "title", className: "text-lg font-medium text-primary" }, "Advanced network settings")
+  ]));
+  children.push(React2.createElement(
+    "p",
+    { key: "intro", className: "text-sm text-secondary mb-4" },
+    "By default SecureBit uses public STUN servers. You can supply your own STUN/TURN servers \u2014 useful if you self-host a TURN relay and do not want to rely on public infrastructure. Servers are configured locally on your side only; you do not need to share them with your peer."
+  ));
+  children.push(React2.createElement("div", { key: "mode", className: "space-y-2 mb-4" }, [
+    React2.createElement("label", { key: "public", className: "flex items-start gap-3" }, [
+      React2.createElement("input", {
+        key: "r",
+        type: "radio",
+        name: "ice-mode",
+        checked: !useCustom,
+        onChange: () => setUseCustom(false),
+        className: "mt-1"
+      }),
+      React2.createElement("span", { key: "s" }, [
+        React2.createElement("span", { key: "t", className: labelCls }, "Public servers (default)"),
+        React2.createElement("span", { key: "d", className: descCls }, "Zero-config. Good for most users.")
+      ])
+    ]),
+    React2.createElement("label", { key: "custom", className: "flex items-start gap-3" }, [
+      React2.createElement("input", {
+        key: "r",
+        type: "radio",
+        name: "ice-mode",
+        checked: useCustom,
+        onChange: () => setUseCustom(true),
+        className: "mt-1"
+      }),
+      React2.createElement("span", { key: "s" }, [
+        React2.createElement("span", { key: "t", className: labelCls }, "My own STUN/TURN servers"),
+        React2.createElement("span", { key: "d", className: descCls }, `Up to ${ICE_LIMITS.MAX_SERVERS} servers.`)
+      ])
+    ])
+  ]));
+  if (useCustom) {
+    children.push(React2.createElement("textarea", {
+      key: "textarea",
+      value: serversText,
+      onChange: (e) => setServersText(e.target.value),
+      placeholder: PLACEHOLDER,
+      spellCheck: false,
+      autoComplete: "off",
+      className: "w-full h-36 mb-2 p-3 rounded-lg bg-black/30 border border-purple-500/20 text-sm text-primary font-mono"
+    }));
+    if (parsed.errors.length > 0) {
+      children.push(React2.createElement(
+        "ul",
+        { key: "errors", className: "mb-2 text-sm text-red-400 list-disc pl-5" },
+        parsed.errors.slice(0, 6).map((err, i) => React2.createElement("li", { key: i }, err))
+      ));
+    }
+    if (parsed.warnings.length > 0) {
+      children.push(React2.createElement(
+        "ul",
+        { key: "warnings", className: "mb-2 text-sm text-yellow-400 list-disc pl-5" },
+        parsed.warnings.slice(0, 6).map((w, i) => React2.createElement("li", { key: i }, w))
+      ));
+    }
+    if (parsed.servers.length > 0 && parsed.errors.length === 0) {
+      children.push(React2.createElement(
+        "p",
+        { key: "ok", className: "mb-2 text-sm text-green-400" },
+        `${parsed.servers.length} server(s) parsed${hasTurn ? " (TURN present)" : " (STUN only \u2014 does not hide IP)"}.`
+      ));
+    }
+    children.push(React2.createElement(
+      "p",
+      { key: "disclaimer", className: "mb-3 text-xs text-secondary" },
+      "Privacy note: a TURN relay sees the IP addresses and traffic timing of both peers (never your message contents, which stay end-to-end encrypted). Only a TURN server you trust or self-host improves privacy \u2014 pointing this at a random public relay does not. Prefer turns: (TLS)."
+    ));
+    children.push(React2.createElement("div", { key: "test", className: "mb-3" }, [
+      React2.createElement("button", {
+        key: "btn",
+        type: "button",
+        disabled: !canApply || testState === "running",
+        onClick: handleTest,
+        className: "px-3 py-2 text-sm rounded-lg border border-purple-500/30 text-primary disabled:opacity-50"
+      }, testState === "running" ? "Testing\u2026" : "Test servers"),
+      testState === "done" && testResult ? React2.createElement(
+        "span",
+        {
+          key: "res",
+          className: "ml-3 text-sm " + (testResult.error ? "text-red-400" : "text-secondary")
+        },
+        testResult.error ? `Test failed: ${testResult.error}` : `STUN ${testResult.srflx > 0 ? "OK" : "none"} \xB7 TURN ${testResult.relay > 0 ? "OK" : "none"} \xB7 host ${testResult.host}`
+      ) : null
+    ]));
+  }
+  children.push(React2.createElement("label", { key: "relay", className: "flex items-start gap-3 mb-3 rounded-lg border border-purple-500/20 bg-purple-500/10 p-3" }, [
+    React2.createElement("input", {
+      key: "i",
+      type: "checkbox",
+      checked: relayOnly,
+      onChange: (e) => setRelayOnly(e.target.checked),
+      className: "mt-1"
+    }),
+    React2.createElement("span", { key: "s" }, [
+      React2.createElement("span", { key: "t", className: labelCls }, "Relay-only mode (maximum privacy)"),
+      React2.createElement("span", { key: "d", className: descCls }, "Routes all traffic through TURN so your IP is not exposed to the peer. Requires a TURN server; connections cannot start without one.")
+    ])
+  ]));
+  if (relayOnly && useCustom && !hasTurn) {
+    children.push(React2.createElement(
+      "p",
+      { key: "relaywarn", className: "mb-3 text-sm text-yellow-400" },
+      "Relay-only is enabled but no TURN server is configured. The connection will not be able to start."
+    ));
+  }
+  children.push(React2.createElement("label", { key: "persist", className: "flex items-start gap-3 mb-4" }, [
+    React2.createElement("input", {
+      key: "i",
+      type: "checkbox",
+      checked: persist,
+      onChange: (e) => setPersist(e.target.checked),
+      className: "mt-1"
+    }),
+    React2.createElement("span", { key: "s" }, [
+      React2.createElement("span", { key: "t", className: labelCls }, "Save on this device"),
+      React2.createElement("span", { key: "d", className: descCls }, "Stored encrypted in this browser. Leave off to use only for this session.")
+    ])
+  ]));
+  const actions = [
+    React2.createElement("button", {
+      key: "cancel",
+      type: "button",
+      onClick: onClose,
+      className: "px-4 py-2 text-sm rounded-lg border border-white/10 text-secondary"
+    }, "Cancel"),
+    React2.createElement("button", {
+      key: "apply",
+      type: "button",
+      onClick: handleApply,
+      disabled: !canApply,
+      className: "px-4 py-2 text-sm rounded-lg bg-purple-500/20 border border-purple-500/30 text-primary disabled:opacity-50"
+    }, "Apply")
+  ];
+  if (hasSaved) {
+    actions.unshift(React2.createElement("button", {
+      key: "forget",
+      type: "button",
+      onClick: handleForget,
+      className: "px-4 py-2 text-sm rounded-lg border border-red-500/30 text-red-400 mr-auto"
+    }, "Forget saved"));
+  }
+  children.push(React2.createElement("div", { key: "actions", className: "flex items-center gap-2 flex-wrap" }, actions));
+  return React2.createElement("div", {
+    className: "fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4",
+    onClick: (e) => {
+      if (e.target === e.currentTarget) onClose();
+    }
+  }, [
+    React2.createElement("div", {
+      key: "modal",
+      className: "card-minimal rounded-xl p-6 max-w-lg w-full border-purple-500/20 max-h-[90vh] overflow-y-auto"
+    }, children)
+  ]);
+};
+window.IceServerSettings = IceServerSettings;
+
 // src/scripts/app-boot.js
 window.EnhancedSecureCryptoUtils = EnhancedSecureCryptoUtils;
 window.EnhancedSecureWebRTCManager = EnhancedSecureWebRTCManager;

@@ -1,4 +1,5 @@
 import { installDebugWindowHooks } from './utils/debugWindowHooks.js';
+import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/iceSettingsStore.js';
                 // Enhanced Copy Button with better UX
                 const EnhancedCopyButton = ({ text, className = "", children }) => {
                     const [copied, setCopied] = React.useState(false);
@@ -530,7 +531,42 @@ import { installDebugWindowHooks } from './utils/debugWindowHooks.js';
                                         }, 'Uses TURN relay-only when configured. Without TURN, direct WebRTC may expose IP addresses and relay-only connections cannot start.')
                                     ])
                                 ]),
-        
+
+                                React.createElement('div', {
+                                    key: 'advanced-network',
+                                    className: "mb-6 mx-auto max-w-2xl flex flex-wrap items-center justify-between gap-3"
+                                }, [
+                                    React.createElement('span', {
+                                        key: 'status',
+                                        className: "text-sm text-secondary"
+                                    }, (Array.isArray(customIceServers) && customIceServers.length)
+                                        ? `Using ${customIceServers.length} custom ICE server(s)`
+                                        : 'Using public ICE servers'),
+                                    React.createElement('button', {
+                                        key: 'btn',
+                                        type: 'button',
+                                        onClick: () => setShowIceSettings(true),
+                                        className: "px-3 py-2 text-sm rounded-lg border border-purple-500/30 text-primary"
+                                    }, [
+                                        React.createElement('i', { key: 'i', className: 'fas fa-network-wired mr-2' }),
+                                        'Advanced network settings'
+                                    ])
+                                ]),
+                                (typeof window !== 'undefined' && window.IceServerSettings) ? React.createElement(window.IceServerSettings, {
+                                    key: 'ice-settings-modal',
+                                    isOpen: showIceSettings,
+                                    onClose: () => setShowIceSettings(false),
+                                    initial: {
+                                        useCustom: Array.isArray(customIceServers) && customIceServers.length > 0,
+                                        serversText: iceServersText,
+                                        privacyMode: relayOnlyMode ? 'relay-only' : 'standard',
+                                        persisted: iceSettingsPersisted
+                                    },
+                                    hasSaved: iceSettingsPersisted,
+                                    onApply: handleApplyIceSettings,
+                                    onForget: handleForgetIceSettings
+                                }) : null,
+
                                 React.createElement('div', {
                                     key: 'options',
                                     className: "flex flex-col md:flex-row items-center justify-center gap-6 max-w-3xl mx-auto"
@@ -1561,6 +1597,51 @@ import { installDebugWindowHooks } from './utils/debugWindowHooks.js';
                     const [relayOnlyMode, setRelayOnlyMode] = React.useState(() => {
                         try { return localStorage.getItem('securebit_relay_only_mode') === 'true'; } catch { return false; }
                     });
+                    // Custom ICE (STUN/TURN) servers — advanced network settings.
+                    const [customIceServers, setCustomIceServers] = React.useState(null); // null => use public defaults
+                    const [iceServersText, setIceServersText] = React.useState('');
+                    const [iceSettingsPersisted, setIceSettingsPersisted] = React.useState(false);
+                    const [showIceSettings, setShowIceSettings] = React.useState(false);
+
+                    // Load any previously saved (encrypted) custom ICE settings on mount.
+                    React.useEffect(() => {
+                        let cancelled = false;
+                        loadIceSettings().then((saved) => {
+                            if (cancelled || !saved) return;
+                            if (Array.isArray(saved.servers) && saved.servers.length > 0) {
+                                setCustomIceServers(saved.servers);
+                                setIceServersText(JSON.stringify(saved.servers, null, 2));
+                            }
+                            if (saved.privacyMode === 'relay-only') {
+                                setRelayOnlyMode(true);
+                            }
+                            setIceSettingsPersisted(true);
+                        }).catch(() => { /* fail closed: keep defaults */ });
+                        return () => { cancelled = true; };
+                    }, []);
+
+                    const handleApplyIceSettings = React.useCallback((next, persist) => {
+                        const servers = next.useCustom && Array.isArray(next.servers) ? next.servers : null;
+                        setCustomIceServers(servers && servers.length ? servers : null);
+                        setIceServersText(next.serversText || '');
+                        setRelayOnlyMode(next.privacyMode === 'relay-only');
+                        setShowIceSettings(false);
+                        if (persist) {
+                            setIceSettingsPersisted(true);
+                            saveIceSettings({ servers: servers || [], privacyMode: next.privacyMode }).catch(() => { /* surfaced as no-op */ });
+                        } else if (iceSettingsPersisted) {
+                            // User turned persistence off — remove the stored copy.
+                            setIceSettingsPersisted(false);
+                            clearIceSettings().catch(() => {});
+                        }
+                    }, [iceSettingsPersisted]);
+
+                    const handleForgetIceSettings = React.useCallback(async () => {
+                        await clearIceSettings().catch(() => {});
+                        setIceSettingsPersisted(false);
+                        setCustomIceServers(null);
+                        setIceServersText('');
+                    }, []);
                     
                     // Moved scrollToBottom logic to be available globally
                     const [messageInput, setMessageInput] = React.useState('');
@@ -1999,7 +2080,10 @@ import { installDebugWindowHooks } from './utils/debugWindowHooks.js';
                             {
                                 webrtc: {
                                     relayOnly: relayOnlyMode,
-                                    iceServers: Array.isArray(window.SECUREBIT_ICE_SERVERS) ? window.SECUREBIT_ICE_SERVERS : undefined
+                                    // Priority: user's custom servers > operator override > built-in defaults.
+                                    iceServers: (Array.isArray(customIceServers) && customIceServers.length)
+                                        ? customIceServers
+                                        : (Array.isArray(window.SECUREBIT_ICE_SERVERS) ? window.SECUREBIT_ICE_SERVERS : undefined)
                                 }
                             }
                         );
