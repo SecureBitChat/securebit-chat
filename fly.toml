@@ -1,0 +1,26 @@
+# Fly.io configuration for SecureBit.chat (static PWA served by nginx).
+# Set `app` to your chosen Fly app name and `primary_region` to the closest
+# region (e.g. fra=Frankfurt, ams=Amsterdam, waw=Warsaw, iad=US East).
+# Run `fly platform regions` to list them.
+
+app = "securebit-chat"
+primary_region = "fra"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 8080
+  force_https = true            # matches the app's upgrade-insecure-requests CSP
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0      # scale to zero when idle (free-tier friendly)
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

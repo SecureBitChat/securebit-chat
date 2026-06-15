@@ -1,0 +1,11 @@
+.git
+.github
+node_modules
+tools
+tests
+Dockerfile
+.dockerignore
+fly.toml
+*.log
+.DS_Store
+**/.DS_Store
