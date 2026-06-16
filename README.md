@@ -1,4 +1,4 @@
-# SecureBit.chat v4.8.10
+# SecureBit.chat v4.8.11
 
 SecureBit.chat is a browser-based peer-to-peer chat application built on WebRTC and Web Crypto APIs. It is designed for direct encrypted communication, explicit peer verification, and a small operational footprint without account registration or server-side message storage.
 
@@ -15,7 +15,12 @@ SecureBit.chat uses:
 
 A session is not treated as verified until both peers complete the interactive SAS flow. Each user must compare the displayed code with the peer through an out-of-band channel and enter the matching code manually. Three failed SAS attempts terminate the session.
 
-## Highlights in v4.8.10
+## Highlights in v4.8.11
+
+- Fixed: file transfers that completed the consent handshake but never delivered any data. Chunks are now sized to stay under WebRTC's 64 KB SCTP message limit (most visible on Safari and cross-browser connections).
+- File-type validation is now extension-driven; the easily-spoofed MIME type is advisory, so files with a missing or cross-OS MIME variant are no longer wrongly rejected. Blocked executable/script extensions and size limits are still enforced.
+
+Earlier in v4.8.10:
 
 - New: users can configure their own STUN/TURN servers under "Advanced network settings" (header gear or the connection-creation screen). Input is allowlist-validated, optionally saved encrypted on-device, and a built-in "Test servers" check reports STUN/TURN reachability.
 - Relay-only privacy mode moved into the advanced settings panel; the standalone start-screen toggle was removed.

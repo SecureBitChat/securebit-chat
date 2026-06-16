@@ -4413,7 +4413,8 @@ var EnhancedSecureFileTransfer = class {
     this.rateLimiter = new RateLimiter(10, 6e4);
     this.signingKey = null;
     this.verificationKey = null;
-    this.CHUNK_SIZE = 64 * 1024;
+    this.CHUNK_SIZE = 16 * 1024;
+    this.MAX_RECEIVE_CHUNK_SIZE = 64 * 1024;
     this.MAX_FILE_SIZE = 100 * 1024 * 1024;
     this.MAX_CONCURRENT_TRANSFERS = 3;
     this.CHUNK_TIMEOUT = 3e4;
@@ -4421,14 +4422,14 @@ var EnhancedSecureFileTransfer = class {
     this.FILE_TYPE_RESTRICTIONS = {
       pdf: {
         extensions: [".pdf"],
-        mimeTypes: ["application/pdf"],
+        mimeTypes: ["application/pdf", "application/x-pdf", "application/acrobat"],
         maxSize: 50 * 1024 * 1024,
         category: "PDF",
         description: "PDF"
       },
       text: {
         extensions: [".txt"],
-        mimeTypes: ["text/plain"],
+        mimeTypes: ["text/plain", "application/txt"],
         maxSize: 10 * 1024 * 1024,
         category: "Plain text",
         description: "TXT"
@@ -4437,11 +4438,15 @@ var EnhancedSecureFileTransfer = class {
         extensions: [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".ico"],
         mimeTypes: [
           "image/jpeg",
+          "image/jpg",
+          "image/pjpeg",
           "image/png",
           "image/gif",
           "image/webp",
           "image/bmp",
-          "image/x-icon"
+          "image/x-windows-bmp",
+          "image/x-icon",
+          "image/vnd.microsoft.icon"
         ],
         maxSize: 25 * 1024 * 1024,
         // 25 MB
@@ -4450,7 +4455,12 @@ var EnhancedSecureFileTransfer = class {
       },
       archives: {
         extensions: [".zip"],
-        mimeTypes: ["application/zip"],
+        mimeTypes: [
+          "application/zip",
+          "application/x-zip",
+          "application/x-zip-compressed",
+          "multipart/x-zip"
+        ],
         maxSize: 100 * 1024 * 1024,
         // 100 MB
         category: "Archives",
@@ -4473,6 +4483,11 @@ var EnhancedSecureFileTransfer = class {
       ".html",
       ".svg"
     ]);
+    this._genericMimeTypes = /* @__PURE__ */ new Set(["application/octet-stream", "application/binary"]);
+    this._allowedMimeTypes = /* @__PURE__ */ new Set();
+    for (const typeConfig of Object.values(this.FILE_TYPE_RESTRICTIONS)) {
+      for (const mime of typeConfig.mimeTypes) this._allowedMimeTypes.add(mime);
+    }
     this.activeTransfers = /* @__PURE__ */ new Map();
     this.receivingTransfers = /* @__PURE__ */ new Map();
     this.pendingIncomingTransfers = /* @__PURE__ */ new Map();
@@ -4503,14 +4518,17 @@ var EnhancedSecureFileTransfer = class {
     const mimeType = String(file?.type || "").toLowerCase();
     for (const [typeKey, typeConfig] of Object.entries(this.FILE_TYPE_RESTRICTIONS)) {
       const extensionAllowed = typeConfig.extensions.includes(fileExtension);
-      const mimeAllowed = typeConfig.mimeTypes.includes(mimeType);
-      if (extensionAllowed && mimeAllowed) {
+      if (!extensionAllowed) continue;
+      const mimeAcceptable = !mimeType || this._genericMimeTypes.has(mimeType) || this._allowedMimeTypes.has(mimeType);
+      if (mimeAcceptable) {
         return {
           type: typeKey,
           category: typeConfig.category,
           description: typeConfig.description,
           maxSize: typeConfig.maxSize,
-          allowed: true
+          allowed: true,
+          extension: fileExtension,
+          mimeType
         };
       }
     }
@@ -4531,20 +4549,14 @@ var EnhancedSecureFileTransfer = class {
     const lowerName = fileName.toLowerCase();
     const extensionIndex = lowerName.lastIndexOf(".");
     const fileExtension = extensionIndex >= 0 ? lowerName.substring(extensionIndex) : "";
-    const mimeType = String(file?.type || "").toLowerCase();
     if (this.BLOCKED_EXTENSIONS.has(fileExtension)) {
       errors.push(`File rejected: ${fileExtension} files are not allowed for security reasons.`);
-    }
-    if (!mimeType) {
-      errors.push("File rejected: missing MIME type is unsafe.");
     }
     if (file.size > fileType.maxSize) {
       errors.push(`File size (${this.formatFileSize(file.size)}) exceeds maximum allowed for ${fileType.category} (${this.formatFileSize(fileType.maxSize)})`);
     }
-    if (!fileType.allowed) {
-      if (mimeType && !this.BLOCKED_EXTENSIONS.has(fileExtension)) {
-        errors.push(`File rejected: extension and MIME type must match an allowed type. Supported types: ${fileType.description}`);
-      }
+    if (!fileType.allowed && !this.BLOCKED_EXTENSIONS.has(fileExtension)) {
+      errors.push(`File rejected: unsupported file type. Supported types: ${fileType.description}`);
     }
     if (file.size > this.MAX_FILE_SIZE) {
       errors.push(`File size (${this.formatFileSize(file.size)}) exceeds general limit (${this.formatFileSize(this.MAX_FILE_SIZE)})`);
@@ -4566,7 +4578,7 @@ var EnhancedSecureFileTransfer = class {
     if (!metadata?.fileId || typeof metadata.fileId !== "string") errors.push("Invalid file id");
     if (!Number.isSafeInteger(metadata?.fileSize) || metadata.fileSize <= 0) errors.push("Invalid file size");
     if (!Number.isSafeInteger(metadata?.totalChunks) || metadata.totalChunks <= 0) errors.push("Invalid chunk count");
-    if (!Number.isSafeInteger(metadata?.chunkSize) || metadata.chunkSize <= 0 || metadata.chunkSize > this.CHUNK_SIZE) errors.push("Invalid chunk size");
+    if (!Number.isSafeInteger(metadata?.chunkSize) || metadata.chunkSize <= 0 || metadata.chunkSize > this.MAX_RECEIVE_CHUNK_SIZE) errors.push("Invalid chunk size");
     if (!Array.isArray(metadata?.salt) || metadata.salt.length !== 32) errors.push("Invalid salt");
     const rawName = typeof metadata?.fileName === "string" ? metadata.fileName : "";
     const displayName = this.normalizeDisplayFileName(rawName);

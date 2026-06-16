@@ -1,5 +1,17 @@
 # Changelog
 
+## v4.8.11 — File transfer reliability fix
+
+Fixes file transfers that silently failed to reach the peer, and relaxes the overly strict file-type check that rejected legitimate files.
+
+### Fixed
+
+- File chunks are now sized so the on-the-wire message stays under the 64 KB SCTP message-size limit enforced by WebRTC. Previously each 64 KB chunk became a ~87 KB encrypted+Base64 message that exceeded this limit, so the consent handshake succeeded but no data was ever delivered — most visibly on Safari and cross-browser connections whose SDP omits `a=max-message-size`. The send chunk size is now 16 KB (~22 KB on the wire); inbound chunks up to 64 KB are still accepted for backward compatibility.
+
+### Changed
+
+- File-type validation is now driven by the extension allow-list, with the (client-supplied, easily spoofed) MIME type treated as an advisory signal. Files with a missing MIME type or a cross-OS MIME variant (e.g. `application/x-zip-compressed` for `.zip`, `image/jpg` for `.jpg`) are no longer rejected. Blocked executable/script extensions, a blatantly foreign MIME on a safe extension, and per-type size limits are still enforced.
+
 ## v4.8.10 — User-configurable STUN/TURN servers
 
 Adds optional, advanced control over WebRTC connectivity for power and privacy-focused users. Public servers remain the zero-config default.

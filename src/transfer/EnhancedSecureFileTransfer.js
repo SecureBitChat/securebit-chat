@@ -278,7 +278,20 @@ class EnhancedSecureFileTransfer {
         this.verificationKey = null;
         
         // Transfer settings
-        this.CHUNK_SIZE = 64 * 1024; // 64 KB
+        // NOTE: chunks are AES-GCM encrypted (+16-byte tag) and Base64-encoded
+        // before being wrapped in a JSON `file_chunk` message. Base64 inflates the
+        // payload by ~4/3, so the actual bytes handed to RTCDataChannel.send() are
+        // much larger than CHUNK_SIZE. The SCTP interop floor for a single WebRTC
+        // message is 64 KB (65536 bytes) — Safari and any peer whose SDP omits
+        // `a=max-message-size` enforce exactly this limit and will throw on larger
+        // sends. A 16 KB chunk yields a ~22 KB on-wire message, safely under that
+        // floor on every browser. (64 KB chunks produced ~87 KB messages, which
+        // silently failed to send and broke transfers cross-browser.)
+        this.CHUNK_SIZE = 16 * 1024; // 16 KB raw -> ~22 KB on the wire (SCTP-safe)
+        // Inbound chunks may legitimately be larger (e.g. an older peer that still
+        // sends 64 KB chunks), so validate received metadata against this ceiling
+        // rather than our own outbound CHUNK_SIZE.
+        this.MAX_RECEIVE_CHUNK_SIZE = 64 * 1024;
         this.MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB limit
         this.MAX_CONCURRENT_TRANSFERS = 3;
         this.CHUNK_TIMEOUT = 30000; // 30 seconds per chunk
@@ -287,7 +300,7 @@ class EnhancedSecureFileTransfer {
         this.FILE_TYPE_RESTRICTIONS = {
             pdf: {
                 extensions: ['.pdf'],
-                mimeTypes: ['application/pdf'],
+                mimeTypes: ['application/pdf', 'application/x-pdf', 'application/acrobat'],
                 maxSize: 50 * 1024 * 1024,
                 category: 'PDF',
                 description: 'PDF'
@@ -295,30 +308,39 @@ class EnhancedSecureFileTransfer {
 
             text: {
                 extensions: ['.txt'],
-                mimeTypes: ['text/plain'],
+                mimeTypes: ['text/plain', 'application/txt'],
                 maxSize: 10 * 1024 * 1024,
                 category: 'Plain text',
                 description: 'TXT'
             },
-            
+
             images: {
                 extensions: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.ico'],
                 mimeTypes: [
                     'image/jpeg',
+                    'image/jpg',
+                    'image/pjpeg',
                     'image/png',
                     'image/gif',
                     'image/webp',
                     'image/bmp',
-                    'image/x-icon'
+                    'image/x-windows-bmp',
+                    'image/x-icon',
+                    'image/vnd.microsoft.icon'
                 ],
                 maxSize: 25 * 1024 * 1024, // 25 MB
                 category: 'Images',
                 description: 'JPG, JPEG, PNG, GIF, WEBP, BMP, ICO'
             },
-            
+
             archives: {
                 extensions: ['.zip'],
-                mimeTypes: ['application/zip'],
+                mimeTypes: [
+                    'application/zip',
+                    'application/x-zip',
+                    'application/x-zip-compressed',
+                    'multipart/x-zip'
+                ],
                 maxSize: 100 * 1024 * 1024, // 100 MB
                 category: 'Archives',
                 description: 'ZIP'
@@ -328,6 +350,15 @@ class EnhancedSecureFileTransfer {
             '.exe', '.bat', '.cmd', '.sh', '.js', '.msi', '.dmg', '.app',
             '.jar', '.scr', '.ps1', '.vbs', '.html', '.svg'
         ]);
+        // Generic MIME types browsers emit when they cannot determine a real one.
+        // Treated as acceptable for any allowed extension.
+        this._genericMimeTypes = new Set(['application/octet-stream', 'application/binary']);
+        // Union of every recognised allowed MIME type (incl. cross-OS aliases),
+        // used to keep MIME advisory rather than a strict per-type gate.
+        this._allowedMimeTypes = new Set();
+        for (const typeConfig of Object.values(this.FILE_TYPE_RESTRICTIONS)) {
+            for (const mime of typeConfig.mimeTypes) this._allowedMimeTypes.add(mime);
+        }
         
         // Active transfers tracking
         this.activeTransfers = new Map(); // fileId -> transfer state
@@ -367,16 +398,27 @@ class EnhancedSecureFileTransfer {
         const fileExtension = extensionIndex >= 0 ? fileName.substring(extensionIndex) : '';
         const mimeType = String(file?.type || '').toLowerCase();
 
+        // The extension allow-list (plus BLOCKED_EXTENSIONS) is the security
+        // boundary. MIME is only an advisory signal: it is client-supplied,
+        // varies across browsers/OSes, and is frequently empty. We accept an
+        // allowed extension when the MIME is absent, generic, or belongs to any
+        // recognised allowed type, but still reject a blatantly foreign MIME
+        // (e.g. an executable MIME on a ".png") as a spoofing signal.
         for (const [typeKey, typeConfig] of Object.entries(this.FILE_TYPE_RESTRICTIONS)) {
             const extensionAllowed = typeConfig.extensions.includes(fileExtension);
-            const mimeAllowed = typeConfig.mimeTypes.includes(mimeType);
-            if (extensionAllowed && mimeAllowed) {
+            if (!extensionAllowed) continue;
+            const mimeAcceptable = !mimeType
+                || this._genericMimeTypes.has(mimeType)
+                || this._allowedMimeTypes.has(mimeType);
+            if (mimeAcceptable) {
                 return {
                     type: typeKey,
                     category: typeConfig.category,
                     description: typeConfig.description,
                     maxSize: typeConfig.maxSize,
-                    allowed: true
+                    allowed: true,
+                    extension: fileExtension,
+                    mimeType
                 };
             }
         }
@@ -399,24 +441,17 @@ class EnhancedSecureFileTransfer {
         const lowerName = fileName.toLowerCase();
         const extensionIndex = lowerName.lastIndexOf('.');
         const fileExtension = extensionIndex >= 0 ? lowerName.substring(extensionIndex) : '';
-        const mimeType = String(file?.type || '').toLowerCase();
 
         if (this.BLOCKED_EXTENSIONS.has(fileExtension)) {
             errors.push(`File rejected: ${fileExtension} files are not allowed for security reasons.`);
-        }
-
-        if (!mimeType) {
-            errors.push('File rejected: missing MIME type is unsafe.');
         }
 
         if (file.size > fileType.maxSize) {
             errors.push(`File size (${this.formatFileSize(file.size)}) exceeds maximum allowed for ${fileType.category} (${this.formatFileSize(fileType.maxSize)})`);
         }
 
-        if (!fileType.allowed) {
-            if (mimeType && !this.BLOCKED_EXTENSIONS.has(fileExtension)) {
-                errors.push(`File rejected: extension and MIME type must match an allowed type. Supported types: ${fileType.description}`);
-            }
+        if (!fileType.allowed && !this.BLOCKED_EXTENSIONS.has(fileExtension)) {
+            errors.push(`File rejected: unsupported file type. Supported types: ${fileType.description}`);
         }
 
         if (file.size > this.MAX_FILE_SIZE) {
@@ -447,7 +482,7 @@ class EnhancedSecureFileTransfer {
         if (!metadata?.fileId || typeof metadata.fileId !== 'string') errors.push('Invalid file id');
         if (!Number.isSafeInteger(metadata?.fileSize) || metadata.fileSize <= 0) errors.push('Invalid file size');
         if (!Number.isSafeInteger(metadata?.totalChunks) || metadata.totalChunks <= 0) errors.push('Invalid chunk count');
-        if (!Number.isSafeInteger(metadata?.chunkSize) || metadata.chunkSize <= 0 || metadata.chunkSize > this.CHUNK_SIZE) errors.push('Invalid chunk size');
+        if (!Number.isSafeInteger(metadata?.chunkSize) || metadata.chunkSize <= 0 || metadata.chunkSize > this.MAX_RECEIVE_CHUNK_SIZE) errors.push('Invalid chunk size');
         if (!Array.isArray(metadata?.salt) || metadata.salt.length !== 32) errors.push('Invalid salt');
 
         const rawName = typeof metadata?.fileName === 'string' ? metadata.fileName : '';
