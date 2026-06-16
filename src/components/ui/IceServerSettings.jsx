@@ -194,7 +194,9 @@ const IceServerSettings = ({ isOpen, onClose, initial, hasSaved, onApply, onForg
                 className: 'ml-3 text-sm ' + (testResult.error ? 'text-red-400' : 'text-secondary')
             }, testResult.error
                 ? `Test failed: ${testResult.error}`
-                : `STUN ${testResult.srflx > 0 ? 'OK' : 'none'} · TURN ${testResult.relay > 0 ? 'OK' : 'none'} · host ${testResult.host}`
+                : (testResult.srflx > 0 || testResult.relay > 0)
+                    ? `STUN ${testResult.srflx > 0 ? 'OK' : 'none'} · TURN ${testResult.relay > 0 ? 'OK' : 'none'} · host ${testResult.host}`
+                    : `host ${testResult.host} · this browser (e.g. Safari) hides STUN/TURN candidates from the test — your servers are still applied to real connections`
             ) : null
         ]));
     }
