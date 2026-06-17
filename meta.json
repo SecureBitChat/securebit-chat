@@ -1,10 +1,10 @@
 {
-  "version": "1781648539643",
-  "buildVersion": "1781648539643",
-  "appVersion": "4.8.11",
-  "buildTime": "2026-06-16T22:22:19.692Z",
-  "buildId": "1781648539643-9244250",
-  "gitHash": "9244250",
+  "version": "1781732923420",
+  "buildVersion": "1781732923420",
+  "appVersion": "4.8.12",
+  "buildTime": "2026-06-17T21:48:43.476Z",
+  "buildId": "1781732923420-be1d02f",
+  "gitHash": "be1d02f",
   "generated": true,
-  "generatedAt": "2026-06-16T22:22:19.693Z"
+  "generatedAt": "2026-06-17T21:48:43.478Z"
 }

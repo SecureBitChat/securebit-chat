@@ -185,20 +185,24 @@ class AtomicOperations {
     }
     
     async withLock(key, operation) {
-        if (this.locks.has(key)) {
+        // Serialize all operations sharing the same key. Must loop (not a single
+        // `if`): when 3+ callers queue on one key they all await the same in-flight
+        // lock, so after it resolves we have to re-check before claiming the slot —
+        // otherwise multiple operations run concurrently and break atomicity.
+        while (this.locks.has(key)) {
             await this.locks.get(key);
         }
-        
-        const lockPromise = (async () => {
-            try {
-                return await operation();
-            } finally {
-                this.locks.delete(key);
-            }
-        })();
-        
+
+        let releaseLock;
+        const lockPromise = new Promise(resolve => { releaseLock = resolve; });
         this.locks.set(key, lockPromise);
-        return lockPromise;
+
+        try {
+            return await operation();
+        } finally {
+            this.locks.delete(key);
+            releaseLock();
+        }
     }
 }
 
@@ -1384,6 +1388,14 @@ class EnhancedSecureFileTransfer {
     }
 
     async assembleFile(receivingState) {
+        // Idempotency guard: assembly must run (and onFileReceived must fire)
+        // exactly once per transfer. Guards against any duplicate/concurrent
+        // completion trigger so the receiver never sees the same file repeated.
+        if (receivingState._assembled) {
+            return;
+        }
+        receivingState._assembled = true;
+
         try {
             receivingState.status = 'assembling';
             

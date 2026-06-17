@@ -4340,18 +4340,20 @@ var AtomicOperations = class {
     this.locks = /* @__PURE__ */ new Map();
   }
   async withLock(key, operation) {
-    if (this.locks.has(key)) {
+    while (this.locks.has(key)) {
       await this.locks.get(key);
     }
-    const lockPromise = (async () => {
-      try {
-        return await operation();
-      } finally {
-        this.locks.delete(key);
-      }
-    })();
+    let releaseLock;
+    const lockPromise = new Promise((resolve) => {
+      releaseLock = resolve;
+    });
     this.locks.set(key, lockPromise);
-    return lockPromise;
+    try {
+      return await operation();
+    } finally {
+      this.locks.delete(key);
+      releaseLock();
+    }
   }
 };
 var RateLimiter = class {
@@ -5297,6 +5299,10 @@ var EnhancedSecureFileTransfer = class {
     return true;
   }
   async assembleFile(receivingState) {
+    if (receivingState._assembled) {
+      return;
+    }
+    receivingState._assembled = true;
     try {
       receivingState.status = "assembling";
       for (let i = 0; i < receivingState.totalChunks; i++) {
@@ -14873,6 +14879,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     this._checkBothVerificationsConfirmed();
   }
   handleVerificationBothConfirmed(data) {
+    if (this.bothVerificationsConfirmed) {
+      return;
+    }
     this.bothVerificationsConfirmed = true;
     if (this.onVerificationStateChange) {
       this.onVerificationStateChange({
@@ -17493,7 +17502,7 @@ Right-click or Ctrl+click to disconnect`,
             React.createElement("p", {
               key: "subtitle",
               className: "text-xs sm:text-sm text-muted hidden sm:block"
-            }, "End-to-end freedom v4.8.10")
+            }, "End-to-end freedom v4.8.12")
           ])
         ]),
         // Status and Controls - Responsive

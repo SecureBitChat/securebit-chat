@@ -1,5 +1,16 @@
 # Changelog
 
+## v4.8.12 — Chat notification & file-transfer UI fixes
+
+Fixes duplicated chat output and a layout overflow in the message list.
+
+### Fixed
+
+- A received file was announced many times in the chat instead of once. The per-transfer lock used a single `if` check, so when 3+ chunk operations queued on the same file they ran concurrently and broke assembly atomicity. The lock now serializes correctly, and file assembly is idempotent, so `File received` is shown exactly once per file.
+- System messages were duplicated during connection setup (e.g. "Both parties confirmed!" and "Secure connection successfully established"). `handleVerificationBothConfirmed` now bails out if both confirmations were already recorded, so the message and the verified transition fire only once.
+- The DTLS fingerprint (a long unbroken string) overflowed the chat bubble. The message text container now uses `min-w-0` so the fingerprint wraps within the bubble.
+- Site header, init banner, and manifest now report the current version.
+
 ## v4.8.11 — File transfer reliability fix
 
 Fixes file transfers that silently failed to reach the peer, and relaxes the overly strict file-type check that rejected legitimate files.

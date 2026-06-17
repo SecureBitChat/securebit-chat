@@ -11460,6 +11460,14 @@ async processMessage(data) {
     }
 
     handleVerificationBothConfirmed(data) {
+        // Both parties can reach the "both confirmed" state independently: this
+        // party may have already detected it locally (_checkBothVerificationsConfirmed)
+        // and now also receives the peer's notification. Without this guard the
+        // "Both parties confirmed" message and the verified transition fire twice.
+        if (this.bothVerificationsConfirmed) {
+            return;
+        }
+
         // Handle notification that both parties have confirmed
         this.bothVerificationsConfirmed = true;
         
