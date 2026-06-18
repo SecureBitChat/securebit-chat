@@ -7183,17 +7183,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           validationResult.errors.push(`String too long: ${data.length} > ${this._inputValidationLimits.maxStringLength}`);
           return validationResult;
         }
-        for (const pattern of this._maliciousPatterns) {
-          if (pattern.test(data)) {
-            validationResult.errors.push(`Malicious pattern detected: ${pattern.source}`);
-            this._secureLog("warn", "\u{1F6A8} Malicious pattern detected in input", {
-              context,
-              pattern: pattern.source,
-              dataLength: data.length
-            });
-            return validationResult;
-          }
-        }
         validationResult.sanitizedData = this._sanitizeInputString(data);
         validationResult.isValid = true;
         return validationResult;
@@ -7275,8 +7264,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
    */
   _sanitizeInputString(str) {
     if (typeof str !== "string") return str;
-    str = str.replace(/\0/g, "");
-    str = str.replace(/\s+/g, " ");
+    str = str.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, "");
+    str = str.replace(/\r\n?/g, "\n");
+    str = str.replace(/\n{3,}/g, "\n\n");
     str = str.trim();
     return str;
   }
@@ -7633,69 +7623,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       rateLimitBurstSize: 10
       // Burst size for rate limiting
     };
-    this._maliciousPatterns = [
-      // Enhanced script tag detection that handles edge cases
-      /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,
-      // Standard <\/script>
-      /<script\b[^>]*>[\s\S]*?<\/script\s+[^>]*>/gi,
-      // <\/script with attributes>
-      /<script\b[^>]*>[\s\S]*$/gi,
-      // Malformed script tags without closing
-      // Additional dangerous tags
-      /<iframe\b[^>]*>[\s\S]*?<\/iframe\s*>/gi,
-      // iframe tags
-      /<object\b[^>]*>[\s\S]*?<\/object\s*>/gi,
-      // object tags
-      /<embed\b[^>]*>/gi,
-      // embed tags
-      /<applet\b[^>]*>[\s\S]*?<\/applet\s*>/gi,
-      // applet tags
-      /<style\b[^>]*>[\s\S]*?<\/style\s*>/gi,
-      // style tags
-      // Dangerous protocols
-      /javascript\s*:/gi,
-      // JavaScript protocol
-      /data\s*:/gi,
-      // Data protocol
-      /vbscript\s*:/gi,
-      // VBScript protocol
-      /data:text\/html/gi,
-      // Data URLs with HTML
-      /on\w+\s*=/gi,
-      // Event handlers
-      /eval\s*\(/gi,
-      // eval() calls
-      /document\./gi,
-      // Document object access
-      /window\./gi,
-      // Window object access
-      /localStorage/gi,
-      // LocalStorage access
-      /sessionStorage/gi,
-      // SessionStorage access
-      /fetch\s*\(/gi,
-      // Fetch API calls
-      /XMLHttpRequest/gi,
-      // XHR calls
-      /import\s*\(/gi,
-      // Dynamic imports
-      /require\s*\(/gi,
-      // Require calls
-      /process\./gi,
-      // Process object access
-      /global/gi,
-      // Global object access
-      /__proto__/gi,
-      // Prototype pollution
-      /constructor/gi,
-      // Constructor access
-      /prototype/gi,
-      // Prototype access
-      /toString\s*\(/gi,
-      // toString calls
-      /valueOf\s*\(/gi
-      // valueOf calls
-    ];
     this._absoluteBlacklist = /* @__PURE__ */ new Set([
       // Cryptographic keys
       "encryptionKey",
@@ -9053,7 +8980,10 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       }
       return aad;
     } catch (error) {
-      this._secureLog("error", "AAD validation failed", { error: error.message, aadString });
+      this._secureLog("error", "AAD validation failed", {
+        error: error.message,
+        aadLength: typeof aadString === "string" ? aadString.length : 0
+      });
       throw new Error(`AAD validation failed: ${error.message}`);
     }
   }
@@ -16229,7 +16159,10 @@ var SecureKeyStorage = class {
       }
       return aad;
     } catch (error) {
-      this._secureLog("error", "AAD validation failed", { error: error.message, aadString });
+      this._secureLog("error", "AAD validation failed", {
+        error: error.message,
+        aadLength: typeof aadString === "string" ? aadString.length : 0
+      });
       throw new Error(`AAD validation failed: ${error.message}`);
     }
   }

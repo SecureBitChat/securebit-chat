@@ -1518,20 +1518,17 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                     return validationResult;
                 }
 
-                // 3. Malicious pattern detection for strings
-                for (const pattern of this._maliciousPatterns) {
-                    if (pattern.test(data)) {
-                        validationResult.errors.push(`Malicious pattern detected: ${pattern.source}`);
-                        this._secureLog('warn', '🚨 Malicious pattern detected in input', {
-                            context: context,
-                            pattern: pattern.source,
-                            dataLength: data.length
-                        });
-                        return validationResult;
-                    }
-                }
+                // 3. No keyword/markup blocklist here.
+                // This validates OUTGOING free-text chat content. A word-level
+                // blocklist (e.g. "constructor", "global", "document.", "javascript:")
+                // silently rejected legitimate messages while providing no real
+                // protection: the rendering boundary is the receive-side DOMPurify
+                // pass in deliverMessageToUI(), and outgoing text is additionally run
+                // through EnhancedSecureCryptoUtils.sanitizeMessage() before encryption.
+                // Markup a user types is neutralised there, not by guessing keywords.
 
                 // 4. Sanitize string data
+
                 validationResult.sanitizedData = this._sanitizeInputString(data);
                 validationResult.isValid = true;
                 return validationResult;
@@ -1639,16 +1636,24 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
      */
     _sanitizeInputString(str) {
         if (typeof str !== 'string') return str;
-        
-        // Remove null bytes
-        str = str.replace(/\0/g, '');
-        
-        // Normalize whitespace
-        str = str.replace(/\s+/g, ' ');
-        
-        // Trim
+
+        // Remove null bytes and C0/C1 control characters, but preserve the
+        // whitespace users actually type: newline (\n), carriage return (\r)
+        // and tab (\t). Collapsing all \s+ here destroyed multi-line messages
+        // and code snippets ("a\nb\nc" -> "a b c"), corrupting chat content.
+        str = str.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, '');
+
+        // Normalise line endings only. Internal spaces/tabs are preserved so
+        // code indentation, pasted keys and aligned text survive intact; the
+        // maxStringLength limit (and the receive-side 2000-char cap) bound abuse.
+        str = str.replace(/\r\n?/g, '\n');
+
+        // Collapse 3+ consecutive blank lines down to two.
+        str = str.replace(/\n{3,}/g, '\n\n');
+
+        // Trim leading/trailing whitespace only.
         str = str.trim();
-        
+
         return str;
     }
 
@@ -2089,41 +2094,12 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             rateLimitBurstSize: 10 // Burst size for rate limiting
         };
         
-        //   Malicious pattern detection
-        this._maliciousPatterns = [
-            // Enhanced script tag detection that handles edge cases
-            /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, // Standard </script>
-            /<script\b[^>]*>[\s\S]*?<\/script\s+[^>]*>/gi, // </script with attributes>
-            /<script\b[^>]*>[\s\S]*$/gi, // Malformed script tags without closing
-            // Additional dangerous tags
-            /<iframe\b[^>]*>[\s\S]*?<\/iframe\s*>/gi, // iframe tags
-            /<object\b[^>]*>[\s\S]*?<\/object\s*>/gi, // object tags
-            /<embed\b[^>]*>/gi, // embed tags
-            /<applet\b[^>]*>[\s\S]*?<\/applet\s*>/gi, // applet tags
-            /<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, // style tags
-            // Dangerous protocols
-            /javascript\s*:/gi, // JavaScript protocol
-            /data\s*:/gi, // Data protocol
-            /vbscript\s*:/gi, // VBScript protocol
-            /data:text\/html/gi, // Data URLs with HTML
-            /on\w+\s*=/gi, // Event handlers
-            /eval\s*\(/gi, // eval() calls
-            /document\./gi, // Document object access
-            /window\./gi, // Window object access
-            /localStorage/gi, // LocalStorage access
-            /sessionStorage/gi, // SessionStorage access
-            /fetch\s*\(/gi, // Fetch API calls
-            /XMLHttpRequest/gi, // XHR calls
-            /import\s*\(/gi, // Dynamic imports
-            /require\s*\(/gi, // Require calls
-            /process\./gi, // Process object access
-            /global/gi, // Global object access
-            /__proto__/gi, // Prototype pollution
-            /constructor/gi, // Constructor access
-            /prototype/gi, // Prototype access
-            /toString\s*\(/gi, // toString calls
-            /valueOf\s*\(/gi // valueOf calls
-        ];
+        // NOTE: A word/markup blocklist for outgoing chat text was removed.
+        // It rejected legitimate messages (plain words like "constructor",
+        // "global", "document.", or the literal text "javascript:") without
+        // adding security. XSS is prevented at the rendering boundary by the
+        // receive-side DOMPurify pass (deliverMessageToUI) and by sanitizeMessage()
+        // on the send path before encryption — not by keyword guessing.
 
         //   Comprehensive blacklist with all sensitive patterns
         this._absoluteBlacklist = new Set([
@@ -3796,7 +3772,12 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             
             return aad;
         } catch (error) {
-            this._secureLog('error', 'AAD validation failed', { error: error.message, aadString });
+            // Never log the raw AAD: it carries sessionId and keyFingerprint.
+            // Length is enough to diagnose malformed input without leaking secrets.
+            this._secureLog('error', 'AAD validation failed', {
+                error: error.message,
+                aadLength: typeof aadString === 'string' ? aadString.length : 0
+            });
             throw new Error(`AAD validation failed: ${error.message}`);
         }
     }
@@ -13181,7 +13162,12 @@ class SecureKeyStorage {
             
             return aad;
         } catch (error) {
-            this._secureLog('error', 'AAD validation failed', { error: error.message, aadString });
+            // Never log the raw AAD: it carries sessionId and keyFingerprint.
+            // Length is enough to diagnose malformed input without leaking secrets.
+            this._secureLog('error', 'AAD validation failed', {
+                error: error.message,
+                aadLength: typeof aadString === 'string' ? aadString.length : 0
+            });
             throw new Error(`AAD validation failed: ${error.message}`);
         }
     }
