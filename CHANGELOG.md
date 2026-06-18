@@ -1,5 +1,24 @@
 # Changelog
 
+## v4.8.13 — Message integrity & transport hardening
+
+Security review follow-up. The end-to-end cryptography (ECDH, AES-GCM, PBKDF2, SAS bound to DTLS fingerprints, anti-replay) was verified sound; these changes fix availability/integrity defects on the send path and tighten transport headers and logging.
+
+### Fixed
+
+- Outgoing messages were silently rejected by an over-broad keyword blocklist in `_validateInputData`. Plain words such as "constructor", "global", "document.", "prototype", or the literal text "javascript:" caused `sendSecureMessage` to throw, so legitimate messages never reached the peer. The blocklist provided no real protection: XSS is enforced at the rendering boundary by the receive-side DOMPurify pass and by `sanitizeMessage()` before encryption. The send-path blocklist was removed.
+- `_sanitizeInputString` collapsed all whitespace (`/\s+/g` to a single space), destroying multi-line messages and code snippets (`"a\nb\nc"` became `"a b c"`). Newlines, tabs and indentation are now preserved; only control characters are stripped and runs of 3+ blank lines are collapsed to two.
+- AAD validation failures logged the raw AAD string, which carried `sessionId` and `keyFingerprint`. Both the message and file-message validators now log only the AAD length.
+
+### Security
+
+- Added `Strict-Transport-Security` (`max-age=63072000; includeSubDomains; preload`) to `deploy/nginx.conf` and `.htaccess`, closing the first-visit SSL-strip window that `upgrade-insecure-requests` alone does not cover.
+- Added a restrictive `Permissions-Policy` (`camera=(self)` for in-page QR scanning; microphone, geolocation, payment, usb and sensors denied).
+
+### Tests
+
+- Added `tests/outgoing-message-integrity.test.mjs` covering keyword acceptance, multi-line/indentation preservation, control-character stripping, blank-line collapsing, and the size limit.
+
 ## v4.8.12 — Chat notification & file-transfer UI fixes
 
 Fixes duplicated chat output and a layout overflow in the message list.

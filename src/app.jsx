@@ -2071,7 +2071,7 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                             }
                         }
         
-                        handleMessage(' SecureBit.chat Enhanced Security Edition v4.8.12 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.', 'system');
+                        handleMessage(' SecureBit.chat Enhanced Security Edition v4.8.13 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.', 'system');
         
                         const handleBeforeUnload = (event) => {
                             if (event.type === 'beforeunload' && !isTabSwitching) {

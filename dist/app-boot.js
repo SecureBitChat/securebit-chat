@@ -17435,7 +17435,7 @@ Right-click or Ctrl+click to disconnect`,
             React.createElement("p", {
               key: "subtitle",
               className: "text-xs sm:text-sm text-muted hidden sm:block"
-            }, "End-to-end freedom v4.8.12")
+            }, "End-to-end freedom v4.8.13")
           ])
         ]),
         // Status and Controls - Responsive

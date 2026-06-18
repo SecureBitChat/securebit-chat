@@ -1,4 +1,4 @@
-# SecureBit.chat v4.8.11
+# SecureBit.chat v4.8.13
 
 SecureBit.chat is a browser-based peer-to-peer chat application built on WebRTC and Web Crypto APIs. It is designed for direct encrypted communication, explicit peer verification, and a small operational footprint without account registration or server-side message storage.
 
@@ -15,7 +15,14 @@ SecureBit.chat uses:
 
 A session is not treated as verified until both peers complete the interactive SAS flow. Each user must compare the displayed code with the peer through an out-of-band channel and enter the matching code manually. Three failed SAS attempts terminate the session.
 
-## Highlights in v4.8.11
+## Highlights in v4.8.13
+
+- Security/integrity: outgoing chat messages are no longer silently rejected by an over-broad keyword blocklist (plain words like "constructor", "global", "document." or the literal text "javascript:" were being blocked). XSS is still prevented at the rendering boundary by the receive-side DOMPurify pass and by message sanitization before encryption.
+- Integrity: multi-line messages and code snippets keep their newlines and indentation instead of being collapsed onto a single line.
+- Privacy: AAD validation failures no longer log the raw AAD (which carried `sessionId` and `keyFingerprint`); only its length is logged.
+- Hardening: production now sends `Strict-Transport-Security` (2-year, preload) and a restrictive `Permissions-Policy` (camera kept for in-page QR scanning; microphone, geolocation and sensors denied).
+
+Earlier in v4.8.11:
 
 - Fixed: file transfers that completed the consent handshake but never delivered any data. Chunks are now sized to stay under WebRTC's 64 KB SCTP message limit (most visible on Safari and cross-browser connections).
 - File-type validation is now extension-driven; the easily-spoofed MIME type is advisory, so files with a missing or cross-OS MIME variant are no longer wrongly rejected. Blocked executable/script extensions and size limits are still enforced.
