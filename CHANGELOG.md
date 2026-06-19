@@ -1,5 +1,11 @@
 # Changelog
 
+## v4.8.15 — Fix: chat would not open after SAS in v4.8.14
+
+### Fixed
+
+- The secure chat failed to open after both peers confirmed the SAS code: the message list and composer (in `EnhancedChatInterface`) referenced `nowTick`, `onUnsendMessage` and the new composer props, but those were threaded into the sibling `EnhancedConnectionSetup` component by mistake. At runtime this threw `ReferenceError: Can't find variable: nowTick` during the verified-state re-render, so the chat never rendered. The new props are now destructured and passed on `EnhancedChatInterface`, where the chat UI actually lives. No behavioural change to the v4.8.14 features otherwise.
+
 ## v4.8.14 — Secure chat tools: code blocks, view-once, disappearing, unsend, panic
 
 Adds privacy-focused messaging controls. Per-message metadata (id, view-once, timer) travels **inside the encrypted message envelope**, never in the sanitized text, so message content cannot spoof or corrupt these controls. The unsend/delete signal travels over the authenticated DTLS control channel like other system messages.

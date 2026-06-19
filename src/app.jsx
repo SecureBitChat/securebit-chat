@@ -594,18 +594,7 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                     handleCreateOffer,
                     relayOnlyMode,
                     setRelayOnlyMode,
-                    webrtcManagerRef,
-                    // Secure chat extras
-                    codeMode,
-                    setCodeMode,
-                    viewOnceMode,
-                    setViewOnceMode,
-                    disappearTtl,
-                    setDisappearTtl,
-                    nowTick,
-                    onUnsendMessage,
-                    onMessageExpire,
-                    onPanicWipe
+                    webrtcManagerRef
                 }) => {
                     const [mode, setMode] = React.useState('select');
                     const [notificationPermissionRequested, setNotificationPermissionRequested] = React.useState(false);
@@ -1503,7 +1492,18 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
             scrollToBottom,
             webrtcManager,
             pendingIncomingFiles = [],
-            onIncomingDecision
+            onIncomingDecision,
+            // Secure chat extras
+            codeMode,
+            setCodeMode,
+            viewOnceMode,
+            setViewOnceMode,
+            disappearTtl,
+            setDisappearTtl,
+            nowTick,
+            onUnsendMessage,
+            onMessageExpire,
+            onPanicWipe
         }) => {
             const [showScrollButton, setShowScrollButton] = React.useState(false);
             const [showFileTransfer, setShowFileTransfer] = React.useState(false);
@@ -2388,7 +2388,7 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                             }
                         }
         
-                        handleMessage(' SecureBit.chat Enhanced Security Edition v4.8.14 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.', 'system');
+                        handleMessage(' SecureBit.chat Enhanced Security Edition v4.8.15 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.', 'system');
         
                         const handleBeforeUnload = (event) => {
                             if (event.type === 'beforeunload' && !isTabSwitching) {
@@ -4171,7 +4171,18 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                                         scrollToBottom: scrollToBottom,
                                         webrtcManager: webrtcManagerRef.current,
                                         pendingIncomingFiles: pendingIncomingFiles,
-                                        onIncomingDecision: handleIncomingDecision
+                                        onIncomingDecision: handleIncomingDecision,
+                                        // Secure chat extras
+                                        codeMode: codeMode,
+                                        setCodeMode: setCodeMode,
+                                        viewOnceMode: viewOnceMode,
+                                        setViewOnceMode: setViewOnceMode,
+                                        disappearTtl: disappearTtl,
+                                        setDisappearTtl: setDisappearTtl,
+                                        nowTick: nowTick,
+                                        onUnsendMessage: handleUnsendMessage,
+                                        onMessageExpire: handleMessageExpire,
+                                        onPanicWipe: handlePanicWipe
                                     });
                                 })()
                                 : React.createElement(EnhancedConnectionSetup, {
@@ -4216,18 +4227,7 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                                     handleCreateOffer: handleCreateOffer,
                                     relayOnlyMode: relayOnlyMode,
                                     setRelayOnlyMode: setRelayOnlyMode,
-                                    webrtcManagerRef: webrtcManagerRef,
-                                    // Secure chat extras
-                                    codeMode: codeMode,
-                                    setCodeMode: setCodeMode,
-                                    viewOnceMode: viewOnceMode,
-                                    setViewOnceMode: setViewOnceMode,
-                                    disappearTtl: disappearTtl,
-                                    setDisappearTtl: setDisappearTtl,
-                                    nowTick: nowTick,
-                                    onUnsendMessage: handleUnsendMessage,
-                                    onMessageExpire: handleMessageExpire,
-                                    onPanicWipe: handlePanicWipe
+                                    webrtcManagerRef: webrtcManagerRef
                                 })
                         ),
                         

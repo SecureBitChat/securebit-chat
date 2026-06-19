@@ -266,12 +266,12 @@ var MessageBody = ({ text }) => {
     )
   );
 };
-var ChatToolbar = ({ codeMode: codeMode2, setCodeMode: setCodeMode2, viewOnceMode: viewOnceMode2, setViewOnceMode: setViewOnceMode2, disappearTtl: disappearTtl2, setDisappearTtl: setDisappearTtl2, onPanicWipe: onPanicWipe2 }) => {
+var ChatToolbar = ({ codeMode, setCodeMode, viewOnceMode, setViewOnceMode, disappearTtl, setDisappearTtl, onPanicWipe }) => {
   const ttlCycle = [0, 30, 300, 3600];
   const ttlLabel = (s) => s === 0 ? "Off" : s >= 3600 ? `${Math.round(s / 3600)}h` : s >= 60 ? `${Math.round(s / 60)}m` : `${s}s`;
   const cycleTtl = () => {
-    const i = ttlCycle.indexOf(disappearTtl2);
-    setDisappearTtl2(ttlCycle[(i + 1) % ttlCycle.length] || 0);
+    const i = ttlCycle.indexOf(disappearTtl);
+    setDisappearTtl(ttlCycle[(i + 1) % ttlCycle.length] || 0);
   };
   const pill = (key, { active, activeClass, icon, label, title, onClick }) => React.createElement("button", {
     key,
@@ -287,26 +287,26 @@ var ChatToolbar = ({ codeMode: codeMode2, setCodeMode: setCodeMode2, viewOnceMod
     className: "flex items-center flex-wrap gap-2 pb-3"
   }, [
     pill("code", {
-      active: codeMode2,
+      active: codeMode,
       activeClass: "text-green-400 border-green-500/40 bg-green-500/10",
       icon: "fas fa-code",
       label: "Code",
       title: "Send as a code block (with copy button)",
-      onClick: () => setCodeMode2((v) => !v)
+      onClick: () => setCodeMode((v) => !v)
     }),
     pill("once", {
-      active: viewOnceMode2,
+      active: viewOnceMode,
       activeClass: "text-orange-400 border-orange-500/40 bg-orange-500/10",
       icon: "fas fa-eye-slash",
       label: "View once",
       title: "Recipient can read it once, then it is deleted (cooperative \u2014 not screenshot-proof)",
-      onClick: () => setViewOnceMode2((v) => !v)
+      onClick: () => setViewOnceMode((v) => !v)
     }),
     pill("ttl", {
-      active: disappearTtl2 > 0,
+      active: disappearTtl > 0,
       activeClass: "text-blue-400 border-blue-500/40 bg-blue-500/10",
       icon: "fas fa-stopwatch",
-      label: `Timer: ${ttlLabel(disappearTtl2)}`,
+      label: `Timer: ${ttlLabel(disappearTtl)}`,
       title: "Disappearing messages \u2014 auto-delete on both sides",
       onClick: cycleTtl
     }),
@@ -319,7 +319,7 @@ var ChatToolbar = ({ codeMode: codeMode2, setCodeMode: setCodeMode2, viewOnceMod
       title: "Wipe this conversation and keys, and disconnect",
       onClick: () => {
         const ok = typeof window !== "undefined" && window.confirm ? window.confirm("Panic wipe: delete all messages, wipe keys and disconnect now?") : true;
-        if (ok && typeof onPanicWipe2 === "function") onPanicWipe2();
+        if (ok && typeof onPanicWipe === "function") onPanicWipe();
       }
     })
   ]);
@@ -536,7 +536,7 @@ var VerificationStep = ({ verificationCode, onConfirm, onReject, localConfirmed,
     ])
   ]);
 };
-var EnhancedChatMessage = ({ message, type, timestamp, mid, viewOnce, expiresAt, nowTick: nowTick2, canUnsend, onUnsend, onExpire }) => {
+var EnhancedChatMessage = ({ message, type, timestamp, mid, viewOnce, expiresAt, nowTick, canUnsend, onUnsend, onExpire }) => {
   const [revealed, setRevealed] = React.useState(false);
   const revealTimerRef = React.useRef(null);
   const formatTime = (ts) => {
@@ -578,7 +578,7 @@ var EnhancedChatMessage = ({ message, type, timestamp, mid, viewOnce, expiresAt,
     }
   };
   const style = getMessageStyle();
-  const remaining = typeof expiresAt === "number" ? Math.max(0, Math.ceil((expiresAt - (nowTick2 || Date.now())) / 1e3)) : null;
+  const remaining = typeof expiresAt === "number" ? Math.max(0, Math.ceil((expiresAt - (nowTick || Date.now())) / 1e3)) : null;
   const isViewOnce = type === "received" && viewOnce === true;
   const handleReveal = () => {
     if (revealed) return;
@@ -700,18 +700,7 @@ var EnhancedConnectionSetup = ({
   handleCreateOffer,
   relayOnlyMode,
   setRelayOnlyMode,
-  webrtcManagerRef,
-  // Secure chat extras
-  codeMode: codeMode2,
-  setCodeMode: setCodeMode2,
-  viewOnceMode: viewOnceMode2,
-  setViewOnceMode: setViewOnceMode2,
-  disappearTtl: disappearTtl2,
-  setDisappearTtl: setDisappearTtl2,
-  nowTick: nowTick2,
-  onUnsendMessage: onUnsendMessage2,
-  onMessageExpire: onMessageExpire2,
-  onPanicWipe: onPanicWipe2
+  webrtcManagerRef
 }) => {
   const [mode, setMode] = React.useState("select");
   const [notificationPermissionRequested, setNotificationPermissionRequested] = React.useState(false);
@@ -1536,7 +1525,18 @@ var EnhancedChatInterface = ({
   scrollToBottom,
   webrtcManager,
   pendingIncomingFiles = [],
-  onIncomingDecision
+  onIncomingDecision,
+  // Secure chat extras
+  codeMode,
+  setCodeMode,
+  viewOnceMode,
+  setViewOnceMode,
+  disappearTtl,
+  setDisappearTtl,
+  nowTick,
+  onUnsendMessage,
+  onMessageExpire,
+  onPanicWipe
 }) => {
   const [showScrollButton, setShowScrollButton] = React.useState(false);
   const [showFileTransfer, setShowFileTransfer] = React.useState(false);
@@ -1840,10 +1840,10 @@ var EnhancedChatInterface = ({
 };
 var EnhancedSecureP2PChat = () => {
   const [messages, setMessages] = React.useState([]);
-  const [codeMode2, setCodeMode2] = React.useState(false);
-  const [viewOnceMode2, setViewOnceMode2] = React.useState(false);
-  const [disappearTtl2, setDisappearTtl2] = React.useState(0);
-  const [nowTick2, setNowTick] = React.useState(() => Date.now());
+  const [codeMode, setCodeMode] = React.useState(false);
+  const [viewOnceMode, setViewOnceMode] = React.useState(false);
+  const [disappearTtl, setDisappearTtl] = React.useState(0);
+  const [nowTick, setNowTick] = React.useState(() => Date.now());
   const [connectionStatus, setConnectionStatus] = React.useState("disconnected");
   const [relayOnlyMode, setRelayOnlyMode] = React.useState(() => {
     try {
@@ -2270,7 +2270,7 @@ var EnhancedSecureP2PChat = () => {
       } catch (error) {
       }
     }
-    handleMessage(" SecureBit.chat Enhanced Security Edition v4.8.14 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.", "system");
+    handleMessage(" SecureBit.chat Enhanced Security Edition v4.8.15 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.", "system");
     const handleBeforeUnload = (event) => {
       if (event.type === "beforeunload" && !isTabSwitching) {
         if (webrtcManagerRef.current && webrtcManagerRef.current.isConnected()) {
@@ -3467,18 +3467,18 @@ var EnhancedSecureP2PChat = () => {
     }
     try {
       const baseText = messageInput.trim();
-      const outText = codeMode2 ? "```\n" + baseText + "\n```" : baseText;
+      const outText = codeMode ? "```\n" + baseText + "\n```" : baseText;
       const mid = `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
       const meta = { mid };
-      if (viewOnceMode2) meta.once = true;
-      if (disappearTtl2 > 0) meta.ttl = disappearTtl2;
+      if (viewOnceMode) meta.once = true;
+      if (disappearTtl > 0) meta.ttl = disappearTtl;
       const localOpts = { mid };
-      if (disappearTtl2 > 0) localOpts.expiresAt = Date.now() + disappearTtl2 * 1e3;
+      if (disappearTtl > 0) localOpts.expiresAt = Date.now() + disappearTtl * 1e3;
       addMessageWithAutoScroll(outText, "sent", localOpts);
       await webrtcManagerRef.current.sendMessage(outText, meta);
       setMessageInput("");
-      if (codeMode2) setCodeMode2(false);
-      if (viewOnceMode2) setViewOnceMode2(false);
+      if (codeMode) setCodeMode(false);
+      if (viewOnceMode) setViewOnceMode(false);
     } catch (error) {
       const msg = String(error?.message || error);
       if (!/queued for sending|Data channel not ready/i.test(msg)) {
@@ -3782,7 +3782,18 @@ var EnhancedSecureP2PChat = () => {
           scrollToBottom,
           webrtcManager: webrtcManagerRef.current,
           pendingIncomingFiles,
-          onIncomingDecision: handleIncomingDecision
+          onIncomingDecision: handleIncomingDecision,
+          // Secure chat extras
+          codeMode,
+          setCodeMode,
+          viewOnceMode,
+          setViewOnceMode,
+          disappearTtl,
+          setDisappearTtl,
+          nowTick,
+          onUnsendMessage: handleUnsendMessage,
+          onMessageExpire: handleMessageExpire,
+          onPanicWipe: handlePanicWipe
         });
       })() : React.createElement(EnhancedConnectionSetup, {
         onCreateOffer: handleCreateOffer,
@@ -3826,18 +3837,7 @@ var EnhancedSecureP2PChat = () => {
         handleCreateOffer,
         relayOnlyMode,
         setRelayOnlyMode,
-        webrtcManagerRef,
-        // Secure chat extras
-        codeMode: codeMode2,
-        setCodeMode: setCodeMode2,
-        viewOnceMode: viewOnceMode2,
-        setViewOnceMode: setViewOnceMode2,
-        disappearTtl: disappearTtl2,
-        setDisappearTtl: setDisappearTtl2,
-        nowTick: nowTick2,
-        onUnsendMessage: handleUnsendMessage,
-        onMessageExpire: handleMessageExpire,
-        onPanicWipe: handlePanicWipe
+        webrtcManagerRef
       })
     ),
     // QR Scanner Modal

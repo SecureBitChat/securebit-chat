@@ -1,4 +1,4 @@
-# SecureBit.chat v4.8.14
+# SecureBit.chat v4.8.15
 
 SecureBit.chat is a browser-based peer-to-peer chat application built on WebRTC and Web Crypto APIs. It is designed for direct encrypted communication, explicit peer verification, and a small operational footprint without account registration or server-side message storage.
 
@@ -15,7 +15,11 @@ SecureBit.chat uses:
 
 A session is not treated as verified until both peers complete the interactive SAS flow. Each user must compare the displayed code with the peer through an out-of-band channel and enter the matching code manually. Three failed SAS attempts terminate the session.
 
-## Highlights in v4.8.14
+## Highlights in v4.8.15
+
+- Fix: the secure chat failed to open after SAS confirmation in v4.8.14 (a `nowTick` reference was scoped to the wrong component). The new messaging controls are now wired into the chat component correctly.
+
+The v4.8.14 messaging features:
 
 - Code blocks: a composer button wraps a message in a monospace code window with a one-click copy button (clipboard auto-clears after 30s).
 - View-once messages: the recipient sees a blurred bubble that reveals on tap and is then deleted. Cooperative, like WhatsApp view-once — not screenshot-proof.
