@@ -1,4 +1,4 @@
-# SecureBit.chat v4.8.13
+# SecureBit.chat v4.8.14
 
 SecureBit.chat is a browser-based peer-to-peer chat application built on WebRTC and Web Crypto APIs. It is designed for direct encrypted communication, explicit peer verification, and a small operational footprint without account registration or server-side message storage.
 
@@ -15,7 +15,16 @@ SecureBit.chat uses:
 
 A session is not treated as verified until both peers complete the interactive SAS flow. Each user must compare the displayed code with the peer through an out-of-band channel and enter the matching code manually. Three failed SAS attempts terminate the session.
 
-## Highlights in v4.8.13
+## Highlights in v4.8.14
+
+- Code blocks: a composer button wraps a message in a monospace code window with a one-click copy button (clipboard auto-clears after 30s).
+- View-once messages: the recipient sees a blurred bubble that reveals on tap and is then deleted. Cooperative, like WhatsApp view-once — not screenshot-proof.
+- Disappearing messages: an optional timer (30s / 5m / 1h) auto-deletes a message on both sides with a live countdown.
+- Unsend: "delete for everyone" removes your message from the peer's chat too.
+- Panic wipe: one button clears the conversation, wipes keys and disconnects.
+- Per-message metadata travels inside the encrypted envelope (not in the sanitized text), so message content can never spoof or corrupt these controls.
+
+Earlier in v4.8.13:
 
 - Security/integrity: outgoing chat messages are no longer silently rejected by an over-broad keyword blocklist (plain words like "constructor", "global", "document." or the literal text "javascript:" were being blocked). XSS is still prevented at the rendering boundary by the receive-side DOMPurify pass and by message sanitization before encryption.
 - Integrity: multi-line messages and code snippets keep their newlines and indentation instead of being collapsed onto a single line.

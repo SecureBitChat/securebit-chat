@@ -6063,6 +6063,8 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     // Regular messages
     MESSAGE: "message",
     ENHANCED_MESSAGE: "enhanced_message",
+    // Per-message control (unsend / disappearing sync)
+    MESSAGE_DELETE: "message_delete",
     // System messages
     HEARTBEAT: "heartbeat",
     VERIFICATION: "verification",
@@ -9986,7 +9988,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     }
     return window.EnhancedSecureCryptoUtils.sanitizeMessage(message);
   }
-  deliverMessageToUI(message, type = "received") {
+  deliverMessageToUI(message, type = "received", meta = null) {
     try {
       this._secureLog("debug", "\u{1F4E4} deliverMessageToUI called", {
         message,
@@ -10052,8 +10054,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       }
       const uiMessage = type === "received" ? this._sanitizeIncomingChatMessage(message) : message;
       if (this.onMessage) {
+        const safeMeta = meta && typeof this._sanitizeMessageMeta === "function" ? this._sanitizeMessageMeta(meta) : null;
         this._secureLog("debug", "\u{1F4E4} Calling this.onMessage callback", { message: uiMessage, type });
-        this.onMessage(uiMessage, type);
+        this.onMessage(uiMessage, type, safeMeta || void 0);
       } else {
         this._secureLog("warn", "\u26A0\uFE0F this.onMessage callback is null or undefined");
       }
@@ -11069,7 +11072,42 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       return data;
     }
   }
-  async sendMessage(data) {
+  /**
+   * Whitelist + bound the per-message UI metadata so a peer cannot smuggle
+   * arbitrary objects, huge values, or absurd timers through it.
+   * @param {object} meta
+   * @returns {object|null}
+   */
+  _sanitizeMessageMeta(meta) {
+    if (!meta || typeof meta !== "object") return null;
+    const out = {};
+    if (typeof meta.mid === "string" && meta.mid.length > 0 && meta.mid.length <= 64) {
+      out.mid = meta.mid.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64);
+    }
+    if (meta.code === true) out.code = true;
+    if (meta.once === true) out.once = true;
+    if (Number.isFinite(meta.ttl)) {
+      const ttl = Math.floor(meta.ttl);
+      if (ttl >= 5 && ttl <= 86400) out.ttl = ttl;
+    }
+    return Object.keys(out).length ? out : null;
+  }
+  /**
+   * Unsend: ask the peer to remove a previously delivered message by id.
+   * Sent over the authenticated DTLS control channel like other system
+   * messages. Best-effort and cooperative — a peer can ignore it, exactly
+   * like WhatsApp/Telegram "delete for everyone".
+   * @param {string} messageId
+   * @returns {boolean}
+   */
+  sendMessageDelete(messageId) {
+    if (typeof messageId !== "string" || !messageId) return false;
+    return this.sendSystemMessage({
+      type: _EnhancedSecureWebRTCManager.MESSAGE_TYPES.MESSAGE_DELETE,
+      messageId: messageId.slice(0, 64)
+    });
+  }
+  async sendMessage(data, meta = null) {
     const validation = this._validateInputData(data, "sendMessage");
     if (!validation.isValid) {
       const errorMessage = `Input validation failed: ${validation.errors.join(", ")}`;
@@ -11122,13 +11160,17 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           throw new Error("_createMessageAAD method is not available. Manager may not be fully initialized.");
         }
         const aad = this._createMessageAAD("message", { content: validation.sanitizedData });
-        return await this.sendSecureMessage({
+        const envelope = {
           type: "message",
           data: validation.sanitizedData,
           timestamp: Date.now(),
           aad
           // Include AAD for sequence number validation
-        });
+        };
+        if (meta && typeof meta === "object") {
+          envelope.meta = this._sanitizeMessageMeta(meta);
+        }
+        return await this.sendSecureMessage(envelope);
       }
       this._secureLog("debug", "\u{1F510} Applying security layers to non-string data");
       const securedData = await this._applySecurityLayersWithLimitedMutex(validation.sanitizedData, false);
@@ -11263,7 +11305,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
                 }
               }
               if (decryptedParsed.type === "message" && this.onMessage && decryptedParsed.data) {
-                this.deliverMessageToUI(decryptedParsed.data, "received");
+                this.deliverMessageToUI(decryptedParsed.data, "received", decryptedParsed.meta);
               }
               return;
             } catch (error) {
@@ -11277,7 +11319,17 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
               return;
             }
             if (this.onMessage && parsed.data) {
-              this.deliverMessageToUI(parsed.data, "received");
+              this.deliverMessageToUI(parsed.data, "received", parsed.meta);
+            }
+            return;
+          }
+          if (parsed.type === _EnhancedSecureWebRTCManager.MESSAGE_TYPES.MESSAGE_DELETE) {
+            const messageId = parsed?.data?.messageId ?? parsed?.messageId;
+            if (typeof messageId === "string" && messageId) {
+              try {
+                this.onMessageDelete?.(messageId.slice(0, 64));
+              } catch (_) {
+              }
             }
             return;
           }
@@ -17435,7 +17487,7 @@ Right-click or Ctrl+click to disconnect`,
             React.createElement("p", {
               key: "subtitle",
               className: "text-xs sm:text-sm text-muted hidden sm:block"
-            }, "End-to-end freedom v4.8.13")
+            }, "End-to-end freedom v4.8.14")
           ])
         ]),
         // Status and Controls - Responsive

@@ -152,6 +152,178 @@ async function clearIceSettings() {
 }
 
 // src/app.jsx
+var copyToClipboardSecure = async (text, autoClearMs = 0) => {
+  let ok = false;
+  try {
+    await navigator.clipboard.writeText(text);
+    ok = true;
+  } catch (e) {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+    } catch (_) {
+      ok = false;
+    }
+  }
+  if (ok && autoClearMs > 0 && navigator.clipboard && navigator.clipboard.writeText) {
+    setTimeout(async () => {
+      let current = null;
+      let readable = true;
+      try {
+        current = await navigator.clipboard.readText();
+      } catch (_) {
+        readable = false;
+      }
+      if (!readable || current === text) {
+        try {
+          await navigator.clipboard.writeText("");
+        } catch (_) {
+        }
+      }
+    }, autoClearMs);
+  }
+  return ok;
+};
+var parseMessageSegments = (text) => {
+  if (typeof text !== "string" || text.indexOf("```") === -1) return null;
+  const segments = [];
+  const re = /```([a-zA-Z0-9_+#.-]*)\n?([\s\S]*?)```/g;
+  let last = 0;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) segments.push({ kind: "text", content: text.slice(last, m.index) });
+    segments.push({ kind: "code", lang: (m[1] || "").toLowerCase(), content: m[2].replace(/\n$/, "") });
+    last = re.lastIndex;
+  }
+  if (last < text.length) segments.push({ kind: "text", content: text.slice(last) });
+  return segments.some((s) => s.kind === "code") ? segments : null;
+};
+var CodeBlock = ({ code, lang }) => {
+  const [copied, setCopied] = React.useState(false);
+  const handleCopy = async () => {
+    const ok = await copyToClipboardSecure(code, 3e4);
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2e3);
+    }
+  };
+  return React.createElement("div", {
+    className: "my-1 rounded-lg overflow-hidden border border-gray-600/40",
+    style: { backgroundColor: "#1b1c1b" }
+  }, [
+    React.createElement("div", {
+      key: "hdr",
+      className: "flex items-center justify-between px-3 py-1.5 border-b border-gray-600/30",
+      style: { backgroundColor: "#222322" }
+    }, [
+      React.createElement("span", {
+        key: "lang",
+        className: "text-[11px] uppercase tracking-wide text-gray-500 font-mono"
+      }, lang || "code"),
+      React.createElement("button", {
+        key: "copy",
+        onClick: handleCopy,
+        title: "Copy \u2014 clipboard auto-clears in 30s",
+        className: "flex items-center text-[11px] text-gray-400 hover:text-green-400 transition-colors"
+      }, [
+        React.createElement("i", {
+          key: "ic",
+          className: `${copied ? "fas fa-check text-green-400" : "far fa-copy"} mr-1`
+        }),
+        copied ? "Copied" : "Copy"
+      ])
+    ]),
+    React.createElement("pre", {
+      key: "pre",
+      className: "px-3 py-2 overflow-x-auto text-xs leading-relaxed text-gray-200 custom-scrollbar",
+      style: { whiteSpace: "pre", fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", margin: 0 }
+    }, React.createElement("code", null, code))
+  ]);
+};
+var MessageBody = ({ text }) => {
+  const segments = parseMessageSegments(text);
+  if (!segments) {
+    return React.createElement("div", {
+      className: "text-sm break-words",
+      style: { whiteSpace: "pre-wrap", wordBreak: "break-word" }
+    }, text);
+  }
+  return React.createElement(
+    "div",
+    { className: "text-sm" },
+    segments.map(
+      (seg, i) => seg.kind === "code" ? React.createElement(CodeBlock, { key: i, code: seg.content, lang: seg.lang }) : seg.content.trim() ? React.createElement("div", {
+        key: i,
+        className: "break-words",
+        style: { whiteSpace: "pre-wrap", wordBreak: "break-word" }
+      }, seg.content) : null
+    )
+  );
+};
+var ChatToolbar = ({ codeMode: codeMode2, setCodeMode: setCodeMode2, viewOnceMode: viewOnceMode2, setViewOnceMode: setViewOnceMode2, disappearTtl: disappearTtl2, setDisappearTtl: setDisappearTtl2, onPanicWipe: onPanicWipe2 }) => {
+  const ttlCycle = [0, 30, 300, 3600];
+  const ttlLabel = (s) => s === 0 ? "Off" : s >= 3600 ? `${Math.round(s / 3600)}h` : s >= 60 ? `${Math.round(s / 60)}m` : `${s}s`;
+  const cycleTtl = () => {
+    const i = ttlCycle.indexOf(disappearTtl2);
+    setDisappearTtl2(ttlCycle[(i + 1) % ttlCycle.length] || 0);
+  };
+  const pill = (key, { active, activeClass, icon, label, title, onClick }) => React.createElement("button", {
+    key,
+    type: "button",
+    onClick,
+    title,
+    className: `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs border transition-all duration-200 ${active ? activeClass : "text-gray-400 border-gray-600/50 hover:text-gray-200 hover:border-gray-500"}`
+  }, [
+    React.createElement("i", { key: "i", className: icon }),
+    label ? React.createElement("span", { key: "l" }, label) : null
+  ]);
+  return React.createElement("div", {
+    className: "flex items-center flex-wrap gap-2 pb-3"
+  }, [
+    pill("code", {
+      active: codeMode2,
+      activeClass: "text-green-400 border-green-500/40 bg-green-500/10",
+      icon: "fas fa-code",
+      label: "Code",
+      title: "Send as a code block (with copy button)",
+      onClick: () => setCodeMode2((v) => !v)
+    }),
+    pill("once", {
+      active: viewOnceMode2,
+      activeClass: "text-orange-400 border-orange-500/40 bg-orange-500/10",
+      icon: "fas fa-eye-slash",
+      label: "View once",
+      title: "Recipient can read it once, then it is deleted (cooperative \u2014 not screenshot-proof)",
+      onClick: () => setViewOnceMode2((v) => !v)
+    }),
+    pill("ttl", {
+      active: disappearTtl2 > 0,
+      activeClass: "text-blue-400 border-blue-500/40 bg-blue-500/10",
+      icon: "fas fa-stopwatch",
+      label: `Timer: ${ttlLabel(disappearTtl2)}`,
+      title: "Disappearing messages \u2014 auto-delete on both sides",
+      onClick: cycleTtl
+    }),
+    React.createElement("div", { key: "spacer", className: "flex-1" }),
+    pill("panic", {
+      active: true,
+      activeClass: "text-red-400 border-red-500/40 bg-red-500/10 hover:bg-red-500/20",
+      icon: "fas fa-fire-extinguisher",
+      label: "Panic",
+      title: "Wipe this conversation and keys, and disconnect",
+      onClick: () => {
+        const ok = typeof window !== "undefined" && window.confirm ? window.confirm("Panic wipe: delete all messages, wipe keys and disconnect now?") : true;
+        if (ok && typeof onPanicWipe2 === "function") onPanicWipe2();
+      }
+    })
+  ]);
+};
 var EnhancedCopyButton = ({ text, className = "", children }) => {
   const [copied, setCopied] = React.useState(false);
   const handleCopy = async () => {
@@ -364,7 +536,9 @@ var VerificationStep = ({ verificationCode, onConfirm, onReject, localConfirmed,
     ])
   ]);
 };
-var EnhancedChatMessage = ({ message, type, timestamp }) => {
+var EnhancedChatMessage = ({ message, type, timestamp, mid, viewOnce, expiresAt, nowTick: nowTick2, canUnsend, onUnsend, onExpire }) => {
+  const [revealed, setRevealed] = React.useState(false);
+  const revealTimerRef = React.useRef(null);
   const formatTime = (ts) => {
     return new Date(ts).toLocaleTimeString("ru-RU", {
       hour: "2-digit",
@@ -372,6 +546,9 @@ var EnhancedChatMessage = ({ message, type, timestamp }) => {
       second: "2-digit"
     });
   };
+  React.useEffect(() => () => {
+    if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+  }, []);
   const getMessageStyle = () => {
     switch (type) {
       case "sent":
@@ -401,39 +578,83 @@ var EnhancedChatMessage = ({ message, type, timestamp }) => {
     }
   };
   const style = getMessageStyle();
+  const remaining = typeof expiresAt === "number" ? Math.max(0, Math.ceil((expiresAt - (nowTick2 || Date.now())) / 1e3)) : null;
+  const isViewOnce = type === "received" && viewOnce === true;
+  const handleReveal = () => {
+    if (revealed) return;
+    setRevealed(true);
+    revealTimerRef.current = setTimeout(() => {
+      onExpire && onExpire();
+    }, 12e3);
+  };
+  let body;
+  if (isViewOnce && !revealed) {
+    body = React.createElement("button", {
+      key: "vo",
+      onClick: handleReveal,
+      className: "w-full flex items-center space-x-2 text-left text-sm text-gray-300 hover:text-white transition-colors"
+    }, [
+      React.createElement("i", { key: "i", className: "fas fa-eye-slash accent-orange" }),
+      React.createElement("span", { key: "t" }, "View once \u2014 tap to read"),
+      React.createElement("i", { key: "b", className: "fas fa-fingerprint text-muted ml-auto opacity-60" })
+    ]);
+  } else {
+    body = React.createElement(MessageBody, { key: "body", text: message });
+  }
+  const metaChildren = [
+    React.createElement("span", { key: "time" }, formatTime(timestamp))
+  ];
+  if (isViewOnce && revealed) {
+    metaChildren.push(React.createElement("span", {
+      key: "vo-note",
+      className: "flex items-center text-orange-400/80"
+    }, [
+      React.createElement("i", { key: "i", className: "fas fa-eye-slash mr-1" }),
+      "Deletes after reading"
+    ]));
+  } else if (remaining !== null) {
+    metaChildren.push(React.createElement("span", {
+      key: "ttl",
+      className: "flex items-center text-gray-400",
+      title: "Disappearing message"
+    }, [
+      React.createElement("i", { key: "i", className: "far fa-clock mr-1" }),
+      remaining >= 60 ? `${Math.ceil(remaining / 60)}m` : `${remaining}s`
+    ]));
+  } else {
+    metaChildren.push(React.createElement("span", { key: "status", className: "text-xs" }, style.label));
+  }
+  const headerRow = [
+    React.createElement("i", {
+      key: "icon",
+      className: `${style.icon} text-sm mt-0.5 opacity-70`
+    }),
+    React.createElement("div", {
+      key: "text",
+      className: "flex-1 min-w-0"
+    }, [
+      body,
+      timestamp && React.createElement("div", {
+        key: "meta",
+        className: "flex items-center justify-between gap-2 mt-1 text-xs opacity-60"
+      }, metaChildren)
+    ])
+  ];
+  if (canUnsend && type === "sent" && mid) {
+    headerRow.push(React.createElement("button", {
+      key: "unsend",
+      onClick: () => onUnsend && onUnsend(mid),
+      title: "Delete for everyone",
+      className: "flex-shrink-0 text-gray-500 hover:text-red-400 transition-colors text-xs mt-0.5"
+    }, React.createElement("i", { className: "fas fa-trash-can" })));
+  }
   return React.createElement("div", {
     className: `message-slide mb-3 p-3 rounded-lg max-w-md break-words ${style.container} border`
   }, [
     React.createElement("div", {
       key: "content",
       className: "flex items-start space-x-2"
-    }, [
-      React.createElement("i", {
-        key: "icon",
-        className: `${style.icon} text-sm mt-0.5 opacity-70`
-      }),
-      React.createElement("div", {
-        key: "text",
-        className: "flex-1 min-w-0"
-      }, [
-        React.createElement("div", {
-          key: "message",
-          className: "text-sm break-words whitespace-normal"
-        }, message),
-        timestamp && React.createElement("div", {
-          key: "meta",
-          className: "flex items-center justify-between mt-1 text-xs opacity-50"
-        }, [
-          React.createElement("span", {
-            key: "time"
-          }, formatTime(timestamp)),
-          React.createElement("span", {
-            key: "status",
-            className: "text-xs"
-          }, style.label)
-        ])
-      ])
-    ])
+    }, headerRow)
   ]);
 };
 var EnhancedConnectionSetup = ({
@@ -479,7 +700,18 @@ var EnhancedConnectionSetup = ({
   handleCreateOffer,
   relayOnlyMode,
   setRelayOnlyMode,
-  webrtcManagerRef
+  webrtcManagerRef,
+  // Secure chat extras
+  codeMode: codeMode2,
+  setCodeMode: setCodeMode2,
+  viewOnceMode: viewOnceMode2,
+  setViewOnceMode: setViewOnceMode2,
+  disappearTtl: disappearTtl2,
+  setDisappearTtl: setDisappearTtl2,
+  nowTick: nowTick2,
+  onUnsendMessage: onUnsendMessage2,
+  onMessageExpire: onMessageExpire2,
+  onPanicWipe: onPanicWipe2
 }) => {
   const [mode, setMode] = React.useState("select");
   const [notificationPermissionRequested, setNotificationPermissionRequested] = React.useState(false);
@@ -1452,7 +1684,14 @@ var EnhancedChatInterface = ({
                 key: msg.id,
                 message: msg.message,
                 type: msg.type,
-                timestamp: msg.timestamp
+                timestamp: msg.timestamp,
+                mid: msg.mid,
+                viewOnce: msg.viewOnce,
+                expiresAt: msg.expiresAt,
+                nowTick,
+                canUnsend: typeof onUnsendMessage === "function",
+                onUnsend: onUnsendMessage,
+                onExpire: () => onMessageExpire && onMessageExpire(msg.id)
               })
             )
           )
@@ -1534,54 +1773,66 @@ var EnhancedChatInterface = ({
         React.createElement(
           "div",
           { className: "max-w-4xl mx-auto p-4" },
-          React.createElement(
-            "div",
-            { className: "flex items-stretch space-x-3" },
-            [
-              React.createElement(
-                "div",
-                { className: "flex-1 relative" },
-                [
-                  React.createElement("textarea", {
-                    value: messageInput,
-                    onChange: (e) => setMessageInput(e.target.value),
-                    onKeyDown: handleKeyPress,
-                    placeholder: "Enter message to encrypt...",
-                    rows: 2,
-                    maxLength: 2e3,
-                    style: { backgroundColor: "#272827" },
-                    className: "w-full p-3 border border-gray-600 rounded-lg resize-none text-gray-300 placeholder-gray-500 focus:border-green-500/40 focus:outline-none transition-all custom-scrollbar text-sm"
-                  }),
-                  React.createElement(
-                    "div",
-                    { className: "absolute bottom-2 right-3 flex items-center space-x-2 text-xs text-gray-400" },
-                    [
-                      React.createElement("span", null, `${messageInput.length}/2000`),
-                      React.createElement("span", null, "\u2022 Enter to send")
-                    ]
-                  )
-                ]
-              ),
-              React.createElement(
-                "button",
-                {
-                  onClick: onSendMessage,
-                  disabled: !messageInput.trim(),
-                  className: "bg-green-400/20 text-green-400 p-3 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-h-[72px]"
-                },
+          [
+            React.createElement(ChatToolbar, {
+              key: "toolbar",
+              codeMode,
+              setCodeMode,
+              viewOnceMode,
+              setViewOnceMode,
+              disappearTtl,
+              setDisappearTtl,
+              onPanicWipe
+            }),
+            React.createElement(
+              "div",
+              { key: "inputrow", className: "flex items-stretch space-x-3" },
+              [
                 React.createElement(
-                  "svg",
-                  { className: "w-6 h-6", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24" },
-                  React.createElement("path", {
-                    strokeLinecap: "round",
-                    strokeLinejoin: "round",
-                    strokeWidth: 2,
-                    d: "M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                  })
+                  "div",
+                  { className: "flex-1 relative" },
+                  [
+                    React.createElement("textarea", {
+                      value: messageInput,
+                      onChange: (e) => setMessageInput(e.target.value),
+                      onKeyDown: handleKeyPress,
+                      placeholder: "Enter message to encrypt...",
+                      rows: 2,
+                      maxLength: 2e3,
+                      style: { backgroundColor: "#272827" },
+                      className: "w-full p-3 border border-gray-600 rounded-lg resize-none text-gray-300 placeholder-gray-500 focus:border-green-500/40 focus:outline-none transition-all custom-scrollbar text-sm"
+                    }),
+                    React.createElement(
+                      "div",
+                      { className: "absolute bottom-2 right-3 flex items-center space-x-2 text-xs text-gray-400" },
+                      [
+                        React.createElement("span", null, `${messageInput.length}/2000`),
+                        React.createElement("span", null, "\u2022 Enter to send")
+                      ]
+                    )
+                  ]
+                ),
+                React.createElement(
+                  "button",
+                  {
+                    onClick: onSendMessage,
+                    disabled: !messageInput.trim(),
+                    className: "bg-green-400/20 text-green-400 p-3 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-h-[72px]"
+                  },
+                  React.createElement(
+                    "svg",
+                    { className: "w-6 h-6", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24" },
+                    React.createElement("path", {
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round",
+                      strokeWidth: 2,
+                      d: "M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                    })
+                  )
                 )
-              )
-            ]
-          )
+              ]
+            )
+          ]
         )
       )
     ]
@@ -1589,6 +1840,10 @@ var EnhancedChatInterface = ({
 };
 var EnhancedSecureP2PChat = () => {
   const [messages, setMessages] = React.useState([]);
+  const [codeMode2, setCodeMode2] = React.useState(false);
+  const [viewOnceMode2, setViewOnceMode2] = React.useState(false);
+  const [disappearTtl2, setDisappearTtl2] = React.useState(0);
+  const [nowTick2, setNowTick] = React.useState(() => Date.now());
   const [connectionStatus, setConnectionStatus] = React.useState("disconnected");
   const [relayOnlyMode, setRelayOnlyMode] = React.useState(() => {
     try {
@@ -1707,12 +1962,15 @@ var EnhancedSecureP2PChat = () => {
       onClearData: handleClearData
     });
   }, []);
-  const addMessageWithAutoScroll = React.useCallback((message, type) => {
+  const addMessageWithAutoScroll = React.useCallback((message, type, opts = {}) => {
     const newMessage = {
       message,
       type,
       id: Date.now() + Math.random(),
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      mid: opts.mid,
+      viewOnce: opts.viewOnce === true,
+      expiresAt: typeof opts.expiresAt === "number" ? opts.expiresAt : void 0
     };
     setMessages((prev) => {
       const updated = [...prev, newMessage];
@@ -1799,12 +2057,25 @@ var EnhancedSecureP2PChat = () => {
       setTimeout(scrollToBottom, 150);
     }
   }, [messages]);
+  const hasExpiring = messages.some((m) => typeof m.expiresAt === "number");
+  React.useEffect(() => {
+    if (!hasExpiring) return;
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setNowTick(now);
+      setMessages((prev) => {
+        const kept = prev.filter((m) => !(typeof m.expiresAt === "number" && m.expiresAt <= now));
+        return kept.length === prev.length ? prev : kept;
+      });
+    }, 1e3);
+    return () => clearInterval(interval);
+  }, [hasExpiring]);
   React.useEffect(() => {
     if (webrtcManagerRef.current) {
       console.log("\u26A0\uFE0F WebRTC Manager already initialized, skipping...");
       return;
     }
-    const handleMessage = (message, type) => {
+    const handleMessage = (message, type, meta) => {
       if (typeof message === "string" && message.trim().startsWith("{")) {
         try {
           const parsedMessage = JSON.parse(message);
@@ -1832,7 +2103,15 @@ var EnhancedSecureP2PChat = () => {
         } catch (parseError) {
         }
       }
-      addMessageWithAutoScroll(message, type);
+      const opts = {};
+      if (meta && typeof meta === "object") {
+        if (typeof meta.mid === "string") opts.mid = meta.mid;
+        if (meta.once === true) opts.viewOnce = true;
+        if (Number.isFinite(meta.ttl) && meta.ttl > 0) {
+          opts.expiresAt = Date.now() + meta.ttl * 1e3;
+        }
+      }
+      addMessageWithAutoScroll(message, type, opts);
     };
     const handleStatusChange = (status) => {
       setConnectionStatus(status);
@@ -1977,6 +2256,10 @@ var EnhancedSecureP2PChat = () => {
         }
       }
     );
+    webrtcManagerRef.current.onMessageDelete = (mid) => {
+      if (!mid) return;
+      setMessages((prev) => prev.filter((m) => String(m.mid) !== String(mid)));
+    };
     if (typeof Notification !== "undefined" && Notification && Notification.permission === "granted" && window.NotificationIntegration && !notificationIntegrationRef.current) {
       try {
         const integration = new window.NotificationIntegration(webrtcManagerRef.current);
@@ -1987,7 +2270,7 @@ var EnhancedSecureP2PChat = () => {
       } catch (error) {
       }
     }
-    handleMessage(" SecureBit.chat Enhanced Security Edition v4.8.13 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.", "system");
+    handleMessage(" SecureBit.chat Enhanced Security Edition v4.8.14 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.", "system");
     const handleBeforeUnload = (event) => {
       if (event.type === "beforeunload" && !isTabSwitching) {
         if (webrtcManagerRef.current && webrtcManagerRef.current.isConnected()) {
@@ -3183,9 +3466,19 @@ var EnhancedSecureP2PChat = () => {
       return;
     }
     try {
-      addMessageWithAutoScroll(messageInput.trim(), "sent");
-      await webrtcManagerRef.current.sendMessage(messageInput);
+      const baseText = messageInput.trim();
+      const outText = codeMode2 ? "```\n" + baseText + "\n```" : baseText;
+      const mid = `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+      const meta = { mid };
+      if (viewOnceMode2) meta.once = true;
+      if (disappearTtl2 > 0) meta.ttl = disappearTtl2;
+      const localOpts = { mid };
+      if (disappearTtl2 > 0) localOpts.expiresAt = Date.now() + disappearTtl2 * 1e3;
+      addMessageWithAutoScroll(outText, "sent", localOpts);
+      await webrtcManagerRef.current.sendMessage(outText, meta);
       setMessageInput("");
+      if (codeMode2) setCodeMode2(false);
+      if (viewOnceMode2) setViewOnceMode2(false);
     } catch (error) {
       const msg = String(error?.message || error);
       if (!/queued for sending|Data channel not ready/i.test(msg)) {
@@ -3193,6 +3486,47 @@ var EnhancedSecureP2PChat = () => {
       }
     }
   };
+  const handleUnsendMessage = React.useCallback((mid) => {
+    if (!mid) return;
+    setMessages((prev) => prev.filter((m) => String(m.mid) !== String(mid)));
+    try {
+      webrtcManagerRef.current?.sendMessageDelete?.(String(mid));
+    } catch (_) {
+    }
+  }, []);
+  const handleMessageExpire = React.useCallback((id) => {
+    setMessages((prev) => prev.filter((m) => m.id !== id));
+  }, []);
+  const handlePanicWipe = React.useCallback(() => {
+    setMessages([]);
+    try {
+      const mgr = webrtcManagerRef.current;
+      if (mgr) {
+        if (typeof mgr._secureWipeKeys === "function") {
+          try {
+            mgr._secureWipeKeys();
+          } catch (_) {
+          }
+        }
+        if (typeof mgr.disconnect === "function") {
+          try {
+            mgr.disconnect();
+          } catch (_) {
+          }
+        }
+      }
+    } catch (_) {
+    }
+    try {
+      document.dispatchEvent(new CustomEvent("disconnected"));
+    } catch (_) {
+    }
+    setConnectionStatus("disconnected");
+    setIsVerified(false);
+    setKeyFingerprint("");
+    setSecurityLevel(null);
+    setMessageInput("");
+  }, []);
   const handleClearData = () => {
     setOfferData("");
     setAnswerData("");
@@ -3492,7 +3826,18 @@ var EnhancedSecureP2PChat = () => {
         handleCreateOffer,
         relayOnlyMode,
         setRelayOnlyMode,
-        webrtcManagerRef
+        webrtcManagerRef,
+        // Secure chat extras
+        codeMode: codeMode2,
+        setCodeMode: setCodeMode2,
+        viewOnceMode: viewOnceMode2,
+        setViewOnceMode: setViewOnceMode2,
+        disappearTtl: disappearTtl2,
+        setDisappearTtl: setDisappearTtl2,
+        nowTick: nowTick2,
+        onUnsendMessage: handleUnsendMessage,
+        onMessageExpire: handleMessageExpire,
+        onPanicWipe: handlePanicWipe
       })
     ),
     // QR Scanner Modal

@@ -70,7 +70,10 @@ class EnhancedSecureWebRTCManager {
         // Regular messages
         MESSAGE: 'message',
         ENHANCED_MESSAGE: 'enhanced_message',
-        
+
+        // Per-message control (unsend / disappearing sync)
+        MESSAGE_DELETE: 'message_delete',
+
         // System messages
         HEARTBEAT: 'heartbeat',
         VERIFICATION: 'verification',
@@ -5015,7 +5018,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         return window.EnhancedSecureCryptoUtils.sanitizeMessage(message);
     }
 
-    deliverMessageToUI(message, type = 'received') {
+    deliverMessageToUI(message, type = 'received', meta = null) {
         try {
             // Add debug logs
             this._secureLog('debug', '📤 deliverMessageToUI called', {
@@ -5091,8 +5094,14 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 : message;
 
             if (this.onMessage) {
+                // Whitelist/bound the optional per-message UI metadata centrally here,
+                // so every delivery path stays consistent and partial test doubles that
+                // override deliverMessageToUI are unaffected.
+                const safeMeta = (meta && typeof this._sanitizeMessageMeta === 'function')
+                    ? this._sanitizeMessageMeta(meta)
+                    : null;
                 this._secureLog('debug', '📤 Calling this.onMessage callback', { message: uiMessage, type });
-                this.onMessage(uiMessage, type);
+                this.onMessage(uiMessage, type, safeMeta || undefined);
             } else {
                 this._secureLog('warn', '⚠️ this.onMessage callback is null or undefined');
             }
@@ -6439,7 +6448,45 @@ async processOrderedPackets() {
         }
     }
 
-    async sendMessage(data) {
+    /**
+     * Whitelist + bound the per-message UI metadata so a peer cannot smuggle
+     * arbitrary objects, huge values, or absurd timers through it.
+     * @param {object} meta
+     * @returns {object|null}
+     */
+    _sanitizeMessageMeta(meta) {
+        if (!meta || typeof meta !== 'object') return null;
+        const out = {};
+        if (typeof meta.mid === 'string' && meta.mid.length > 0 && meta.mid.length <= 64) {
+            out.mid = meta.mid.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+        }
+        if (meta.code === true) out.code = true;
+        if (meta.once === true) out.once = true;
+        if (Number.isFinite(meta.ttl)) {
+            // Clamp disappearing timer to [5s, 24h]; ignore anything else.
+            const ttl = Math.floor(meta.ttl);
+            if (ttl >= 5 && ttl <= 86400) out.ttl = ttl;
+        }
+        return Object.keys(out).length ? out : null;
+    }
+
+    /**
+     * Unsend: ask the peer to remove a previously delivered message by id.
+     * Sent over the authenticated DTLS control channel like other system
+     * messages. Best-effort and cooperative — a peer can ignore it, exactly
+     * like WhatsApp/Telegram "delete for everyone".
+     * @param {string} messageId
+     * @returns {boolean}
+     */
+    sendMessageDelete(messageId) {
+        if (typeof messageId !== 'string' || !messageId) return false;
+        return this.sendSystemMessage({
+            type: EnhancedSecureWebRTCManager.MESSAGE_TYPES.MESSAGE_DELETE,
+            messageId: messageId.slice(0, 64)
+        });
+    }
+
+    async sendMessage(data, meta = null) {
         //   Comprehensive input validation
         const validation = this._validateInputData(data, 'sendMessage');
         if (!validation.isValid) {
@@ -6518,13 +6565,21 @@ async processOrderedPackets() {
                 
                 // Create AAD with sequence number for anti-replay protection
                 const aad = this._createMessageAAD('message', { content: validation.sanitizedData });
-                
-                return await this.sendSecureMessage({ 
-                    type: 'message', 
-                    data: validation.sanitizedData, 
+
+                const envelope = {
+                    type: 'message',
+                    data: validation.sanitizedData,
                     timestamp: Date.now(),
                     aad: aad // Include AAD for sequence number validation
-                });
+                };
+                // Optional per-message UI metadata (code/view-once/disappearing/id).
+                // Travels inside the encrypted envelope, NOT in the sanitized text,
+                // so it cannot corrupt or be spoofed from message content.
+                if (meta && typeof meta === 'object') {
+                    envelope.meta = this._sanitizeMessageMeta(meta);
+                }
+
+                return await this.sendSecureMessage(envelope);
             }
 
             //   For binary data, apply security layers with a limited mutex
@@ -6713,11 +6768,11 @@ async processMessage(data) {
                             }
                         }
                         
-                        // Process decrypted message
+                        // Process decrypted message (with optional UI metadata)
                         if (decryptedParsed.type === 'message' && this.onMessage && decryptedParsed.data) {
-                            this.deliverMessageToUI(decryptedParsed.data, 'received');
+                            this.deliverMessageToUI(decryptedParsed.data, 'received', decryptedParsed.meta);
                         }
-                        
+
                         return;
                     } catch (error) {
                         this._secureLog('error', '❌ Failed to decrypt enhanced message', { error: error.message });
@@ -6735,7 +6790,16 @@ async processMessage(data) {
                         return;
                     }
                     if (this.onMessage && parsed.data) {
-                        this.deliverMessageToUI(parsed.data, 'received');
+                        this.deliverMessageToUI(parsed.data, 'received', parsed.meta);
+                    }
+                    return;
+                }
+
+                // Per-message delete (unsend / disappearing sync) from the peer.
+                if (parsed.type === EnhancedSecureWebRTCManager.MESSAGE_TYPES.MESSAGE_DELETE) {
+                    const messageId = parsed?.data?.messageId ?? parsed?.messageId;
+                    if (typeof messageId === 'string' && messageId) {
+                        try { this.onMessageDelete?.(messageId.slice(0, 64)); } catch (_) {}
                     }
                     return;
                 }

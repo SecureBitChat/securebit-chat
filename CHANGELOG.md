@@ -1,5 +1,27 @@
 # Changelog
 
+## v4.8.14 — Secure chat tools: code blocks, view-once, disappearing, unsend, panic
+
+Adds privacy-focused messaging controls. Per-message metadata (id, view-once, timer) travels **inside the encrypted message envelope**, never in the sanitized text, so message content cannot spoof or corrupt these controls. The unsend/delete signal travels over the authenticated DTLS control channel like other system messages.
+
+### Added
+
+- **Code blocks.** A composer button wraps the message in a fenced block; both peers render it as a monospace code window with a copy button. The marker travels as ordinary text, and the window is built from already-sanitized text via React nodes only (no `dangerouslySetInnerHTML`), so there is no new XSS surface.
+- **Clipboard auto-clear.** Copying a code block clears the clipboard after ~30s — only when it can confirm the clipboard still holds the copied value, or cannot read it back, so a later copy is never clobbered.
+- **View-once messages.** The recipient sees a blurred bubble that reveals on tap and is then wiped. Honestly cooperative (a malicious client or a screenshot can still capture it) — this is hygiene, not a guarantee.
+- **Disappearing messages.** An optional sticky timer (30s / 5m / 1h) auto-deletes a message on both sides, with a live countdown. The incoming timer value is clamped to [5s, 24h].
+- **Unsend (delete for everyone).** Removes your message locally and asks the peer to drop it via a `message_delete` control message (`MESSAGE_TYPES.MESSAGE_DELETE`).
+- **Panic wipe.** One button clears the conversation, wipes keys (`_secureWipeKeys`) and tears down the session, behind a confirm prompt.
+
+### Security
+
+- New per-message metadata is whitelisted and bounded by `_sanitizeMessageMeta` on both send and receive; unknown fields, wrong types and out-of-range timers are dropped.
+- AAD/replay protection, the SAS verification gate and receive-side DOMPurify sanitization are unchanged.
+
+### Tests
+
+- Added `tests/secure-chat-features.test.mjs` covering metadata sanitization, meta delivery to the UI, and the unsend control path. Full suite: 17 files, all passing.
+
 ## v4.8.13 — Message integrity & transport hardening
 
 Security review follow-up. The end-to-end cryptography (ECDH, AES-GCM, PBKDF2, SAS bound to DTLS fingerprints, anti-replay) was verified sound; these changes fix availability/integrity defects on the send path and tighten transport headers and logging.
