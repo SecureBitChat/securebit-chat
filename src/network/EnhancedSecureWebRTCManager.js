@@ -6462,6 +6462,11 @@ async processOrderedPackets() {
         }
         if (meta.code === true) out.code = true;
         if (meta.once === true) out.once = true;
+        if (Number.isFinite(meta.onceTtl)) {
+            // View-once: seconds the message stays visible after the peer opens it.
+            const onceTtl = Math.floor(meta.onceTtl);
+            if (onceTtl >= 1 && onceTtl <= 3600) out.onceTtl = onceTtl;
+        }
         if (Number.isFinite(meta.ttl)) {
             // Clamp disappearing timer to [5s, 24h]; ignore anything else.
             const ttl = Math.floor(meta.ttl);
@@ -7847,10 +7852,19 @@ async processMessage(data) {
                             return; // IMPORTANT: Do not process further
                         }
                         
+                        // Per-message delete (unsend) from the peer.
+                        if (parsed.type === EnhancedSecureWebRTCManager.MESSAGE_TYPES.MESSAGE_DELETE) {
+                            const messageId = parsed?.data?.messageId ?? parsed?.messageId;
+                            if (typeof messageId === 'string' && messageId) {
+                                try { this.onMessageDelete?.(messageId.slice(0, 64)); } catch (_) {}
+                            }
+                            return;
+                        }
+
                         // ============================================
                         // SYSTEM MESSAGES (WITHOUT MUTEX)
                         // ============================================
-                        
+
                         if (parsed.type && ['heartbeat', 'verification', 'verification_response', 'verification_confirmed', 'verification_both_confirmed', 'sas_code', 'peer_disconnect', 'security_upgrade'].includes(parsed.type)) {
                             this.handleSystemMessage(parsed);
                             return;
@@ -7865,7 +7879,7 @@ async processMessage(data) {
                                 return;
                             }
                             if (this.onMessage) {
-                                this.deliverMessageToUI(parsed.data, 'received');
+                                this.deliverMessageToUI(parsed.data, 'received', parsed.meta);
                             }
                             return;
                         }
@@ -7994,7 +8008,7 @@ async processMessage(data) {
                     }
                     if (decryptedContent && decryptedContent.type === 'message' && typeof decryptedContent.data === 'string') {
                         if (this.onMessage) {
-                            this.deliverMessageToUI(decryptedContent.data, 'received');
+                            this.deliverMessageToUI(decryptedContent.data, 'received', decryptedContent.meta);
                         }
                         return;
                     }

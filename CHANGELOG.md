@@ -1,5 +1,26 @@
 # Changelog
 
+## v4.8.20 — Secure chat tools: completed, fixed and polished
+
+Completes the messaging controls introduced in v4.8.14 and fixes the bug that made them appear broken for recipients. All per-message options travel inside the encrypted message envelope (never in the sanitized text), so message content cannot spoof or corrupt them.
+
+### Fixed
+
+- **Per-message metadata was silently dropped for recipients.** `NotificationIntegration` wrapped both `webrtcManager.onMessage` and `webrtcManager.deliverMessageToUI` with two-argument shims that called the originals without the third argument (`meta`). With notifications enabled, every received message lost its `meta`, so view-once, disappearing timers and unsend all failed on the recipient side. Both wrappers now forward all arguments (`...rest`). Added `tests/notification-meta-forwarding.test.mjs`.
+- **Chat would not open after SAS** (regression from the initial wiring): the composer props were threaded into the wrong component (`EnhancedConnectionSetup` instead of `EnhancedChatInterface`), throwing `ReferenceError: nowTick` on the verified-state re-render. Props are now on the chat component.
+
+### Changed
+
+- **Code blocks** now include lightweight, dependency-free syntax highlighting (comments, strings, numbers, keywords) rendered via React nodes — no `innerHTML`, no remote scripts. Enabling code mode expands the input (monospace, 8 rows) for comfortable entry. Copying a block auto-clears the clipboard after ~30s.
+- **View-once** is now configurable: the sender picks how long the message stays visible after the peer opens it (5s / 15s / 30s / 1m) via `meta.onceTtl` (clamped 1s–1h).
+- **Disappearing timer** uses a duration picker (Off / 30s / 5m / 1h) instead of click-cycling.
+- **Composer toolbar** moved next to the "Send files" control; borderless buttons with the brand-orange (`accent-orange`) active state; time pickers open upward and are sized for mobile readability.
+- Sender bubble background lightened to `rgba(249, 115, 22, 0.05)`.
+
+### Removed
+
+- **Panic wipe** button. Disconnecting already wipes keys and clears session state, so a separate panic control was redundant.
+
 ## v4.8.15 — Fix: chat would not open after SAS in v4.8.14
 
 ### Fixed

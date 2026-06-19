@@ -1,4 +1,4 @@
-# SecureBit.chat v4.8.15
+# SecureBit.chat v4.8.20
 
 SecureBit.chat is a browser-based peer-to-peer chat application built on WebRTC and Web Crypto APIs. It is designed for direct encrypted communication, explicit peer verification, and a small operational footprint without account registration or server-side message storage.
 
@@ -15,18 +15,14 @@ SecureBit.chat uses:
 
 A session is not treated as verified until both peers complete the interactive SAS flow. Each user must compare the displayed code with the peer through an out-of-band channel and enter the matching code manually. Three failed SAS attempts terminate the session.
 
-## Highlights in v4.8.15
+## Highlights in v4.8.20
 
-- Fix: the secure chat failed to open after SAS confirmation in v4.8.14 (a `nowTick` reference was scoped to the wrong component). The new messaging controls are now wired into the chat component correctly.
+Secure messaging controls, available from a single composer toolbar next to **Send files**. Active controls use the brand-orange accent. Every per-message option travels **inside the encrypted message envelope** (never in the sanitized text), so message content can neither spoof nor corrupt these controls.
 
-The v4.8.14 messaging features:
-
-- Code blocks: a composer button wraps a message in a monospace code window with a one-click copy button (clipboard auto-clears after 30s).
-- View-once messages: the recipient sees a blurred bubble that reveals on tap and is then deleted. Cooperative, like WhatsApp view-once — not screenshot-proof.
-- Disappearing messages: an optional timer (30s / 5m / 1h) auto-deletes a message on both sides with a live countdown.
-- Unsend: "delete for everyone" removes your message from the peer's chat too.
-- Panic wipe: one button clears the conversation, wipes keys and disconnects.
-- Per-message metadata travels inside the encrypted envelope (not in the sanitized text), so message content can never spoof or corrupt these controls.
+- **Code blocks.** A `Code` button sends the message as a monospace code window with lightweight syntax highlighting and a one-click **Copy** button; the clipboard auto-clears ~30s after copying so keys/commands don't linger. Enabling it also expands the input box (monospace, 8 rows) for comfortable code entry. Highlighting is built from already-sanitized text via React nodes only — no `innerHTML`, no remote scripts, no new XSS surface.
+- **View-once messages.** Pick how long the message stays visible after the peer opens it (5s / 15s / 30s / 1m). The recipient sees a blurred bubble; tapping reveals it, then it is wiped after the chosen window. Cooperative, like WhatsApp view-once — it reduces accidental lingering but is **not** screenshot-proof.
+- **Disappearing messages.** A timer picker (30s / 5m / 1h) auto-deletes the message on **both** sides, with a live countdown. The incoming timer is clamped to a safe range.
+- **Unsend (delete for everyone).** Removes your message locally and asks the peer to drop it too, over the authenticated control channel.
 
 Earlier in v4.8.13:
 

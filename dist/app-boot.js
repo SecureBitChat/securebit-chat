@@ -542,10 +542,10 @@ var require_NotificationIntegration = __commonJS({
           }
           this.originalOnMessage = this.webrtcManager.onMessage;
           this.originalOnStatusChange = this.webrtcManager.onStatusChange;
-          this.webrtcManager.onMessage = (message, type) => {
+          this.webrtcManager.onMessage = (message, type, ...rest) => {
             this.handleIncomingMessage(message, type);
             if (this.originalOnMessage) {
-              this.originalOnMessage(message, type);
+              this.originalOnMessage(message, type, ...rest);
             }
           };
           this.webrtcManager.onStatusChange = (status) => {
@@ -556,9 +556,9 @@ var require_NotificationIntegration = __commonJS({
           };
           if (this.webrtcManager.deliverMessageToUI) {
             this.originalDeliverMessageToUI = this.webrtcManager.deliverMessageToUI.bind(this.webrtcManager);
-            this.webrtcManager.deliverMessageToUI = (message, type) => {
+            this.webrtcManager.deliverMessageToUI = (message, type, ...rest) => {
               this.handleIncomingMessage(message, type);
-              this.originalDeliverMessageToUI(message, type);
+              this.originalDeliverMessageToUI(message, type, ...rest);
             };
           }
           this.isInitialized = true;
@@ -11086,6 +11086,10 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     }
     if (meta.code === true) out.code = true;
     if (meta.once === true) out.once = true;
+    if (Number.isFinite(meta.onceTtl)) {
+      const onceTtl = Math.floor(meta.onceTtl);
+      if (onceTtl >= 1 && onceTtl <= 3600) out.onceTtl = onceTtl;
+    }
     if (Number.isFinite(meta.ttl)) {
       const ttl = Math.floor(meta.ttl);
       if (ttl >= 5 && ttl <= 86400) out.ttl = ttl;
@@ -12148,6 +12152,16 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
               this._secureLog("error", "No file transfer system available for:", { errorType: parsed.type?.constructor?.name || "Unknown" });
               return;
             }
+            if (parsed.type === _EnhancedSecureWebRTCManager.MESSAGE_TYPES.MESSAGE_DELETE) {
+              const messageId = parsed?.data?.messageId ?? parsed?.messageId;
+              if (typeof messageId === "string" && messageId) {
+                try {
+                  this.onMessageDelete?.(messageId.slice(0, 64));
+                } catch (_) {
+                }
+              }
+              return;
+            }
             if (parsed.type && ["heartbeat", "verification", "verification_response", "verification_confirmed", "verification_both_confirmed", "sas_code", "peer_disconnect", "security_upgrade"].includes(parsed.type)) {
               this.handleSystemMessage(parsed);
               return;
@@ -12157,7 +12171,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
                 return;
               }
               if (this.onMessage) {
-                this.deliverMessageToUI(parsed.data, "received");
+                this.deliverMessageToUI(parsed.data, "received", parsed.meta);
               }
               return;
             }
@@ -12252,7 +12266,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           }
           if (decryptedContent && decryptedContent.type === "message" && typeof decryptedContent.data === "string") {
             if (this.onMessage) {
-              this.deliverMessageToUI(decryptedContent.data, "received");
+              this.deliverMessageToUI(decryptedContent.data, "received", decryptedContent.meta);
             }
             return;
           }
@@ -17487,7 +17501,7 @@ Right-click or Ctrl+click to disconnect`,
             React.createElement("p", {
               key: "subtitle",
               className: "text-xs sm:text-sm text-muted hidden sm:block"
-            }, "End-to-end freedom v4.8.15")
+            }, "End-to-end freedom v4.8.20")
           ])
         ]),
         // Status and Controls - Responsive

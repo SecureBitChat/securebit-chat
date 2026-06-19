@@ -55,6 +55,53 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                     return segments.some(s => s.kind === 'code') ? segments : null;
                 };
 
+                // Lightweight, dependency-free syntax highlighter. Returns React nodes
+                // (no innerHTML / dangerouslySetInnerHTML) so it stays CSP-safe and adds
+                // no XSS surface. Language-agnostic: highlights comments, strings,
+                // numbers, common keywords and literals — good enough for snippets
+                // without shipping a heavy library or allowing remote scripts.
+                const HL_KEYWORDS = new Set([
+                    'const','let','var','function','return','if','else','for','while','do','switch',
+                    'case','break','continue','class','extends','new','this','super','import','export',
+                    'from','as','default','async','await','try','catch','finally','throw','typeof',
+                    'instanceof','delete','yield','in','of','def','elif','lambda','pass','with','global',
+                    'public','private','protected','static','final','void','int','long','float','double',
+                    'char','bool','boolean','string','struct','enum','interface','package','func','fn',
+                    'type','where','select','update','insert','delete','where','and','or','not','end',
+                    'then','fi','done','echo','use','mut','impl','trait','match','module','require'
+                ]);
+                const HL_LITERALS = new Set(['true','false','null','undefined','None','True','False','nil','NaN','Infinity']);
+                const highlightCode = (code) => {
+                    const re = /(\/\/[^\n]*|#[^\n]*|\/\*[\s\S]*?\*\/|--[^\n]*)|(`(?:\\.|[^`\\])*`|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|(\b\d[\d_.]*(?:[eE][+-]?\d+)?\b|\b0[xX][0-9a-fA-F]+\b)|([A-Za-z_$][A-Za-z0-9_$]*)/g;
+                    const nodes = [];
+                    let buffer = '';
+                    let last = 0;
+                    let key = 0;
+                    const flush = () => { if (buffer) { nodes.push(buffer); buffer = ''; } };
+                    let m;
+                    while ((m = re.exec(code)) !== null) {
+                        if (m.index > last) buffer += code.slice(last, m.index);
+                        last = re.lastIndex;
+                        let cls = null;
+                        if (m[1]) cls = 'text-gray-500 italic';        // comment
+                        else if (m[2]) cls = 'text-amber-300';         // string
+                        else if (m[3]) cls = 'text-sky-300';           // number
+                        else if (m[4]) {                                // identifier
+                            if (HL_KEYWORDS.has(m[4])) cls = 'text-purple-300';
+                            else if (HL_LITERALS.has(m[4])) cls = 'text-sky-300';
+                        }
+                        if (cls) {
+                            flush();
+                            nodes.push(React.createElement('span', { key: `h${key++}`, className: cls }, m[0]));
+                        } else {
+                            buffer += m[0];
+                        }
+                    }
+                    if (last < code.length) buffer += code.slice(last);
+                    flush();
+                    return nodes;
+                };
+
                 // Monospace code window with a copy button (clipboard auto-clears in 30s).
                 const CodeBlock = ({ code, lang }) => {
                     const [copied, setCopied] = React.useState(false);
@@ -66,13 +113,13 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                         }
                     };
                     return React.createElement('div', {
-                        className: "my-1 rounded-lg overflow-hidden border border-gray-600/40",
-                        style: { backgroundColor: '#1b1c1b' }
+                        className: "my-1 rounded-lg overflow-hidden",
+                        style: { backgroundColor: '#1b1c1b', border: '0 solid #e5e7eb' }
                     }, [
                         React.createElement('div', {
                             key: 'hdr',
-                            className: "flex items-center justify-between px-3 py-1.5 border-b border-gray-600/30",
-                            style: { backgroundColor: '#222322' }
+                            className: "flex items-center justify-between px-3 py-1.5",
+                            style: { backgroundColor: '#222322', border: '0 solid #e5e7eb' }
                         }, [
                             React.createElement('span', {
                                 key: 'lang',
@@ -95,7 +142,7 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                             key: 'pre',
                             className: "px-3 py-2 overflow-x-auto text-xs leading-relaxed text-gray-200 custom-scrollbar",
                             style: { whiteSpace: 'pre', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', margin: 0 }
-                        }, React.createElement('code', null, code))
+                        }, React.createElement('code', null, highlightCode(code)))
                     ]);
                 };
 
@@ -123,70 +170,103 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                     );
                 };
 
-                // Composer toolbar: code / view-once / disappearing / panic.
-                const ChatToolbar = ({ codeMode, setCodeMode, viewOnceMode, setViewOnceMode, disappearTtl, setDisappearTtl, onPanicWipe }) => {
-                    const ttlCycle = [0, 30, 300, 3600];
-                    const ttlLabel = (s) => s === 0 ? 'Off' : (s >= 3600 ? `${Math.round(s / 3600)}h` : (s >= 60 ? `${Math.round(s / 60)}m` : `${s}s`));
-                    const cycleTtl = () => {
-                        const i = ttlCycle.indexOf(disappearTtl);
-                        setDisappearTtl(ttlCycle[(i + 1) % ttlCycle.length] || 0);
-                    };
+                // Composer toolbar: code / view-once / disappearing.
+                // Borderless icon+label buttons; active state uses the brand orange
+                // (accent-orange). View-once and Timer open a small time picker.
+                const ChatToolbar = ({ codeMode, setCodeMode, viewOnceMode, setViewOnceMode, viewOnceTtl, setViewOnceTtl, disappearTtl, setDisappearTtl }) => {
+                    const [openMenu, setOpenMenu] = React.useState(null); // 'once' | 'timer' | null
+                    const fmt = (s) => s >= 3600 ? `${Math.round(s / 3600)}h` : (s >= 60 ? `${Math.round(s / 60)}m` : `${s}s`);
 
-                    const pill = (key, { active, activeClass, icon, label, title, onClick }) =>
+                    const btnClass = (active) =>
+                        `inline-flex items-center gap-2 h-9 px-3 rounded-lg text-xs font-medium transition-colors duration-150 ${active
+                            ? 'accent-orange bg-orange-500/10'
+                            : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/40'}`;
+
+                    const pickerItem = (opt, current, onPick) =>
                         React.createElement('button', {
-                            key,
+                            key: String(opt.value),
                             type: 'button',
-                            onClick,
-                            title,
-                            className: `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs border transition-all duration-200 ${active
-                                ? activeClass
-                                : 'text-gray-400 border-gray-600/50 hover:text-gray-200 hover:border-gray-500'}`
+                            onClick: () => { onPick(opt.value); setOpenMenu(null); },
+                            // Comfortable tap target + readable size on mobile.
+                            className: `w-full text-left px-4 py-3 sm:py-2.5 text-sm flex items-center gap-3 transition-colors ${current === opt.value
+                                ? 'accent-orange bg-orange-500/10'
+                                : 'text-gray-200 hover:bg-gray-700/50 active:bg-gray-700/60'}`
                         }, [
-                            React.createElement('i', { key: 'i', className: icon }),
-                            label ? React.createElement('span', { key: 'l' }, label) : null
+                            React.createElement('i', { key: 'i', className: `${opt.icon || 'far fa-clock'} w-4 text-center` }),
+                            React.createElement('span', { key: 'l' }, opt.label)
                         ]);
 
-                    return React.createElement('div', {
-                        className: "flex items-center flex-wrap gap-2 pb-3"
-                    }, [
-                        pill('code', {
+                    // Opens UPWARD (bottom:100%) via inline style so it never depends on a
+                    // purgeable utility class and never pushes the composer layout down.
+                    const picker = (options, current, onPick) =>
+                        React.createElement('div', {
+                            className: "absolute right-0 z-50 min-w-[180px] max-w-[78vw] rounded-xl shadow-2xl overflow-hidden",
+                            style: { backgroundColor: '#1f201f', border: '0 solid #e5e7eb', bottom: '100%', marginBottom: '8px' }
+                        }, options.map(opt => pickerItem(opt, current, onPick)));
+
+                    const labelBtn = (key, { active, icon, label, title, onClick }) =>
+                        React.createElement('button', {
+                            key, type: 'button', onClick, title, 'aria-pressed': !!active,
+                            className: btnClass(active)
+                        }, [
+                            React.createElement('i', { key: 'i', className: `${icon} text-[13px]` }),
+                            React.createElement('span', { key: 'l', className: 'leading-none' }, label)
+                        ]);
+
+                    return React.createElement('div', { className: "flex items-center gap-1" }, [
+                        // Invisible backdrop closes any open picker on outside click.
+                        openMenu && React.createElement('div', {
+                            key: 'backdrop',
+                            className: "fixed inset-0 z-40",
+                            onClick: () => setOpenMenu(null)
+                        }),
+
+                        // Code — toggles code mode (expands the input box).
+                        labelBtn('code', {
                             active: codeMode,
-                            activeClass: 'text-green-400 border-green-500/40 bg-green-500/10',
                             icon: 'fas fa-code',
                             label: 'Code',
-                            title: 'Send as a code block (with copy button)',
+                            title: 'Send as a code block (expands the input)',
                             onClick: () => setCodeMode(v => !v)
                         }),
-                        pill('once', {
-                            active: viewOnceMode,
-                            activeClass: 'text-orange-400 border-orange-500/40 bg-orange-500/10',
-                            icon: 'fas fa-eye-slash',
-                            label: 'View once',
-                            title: 'Recipient can read it once, then it is deleted (cooperative — not screenshot-proof)',
-                            onClick: () => setViewOnceMode(v => !v)
-                        }),
-                        pill('ttl', {
-                            active: disappearTtl > 0,
-                            activeClass: 'text-blue-400 border-blue-500/40 bg-blue-500/10',
-                            icon: 'fas fa-stopwatch',
-                            label: `Timer: ${ttlLabel(disappearTtl)}`,
-                            title: 'Disappearing messages — auto-delete on both sides',
-                            onClick: cycleTtl
-                        }),
-                        React.createElement('div', { key: 'spacer', className: 'flex-1' }),
-                        pill('panic', {
-                            active: true,
-                            activeClass: 'text-red-400 border-red-500/40 bg-red-500/10 hover:bg-red-500/20',
-                            icon: 'fas fa-fire-extinguisher',
-                            label: 'Panic',
-                            title: 'Wipe this conversation and keys, and disconnect',
-                            onClick: () => {
-                                const ok = (typeof window !== 'undefined' && window.confirm)
-                                    ? window.confirm('Panic wipe: delete all messages, wipe keys and disconnect now?')
-                                    : true;
-                                if (ok && typeof onPanicWipe === 'function') onPanicWipe();
-                            }
-                        })
+
+                        // View once — pick how long it stays after the peer opens it.
+                        React.createElement('div', { key: 'once', className: 'relative' }, [
+                            labelBtn('once-btn', {
+                                active: viewOnceMode,
+                                icon: 'fas fa-eye-slash',
+                                label: viewOnceMode ? `Once · ${fmt(viewOnceTtl)}` : 'View once',
+                                title: 'View once — vanishes after the peer reads it',
+                                onClick: () => setOpenMenu(openMenu === 'once' ? null : 'once')
+                            }),
+                            openMenu === 'once' && picker([
+                                { value: 0, label: 'Off', icon: 'fas fa-ban' },
+                                { value: 5, label: '5s after reading' },
+                                { value: 15, label: '15s after reading' },
+                                { value: 30, label: '30s after reading' },
+                                { value: 60, label: '1m after reading' }
+                            ], viewOnceMode ? viewOnceTtl : 0, (v) => {
+                                if (v === 0) { setViewOnceMode(false); }
+                                else { setViewOnceTtl(v); setViewOnceMode(true); }
+                            })
+                        ]),
+
+                        // Timer — pick the disappearing duration.
+                        React.createElement('div', { key: 'timer', className: 'relative' }, [
+                            labelBtn('timer-btn', {
+                                active: disappearTtl > 0,
+                                icon: 'fas fa-stopwatch',
+                                label: disappearTtl > 0 ? `Timer · ${fmt(disappearTtl)}` : 'Timer',
+                                title: 'Disappearing message — deletes on both sides',
+                                onClick: () => setOpenMenu(openMenu === 'timer' ? null : 'timer')
+                            }),
+                            openMenu === 'timer' && picker([
+                                { value: 0, label: 'Off', icon: 'fas fa-ban' },
+                                { value: 30, label: '30 seconds' },
+                                { value: 300, label: '5 minutes' },
+                                { value: 3600, label: '1 hour' }
+                            ], disappearTtl, (v) => setDisappearTtl(v))
+                        ])
                     ]);
                 };
 
@@ -413,7 +493,7 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                 };
         
                 // Enhanced Chat Message with better security indicators
-                const EnhancedChatMessage = ({ message, type, timestamp, mid, viewOnce, expiresAt, nowTick, canUnsend, onUnsend, onExpire }) => {
+                const EnhancedChatMessage = ({ message, type, timestamp, mid, viewOnce, viewOnceTtl, expiresAt, nowTick, canUnsend, onUnsend, onExpire }) => {
                     const [revealed, setRevealed] = React.useState(false);
                     const revealTimerRef = React.useRef(null);
 
@@ -433,7 +513,7 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                         switch (type) {
                             case 'sent':
                                 return {
-                                    container: "ml-auto bg-orange-500/15 border-orange-500/20 text-primary",
+                                    container: "ml-auto bg-orange-500/5 border-orange-500/20 text-primary",
                                     icon: "fas fa-lock accent-orange",
                                     label: "Encrypted"
                                 };
@@ -470,10 +550,11 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                     const handleReveal = () => {
                         if (revealed) return;
                         setRevealed(true);
-                        // One-time read: wipe shortly after the recipient opens it.
+                        // One-time read: wipe after the sender-chosen visible window.
+                        const ms = Math.max(1, (typeof viewOnceTtl === 'number' ? viewOnceTtl : 15)) * 1000;
                         revealTimerRef.current = setTimeout(() => {
                             onExpire && onExpire();
-                        }, 12000);
+                        }, ms);
                     };
 
                     // Body: blurred placeholder for unopened view-once, else real content.
@@ -1498,12 +1579,13 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
             setCodeMode,
             viewOnceMode,
             setViewOnceMode,
+            viewOnceTtl,
+            setViewOnceTtl,
             disappearTtl,
             setDisappearTtl,
             nowTick,
             onUnsendMessage,
-            onMessageExpire,
-            onPanicWipe
+            onMessageExpire
         }) => {
             const [showScrollButton, setShowScrollButton] = React.useState(false);
             const [showFileTransfer, setShowFileTransfer] = React.useState(false);
@@ -1670,6 +1752,7 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                                             timestamp: msg.timestamp,
                                             mid: msg.mid,
                                             viewOnce: msg.viewOnce,
+                                            viewOnceTtl: msg.viewOnceTtl,
                                             expiresAt: msg.expiresAt,
                                             nowTick: nowTick,
                                             canUnsend: typeof onUnsendMessage === 'function',
@@ -1712,11 +1795,16 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                             'div',
                             { className: "max-w-4xl mx-auto px-4" },
                             [
+                                React.createElement('div', {
+                                    key: 'composer-bar',
+                                    className: `flex items-center justify-between flex-wrap gap-2 ${showFileTransfer ? 'mb-4' : ''}`
+                                }, [
                                 React.createElement(
                                     'button',
                                     {
+                                        key: 'send-files-toggle',
                                         onClick: () => setShowFileTransfer(!showFileTransfer),
-                                        className: `flex items-center text-sm text-gray-400 hover:text-gray-300 transition-colors py-4 ${showFileTransfer ? 'mb-4' : ''}`
+                                        className: "flex items-center text-sm text-gray-400 hover:text-gray-300 transition-colors py-4"
                                     },
                                     [
                                         React.createElement(
@@ -1744,8 +1832,16 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                                         showFileTransfer ? 'Hide file transfer' : 'Send files'
                                     ]
                                 ),
+                                React.createElement(ChatToolbar, {
+                                    key: 'toolbar',
+                                    codeMode, setCodeMode,
+                                    viewOnceMode, setViewOnceMode,
+                                    viewOnceTtl, setViewOnceTtl,
+                                    disappearTtl, setDisappearTtl
+                                })
+                                ]),
                                 showFileTransfer &&
-                                    React.createElement(window.FileTransferComponent || (() => 
+                                    React.createElement(window.FileTransferComponent || (() =>
                                         React.createElement('div', {
                                             className: "p-4 text-center text-red-400"
                                         }, 'FileTransferComponent not loaded')
@@ -1766,13 +1862,6 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                             'div',
                             { className: "max-w-4xl mx-auto p-4" },
                             [
-                            React.createElement(ChatToolbar, {
-                                key: 'toolbar',
-                                codeMode, setCodeMode,
-                                viewOnceMode, setViewOnceMode,
-                                disappearTtl, setDisappearTtl,
-                                onPanicWipe
-                            }),
                             React.createElement(
                                 'div',
                                 { key: 'inputrow', className: "flex items-stretch space-x-3" },
@@ -1785,11 +1874,13 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                                                 value: messageInput,
                                                 onChange: (e) => setMessageInput(e.target.value),
                                                 onKeyDown: handleKeyPress,
-                                                placeholder: "Enter message to encrypt...",
-                                                rows: 2,
+                                                placeholder: codeMode ? "Paste or type code…" : "Enter message to encrypt...",
+                                                rows: codeMode ? 8 : 2,
                                                 maxLength: 2000,
-                                                style: { backgroundColor: '#272827' },
-                                                className: "w-full p-3 border border-gray-600 rounded-lg resize-none text-gray-300 placeholder-gray-500 focus:border-green-500/40 focus:outline-none transition-all custom-scrollbar text-sm"
+                                                style: codeMode
+                                                    ? { backgroundColor: '#1b1c1b', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' }
+                                                    : { backgroundColor: '#272827' },
+                                                className: `w-full p-3 border rounded-lg resize-none text-gray-300 placeholder-gray-500 focus:outline-none transition-all custom-scrollbar text-sm ${codeMode ? 'border-orange-500/40 focus:border-orange-500/60' : 'border-gray-600 focus:border-green-500/40'}`
                                             }),
                                             React.createElement(
                                                 'div',
@@ -1836,6 +1927,7 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                     // Secure chat extras: per-message send modes + 1s tick for countdowns.
                     const [codeMode, setCodeMode] = React.useState(false);
                     const [viewOnceMode, setViewOnceMode] = React.useState(false);
+                    const [viewOnceTtl, setViewOnceTtl] = React.useState(15); // seconds visible after the peer opens it
                     const [disappearTtl, setDisappearTtl] = React.useState(0); // seconds; 0 = off (sticky)
                     const [nowTick, setNowTick] = React.useState(() => Date.now());
                     const [connectionStatus, setConnectionStatus] = React.useState('disconnected');
@@ -2004,6 +2096,7 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                             timestamp: Date.now(),
                             mid: opts.mid,
                             viewOnce: opts.viewOnce === true,
+                            viewOnceTtl: (typeof opts.viewOnceTtl === 'number') ? opts.viewOnceTtl : 15,
                             expiresAt: (typeof opts.expiresAt === 'number') ? opts.expiresAt : undefined
                         };
 
@@ -2171,7 +2264,10 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                             const opts = {};
                             if (meta && typeof meta === 'object') {
                                 if (typeof meta.mid === 'string') opts.mid = meta.mid;
-                                if (meta.once === true) opts.viewOnce = true;
+                                if (meta.once === true) {
+                                    opts.viewOnce = true;
+                                    opts.viewOnceTtl = Number.isFinite(meta.onceTtl) ? meta.onceTtl : 15;
+                                }
                                 if (Number.isFinite(meta.ttl) && meta.ttl > 0) {
                                     opts.expiresAt = Date.now() + meta.ttl * 1000;
                                 }
@@ -2388,7 +2484,7 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                             }
                         }
         
-                        handleMessage(' SecureBit.chat Enhanced Security Edition v4.8.15 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.', 'system');
+                        handleMessage(' SecureBit.chat Enhanced Security Edition v4.8.20 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.', 'system');
         
                         const handleBeforeUnload = (event) => {
                             if (event.type === 'beforeunload' && !isTabSwitching) {
@@ -3799,7 +3895,10 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                             // on both peers.
                             const mid = `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
                             const meta = { mid };
-                            if (viewOnceMode) meta.once = true;          // applies to the recipient
+                            if (viewOnceMode) {                          // applies to the recipient
+                                meta.once = true;
+                                meta.onceTtl = viewOnceTtl;              // seconds visible after opening
+                            }
                             if (disappearTtl > 0) meta.ttl = disappearTtl; // applies to both sides
 
                             // Local echo: sender sees their own text normally (view-once is a
@@ -3834,23 +3933,6 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                     }, []);
 
                     // Panic wipe: clear the conversation, tear down the session and wipe keys.
-                    const handlePanicWipe = React.useCallback(() => {
-                        setMessages([]);
-                        try {
-                            const mgr = webrtcManagerRef.current;
-                            if (mgr) {
-                                if (typeof mgr._secureWipeKeys === 'function') { try { mgr._secureWipeKeys(); } catch (_) {} }
-                                if (typeof mgr.disconnect === 'function') { try { mgr.disconnect(); } catch (_) {} }
-                            }
-                        } catch (_) {}
-                        try { document.dispatchEvent(new CustomEvent('disconnected')); } catch (_) {}
-                        setConnectionStatus('disconnected');
-                        setIsVerified(false);
-                        setKeyFingerprint('');
-                        setSecurityLevel(null);
-                        setMessageInput('');
-                    }, []);
-        
                     const handleClearData = () => {
                         setOfferData('');
                         setAnswerData('');
@@ -4177,12 +4259,13 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                                         setCodeMode: setCodeMode,
                                         viewOnceMode: viewOnceMode,
                                         setViewOnceMode: setViewOnceMode,
+                                        viewOnceTtl: viewOnceTtl,
+                                        setViewOnceTtl: setViewOnceTtl,
                                         disappearTtl: disappearTtl,
                                         setDisappearTtl: setDisappearTtl,
                                         nowTick: nowTick,
                                         onUnsendMessage: handleUnsendMessage,
-                                        onMessageExpire: handleMessageExpire,
-                                        onPanicWipe: handlePanicWipe
+                                        onMessageExpire: handleMessageExpire
                                     });
                                 })()
                                 : React.createElement(EnhancedConnectionSetup, {

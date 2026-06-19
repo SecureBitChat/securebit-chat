@@ -22,6 +22,6 @@ SecureBit.chat is intended for legitimate private communication, journalism, res
 
 ## Current release
 
-- Product release: `v4.8.15`
+- Product release: `v4.8.20`
 - Protocol version: `4.1`
 - Last updated: May 17, 2026

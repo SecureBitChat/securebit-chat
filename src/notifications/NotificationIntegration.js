@@ -42,13 +42,15 @@ class NotificationIntegration {
       this.originalOnStatusChange = this.webrtcManager.onStatusChange;
 
 
-      // Wrap the original onMessage callback
-      this.webrtcManager.onMessage = (message, type) => {
+      // Wrap the original onMessage callback.
+      // IMPORTANT: forward ALL arguments (incl. per-message `meta`) so the app
+      // still receives view-once / disappearing / unsend metadata.
+      this.webrtcManager.onMessage = (message, type, ...rest) => {
         this.handleIncomingMessage(message, type);
-        
+
         // Call original callback if it exists
         if (this.originalOnMessage) {
-          this.originalOnMessage(message, type);
+          this.originalOnMessage(message, type, ...rest);
         }
       };
 
@@ -62,12 +64,14 @@ class NotificationIntegration {
         }
       };
 
-      // Also hook into the deliverMessageToUI method if it exists
+      // Also hook into the deliverMessageToUI method if it exists.
+      // IMPORTANT: forward ALL arguments (incl. per-message `meta`) to the
+      // original, otherwise view-once / disappearing / unsend metadata is lost.
       if (this.webrtcManager.deliverMessageToUI) {
         this.originalDeliverMessageToUI = this.webrtcManager.deliverMessageToUI.bind(this.webrtcManager);
-        this.webrtcManager.deliverMessageToUI = (message, type) => {
+        this.webrtcManager.deliverMessageToUI = (message, type, ...rest) => {
           this.handleIncomingMessage(message, type);
-          this.originalDeliverMessageToUI(message, type);
+          this.originalDeliverMessageToUI(message, type, ...rest);
         };
       }
 

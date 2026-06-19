@@ -10,8 +10,12 @@ const T = EnhancedSecureWebRTCManager.MESSAGE_TYPES;
 
 // ── _sanitizeMessageMeta: whitelist + bounds ────────────────────────────────
 {
-    const ok = P._sanitizeMessageMeta.call({}, { mid: 'm_1-a', once: true, ttl: 300, code: true });
-    assert.deepEqual(ok, { mid: 'm_1-a', code: true, once: true, ttl: 300 });
+    const ok = P._sanitizeMessageMeta.call({}, { mid: 'm_1-a', once: true, onceTtl: 15, ttl: 300, code: true });
+    assert.deepEqual(ok, { mid: 'm_1-a', code: true, once: true, onceTtl: 15, ttl: 300 });
+
+    // onceTtl is clamped to [1, 3600]; out-of-range is dropped.
+    assert.equal(P._sanitizeMessageMeta.call({}, { once: true, onceTtl: 99999 }).onceTtl, undefined);
+    assert.equal(P._sanitizeMessageMeta.call({}, { once: true, onceTtl: 30 }).onceTtl, 30);
 
     // Junk and out-of-range values are stripped; with no valid keys -> null.
     assert.equal(P._sanitizeMessageMeta.call({}, { foo: 1 }), null);
@@ -56,6 +60,29 @@ const T = EnhancedSecureWebRTCManager.MESSAGE_TYPES;
         JSON.stringify({ type: T.MESSAGE_DELETE, data: { messageId: 'm_42' } })
     );
     assert.deepEqual(deleted, ['m_42']);
+}
+
+// ── live enhanced-message path delivers metadata to the UI ───────────────────
+// This is the path real chat uses (dataChannel.onmessage -> _processEnhancedMessageWithoutMutex).
+{
+    const envelope = JSON.stringify({ type: 'message', data: 'hi there', meta: { mid: 'm7', once: true, ttl: 30 } });
+    globalThis.window.EnhancedSecureCryptoUtils = {
+        decryptMessage: async () => ({ message: envelope })
+    };
+    const calls = [];
+    const manager = {
+        encryptionKey: {}, macKey: {}, metadataKey: {},
+        _secureLog() {},
+        _checkInboundRateLimit: () => true,
+        _sanitizeIncomingChatMessage: (m) => m,
+        _sanitizeMessageMeta: P._sanitizeMessageMeta,
+        onMessage: (message, type, meta) => calls.push({ message, type, meta }),
+        deliverMessageToUI: P.deliverMessageToUI
+    };
+    await P._processEnhancedMessageWithoutMutex.call(manager, { type: 'enhanced_message', data: 'enc' });
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].message, 'hi there');
+    assert.deepEqual(calls[0].meta, { mid: 'm7', once: true, ttl: 30 });
 }
 
 // ── sendMessageDelete emits a well-formed control message ────────────────────
