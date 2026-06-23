@@ -1,5 +1,5 @@
 // File Transfer Component for Chat Interface - Fixed Version
-const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFiles = [], onIncomingDecision }) => {
+const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFiles = [], onIncomingDecision, showDropzone = true }) => {
     const [dragOver, setDragOver] = React.useState(false);
     const [transfers, setTransfers] = React.useState({ sending: [], receiving: [] });
     const fileInputRef = React.useRef(null);
@@ -135,6 +135,51 @@ const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFile
         }
     };
 
+    // Segmented (per-chunk) progress — squares fill as chunks transfer, like a
+    // download manager. For large files chunks are grouped into a fixed grid;
+    // for small files it's literally one square per chunk.
+    const renderProgress = (transfer, color) => {
+        const total = transfer.totalChunks || 0;
+        const done = transfer.transferredChunks || 0;
+        const isDone = transfer.status === 'completed';
+        const squares = total > 0 ? Math.min(total, 32) : 24;
+        let filled;
+        if (isDone) filled = squares;
+        else if (total > 0) filled = Math.floor((done / total) * squares);
+        else filled = Math.floor(((transfer.progress || 0) / 100) * squares);
+        filled = Math.max(0, Math.min(squares, filled));
+
+        return React.createElement('div', { key: 'progress' }, [
+            React.createElement('div', {
+                key: 'squares',
+                style: { display: 'flex', flexWrap: 'wrap', gap: '3px', marginBottom: '7px' }
+            }, Array.from({ length: squares }, (_, i) => React.createElement('div', {
+                key: i,
+                style: {
+                    width: '11px', height: '11px', borderRadius: '2px',
+                    background: i < filled ? color : 'rgba(255,255,255,0.07)',
+                    border: '1px solid ' + (i < filled ? 'transparent' : 'rgba(255,255,255,0.05)'),
+                    boxShadow: i < filled ? `0 0 5px ${color}55` : 'none',
+                    transition: 'background .2s ease, box-shadow .2s ease'
+                }
+            }))),
+            React.createElement('div', {
+                key: 'text',
+                style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11.5px', color: '#8a8a92' }
+            }, [
+                React.createElement('span', { key: 'status', style: { display: 'inline-flex', alignItems: 'center', gap: '5px' } }, [
+                    React.createElement('i', { key: 'icon', className: getStatusIcon(transfer.status) }),
+                    getStatusText(transfer.status)
+                ]),
+                React.createElement('span', {
+                    key: 'count',
+                    style: { fontFamily: "'JetBrains Mono', ui-monospace, monospace", color: i_done(transfer) ? color : '#8a8a92' }
+                }, total > 0 ? `${Math.min(done, total)} / ${total} chunks` : `${(transfer.progress || 0).toFixed(0)}%`)
+            ])
+        ]);
+    };
+    const i_done = (t) => t.status === 'completed';
+
     const handleIncomingDecision = async (fileId, accepted) => {
         if (typeof onIncomingDecision === 'function') {
             await onIncomingDecision(fileId, accepted);
@@ -166,36 +211,43 @@ const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFile
     return React.createElement('div', {
         className: "file-transfer-component"
     }, [
-        // File Drop Zone
-        React.createElement('div', {
+        // File Drop Zone (SecureBit Chat design) — only when the panel is opened to SEND,
+        // so a receiver never sees the "send attachments" UI.
+        showDropzone && React.createElement('div', {
             key: 'drop-zone',
-            className: `file-drop-zone ${dragOver ? 'drag-over' : ''}`,
             onDrop: handleDrop,
             onDragOver: handleDragOver,
             onDragLeave: handleDragLeave,
-            onClick: () => fileInputRef.current?.click()
+            style: {
+                position: 'relative',
+                border: '1.5px dashed ' + (dragOver ? 'rgba(240,137,42,0.7)' : 'rgba(255,255,255,0.14)'),
+                borderRadius: '14px',
+                background: dragOver ? 'rgba(240,137,42,0.07)' : '#141416',
+                padding: '24px 22px',
+                textAlign: 'center',
+                transition: 'all .15s'
+            }
         }, [
             React.createElement('div', {
-                key: 'drop-content',
-                className: "drop-content"
+                key: 'icon-box',
+                style: { width: '42px', height: '42px', margin: '0 auto 10px', borderRadius: '12px', display: 'grid', placeItems: 'center', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }
+            }, React.createElement('i', { className: 'fas fa-arrow-up-from-bracket', style: { color: '#9a9aa2', fontSize: '18px' } })),
+            React.createElement('div', { key: 'title', style: { fontSize: '14px', fontWeight: 700, color: '#e8e8eb' } }, 'Drag & drop files here'),
+            React.createElement('div', { key: 'sub', style: { fontSize: '12px', color: '#7b7b83', marginTop: '4px' } }, 'Encrypted end-to-end before transfer · up to 100 MB'),
+            React.createElement('button', {
+                key: 'browse',
+                type: 'button',
+                onClick: () => fileInputRef.current?.click(),
+                className: 'sb-send',
+                style: { marginTop: '14px', display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '9px 16px', borderRadius: '9px', border: 'none', background: '#f0892a', color: '#1a0f04', fontFamily: 'inherit', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }
             }, [
-                React.createElement('i', {
-                    key: 'icon',
-                    className: 'fas fa-cloud-upload-alt text-2xl mb-2 text-blue-400'
-                }),
-                React.createElement('p', {
-                    key: 'text',
-                    className: "text-primary font-medium"
-                }, 'Drag files here or click to select'),
-                React.createElement('p', {
-                    key: 'subtext',
-                    className: "text-muted text-sm"
-                }, 'Maximum size: 100 MB per file')
+                React.createElement('i', { key: 'i', className: 'fas fa-folder-open', style: { fontSize: '13px' } }),
+                'Browse device'
             ])
         ]),
 
         // Hidden file input
-        React.createElement('input', {
+        showDropzone && React.createElement('input', {
             key: 'file-input',
             ref: fileInputRef,
             type: 'file',
@@ -209,37 +261,40 @@ const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFile
             className: "mt-4 space-y-2"
         }, pendingIncomingFiles.map(file => React.createElement('div', {
             key: file.fileId,
-            className: "rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3"
+            style: { borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', background: '#161618', padding: '12px 14px' }
         }, [
             React.createElement('div', {
                 key: 'info',
-                className: "mb-3 flex items-center justify-between gap-3"
+                style: { marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '11px' }
             }, [
-                React.createElement('div', { key: 'text' }, [
+                React.createElement('div', { key: 'ic', style: { flex: 'none', width: '34px', height: '34px', borderRadius: '9px', display: 'grid', placeItems: 'center', background: 'rgba(240,137,42,0.12)', border: '1px solid rgba(240,137,42,0.22)' } },
+                    React.createElement('i', { className: 'fas fa-file-arrow-down', style: { color: '#f0892a', fontSize: '15px' } })
+                ),
+                React.createElement('div', { key: 'text', style: { minWidth: 0 } }, [
                     React.createElement('div', {
                         key: 'title',
-                        className: "text-sm font-medium text-primary"
+                        style: { fontSize: '13px', fontWeight: 600, color: '#e8e8eb' }
                     }, 'Incoming file request'),
                     React.createElement('div', {
                         key: 'meta',
-                        className: "text-xs text-secondary"
+                        style: { fontSize: '11.5px', color: '#7b7b83', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
                     }, `${file.fileName} · ${formatFileSize(file.fileSize)} · ${file.mimeType}`)
                 ])
             ]),
             React.createElement('div', {
                 key: 'actions',
-                className: "flex gap-2"
+                style: { display: 'flex', gap: '8px' }
             }, [
                 React.createElement('button', {
                     key: 'accept',
                     onClick: () => handleIncomingDecision(file.fileId, true),
-                    className: "rounded-md bg-green-500/20 px-3 py-2 text-sm text-green-300 hover:bg-green-500/30"
-                }, 'Accept'),
+                    style: { display: 'inline-flex', alignItems: 'center', gap: '6px', borderRadius: '8px', border: 'none', background: '#f0892a', color: '#1a0f04', padding: '8px 14px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }
+                }, [React.createElement('i', { key: 'i', className: 'fas fa-check', style: { fontSize: '12px' } }), 'Accept']),
                 React.createElement('button', {
                     key: 'reject',
                     onClick: () => handleIncomingDecision(file.fileId, false),
-                    className: "rounded-md bg-red-500/20 px-3 py-2 text-sm text-red-300 hover:bg-red-500/30"
-                }, 'Reject')
+                    style: { display: 'inline-flex', alignItems: 'center', gap: '6px', borderRadius: '8px', border: '1px solid rgba(229,114,122,0.3)', background: 'rgba(229,114,122,0.08)', color: '#e5727a', padding: '8px 14px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }
+                }, [React.createElement('i', { key: 'i', className: 'fas fa-xmark', style: { fontSize: '12px' } }), 'Reject'])
             ])
         ]))),
 
@@ -250,20 +305,21 @@ const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFile
         }, [
             React.createElement('h4', {
                 key: 'title',
-                className: "text-primary font-medium mb-3 flex items-center"
+                style: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', fontWeight: 600, color: '#8a8a92', marginBottom: '10px' }
             }, [
                 React.createElement('i', {
                     key: 'icon',
-                    className: 'fas fa-exchange-alt mr-2'
+                    className: 'fas fa-right-left',
+                    style: { fontSize: '12px' }
                 }),
-                'Передача файлов'
+                'File transfers'
             ]),
 
             // Sending files
-            ...transfers.sending.map(transfer => 
+            ...transfers.sending.map(transfer =>
                 React.createElement('div', {
                     key: `send-${transfer.fileId}`,
-                    className: "transfer-item bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 mb-2"
+                    style: { borderRadius: '11px', border: '1px solid rgba(255,255,255,0.07)', background: '#161618', padding: '12px', marginBottom: '8px' }
                 }, [
                     React.createElement('div', {
                         key: 'header',
@@ -275,15 +331,18 @@ const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFile
                         }, [
                             React.createElement('i', {
                                 key: 'icon',
-                                className: 'fas fa-upload text-blue-400 mr-2'
+                                className: 'fas fa-arrow-up',
+                                style: { color: '#f0892a', fontSize: '13px', marginRight: '8px' }
                             }),
                             React.createElement('span', {
                                 key: 'name',
-                                className: "text-primary font-medium text-sm"
+                                className: "font-medium text-sm",
+                                style: { color: '#e8e8eb' }
                             }, transfer.fileName),
                             React.createElement('span', {
                                 key: 'size',
-                                className: "text-muted text-xs ml-2"
+                                className: "text-xs ml-2",
+                                style: { color: '#7b7b83' }
                             }, formatFileSize(transfer.fileSize))
                         ]),
                         React.createElement('button', {
@@ -296,34 +355,7 @@ const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFile
                             })
                         ])
                     ]),
-                    React.createElement('div', {
-                        key: 'progress',
-                        className: "progress-bar"
-                    }, [
-                        React.createElement('div', {
-                            key: 'fill',
-                            className: "progress-fill bg-blue-400",
-                            style: { width: `${transfer.progress}%` }
-                        }),
-                        React.createElement('div', {
-                            key: 'text',
-                            className: "progress-text text-xs flex items-center justify-between"
-                        }, [
-                            React.createElement('span', {
-                                key: 'status',
-                                className: "flex items-center"
-                            }, [
-                                React.createElement('i', {
-                                    key: 'icon',
-                                    className: `${getStatusIcon(transfer.status)} mr-1`
-                                }),
-                                getStatusText(transfer.status)
-                            ]),
-                            React.createElement('span', {
-                                key: 'percent'
-                            }, `${transfer.progress.toFixed(1)}%`)
-                        ])
-                    ])
+                    renderProgress(transfer, '#f0892a')
                 ])
             ),
 
@@ -331,7 +363,7 @@ const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFile
             ...transfers.receiving.map(transfer => 
                 React.createElement('div', {
                     key: `recv-${transfer.fileId}`,
-                    className: "transfer-item bg-green-500/10 border border-green-500/20 rounded-lg p-3 mb-2"
+                    style: { borderRadius: '11px', border: '1px solid rgba(255,255,255,0.07)', background: '#161618', padding: '12px', marginBottom: '8px' }
                 }, [
                     React.createElement('div', {
                         key: 'header',
@@ -343,15 +375,18 @@ const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFile
                         }, [
                             React.createElement('i', {
                                 key: 'icon',
-                                className: 'fas fa-download text-green-400 mr-2'
+                                className: 'fas fa-arrow-down',
+                                style: { color: '#3ecf8e', fontSize: '13px', marginRight: '8px' }
                             }),
                             React.createElement('span', {
                                 key: 'name',
-                                className: "text-primary font-medium text-sm"
+                                className: "font-medium text-sm",
+                                style: { color: '#e8e8eb' }
                             }, transfer.fileName),
                             React.createElement('span', {
                                 key: 'size',
-                                className: "text-muted text-xs ml-2"
+                                className: "text-xs ml-2",
+                                style: { color: '#7b7b83' }
                             }, formatFileSize(transfer.fileSize))
                         ]),
                         React.createElement('div', { key: 'actions', className: 'flex items-center space-x-2' }, [
@@ -386,34 +421,7 @@ const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFile
                             ])
                         ])
                     ]),
-                    React.createElement('div', {
-                        key: 'progress',
-                        className: "progress-bar"
-                    }, [
-                        React.createElement('div', {
-                            key: 'fill',
-                            className: "progress-fill bg-green-400",
-                            style: { width: `${transfer.progress}%` }
-                        }),
-                        React.createElement('div', {
-                            key: 'text',
-                            className: "progress-text text-xs flex items-center justify-between"
-                        }, [
-                            React.createElement('span', {
-                                key: 'status',
-                                className: "flex items-center"
-                            }, [
-                                React.createElement('i', {
-                                    key: 'icon',
-                                    className: `${getStatusIcon(transfer.status)} mr-1`
-                                }),
-                                getStatusText(transfer.status)
-                            ]),
-                            React.createElement('span', {
-                                key: 'percent'
-                            }, `${transfer.progress.toFixed(1)}%`)
-                        ])
-                    ])
+                    renderProgress(transfer, '#3ecf8e')
                 ])
             )
         ])

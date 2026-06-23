@@ -4496,9 +4496,9 @@ var EnhancedSecureFileTransfer = class {
     this.transferQueue = [];
     this.pendingChunks = /* @__PURE__ */ new Map();
     this.incomingOfferLimiter = new RateLimiter(5, 6e4);
-    this.incomingChunkLimiter = new RateLimiter(240, 6e4);
+    this.incomingChunkLimiter = new RateLimiter(6e4, 6e4);
     this.incomingTransferChunkLimiters = /* @__PURE__ */ new Map();
-    this.MAX_INCOMING_CHUNKS_PER_TRANSFER_PER_MINUTE = 120;
+    this.MAX_INCOMING_CHUNKS_PER_TRANSFER_PER_MINUTE = 3e4;
     this.MAX_PENDING_INCOMING_TRANSFERS = 3;
     this.sessionKeys = /* @__PURE__ */ new Map();
     this.processedChunks = /* @__PURE__ */ new Set();
@@ -4739,6 +4739,7 @@ var EnhancedSecureFileTransfer = class {
       "file_transfer_response",
       "file_chunk",
       "chunk_confirmation",
+      "file_chunk_request",
       "file_transfer_complete",
       "file_transfer_error"
     ];
@@ -4788,6 +4789,9 @@ var EnhancedSecureFileTransfer = class {
           break;
         case "chunk_confirmation":
           this.handleChunkConfirmation(message);
+          break;
+        case "file_chunk_request":
+          await this.handleChunkRequest(message);
           break;
         case "file_transfer_complete":
           this.handleTransferComplete(message);
@@ -5011,20 +5015,52 @@ var EnhancedSecureFileTransfer = class {
         await this.waitForBackpressure();
       }
       transferState.status = "waiting_confirmation";
-      setTimeout(() => {
-        if (this.activeTransfers.has(transferState.fileId)) {
-          const state = this.activeTransfers.get(transferState.fileId);
-          if (state.status === "waiting_confirmation") {
-            this.cleanupTransfer(transferState.fileId);
-          }
-        }
-      }, 3e4);
+      this._armSenderIdleTimeout(transferState);
     } catch (error) {
       const safeError = SecurityErrorHandler.sanitizeError(error);
       console.error("\u274C Chunk transmission failed:", safeError);
       transferState.status = "failed";
       throw new Error(safeError);
     }
+  }
+  // Resets a long idle timer; the sender stays available to retransmit missing
+  // chunks until the receiver finishes or this fires after sustained silence.
+  _armSenderIdleTimeout(transferState) {
+    const IDLE_MS = 18e4;
+    if (transferState._idleTimeout) clearTimeout(transferState._idleTimeout);
+    transferState._idleTimeout = setTimeout(() => {
+      const state = this.activeTransfers.get(transferState.fileId);
+      if (state && state.status !== "completed") {
+        this.cleanupTransfer(transferState.fileId);
+      }
+    }, IDLE_MS);
+  }
+  // Receiver asked us to re-send specific chunk indices (loss recovery / resume).
+  async handleChunkRequest(message) {
+    const transferState = this.activeTransfers.get(message?.fileId);
+    if (!transferState || !transferState.file) return;
+    const missing = Array.isArray(message.missing) ? message.missing : [];
+    if (missing.length === 0) return;
+    this._armSenderIdleTimeout(transferState);
+    transferState.status = "transmitting";
+    const MAX_PER_REQUEST = 512;
+    const indices = missing.slice(0, MAX_PER_REQUEST);
+    for (const idx of indices) {
+      if (!Number.isInteger(idx) || idx < 0 || idx >= transferState.totalChunks) continue;
+      try {
+        const start2 = idx * this.CHUNK_SIZE;
+        const end = Math.min(start2 + this.CHUNK_SIZE, transferState.file.size);
+        const chunkData = await this.readFileChunk(transferState.file, start2, end);
+        await this.sendFileChunk(transferState, idx, chunkData);
+        await this.waitForBackpressure();
+      } catch (error) {
+        console.warn("\u26A0\uFE0F Failed to retransmit chunk", idx, SecurityErrorHandler.sanitizeError(error));
+      }
+    }
+    if (transferState.status === "transmitting") {
+      transferState.status = "waiting_confirmation";
+    }
+    this._armSenderIdleTimeout(transferState);
   }
   async readFileChunk(file, start2, end) {
     try {
@@ -5207,6 +5243,9 @@ var EnhancedSecureFileTransfer = class {
           if (!receivingState) {
             return;
           }
+          if (receivingState._assembled || receivingState.status === "completed") {
+            return;
+          }
           if (!this._isIncomingChunkAllowed(chunkMessage.fileId)) {
             console.warn("\u26A0\uFE0F Incoming file chunk rate limit exceeded; cleaning up transfer:", chunkMessage.fileId);
             this.cleanupReceivingTransfer(chunkMessage.fileId);
@@ -5253,22 +5292,7 @@ var EnhancedSecureFileTransfer = class {
           }
         } catch (error) {
           const safeError = SecurityErrorHandler.sanitizeError(error);
-          console.error("\u274C Failed to handle file chunk:", safeError);
-          const errorMessage = {
-            type: "file_transfer_error",
-            fileId: chunkMessage.fileId,
-            error: safeError,
-            chunkIndex: chunkMessage.chunkIndex,
-            timestamp: Date.now()
-          };
-          await this.sendSecureMessage(errorMessage);
-          const receivingState = this.receivingTransfers.get(chunkMessage.fileId);
-          if (receivingState) {
-            receivingState.status = "failed";
-          }
-          if (this.onError) {
-            this.onError(`Chunk processing failed: ${safeError}`);
-          }
+          console.warn("\u26A0\uFE0F Dropping unprocessable file chunk (will be re-requested):", chunkMessage.chunkIndex, safeError);
         }
       }
     );
@@ -5377,11 +5401,12 @@ var EnhancedSecureFileTransfer = class {
         timestamp: Date.now()
       };
       await this.sendSecureMessage(completionMessage);
-      if (this.receivingTransfers.has(receivingState.fileId)) {
-        const rs = this.receivingTransfers.get(receivingState.fileId);
-        if (rs && rs.receivedChunks) rs.receivedChunks.clear();
+      if (receivingState._stallTimer) {
+        clearInterval(receivingState._stallTimer);
+        receivingState._stallTimer = null;
       }
-      this.receivingTransfers.delete(receivingState.fileId);
+      if (receivingState.receivedChunks) receivingState.receivedChunks.clear();
+      receivingState.sessionKey = null;
     } catch (error) {
       console.error("\u274C File assembly failed:", error);
       receivingState.status = "failed";
@@ -5446,6 +5471,9 @@ var EnhancedSecureFileTransfer = class {
       }
       transferState.confirmedChunks++;
       transferState.lastChunkTime = Date.now();
+      if (transferState.status === "waiting_confirmation") {
+        this._armSenderIdleTimeout(transferState);
+      }
     } catch (error) {
       console.error("\u274C Failed to handle chunk confirmation:", error);
     }
@@ -5507,6 +5535,9 @@ var EnhancedSecureFileTransfer = class {
       fileName: transfer.file?.name || "Unknown",
       fileSize: transfer.file?.size || 0,
       progress: Math.round(transfer.sentChunks / transfer.totalChunks * 100),
+      // Per-chunk detail for the segmented progress UI.
+      totalChunks: transfer.totalChunks || 0,
+      transferredChunks: transfer.sentChunks || 0,
       status: transfer.status,
       startTime: transfer.startTime
     }));
@@ -5517,6 +5548,9 @@ var EnhancedSecureFileTransfer = class {
       fileName: transfer.fileName || "Unknown",
       fileSize: transfer.fileSize || 0,
       progress: Math.round(transfer.receivedCount / transfer.totalChunks * 100),
+      // Per-chunk detail for the segmented progress UI.
+      totalChunks: transfer.totalChunks || 0,
+      transferredChunks: transfer.receivedCount || 0,
       status: transfer.status,
       startTime: transfer.startTime
     }));
@@ -5552,7 +5586,68 @@ var EnhancedSecureFileTransfer = class {
     });
     this.pendingIncomingTransfers.delete(fileId);
     await this.sendSecureMessage({ type: "file_transfer_response", fileId, accepted: true, timestamp: Date.now() });
+    this._startReceiverStallDetector(fileId);
     return true;
+  }
+  // Periodically detects a stalled receive (lost chunks, connection blip,
+  // reconnect) and asks the sender to retransmit only the chunks we are still
+  // missing — so a dropped connection never loses the file.
+  _startReceiverStallDetector(fileId) {
+    const TICK_MS = 2500;
+    const STALL_MS = 5e3;
+    const MAX_IDLE_MS = 18e4;
+    const rs = this.receivingTransfers.get(fileId);
+    if (!rs) return;
+    if (rs._stallTimer) clearInterval(rs._stallTimer);
+    rs._lastProgressCount = rs.receivedCount || 0;
+    rs._lastProgressTime = Date.now();
+    rs._stallTimer = setInterval(async () => {
+      const state = this.receivingTransfers.get(fileId);
+      if (!state || state._stallTimer !== rs._stallTimer) {
+        clearInterval(rs._stallTimer);
+        return;
+      }
+      if (state.status === "completed" || state._assembled) {
+        clearInterval(state._stallTimer);
+        state._stallTimer = null;
+        return;
+      }
+      if (state.receivedCount !== state._lastProgressCount) {
+        state._lastProgressCount = state.receivedCount;
+        state._lastProgressTime = Date.now();
+      }
+      if (state.receivedCount >= state.totalChunks) return;
+      if (Date.now() - (state.lastChunkTime || 0) < STALL_MS) return;
+      if (Date.now() - state._lastProgressTime > MAX_IDLE_MS) {
+        clearInterval(state._stallTimer);
+        state._stallTimer = null;
+        state.status = "failed";
+        if (this.onError) this.onError("File transfer stalled \u2014 no data received. Please try again.");
+        this.cleanupReceivingTransfer(fileId);
+        return;
+      }
+      await this._requestMissingChunks(fileId);
+    }, TICK_MS);
+  }
+  async _requestMissingChunks(fileId) {
+    const state = this.receivingTransfers.get(fileId);
+    if (!state || !state.receivedChunks) return;
+    const MAX_PER_REQUEST = 256;
+    const missing = [];
+    for (let i = 0; i < state.totalChunks && missing.length < MAX_PER_REQUEST; i++) {
+      if (!state.receivedChunks.has(i)) missing.push(i);
+    }
+    if (missing.length === 0) return;
+    state.status = "receiving";
+    try {
+      await this.sendSecureMessage({
+        type: "file_chunk_request",
+        fileId,
+        missing,
+        timestamp: Date.now()
+      });
+    } catch (_) {
+    }
   }
   async rejectIncomingFile(fileId, error = "Rejected by user") {
     if (!this.pendingIncomingTransfers.has(fileId)) return false;
@@ -5579,6 +5674,10 @@ var EnhancedSecureFileTransfer = class {
   cleanupTransfer(fileId) {
     const transferState = this.activeTransfers.get(fileId);
     if (transferState) {
+      if (transferState._idleTimeout) {
+        clearTimeout(transferState._idleTimeout);
+        transferState._idleTimeout = null;
+      }
       if (transferState.consentTimeout) {
         clearTimeout(transferState.consentTimeout);
         transferState.consentTimeout = null;
@@ -5617,6 +5716,14 @@ var EnhancedSecureFileTransfer = class {
     } catch (_) {
     }
     this.receivedFileBuffers.delete(fileId);
+    const rs = this.receivingTransfers.get(fileId);
+    if (rs && (rs.status === "completed" || rs._assembled)) {
+      if (rs._stallTimer) {
+        clearInterval(rs._stallTimer);
+        rs._stallTimer = null;
+      }
+      this.receivingTransfers.delete(fileId);
+    }
   }
   // ✅ УЛУЧШЕННАЯ безопасная очистка памяти для предотвращения use-after-free
   cleanupReceivingTransfer(fileId) {
@@ -5624,6 +5731,10 @@ var EnhancedSecureFileTransfer = class {
       this.pendingChunks.delete(fileId);
       const receivingState = this.receivingTransfers.get(fileId);
       if (receivingState) {
+        if (receivingState._stallTimer) {
+          clearInterval(receivingState._stallTimer);
+          receivingState._stallTimer = null;
+        }
         if (receivingState.receivedChunks && receivingState.receivedChunks.size > 0) {
           for (const [index, chunk] of receivingState.receivedChunks) {
             try {
@@ -6065,6 +6176,8 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     ENHANCED_MESSAGE: "enhanced_message",
     // Per-message control (unsend / disappearing sync)
     MESSAGE_DELETE: "message_delete",
+    // Delivery receipt: recipient acks a chat message by id (WhatsApp ✓✓).
+    MESSAGE_RECEIPT: "message_receipt",
     // System messages
     HEARTBEAT: "heartbeat",
     VERIFICATION: "verification",
@@ -8534,9 +8647,14 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   async _performPeriodicMemoryCleanup() {
     try {
       this._secureMemoryManager.isCleaning = true;
-      const shouldPreserveActiveKeys = this.sessionMode === "ratchet" && this.isConnected && this.dataChannel && this.dataChannel.readyState === "open";
+      const preserveActiveRatchet = this.sessionMode === "ratchet" && this.isConnected && this.dataChannel && this.dataChannel.readyState === "open";
+      const pendingOfferAgeMs = this._pendingOfferContext ? Date.now() - (this._pendingOfferContext.createdAt || 0) : Infinity;
+      const hasPendingOffer = !!this._pendingOfferContext && Array.isArray(this._pendingOfferContext.sessionSalt) && this._pendingOfferContext.sessionSalt.length === 64 && pendingOfferAgeMs < _EnhancedSecureWebRTCManager.LIMITS.OFFER_MAX_AGE;
+      const shouldPreserveActiveKeys = preserveActiveRatchet || hasPendingOffer;
       if (shouldPreserveActiveKeys) {
-        this._secureLog("debug", "\u{1F9F9} Skipping crypto key wipe during periodic cleanup (ratchet mode, active connection)");
+        this._secureLog("debug", "\u{1F9F9} Skipping crypto key wipe during periodic cleanup", {
+          reason: preserveActiveRatchet ? "active ratchet connection" : "offer awaiting answer"
+        });
       } else {
         this._secureCleanupCryptographicMaterials();
       }
@@ -11111,6 +11229,20 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       messageId: messageId.slice(0, 64)
     });
   }
+  /**
+   * Delivery receipt: tell the sender we received a chat message (by id), so
+   * their bubble can flip from "sent" (✓) to "delivered" (✓✓). Best-effort,
+   * over the same authenticated control channel as unsend.
+   * @param {string} messageId
+   * @returns {boolean}
+   */
+  sendDeliveryReceipt(messageId) {
+    if (typeof messageId !== "string" || !messageId) return false;
+    return this.sendSystemMessage({
+      type: _EnhancedSecureWebRTCManager.MESSAGE_TYPES.MESSAGE_RECEIPT,
+      messageId: messageId.slice(0, 64)
+    });
+  }
   async sendMessage(data, meta = null) {
     const validation = this._validateInputData(data, "sendMessage");
     if (!validation.isValid) {
@@ -11332,6 +11464,16 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
             if (typeof messageId === "string" && messageId) {
               try {
                 this.onMessageDelete?.(messageId.slice(0, 64));
+              } catch (_) {
+              }
+            }
+            return;
+          }
+          if (parsed.type === _EnhancedSecureWebRTCManager.MESSAGE_TYPES.MESSAGE_RECEIPT) {
+            const messageId = parsed?.data?.messageId ?? parsed?.messageId;
+            if (typeof messageId === "string" && messageId) {
+              try {
+                this.onMessageDelivered?.(messageId.slice(0, 64));
               } catch (_) {
               }
             }
@@ -12157,6 +12299,16 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
               if (typeof messageId === "string" && messageId) {
                 try {
                   this.onMessageDelete?.(messageId.slice(0, 64));
+                } catch (_) {
+                }
+              }
+              return;
+            }
+            if (parsed.type === _EnhancedSecureWebRTCManager.MESSAGE_TYPES.MESSAGE_RECEIPT) {
+              const messageId = parsed?.data?.messageId ?? parsed?.messageId;
+              if (typeof messageId === "string" && messageId) {
+                try {
+                  this.onMessageDelivered?.(messageId.slice(0, 64));
                 } catch (_) {
                 }
               }
@@ -17467,156 +17619,87 @@ Right-click or Ctrl+click to disconnect`,
       delete window.debugHeaderSecurity;
     };
   }, [realSecurityLevel, lastSecurityUpdate, isConnected, webrtcManager, displaySecurityLevel, securityDetails]);
+  const secColor = displaySecurityLevel ? displaySecurityLevel.color === "green" ? "#3ecf8e" : displaySecurityLevel.color === "orange" ? "#f0892a" : displaySecurityLevel.color === "yellow" ? "#e3c84e" : "#e5727a" : "#3ecf8e";
+  const dotColor = isConnected ? "#3ecf8e" : ["connecting", "verifying", "retrying", "reconnecting"].includes(status) ? "#e3c84e" : status === "failed" ? "#e5727a" : "#6b6b73";
+  const dotGlow = dotColor === "#3ecf8e" ? "rgba(62,207,142,0.16)" : dotColor === "#e3c84e" ? "rgba(227,200,78,0.16)" : dotColor === "#e5727a" ? "rgba(229,114,122,0.16)" : "rgba(107,107,115,0.16)";
+  const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+  const onLanding = !isConnected;
+  const [scrolled, setScrolled] = React.useState(false);
+  React.useEffect(() => {
+    const onScroll = () => setScrolled((window.scrollY || window.pageYOffset || 0) > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  const overlay = { position: "fixed", top: 0, left: 0, right: 0 };
+  const headerStyle = onLanding ? scrolled ? { ...overlay, background: "rgba(15,15,17,0.72)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", borderBottom: "1px solid rgba(255,255,255,0.06)", transition: "background .25s ease, backdrop-filter .25s ease, border-color .25s ease" } : { ...overlay, background: "transparent", backdropFilter: "none", WebkitBackdropFilter: "none", borderBottom: "1px solid transparent", transition: "background .25s ease, backdrop-filter .25s ease, border-color .25s ease" } : { background: "rgba(18,18,20,0.72)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", borderBottom: "1px solid rgba(255,255,255,0.06)" };
   return React.createElement("header", {
-    className: "header-minimal sticky top-0 z-50"
+    className: onLanding ? "header-minimal z-50" : "header-minimal sticky top-0 z-50",
+    style: headerStyle
   }, [
     React.createElement("div", {
       key: "container",
-      className: "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+      className: "max-w-7xl mx-auto",
+      style: { padding: "0 20px" }
     }, [
       React.createElement("div", {
         key: "content",
-        className: "flex items-center justify-between h-16"
+        className: "flex items-center justify-between",
+        style: { height: "64px", gap: "16px" }
       }, [
-        // Logo and Title
-        React.createElement("div", {
-          key: "logo-section",
-          className: "flex items-center space-x-2 sm:space-x-3"
-        }, [
-          React.createElement("div", {
-            key: "logo",
-            className: "icon-container w-8 h-8 sm:w-10 sm:h-10"
-          }, [
-            React.createElement("i", {
-              className: "fas fa-shield-halved accent-orange text-sm sm:text-base"
-            })
-          ]),
-          React.createElement("div", {
-            key: "title-section"
-          }, [
-            React.createElement("h1", {
-              key: "title",
-              className: "text-lg sm:text-xl font-semibold text-primary"
-            }, "SecureBit.chat"),
-            React.createElement("p", {
-              key: "subtitle",
-              className: "text-xs sm:text-sm text-muted hidden sm:block"
-            }, "End-to-end freedom v4.8.20")
+        // Left: logo + wordmark
+        React.createElement("div", { key: "left", style: { display: "flex", alignItems: "center", gap: "12px", minWidth: 0 } }, [
+          React.createElement(
+            "div",
+            { key: "logo", style: { width: "36px", height: "36px", flex: "none", display: "grid", placeItems: "center" } },
+            React.createElement("img", { src: "/logo/securebit-mark.svg", alt: "SecureBit", style: { width: "100%", height: "100%", objectFit: "contain", display: "block" } })
+          ),
+          React.createElement("div", { key: "txt", style: { lineHeight: 1.2, minWidth: 0 } }, [
+            React.createElement("div", { key: "r1", style: { display: "flex", alignItems: "baseline", gap: "7px" } }, [
+              React.createElement("span", { key: "n", style: { fontSize: "16px", fontWeight: 800, letterSpacing: "-0.3px", color: "#e8e8eb" } }, "SecureBit"),
+              React.createElement("span", { key: "v", style: { fontFamily: MONO, fontSize: "10px", fontWeight: 500, color: "#56565e" } }, "v4.9.0")
+            ]),
+            React.createElement("div", { key: "r2", className: "hidden sm:block", style: { fontSize: "11px", color: "#6b6b73", fontWeight: 500 } }, "End-to-end encrypted")
           ])
         ]),
-        // Status and Controls - Responsive
-        React.createElement("div", {
-          key: "status-section",
-          className: "flex items-center space-x-2 sm:space-x-3"
-        }, [
-          React.createElement("button", {
-            key: "network-settings",
+        // Right: controls
+        React.createElement("div", { key: "right", style: { display: "flex", alignItems: "center", gap: "9px" } }, [
+          !onLanding && React.createElement("button", {
+            key: "net",
             type: "button",
             onClick: () => window.dispatchEvent(new CustomEvent("securebit:open-network-settings")),
             title: "Advanced network settings (STUN/TURN)",
             "aria-label": "Advanced network settings",
-            className: "w-8 h-8 rounded-full flex items-center justify-center text-muted hover:text-primary hover:bg-white/5 transition-colors duration-200"
-          }, [
-            React.createElement("i", { key: "i", className: "fas fa-network-wired text-sm" })
-          ]),
-          displaySecurityLevel && React.createElement("div", {
-            key: "security-level",
-            className: "hidden md:flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity duration-200",
+            className: "sb-disconnect",
+            style: { display: "grid", placeItems: "center", width: "38px", height: "38px", borderRadius: "9px", border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)", color: "#9a9aa2", cursor: "pointer", transition: "all .15s" }
+          }, React.createElement("i", { className: "fas fa-network-wired", style: { fontSize: "13px" } })),
+          !onLanding && displaySecurityLevel && React.createElement("div", {
+            key: "sec",
             onClick: handleSecurityClick,
             onContextMenu: (e) => {
               e.preventDefault();
-              if (onDisconnect && typeof onDisconnect === "function") {
-                onDisconnect();
-              }
+              if (typeof onDisconnect === "function") onDisconnect();
             },
-            title: securityDetails.tooltip
+            title: securityDetails.tooltip,
+            className: "sb-secpill",
+            style: { display: "flex", alignItems: "center", gap: "8px", padding: "7px 12px", borderRadius: "9px", border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)", cursor: "pointer" }
           }, [
-            React.createElement("div", {
-              key: "security-icon",
-              className: `w-6 h-6 rounded-full flex items-center justify-center relative ${displaySecurityLevel.color === "green" ? "bg-green-500/20" : displaySecurityLevel.color === "orange" ? "bg-orange-500/20" : displaySecurityLevel.color === "yellow" ? "bg-yellow-500/20" : "bg-red-500/20"} ${securityDetails.isVerified ? "" : "animate-pulse"}`
-            }, [
-              React.createElement("i", {
-                className: `fas fa-shield-alt text-xs ${displaySecurityLevel.color === "green" ? "text-green-400" : displaySecurityLevel.color === "orange" ? "text-orange-400" : displaySecurityLevel.color === "yellow" ? "text-yellow-400" : "text-red-400"}`
-              })
-            ]),
-            React.createElement("div", {
-              key: "security-info",
-              className: "flex flex-col"
-            }, [
-              React.createElement("div", {
-                key: "security-level-text",
-                className: "text-xs font-medium text-primary flex items-center space-x-1"
-              }, [
-                React.createElement("span", {}, `${displaySecurityLevel.level} (${displaySecurityLevel.score}%)`)
-              ]),
-              React.createElement(
-                "div",
-                {
-                  key: "security-details",
-                  className: "text-xs text-muted mt-1 hidden lg:block"
-                },
-                securityDetails.dataSource === "real" ? `${displaySecurityLevel.passedChecks || 0}/${displaySecurityLevel.totalChecks || 0} tests` : displaySecurityLevel.details || `Stage ${displaySecurityLevel.stage || 1}`
-              ),
-              React.createElement("div", {
-                key: "security-progress",
-                className: "w-16 h-1 bg-gray-600 rounded-full overflow-hidden"
-              }, [
-                React.createElement("div", {
-                  key: "progress-bar",
-                  className: `h-full transition-all duration-500 ${displaySecurityLevel.color === "green" ? "bg-green-400" : displaySecurityLevel.color === "orange" ? "bg-orange-400" : displaySecurityLevel.color === "yellow" ? "bg-yellow-400" : "bg-red-400"}`,
-                  style: { width: `${displaySecurityLevel.score}%` }
-                })
-              ])
-            ])
+            React.createElement("i", { key: "i", className: "fas fa-shield-halved", style: { fontSize: "13px", color: secColor } }),
+            React.createElement("span", { key: "l", className: "hidden sm:inline", style: { fontSize: "12.5px", fontWeight: 600, color: "#e8e8eb" } }, String(displaySecurityLevel.level)),
+            React.createElement("span", { key: "s", style: { fontFamily: MONO, fontSize: "11.5px", color: "#8a8a92" } }, displaySecurityLevel.score + "%")
           ]),
-          // Mobile Security Indicator
-          displaySecurityLevel && React.createElement("div", {
-            key: "mobile-security",
-            className: "md:hidden flex items-center"
-          }, [
-            React.createElement("div", {
-              key: "mobile-security-icon",
-              className: `w-8 h-8 rounded-full flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity duration-200 relative ${displaySecurityLevel.color === "green" ? "bg-green-500/20" : displaySecurityLevel.color === "orange" ? "bg-orange-500/20" : displaySecurityLevel.color === "yellow" ? "bg-yellow-500/20" : "bg-red-500/20"} ${securityDetails.isVerified ? "" : "animate-pulse"}`,
-              title: securityDetails.tooltip,
-              onClick: handleSecurityClick,
-              onContextMenu: (e) => {
-                e.preventDefault();
-                if (onDisconnect && typeof onDisconnect === "function") {
-                  onDisconnect();
-                }
-              }
-            }, [
-              React.createElement("i", {
-                className: `fas fa-shield-alt text-sm ${displaySecurityLevel.color === "green" ? "text-green-400" : displaySecurityLevel.color === "orange" ? "text-orange-400" : displaySecurityLevel.color === "yellow" ? "text-yellow-400" : "text-red-400"}`
-              })
-            ])
+          !onLanding && React.createElement("div", { key: "status", style: { display: "flex", alignItems: "center", gap: "8px", padding: "8px 13px", borderRadius: "9px", border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)" } }, [
+            React.createElement("span", { key: "dot", style: { width: "7px", height: "7px", borderRadius: "50%", background: dotColor, boxShadow: "0 0 0 3px " + dotGlow } }),
+            React.createElement("span", { key: "t", className: "hidden sm:inline", style: { fontSize: "13px", fontWeight: 600, color: "#cfcfd4" } }, config.text)
           ]),
-          // Status Badge
-          React.createElement("div", {
-            key: "status-badge",
-            className: `px-2 sm:px-3 py-1.5 rounded-lg border ${config.badgeClass} flex items-center space-x-1 sm:space-x-2`
-          }, [
-            React.createElement("span", {
-              key: "status-dot",
-              className: `status-dot ${config.className}`
-            }),
-            React.createElement("span", {
-              key: "status-text",
-              className: "text-xs sm:text-sm font-medium"
-            }, config.text)
-          ]),
-          // Disconnect Button
           isConnected && React.createElement("button", {
-            key: "disconnect-btn",
+            key: "dc",
             onClick: onDisconnect,
-            className: "p-1.5 sm:px-3 sm:py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg transition-all duration-200 text-sm"
+            className: "sb-disconnect",
+            style: { display: "flex", alignItems: "center", gap: "7px", padding: "8px 14px", borderRadius: "9px", border: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "#9a9aa2", fontFamily: "inherit", fontSize: "13px", fontWeight: 600, cursor: "pointer", transition: "all .15s" }
           }, [
-            React.createElement("i", {
-              className: "fas fa-power-off sm:mr-2"
-            }),
-            React.createElement("span", {
-              className: "hidden sm:inline"
-            }, "Disconnect")
+            React.createElement("i", { key: "i", className: "fas fa-power-off", style: { fontSize: "12px" } }),
+            React.createElement("span", { key: "t", className: "sb-hide-sm" }, "Disconnect")
           ])
         ])
       ])
@@ -17706,1011 +17789,815 @@ window.DownloadApps = DownloadApps;
 
 // src/components/ui/BecomePartner.jsx
 var BecomePartner = () => {
-  const partners = [
-    { id: "aegis", name: "Aegis", logo: "logo/aegis.png", isColor: true, url: "https://aegis-investment.com/" },
-    { id: "furi", name: "Furi Labs", logo: "logo/furi.png", isColor: true, url: "https://furilabs.com/" }
-  ];
+  const [isMobile, setIsMobile] = React.useState(
+    typeof window !== "undefined" && window.matchMedia("(max-width:767px)").matches
+  );
+  React.useEffect(() => {
+    const mq = window.matchMedia("(max-width:767px)");
+    const onChange = () => setIsMobile(mq.matches);
+    mq.addEventListener ? mq.addEventListener("change", onChange) : mq.addListener(onChange);
+    return () => {
+      mq.removeEventListener ? mq.removeEventListener("change", onChange) : mq.removeListener(onChange);
+    };
+  }, []);
+  const ACCENT = "#f0892a";
+  const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+  const SANS = "'Manrope', system-ui, -apple-system, sans-serif";
   const formUrl = "https://docs.google.com/forms/d/e/1FAIpQLSc9ijV9PCoyXkus6vEx1OWwvwAsLq8fKS6-H5BmX-c-bvia6w/viewform?usp=dialog";
-  return React.createElement("div", { className: "mt-20 px-6" }, [
-    // Header "Trusted by our partners"
-    React.createElement("div", { key: "header", className: "text-center max-w-3xl mx-auto mb-8" }, [
-      React.createElement("h3", { key: "title", className: "text-3xl font-bold text-primary mb-3" }, "Trusted by our partners")
-    ]),
-    // First divider line with fade
-    React.createElement("div", {
-      key: "divider-1",
-      className: "h-px w-full max-w-3xl mx-auto mb-8 bg-gradient-to-r from-transparent via-zinc-700 to-transparent"
-    }),
-    // Partner Logos
+  const partners = [
+    {
+      id: "aegis",
+      name: "Aegis Investment",
+      logo: "logo/aegis.png",
+      logoHeight: "42px",
+      url: "https://aegis-investment.com/",
+      desc: "Capital partner securing confidential financial communications across its portfolio.",
+      role: "Strategic backer",
+      delay: ".5s"
+    },
+    {
+      id: "furi",
+      name: "FuriLabs",
+      logo: "logo/furi.png",
+      logoHeight: "54px",
+      url: "https://furilabs.com/",
+      desc: "Privacy-first Linux phones that ship SecureBit as a default secure channel.",
+      role: "Technology partner",
+      delay: ".56s"
+    }
+  ];
+  const svg2 = (inner2, size, stroke, sw) => React.createElement("svg", {
+    width: size,
+    height: size,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke,
+    strokeWidth: sw,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    dangerouslySetInnerHTML: { __html: inner2 }
+  });
+  const roleTag = (role) => React.createElement("span", {
+    key: "role",
+    style: { fontFamily: MONO, fontSize: "10.5px", fontWeight: 600, color: "#6b6b73", textTransform: "uppercase", letterSpacing: "1.2px", padding: "6px 11px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.025)", whiteSpace: "nowrap" }
+  }, role);
+  const partnerCard = (p) => React.createElement("a", {
+    key: p.id,
+    href: p.url,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    style: {
+      flex: "1 1 320px",
+      minWidth: isMobile ? "auto" : "300px",
+      borderRadius: "18px",
+      background: "#141416",
+      border: "1px solid rgba(255,255,255,0.06)",
+      padding: "30px 30px 26px",
+      display: "flex",
+      flexDirection: "column",
+      textDecoration: "none",
+      color: "inherit",
+      transition: "transform .28s cubic-bezier(.2,.7,.3,1), border-color .28s cubic-bezier(.2,.7,.3,1)",
+      animation: `ptUp ${p.delay} cubic-bezier(.2,.7,.3,1)`
+    },
+    onMouseEnter: (e) => {
+      e.currentTarget.style.transform = "translateY(-4px)";
+      e.currentTarget.style.borderColor = "rgba(255,255,255,0.13)";
+    },
+    onMouseLeave: (e) => {
+      e.currentTarget.style.transform = "none";
+      e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
+    }
+  }, [
     React.createElement(
       "div",
-      {
-        key: "partners-row",
-        className: "flex justify-center items-center flex-wrap gap-12 mb-8"
-      },
-      partners.map(
-        (partner) => React.createElement("a", {
-          key: partner.id,
-          href: partner.url,
-          target: "_blank",
-          rel: "noopener noreferrer",
-          className: "flex items-center justify-center cursor-pointer hover:opacity-100 transition-opacity duration-300"
-        }, [
-          React.createElement("img", {
-            key: "logo",
-            src: partner.logo,
-            alt: partner.name,
-            className: "h-12 sm:h-16 opacity-80 hover:opacity-100 transition-opacity duration-300",
-            style: partner.isColor ? {
-              filter: "grayscale(100%) brightness(1.2) contrast(1.1)",
-              WebkitFilter: "grayscale(100%) brightness(1.2) contrast(1.1)"
-            } : {}
-          })
-        ])
-      )
+      { key: "logo", style: { display: "flex", alignItems: "center", marginBottom: "30px", height: "54px" } },
+      React.createElement("img", {
+        src: p.logo,
+        alt: p.name,
+        style: { height: p.logoHeight, width: "auto", maxWidth: "190px", objectFit: "contain", display: "block" }
+      })
     ),
-    // Second divider line with fade
-    React.createElement("div", {
-      key: "divider-2",
-      className: "h-px w-full max-w-3xl mx-auto mb-8 bg-gradient-to-r from-transparent via-zinc-700 to-transparent"
-    }),
-    // Section with subtitle and text
-    React.createElement("div", { key: "cta-section", className: "text-center max-w-3xl mx-auto" }, [
-      React.createElement("h4", {
-        key: "subtitle",
-        className: "text-base font-semibold text-primary mb-4"
-      }, "Technology & Community Partners"),
-      React.createElement("p", {
-        key: "description",
-        className: "text-secondary text-sm mb-6"
-      }, "Interested in partnering with us?"),
-      // CTA Button with 3D glass effect
-      React.createElement("div", {
-        key: "button-wrapper",
-        className: "button-container flex justify-center"
-      }, [
-        React.createElement("a", {
-          key: "button-link",
-          href: formUrl,
-          target: "_blank",
-          rel: "noopener noreferrer",
-          className: "button"
-        }, [
-          React.createElement("span", { key: "text" }, "Become a Partner")
-        ])
-      ])
+    React.createElement("h3", { key: "name", style: { margin: "0 0 9px", fontSize: "21px", fontWeight: 800, letterSpacing: "-0.4px", color: "#f4f4f6" } }, p.name),
+    React.createElement("p", { key: "desc", style: { margin: "0 0 22px", fontSize: "14.5px", lineHeight: 1.6, color: "#9a9aa2" } }, p.desc),
+    React.createElement("div", { key: "foot", style: { marginTop: "auto", paddingTop: "6px", display: "flex", alignItems: "center", gap: "12px" } }, [
+      roleTag(p.role)
     ])
+  ]);
+  const inviteCard = React.createElement("a", {
+    key: "invite",
+    href: formUrl,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    style: {
+      flex: "1 1 320px",
+      minWidth: isMobile ? "auto" : "300px",
+      borderRadius: "18px",
+      background: "#111113",
+      border: "1px dashed rgba(255,255,255,0.12)",
+      padding: "30px",
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "space-between",
+      textDecoration: "none",
+      color: "inherit",
+      transition: "border-color .28s cubic-bezier(.2,.7,.3,1)",
+      animation: "ptUp .62s cubic-bezier(.2,.7,.3,1)"
+    },
+    onMouseEnter: (e) => {
+      e.currentTarget.style.borderColor = "rgba(240,137,42,0.4)";
+    },
+    onMouseLeave: (e) => {
+      e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
+    }
+  }, [
+    React.createElement("div", { key: "top" }, [
+      React.createElement("div", {
+        key: "icon",
+        style: { width: "48px", height: "48px", borderRadius: "13px", display: "grid", placeItems: "center", background: "rgba(240,137,42,0.12)", border: "1px solid rgba(240,137,42,0.28)", marginBottom: "24px" }
+      }, svg2('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>', 23, ACCENT, 1.9)),
+      React.createElement("h3", { key: "title", style: { margin: "0 0 8px", fontSize: "21px", fontWeight: 800, letterSpacing: "-0.4px", color: "#f4f4f6" } }, "Become a partner"),
+      React.createElement("p", { key: "desc", style: { margin: 0, fontSize: "14.5px", lineHeight: 1.6, color: "#8a8a92" } }, "Building privacy hardware or infrastructure? Let's integrate SecureBit.")
+    ]),
+    React.createElement("span", {
+      key: "btn",
+      style: {
+        marginTop: "26px",
+        width: "100%",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "10px",
+        padding: "15px 20px",
+        borderRadius: "12px",
+        border: "none",
+        background: ACCENT,
+        color: "#1a0f04",
+        fontFamily: SANS,
+        fontSize: "15px",
+        fontWeight: 700,
+        cursor: "pointer",
+        boxShadow: "0 8px 24px rgba(240,137,42,0.28)",
+        boxSizing: "border-box",
+        transition: "background .2s cubic-bezier(.2,.7,.3,1), transform .2s cubic-bezier(.2,.7,.3,1)"
+      }
+    }, [
+      "Start a conversation",
+      svg2('<path d="M5 12h14M13 6l6 6-6 6"/>', 17, "currentColor", 2.2)
+    ])
+  ]);
+  const inner = React.createElement("div", {
+    key: "inner",
+    style: { maxWidth: "1240px", margin: "0 auto", padding: isMobile ? "0 18px" : "0 40px" }
+  }, [
+    // Header
+    React.createElement("div", { key: "head", style: { marginBottom: "44px" } }, [
+      React.createElement("div", {
+        key: "eyebrow",
+        style: { fontFamily: MONO, fontSize: "11px", fontWeight: 600, color: "#6b6b73", textTransform: "uppercase", letterSpacing: "1.6px", marginBottom: "14px" }
+      }, "Partners & ecosystem"),
+      React.createElement("div", {
+        key: "row",
+        style: { display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "32px", flexWrap: "wrap" }
+      }, [
+        React.createElement("h2", {
+          key: "h2",
+          style: { margin: 0, fontSize: isMobile ? "30px" : "40px", fontWeight: 800, letterSpacing: "-1.1px", lineHeight: 1.04, color: "#f4f4f6" }
+        }, "Trusted by our partners"),
+        React.createElement("p", {
+          key: "sub",
+          style: { margin: "0 0 4px", fontSize: "15px", lineHeight: 1.55, color: "#8a8a92", maxWidth: "360px" }
+        }, "A small, vetted circle \u2014 no pay-to-list logos and no badges we can't stand behind.")
+      ])
+    ]),
+    // Cards
+    React.createElement("div", {
+      key: "cards",
+      style: { display: "flex", gap: "18px", alignItems: "stretch", flexWrap: "wrap" }
+    }, [
+      ...partners.map(partnerCard),
+      inviteCard
+    ])
+  ]);
+  return React.createElement("section", {
+    style: {
+      width: "100%",
+      color: "#e8e8eb",
+      fontFamily: SANS,
+      padding: isMobile ? "48px 0" : "72px 0",
+      background: "radial-gradient(1100px 640px at 50% -6%, rgba(240,137,42,0.055), transparent 62%), #0f0f11"
+    }
+  }, [
+    React.createElement("style", { key: "kf", dangerouslySetInnerHTML: { __html: "@keyframes ptUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}" } }),
+    inner
   ]);
 };
 window.BecomePartner = BecomePartner;
 
 // src/components/ui/UniqueFeatureSlider.jsx
 var UniqueFeatureSlider = () => {
-  const trackRef = React.useRef(null);
-  const wrapRef = React.useRef(null);
-  const [current, setCurrent] = React.useState(0);
-  const [isReady, setIsReady] = React.useState(false);
+  const [active, setActive] = React.useState(0);
+  const [isMobile, setIsMobile] = React.useState(
+    typeof window !== "undefined" && window.matchMedia("(max-width:767px)").matches
+  );
+  React.useEffect(() => {
+    const mq = window.matchMedia("(max-width:767px)");
+    const onChange = () => setIsMobile(mq.matches);
+    mq.addEventListener ? mq.addEventListener("change", onChange) : mq.addListener(onChange);
+    return () => {
+      mq.removeEventListener ? mq.removeEventListener("change", onChange) : mq.removeListener(onChange);
+    };
+  }, []);
+  const ACCENT = "#f0892a";
+  const ACTIVE_BG = "radial-gradient(130% 90% at 28% 0%, rgba(240,137,42,0.11), transparent 60%), #141416";
+  const ACTIVE_BD = "rgba(240,137,42,0.3)";
+  const IDLE_BG = "#111113";
+  const IDLE_BD = "rgba(255,255,255,0.06)";
+  const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+  const SANS = "'Manrope', system-ui, -apple-system, sans-serif";
   const slides = [
     {
-      icon: "\u{1F6E1}\uFE0F",
-      bgImage: "linear-gradient(135deg, rgb(255 107 53 / 6%) 0%, rgb(255 140 66 / 45%) 100%)",
-      thumbIcon: "\u{1F512}",
-      title: "18-Layer Military Security",
-      description: "Revolutionary defense system with ECDH P-384 + AES-GCM 256 + ECDSA + Complete ASN.1 Validation."
+      num: "01",
+      title: ["Layered", "encryption core"],
+      collapsed: "Encryption core",
+      desc: "ECDH P-384 key exchange, AES-256-GCM payloads, ECDSA signatures and full ASN.1 validation \u2014 composed into one hardened pipeline.",
+      tags: ["ECDH P-384", "AES-256-GCM", "ECDSA", "ASN.1"],
+      icon: '<path d="M12 3l8 4v5c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V7l8-4z"/><path d="M9.2 12.2l2 2 3.6-3.8"/>'
     },
     {
-      icon: "\u{1F310}",
-      bgImage: "linear-gradient(135deg, rgb(147 51 234 / 6%) 0%, rgb(168 85 247 / 45%) 100%)",
-      thumbIcon: "\u{1F517}",
-      title: "Pure P2P WebRTC",
-      description: "Direct peer-to-peer connections without any servers. Complete decentralization with zero infrastructure."
+      num: "02",
+      title: ["Pure P2P", "WebRTC"],
+      collapsed: "Pure P2P WebRTC",
+      desc: "Messages travel directly between devices over WebRTC. No relay holds your data \u2014 the server only helps two peers find each other.",
+      tags: ["DTLS 1.3", "No relay"],
+      icon: '<circle cx="5.5" cy="12" r="2.5"/><circle cx="18.5" cy="6" r="2.5"/><circle cx="18.5" cy="18" r="2.5"/><path d="M7.8 10.8l8.4-3.6M7.8 13.2l8.4 3.6"/>'
     },
     {
-      icon: "\u{1F504}",
-      bgImage: "linear-gradient(135deg, rgb(16 185 129 / 6%) 0%, rgb(52 211 153 / 45%) 100%)",
-      thumbIcon: "\u26A1",
-      title: "Perfect Forward Secrecy",
-      description: "Automatic key rotation every 5 minutes. Non-extractable keys with hardware protection."
+      num: "03",
+      title: ["Perfect", "forward secrecy"],
+      collapsed: "Forward secrecy",
+      desc: "Session keys rotate continuously and are discarded after use, so a single compromised key can never unlock past conversations.",
+      tags: ["Ephemeral keys", "Auto-rotate"],
+      icon: '<path d="M21 8a8.5 8.5 0 0 0-15.6-2.5M3 4v4h4"/><path d="M3 16a8.5 8.5 0 0 0 15.6 2.5M21 20v-4h-4"/>'
     },
     {
-      icon: "\u{1F3AD}",
-      bgImage: "linear-gradient(135deg, rgb(6 182 212 / 6%) 0%, rgb(34 211 238 / 45%) 100%)",
-      thumbIcon: "\u{1F32B}\uFE0F",
-      title: "Traffic Obfuscation",
-      description: "Fake traffic generation and pattern masking make communication indistinguishable from noise."
+      num: "04",
+      title: ["Traffic", "obfuscation"],
+      collapsed: "Traffic obfuscation",
+      desc: "Packet sizes and timing are padded and randomized, hiding metadata patterns from anyone watching the wire.",
+      tags: ["Packet padding", "Timing jitter"],
+      icon: '<path d="M3 7h4l3 10h4M14 7h3l3 0"/><path d="M17 4l3 3-3 3"/><path d="M3 17h4l2-6"/>'
     },
     {
-      icon: "\u{1F441}\uFE0F",
-      bgImage: "linear-gradient(135deg, rgb(37 99 235 / 6%) 0%, rgb(59 130 246 / 45%) 100%)",
-      thumbIcon: "\u{1F6AB}",
-      title: "Zero Data Collection",
-      description: "No registration, no servers, no logs. Complete anonymity with instant channels."
+      num: "05",
+      title: ["Zero data", "collection"],
+      collapsed: "Zero data collection",
+      desc: "No accounts, no logs, no message storage. There is nothing on a server to leak, subpoena, or sell.",
+      tags: ["No accounts", "No logs"],
+      icon: '<path d="M9.9 5.1A9.6 9.6 0 0 1 12 5c5.5 0 9 5 9 7a11 11 0 0 1-2.2 3M6.3 7.3C3.6 8.9 2 11.2 2 12c0 1.4 3.5 7 10 7 1.6 0 3-.3 4.2-.8"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2M3 3l18 18"/>'
     }
   ];
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsReady(true);
-    }, 100);
-    return () => clearTimeout(timer);
-  }, []);
-  const isMobile = () => window.matchMedia("(max-width:767px)").matches;
-  const center = React.useCallback((i) => {
-    if (!trackRef.current || !wrapRef.current) return;
-    const card = trackRef.current.children[i];
-    if (!card) return;
-    const axis = isMobile() ? "top" : "left";
-    const size = isMobile() ? "clientHeight" : "clientWidth";
-    const start2 = isMobile() ? card.offsetTop : card.offsetLeft;
-    wrapRef.current.scrollTo({
-      [axis]: start2 - (wrapRef.current[size] / 2 - card[size] / 2),
-      behavior: "smooth"
-    });
-  }, []);
-  const activate = React.useCallback((i, scroll = false) => {
-    if (i === current) return;
-    setCurrent(i);
-    if (scroll) {
-      setTimeout(() => center(i), 50);
+  const svg2 = (inner2, size, stroke, sw) => React.createElement("svg", {
+    width: size,
+    height: size,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke,
+    strokeWidth: sw,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    dangerouslySetInnerHTML: { __html: inner2 }
+  });
+  const go = (step) => setActive((a) => (a + step + slides.length) % slides.length);
+  const navBtn = (key, onClick, path) => React.createElement("button", {
+    key,
+    onClick,
+    "aria-label": key,
+    style: {
+      width: "46px",
+      height: "46px",
+      display: "grid",
+      placeItems: "center",
+      borderRadius: "50%",
+      border: "1px solid rgba(255,255,255,0.1)",
+      background: "rgba(255,255,255,0.025)",
+      color: "#cfcfd4",
+      cursor: "pointer",
+      transition: "all .2s cubic-bezier(.2,.7,.3,1)"
+    },
+    onMouseEnter: (e) => {
+      e.currentTarget.style.borderColor = ACTIVE_BD;
+      e.currentTarget.style.color = ACCENT;
+    },
+    onMouseLeave: (e) => {
+      e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
+      e.currentTarget.style.color = "#cfcfd4";
     }
-  }, [current, center]);
-  const go = (step) => {
-    const newIndex = Math.min(Math.max(current + step, 0), slides.length - 1);
-    activate(newIndex, true);
-  };
-  React.useEffect(() => {
-    const handleKeydown = (e) => {
-      if (["ArrowRight", "ArrowDown"].includes(e.key)) go(1);
-      if (["ArrowLeft", "ArrowUp"].includes(e.key)) go(-1);
-    };
-    window.addEventListener("keydown", handleKeydown, { passive: true });
-    return () => window.removeEventListener("keydown", handleKeydown);
-  }, [current]);
-  React.useEffect(() => {
-    if (isReady) {
-      center(current);
+  }, svg2(path, 18, "currentColor", 2.1));
+  const tag = (label) => React.createElement("span", {
+    key: label,
+    style: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: "7px",
+      padding: "7px 12px",
+      borderRadius: "9px",
+      border: "1px solid rgba(255,255,255,0.07)",
+      background: "rgba(255,255,255,0.025)",
+      fontFamily: MONO,
+      fontSize: "11.5px",
+      fontWeight: 500,
+      color: "#9a9aa2"
     }
-  }, [current, center, isReady]);
-  if (!isReady) {
-    return React.createElement(
-      "section",
-      {
-        style: {
-          background: "transparent",
-          minHeight: "400px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center"
-        }
-      },
+  }, [
+    React.createElement("span", { key: "dot", style: { width: "5px", height: "5px", borderRadius: "50%", background: "#3ecf8e" } }),
+    label
+  ]);
+  const expandedContent = (s) => React.createElement("div", {
+    key: "exp",
+    style: {
+      height: "100%",
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: isMobile ? "flex-start" : "space-between",
+      gap: isMobile ? "18px" : 0,
+      padding: isMobile ? "24px 22px" : "32px 34px",
+      minWidth: isMobile ? "auto" : "320px",
+      animation: "wuUp .42s cubic-bezier(.2,.7,.3,1)"
+    }
+  }, [
+    React.createElement("div", { key: "top", style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, [
       React.createElement("div", {
+        key: "ic",
         style: {
-          opacity: 0.5,
-          fontSize: "14px",
-          color: "#fff"
+          width: "54px",
+          height: "54px",
+          borderRadius: "15px",
+          display: "grid",
+          placeItems: "center",
+          background: "rgba(240,137,42,0.13)",
+          border: "1px solid rgba(240,137,42,0.3)"
         }
-      }, "Loading...")
-    );
-  }
-  return React.createElement("section", { style: { background: "transparent" } }, [
+      }, svg2(s.icon, 26, ACCENT, 1.9)),
+      React.createElement("span", { key: "n", style: { fontFamily: MONO, fontSize: "13px", fontWeight: 600, color: "#6b6b73" } }, s.num)
+    ]),
+    React.createElement("div", { key: "mid" }, [
+      React.createElement("h3", {
+        key: "h",
+        style: { margin: "0 0 12px", fontSize: isMobile ? "24px" : "30px", fontWeight: 800, letterSpacing: "-0.7px", lineHeight: 1.08, color: "#f4f4f6" }
+      }, [s.title[0], React.createElement("br", { key: "br" }), s.title[1]]),
+      React.createElement("p", {
+        key: "p",
+        style: { margin: 0, fontSize: "15px", lineHeight: 1.6, color: "#9a9aa2", maxWidth: "380px" }
+      }, s.desc)
+    ]),
+    React.createElement("div", { key: "tags", style: { display: "flex", flexWrap: "wrap", gap: "8px" } }, s.tags.map(tag))
+  ]);
+  const collapsedContent = (s) => isMobile ? React.createElement("div", {
+    key: "col",
+    style: { display: "flex", alignItems: "center", gap: "16px", padding: "20px 22px" }
+  }, [
+    React.createElement("span", { key: "n", style: { fontFamily: MONO, fontSize: "12px", fontWeight: 600, color: "#56565e" } }, s.num),
+    React.createElement("span", { key: "l", style: { fontSize: "16px", fontWeight: 800, letterSpacing: "-0.2px", color: "#cfcfd4" } }, s.collapsed)
+  ]) : React.createElement("div", {
+    key: "col",
+    style: { position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-between", padding: "24px 0" }
+  }, [
+    React.createElement("span", { key: "n", style: { fontFamily: MONO, fontSize: "12px", fontWeight: 600, color: "#56565e" } }, s.num),
+    React.createElement("span", {
+      key: "l",
+      style: { writingMode: "vertical-rl", transform: "rotate(180deg)", fontSize: "17px", fontWeight: 800, letterSpacing: "-0.2px", color: "#cfcfd4", whiteSpace: "nowrap" }
+    }, s.collapsed),
+    svg2(s.icon, 22, "#56565e", 1.8)
+  ]);
+  const panels = slides.map((s, i) => {
+    const isActive = active === i;
+    return React.createElement("div", {
+      key: i,
+      onClick: () => setActive(i),
+      // Selection is click-only (like the design); hover just brightens the panel
+      // a touch so the orange glow never jumps around chasing the cursor.
+      onMouseEnter: (e) => {
+        if (!isActive) e.currentTarget.style.filter = "brightness(1.18)";
+      },
+      onMouseLeave: (e) => {
+        e.currentTarget.style.filter = "none";
+      },
+      style: {
+        flex: isMobile ? "none" : isActive ? 6.2 : 1,
+        minWidth: isMobile ? "auto" : "72px",
+        position: "relative",
+        borderRadius: "18px",
+        overflow: "hidden",
+        cursor: "pointer",
+        background: isActive ? ACTIVE_BG : IDLE_BG,
+        border: "1px solid " + (isActive ? ACTIVE_BD : IDLE_BD),
+        color: "#8a8a92",
+        transition: "flex .46s cubic-bezier(.2,.7,.3,1), background .3s ease, border-color .3s ease, filter .2s ease"
+      }
+    }, isActive ? expandedContent(s) : collapsedContent(s));
+  });
+  const inner = React.createElement("div", {
+    key: "inner",
+    style: {
+      maxWidth: "1180px",
+      margin: "0 auto",
+      padding: isMobile ? "0 18px" : "0 40px"
+    }
+  }, [
     // Header
     React.createElement("div", {
       key: "head",
-      className: "head"
+      style: { display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "24px", marginBottom: "28px" }
     }, [
-      React.createElement("h2", {
-        key: "title",
-        className: "text-2xl sm:text-3xl font-bold text-white mb-4 leading-snug"
-      }, "Why SecureBit.chat is unique"),
-      React.createElement("div", {
-        key: "controls",
-        className: "controls"
-      }, [
-        React.createElement("button", {
-          key: "prev",
-          id: "prev-slider",
-          className: "nav-btn",
-          "aria-label": "Prev",
-          disabled: current === 0,
-          onClick: () => go(-1)
-        }, "\u2039"),
-        React.createElement("button", {
-          key: "next",
-          id: "next-slider",
-          className: "nav-btn",
-          "aria-label": "Next",
-          disabled: current === slides.length - 1,
-          onClick: () => go(1)
-        }, "\u203A")
+      React.createElement("div", { key: "titles" }, [
+        React.createElement("div", {
+          key: "eyebrow",
+          style: { fontFamily: MONO, fontSize: "11px", fontWeight: 600, color: "#6b6b73", textTransform: "uppercase", letterSpacing: "1.4px", marginBottom: "12px" }
+        }, "What sets us apart"),
+        React.createElement("h2", {
+          key: "h2",
+          style: { margin: 0, fontSize: isMobile ? "28px" : "38px", fontWeight: 800, letterSpacing: "-1.1px", lineHeight: 1.05, color: "#f4f4f6" }
+        }, "Why SecureBit is unique")
+      ]),
+      React.createElement("div", { key: "nav", style: { display: "flex", alignItems: "center", gap: "10px", flex: "none" } }, [
+        navBtn("prev", () => go(-1), '<path d="M15 6l-6 6 6 6"/>'),
+        navBtn("next", () => go(1), '<path d="M9 6l6 6-6 6"/>')
       ])
     ]),
-    // Slider
-    React.createElement(
-      "div",
-      {
-        key: "slider",
-        className: "slider",
-        ref: wrapRef
-      },
-      React.createElement("div", {
-        className: "track",
-        ref: trackRef
-      }, slides.map(
-        (slide, index) => React.createElement("article", {
-          key: index,
-          className: "project-card",
-          ...index === current ? { active: "" } : {},
-          onMouseEnter: () => {
-            if (window.matchMedia("(hover:hover)").matches) {
-              activate(index, true);
-            }
-          },
-          onClick: () => activate(index, true)
-        }, [
-          // Background
-          React.createElement("div", {
-            key: "bg",
-            className: "project-card__bg",
-            style: {
-              background: slide.bgImage,
-              backgroundSize: "cover",
-              backgroundPosition: "center"
-            }
-          }),
-          // Content
-          React.createElement("div", {
-            key: "content",
-            className: "project-card__content"
-          }, [
-            // Text container
-            React.createElement("div", { key: "text" }, [
-              React.createElement("h3", {
-                key: "title",
-                className: "project-card__title"
-              }, slide.title),
-              React.createElement("p", {
-                key: "desc",
-                className: "project-card__desc"
-              }, slide.description)
-            ])
-          ])
-        ])
-      ))
-    )
+    // Accordion
+    React.createElement("div", {
+      key: "accordion",
+      style: {
+        display: "flex",
+        flexDirection: isMobile ? "column" : "row",
+        gap: isMobile ? "12px" : "14px",
+        height: isMobile ? "auto" : "440px"
+      }
+    }, panels)
+  ]);
+  return React.createElement("section", {
+    style: {
+      width: "100%",
+      color: "#e8e8eb",
+      fontFamily: SANS,
+      padding: isMobile ? "44px 0" : "64px 0",
+      background: "radial-gradient(1100px 700px at 18% 8%, rgba(240,137,42,0.05), transparent 60%), #0f0f11"
+    }
+  }, [
+    React.createElement("style", { key: "kf", dangerouslySetInnerHTML: { __html: "@keyframes wuUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}" } }),
+    inner
   ]);
 };
 window.UniqueFeatureSlider = UniqueFeatureSlider;
 
-// src/components/ui/SecurityFeatures.jsx
-var SecurityFeatures = () => {
-  const features = [
-    { id: "feature1", color: "#00ff88", icon: "fas fa-key accent-green", title: "ECDH P-384 Key Exchange", desc: "Military-grade elliptic curve key exchange" },
-    { id: "feature2", color: "#a78bfa", icon: "fas fa-user-shield accent-purple", title: "MITM Protection", desc: "Out-of-band verification against attacks" },
-    { id: "feature3", color: "#ff8800", icon: "fas fa-lock accent-orange", title: "AES-GCM 256 Encryption", desc: "Authenticated encryption standard" },
-    { id: "feature4", color: "#00ffff", icon: "fas fa-sync-alt accent-cyan", title: "Perfect Forward Secrecy", desc: "Automatic key rotation every 5 minutes" },
-    { id: "feature5", color: "#0088ff", icon: "fas fa-signature accent-blue", title: "ECDSA P-384 Signatures", desc: "Digital signatures for message integrity" },
-    { id: "feature6", color: "#f87171", icon: "fas fa-shield-alt accent-red", title: "SAS Security", desc: "Revolutionary key exchange & MITM protection" }
-  ];
-  React.useEffect(() => {
-    const cards = document.querySelectorAll(".card");
-    const radius = 200;
-    const handleMove = (e) => {
-      cards.forEach((card) => {
-        const rect = card.getBoundingClientRect();
-        const cx = rect.left + rect.width / 2;
-        const cy = rect.top + rect.height / 2;
-        const dx = e.clientX - cx;
-        const dy = e.clientY - cy;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < radius) {
-          const x = e.clientX - rect.left;
-          const y = e.clientY - rect.top;
-          card.style.setProperty("--x", `${x}px`);
-          card.style.setProperty("--y", `${y}px`);
-          card.classList.add("active-glow");
-        } else {
-          card.classList.remove("active-glow");
-        }
-      });
-    };
-    window.addEventListener("mousemove", handleMove);
-    return () => window.removeEventListener("mousemove", handleMove);
-  }, []);
-  const renderFeature = (f) => React.createElement("div", {
-    key: f.id,
-    className: "card p-3 sm:p-4 text-center",
-    style: { "--color": f.color }
-  }, [
-    React.createElement("div", { key: "icon", className: "w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center mx-auto mb-2 sm:mb-3 relative z-10" }, [
-      React.createElement("i", { className: f.icon })
-    ]),
-    React.createElement("h4", { key: "title", className: "text-xs sm:text-sm font-medium text-primary mb-1 relative z-10" }, f.title),
-    React.createElement("p", { key: "desc", className: "text-xs text-muted leading-tight relative z-10" }, f.desc)
-  ]);
-  return React.createElement("div", {
-    className: "grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 max-w-6xl mx-auto mt-8"
-  }, features.map(renderFeature));
-};
-window.SecurityFeatures = SecurityFeatures;
-
-// src/components/ui/Testimonials.jsx
-var Testimonials = () => {
-  const testimonials = [
-    { id: "t1", rating: 5, text: "The interface feels modern and smooth. It saves me at least 2 hours every day when managing design tasks." },
-    { id: "t2", rating: 5, text: "Finally, a solution that blends speed with simplicity. My team adopted it within a week without training." },
-    { id: "t3", rating: 5, text: "I can track progress in real time and get a clear overview of our workflow. It feels empowering." },
-    { id: "t4", rating: 5, text: "Our pipeline visibility improved dramatically. I no longer need to manually track updates." },
-    { id: "t5", rating: 5, text: "The security-first approach gives me peace of mind. We handle sensitive data with confidence now." },
-    { id: "t6", rating: 5, text: "User feedback cycles are now twice as fast. It helps us test and ship features quickly." }
-  ];
-  React.useEffect(() => {
-    const colUp = document.querySelector(".col-up");
-    const colDown = document.querySelector(".col-down");
-    const wrapper = document.querySelector(".testimonials-wrapper");
-    if (!colUp || !colDown || !wrapper) return;
-    let paused = false;
-    const speed = 0.5;
-    let animationId;
-    const cloneCards = (container) => {
-      const cards = Array.from(container.children);
-      cards.forEach((card) => {
-        const clone2 = card.cloneNode(true);
-        container.appendChild(clone2);
-      });
-    };
-    cloneCards(colUp);
-    cloneCards(colDown);
-    const getHalfHeight = (el) => {
-      const children = Array.from(el.children);
-      const halfCount = children.length / 2;
-      let height = 0;
-      for (let i = 0; i < halfCount; i++) {
-        height += children[i].offsetHeight;
-        if (i < halfCount - 1) height += 24;
-      }
-      return height;
-    };
-    let y1 = 0;
-    const maxScroll1 = getHalfHeight(colUp);
-    const maxScroll2 = getHalfHeight(colDown);
-    let y2 = -maxScroll2;
-    function animate() {
-      if (!paused) {
-        y1 -= speed;
-        y2 += speed;
-        if (Math.abs(y1) >= maxScroll1) {
-          y1 = 0;
-        }
-        if (y2 >= 0) {
-          y2 = -maxScroll2;
-        }
-        colUp.style.transform = `translateY(${y1}px)`;
-        colDown.style.transform = `translateY(${y2}px)`;
-      }
-      animationId = requestAnimationFrame(animate);
-    }
-    animate();
-    const handleMouseEnter = () => {
-      paused = true;
-    };
-    const handleMouseLeave = () => {
-      paused = false;
-    };
-    wrapper.addEventListener("mouseenter", handleMouseEnter);
-    wrapper.addEventListener("mouseleave", handleMouseLeave);
-    return () => {
-      cancelAnimationFrame(animationId);
-      wrapper.removeEventListener("mouseenter", handleMouseEnter);
-      wrapper.removeEventListener("mouseleave", handleMouseLeave);
-    };
-  }, []);
-  const renderCard = (t, index) => /* @__PURE__ */ React.createElement("div", { key: `${t.id}-${index}`, className: "card bg-neutral-900 rounded-xl p-5 shadow-md w-72 text-sm text-white flex-shrink-0" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center mb-2 text-yellow-400" }, "\u2605".repeat(Math.floor(t.rating)), /* @__PURE__ */ React.createElement("span", { className: "ml-2 text-secondary" }, t.rating.toFixed(1))), /* @__PURE__ */ React.createElement("p", { className: "text-secondary mb-3" }, t.text));
-  return /* @__PURE__ */ React.createElement("section", { className: "py-14 px-6 bg-transparent" }, /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-1 lg:grid-cols-5 gap-12 max-w-7xl mx-auto items-center" }, /* @__PURE__ */ React.createElement("div", { className: "lg:col-span-2 flex flex-col justify-center" }, /* @__PURE__ */ React.createElement("p", { className: "text-sm text-secondary mb-2" }, "Testimonials"), /* @__PURE__ */ React.createElement("h2", { className: "text-2xl sm:text-3xl font-bold text-white mb-4 leading-snug" }, "What our users are saying"), /* @__PURE__ */ React.createElement("p", { className: "text-secondary text-sm" }, "We continuously listen to our community and improve every day.")), /* @__PURE__ */ React.createElement("div", { className: "lg:col-span-3 testimonials-wrapper flex gap-6 overflow-hidden relative h-[420px]" }, /* @__PURE__ */ React.createElement("div", { className: "pointer-events-none absolute top-0 left-0 w-full h-16 bg-gradient-to-b from-[#1f1f1f]/90 to-transparent z-20" }), /* @__PURE__ */ React.createElement("div", { className: "pointer-events-none absolute bottom-0 left-0 w-full h-16 bg-gradient-to-t from-[#1f1f1f]/90 to-transparent z-20" }), /* @__PURE__ */ React.createElement("div", { className: "col-up flex flex-col gap-6" }, testimonials.map((t, i) => renderCard(t, i))), /* @__PURE__ */ React.createElement("div", { className: "col-down flex flex-col gap-6" }, testimonials.map((t, i) => renderCard(t, i))))));
-};
-window.Testimonials = Testimonials;
-
-// src/components/ui/ComparisonTable.jsx
-var ComparisonTable = () => {
-  const [selectedFeature, setSelectedFeature] = React.useState(null);
-  const messengers = [
-    {
-      name: "SecureBit.chat",
-      logo: /* @__PURE__ */ React.createElement("div", { className: "w-8 h-8 bg-orange-500/10 border border-orange-500/20 rounded-lg flex items-center justify-center" }, /* @__PURE__ */ React.createElement("i", { className: "fas fa-shield-halved text-orange-400" })),
-      type: "P2P WebRTC",
-      version: "Latest",
-      color: "orange"
-    },
-    {
-      name: "Signal",
-      logo: /* @__PURE__ */ React.createElement("svg", { className: "w-8 h-8", viewBox: "0 0 122.88 122.31", xmlns: "http://www.w3.org/2000/svg" }, /* @__PURE__ */ React.createElement("path", { className: "fill-blue-500", d: "M27.75,0H95.13a27.83,27.83,0,0,1,27.75,27.75V94.57a27.83,27.83,0,0,1-27.75,27.74H27.75A27.83,27.83,0,0,1,0,94.57V27.75A27.83,27.83,0,0,1,27.75,0Z" }), /* @__PURE__ */ React.createElement("path", { className: "fill-white", d: "M61.44,25.39A35.76,35.76,0,0,0,31.18,80.18L27.74,94.86l14.67-3.44a35.77,35.77,0,1,0,19-66Z" })),
-      type: "Centralized",
-      version: "Latest",
-      color: "blue"
-    },
-    {
-      name: "Threema",
-      logo: /* @__PURE__ */ React.createElement("svg", { className: "w-8 h-8", viewBox: "0 0 122.88 122.88", xmlns: "http://www.w3.org/2000/svg" }, /* @__PURE__ */ React.createElement("rect", { width: "122.88", height: "122.88", rx: "18.43", fill: "#474747" }), /* @__PURE__ */ React.createElement("path", { fill: "#FFFFFF", d: "M44.26,78.48l-19.44,4.8l4.08-16.56c-4.08-5.28-6.48-12-6.48-18.96c0-18.96,17.52-34.32,39.12-34.32c21.6,0,39.12,15.36,39.12,34.32c0,18.96-17.52,34.32-39.12,34.32c-6,0-12-1.2-17.04-3.36L44.26,78.48z M50.26,44.64h-0.48c-0.96,0-1.68,0.72-1.44,1.68v15.6c0,0.96,0.72,1.68,1.68,1.68l23.04,0c0.96,0,1.68-0.72,1.68-1.68v-15.6c0-0.96-0.72-1.68-1.68-1.68h-0.48v-4.32c0-6-5.04-11.04-11.04-11.04S50.5,34.32,50.5,40.32v4.32H50.26z M68.02,44.64h-13.2v-4.32c0-3.6,2.88-6.72,6.72-6.72c3.6,0,6.72,2.88,6.72,6.72v4.32H68.02z" }), /* @__PURE__ */ React.createElement("circle", { cx: "37.44", cy: "97.44", r: "6.72", fill: "#3fe669" }), /* @__PURE__ */ React.createElement("circle", { cx: "61.44", cy: "97.44", r: "6.72", fill: "#3fe669" }), /* @__PURE__ */ React.createElement("circle", { cx: "85.44", cy: "97.44", r: "6.72", fill: "#3fe669" })),
-      type: "Centralized",
-      version: "Latest",
-      color: "green"
-    },
-    {
-      name: "Session",
-      logo: /* @__PURE__ */ React.createElement("svg", { className: "w-8 h-8", viewBox: "0 0 1024 1024", xmlns: "http://www.w3.org/2000/svg" }, /* @__PURE__ */ React.createElement("rect", { width: "1024", height: "1024", fill: "#333132" }), /* @__PURE__ */ React.createElement("path", { fill: "#00f782", d: "M431 574.8c-.8-7.4-6.7-8.2-10.8-10.6-13.6-7.9-27.5-15.4-41.3-23l-22.5-12.3c-8.5-4.7-17.1-9.2-25.6-14.1-10.5-6-21-11.9-31.1-18.6-18.9-12.5-33.8-29.1-46.3-48.1-8.3-12.6-14.8-26.1-19.2-40.4-6.7-21.7-10.8-44.1-7.8-66.8 1.8-14 4.6-28 9.7-41.6 7.8-20.8 19.3-38.8 34.2-54.8 9.8-10.6 21.2-19.1 33.4-26.8 14.7-9.3 30.7-15.4 47.4-19 13.8-3 28.1-4.3 42.2-4.4 89.9-.4 179.7-.3 269.6 0 12.6 0 25.5 1 37.7 4.1 24.3 6.2 45.7 18.2 63 37 11.2 12.2 20.4 25.8 25.8 41.2 7.3 20.7 12.3 42.1 6.7 64.4-2.1 8.5-2.7 17.5-6.1 25.4-4.7 10.9-10.8 21.2-17.2 31.2-8.7 13.5-20.5 24.3-34.4 32.2-10.1 5.7-21 10.2-32 14.3-18.1 6.7-37.2 5-56.1 5.2-17.2.2-34.5 0-51.7.1-1.7 0-3.4 1.2-5.1 1.9 1.3 1.8 2.1 4.3 3.9 5.3 13.5 7.8 27.2 15.4 40.8 22.9 11 6 22.3 11.7 33.2 17.9 15.2 8.5 30.2 17.4 45.3 26.1 19.3 11.1 34.8 26.4 47.8 44.3 9.7 13.3 17.2 27.9 23 43.5 6.1 16.6 9.2 33.8 10.4 51.3.6 9.1-.7 18.5-1.9 27.6-1.2 9.1-2.7 18.4-5.6 27.1-3.3 10.2-7.4 20.2-12.4 29.6-8.4 15.7-19.6 29.4-32.8 41.4-12.7 11.5-26.8 20.6-42.4 27.6-22.9 10.3-46.9 14.4-71.6 14.5-89.7.3-179.4.2-269.1-.1-12.6 0-25.5-1-37.7-3.9-24.5-5.7-45.8-18-63.3-36.4-11.6-12.3-20.2-26.5-26.6-41.9-2.7-6.4-4.1-13.5-5.4-20.4-1.5-8.1-2.8-16.3-3.1-24.5-.6-15.7 2.8-30.9 8.2-45.4 8.2-22 21.7-40.6 40.2-55.2 10-7.9 21.3-13.7 33.1-18.8 16.6-7.2 34-8.1 51.4-8.5 21.9-.5 43.9-.1 65.9-.1 1.9-.1 3.9-.3 6.2-.4zm96.3-342.4c0 .1 0 .1 0 0-48.3.1-96.6-.6-144.9.5-13.5.3-27.4 3.9-40.1 8.7-14.9 5.6-28.1 14.6-39.9 25.8-20.2 19-32.2 42.2-37.2 68.9-3.6 19-1.4 38.1 4.1 56.5 4.1 13.7 10.5 26.4 18.5 38.4 14.8 22.2 35.7 36.7 58.4 49.2 11 6.1 22.2 11.9 33.2 18 13.5 7.5 26.9 15.1 40.4 22.6 13.1 7.3 26.2 14.5 39.2 21.7 9.7 5.3 19.4 10.7 29.1 16.1 2.9 1.6 4.1.2 4.5-2.4.3-2 .3-4 .3-6.1v-58.8c0-19.9.1-39.9 0-59.8 0-6.6 1.7-12.8 7.6-16.1 3.5-2 8.2-2.8 12.4-2.8 50.3-.2 100.7-.2 151-.1 19.8 0 38.3-4.4 55.1-15.1 23.1-14.8 36.3-36.3 40.6-62.9 3.4-20.8-1-40.9-12.4-58.5-17.8-27.5-43.6-43-76.5-43.6-47.8-.8-95.6-.2-143.4-.2zm-30.6 559.7c45.1 0 90.2-.2 135.3.1 18.9.1 36.6-3.9 53.9-11.1 18.4-7.7 33.6-19.8 46.3-34.9 9.1-10.8 16.2-22.9 20.8-36.5 4.2-12.4 7.4-24.7 7.3-37.9-.1-10.3.2-20.5-3.4-30.5-2.6-7.2-3.4-15.2-6.4-22.1-3.9-8.9-8.9-17.3-14-25.5-12.9-20.8-31.9-34.7-52.8-46.4-10.6-5.9-21.2-11.6-31.8-17.5-10.3-5.7-20.4-11.7-30.7-17.4-11.2-6.1-22.5-11.9-33.7-18-16.6-9.1-33.1-18.4-49.8-27.5-4.9-2.7-6.1-1.9-6.4 3.9-.1 2-.1 4.1-.1 6.1v114.5c0 14.8-5.6 20.4-20.4 20.4-47.6.1-95.3-.1-142.9.2-10.5.1-21.1 1.4-31.6 2.8-16.5 2.2-30.5 9.9-42.8 21-17 15.5-27 34.7-29.4 57.5-1.1 10.9-.4 21.7 2.9 32.5 3.7 12.3 9.2 23.4 17.5 33 19.2 22.1 43.4 33.3 72.7 33.3 46.6.1 93 0 139.5 0z" })),
-      type: "Onion Network",
-      version: "Latest",
-      color: "cyan"
-    }
-  ];
-  const features = [
-    {
-      name: "Security Architecture",
-      lockbit: { status: "trophy", detail: "18-layer military-grade defense system with complete ASN.1 validation" },
-      signal: { status: "check", detail: "Signal Protocol with double ratchet" },
-      threema: { status: "check", detail: "Standard security implementation" },
-      session: { status: "check", detail: "Modified Signal Protocol + Onion routing" }
-    },
-    {
-      name: "Cryptography",
-      lockbit: { status: "trophy", detail: "ECDH P-384 + AES-GCM 256 + ECDSA P-384" },
-      signal: { status: "check", detail: "Signal Protocol + Double Ratchet" },
-      threema: { status: "check", detail: "NaCl + XSalsa20 + Poly1305" },
-      session: { status: "check", detail: "Modified Signal Protocol" }
-    },
-    {
-      name: "Perfect Forward Secrecy",
-      lockbit: { status: "trophy", detail: "Auto rotation every 5 minutes or 100 messages" },
-      signal: { status: "check", detail: "Double Ratchet algorithm" },
-      threema: { status: "warning", detail: "Partial (group chats)" },
-      session: { status: "check", detail: "Session Ratchet algorithm" }
-    },
-    {
-      name: "Architecture",
-      lockbit: { status: "trophy", detail: "Pure P2P WebRTC without servers" },
-      signal: { status: "times", detail: "Centralized Signal servers" },
-      threema: { status: "times", detail: "Threema servers in Switzerland" },
-      session: { status: "warning", detail: "Onion routing via network nodes" }
-    },
-    {
-      name: "Registration Anonymity",
-      lockbit: { status: "trophy", detail: "No registration required, instant anonymous channels" },
-      signal: { status: "times", detail: "Phone number required" },
-      threema: { status: "check", detail: "ID generated locally" },
-      session: { status: "check", detail: "Random session ID" }
-    },
-    {
-      name: "Metadata Protection",
-      lockbit: { status: "trophy", detail: "Full metadata encryption + traffic obfuscation" },
-      signal: { status: "warning", detail: "Sealed Sender (partial)" },
-      threema: { status: "warning", detail: "Minimal metadata" },
-      session: { status: "check", detail: "Onion routing hides metadata" }
-    },
-    {
-      name: "Traffic Obfuscation",
-      lockbit: { status: "trophy", detail: "Fake traffic + pattern masking + packet padding" },
-      signal: { status: "times", detail: "No traffic obfuscation" },
-      threema: { status: "times", detail: "No traffic obfuscation" },
-      session: { status: "check", detail: "Onion routing provides obfuscation" }
-    },
-    {
-      name: "Open Source",
-      lockbit: { status: "trophy", detail: "100% open + auditable + MIT license" },
-      signal: { status: "check", detail: "Fully open" },
-      threema: { status: "warning", detail: "Only clients open" },
-      session: { status: "check", detail: "Fully open" }
-    },
-    {
-      name: "MITM Protection",
-      lockbit: { status: "trophy", detail: "Out-of-band verification + mutual auth + ECDSA" },
-      signal: { status: "check", detail: "Safety numbers verification" },
-      threema: { status: "check", detail: "QR code scanning" },
-      session: { status: "warning", detail: "Basic key verification" }
-    },
-    {
-      name: "Censorship Resistance",
-      lockbit: { status: "trophy", detail: "Impossible to block P2P + no servers to target" },
-      signal: { status: "warning", detail: "Blocked in authoritarian countries" },
-      threema: { status: "warning", detail: "May be blocked" },
-      session: { status: "check", detail: "Onion routing bypasses blocks" }
-    },
-    {
-      name: "Data Storage",
-      lockbit: { status: "trophy", detail: "Zero data storage - only in browser memory" },
-      signal: { status: "warning", detail: "Local database storage" },
-      threema: { status: "warning", detail: "Local + optional backup" },
-      session: { status: "warning", detail: "Local database storage" }
-    },
-    {
-      name: "Key Security",
-      lockbit: { status: "trophy", detail: "Non-extractable keys + hardware protection" },
-      signal: { status: "check", detail: "Secure key storage" },
-      threema: { status: "check", detail: "Local key storage" },
-      session: { status: "check", detail: "Secure key storage" }
-    },
-    {
-      name: "Post-Quantum Roadmap",
-      lockbit: { status: "check", detail: "Planned v5.0 - CRYSTALS-Kyber/Dilithium" },
-      signal: { status: "warning", detail: "PQXDH in development" },
-      threema: { status: "times", detail: "Not announced" },
-      session: { status: "times", detail: "Not announced" }
-    }
-  ];
-  const getStatusIcon = (status) => {
-    const statusMap = {
-      "trophy": { icon: "fa-trophy", color: "accent-orange" },
-      "check": { icon: "fa-check", color: "text-green-300" },
-      "warning": { icon: "fa-exclamation-triangle", color: "text-yellow-300" },
-      "times": { icon: "fa-times", color: "text-red-300" }
-    };
-    return statusMap[status] || { icon: "fa-question", color: "text-gray-400" };
-  };
-  const toggleFeatureDetail = (index) => {
-    setSelectedFeature(selectedFeature === index ? null : index);
-  };
-  return /* @__PURE__ */ React.createElement("div", { className: "mt-16" }, /* @__PURE__ */ React.createElement("div", { className: "text-center mb-8" }, /* @__PURE__ */ React.createElement("h3", { className: "text-3xl font-bold text-white mb-3" }, "Enhanced Security Edition Comparison"), /* @__PURE__ */ React.createElement("p", { className: "text-gray-400 max-w-2xl mx-auto mb-4" }, "Enhanced Security Edition vs leading secure messengers")), /* @__PURE__ */ React.createElement("div", { className: "max-w-7xl mx-auto" }, /* @__PURE__ */ React.createElement("div", { className: "md:hidden p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg mb-4" }, /* @__PURE__ */ React.createElement("p", { className: "text-yellow-400 text-sm text-center" }, /* @__PURE__ */ React.createElement("i", { className: "fas fa-lightbulb mr-2" }), "Rotate your device horizontally for better viewing")), /* @__PURE__ */ React.createElement("div", { className: "overflow-x-auto" }, /* @__PURE__ */ React.createElement(
-    "table",
-    {
-      className: "w-full border-collapse rounded-xl overflow-hidden shadow-2xl",
-      style: { backgroundColor: "rgba(42, 43, 42, 0.9)" }
-    },
-    /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", { className: "bg-black-table" }, /* @__PURE__ */ React.createElement("th", { className: "text-left p-4 border-b border-gray-600 text-white font-bold min-w-[240px]" }, "Security Criterion"), messengers.map((messenger, index) => /* @__PURE__ */ React.createElement("th", { key: `messenger-${index}`, className: "text-center p-4 border-b border-gray-600 min-w-[160px]" }, /* @__PURE__ */ React.createElement("div", { className: "flex flex-col items-center" }, /* @__PURE__ */ React.createElement("div", { className: "mb-2" }, messenger.logo), /* @__PURE__ */ React.createElement("div", { className: `text-sm font-bold ${messenger.color === "orange" ? "text-orange-400" : messenger.color === "blue" ? "text-blue-400" : messenger.color === "green" ? "text-green-400" : "text-cyan-400"}` }, messenger.name), /* @__PURE__ */ React.createElement("div", { className: "text-xs text-gray-400" }, messenger.type), /* @__PURE__ */ React.createElement("div", { className: "text-xs text-gray-500 mt-1" }, messenger.version)))))),
-    /* @__PURE__ */ React.createElement("tbody", null, features.map((feature, featureIndex) => /* @__PURE__ */ React.createElement(React.Fragment, { key: `feature-${featureIndex}` }, /* @__PURE__ */ React.createElement(
-      "tr",
-      {
-        className: `border-b border-gray-700/30 transition-all duration-200 cursor-pointer hover:bg-[rgb(20_20_20_/30%)] ${selectedFeature === featureIndex ? "bg-[rgb(20_20_20_/50%)]" : ""}`,
-        onClick: () => toggleFeatureDetail(featureIndex)
-      },
-      /* @__PURE__ */ React.createElement("td", { className: "p-4 text-white font-semibold" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between" }, /* @__PURE__ */ React.createElement("span", null, feature.name), /* @__PURE__ */ React.createElement("i", { className: `fas fa-chevron-${selectedFeature === featureIndex ? "up" : "down"} text-xs text-gray-400 opacity-60 transition-all duration-200` }))),
-      /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("i", { className: `fas ${getStatusIcon(feature.lockbit.status).icon} ${getStatusIcon(feature.lockbit.status).color} text-2xl` })),
-      /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("i", { className: `fas ${getStatusIcon(feature.signal.status).icon} ${getStatusIcon(feature.signal.status).color} text-2xl` })),
-      /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("i", { className: `fas ${getStatusIcon(feature.threema.status).icon} ${getStatusIcon(feature.threema.status).color} text-2xl` })),
-      /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("i", { className: `fas ${getStatusIcon(feature.session.status).icon} ${getStatusIcon(feature.session.status).color} text-2xl` }))
-    ), selectedFeature === featureIndex && /* @__PURE__ */ React.createElement("tr", { className: "border-b border-gray-700/30 bg-gradient-to-r from-gray-800/20 to-gray-900/20" }, /* @__PURE__ */ React.createElement("td", { className: "p-4 text-xs text-gray-400 font-medium" }, "Technical Details:"), /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs text-orange-300 font-medium leading-relaxed" }, feature.lockbit.detail)), /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs text-blue-300 leading-relaxed" }, feature.signal.detail)), /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs text-green-300 leading-relaxed" }, feature.threema.detail)), /* @__PURE__ */ React.createElement("td", { className: "p-4 text-center" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs text-cyan-300 leading-relaxed" }, feature.session.detail))))))
-  )), /* @__PURE__ */ React.createElement("div", { className: "mt-8 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-orange-500/10 rounded-xl hover:bg-orange-500/40 transition-colors" }, /* @__PURE__ */ React.createElement("i", { className: "fas fa-trophy text-orange-400 mr-2 text-xl" }), /* @__PURE__ */ React.createElement("span", { className: "text-orange-300 text-sm font-bold" }, "Category Leader")), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-green-500/10 rounded-xl hover:bg-green-600/40 transition-colors" }, /* @__PURE__ */ React.createElement("i", { className: "fas fa-check text-green-300 mr-2 text-xl" }), /* @__PURE__ */ React.createElement("span", { className: "text-green-200 text-sm font-bold" }, "Excellent")), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-yellow-500/10 rounded-xl hover:bg-yellow-600/40 transition-colors" }, /* @__PURE__ */ React.createElement("i", { className: "fas fa-exclamation-triangle text-yellow-300 mr-2 text-xl" }), /* @__PURE__ */ React.createElement("span", { className: "text-yellow-200 text-sm font-bold" }, "Partial/Limited")), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center p-4 bg-red-500/10 rounded-xl hover:bg-red-600/40 transition-colors" }, /* @__PURE__ */ React.createElement("i", { className: "fas fa-times text-red-300 mr-2 text-xl" }), /* @__PURE__ */ React.createElement("span", { className: "text-red-200 text-sm font-bold" }, "Not Available")))));
-};
-window.ComparisonTable = ComparisonTable;
-
 // src/components/ui/Roadmap.jsx
 function Roadmap() {
-  const [selectedPhase, setSelectedPhase] = React.useState(null);
-  const phases = [
+  const [isMobile, setIsMobile] = React.useState(
+    typeof window !== "undefined" && window.matchMedia("(max-width:767px)").matches
+  );
+  React.useEffect(() => {
+    const mq = window.matchMedia("(max-width:767px)");
+    const onChange = () => setIsMobile(mq.matches);
+    mq.addEventListener ? mq.addEventListener("change", onChange) : mq.addListener(onChange);
+    return () => {
+      mq.removeEventListener ? mq.removeEventListener("change", onChange) : mq.removeListener(onChange);
+    };
+  }, []);
+  const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+  const SANS = "'Manrope', system-ui, -apple-system, sans-serif";
+  const DATA = [
     {
-      version: "v1.0",
+      v: "v1.0",
       title: "Start of Development",
-      status: "done",
+      sub: "Idea, prototype, and infrastructure setup",
+      status: "released",
       date: "Early 2025",
-      description: "Idea, prototype, and infrastructure setup",
-      features: [
-        "Concept and requirements formation",
-        "Stack selection: WebRTC, P2P, cryptography",
-        "First messaging prototypes",
-        "Repository creation and CI",
-        "Basic encryption architecture",
-        "UX/UI design"
-      ]
+      features: ["Concept and requirements formation", "Stack selection: WebRTC, P2P, cryptography", "First messaging prototypes", "Repository creation and CI", "Basic encryption architecture", "UX/UI design"]
     },
     {
-      version: "v1.5",
+      v: "v1.5",
       title: "Alpha Release",
-      status: "done",
+      sub: "First public alpha: basic chat and key exchange",
+      status: "released",
       date: "Spring 2025",
-      description: "First public alpha: basic chat and key exchange",
-      features: [
-        "Basic P2P messaging via WebRTC",
-        "Simple E2E encryption (demo scheme)",
-        "Stable signaling and reconnection",
-        "Minimal UX for testing",
-        "Feedback collection from early testers"
-      ]
+      features: ["Basic P2P messaging via WebRTC", "Simple E2E encryption (demo scheme)", "Stable signaling and reconnection", "Minimal UX for testing", "Feedback collection from early testers"]
     },
     {
-      version: "v2.0",
+      v: "v2.0",
       title: "Security Hardened",
-      status: "done",
+      sub: "Security strengthening and stable branch release",
+      status: "released",
       date: "Summer 2025",
-      description: "Security strengthening and stable branch release",
-      features: [
-        "ECDH/ECDSA implementation in production",
-        "Perfect Forward Secrecy and key rotation",
-        "Improved authentication checks",
-        "File encryption and large payload transfers",
-        "Audit of basic cryptoprocesses"
-      ]
+      features: ["ECDH/ECDSA implementation in production", "Perfect Forward Secrecy and key rotation", "Improved authentication checks", "File encryption and large payload transfers", "Audit of basic cryptoprocesses"]
     },
     {
-      version: "v3.0",
+      v: "v3.0",
       title: "Scaling & Stability",
-      status: "done",
+      sub: "Network scaling and stability improvements",
+      status: "released",
       date: "Fall 2025",
-      description: "Network scaling and stability improvements",
-      features: [
-        "Optimization of P2P connections and NAT traversal",
-        "Reconnection mechanisms and message queues",
-        "Reduced battery consumption on mobile",
-        "Support for multi-device synchronization",
-        "Monitoring and logging tools for developers"
-      ]
+      features: ["Optimization of P2P connections and NAT traversal", "Reconnection mechanisms and message queues", "Reduced battery consumption on mobile", "Multi-device synchronization support", "Monitoring and logging tools for developers"]
     },
     {
-      version: "v3.5",
+      v: "v3.5",
       title: "Privacy-first Release",
-      status: "done",
+      sub: "Focus on privacy: minimizing metadata",
+      status: "released",
       date: "Winter 2025",
-      description: "Focus on privacy: minimizing metadata",
-      features: [
-        "Metadata protection and fingerprint reduction",
-        "Experiments with onion routing and DHT",
-        "Options for anonymous connections",
-        "Preparation for open code audit",
-        "Improved user verification processes"
-      ]
+      features: ["Metadata protection and fingerprint reduction", "Experiments with onion routing and DHT", "Options for anonymous connections", "Preparation for open code audit", "Improved user verification processes"]
     },
-    // current and future phases
     {
-      version: "v4.5",
+      v: "v4.5",
       title: "Enhanced Security Edition",
-      status: "done",
-      date: "Now",
-      description: "Version with ECDH + DTLS + SAS security, 18-layer military-grade cryptography and complete ASN.1 validation",
-      features: [
-        "ECDH + DTLS + SAS triple-layer security",
-        "ECDH P-384 + AES-GCM 256-bit encryption",
-        "DTLS fingerprint verification",
-        "SAS (Short Authentication String) verification",
-        "Perfect Forward Secrecy with key rotation",
-        "Enhanced MITM attack prevention",
-        "Complete ASN.1 DER validation",
-        "OID and EC point verification",
-        "SPKI structure validation",
-        "P2P WebRTC architecture",
-        "Metadata protection",
-        "100% open source code"
-      ]
+      sub: "18-layer military-grade cryptography with complete ASN.1 validation",
+      status: "released",
+      date: "Late 2025",
+      features: ["ECDH + DTLS + SAS triple-layer security", "ECDH P-384 + AES-GCM 256-bit encryption", "DTLS fingerprint verification", "SAS (Short Authentication String) verification", "Perfect Forward Secrecy with key rotation", "Enhanced MITM attack prevention", "Complete ASN.1 DER validation", "OID and EC point verification", "SPKI structure validation", "P2P WebRTC architecture", "Metadata protection", "100% open source code"]
     },
     {
-      version: "v4.7",
+      v: "v4.7",
       title: "Desktop Edition",
+      sub: "Native desktop apps for Windows, macOS, and Linux",
       status: "current",
       date: "Now",
-      description: "Native desktop applications for Windows, macOS, and Linux",
-      features: [
-        "Windows desktop app (Tauri v2)",
-        "macOS desktop app (Tauri v2)",
-        "Linux AppImage support (Tauri v2)",
-        "Real-time notifications",
-        "Automatic reconnection",
-        "Cross-device synchronization",
-        "Improved UX/UI",
-        "Support for files up to 100MB"
-      ]
+      features: ["Windows desktop app (Tauri v2)", "macOS desktop app (Tauri v2)", "Linux AppImage support (Tauri v2)", "Real-time notifications", "Automatic reconnection", "Cross-device synchronization", "Improved UX/UI", "Support for files up to 100MB"]
     },
     {
-      version: "v5.0",
+      v: "v5.0",
       title: "Mobile Edition",
-      status: "development",
+      sub: "Native mobile apps for iOS and Android",
+      status: "dev",
       date: "Q1 2026",
-      description: "Native mobile applications for iOS and Android",
-      features: [
-        "iOS native app (Swift/SwiftUI)",
-        "Android native app (Kotlin/Jetpack Compose)",
-        "PWA support for mobile browsers",
-        "Real-time push notifications",
-        "Battery optimization",
-        "Mobile-optimized UX/UI",
-        "Offline message queuing",
-        "Biometric authentication"
-      ]
+      features: ["iOS native app (Swift/SwiftUI)", "Android native app (Kotlin/Jetpack Compose)", "PWA support for mobile browsers", "Real-time push notifications", "Battery optimization", "Mobile-optimized UX/UI", "Offline message queuing", "Biometric authentication"]
     },
     {
-      version: "v5.5",
+      v: "v5.5",
       title: "Quantum-Resistant Edition",
+      sub: "Protection against quantum computers",
       status: "planned",
       date: "Q2 2026",
-      description: "Protection against quantum computers",
-      features: [
-        "Post-quantum cryptography CRYSTALS-Kyber",
-        "SPHINCS+ digital signatures",
-        "Hybrid scheme: classic + PQ",
-        "Quantum-safe key exchange",
-        "Updated hashing algorithms",
-        "Migration of existing sessions",
-        "Compatibility with v4.x",
-        "Quantum-resistant protocols"
-      ]
+      features: ["Post-quantum cryptography CRYSTALS-Kyber", "SPHINCS+ digital signatures", "Hybrid scheme: classic + PQ", "Quantum-safe key exchange", "Updated hashing algorithms", "Migration of existing sessions", "Compatibility with v4.x", "Quantum-resistant protocols"]
     },
     {
-      version: "v6.0",
+      v: "v6.0",
       title: "Group Communications",
+      sub: "Group chats with preserved privacy",
       status: "planned",
       date: "Q4 2026",
-      description: "Group chats with preserved privacy",
-      features: [
-        "P2P group connections up to 8 participants",
-        "Mesh networking for groups",
-        "Signal Double Ratchet for groups",
-        "Anonymous groups without metadata",
-        "Ephemeral groups (disappear after session)",
-        "Cryptographic group administration",
-        "Group member auditing"
-      ]
+      features: ["P2P group connections up to 8 participants", "Mesh networking for groups", "Signal Double Ratchet for groups", "Anonymous groups without metadata", "Ephemeral groups (disappear after session)", "Cryptographic group administration", "Group member auditing"]
     },
     {
-      version: "v6.5",
+      v: "v6.5",
       title: "Decentralized Network",
+      sub: "Fully decentralized network",
       status: "research",
       date: "2027",
-      description: "Fully decentralized network",
-      features: [
-        "LockBit node mesh network",
-        "DHT for peer discovery",
-        "Built-in onion routing",
-        "Tokenomics and node incentives",
-        "Governance via DAO",
-        "Interoperability with other networks",
-        "Cross-platform compatibility",
-        "Self-healing network"
-      ]
+      features: ["Node mesh network", "DHT for peer discovery", "Built-in onion routing", "Tokenomics and node incentives", "Governance via DAO", "Interoperability with other networks", "Cross-platform compatibility", "Self-healing network"]
     },
     {
-      version: "v7.0",
+      v: "v7.0",
       title: "AI Privacy Assistant",
+      sub: "AI for privacy and security",
       status: "research",
       date: "2028+",
-      description: "AI for privacy and security",
-      features: [
-        "Local AI threat analysis",
-        "Automatic MITM detection",
-        "Adaptive cryptography",
-        "Personalized security recommendations",
-        "Zero-knowledge machine learning",
-        "Private AI assistant",
-        "Predictive security",
-        "Autonomous attack protection"
-      ]
+      features: ["Local AI threat analysis", "Automatic MITM detection", "Adaptive cryptography", "Personalized security recommendations", "Zero-knowledge machine learning", "Private AI assistant", "Predictive security", "Autonomous attack protection"]
     }
   ];
-  const getStatusConfig = (status) => {
-    switch (status) {
-      case "current":
-        return {
-          color: "green",
-          bgClass: "bg-green-500/10 border-green-500/20",
-          textClass: "text-green-400",
-          icon: "fas fa-check-circle",
-          label: "Current Version"
-        };
-      case "development":
-        return {
-          color: "orange",
-          bgClass: "bg-orange-500/10 border-orange-500/20",
-          textClass: "text-orange-400",
-          icon: "fas fa-code",
-          label: "In Development"
-        };
-      case "planned":
-        return {
-          color: "blue",
-          bgClass: "bg-blue-500/10 border-blue-500/20",
-          textClass: "text-blue-400",
-          icon: "fas fa-calendar-alt",
-          label: "Planned"
-        };
-      case "research":
-        return {
-          color: "purple",
-          bgClass: "bg-purple-500/10 border-purple-500/20",
-          textClass: "text-purple-400",
-          icon: "fas fa-flask",
-          label: "Research"
-        };
-      case "done":
-        return {
-          color: "gray",
-          bgClass: "bg-gray-500/10 border-gray-500/20",
-          textClass: "text-gray-300",
-          icon: "fas fa-flag-checkered",
-          label: "Released"
-        };
-      default:
-        return {
-          color: "gray",
-          bgClass: "bg-gray-500/10 border-gray-500/20",
-          textClass: "text-gray-400",
-          icon: "fas fa-question",
-          label: "Unknown"
-        };
+  const META = {
+    released: { word: "Released", color: "#3ecf8e", line: "rgba(62,207,142,0.32)" },
+    current: { word: "Current", color: "#f0892a", line: "rgba(240,137,42,0.32)" },
+    dev: { word: "In development", color: "#e3b341", line: "rgba(255,255,255,0.08)" },
+    planned: { word: "Planned", color: "#8a8a92", line: "rgba(255,255,255,0.08)" },
+    research: { word: "Research", color: "#6b6b73", line: "rgba(255,255,255,0.08)" }
+  };
+  const [open, setOpen] = React.useState({});
+  const isOpen = (i) => open[i] === void 0 ? DATA[i].status === "current" : open[i];
+  const toggle = (i) => setOpen((s) => ({ ...s, [i]: !isOpen(i) }));
+  const hexA = (hex, a) => {
+    const n = parseInt(hex.slice(1), 16);
+    return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`;
+  };
+  const total = DATA.length;
+  const shipped = DATA.filter((d) => d.status === "released" || d.status === "current").length;
+  const upcoming = total - shipped;
+  const shippedPct = (shipped / total * 100).toFixed(1) + "%";
+  const renderNode = (status) => {
+    if (status === "released") {
+      return /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: "13px", top: "16px", width: "28px", height: "28px", borderRadius: "50%", display: "grid", placeItems: "center", background: "linear-gradient(rgba(62,207,142,0.16),rgba(62,207,142,0.16)), #0f0f11", border: "1px solid rgba(62,207,142,0.4)", zIndex: 2 } }, /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: "#3ecf8e", strokeWidth: "2.4", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M5 13l4 4 10-11" })));
     }
+    if (status === "current") {
+      return /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: "13px", top: "16px", width: "28px", height: "28px", borderRadius: "50%", display: "grid", placeItems: "center", background: "linear-gradient(rgba(240,137,42,0.2),rgba(240,137,42,0.2)), #0f0f11", border: "1px solid #f0892a", zIndex: 2, animation: "rmPulse 2.4s ease-out infinite" } }, /* @__PURE__ */ React.createElement("span", { style: { width: "9px", height: "9px", borderRadius: "50%", background: "#f0892a" } }));
+    }
+    if (status === "dev") {
+      return /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: "13px", top: "16px", width: "28px", height: "28px", borderRadius: "50%", display: "grid", placeItems: "center", background: "linear-gradient(rgba(227,179,65,0.15),rgba(227,179,65,0.15)), #0f0f11", border: "1px solid rgba(227,179,65,0.4)", zIndex: 2 } }, /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: "#e3b341", strokeWidth: "2.2", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M12 3a9 9 0 1 0 9 9" })));
+    }
+    return /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: "13px", top: "16px", width: "28px", height: "28px", borderRadius: "50%", display: "grid", placeItems: "center", background: "#0f0f11", border: `1px ${status === "research" ? "dashed" : "solid"} rgba(255,255,255,0.18)`, zIndex: 2 } }, /* @__PURE__ */ React.createElement("span", { style: { width: "7px", height: "7px", borderRadius: "50%", background: META[status].color } }));
   };
-  const togglePhaseDetail = (index) => {
-    setSelectedPhase(selectedPhase === index ? null : index);
-  };
-  return /* @__PURE__ */ React.createElement("div", { key: "roadmap-section", className: "mt-16 px-4 sm:px-0" }, /* @__PURE__ */ React.createElement("div", { key: "section-header", className: "text-center mb-12" }, /* @__PURE__ */ React.createElement("h3", { key: "title", className: "text-2xl font-semibold text-primary mb-3" }, "Development Roadmap"), /* @__PURE__ */ React.createElement("p", { key: "subtitle", className: "text-secondary max-w-2xl mx-auto mb-6" }, "Evolution of SecureBit.chat : from initial development to quantum-resistant decentralized network with complete ASN.1 validation")), /* @__PURE__ */ React.createElement("div", { key: "roadmap-container", className: "max-w-6xl mx-auto" }, /* @__PURE__ */ React.createElement("div", { key: "timeline", className: "relative" }, /* @__PURE__ */ React.createElement("div", { key: "phases", className: "space-y-8" }, phases.map((phase, index) => {
-    const statusConfig = getStatusConfig(phase.status);
-    const isExpanded = selectedPhase === index;
-    return /* @__PURE__ */ React.createElement("div", { key: `phase-${index}`, className: "relative" }, /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        type: "button",
-        "aria-expanded": isExpanded,
-        onClick: () => togglePhaseDetail(index),
-        key: `phase-button-${index}`,
-        className: `card-minimal rounded-xl p-4 text-left w-full transition-all duration-300 ${isExpanded ? "ring-2 ring-" + statusConfig.color + "-500/30" : ""}`
-      },
-      /* @__PURE__ */ React.createElement(
-        "div",
-        {
-          key: "phase-header",
-          className: "flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 space-y-2 sm:space-y-0"
-        },
-        /* @__PURE__ */ React.createElement(
-          "div",
-          {
-            key: "phase-info",
-            className: "flex flex-col sm:flex-row sm:items-center sm:space-x-4"
-          },
-          /* @__PURE__ */ React.createElement(
-            "div",
-            {
-              key: "version-badge",
-              className: `px-3 py-1 ${statusConfig.bgClass} border rounded-lg mb-2 sm:mb-0`
-            },
-            /* @__PURE__ */ React.createElement(
-              "span",
-              {
-                key: "version",
-                className: `${statusConfig.textClass} font-bold text-sm`
-              },
-              phase.version
-            )
-          ),
-          /* @__PURE__ */ React.createElement("div", { key: "title-section" }, /* @__PURE__ */ React.createElement(
-            "h4",
-            {
-              key: "title",
-              className: "text-lg font-semibold text-primary"
-            },
-            phase.title
-          ), /* @__PURE__ */ React.createElement(
-            "p",
-            {
-              key: "description",
-              className: "text-secondary text-sm"
-            },
-            phase.description
-          ))
-        ),
-        /* @__PURE__ */ React.createElement(
-          "div",
-          {
-            key: "phase-meta",
-            className: "flex items-center space-x-3 text-sm text-gray-400 font-medium"
-          },
-          /* @__PURE__ */ React.createElement(
-            "div",
-            {
-              key: "status-badge",
-              className: `flex items-center px-3 py-1 ${statusConfig.bgClass} border rounded-lg`
-            },
-            /* @__PURE__ */ React.createElement(
-              "i",
-              {
-                key: "status-icon",
-                className: `${statusConfig.icon} ${statusConfig.textClass} mr-2 text-xs`
-              }
-            ),
-            /* @__PURE__ */ React.createElement(
-              "span",
-              {
-                key: "status-text",
-                className: `${statusConfig.textClass} text-xs font-medium`
-              },
-              statusConfig.label
-            )
-          ),
-          /* @__PURE__ */ React.createElement("div", { key: "date" }, phase.date),
-          /* @__PURE__ */ React.createElement(
-            "i",
-            {
-              key: "expand-icon",
-              className: `fas fa-chevron-${isExpanded ? "up" : "down"} text-gray-400 text-sm`
-            }
-          )
-        )
-      ),
-      isExpanded && /* @__PURE__ */ React.createElement(
-        "div",
-        {
-          key: "features-section",
-          className: "mt-6 pt-6 border-t border-gray-700/30"
-        },
-        /* @__PURE__ */ React.createElement(
-          "h5",
-          {
-            key: "features-title",
-            className: "text-primary font-medium mb-4 flex items-center"
-          },
-          /* @__PURE__ */ React.createElement(
-            "i",
-            {
-              key: "features-icon",
-              className: "fas fa-list-ul mr-2 text-sm"
-            }
-          ),
-          "Key features:"
-        ),
-        /* @__PURE__ */ React.createElement(
-          "div",
-          {
-            key: "features-grid",
-            className: "grid md:grid-cols-2 gap-3"
-          },
-          phase.features.map((feature, featureIndex) => /* @__PURE__ */ React.createElement(
-            "div",
-            {
-              key: `feature-${featureIndex}`,
-              className: "flex items-center space-x-3 p-3 bg-custom-bg rounded-lg"
-            },
-            /* @__PURE__ */ React.createElement(
-              "div",
-              {
-                className: `w-2 h-2 rounded-full ${statusConfig.textClass.replace(
-                  "text-",
-                  "bg-"
-                )}`
-              }
-            ),
-            /* @__PURE__ */ React.createElement("span", { className: "text-secondary text-sm" }, feature)
-          ))
-        )
-      )
-    ));
-  })))), /* @__PURE__ */ React.createElement("div", { key: "cta-section", className: "mt-12 text-center" }, /* @__PURE__ */ React.createElement(
-    "div",
-    {
-      key: "cta-card",
-      className: "card-minimal rounded-xl p-8 max-w-2xl mx-auto"
-    },
-    /* @__PURE__ */ React.createElement(
-      "h4",
-      {
-        key: "cta-title",
-        className: "text-xl font-semibold text-primary mb-3"
-      },
-      "Join the future of privacy"
-    ),
-    /* @__PURE__ */ React.createElement("p", { key: "cta-description", className: "text-secondary mb-6" }, "SecureBit.chat grows thanks to the community. Your ideas and feedback help shape the future of secure communication with complete ASN.1 validation."),
-    /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("section", { style: { width: "100%", color: "#e8e8eb", fontFamily: SANS, padding: isMobile ? "48px 0" : "64px 0", background: "radial-gradient(1200px 720px at 50% -8%, rgba(240,137,42,0.05), transparent 60%), #0f0f11" } }, /* @__PURE__ */ React.createElement("style", { dangerouslySetInnerHTML: { __html: "@keyframes rmExp{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}@keyframes rmPulse{0%,100%{box-shadow:0 0 0 0 rgba(240,137,42,0.18)}60%{box-shadow:0 0 0 9px rgba(240,137,42,0)}}" } }), /* @__PURE__ */ React.createElement("div", { style: { maxWidth: "1040px", margin: "0 auto", padding: isMobile ? "0 18px" : "0 40px" } }, /* @__PURE__ */ React.createElement("div", { style: { marginBottom: "30px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: MONO, fontSize: "11px", fontWeight: 600, color: "#6b6b73", textTransform: "uppercase", letterSpacing: "1.6px", marginBottom: "13px" } }, "Development Roadmap"), /* @__PURE__ */ React.createElement("h2", { style: { margin: "0 0 14px", fontSize: isMobile ? "27px" : "34px", fontWeight: 800, letterSpacing: "-1px", lineHeight: 1.08, color: "#f4f4f6" } }, "The evolution of SecureBit"), /* @__PURE__ */ React.createElement("p", { style: { margin: 0, fontSize: "15.5px", lineHeight: 1.6, color: "#8a8a92", maxWidth: "660px" } }, "From the first prototype to a quantum-resistant, decentralized network \u2014 with complete ASN.1 validation at every layer.")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "18px", flexWrap: "wrap", padding: "18px 22px", borderRadius: "14px", background: "#141416", border: "1px solid rgba(255,255,255,0.06)", marginBottom: "36px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: MONO, fontSize: "12px", fontWeight: 600, color: "#e8e8eb", whiteSpace: "nowrap" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "#3ecf8e" } }, shipped), " of ", total, " milestones shipped"), /* @__PURE__ */ React.createElement("div", { style: { flex: "1 1 240px", minWidth: "200px", height: "8px", borderRadius: "99px", background: "#0c0c0e", border: "1px solid rgba(255,255,255,0.06)", overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { height: "100%", width: shippedPct, background: "linear-gradient(90deg, #3ecf8e, #f0892a)" } })), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: MONO, fontSize: "11px", fontWeight: 600, color: "#6b6b73", textTransform: "uppercase", letterSpacing: "0.8px", whiteSpace: "nowrap" } }, upcoming, " on the way")), DATA.map((d, i) => {
+    const meta = META[d.status];
+    const opened = isOpen(i);
+    const notLast = i < total - 1;
+    return /* @__PURE__ */ React.createElement("div", { key: i, style: { position: "relative", display: "grid", gridTemplateColumns: "54px 1fr", marginBottom: "16px" } }, /* @__PURE__ */ React.createElement("div", { style: { position: "relative" } }, notLast && /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: "26px", top: "30px", height: "calc(100% + 16px)", width: "2px", background: meta.line } }), renderNode(d.status)), /* @__PURE__ */ React.createElement("div", { style: { borderRadius: "16px", background: "#141416", border: `1px solid ${d.status === "current" ? "rgba(240,137,42,0.28)" : "rgba(255,255,255,0.06)"}`, overflow: "hidden" } }, /* @__PURE__ */ React.createElement(
       "div",
       {
-        key: "cta-buttons",
-        className: "flex flex-col sm:flex-row gap-4 justify-center"
+        onClick: () => toggle(i),
+        style: { display: "flex", alignItems: "center", gap: isMobile ? "11px" : "16px", padding: isMobile ? "16px 16px" : "18px 22px", cursor: "pointer", transition: "background .18s ease" },
+        onMouseEnter: (e) => {
+          e.currentTarget.style.background = "rgba(255,255,255,0.018)";
+        },
+        onMouseLeave: (e) => {
+          e.currentTarget.style.background = "transparent";
+        }
       },
-      /* @__PURE__ */ React.createElement(
-        "a",
-        {
-          key: "github-link",
-          href: "https://github.com/SecureBitChat/securebit-chat/",
-          className: "btn-primary text-white py-3 px-6 rounded-lg font-medium transition-all duration-200 flex items-center justify-center"
-        },
-        /* @__PURE__ */ React.createElement("i", { key: "github-icon", className: "fab fa-github mr-2" }),
-        "GitHub Repository"
-      ),
-      /* @__PURE__ */ React.createElement(
-        "a",
-        {
-          key: "feedback-link",
-          href: "mailto:lockbitchat@tutanota.com",
-          className: "btn-secondary text-white py-3 px-6 rounded-lg font-medium transition-all duration-200 flex items-center justify-center"
-        },
-        /* @__PURE__ */ React.createElement("i", { key: "feedback-icon", className: "fas fa-comments mr-2" }),
-        "Feedback"
-      )
-    )
-  )));
+      /* @__PURE__ */ React.createElement("div", { style: { flex: "none", minWidth: "52px", textAlign: "center", padding: "7px 10px", borderRadius: "9px", background: "#0c0c0e", border: "1px solid rgba(255,255,255,0.07)", fontFamily: MONO, fontSize: "13px", fontWeight: 700, color: d.status === "current" ? "#f0892a" : "#cfcfd4" } }, d.v),
+      /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: isMobile ? "15.5px" : "17px", fontWeight: 800, letterSpacing: "-0.4px", color: "#f4f4f6" } }, d.title), !isMobile && /* @__PURE__ */ React.createElement("div", { style: { marginTop: "3px", fontSize: "13.5px", color: "#9a9aa2" } }, d.sub)),
+      /* @__PURE__ */ React.createElement("div", { style: { flex: "none", display: "flex", alignItems: "center", gap: isMobile ? "8px" : "14px" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: "7px", padding: "6px 11px", borderRadius: "8px", background: hexA(meta.color, 0.1), border: `1px solid ${hexA(meta.color, 0.22)}`, fontFamily: MONO, fontSize: "10.5px", fontWeight: 600, color: meta.color, textTransform: "uppercase", letterSpacing: "0.8px", whiteSpace: "nowrap" } }, /* @__PURE__ */ React.createElement("span", { style: { width: "6px", height: "6px", borderRadius: "50%", background: meta.color } }), !isMobile && meta.word), !isMobile && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: MONO, fontSize: "12px", fontWeight: 500, color: "#8a8a92", whiteSpace: "nowrap", minWidth: "74px", textAlign: "right" } }, d.date), /* @__PURE__ */ React.createElement("span", { style: { color: "#6b6b73", display: "inline-flex", transition: "transform .22s cubic-bezier(.2,.7,.3,1)", transform: opened ? "rotate(180deg)" : "rotate(0deg)" } }, /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.1", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M6 9l6 6 6-6" }))))
+    ), opened && /* @__PURE__ */ React.createElement("div", { style: { padding: "4px 22px 22px 22px", animation: "rmExp .24s cubic-bezier(.2,.7,.3,1)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: MONO, fontSize: "10px", fontWeight: 600, color: "#56565e", textTransform: "uppercase", letterSpacing: "1.2px", marginBottom: "14px", paddingTop: "14px", borderTop: "1px solid rgba(255,255,255,0.05)" } }, "Key features"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "11px 28px" } }, d.features.map((f, fi) => /* @__PURE__ */ React.createElement("div", { key: fi, style: { display: "flex", alignItems: "flex-start", gap: "10px" } }, /* @__PURE__ */ React.createElement("span", { style: { flex: "none", marginTop: "7px", width: "5px", height: "5px", borderRadius: "50%", background: meta.color } }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "13.5px", lineHeight: 1.5, color: "#cfcfd4" } }, f)))))));
+  })));
 }
 window.Roadmap = Roadmap;
 
+// src/components/ui/CommunityCTA.jsx
+var CommunityCTA = () => {
+  const [isMobile, setIsMobile] = React.useState(
+    typeof window !== "undefined" && window.matchMedia("(max-width:767px)").matches
+  );
+  React.useEffect(() => {
+    const mq = window.matchMedia("(max-width:767px)");
+    const onChange = () => setIsMobile(mq.matches);
+    mq.addEventListener ? mq.addEventListener("change", onChange) : mq.addListener(onChange);
+    return () => {
+      mq.removeEventListener ? mq.removeEventListener("change", onChange) : mq.removeListener(onChange);
+    };
+  }, []);
+  const ACCENT = "#f0892a";
+  const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+  const SANS = "'Manrope', system-ui, -apple-system, sans-serif";
+  const githubUrl = "https://github.com/SecureBitChat/securebit-chat/";
+  const feedbackUrl = "mailto:lockbitchat@tutanota.com";
+  const githubBtn = React.createElement("a", {
+    key: "gh",
+    href: githubUrl,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    style: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: "11px",
+      padding: "15px 26px",
+      borderRadius: "13px",
+      background: ACCENT,
+      color: "#1a0f04",
+      textDecoration: "none",
+      fontSize: "15.5px",
+      fontWeight: 700,
+      letterSpacing: "-0.2px",
+      boxShadow: "0 8px 24px rgba(240,137,42,0.28)",
+      whiteSpace: "nowrap",
+      transition: "all .2s cubic-bezier(.2,.7,.3,1)"
+    },
+    onMouseEnter: (e) => {
+      e.currentTarget.style.background = "#ff9637";
+      e.currentTarget.style.transform = "translateY(-2px)";
+    },
+    onMouseLeave: (e) => {
+      e.currentTarget.style.background = ACCENT;
+      e.currentTarget.style.transform = "none";
+    }
+  }, [
+    React.createElement("svg", {
+      key: "i",
+      width: 20,
+      height: 20,
+      viewBox: "0 0 24 24",
+      fill: "currentColor",
+      dangerouslySetInnerHTML: { __html: '<path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.5 2.87 8.32 6.84 9.67.5.09.68-.22.68-.49 0-.24-.01-.87-.01-1.71-2.78.62-3.37-1.36-3.37-1.36-.46-1.18-1.11-1.5-1.11-1.5-.91-.63.07-.62.07-.62 1 .07 1.53 1.05 1.53 1.05.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.36-2.22-.26-4.55-1.14-4.55-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.27 2.75 1.05a9.3 9.3 0 0 1 5 0c1.91-1.32 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.81-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.59.69.49A10.02 10.02 0 0 0 22 12.26C22 6.58 17.52 2 12 2z"/>' }
+    }),
+    "GitHub Repository"
+  ]);
+  const feedbackBtn = React.createElement("a", {
+    key: "fb",
+    href: feedbackUrl,
+    rel: "noopener noreferrer",
+    style: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: "11px",
+      padding: "15px 26px",
+      borderRadius: "13px",
+      background: "rgba(255,255,255,0.03)",
+      color: "#e8e8eb",
+      textDecoration: "none",
+      fontSize: "15.5px",
+      fontWeight: 700,
+      letterSpacing: "-0.2px",
+      border: "1px solid rgba(255,255,255,0.1)",
+      whiteSpace: "nowrap",
+      transition: "all .2s cubic-bezier(.2,.7,.3,1)"
+    },
+    onMouseEnter: (e) => {
+      e.currentTarget.style.borderColor = "rgba(255,255,255,0.24)";
+      e.currentTarget.style.background = "rgba(255,255,255,0.06)";
+    },
+    onMouseLeave: (e) => {
+      e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
+      e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+    }
+  }, [
+    React.createElement("svg", {
+      key: "i",
+      width: 20,
+      height: 20,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      strokeWidth: 1.9,
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      dangerouslySetInnerHTML: { __html: '<path d="M21 11.5a8 8 0 0 1-11.6 7.1L4 20l1.4-5.3A8 8 0 1 1 21 11.5z"/><path d="M8.5 11h7M8.5 14h4.5"/>' }
+    }),
+    "Feedback"
+  ]);
+  const chip = (label) => React.createElement("span", {
+    key: label,
+    style: { display: "inline-flex", alignItems: "center", gap: "7px" }
+  }, [
+    React.createElement("span", { key: "d", style: { width: "5px", height: "5px", borderRadius: "50%", background: "#3ecf8e" } }),
+    label
+  ]);
+  const card = React.createElement("div", {
+    key: "card",
+    style: {
+      position: "relative",
+      overflow: "hidden",
+      maxWidth: "860px",
+      width: "100%",
+      borderRadius: "24px",
+      background: "radial-gradient(700px 360px at 50% 0%, rgba(240,137,42,0.1), transparent 65%), #121214",
+      border: "1px solid rgba(255,255,255,0.07)",
+      padding: isMobile ? "40px 24px 36px" : "56px 56px 48px",
+      textAlign: "center",
+      boxShadow: "0 24px 60px rgba(0,0,0,0.4)"
+    }
+  }, [
+    // hairline accent
+    React.createElement("div", {
+      key: "hairline",
+      style: { position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: "180px", height: "1px", background: "linear-gradient(90deg, transparent, rgba(240,137,42,0.7), transparent)" }
+    }),
+    // brand mark (same SVG as the header — no border or background)
+    React.createElement("img", {
+      key: "icon",
+      src: "/logo/securebit-mark.svg",
+      alt: "SecureBit",
+      style: { display: "inline-block", width: "64px", height: "64px", objectFit: "contain", marginBottom: "22px", animation: "ccUp .4s cubic-bezier(.2,.7,.3,1)" }
+    }),
+    // eyebrow
+    React.createElement("div", {
+      key: "eyebrow",
+      style: { fontFamily: MONO, fontSize: "11px", fontWeight: 600, color: "#6b6b73", textTransform: "uppercase", letterSpacing: "1.8px", marginBottom: "14px" }
+    }, "Open source \xB7 community-driven"),
+    // title
+    React.createElement("h2", {
+      key: "title",
+      style: { margin: "0 0 16px", fontSize: isMobile ? "28px" : "36px", fontWeight: 800, letterSpacing: "-1px", lineHeight: 1.05, color: "#f4f4f6" }
+    }, "Join the future of privacy"),
+    // description
+    React.createElement("p", {
+      key: "desc",
+      style: { margin: "0 auto 32px", maxWidth: "560px", fontSize: "16px", lineHeight: 1.65, color: "#9a9aa2" }
+    }, "SecureBit grows thanks to its community. Your ideas and feedback shape the future of secure communication \u2014 built in the open, with complete ASN.1 validation end\u2011to\u2011end."),
+    // buttons
+    React.createElement("div", {
+      key: "btns",
+      style: { display: "flex", gap: "14px", justifyContent: "center", flexWrap: "wrap" }
+    }, [githubBtn, feedbackBtn]),
+    // trust chips
+    React.createElement("div", {
+      key: "chips",
+      style: { display: "flex", gap: "10px 22px", justifyContent: "center", flexWrap: "wrap", marginTop: "30px", fontFamily: MONO, fontSize: "11px", fontWeight: 500, color: "#56565e", textTransform: "uppercase", letterSpacing: "1px" }
+    }, [chip("MIT licensed"), chip("No tracking"), chip("Auditable cryptography")])
+  ]);
+  return React.createElement("section", {
+    style: {
+      width: "100%",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      background: "#0f0f11",
+      fontFamily: SANS,
+      padding: isMobile ? "48px 18px" : "64px 48px"
+    }
+  }, [
+    React.createElement("style", { key: "kf", dangerouslySetInnerHTML: { __html: "@keyframes ccUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}" } }),
+    card
+  ]);
+};
+window.CommunityCTA = CommunityCTA;
+
 // src/components/ui/FileTransfer.jsx
-var FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFiles = [], onIncomingDecision }) => {
+var FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFiles = [], onIncomingDecision, showDropzone = true }) => {
   const [dragOver, setDragOver] = React.useState(false);
   const [transfers, setTransfers] = React.useState({ sending: [], receiving: [] });
   const fileInputRef = React.useRef(null);
@@ -18822,6 +18709,48 @@ var FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFiles 
         return status;
     }
   };
+  const renderProgress = (transfer, color) => {
+    const total = transfer.totalChunks || 0;
+    const done = transfer.transferredChunks || 0;
+    const isDone = transfer.status === "completed";
+    const squares = total > 0 ? Math.min(total, 32) : 24;
+    let filled;
+    if (isDone) filled = squares;
+    else if (total > 0) filled = Math.floor(done / total * squares);
+    else filled = Math.floor((transfer.progress || 0) / 100 * squares);
+    filled = Math.max(0, Math.min(squares, filled));
+    return React.createElement("div", { key: "progress" }, [
+      React.createElement("div", {
+        key: "squares",
+        style: { display: "flex", flexWrap: "wrap", gap: "3px", marginBottom: "7px" }
+      }, Array.from({ length: squares }, (_, i) => React.createElement("div", {
+        key: i,
+        style: {
+          width: "11px",
+          height: "11px",
+          borderRadius: "2px",
+          background: i < filled ? color : "rgba(255,255,255,0.07)",
+          border: "1px solid " + (i < filled ? "transparent" : "rgba(255,255,255,0.05)"),
+          boxShadow: i < filled ? `0 0 5px ${color}55` : "none",
+          transition: "background .2s ease, box-shadow .2s ease"
+        }
+      }))),
+      React.createElement("div", {
+        key: "text",
+        style: { display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "11.5px", color: "#8a8a92" }
+      }, [
+        React.createElement("span", { key: "status", style: { display: "inline-flex", alignItems: "center", gap: "5px" } }, [
+          React.createElement("i", { key: "icon", className: getStatusIcon(transfer.status) }),
+          getStatusText(transfer.status)
+        ]),
+        React.createElement("span", {
+          key: "count",
+          style: { fontFamily: "'JetBrains Mono', ui-monospace, monospace", color: i_done(transfer) ? color : "#8a8a92" }
+        }, total > 0 ? `${Math.min(done, total)} / ${total} chunks` : `${(transfer.progress || 0).toFixed(0)}%`)
+      ])
+    ]);
+  };
+  const i_done = (t) => t.status === "completed";
   const handleIncomingDecision = async (fileId, accepted) => {
     if (typeof onIncomingDecision === "function") {
       await onIncomingDecision(fileId, accepted);
@@ -18848,35 +18777,42 @@ var FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFiles 
   return React.createElement("div", {
     className: "file-transfer-component"
   }, [
-    // File Drop Zone
-    React.createElement("div", {
+    // File Drop Zone (SecureBit Chat design) — only when the panel is opened to SEND,
+    // so a receiver never sees the "send attachments" UI.
+    showDropzone && React.createElement("div", {
       key: "drop-zone",
-      className: `file-drop-zone ${dragOver ? "drag-over" : ""}`,
       onDrop: handleDrop,
       onDragOver: handleDragOver,
       onDragLeave: handleDragLeave,
-      onClick: () => fileInputRef.current?.click()
+      style: {
+        position: "relative",
+        border: "1.5px dashed " + (dragOver ? "rgba(240,137,42,0.7)" : "rgba(255,255,255,0.14)"),
+        borderRadius: "14px",
+        background: dragOver ? "rgba(240,137,42,0.07)" : "#141416",
+        padding: "24px 22px",
+        textAlign: "center",
+        transition: "all .15s"
+      }
     }, [
       React.createElement("div", {
-        key: "drop-content",
-        className: "drop-content"
+        key: "icon-box",
+        style: { width: "42px", height: "42px", margin: "0 auto 10px", borderRadius: "12px", display: "grid", placeItems: "center", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }
+      }, React.createElement("i", { className: "fas fa-arrow-up-from-bracket", style: { color: "#9a9aa2", fontSize: "18px" } })),
+      React.createElement("div", { key: "title", style: { fontSize: "14px", fontWeight: 700, color: "#e8e8eb" } }, "Drag & drop files here"),
+      React.createElement("div", { key: "sub", style: { fontSize: "12px", color: "#7b7b83", marginTop: "4px" } }, "Encrypted end-to-end before transfer \xB7 up to 100 MB"),
+      React.createElement("button", {
+        key: "browse",
+        type: "button",
+        onClick: () => fileInputRef.current?.click(),
+        className: "sb-send",
+        style: { marginTop: "14px", display: "inline-flex", alignItems: "center", gap: "7px", padding: "9px 16px", borderRadius: "9px", border: "none", background: "#f0892a", color: "#1a0f04", fontFamily: "inherit", fontSize: "13px", fontWeight: 700, cursor: "pointer" }
       }, [
-        React.createElement("i", {
-          key: "icon",
-          className: "fas fa-cloud-upload-alt text-2xl mb-2 text-blue-400"
-        }),
-        React.createElement("p", {
-          key: "text",
-          className: "text-primary font-medium"
-        }, "Drag files here or click to select"),
-        React.createElement("p", {
-          key: "subtext",
-          className: "text-muted text-sm"
-        }, "Maximum size: 100 MB per file")
+        React.createElement("i", { key: "i", className: "fas fa-folder-open", style: { fontSize: "13px" } }),
+        "Browse device"
       ])
     ]),
     // Hidden file input
-    React.createElement("input", {
+    showDropzone && React.createElement("input", {
       key: "file-input",
       ref: fileInputRef,
       type: "file",
@@ -18889,37 +18825,42 @@ var FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFiles 
       className: "mt-4 space-y-2"
     }, pendingIncomingFiles.map((file) => React.createElement("div", {
       key: file.fileId,
-      className: "rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3"
+      style: { borderRadius: "12px", border: "1px solid rgba(255,255,255,0.08)", background: "#161618", padding: "12px 14px" }
     }, [
       React.createElement("div", {
         key: "info",
-        className: "mb-3 flex items-center justify-between gap-3"
+        style: { marginBottom: "12px", display: "flex", alignItems: "center", gap: "11px" }
       }, [
-        React.createElement("div", { key: "text" }, [
+        React.createElement(
+          "div",
+          { key: "ic", style: { flex: "none", width: "34px", height: "34px", borderRadius: "9px", display: "grid", placeItems: "center", background: "rgba(240,137,42,0.12)", border: "1px solid rgba(240,137,42,0.22)" } },
+          React.createElement("i", { className: "fas fa-file-arrow-down", style: { color: "#f0892a", fontSize: "15px" } })
+        ),
+        React.createElement("div", { key: "text", style: { minWidth: 0 } }, [
           React.createElement("div", {
             key: "title",
-            className: "text-sm font-medium text-primary"
+            style: { fontSize: "13px", fontWeight: 600, color: "#e8e8eb" }
           }, "Incoming file request"),
           React.createElement("div", {
             key: "meta",
-            className: "text-xs text-secondary"
+            style: { fontSize: "11.5px", color: "#7b7b83", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }
           }, `${file.fileName} \xB7 ${formatFileSize(file.fileSize)} \xB7 ${file.mimeType}`)
         ])
       ]),
       React.createElement("div", {
         key: "actions",
-        className: "flex gap-2"
+        style: { display: "flex", gap: "8px" }
       }, [
         React.createElement("button", {
           key: "accept",
           onClick: () => handleIncomingDecision(file.fileId, true),
-          className: "rounded-md bg-green-500/20 px-3 py-2 text-sm text-green-300 hover:bg-green-500/30"
-        }, "Accept"),
+          style: { display: "inline-flex", alignItems: "center", gap: "6px", borderRadius: "8px", border: "none", background: "#f0892a", color: "#1a0f04", padding: "8px 14px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }
+        }, [React.createElement("i", { key: "i", className: "fas fa-check", style: { fontSize: "12px" } }), "Accept"]),
         React.createElement("button", {
           key: "reject",
           onClick: () => handleIncomingDecision(file.fileId, false),
-          className: "rounded-md bg-red-500/20 px-3 py-2 text-sm text-red-300 hover:bg-red-500/30"
-        }, "Reject")
+          style: { display: "inline-flex", alignItems: "center", gap: "6px", borderRadius: "8px", border: "1px solid rgba(229,114,122,0.3)", background: "rgba(229,114,122,0.08)", color: "#e5727a", padding: "8px 14px", fontSize: "13px", fontWeight: 600, cursor: "pointer" }
+        }, [React.createElement("i", { key: "i", className: "fas fa-xmark", style: { fontSize: "12px" } }), "Reject"])
       ])
     ]))),
     // Active Transfers
@@ -18929,19 +18870,20 @@ var FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFiles 
     }, [
       React.createElement("h4", {
         key: "title",
-        className: "text-primary font-medium mb-3 flex items-center"
+        style: { display: "flex", alignItems: "center", gap: "8px", fontSize: "12.5px", fontWeight: 600, color: "#8a8a92", marginBottom: "10px" }
       }, [
         React.createElement("i", {
           key: "icon",
-          className: "fas fa-exchange-alt mr-2"
+          className: "fas fa-right-left",
+          style: { fontSize: "12px" }
         }),
-        "\u041F\u0435\u0440\u0435\u0434\u0430\u0447\u0430 \u0444\u0430\u0439\u043B\u043E\u0432"
+        "File transfers"
       ]),
       // Sending files
       ...transfers.sending.map(
         (transfer) => React.createElement("div", {
           key: `send-${transfer.fileId}`,
-          className: "transfer-item bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 mb-2"
+          style: { borderRadius: "11px", border: "1px solid rgba(255,255,255,0.07)", background: "#161618", padding: "12px", marginBottom: "8px" }
         }, [
           React.createElement("div", {
             key: "header",
@@ -18953,15 +18895,18 @@ var FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFiles 
             }, [
               React.createElement("i", {
                 key: "icon",
-                className: "fas fa-upload text-blue-400 mr-2"
+                className: "fas fa-arrow-up",
+                style: { color: "#f0892a", fontSize: "13px", marginRight: "8px" }
               }),
               React.createElement("span", {
                 key: "name",
-                className: "text-primary font-medium text-sm"
+                className: "font-medium text-sm",
+                style: { color: "#e8e8eb" }
               }, transfer.fileName),
               React.createElement("span", {
                 key: "size",
-                className: "text-muted text-xs ml-2"
+                className: "text-xs ml-2",
+                style: { color: "#7b7b83" }
               }, formatFileSize(transfer.fileSize))
             ]),
             React.createElement("button", {
@@ -18974,41 +18919,14 @@ var FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFiles 
               })
             ])
           ]),
-          React.createElement("div", {
-            key: "progress",
-            className: "progress-bar"
-          }, [
-            React.createElement("div", {
-              key: "fill",
-              className: "progress-fill bg-blue-400",
-              style: { width: `${transfer.progress}%` }
-            }),
-            React.createElement("div", {
-              key: "text",
-              className: "progress-text text-xs flex items-center justify-between"
-            }, [
-              React.createElement("span", {
-                key: "status",
-                className: "flex items-center"
-              }, [
-                React.createElement("i", {
-                  key: "icon",
-                  className: `${getStatusIcon(transfer.status)} mr-1`
-                }),
-                getStatusText(transfer.status)
-              ]),
-              React.createElement("span", {
-                key: "percent"
-              }, `${transfer.progress.toFixed(1)}%`)
-            ])
-          ])
+          renderProgress(transfer, "#f0892a")
         ])
       ),
       // Receiving files
       ...transfers.receiving.map(
         (transfer) => React.createElement("div", {
           key: `recv-${transfer.fileId}`,
-          className: "transfer-item bg-green-500/10 border border-green-500/20 rounded-lg p-3 mb-2"
+          style: { borderRadius: "11px", border: "1px solid rgba(255,255,255,0.07)", background: "#161618", padding: "12px", marginBottom: "8px" }
         }, [
           React.createElement("div", {
             key: "header",
@@ -19020,15 +18938,18 @@ var FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFiles 
             }, [
               React.createElement("i", {
                 key: "icon",
-                className: "fas fa-download text-green-400 mr-2"
+                className: "fas fa-arrow-down",
+                style: { color: "#3ecf8e", fontSize: "13px", marginRight: "8px" }
               }),
               React.createElement("span", {
                 key: "name",
-                className: "text-primary font-medium text-sm"
+                className: "font-medium text-sm",
+                style: { color: "#e8e8eb" }
               }, transfer.fileName),
               React.createElement("span", {
                 key: "size",
-                className: "text-muted text-xs ml-2"
+                className: "text-xs ml-2",
+                style: { color: "#7b7b83" }
               }, formatFileSize(transfer.fileSize))
             ]),
             React.createElement("div", { key: "actions", className: "flex items-center space-x-2" }, [
@@ -19066,34 +18987,7 @@ var FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFiles 
               ])
             ])
           ]),
-          React.createElement("div", {
-            key: "progress",
-            className: "progress-bar"
-          }, [
-            React.createElement("div", {
-              key: "fill",
-              className: "progress-fill bg-green-400",
-              style: { width: `${transfer.progress}%` }
-            }),
-            React.createElement("div", {
-              key: "text",
-              className: "progress-text text-xs flex items-center justify-between"
-            }, [
-              React.createElement("span", {
-                key: "status",
-                className: "flex items-center"
-              }, [
-                React.createElement("i", {
-                  key: "icon",
-                  className: `${getStatusIcon(transfer.status)} mr-1`
-                }),
-                getStatusText(transfer.status)
-              ]),
-              React.createElement("span", {
-                key: "percent"
-              }, `${transfer.progress.toFixed(1)}%`)
-            ])
-          ])
+          renderProgress(transfer, "#3ecf8e")
         ])
       )
     ])
@@ -19278,7 +19172,7 @@ async function testIceServers(servers, timeoutMs = 6e3) {
     }
   });
 }
-var IceServerSettings = ({ isOpen, onClose, initial, hasSaved, onApply, onForget }) => {
+var IceServerSettings = ({ isOpen, onClose, initial, hasSaved, onApply, onForget, embedded }) => {
   if (!isOpen) return null;
   const [useCustom, setUseCustom] = React2.useState(initial?.useCustom || false);
   const [serversText, setServersText] = React2.useState(initial?.serversText || "");
@@ -19312,172 +19206,217 @@ var IceServerSettings = ({ isOpen, onClose, initial, hasSaved, onApply, onForget
     if (onForget) await onForget();
     setPersist(false);
   };
-  const labelCls = "block text-sm font-medium text-primary";
-  const descCls = "block text-sm text-secondary";
-  const children = [];
-  children.push(React2.createElement("div", { key: "header", className: "flex items-center mb-4" }, [
-    React2.createElement("div", {
-      key: "icon",
-      className: "w-10 h-10 bg-purple-500/10 border border-purple-500/20 rounded-lg flex items-center justify-center mr-3"
-    }, [React2.createElement("i", { className: "fas fa-network-wired accent-purple" })]),
-    React2.createElement("h3", { key: "title", className: "text-lg font-medium text-primary" }, "Advanced network settings")
-  ]));
-  children.push(React2.createElement(
-    "p",
-    { key: "intro", className: "text-sm text-secondary mb-4" },
-    "By default SecureBit uses public STUN servers. You can supply your own STUN/TURN servers \u2014 useful if you self-host a TURN relay and do not want to rely on public infrastructure. Servers are configured locally on your side only; you do not need to share them with your peer."
-  ));
-  children.push(React2.createElement("div", { key: "mode", className: "space-y-2 mb-4" }, [
-    React2.createElement("label", { key: "public", className: "flex items-start gap-3" }, [
-      React2.createElement("input", {
-        key: "r",
-        type: "radio",
-        name: "ice-mode",
-        checked: !useCustom,
-        onChange: () => setUseCustom(false),
-        className: "mt-1"
-      }),
-      React2.createElement("span", { key: "s" }, [
-        React2.createElement("span", { key: "t", className: labelCls }, "Public servers (default)"),
-        React2.createElement("span", { key: "d", className: descCls }, "Zero-config. Good for most users.")
-      ])
-    ]),
-    React2.createElement("label", { key: "custom", className: "flex items-start gap-3" }, [
-      React2.createElement("input", {
-        key: "r",
-        type: "radio",
-        name: "ice-mode",
-        checked: useCustom,
-        onChange: () => setUseCustom(true),
-        className: "mt-1"
-      }),
-      React2.createElement("span", { key: "s" }, [
-        React2.createElement("span", { key: "t", className: labelCls }, "My own STUN/TURN servers"),
-        React2.createElement("span", { key: "d", className: descCls }, `Up to ${ICE_LIMITS.MAX_SERVERS} servers.`)
-      ])
+  const h = React2.createElement;
+  const C_ORANGE = "#f0892a";
+  const C_GREEN = "#3ecf8e";
+  const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+  const radioCard = (selected, onClick, title, desc, extraStyle) => h("button", {
+    type: "button",
+    onClick,
+    style: Object.assign({
+      width: "100%",
+      textAlign: "left",
+      display: "flex",
+      alignItems: "flex-start",
+      gap: "12px",
+      padding: "14px 15px",
+      borderRadius: "13px",
+      border: `1px solid ${selected ? "rgba(240,137,42,0.45)" : "rgba(255,255,255,0.07)"}`,
+      background: selected ? "rgba(240,137,42,0.06)" : "#141416",
+      color: "inherit",
+      fontFamily: "inherit",
+      cursor: "pointer",
+      transition: "all .15s",
+      marginBottom: "10px"
+    }, extraStyle || {})
+  }, [
+    h(
+      "span",
+      { key: "ring", style: { flex: "none", width: "18px", height: "18px", marginTop: "1px", borderRadius: "50%", border: `1.5px solid ${selected ? C_ORANGE : "rgba(255,255,255,0.22)"}`, display: "grid", placeItems: "center" } },
+      h("span", { style: { width: "8px", height: "8px", borderRadius: "50%", background: selected ? C_ORANGE : "transparent" } })
+    ),
+    h("span", { key: "tx", style: { flex: 1 } }, [
+      h("span", { key: "t", style: { display: "block", fontSize: "14px", fontWeight: 700, color: "#f4f4f6" } }, title),
+      h("span", { key: "d", style: { display: "block", fontSize: "12.5px", color: "#8a8a92", marginTop: "2px" } }, desc)
     ])
-  ]));
+  ]);
+  const toggleRow = (on, onClick, title, desc, accent, badge) => h("button", {
+    type: "button",
+    onClick,
+    style: {
+      width: "100%",
+      textAlign: "left",
+      display: "flex",
+      alignItems: "flex-start",
+      gap: "12px",
+      padding: "14px 15px",
+      borderRadius: "13px",
+      border: `1px solid ${on ? "rgba(62,207,142,0.3)" : "rgba(255,255,255,0.07)"}`,
+      background: on ? "rgba(62,207,142,0.05)" : "#141416",
+      color: "inherit",
+      fontFamily: "inherit",
+      cursor: "pointer",
+      transition: "all .15s",
+      marginBottom: "10px"
+    }
+  }, [
+    h("span", { key: "tx", style: { flex: 1 } }, [
+      h("span", { key: "r1", style: { display: "flex", alignItems: "center", gap: "8px" } }, [
+        h("span", { key: "t", style: { fontSize: "14px", fontWeight: 700, color: "#f4f4f6" } }, title),
+        badge && h("span", { key: "b", style: { fontSize: "10px", fontWeight: 700, color: C_GREEN, padding: "2px 7px", borderRadius: "5px", background: "rgba(62,207,142,0.1)", border: "1px solid rgba(62,207,142,0.22)" } }, badge)
+      ]),
+      h("span", { key: "d", style: { display: "block", fontSize: "12.5px", lineHeight: 1.5, color: "#8a8a92", marginTop: "3px" } }, desc)
+    ]),
+    h(
+      "span",
+      { key: "tr", style: { flex: "none", width: "42px", height: "24px", borderRadius: "99px", background: on ? accent || C_GREEN : "rgba(255,255,255,0.08)", border: `1px solid ${on ? accent || C_GREEN : "rgba(255,255,255,0.12)"}`, position: "relative", transition: "all .18s", marginTop: "1px" } },
+      h("span", { style: { position: "absolute", top: "2px", left: "2px", width: "18px", height: "18px", borderRadius: "50%", background: "#fff", transform: on ? "translateX(18px)" : "translateX(0)", transition: "transform .18s" } })
+    )
+  ]);
+  const body = [];
+  body.push(h(
+    "p",
+    { key: "intro", style: { margin: "0 0 18px", fontSize: "13.5px", lineHeight: 1.6, color: "#9a9aa2" } },
+    "SecureBit uses public STUN servers by default to negotiate the peer-to-peer link. Point it at your own STUN/TURN if you self-host."
+  ));
+  body.push(radioCard(!useCustom, () => setUseCustom(false), "Public servers (default)", "Zero-config. Good for most users."));
+  body.push(radioCard(useCustom, () => setUseCustom(true), "My own STUN/TURN servers", `Up to ${ICE_LIMITS.MAX_SERVERS} servers.`, useCustom ? { marginBottom: "14px" } : null));
   if (useCustom) {
-    children.push(React2.createElement("textarea", {
-      key: "textarea",
-      value: serversText,
-      onChange: (e) => setServersText(e.target.value),
-      placeholder: PLACEHOLDER,
-      spellCheck: false,
-      autoComplete: "off",
-      className: "w-full h-36 mb-2 p-3 rounded-lg bg-black/30 border border-purple-500/20 text-sm text-primary font-mono"
-    }));
+    const custom = [];
+    custom.push(h(
+      "div",
+      { key: "ta", style: { borderRadius: "13px", border: "1px solid rgba(255,255,255,0.08)", background: "#0c0c0e", overflow: "hidden", marginBottom: "12px" } },
+      h("textarea", {
+        value: serversText,
+        onChange: (e) => setServersText(e.target.value),
+        rows: 5,
+        spellCheck: false,
+        autoComplete: "off",
+        placeholder: PLACEHOLDER,
+        style: { width: "100%", resize: "vertical", border: "none", outline: "none", background: "transparent", color: "#c9ccd8", fontFamily: MONO, fontSize: "12px", lineHeight: 1.65, padding: "13px 14px", minHeight: "104px" }
+      })
+    ));
     if (parsed.errors.length > 0) {
-      children.push(React2.createElement(
+      custom.push(h(
         "ul",
-        { key: "errors", className: "mb-2 text-sm text-red-400 list-disc pl-5" },
-        parsed.errors.slice(0, 6).map((err, i) => React2.createElement("li", { key: i }, err))
+        { key: "err", style: { margin: "0 0 10px", paddingLeft: "18px", color: "#e5727a", fontSize: "12.5px" } },
+        parsed.errors.slice(0, 6).map((err, i) => h("li", { key: i }, err))
       ));
     }
     if (parsed.warnings.length > 0) {
-      children.push(React2.createElement(
+      custom.push(h(
         "ul",
-        { key: "warnings", className: "mb-2 text-sm text-yellow-400 list-disc pl-5" },
-        parsed.warnings.slice(0, 6).map((w, i) => React2.createElement("li", { key: i }, w))
+        { key: "warn", style: { margin: "0 0 10px", paddingLeft: "18px", color: "#e3c84e", fontSize: "12.5px" } },
+        parsed.warnings.slice(0, 6).map((w, i) => h("li", { key: i }, w))
       ));
     }
     if (parsed.servers.length > 0 && parsed.errors.length === 0) {
-      children.push(React2.createElement(
+      custom.push(h(
         "p",
-        { key: "ok", className: "mb-2 text-sm text-green-400" },
+        { key: "ok", style: { margin: "0 0 10px", fontSize: "12.5px", color: C_GREEN } },
         `${parsed.servers.length} server(s) parsed${hasTurn ? " (TURN present)" : " (STUN only \u2014 does not hide IP)"}.`
       ));
     }
-    children.push(React2.createElement(
-      "p",
-      { key: "disclaimer", className: "mb-3 text-xs text-secondary" },
-      "Privacy note: a TURN relay sees the IP addresses and traffic timing of both peers (never your message contents, which stay end-to-end encrypted). Only a TURN server you trust or self-host improves privacy \u2014 pointing this at a random public relay does not. Prefer turns: (TLS)."
-    ));
-    children.push(React2.createElement("div", { key: "test", className: "mb-3" }, [
-      React2.createElement("button", {
+    custom.push(h("div", { key: "note", style: { display: "flex", alignItems: "flex-start", gap: "9px", padding: "12px 13px", borderRadius: "11px", border: "1px solid rgba(62,207,142,0.18)", background: "rgba(62,207,142,0.05)", marginBottom: "12px" } }, [
+      h("i", { key: "i", className: "fas fa-info-circle", style: { color: C_GREEN, fontSize: "13px", marginTop: "2px", flex: "none" } }),
+      h("span", { key: "t", style: { fontSize: "12px", lineHeight: 1.55, color: "#a8b8ae" } }, [
+        "A TURN relay sees both peers\u2019 IP and traffic timing \u2014 but never message contents, which stay end-to-end encrypted. Prefer ",
+        h("span", { key: "m", style: { fontFamily: MONO, color: C_GREEN } }, "turns:"),
+        " (TLS)."
+      ])
+    ]));
+    const testColor = testState === "done" && testResult && !testResult.error ? C_GREEN : "#cfcfd4";
+    custom.push(h("div", { key: "test", style: { display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap", marginBottom: "4px" } }, [
+      h("button", {
         key: "btn",
         type: "button",
         disabled: !canApply || testState === "running",
         onClick: handleTest,
-        className: "px-3 py-2 text-sm rounded-lg border border-purple-500/30 text-primary disabled:opacity-50"
-      }, testState === "running" ? "Testing\u2026" : "Test servers"),
-      testState === "done" && testResult ? React2.createElement(
+        style: { display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 15px", borderRadius: "10px", border: `1px solid ${testState === "done" && testResult && !testResult.error ? "rgba(62,207,142,0.4)" : "rgba(255,255,255,0.1)"}`, background: testState === "done" && testResult && !testResult.error ? "rgba(62,207,142,0.08)" : "rgba(255,255,255,0.04)", color: testColor, fontFamily: "inherit", fontSize: "13px", fontWeight: 600, cursor: !canApply || testState === "running" ? "not-allowed" : "pointer", opacity: !canApply || testState === "running" ? 0.6 : 1 }
+      }, [
+        h("i", { key: "i", className: testState === "running" ? "fas fa-circle-notch" : "fas fa-play-circle", style: testState === "running" ? { animation: "sbSpin 1s linear infinite" } : null }),
+        testState === "running" ? "Testing\u2026" : "Test servers"
+      ]),
+      testState === "done" && testResult ? h(
         "span",
-        {
-          key: "res",
-          className: "ml-3 text-sm " + (testResult.error ? "text-red-400" : "text-secondary")
-        },
-        testResult.error ? `Test failed: ${testResult.error}` : testResult.srflx > 0 || testResult.relay > 0 ? `STUN ${testResult.srflx > 0 ? "OK" : "none"} \xB7 TURN ${testResult.relay > 0 ? "OK" : "none"} \xB7 host ${testResult.host}` : `host ${testResult.host} \xB7 this browser (e.g. Safari) hides STUN/TURN candidates from the test \u2014 your servers are still applied to real connections`
+        { key: "res", style: { fontSize: "12px", color: testResult.error ? "#e5727a" : "#8a8a92" } },
+        testResult.error ? `Test failed: ${testResult.error}` : testResult.srflx > 0 || testResult.relay > 0 ? `STUN ${testResult.srflx > 0 ? "OK" : "none"} \xB7 TURN ${testResult.relay > 0 ? "OK" : "none"} \xB7 host ${testResult.host}` : `host ${testResult.host} \xB7 this browser hides STUN/TURN candidates from the test \u2014 your servers still apply to real connections`
       ) : null
     ]));
+    body.push(h("div", { key: "custom", style: { marginBottom: "16px" } }, custom));
   }
-  children.push(React2.createElement("label", { key: "relay", className: "flex items-start gap-3 mb-3 rounded-lg border border-purple-500/20 bg-purple-500/10 p-3" }, [
-    React2.createElement("input", {
-      key: "i",
-      type: "checkbox",
-      checked: relayOnly,
-      onChange: (e) => setRelayOnly(e.target.checked),
-      className: "mt-1"
-    }),
-    React2.createElement("span", { key: "s" }, [
-      React2.createElement("span", { key: "t", className: labelCls }, "Relay-only mode (maximum privacy)"),
-      React2.createElement("span", { key: "d", className: descCls }, "Routes all traffic through TURN so your IP is not exposed to the peer. Requires a TURN server; connections cannot start without one.")
-    ])
-  ]));
+  body.push(toggleRow(
+    relayOnly,
+    () => setRelayOnly(!relayOnly),
+    "Relay-only mode",
+    "Routes all traffic through TURN so your IP is never exposed to the peer. Requires a TURN server.",
+    C_GREEN,
+    "MAX PRIVACY"
+  ));
   if (relayOnly && useCustom && !hasTurn) {
-    children.push(React2.createElement(
+    body.push(h(
       "p",
-      { key: "relaywarn", className: "mb-3 text-sm text-yellow-400" },
+      { key: "relaywarn", style: { margin: "-4px 0 10px", fontSize: "12.5px", color: "#e3c84e" } },
       "Relay-only is enabled but no TURN server is configured. The connection will not be able to start."
     ));
   }
-  children.push(React2.createElement("label", { key: "persist", className: "flex items-start gap-3 mb-4" }, [
-    React2.createElement("input", {
-      key: "i",
-      type: "checkbox",
-      checked: persist,
-      onChange: (e) => setPersist(e.target.checked),
-      className: "mt-1"
-    }),
-    React2.createElement("span", { key: "s" }, [
-      React2.createElement("span", { key: "t", className: labelCls }, "Save on this device"),
-      React2.createElement("span", { key: "d", className: descCls }, "Stored encrypted in this browser. Leave off to use only for this session.")
-    ])
-  ]));
-  const actions = [
-    React2.createElement("button", {
-      key: "cancel",
-      type: "button",
-      onClick: onClose,
-      className: "px-4 py-2 text-sm rounded-lg border border-white/10 text-secondary"
-    }, "Cancel"),
-    React2.createElement("button", {
-      key: "apply",
-      type: "button",
-      onClick: handleApply,
-      disabled: !canApply,
-      className: "px-4 py-2 text-sm rounded-lg bg-purple-500/20 border border-purple-500/30 text-primary disabled:opacity-50"
-    }, "Apply")
-  ];
+  body.push(toggleRow(
+    persist,
+    () => setPersist(!persist),
+    "Save on this device",
+    "Stored encrypted in this browser. Leave off to use only for this session.",
+    C_ORANGE
+  ));
+  const footerBtns = [];
   if (hasSaved) {
-    actions.unshift(React2.createElement("button", {
+    footerBtns.push(h("button", {
       key: "forget",
       type: "button",
       onClick: handleForget,
-      className: "px-4 py-2 text-sm rounded-lg border border-red-500/30 text-red-400 mr-auto"
+      style: { marginRight: "auto", padding: "11px 18px", borderRadius: "11px", border: "1px solid rgba(229,114,122,0.3)", background: "transparent", color: "#e5727a", fontFamily: "inherit", fontSize: "13.5px", fontWeight: 600, cursor: "pointer" }
     }, "Forget saved"));
   }
-  children.push(React2.createElement("div", { key: "actions", className: "flex items-center gap-2 flex-wrap" }, actions));
-  return React2.createElement("div", {
-    className: "fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4",
-    onClick: (e) => {
-      if (e.target === e.currentTarget) onClose();
-    }
+  footerBtns.push(h("button", {
+    key: "cancel",
+    type: "button",
+    onClick: onClose,
+    style: { padding: "11px 18px", borderRadius: "11px", border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "#b3b3ba", fontFamily: "inherit", fontSize: "13.5px", fontWeight: 600, cursor: "pointer" }
+  }, "Cancel"));
+  footerBtns.push(h("button", {
+    key: "apply",
+    type: "button",
+    onClick: handleApply,
+    disabled: !canApply,
+    style: { display: "inline-flex", alignItems: "center", gap: "8px", padding: "11px 20px", borderRadius: "11px", border: "none", background: C_ORANGE, color: "#1a0f04", fontFamily: "inherit", fontSize: "13.5px", fontWeight: 700, cursor: canApply ? "pointer" : "not-allowed", opacity: canApply ? 1 : 0.5, boxShadow: "0 6px 18px rgba(240,137,42,0.28)" }
   }, [
-    React2.createElement("div", {
-      key: "modal",
-      className: "card-minimal rounded-xl p-6 max-w-lg w-full border-purple-500/20 max-h-[90vh] overflow-y-auto"
-    }, children)
+    h("i", { key: "i", className: "fas fa-check" }),
+    "Apply"
+  ]));
+  const wrapperStyle = embedded ? { position: "absolute", inset: 0, zIndex: 30, display: "flex", flexDirection: "column", background: "#0f0f11", animation: "sbSlideUp .32s cubic-bezier(.2,.7,.3,1)" } : { position: "fixed", inset: 0, zIndex: 60, display: "flex", flexDirection: "column", alignItems: "stretch", background: "#0f0f11", animation: "sbSlideUp .32s cubic-bezier(.2,.7,.3,1)" };
+  return h("div", { className: "sb-ice-overlay", style: wrapperStyle }, [
+    h(React2.Fragment, { key: "panel" }, [
+      // header
+      h("div", { key: "head", style: { display: "flex", alignItems: "center", gap: "12px", padding: "20px 24px", borderBottom: "1px solid rgba(255,255,255,0.06)" } }, [
+        h(
+          "div",
+          { key: "ic", style: { width: "38px", height: "38px", flex: "none", display: "grid", placeItems: "center", borderRadius: "10px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" } },
+          h("i", { className: "fas fa-sliders-h", style: { color: "#cfcfd4", fontSize: "15px" } })
+        ),
+        h("div", { key: "tx", style: { flex: 1, lineHeight: 1.25 } }, [
+          h("div", { key: "t", style: { fontSize: "16.5px", fontWeight: 800, letterSpacing: "-0.3px", color: "#f4f4f6" } }, "Network settings"),
+          h("div", { key: "s", style: { fontSize: "12px", color: "#7b7b83" } }, "Configured locally \u2014 never shared with your peer")
+        ]),
+        h(
+          "button",
+          { key: "x", type: "button", onClick: onClose, style: { width: "32px", height: "32px", flex: "none", display: "grid", placeItems: "center", borderRadius: "9px", border: "none", background: "rgba(255,255,255,0.04)", color: "#8a8a92", cursor: "pointer" } },
+          h("i", { className: "fas fa-times" })
+        )
+      ]),
+      // scroll body
+      h("div", { key: "body", className: "custom-scrollbar", style: { flex: 1, overflowY: "auto", padding: "20px 24px" } }, body),
+      // footer
+      h("div", { key: "foot", style: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "10px", padding: "16px 24px", borderTop: "1px solid rgba(255,255,255,0.06)", background: "#0e0e10", borderRadius: "0" } }, footerBtns)
+    ])
   ]);
 };
 window.IceServerSettings = IceServerSettings;

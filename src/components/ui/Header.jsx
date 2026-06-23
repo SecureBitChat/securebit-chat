@@ -505,181 +505,97 @@ const EnhancedMinimalHeader = ({
     // RENDER
     // ============================================
 
+    const secColor = displaySecurityLevel
+        ? (displaySecurityLevel.color === 'green' ? '#3ecf8e' : displaySecurityLevel.color === 'orange' ? '#f0892a' : displaySecurityLevel.color === 'yellow' ? '#e3c84e' : '#e5727a')
+        : '#3ecf8e';
+    const dotColor = isConnected ? '#3ecf8e'
+        : (['connecting', 'verifying', 'retrying', 'reconnecting'].includes(status) ? '#e3c84e'
+        : (status === 'failed' ? '#e5727a' : '#6b6b73'));
+    const dotGlow = dotColor === '#3ecf8e' ? 'rgba(62,207,142,0.16)' : dotColor === '#e3c84e' ? 'rgba(227,200,78,0.16)' : dotColor === '#e5727a' ? 'rgba(229,114,122,0.16)' : 'rgba(107,107,115,0.16)';
+    const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+
+    // On the landing / setup view (no verified connection) the new Start Secure
+    // screen owns the network settings and step status, so keep the header clean:
+    // brand only — no status pill, no settings. The bar is transparent at the top
+    // of the page and gains a blurred background once the user scrolls.
+    const onLanding = !isConnected;
+    const [scrolled, setScrolled] = React.useState(false);
+    React.useEffect(() => {
+        const onScroll = () => setScrolled((window.scrollY || window.pageYOffset || 0) > 8);
+        onScroll();
+        window.addEventListener('scroll', onScroll, { passive: true });
+        return () => window.removeEventListener('scroll', onScroll);
+    }, []);
+
+    // On the landing the header floats *over* the full-height hero (position
+    // fixed), transparent at the top and blurred once scrolled. When connected it
+    // falls back to the in-flow sticky bar.
+    const overlay = { position: 'fixed', top: 0, left: 0, right: 0 };
+    const headerStyle = onLanding
+        ? (scrolled
+            ? { ...overlay, background: 'rgba(15,15,17,0.72)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderBottom: '1px solid rgba(255,255,255,0.06)', transition: 'background .25s ease, backdrop-filter .25s ease, border-color .25s ease' }
+            : { ...overlay, background: 'transparent', backdropFilter: 'none', WebkitBackdropFilter: 'none', borderBottom: '1px solid transparent', transition: 'background .25s ease, backdrop-filter .25s ease, border-color .25s ease' })
+        : { background: 'rgba(18,18,20,0.72)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderBottom: '1px solid rgba(255,255,255,0.06)' };
+
     return React.createElement('header', {
-        className: 'header-minimal sticky top-0 z-50'
+        className: onLanding ? 'header-minimal z-50' : 'header-minimal sticky top-0 z-50',
+        style: headerStyle
     }, [
         React.createElement('div', {
             key: 'container',
-            className: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'
+            className: 'max-w-7xl mx-auto',
+            style: { padding: '0 20px' }
         }, [
             React.createElement('div', {
                 key: 'content',
-                className: 'flex items-center justify-between h-16'
+                className: 'flex items-center justify-between',
+                style: { height: '64px', gap: '16px' }
             }, [
-                // Logo and Title
-                React.createElement('div', {
-                    key: 'logo-section',
-                    className: 'flex items-center space-x-2 sm:space-x-3'
-                }, [
-                    React.createElement('div', {
-                        key: 'logo',
-                        className: 'icon-container w-8 h-8 sm:w-10 sm:h-10'
-                    }, [
-                        React.createElement('i', {
-                            className: 'fas fa-shield-halved accent-orange text-sm sm:text-base'
-                        })
-                    ]),
-                    React.createElement('div', {
-                        key: 'title-section'
-                    }, [
-                        React.createElement('h1', {
-                            key: 'title',
-                            className: 'text-lg sm:text-xl font-semibold text-primary'
-                        }, 'SecureBit.chat'),
-                        React.createElement('p', {
-                            key: 'subtitle',
-                            className: 'text-xs sm:text-sm text-muted hidden sm:block'
-                        }, 'End-to-end freedom v4.8.20')
+                // Left: logo + wordmark
+                React.createElement('div', { key: 'left', style: { display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 } }, [
+                    React.createElement('div', { key: 'logo', style: { width: '36px', height: '36px', flex: 'none', display: 'grid', placeItems: 'center' } },
+                        React.createElement('img', { src: '/logo/securebit-mark.svg', alt: 'SecureBit', style: { width: '100%', height: '100%', objectFit: 'contain', display: 'block' } })
+                    ),
+                    React.createElement('div', { key: 'txt', style: { lineHeight: 1.2, minWidth: 0 } }, [
+                        React.createElement('div', { key: 'r1', style: { display: 'flex', alignItems: 'baseline', gap: '7px' } }, [
+                            React.createElement('span', { key: 'n', style: { fontSize: '16px', fontWeight: 800, letterSpacing: '-0.3px', color: '#e8e8eb' } }, 'SecureBit'),
+                            React.createElement('span', { key: 'v', style: { fontFamily: MONO, fontSize: '10px', fontWeight: 500, color: '#56565e' } }, 'v4.9.0')
+                        ]),
+                        React.createElement('div', { key: 'r2', className: 'hidden sm:block', style: { fontSize: '11px', color: '#6b6b73', fontWeight: 500 } }, 'End-to-end encrypted')
                     ])
                 ]),
-
-                // Status and Controls - Responsive
-                React.createElement('div', {
-                    key: 'status-section',
-                    className: 'flex items-center space-x-2 sm:space-x-3'
-                }, [
-
-                    React.createElement('button', {
-                        key: 'network-settings',
-                        type: 'button',
+                // Right: controls
+                React.createElement('div', { key: 'right', style: { display: 'flex', alignItems: 'center', gap: '9px' } }, [
+                    !onLanding && React.createElement('button', {
+                        key: 'net', type: 'button',
                         onClick: () => window.dispatchEvent(new CustomEvent('securebit:open-network-settings')),
-                        title: 'Advanced network settings (STUN/TURN)',
-                        'aria-label': 'Advanced network settings',
-                        className: 'w-8 h-8 rounded-full flex items-center justify-center text-muted hover:text-primary hover:bg-white/5 transition-colors duration-200'
+                        title: 'Advanced network settings (STUN/TURN)', 'aria-label': 'Advanced network settings',
+                        className: 'sb-disconnect',
+                        style: { display: 'grid', placeItems: 'center', width: '38px', height: '38px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)', color: '#9a9aa2', cursor: 'pointer', transition: 'all .15s' }
+                    }, React.createElement('i', { className: 'fas fa-network-wired', style: { fontSize: '13px' } })),
+
+                    (!onLanding && displaySecurityLevel) && React.createElement('div', {
+                        key: 'sec', onClick: handleSecurityClick,
+                        onContextMenu: (e) => { e.preventDefault(); if (typeof onDisconnect === 'function') onDisconnect(); },
+                        title: securityDetails.tooltip, className: 'sb-secpill',
+                        style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 12px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)', cursor: 'pointer' }
                     }, [
-                        React.createElement('i', { key: 'i', className: 'fas fa-network-wired text-sm' })
+                        React.createElement('i', { key: 'i', className: 'fas fa-shield-halved', style: { fontSize: '13px', color: secColor } }),
+                        React.createElement('span', { key: 'l', className: 'hidden sm:inline', style: { fontSize: '12.5px', fontWeight: 600, color: '#e8e8eb' } }, String(displaySecurityLevel.level)),
+                        React.createElement('span', { key: 's', style: { fontFamily: MONO, fontSize: '11.5px', color: '#8a8a92' } }, displaySecurityLevel.score + '%')
                     ]),
 
-                    displaySecurityLevel && React.createElement('div', {
-                        key: 'security-level',
-                        className: 'hidden md:flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity duration-200',
-                        onClick: handleSecurityClick,
-                        onContextMenu: (e) => {
-                            e.preventDefault();
-                            if (onDisconnect && typeof onDisconnect === 'function') {
-                                onDisconnect();
-                            }
-                        },
-                        title: securityDetails.tooltip
-                    }, [
-                        React.createElement('div', {
-                            key: 'security-icon',
-                            className: `w-6 h-6 rounded-full flex items-center justify-center relative ${
-                                displaySecurityLevel.color === 'green' ? 'bg-green-500/20' :
-                                displaySecurityLevel.color === 'orange' ? 'bg-orange-500/20' :
-                                displaySecurityLevel.color === 'yellow' ? 'bg-yellow-500/20' : 'bg-red-500/20'
-                            } ${securityDetails.isVerified ? '' : 'animate-pulse'}`
-                        }, [
-                            React.createElement('i', {
-                                className: `fas fa-shield-alt text-xs ${
-                                    displaySecurityLevel.color === 'green' ? 'text-green-400' :
-                                    displaySecurityLevel.color === 'orange' ? 'text-orange-400' :
-                                    displaySecurityLevel.color === 'yellow' ? 'text-yellow-400' : 'text-red-400'
-                                }`
-                            })
-                        ]),
-                        React.createElement('div', {
-                            key: 'security-info',
-                            className: 'flex flex-col'
-                        }, [
-                            React.createElement('div', {
-                                key: 'security-level-text',
-                                className: 'text-xs font-medium text-primary flex items-center space-x-1'
-                            }, [
-                                React.createElement('span', {}, `${displaySecurityLevel.level} (${displaySecurityLevel.score}%)`)
-                            ]),
-                            React.createElement('div', {
-                                key: 'security-details',
-                                className: 'text-xs text-muted mt-1 hidden lg:block'
-                            }, securityDetails.dataSource === 'real' ? 
-                                `${displaySecurityLevel.passedChecks || 0}/${displaySecurityLevel.totalChecks || 0} tests` :
-                                (displaySecurityLevel.details || `Stage ${displaySecurityLevel.stage || 1}`)
-                            ),
-                            React.createElement('div', {
-                                key: 'security-progress',
-                                className: 'w-16 h-1 bg-gray-600 rounded-full overflow-hidden'
-                            }, [
-                                React.createElement('div', {
-                                    key: 'progress-bar',
-                                    className: `h-full transition-all duration-500 ${
-                                        displaySecurityLevel.color === 'green' ? 'bg-green-400' :
-                                        displaySecurityLevel.color === 'orange' ? 'bg-orange-400' :
-                                        displaySecurityLevel.color === 'yellow' ? 'bg-yellow-400' : 'bg-red-400'
-                                    }`,
-                                    style: { width: `${displaySecurityLevel.score}%` }
-                                })
-                            ])
-                        ])
+                    !onLanding && React.createElement('div', { key: 'status', style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 13px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' } }, [
+                        React.createElement('span', { key: 'dot', style: { width: '7px', height: '7px', borderRadius: '50%', background: dotColor, boxShadow: '0 0 0 3px ' + dotGlow } }),
+                        React.createElement('span', { key: 't', className: 'hidden sm:inline', style: { fontSize: '13px', fontWeight: 600, color: '#cfcfd4' } }, config.text)
                     ]),
 
-                    // Mobile Security Indicator
-                    displaySecurityLevel && React.createElement('div', {
-                        key: 'mobile-security',
-                        className: 'md:hidden flex items-center'
-                    }, [
-                        React.createElement('div', {
-                            key: 'mobile-security-icon',
-                            className: `w-8 h-8 rounded-full flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity duration-200 relative ${
-                                displaySecurityLevel.color === 'green' ? 'bg-green-500/20' :
-                                displaySecurityLevel.color === 'orange' ? 'bg-orange-500/20' :
-                                displaySecurityLevel.color === 'yellow' ? 'bg-yellow-500/20' : 'bg-red-500/20'
-                            } ${securityDetails.isVerified ? '' : 'animate-pulse'}`,
-                            title: securityDetails.tooltip,
-                            onClick: handleSecurityClick,
-                            onContextMenu: (e) => {
-                                e.preventDefault();
-                                if (onDisconnect && typeof onDisconnect === 'function') {
-                                    onDisconnect();
-                                }
-                            }
-                        }, [
-                            React.createElement('i', {
-                                className: `fas fa-shield-alt text-sm ${
-                                    displaySecurityLevel.color === 'green' ? 'text-green-400' :
-                                    displaySecurityLevel.color === 'orange' ? 'text-orange-400' :
-                                    displaySecurityLevel.color === 'yellow' ? 'text-yellow-400' : 'text-red-400'
-                                }`
-                            })
-                        ])
-                    ]),
-
-                    // Status Badge
-                    React.createElement('div', {
-                        key: 'status-badge',
-                        className: `px-2 sm:px-3 py-1.5 rounded-lg border ${config.badgeClass} flex items-center space-x-1 sm:space-x-2`
-                    }, [
-                        React.createElement('span', {
-                            key: 'status-dot',
-                            className: `status-dot ${config.className}`
-                        }),
-                        React.createElement('span', {
-                            key: 'status-text',
-                            className: 'text-xs sm:text-sm font-medium'
-                        }, config.text),
-                    ]),
-
-                    // Disconnect Button
                     isConnected && React.createElement('button', {
-                        key: 'disconnect-btn',
-                        onClick: onDisconnect,
-                        className: 'p-1.5 sm:px-3 sm:py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg transition-all duration-200 text-sm'
+                        key: 'dc', onClick: onDisconnect, className: 'sb-disconnect',
+                        style: { display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 14px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#9a9aa2', fontFamily: 'inherit', fontSize: '13px', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }
                     }, [
-                        React.createElement('i', {
-                            className: 'fas fa-power-off sm:mr-2'
-                        }),
-                        React.createElement('span', {
-                            className: 'hidden sm:inline'
-                        }, 'Disconnect')
+                        React.createElement('i', { key: 'i', className: 'fas fa-power-off', style: { fontSize: '12px' } }),
+                        React.createElement('span', { key: 't', className: 'sb-hide-sm' }, 'Disconnect')
                     ])
                 ])
             ])

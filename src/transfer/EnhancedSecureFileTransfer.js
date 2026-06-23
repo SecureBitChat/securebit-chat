@@ -371,9 +371,14 @@ class EnhancedSecureFileTransfer {
         this.transferQueue = []; // Queue for pending transfers
         this.pendingChunks = new Map();
         this.incomingOfferLimiter = new RateLimiter(5, 60000);
-        this.incomingChunkLimiter = new RateLimiter(240, 60000);
+        // Chunks are 16 KB, so a 100 MB file is ~6400 chunks. The previous caps
+        // (240 aggregate / 120 per-transfer per minute) throttled to ~64 KB/s and
+        // KILLED any file larger than ~3.8 MB mid-transfer. Size the limits to the
+        // worst-case file plus retransmission headroom so legitimate transfers are
+        // never starved, while still bounding a flooding peer.
+        this.incomingChunkLimiter = new RateLimiter(60000, 60000); // aggregate ceiling (~16 MB/s)
         this.incomingTransferChunkLimiters = new Map();
-        this.MAX_INCOMING_CHUNKS_PER_TRANSFER_PER_MINUTE = 120;
+        this.MAX_INCOMING_CHUNKS_PER_TRANSFER_PER_MINUTE = 30000; // per transfer (~8 MB/s)
         this.MAX_PENDING_INCOMING_TRANSFERS = 3;
         
         // Session key derivation
@@ -675,9 +680,10 @@ class EnhancedSecureFileTransfer {
         
         const fileMessageTypes = [
             'file_transfer_start',
-            'file_transfer_response', 
+            'file_transfer_response',
             'file_chunk',
             'chunk_confirmation',
+            'file_chunk_request',
             'file_transfer_complete',
             'file_transfer_error'
         ];
@@ -736,7 +742,11 @@ class EnhancedSecureFileTransfer {
                 case 'chunk_confirmation':
                     this.handleChunkConfirmation(message);
                     break;
-                    
+
+                case 'file_chunk_request':
+                    await this.handleChunkRequest(message);
+                    break;
+
                 case 'file_transfer_complete':
                     this.handleTransferComplete(message);
                     break;
@@ -1033,23 +1043,63 @@ class EnhancedSecureFileTransfer {
             }
             
             transferState.status = 'waiting_confirmation';
-            
-            // Timeout for completion confirmation
-            setTimeout(() => {
-                if (this.activeTransfers.has(transferState.fileId)) {
-                    const state = this.activeTransfers.get(transferState.fileId);
-                    if (state.status === 'waiting_confirmation') {
-                        this.cleanupTransfer(transferState.fileId);
-                    }
-                }
-            }, 30000);
-            
+
+            // Keep the file + session key alive while the receiver may still be
+            // re-requesting missing chunks (e.g. after a connection blip). The
+            // sender is only torn down once the receiver confirms completion or
+            // after a long idle with no chunk requests/confirmations.
+            this._armSenderIdleTimeout(transferState);
+
         } catch (error) {
             const safeError = SecurityErrorHandler.sanitizeError(error);
             console.error('❌ Chunk transmission failed:', safeError);
             transferState.status = 'failed';
             throw new Error(safeError);
         }
+    }
+
+    // Resets a long idle timer; the sender stays available to retransmit missing
+    // chunks until the receiver finishes or this fires after sustained silence.
+    _armSenderIdleTimeout(transferState) {
+        const IDLE_MS = 180000; // 3 minutes with no activity from the receiver
+        if (transferState._idleTimeout) clearTimeout(transferState._idleTimeout);
+        transferState._idleTimeout = setTimeout(() => {
+            const state = this.activeTransfers.get(transferState.fileId);
+            if (state && state.status !== 'completed') {
+                this.cleanupTransfer(transferState.fileId);
+            }
+        }, IDLE_MS);
+    }
+
+    // Receiver asked us to re-send specific chunk indices (loss recovery / resume).
+    async handleChunkRequest(message) {
+        const transferState = this.activeTransfers.get(message?.fileId);
+        if (!transferState || !transferState.file) return;
+        const missing = Array.isArray(message.missing) ? message.missing : [];
+        if (missing.length === 0) return;
+
+        this._armSenderIdleTimeout(transferState);
+        transferState.status = 'transmitting';
+
+        const MAX_PER_REQUEST = 512;
+        const indices = missing.slice(0, MAX_PER_REQUEST);
+        for (const idx of indices) {
+            if (!Number.isInteger(idx) || idx < 0 || idx >= transferState.totalChunks) continue;
+            try {
+                const start = idx * this.CHUNK_SIZE;
+                const end = Math.min(start + this.CHUNK_SIZE, transferState.file.size);
+                const chunkData = await this.readFileChunk(transferState.file, start, end);
+                await this.sendFileChunk(transferState, idx, chunkData);
+                await this.waitForBackpressure();
+            } catch (error) {
+                console.warn('⚠️ Failed to retransmit chunk', idx, SecurityErrorHandler.sanitizeError(error));
+            }
+        }
+
+        if (transferState.status === 'transmitting') {
+            transferState.status = 'waiting_confirmation';
+        }
+        this._armSenderIdleTimeout(transferState);
     }
 
     async readFileChunk(file, start, end) {
@@ -1261,9 +1311,14 @@ class EnhancedSecureFileTransfer {
             async () => {
                 try {
                     let receivingState = this.receivingTransfers.get(chunkMessage.fileId);
-                
+
                     // Never buffer chunks before explicit consent.
                     if (!receivingState) {
+                        return;
+                    }
+
+                    // Already assembled — ignore late/duplicate (retransmitted) chunks.
+                    if (receivingState._assembled || receivingState.status === 'completed') {
                         return;
                     }
 
@@ -1331,28 +1386,12 @@ class EnhancedSecureFileTransfer {
                     }
                     
                 } catch (error) {
+                    // A single bad/lost chunk must NOT kill the whole transfer:
+                    // drop it and let the receiver's stall detector re-request it.
+                    // (The data channel is reliable+ordered, so this path is rare —
+                    // typically a transient decrypt hiccup or post-cleanup straggler.)
                     const safeError = SecurityErrorHandler.sanitizeError(error);
-                    console.error('❌ Failed to handle file chunk:', safeError);
-                    
-                    // Send error notification
-                    const errorMessage = {
-                        type: 'file_transfer_error',
-                        fileId: chunkMessage.fileId,
-                        error: safeError, 
-                        chunkIndex: chunkMessage.chunkIndex,
-                        timestamp: Date.now()
-                    };
-                    await this.sendSecureMessage(errorMessage);
-                    
-                    // Mark transfer as failed
-                    const receivingState = this.receivingTransfers.get(chunkMessage.fileId);
-                    if (receivingState) {
-                        receivingState.status = 'failed';
-                    }
-                    
-                    if (this.onError) {
-                        this.onError(`Chunk processing failed: ${safeError}`);
-                    }
+                    console.warn('⚠️ Dropping unprocessable file chunk (will be re-requested):', chunkMessage.chunkIndex, safeError);
                 }
             }
         );
@@ -1486,14 +1525,19 @@ class EnhancedSecureFileTransfer {
                 timestamp: Date.now()
             };
             await this.sendSecureMessage(completionMessage);
-            
-            // Cleanup
-            if (this.receivingTransfers.has(receivingState.fileId)) {
-                const rs = this.receivingTransfers.get(receivingState.fileId);
-                if (rs && rs.receivedChunks) rs.receivedChunks.clear();
+
+            // Stop the stall detector and free the heavy chunk data, but KEEP the
+            // transfer entry in receivingTransfers with status 'completed' so the UI
+            // can render the Download action. The assembled file lives in
+            // receivedFileBuffers; this entry is removed on cancel/disconnect or when
+            // its buffer is evicted (see _discardReceivedFileBuffer).
+            if (receivingState._stallTimer) {
+                clearInterval(receivingState._stallTimer);
+                receivingState._stallTimer = null;
             }
-            this.receivingTransfers.delete(receivingState.fileId);
-            
+            if (receivingState.receivedChunks) receivingState.receivedChunks.clear();
+            receivingState.sessionKey = null;
+
         } catch (error) {
             console.error('❌ File assembly failed:', error);
             receivingState.status = 'failed';
@@ -1571,6 +1615,9 @@ class EnhancedSecureFileTransfer {
             
             transferState.confirmedChunks++;
             transferState.lastChunkTime = Date.now();
+            if (transferState.status === 'waiting_confirmation') {
+                this._armSenderIdleTimeout(transferState);
+            }
         } catch (error) {
             console.error('❌ Failed to handle chunk confirmation:', error);
         }
@@ -1644,6 +1691,9 @@ class EnhancedSecureFileTransfer {
             fileName: transfer.file?.name || 'Unknown',
             fileSize: transfer.file?.size || 0,
             progress: Math.round((transfer.sentChunks / transfer.totalChunks) * 100),
+            // Per-chunk detail for the segmented progress UI.
+            totalChunks: transfer.totalChunks || 0,
+            transferredChunks: transfer.sentChunks || 0,
             status: transfer.status,
             startTime: transfer.startTime
         }));
@@ -1655,6 +1705,9 @@ class EnhancedSecureFileTransfer {
             fileName: transfer.fileName || 'Unknown',
             fileSize: transfer.fileSize || 0,
             progress: Math.round((transfer.receivedCount / transfer.totalChunks) * 100),
+            // Per-chunk detail for the segmented progress UI.
+            totalChunks: transfer.totalChunks || 0,
+            transferredChunks: transfer.receivedCount || 0,
             status: transfer.status,
             startTime: transfer.startTime
         }));
@@ -1692,7 +1745,81 @@ class EnhancedSecureFileTransfer {
         });
         this.pendingIncomingTransfers.delete(fileId);
         await this.sendSecureMessage({ type: 'file_transfer_response', fileId, accepted: true, timestamp: Date.now() });
+        // Loss-recovery / resume: watch for missing chunks and re-request them.
+        this._startReceiverStallDetector(fileId);
         return true;
+    }
+
+    // Periodically detects a stalled receive (lost chunks, connection blip,
+    // reconnect) and asks the sender to retransmit only the chunks we are still
+    // missing — so a dropped connection never loses the file.
+    _startReceiverStallDetector(fileId) {
+        const TICK_MS = 2500;        // how often we evaluate
+        const STALL_MS = 5000;       // quiet period before we re-request
+        const MAX_IDLE_MS = 180000;  // give up after 3 min of zero progress
+
+        const rs = this.receivingTransfers.get(fileId);
+        if (!rs) return;
+        if (rs._stallTimer) clearInterval(rs._stallTimer);
+        rs._lastProgressCount = rs.receivedCount || 0;
+        rs._lastProgressTime = Date.now();
+
+        rs._stallTimer = setInterval(async () => {
+            const state = this.receivingTransfers.get(fileId);
+            if (!state || state._stallTimer !== rs._stallTimer) {
+                clearInterval(rs._stallTimer);
+                return;
+            }
+            if (state.status === 'completed' || state._assembled) {
+                clearInterval(state._stallTimer);
+                state._stallTimer = null;
+                return;
+            }
+
+            // Track forward progress for the idle/give-up clock.
+            if (state.receivedCount !== state._lastProgressCount) {
+                state._lastProgressCount = state.receivedCount;
+                state._lastProgressTime = Date.now();
+            }
+            if (state.receivedCount >= state.totalChunks) return; // assembly handled elsewhere
+
+            // Still actively receiving — don't interrupt.
+            if (Date.now() - (state.lastChunkTime || 0) < STALL_MS) return;
+
+            // No progress for too long → fail cleanly rather than hang forever.
+            if (Date.now() - state._lastProgressTime > MAX_IDLE_MS) {
+                clearInterval(state._stallTimer);
+                state._stallTimer = null;
+                state.status = 'failed';
+                if (this.onError) this.onError('File transfer stalled — no data received. Please try again.');
+                this.cleanupReceivingTransfer(fileId);
+                return;
+            }
+
+            await this._requestMissingChunks(fileId);
+        }, TICK_MS);
+    }
+
+    async _requestMissingChunks(fileId) {
+        const state = this.receivingTransfers.get(fileId);
+        if (!state || !state.receivedChunks) return;
+        const MAX_PER_REQUEST = 256;
+        const missing = [];
+        for (let i = 0; i < state.totalChunks && missing.length < MAX_PER_REQUEST; i++) {
+            if (!state.receivedChunks.has(i)) missing.push(i);
+        }
+        if (missing.length === 0) return;
+        state.status = 'receiving';
+        try {
+            await this.sendSecureMessage({
+                type: 'file_chunk_request',
+                fileId,
+                missing,
+                timestamp: Date.now()
+            });
+        } catch (_) {
+            // Will retry on the next tick.
+        }
     }
 
     async rejectIncomingFile(fileId, error = 'Rejected by user') {
@@ -1722,6 +1849,10 @@ class EnhancedSecureFileTransfer {
     cleanupTransfer(fileId) {
         const transferState = this.activeTransfers.get(fileId);
         if (transferState) {
+            if (transferState._idleTimeout) {
+                clearTimeout(transferState._idleTimeout);
+                transferState._idleTimeout = null;
+            }
             if (transferState.consentTimeout) {
                 clearTimeout(transferState.consentTimeout);
                 transferState.consentTimeout = null;
@@ -1766,6 +1897,14 @@ class EnhancedSecureFileTransfer {
             // Best-effort wipe; deletion must still proceed.
         }
         this.receivedFileBuffers.delete(fileId);
+        // The matching 'completed' entry is kept only to drive the Download UI;
+        // once the file bytes are gone the entry is meaningless, so drop it too
+        // (keeps the receiving list bounded over a long session).
+        const rs = this.receivingTransfers.get(fileId);
+        if (rs && (rs.status === 'completed' || rs._assembled)) {
+            if (rs._stallTimer) { clearInterval(rs._stallTimer); rs._stallTimer = null; }
+            this.receivingTransfers.delete(fileId);
+        }
     }
 
     // ✅ УЛУЧШЕННАЯ безопасная очистка памяти для предотвращения use-after-free
@@ -1776,6 +1915,11 @@ class EnhancedSecureFileTransfer {
             
             const receivingState = this.receivingTransfers.get(fileId);
             if (receivingState) {
+                // Stop the loss-recovery stall detector for this transfer.
+                if (receivingState._stallTimer) {
+                    clearInterval(receivingState._stallTimer);
+                    receivingState._stallTimer = null;
+                }
                 // ✅ БЕЗОПАСНАЯ очистка receivedChunks с дополнительной защитой
                 if (receivingState.receivedChunks && receivingState.receivedChunks.size > 0) {
                     for (const [index, chunk] of receivingState.receivedChunks) {

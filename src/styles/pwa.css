@@ -1,26 +1,8 @@
 /* PWA Specific Styles for SecureBit.chat */
 
-/* PWA Install Button */
-#pwa-install-button {
-    backdrop-filter: blur(10px);
-    box-shadow: 0 8px 32px rgba(255, 107, 53, 0.3);
-    border: 1px solid rgba(255, 107, 53, 0.2);
-    animation: pulse-install 2s infinite;
-}
-
-#pwa-install-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 40px rgba(255, 107, 53, 0.4);
-}
-
-@keyframes pulse-install {
-    0%, 100% { 
-        box-shadow: 0 8px 32px rgba(255, 107, 53, 0.3);
-    }
-    50% { 
-        box-shadow: 0 8px 32px rgba(255, 107, 53, 0.5);
-    }
-}
+/* PWA Install Button — compact pill. All visual styling (orange pill, dismiss
+   chip, shadows, hover) is applied inline in install-prompt.js so it stays in
+   sync with the design; this anchor intentionally adds no decoration. */
 
 /* PWA Update Banner */
 #pwa-update-banner {

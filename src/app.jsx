@@ -492,142 +492,147 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                     ]);
                 };
         
-                // Enhanced Chat Message with better security indicators
-                const EnhancedChatMessage = ({ message, type, timestamp, mid, viewOnce, viewOnceTtl, expiresAt, nowTick, canUnsend, onUnsend, onExpire }) => {
+                // Grain overlay for the view-once cover (Telegram-style blur + noise).
+                const GRAIN_URL = `url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='100'%20height='100'%3E%3Cfilter%20id='n'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.9'%20numOctaves='2'%20stitchTiles='stitch'/%3E%3C/filter%3E%3Crect%20width='100%25'%20height='100%25'%20filter='url(%23n)'/%3E%3C/svg%3E")`;
+                const SB_MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+
+                // Enhanced Chat Message — redesigned bubbles (SecureBit Chat design).
+                const EnhancedChatMessage = ({ message, type, timestamp, mid, status, viewOnce, viewOnceTtl, expiresAt, expired, nowTick, canUnsend, onUnsend, onExpire }) => {
                     const [revealed, setRevealed] = React.useState(false);
                     const revealTimerRef = React.useRef(null);
 
-                    const formatTime = (ts) => {
-                        return new Date(ts).toLocaleTimeString('ru-RU', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit'
-                        });
-                    };
+                    const formatTime = (ts) => new Date(ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-                    React.useEffect(() => () => {
-                        if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
-                    }, []);
+                    React.useEffect(() => () => { if (revealTimerRef.current) clearTimeout(revealTimerRef.current); }, []);
 
-                    const getMessageStyle = () => {
-                        switch (type) {
-                            case 'sent':
-                                return {
-                                    container: "ml-auto bg-orange-500/5 border-orange-500/20 text-primary",
-                                    icon: "fas fa-lock accent-orange",
-                                    label: "Encrypted"
-                                };
-                            case 'received':
-                                return {
-                                    container: "mr-auto card-minimal text-primary",
-                                    icon: "fas fa-unlock-alt accent-green",
-                                    label: "Decrypted"
-                                };
-                            case 'system':
-                                return {
-                                    container: "mx-auto bg-yellow-500/10 border border-yellow-500/20 text-yellow-400",
-                                    icon: "fas fa-info-circle accent-yellow",
-                                    label: "System"
-                                };
-                            default:
-                                return {
-                                    container: "mx-auto card-minimal text-secondary",
-                                    icon: "fas fa-circle text-muted",
-                                    label: "Unknown"
-                                };
-                        }
-                    };
+                    // System / notice messages: centered subtle pill. "notice" is shown
+                    // in the message flow (e.g. "connection restored"); "system" lives in
+                    // the handshake log. Notices use a green accent.
+                    if (type === 'system' || type === 'notice') {
+                        const isNotice = type === 'notice';
+                        return React.createElement('div', { className: 'message-slide', style: { display: 'flex', justifyContent: 'center', margin: '4px 0' } },
+                            React.createElement('div', {
+                                style: { maxWidth: '80%', padding: '8px 14px', borderRadius: '10px', border: '1px solid ' + (isNotice ? 'rgba(62,207,142,0.25)' : 'rgba(240,137,42,0.22)'), background: isNotice ? 'rgba(62,207,142,0.08)' : 'rgba(240,137,42,0.08)', color: isNotice ? '#8fe0bb' : '#e8b27a', fontSize: '12.5px', textAlign: 'center', lineHeight: 1.5 }
+                            }, message)
+                        );
+                    }
 
-                    const style = getMessageStyle();
+                    const isMe = type === 'sent';
+                    const encrypted = isMe;
+                    const isViewOnce = type === 'received' && viewOnce === true;
 
-                    // Disappearing-message countdown (seconds remaining).
                     const remaining = (typeof expiresAt === 'number')
                         ? Math.max(0, Math.ceil((expiresAt - (nowTick || Date.now())) / 1000))
                         : null;
-
-                    const isViewOnce = type === 'received' && viewOnce === true;
+                    const fmtRemaining = (sec) => {
+                        if (sec == null) return '';
+                        const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+                        const pad = (n) => String(n).padStart(2, '0');
+                        return h > 0 ? (h + ':' + pad(m) + ':' + pad(s)) : (m + ':' + pad(s));
+                    };
 
                     const handleReveal = () => {
                         if (revealed) return;
                         setRevealed(true);
-                        // One-time read: wipe after the sender-chosen visible window.
                         const ms = Math.max(1, (typeof viewOnceTtl === 'number' ? viewOnceTtl : 15)) * 1000;
-                        revealTimerRef.current = setTimeout(() => {
-                            onExpire && onExpire();
-                        }, ms);
+                        revealTimerRef.current = setTimeout(() => { onExpire && onExpire(); }, ms);
                     };
 
-                    // Body: blurred placeholder for unopened view-once, else real content.
+                    const radius = isMe ? '14px 14px 4px 14px' : '14px 14px 14px 4px';
+                    const border = isMe ? '1px solid rgba(255,255,255,0.10)' : '1px solid rgba(255,255,255,0.06)';
+                    const bg = isMe ? '#26262b' : '#161618';
+
+                    // Expired tombstone (disappearing / view-once) — content already wiped.
+                    const isExpired = expired === true || (typeof expiresAt === 'number' && (nowTick || Date.now()) >= expiresAt);
+                    if (isExpired) {
+                        return React.createElement('div', {
+                            className: 'message-slide',
+                            style: { display: 'flex', width: '100%', justifyContent: isMe ? 'flex-end' : 'flex-start' }
+                        }, React.createElement('div', { style: { maxWidth: '74%', minWidth: '170px' } },
+                            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '9px', padding: '12px 15px', borderRadius: radius, border: '1px dashed rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.018)' } }, [
+                                React.createElement('i', { key: 'i', className: 'fas fa-clock', style: { color: '#6b6b73', fontSize: '13px' } }),
+                                React.createElement('span', { key: 't', style: { fontSize: '13px', color: '#6b6b73', fontStyle: 'italic' } }, 'This message has expired')
+                            ])
+                        ));
+                    }
+
                     let body;
                     if (isViewOnce && !revealed) {
-                        body = React.createElement('button', {
-                            key: 'vo',
+                        body = React.createElement('div', {
+                            key: 'cover',
                             onClick: handleReveal,
-                            className: "w-full flex items-center space-x-2 text-left text-sm text-gray-300 hover:text-white transition-colors"
+                            style: { position: 'relative', cursor: 'pointer', padding: '12px 15px 10px', overflow: 'hidden' }
                         }, [
-                            React.createElement('i', { key: 'i', className: "fas fa-eye-slash accent-orange" }),
-                            React.createElement('span', { key: 't' }, "View once — tap to read"),
-                            React.createElement('i', { key: 'b', className: "fas fa-fingerprint text-muted ml-auto opacity-60" })
+                            React.createElement('div', { key: 'blur', style: { fontSize: '14.5px', lineHeight: 1.55, color: '#b3b3ba', filter: 'blur(7px)', userSelect: 'none', pointerEvents: 'none', wordBreak: 'break-word', minHeight: '22px' } }, message),
+                            React.createElement('div', { key: 'grain', style: { position: 'absolute', inset: 0, backgroundImage: GRAIN_URL, backgroundSize: '90px', opacity: 0.18, mixBlendMode: 'screen', pointerEvents: 'none' } }),
+                            React.createElement('div', { key: 'lbl', style: { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', pointerEvents: 'none' } }, [
+                                React.createElement('i', { key: 'i', className: 'fas fa-eye-slash', style: { color: '#e8e8eb', fontSize: '13px' } }),
+                                React.createElement('span', { key: 't', style: { fontSize: '12px', fontWeight: 600, color: '#e8e8eb', textShadow: '0 1px 5px rgba(0,0,0,0.75)' } }, 'View once · tap to reveal')
+                            ])
                         ]);
                     } else {
-                        body = React.createElement(MessageBody, { key: 'body', text: message });
+                        body = React.createElement('div', { key: 'body', style: { padding: '12px 15px 10px', color: '#e9e9ec' } },
+                            React.createElement(MessageBody, { text: message })
+                        );
                     }
 
-                    const metaChildren = [
-                        React.createElement('span', { key: 'time' }, formatTime(timestamp))
+                    const metaLeft = [
+                        React.createElement('span', { key: 'time', style: { fontFamily: SB_MONO, fontSize: '10.5px', color: '#6b6b73' } }, formatTime(timestamp))
                     ];
+                    // WhatsApp-style delivery state on our own messages.
+                    if (isMe) {
+                        const stCfg = ({
+                            sending: { icon: 'fa-clock', color: '#6b6b73', label: 'Sending' },
+                            sent: { icon: 'fa-check', color: '#8a8a92', label: 'Sent' },
+                            delivered: { icon: 'fa-check-double', color: '#3ecf8e', label: 'Delivered' },
+                            failed: { icon: 'fa-triangle-exclamation', color: '#e5727a', label: 'Not sent' }
+                        })[status || 'sent'] || { icon: 'fa-check', color: '#8a8a92', label: 'Sent' };
+                        metaLeft.push(React.createElement('span', {
+                            key: 'dlv', title: stCfg.label,
+                            style: { display: 'inline-flex', alignItems: 'center', color: stCfg.color }
+                        }, React.createElement('i', { className: 'fas ' + stCfg.icon, style: { fontSize: '10.5px' } })));
+                    }
                     if (isViewOnce && revealed) {
-                        metaChildren.push(React.createElement('span', {
-                            key: 'vo-note', className: "flex items-center text-orange-400/80"
-                        }, [
-                            React.createElement('i', { key: 'i', className: "fas fa-eye-slash mr-1" }),
-                            "Deletes after reading"
+                        metaLeft.push(React.createElement('span', { key: 'vo', style: { display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: 600, color: '#8a8a92' } }, [
+                            React.createElement('span', { key: 'd', style: { width: '4px', height: '4px', borderRadius: '50%', background: '#8a8a92' } }),
+                            'Viewed once'
                         ]));
                     } else if (remaining !== null) {
-                        metaChildren.push(React.createElement('span', {
-                            key: 'ttl', className: "flex items-center text-gray-400", title: "Disappearing message"
-                        }, [
-                            React.createElement('i', { key: 'i', className: "far fa-clock mr-1" }),
-                            remaining >= 60 ? `${Math.ceil(remaining / 60)}m` : `${remaining}s`
+                        metaLeft.push(React.createElement('span', { key: 'ttl', style: { display: 'inline-flex', alignItems: 'center', gap: '4px', fontFamily: SB_MONO, fontSize: '10.5px', fontWeight: 500, color: '#f0892a' } }, [
+                            React.createElement('i', { key: 'i', className: 'fas fa-clock', style: { fontSize: '10px' } }),
+                            fmtRemaining(remaining)
                         ]));
-                    } else {
-                        metaChildren.push(React.createElement('span', { key: 'status', className: "text-xs" }, style.label));
                     }
 
-                    const headerRow = [
-                        React.createElement('i', {
-                            key: 'icon',
-                            className: `${style.icon} text-sm mt-0.5 opacity-70`
-                        }),
-                        React.createElement('div', {
-                            key: 'text',
-                            className: "flex-1 min-w-0"
-                        }, [
-                            body,
-                            timestamp && React.createElement('div', {
-                                key: 'meta',
-                                className: "flex items-center justify-between gap-2 mt-1 text-xs opacity-60"
-                            }, metaChildren)
-                        ])
-                    ];
-
-                    // Unsend (delete for everyone) — only on your own sent messages.
-                    if (canUnsend && type === 'sent' && mid) {
-                        headerRow.push(React.createElement('button', {
-                            key: 'unsend',
-                            onClick: () => onUnsend && onUnsend(mid),
-                            title: "Delete for everyone",
-                            className: "flex-shrink-0 text-gray-500 hover:text-red-400 transition-colors text-xs mt-0.5"
-                        }, React.createElement('i', { className: "fas fa-trash-can" })));
+                    const metaRight = [];
+                    metaRight.push(React.createElement('span', { key: 'status', style: { display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '10.5px', fontWeight: 600, color: '#3ecf8e', flex: 'none' } }, [
+                        React.createElement('i', { key: 'i', className: encrypted ? 'fas fa-lock' : 'fas fa-lock-open', style: { fontSize: '10px' } }),
+                        encrypted ? 'Encrypted' : 'Decrypted'
+                    ]));
+                    // Delete-for-everyone sits AFTER the Encrypted/Decrypted status.
+                    if (canUnsend && isMe && mid) {
+                        metaRight.push(React.createElement('button', {
+                            key: 'unsend', onClick: () => onUnsend && onUnsend(mid), title: 'Delete for everyone',
+                            className: 'sb-unsend',
+                            style: { background: 'none', border: 'none', cursor: 'pointer', color: '#56565e', fontSize: '11px', padding: 0, lineHeight: 1 }
+                        }, React.createElement('i', { className: 'fas fa-trash-can' })));
                     }
+
+                    const meta = React.createElement('div', {
+                        key: 'meta',
+                        style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', padding: '0 15px 10px' }
+                    }, [
+                        React.createElement('div', { key: 'l', style: { display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0 } }, metaLeft),
+                        React.createElement('div', { key: 'r', style: { display: 'flex', alignItems: 'center', gap: '9px', flex: 'none' } }, metaRight)
+                    ]);
 
                     return React.createElement('div', {
-                        className: `message-slide mb-3 p-3 rounded-lg max-w-md break-words ${style.container} border`
+                        className: 'message-slide',
+                        style: { display: 'flex', width: '100%', justifyContent: isMe ? 'flex-end' : 'flex-start' }
                     }, [
-                        React.createElement('div', {
-                            key: 'content',
-                            className: "flex items-start space-x-2"
-                        }, headerRow)
+                        React.createElement('div', { key: 'wrap', style: { maxWidth: '74%', minWidth: '170px' } },
+                            React.createElement('div', { style: { borderRadius: radius, border: border, background: bg, overflow: 'hidden' } }, [body, meta])
+                        )
                     ]);
                 };
         
@@ -675,14 +680,61 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                     handleCreateOffer,
                     relayOnlyMode,
                     setRelayOnlyMode,
-                    webrtcManagerRef
+                    webrtcManagerRef,
+                    showIceSettings,
+                    setShowIceSettings,
+                    iceServersText,
+                    iceSettingsPersisted,
+                    customIceServers,
+                    handleApplyIceSettings,
+                    handleForgetIceSettings
                 }) => {
-                    const [mode, setMode] = React.useState('select');
+                    const [mode, setMode] = React.useState('create');
                     const [notificationPermissionRequested, setNotificationPermissionRequested] = React.useState(false);
-        
+                    // Local UI state for the redesigned Start Secure screen
+                    const [qrModalOpen, setQrModalOpen] = React.useState(false);
+                    const [copied, setCopied] = React.useState(false);
+                    const [sasInput, setSasInput] = React.useState('');
+                    const [sasError, setSasError] = React.useState('');
+                    const [platformsOpen, setPlatformsOpen] = React.useState(false);
+                    const [codeRevealed, setCodeRevealed] = React.useState(false);
+                    const [genProgress, setGenProgress] = React.useState(0);
+
+                    // Reset the typed SAS whenever a fresh verification code arrives
+                    React.useEffect(() => { setSasInput(''); setSasError(''); }, [verificationCode]);
+                    // Close the QR popup and re-hide (blur) the code whenever the
+                    // exchange step changes — every new offer/answer starts concealed.
+                    React.useEffect(() => {
+                        if (!showOfferStep && !showAnswerStep) setQrModalOpen(false);
+                        setCodeRevealed(false);
+                    }, [showOfferStep, showAnswerStep]);
+                    // Animate the "Securing your channel" steps while keys generate.
+                    React.useEffect(() => {
+                        const generating = isGeneratingKeys && !showOfferStep && !showAnswerStep && !showVerification;
+                        if (!generating) { setGenProgress(0); return; }
+                        setGenProgress(0);
+                        let p = 0;
+                        const id = setInterval(() => {
+                            p += 1;
+                            setGenProgress(p);
+                            if (p >= 3) clearInterval(id);
+                        }, 520);
+                        return () => clearInterval(id);
+                    }, [isGeneratingKeys, showOfferStep, showAnswerStep, showVerification]);
+                    // Dismiss the download platforms popover on any outside click
+                    React.useEffect(() => {
+                        if (!platformsOpen) return;
+                        const onDoc = () => setPlatformsOpen(false);
+                        const id = setTimeout(() => document.addEventListener('click', onDoc), 0);
+                        return () => { clearTimeout(id); document.removeEventListener('click', onDoc); };
+                    }, [platformsOpen]);
+
+                    // "Back" — clear the in-progress exchange and return to the intro of
+                    // the current tab. onClearData() resets offer/answer/verification in
+                    // the parent, which flips the derived step back to "intro".
                     const resetToSelect = () => {
-                        setMode('select');
                         setIsGeneratingKeys(false);
+                        setQrModalOpen(false);
                         onClearData();
                     };
         
@@ -800,739 +852,458 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                         }
                     };
         
+                    // ──────────────────────────────────────────────────────────────
+                    // Start Secure — redesigned two-column connection screen.
+                    // Layout/colors/animation from the imported design; wired to the
+                    // app's real crypto handlers. Icons use FontAwesome (house style).
+                    // ──────────────────────────────────────────────────────────────
+                    const h = React.createElement;
+                    const C_ORANGE = '#f0892a';
+                    const C_GREEN = '#3ecf8e';
+                    const MONO = SB_MONO;
+
+                    const encode = (data) => {
+                        try {
+                            const min = typeof data === 'object' ? JSON.stringify(data) : (data || '');
+                            if (!min) return '';
+                            if (typeof window.encodeBinaryToPrefixed === 'function') return window.encodeBinaryToPrefixed(min);
+                            if (typeof window.compressToPrefixedGzip === 'function') return window.compressToPrefixedGzip(min);
+                            return min;
+                        } catch { return typeof data === 'object' ? JSON.stringify(data) : (data || ''); }
+                    };
+
+                    // Derived flow step from the parent's real connection state
+                    const isCreate = mode === 'create';
+                    const isGenerating = isGeneratingKeys && !showOfferStep && !showAnswerStep && !showVerification;
+                    const isOfferCred = isCreate && showOfferStep && !showVerification;
+                    const isAnswerCred = !isCreate && showAnswerStep && !showVerification;
+                    const atIntro = !showVerification && !isGenerating && !isOfferCred && !isAnswerCred;
+                    const accent = isCreate ? C_ORANGE : C_GREEN;
+                    const kicker = showVerification
+                        ? 'Step 3 · verification'
+                        : ((isOfferCred || isAnswerCred) ? 'Step 2 · exchange' : 'Step 1 · open a channel');
+
+                    const credCode = isCreate ? encode(offerData) : encode(answerData);
+                    const hasInvite = (offerInput || '').trim().length > 0;
+                    const hasAnswer = (answerInput || '').trim().length > 0;
+
+                    const copyCred = async () => {
+                        try {
+                            if (typeof copyToClipboardSecure === 'function') await copyToClipboardSecure(credCode);
+                            else await navigator.clipboard.writeText(credCode);
+                        } catch (e) {}
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 1600);
+                    };
+
+                    // SAS verification (alphanumeric, variable length — matches real codes)
+                    const normExpected = (verificationCode || '').replace(/[-\s]/g, '').length;
+                    const normInput = sasInput.replace(/[-\s]/g, '').length;
+                    const canConfirm = !localVerificationConfirmed && normExpected > 0 && normInput === normExpected;
+                    const handleSasConfirm = async () => {
+                        try {
+                            setSasError('');
+                            await onVerifyConnection(sasInput);
+                        } catch (err) {
+                            setSasInput('');
+                            setSasError(err?.message === 'SAS_MAX_ATTEMPTS'
+                                ? 'Too many incorrect attempts. Session reset for safety.'
+                                : 'Incorrect code. Check it with your peer and try again.');
+                        }
+                    };
+
+                    // Icon set transcribed from the design (inline SVG, not FontAwesome).
+                    // Each entry: stroke-width + the SVG child elements [tag, attrs].
+                    const ICON_DEFS = {
+                        'fa-user': { sw: 1.9, e: [['circle', { cx: 12, cy: 8, r: 3.6 }], ['path', { d: 'M5 20c0-3.5 3-5.5 7-5.5s7 2 7 5.5' }]] },
+                        'fa-lock': { sw: 2, e: [['path', { d: 'M7 11V7a5 5 0 0 1 10 0v4' }], ['rect', { x: 4.5, y: 11, width: 15, height: 9, rx: 2.2 }]] },
+                        'fa-plus': { sw: 2.1, e: [['path', { d: 'M12 5v14M5 12h14' }]] },
+                        'fa-link': { sw: 2, e: [['path', { d: 'M9.5 14.5l5-5M8 11l-2.2 2.2a3.5 3.5 0 0 0 4.95 4.95L13 16M16 13l2.2-2.2a3.5 3.5 0 0 0-4.95-4.95L11 8' }]] },
+                        'fa-bolt': { sw: 2.1, e: [['path', { d: 'M13 2L4.5 13H11l-1 9 8.5-11H12l1-9z' }]] },
+                        'fa-camera': { sw: 1.8, e: [['path', { d: 'M2 8.5V6.5A2.5 2.5 0 0 1 4.5 4h2M17.5 4h2A2.5 2.5 0 0 1 22 6.5v2M22 15.5v2a2.5 2.5 0 0 1-2.5 2.5h-2M6.5 20h-2A2.5 2.5 0 0 1 2 17.5v-2' }], ['circle', { cx: 12, cy: 12, r: 3.2 }]] },
+                        'fa-qrcode': { sw: 1.9, e: [['rect', { x: 3, y: 3, width: 7, height: 7, rx: 1.3 }], ['rect', { x: 14, y: 3, width: 7, height: 7, rx: 1.3 }], ['rect', { x: 3, y: 14, width: 7, height: 7, rx: 1.3 }], ['path', { d: 'M14 14h3v3M21 14v.01M14 21h.01M21 21v-4M17.5 21H21' }]] },
+                        'fa-chevron-right': { sw: 2, e: [['path', { d: 'M9 6l6 6-6 6' }]] },
+                        'fa-chevron-left': { sw: 2, e: [['path', { d: 'M15 6l-6 6 6 6' }]] },
+                        'fa-chevron-down': { sw: 2, e: [['path', { d: 'M6 9l6 6 6-6' }]] },
+                        'fa-circle-notch': { sw: 2, e: [['path', { d: 'M21 12a9 9 0 1 1-6.2-8.6' }]] },
+                        'fa-check': { sw: 2.4, e: [['path', { d: 'M20 6L9 17l-5-5' }]] },
+                        'fa-check-circle': { sw: 2, e: [['circle', { cx: 12, cy: 12, r: 9 }], ['path', { d: 'M8.5 12.4l2.4 2.4 4.6-5' }]] },
+                        'fa-shield-alt': { sw: 1.9, e: [['path', { d: 'M12 2.6l7 3v5.1c0 4.5-3 8.3-7 10.2-4-1.9-7-5.7-7-10.2V5.6l7-3z' }], ['path', { d: 'M9 12l2 2 4-4.1' }]] },
+                        'fa-download': { sw: 2, e: [['path', { d: 'M12 3v12M12 15l-4.5-4.5M12 15l4.5-4.5' }], ['path', { d: 'M4 20h16' }]] },
+                        'fa-clock': { sw: 1.8, e: [['circle', { cx: 12, cy: 13, r: 8 }], ['path', { d: 'M12 9v4l2.5 2M9 2h6' }]] },
+                        'fa-times': { sw: 2.2, e: [['path', { d: 'M18 6L6 18M6 6l12 12' }]] },
+                        'fa-eye': { sw: 1.9, e: [['path', { d: 'M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z' }], ['circle', { cx: 12, cy: 12, r: 3 }]] }
+                    };
+                    const fa = (name, opts) => {
+                        opts = opts || {};
+                        const def = ICON_DEFS[name];
+                        if (!def) {
+                            // Fallback to FontAwesome (e.g. fa-sliders-h, kept by preference).
+                            const st = {};
+                            if (opts.color) st.color = opts.color;
+                            if (opts.fontSize) st.fontSize = opts.fontSize;
+                            if (opts.animation) st.animation = opts.animation;
+                            if (opts.style) Object.assign(st, opts.style);
+                            return h('i', { key: opts.key, className: `fas ${name}`, style: st });
+                        }
+                        const size = opts.fontSize ? parseFloat(opts.fontSize) : 16;
+                        const svgStyle = {};
+                        if (opts.animation) { svgStyle.animation = opts.animation; svgStyle.transformOrigin = 'center'; svgStyle.transformBox = 'fill-box'; }
+                        if (opts.style) Object.assign(svgStyle, opts.style);
+                        return h('svg', {
+                            key: opts.key, width: size, height: size, viewBox: '0 0 24 24',
+                            fill: 'none', stroke: opts.color || 'currentColor',
+                            strokeWidth: def.sw || 2, strokeLinecap: 'round', strokeLinejoin: 'round',
+                            style: svgStyle
+                        }, def.e.map((el, i) => h(el[0], Object.assign({ key: i }, el[1]))));
+                    };
+
+                    // ── LEFT PANEL · branding + animated channel + crypto badges ──
+                    const leftPanel = h('div', {
+                        key: 'left',
+                        className: 'sb-start-left',
+                        style: {
+                            flex: '1.05 1 380px', position: 'relative', overflow: 'hidden',
+                            // Full viewport height even when the panels stack on mobile, so the
+                            // branding column isn't collapsed/cramped (looked broken otherwise).
+                            minHeight: '100vh', boxSizing: 'border-box',
+                            padding: '46px', display: 'flex', flexDirection: 'column',
+                            justifyContent: 'space-between', gap: '36px',
+                            borderRight: '1px solid rgba(255,255,255,0.06)',
+                            background: 'radial-gradient(900px 600px at 25% 18%, rgba(240,137,42,0.07), transparent 62%), radial-gradient(800px 700px at 80% 92%, rgba(62,207,142,0.06), transparent 60%), #0c0c0e'
+                        }
+                    }, [
+                        h('div', { key: 'herowrap', style: { flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative', zIndex: 2 } },
+                        h('div', { key: 'hero', style: { maxWidth: '470px' } }, [
+                            h('h1', { key: 'h1', style: { margin: '0 0 14px', fontSize: '34px', fontWeight: 800, letterSpacing: '-1.1px', lineHeight: 1.1, color: '#f4f4f6' } }, [
+                                'A direct line', h('br', { key: 'br' }), 'only you two can read.'
+                            ]),
+                            h('p', { key: 'p', style: { margin: '0 0 38px', fontSize: '14.5px', lineHeight: 1.6, color: '#8a8a92', maxWidth: '390px' } },
+                                'Keys are generated on your device and exchanged peer-to-peer. No accounts, no servers storing your messages.'),
+                            // animated channel
+                            h('div', { key: 'channel', style: { display: 'flex', alignItems: 'center', height: '74px' } }, [
+                                h('div', { key: 'you', style: { flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '74px' } }, [
+                                    h('div', { key: 'n', style: { width: '50px', height: '50px', borderRadius: '15px', display: 'grid', placeItems: 'center', background: 'rgba(240,137,42,0.13)', border: '1px solid rgba(240,137,42,0.3)', animation: 'sbNode 3s ease-in-out infinite' } }, fa('fa-user', { color: C_ORANGE, fontSize: '20px' })),
+                                    h('span', { key: 'l', style: { fontSize: '11px', fontWeight: 600, color: '#9a9aa2' } }, 'You')
+                                ]),
+                                h('div', { key: 'wire', style: { flex: 1, position: 'relative', height: '52px', margin: '0 -6px' } }, [
+                                    h('div', { key: 'line', style: { position: 'absolute', top: '50%', left: 0, right: 0, height: '2px', transform: 'translateY(-50%)', background: 'linear-gradient(90deg, rgba(240,137,42,0.45), rgba(62,207,142,0.45))' } }),
+                                    h('span', { key: 'd1', style: { position: 'absolute', top: '50%', transform: 'translateY(-50%)', width: '6px', height: '6px', borderRadius: '50%', background: C_ORANGE, boxShadow: `0 0 8px ${C_ORANGE}`, animation: 'sbFlowR 2.6s linear infinite' } }),
+                                    h('span', { key: 'd2', style: { position: 'absolute', top: '50%', transform: 'translateY(-50%)', width: '6px', height: '6px', borderRadius: '50%', background: C_GREEN, boxShadow: `0 0 8px ${C_GREEN}`, animation: 'sbFlowL 2.6s linear infinite', animationDelay: '0.6s' } }),
+                                    h('div', { key: 'hub', style: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '38px', height: '38px' } }, [
+                                        h('span', { key: 'pulse', style: { position: 'absolute', top: '50%', left: '50%', width: '38px', height: '38px', borderRadius: '50%', border: '1.5px solid rgba(62,207,142,0.5)', animation: 'sbPulse 2.4s ease-out infinite' } }),
+                                        h('div', { key: 'core', style: { position: 'relative', width: '38px', height: '38px', borderRadius: '50%', display: 'grid', placeItems: 'center', background: '#121214', border: '1px solid rgba(62,207,142,0.45)', boxShadow: '0 0 18px rgba(62,207,142,0.25)' } }, fa('fa-lock', { color: C_GREEN, fontSize: '14px' }))
+                                    ])
+                                ]),
+                                h('div', { key: 'peer', style: { flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '74px' } }, [
+                                    h('div', { key: 'n', style: { width: '50px', height: '50px', borderRadius: '15px', display: 'grid', placeItems: 'center', background: 'rgba(62,207,142,0.1)', border: '1px solid rgba(62,207,142,0.3)', animation: 'sbNode 3s ease-in-out infinite', animationDelay: '1.5s' } }, fa('fa-user', { color: C_GREEN, fontSize: '20px' })),
+                                    h('span', { key: 'l', style: { fontSize: '11px', fontWeight: 600, color: '#9a9aa2' } }, 'Peer')
+                                ])
+                            ])
+                        ])),
+                        h('div', { key: 'badges', style: { position: 'relative', zIndex: 2, display: 'flex', flexWrap: 'wrap', gap: '8px' } },
+                            ['ECDH P-384', 'AES-256-GCM', 'Perfect Forward Secrecy'].map((label) =>
+                                h('span', { key: label, style: { display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 11px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.025)', fontFamily: MONO, fontSize: '11px', fontWeight: 500, color: '#9a9aa2' } }, [
+                                    h('span', { key: 'dot', style: { width: '5px', height: '5px', borderRadius: '50%', background: C_GREEN } }),
+                                    label
+                                ])
+                            )
+                        )
+                    ]);
+
+                    // ── RIGHT PANEL · flow body (varies by step) ──
+                    const segToggle = atIntro && h('div', { key: 'seg', style: { position: 'relative', display: 'flex', padding: '4px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.07)', background: '#141416', marginBottom: '26px' } }, [
+                        h('div', { key: 'ind', style: { position: 'absolute', top: '4px', bottom: '4px', left: '4px', width: 'calc(50% - 4px)', borderRadius: '9px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.08)', transform: isCreate ? 'translateX(0%)' : 'translateX(100%)', transition: 'transform .26s cubic-bezier(.3,.8,.3,1)' } }),
+                        h('button', { key: 'c', className: 'sb-seg-btn', onClick: () => setMode('create'), style: { position: 'relative', zIndex: 1, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '11px', border: 'none', background: 'transparent', color: isCreate ? '#f4f4f6' : '#7b7b83', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, cursor: 'pointer' } }, [fa('fa-plus', { key: 'i' }), 'Create']),
+                        h('button', { key: 'j', className: 'sb-seg-btn', onClick: () => setMode('join'), style: { position: 'relative', zIndex: 1, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '11px', border: 'none', background: 'transparent', color: !isCreate ? '#f4f4f6' : '#7b7b83', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, cursor: 'pointer' } }, [fa('fa-link', { key: 'i' }), 'Join'])
+                    ]);
+
+                    const backButton = (key) => h('button', { key: key || 'back', className: 'sb-soft-btn', onClick: resetToSelect, style: { display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '14px', padding: '6px 11px 6px 8px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#9a9aa2', fontFamily: 'inherit', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' } }, [fa('fa-chevron-left', { key: 'i' }), 'Back']);
+
+                    // credential code block (offer/answer text fallback + copy)
+                    const credBlock = h('div', { key: 'codeblock', style: { borderRadius: '13px', border: '1px solid rgba(255,255,255,0.08)', background: '#141416', overflow: 'hidden', marginBottom: '16px' } }, [
+                        h('div', { key: 'bar', style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.2)' } }, [
+                            h('span', { key: 'dot', style: { width: '7px', height: '7px', borderRadius: '50%', background: accent } }),
+                            h('span', { key: 'tag', style: { fontFamily: MONO, fontSize: '10.5px', fontWeight: 600, color: '#8a8a92' } }, `${isCreate ? 'offer' : 'answer'} · or copy text`),
+                            h('button', { key: 'copy', onClick: copyCred, style: { marginLeft: 'auto', padding: '4px 9px', borderRadius: '6px', border: `1px solid ${copied ? 'rgba(62,207,142,0.4)' : 'rgba(255,255,255,0.1)'}`, background: copied ? 'rgba(62,207,142,0.1)' : 'rgba(255,255,255,0.04)', color: copied ? C_GREEN : '#b3b3ba', fontFamily: 'inherit', fontSize: '11px', fontWeight: 600, cursor: 'pointer', transition: 'all .14s' } }, copied ? 'Copied' : 'Copy')
+                        ]),
+                        // The handshake code is sensitive — keep it blurred until the
+                        // user deliberately reveals it, underscoring that it must be
+                        // shared only over a channel they trust.
+                        h('div', { key: 'codewrap', style: { position: 'relative' } }, [
+                            h('div', { key: 'code', className: 'sb-sc', style: { fontFamily: MONO, fontSize: '11px', lineHeight: 1.55, color: '#c9ccd8', wordBreak: 'break-all', padding: '11px 12px', maxHeight: '72px', overflowY: 'auto', filter: codeRevealed ? 'none' : 'blur(6px)', userSelect: codeRevealed ? 'text' : 'none', transition: 'filter .2s' } }, credCode),
+                            !codeRevealed && h('button', { key: 'reveal', onClick: () => setCodeRevealed(true), style: { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', border: 'none', background: 'rgba(20,20,22,0.25)', color: '#cfcfd4', fontFamily: 'inherit', fontSize: '12px', fontWeight: 600, cursor: 'pointer' } }, [
+                                fa('fa-eye', { key: 'i', fontSize: '15px' }),
+                                'Click to reveal — keep this code private'
+                            ])
+                        ])
+                    ]);
+
+                    const showQrButton = qrCodeUrl && h('button', { key: 'showqr', onClick: () => setQrModalOpen(true), style: { width: '100%', display: 'flex', alignItems: 'center', gap: '13px', padding: '15px 16px', borderRadius: '14px', border: `1px solid ${isCreate ? 'rgba(240,137,42,0.3)' : 'rgba(62,207,142,0.3)'}`, background: isCreate ? 'rgba(240,137,42,0.06)' : 'rgba(62,207,142,0.06)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'left', marginBottom: '14px' } }, [
+                        h('span', { key: 'ic', style: { flex: 'none', width: '42px', height: '42px', borderRadius: '12px', display: 'grid', placeItems: 'center', background: isCreate ? 'rgba(240,137,42,0.12)' : 'rgba(62,207,142,0.12)', border: `1px solid ${isCreate ? 'rgba(240,137,42,0.28)' : 'rgba(62,207,142,0.28)'}` } }, fa('fa-qrcode', { color: accent, fontSize: '18px' })),
+                        h('span', { key: 'tx', style: { flex: 1 } }, [
+                            h('span', { key: 't', style: { display: 'block', fontSize: '14.5px', fontWeight: 700, color: '#f4f4f6' } }, 'Show QR code'),
+                            h('span', { key: 's', style: { display: 'block', fontSize: '12.5px', color: '#8a8a92', marginTop: '1px' } }, `Full-screen · let your peer scan${(qrFramesTotal || 0) > 1 ? ` all ${qrFramesTotal} frames` : ''}`)
+                        ]),
+                        fa('fa-chevron-right', { color: '#6b6b73' })
+                    ]);
+
+                    let inner;
                     if (showVerification) {
-                        return React.createElement('div', {
-                            className: "min-h-[calc(100vh-104px)] flex items-center justify-center p-4"
-                        }, [
-                            React.createElement('div', {
-                                key: 'verification',
-                                className: "w-full max-w-md"
-                            }, [
-                                React.createElement(VerificationStep, {
-                                    verificationCode: verificationCode,
-                                    onConfirm: handleVerificationConfirm,
-                                    onReject: handleVerificationReject,
-                                    localConfirmed: localVerificationConfirmed,
-                                    remoteConfirmed: remoteVerificationConfirmed,
-                                    bothConfirmed: bothVerificationsConfirmed
+                        const verified = bothVerificationsConfirmed;
+                        const cells = (verificationCode || '').split('').map((ch, i) =>
+                            h('div', { key: i, style: { flex: 1, maxWidth: '46px', aspectRatio: '0.82', display: 'grid', placeItems: 'center', borderRadius: '10px', border: '1px solid rgba(62,207,142,0.25)', background: 'rgba(62,207,142,0.05)', fontFamily: MONO, fontSize: '22px', fontWeight: 700, color: C_GREEN } }, ch));
+                        inner = h('div', { key: 'verify', style: { animation: 'sbUp .3s ease' } }, [
+                            !verified && backButton('vback'),
+                            h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', gap: '11px', marginBottom: '8px' } }, [
+                                h('div', { key: 'i', style: { width: '34px', height: '34px', flex: 'none', borderRadius: '10px', display: 'grid', placeItems: 'center', background: 'rgba(62,207,142,0.1)', border: '1px solid rgba(62,207,142,0.25)' } }, fa('fa-shield-alt', { color: C_GREEN })),
+                                h('h2', { key: 't', style: { margin: 0, fontSize: '21px', fontWeight: 800, letterSpacing: '-0.4px', color: '#f4f4f6' } }, 'Security verification')
+                            ]),
+                            h('p', { key: 'sub', style: { margin: '0 0 18px', fontSize: '13.5px', lineHeight: 1.55, color: '#8a8a92' } }, 'Compare this safety code with your peer over a separate channel (voice / in person), then type it to unlock the chat.'),
+                            h('div', { key: 'cells', style: { display: 'flex', gap: '6px', justifyContent: 'center', marginBottom: '20px', flexWrap: 'wrap' } }, cells),
+                            verified
+                                ? h('div', { key: 'ok', style: { display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '24px 16px', borderRadius: '16px', border: '1px solid rgba(62,207,142,0.25)', background: 'rgba(62,207,142,0.06)', animation: 'sbUp .3s ease' } }, [
+                                    h('div', { key: 'i', style: { width: '54px', height: '54px', borderRadius: '16px', display: 'grid', placeItems: 'center', background: 'rgba(62,207,142,0.14)', border: '1px solid rgba(62,207,142,0.35)', marginBottom: '14px' } }, fa('fa-check', { color: C_GREEN, fontSize: '24px' })),
+                                    h('div', { key: 't', style: { fontSize: '18px', fontWeight: 800, color: '#f4f4f6' } }, 'Channel verified'),
+                                    h('div', { key: 's', style: { fontSize: '13.5px', color: '#8a8a92', marginTop: '5px' } }, 'Both parties confirmed. Opening the secure chat…')
+                                ])
+                                : h('div', { key: 'form' }, [
+                                    h('div', { key: 'lbl', style: { fontSize: '12.5px', fontWeight: 600, color: '#9a9aa2', marginBottom: '8px' } }, 'Enter the verified code'),
+                                    h('input', { key: 'in', value: sasInput, onChange: (e) => { setSasInput(e.target.value.toUpperCase()); if (sasError) setSasError(''); }, disabled: localVerificationConfirmed, autoFocus: true, autoComplete: 'off', spellCheck: false, placeholder: verificationCode ? 'Type code here' : 'Waiting for code…', style: { width: '100%', textAlign: 'center', letterSpacing: '6px', borderRadius: '12px', border: `1px solid ${sasInput.length ? (canConfirm || localVerificationConfirmed ? 'rgba(62,207,142,0.5)' : 'rgba(255,255,255,0.14)') : 'rgba(255,255,255,0.08)'}`, background: '#141416', color: '#f4f4f6', fontFamily: MONO, fontSize: '20px', fontWeight: 700, padding: '14px', outline: 'none', textTransform: 'uppercase', marginBottom: sasError ? '8px' : '16px' } }),
+                                    sasError && h('p', { key: 'err', style: { color: '#e5727a', fontSize: '12.5px', margin: '0 0 16px' } }, sasError),
+                                    h('div', { key: 'status', style: { display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' } }, [
+                                        h('div', { key: 'you', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderRadius: '11px', border: '1px solid rgba(255,255,255,0.06)', background: '#141416' } }, [
+                                            h('span', { key: 'l', style: { fontSize: '13px', color: '#cfcfd4', fontWeight: 600 } }, 'Your confirmation'),
+                                            h('span', { key: 'v', style: { display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: localVerificationConfirmed ? C_GREEN : '#7b7b83' } }, [fa(localVerificationConfirmed ? 'fa-check-circle' : 'fa-clock', { key: 'i' }), localVerificationConfirmed ? 'Confirmed' : 'Pending'])
+                                        ]),
+                                        h('div', { key: 'peer', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderRadius: '11px', border: '1px solid rgba(255,255,255,0.06)', background: '#141416' } }, [
+                                            h('span', { key: 'l', style: { fontSize: '13px', color: '#cfcfd4', fontWeight: 600 } }, 'Peer confirmation'),
+                                            h('span', { key: 'v', style: { display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: remoteVerificationConfirmed ? C_GREEN : '#7b7b83' } }, [fa(remoteVerificationConfirmed ? 'fa-check-circle' : 'fa-clock', { key: 'i' }), remoteVerificationConfirmed ? 'Confirmed' : 'Pending'])
+                                        ])
+                                    ]),
+                                    h('div', { key: 'btns', style: { display: 'flex', gap: '10px' } }, [
+                                        h('button', { key: 'ok', onClick: handleSasConfirm, disabled: !canConfirm, style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', borderRadius: '13px', border: 'none', background: canConfirm ? C_GREEN : 'rgba(255,255,255,0.05)', color: canConfirm ? '#08160e' : '#56565e', fontFamily: 'inherit', fontSize: '14.5px', fontWeight: 700, cursor: canConfirm ? 'pointer' : 'not-allowed', boxShadow: canConfirm ? '0 8px 24px rgba(62,207,142,0.25)' : 'none' } }, [fa(localVerificationConfirmed ? 'fa-check-circle' : 'fa-check', { key: 'i' }), localVerificationConfirmed ? 'Confirmed' : 'Confirm code']),
+                                        h('button', { key: 'no', onClick: handleVerificationReject, style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', padding: '14px 16px', borderRadius: '13px', border: '1px solid rgba(229,114,122,0.3)', background: 'transparent', color: '#e5727a', fontFamily: 'inherit', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' } }, [fa('fa-times', { key: 'i' }), "Don't match"])
+                                    ])
+                                ])
+                        ]);
+                    } else if (isGenerating) {
+                        const genSteps = ['Generating ECDH P-384 key pair', 'Deriving verification code', 'Pinning Perfect Forward Secrecy'];
+                        inner = h('div', { key: 'gen', style: { animation: 'sbUp .28s ease' } }, [
+                            h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', gap: '13px', marginBottom: '22px' } }, [
+                                h('div', { key: 'sp', style: { width: '44px', height: '44px', flex: 'none', display: 'grid', placeItems: 'center' } }, fa('fa-circle-notch', { color: C_ORANGE, fontSize: '32px', animation: 'sbSpin 1s linear infinite' })),
+                                h('div', { key: 'tx' }, [
+                                    h('h2', { key: 't', style: { margin: 0, fontSize: '20px', fontWeight: 800, letterSpacing: '-0.4px', color: '#f4f4f6' } }, isCreate ? 'Securing your channel' : 'Building your answer'),
+                                    h('p', { key: 's', style: { margin: '3px 0 0', fontSize: '13px', color: '#8a8a92' } }, 'Forging keys strong enough to resist tampering.')
+                                ])
+                            ]),
+                            h('div', { key: 'steps', style: { display: 'flex', flexDirection: 'column', borderRadius: '13px', border: '1px solid rgba(255,255,255,0.07)', background: '#141416', overflow: 'hidden' } },
+                                genSteps.map((label, i) => {
+                                    const done = genProgress > i;
+                                    const active = genProgress === i;
+                                    return h('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: '12px', padding: '13px 15px', borderTop: i ? '1px solid rgba(255,255,255,0.05)' : 'none', transition: 'background .3s', background: done ? 'rgba(62,207,142,0.04)' : 'transparent' } }, [
+                                        h('div', { key: 'd', style: { flex: 'none', width: '20px', height: '20px', borderRadius: '50%', display: 'grid', placeItems: 'center', background: done ? 'rgba(62,207,142,0.12)' : (active ? 'rgba(240,137,42,0.12)' : 'rgba(255,255,255,0.04)'), border: `1px solid ${done ? 'rgba(62,207,142,0.3)' : (active ? 'rgba(240,137,42,0.3)' : 'rgba(255,255,255,0.1)')}`, transition: 'all .3s' } },
+                                            done
+                                                ? fa('fa-check', { color: C_GREEN, fontSize: '11px' })
+                                                : h('span', { style: { width: '6px', height: '6px', borderRadius: '50%', background: active ? C_ORANGE : '#56565e', animation: active ? 'sbBlink 1s ease-in-out infinite' : 'none' } })),
+                                        h('span', { key: 'l', style: { fontSize: '13.5px', color: done ? '#cfcfd4' : (active ? '#e8e8eb' : '#6b6b73'), transition: 'color .3s' } }, label)
+                                    ]);
                                 })
+                            )
+                        ]);
+                    } else if (isOfferCred || isAnswerCred) {
+                        inner = h('div', { key: 'cred', style: { animation: 'sbUp .3s ease' } }, [
+                            backButton('cback'),
+                            h('h2', { key: 'h', style: { margin: '0 0 6px', fontSize: '23px', fontWeight: 800, letterSpacing: '-0.5px', color: '#f4f4f6' } }, isCreate ? 'Share your invitation' : 'Send back your answer'),
+                            h('p', { key: 'p', style: { margin: '0 0 18px', fontSize: '14px', lineHeight: 1.55, color: '#8a8a92' } }, isCreate ? 'Show the QR or send the code to your peer. It is one-time and expires shortly.' : 'Give this answer to the channel creator so they can finish the handshake.'),
+                            showQrButton,
+                            credBlock,
+                            isOfferCred && h('div', { key: 'offerextra', style: { marginTop: '4px' } }, [
+                                h('div', { key: 'lbl', style: { fontSize: '12.5px', fontWeight: 600, color: '#9a9aa2', marginBottom: '8px' } }, "Then receive the answer your peer sends back"),
+                                h('div', { key: 'ta', style: { borderRadius: '12px', border: `1px solid ${hasAnswer ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.07)'}`, background: '#141416', padding: '11px 14px', marginBottom: '10px' } },
+                                    h('textarea', { value: answerInput, onChange: (e) => { setAnswerInput(e.target.value); if (e.target.value.trim().length > 0 && typeof markAnswerCreated === 'function') markAnswerCreated(); }, rows: 2, placeholder: "Paste peer's answer code…", style: { width: '100%', resize: 'none', border: 'none', outline: 'none', background: 'transparent', color: '#d7d7db', fontFamily: MONO, fontSize: '12px', lineHeight: 1.55, minHeight: '44px' } })),
+                                h('div', { key: 'btns', style: { display: 'flex', gap: '10px' } }, [
+                                    h('button', { key: 'scan', className: 'sb-scan-btn', onClick: () => setShowQRScannerModal(true), style: { flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px 16px', borderRadius: '13px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#cfcfd4', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, cursor: 'pointer' } }, [fa('fa-camera', { key: 'i' }), 'Scan']),
+                                    h('button', { key: 'est', onClick: onConnect, disabled: !hasAnswer, style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '14px', borderRadius: '13px', border: 'none', background: hasAnswer ? C_ORANGE : 'rgba(255,255,255,0.05)', color: hasAnswer ? '#1a0f04' : '#56565e', fontFamily: 'inherit', fontSize: '14.5px', fontWeight: 700, cursor: hasAnswer ? 'pointer' : 'not-allowed', boxShadow: hasAnswer ? '0 8px 24px rgba(240,137,42,0.28)' : 'none' } }, 'Establish connection')
+                                ])
+                            ]),
+                            isAnswerCred && h('div', { key: 'answerextra', style: { marginTop: '4px', display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', borderRadius: '12px', border: '1px solid rgba(62,207,142,0.18)', background: 'rgba(62,207,142,0.05)' } }, [
+                                fa('fa-circle-notch', { key: 'i', color: C_GREEN, animation: 'sbSpin 1.4s linear infinite' }),
+                                h('span', { key: 't', style: { fontSize: '13px', color: '#cfcfd4', fontWeight: 500 } }, 'Send this answer to the creator, then wait — the chat opens once they connect.')
                             ])
                         ]);
-                    }
-        
-                    if (mode === 'select') {
-                        return React.createElement('div', {
-                            className: "min-h-[calc(100vh-104px)] flex items-center justify-center p-4"
-                        }, [
-                            React.createElement('div', {
-                                key: 'selector',
-                                className: "w-full max-w-4xl"
-                            }, [
-                                React.createElement('div', {
-                                    key: 'header',
-                                    className: "text-center mb-8"
-                                }, [
-                                    React.createElement('h2', {
-                                        key: 'title',
-                                        className: "text-2xl font-semibold text-primary mb-3"
-                                    }, 'Start secure communication'),
-                                    React.createElement('p', {
-                                        key: 'subtitle',
-                                        className: "text-secondary max-w-2xl mx-auto"
-                                    }, "Choose a connection method for a secure channel with ECDH encryption and Perfect Forward Secrecy.")
+                    } else if (isCreate) {
+                        // CREATE intro
+                        inner = h('div', { key: 'introC', style: { animation: 'sbUp .28s ease' } }, [
+                            h('h2', { key: 'h', style: { margin: '0 0 6px', fontSize: '23px', fontWeight: 800, letterSpacing: '-0.5px', color: '#f4f4f6' } }, 'Create a new channel'),
+                            h('p', { key: 'p', style: { margin: '0 0 22px', fontSize: '14px', lineHeight: 1.55, color: '#8a8a92' } }, 'Your device generates the keys and a one-time invitation. Nothing touches a server.'),
+                            h('button', { key: 'gen', className: 'sb-gen-btn', onClick: () => { requestNotificationPermissionOnInteraction(); if (webrtcManagerRef.current) handleCreateOffer(); }, style: { width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '15px', borderRadius: '13px', border: 'none', background: C_ORANGE, color: '#1a0f04', fontFamily: 'inherit', fontSize: '15px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 8px 24px rgba(240,137,42,0.28)' } }, [fa('fa-bolt', { key: 'i' }), 'Generate keys & invitation'])
+                        ]);
+                    } else {
+                        // JOIN intro
+                        inner = h('div', { key: 'introJ', style: { animation: 'sbUp .28s ease' } }, [
+                            h('h2', { key: 'h', style: { margin: '0 0 6px', fontSize: '23px', fontWeight: 800, letterSpacing: '-0.5px', color: '#f4f4f6' } }, 'Join a channel'),
+                            h('p', { key: 'p', style: { margin: '0 0 16px', fontSize: '14px', lineHeight: 1.55, color: '#8a8a92' } }, "Scan your peer's QR with your camera, or paste their invitation code."),
+                            h('button', { key: 'scan', className: 'sb-scan-btn', onClick: () => { requestNotificationPermissionOnInteraction(); setShowQRScannerModal(true); }, style: { width: '100%', display: 'flex', alignItems: 'center', gap: '13px', padding: '15px 16px', borderRadius: '14px', border: '1px solid rgba(62,207,142,0.3)', background: 'rgba(62,207,142,0.06)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'left', marginBottom: '14px' } }, [
+                                h('span', { key: 'ic', style: { flex: 'none', width: '42px', height: '42px', borderRadius: '12px', display: 'grid', placeItems: 'center', background: 'rgba(62,207,142,0.12)', border: '1px solid rgba(62,207,142,0.28)' } }, fa('fa-camera', { color: C_GREEN, fontSize: '18px' })),
+                                h('span', { key: 'tx', style: { flex: 1 } }, [
+                                    h('span', { key: 't', style: { display: 'block', fontSize: '14.5px', fontWeight: 700, color: '#f4f4f6' } }, 'Scan QR with camera'),
+                                    h('span', { key: 's', style: { display: 'block', fontSize: '12.5px', color: '#8a8a92', marginTop: '1px' } }, "Fastest — point at your peer's screen")
                                 ]),
-
-                                React.createElement('div', {
-                                    key: 'advanced-network',
-                                    className: "mb-6 mx-auto max-w-2xl flex flex-wrap items-center justify-between gap-3"
-                                }, [
-                                    React.createElement('span', {
-                                        key: 'status',
-                                        className: "text-sm text-secondary"
-                                    }, 'STUN/TURN servers'),
-                                    React.createElement('button', {
-                                        key: 'btn',
-                                        type: 'button',
-                                        onClick: () => window.dispatchEvent(new CustomEvent('securebit:open-network-settings')),
-                                        className: "px-3 py-2 text-sm rounded-lg border border-purple-500/30 text-primary"
-                                    }, [
-                                        React.createElement('i', { key: 'i', className: 'fas fa-network-wired mr-2' }),
-                                        'Advanced network settings'
-                                    ])
-                                ]),
-
-                                React.createElement('div', {
-                                    key: 'options',
-                                    className: "flex flex-col md:flex-row items-center justify-center gap-6 max-w-3xl mx-auto"
-                                }, [
-                                    // Create Connection
-                                    React.createElement('div', {
-                                        key: 'create',
-                                        onClick: () => {
-                                            requestNotificationPermissionOnInteraction();
-                                            setMode('create');
-                                            // Автоматически запускаем генерацию ключей
-                                            setTimeout(() => {
-                                                if (webrtcManagerRef.current) {
-                                                    handleCreateOffer();
-                                                }
-                                            }, 100);
-                                        },
-                                        className: "card-minimal rounded-xl p-6 cursor-pointer group flex-1 create"
-                                    }, [
-                                        React.createElement('div', {
-                                            key: 'icon',
-                                            className: "w-12 h-12 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-center justify-center mx-auto mb-4"
-                                        }, [
-                                            React.createElement('i', {
-                                                className: 'fas fa-plus text-xl text-blue-400'
-                                            })
-                                        ]),
-                                        React.createElement('h3', {
-                                            key: 'title',
-                                            className: "text-lg font-semibold text-primary text-center mb-3"
-                                        }, "Create channel"),
-                                        React.createElement('p', {
-                                            key: 'description',
-                                            className: "text-secondary text-center text-sm mb-4"
-                                        }, "Initiate a new secure connection"),
-                                        React.createElement('div', {
-                                            key: 'features',
-                                            className: "space-y-2"
-                                        }, [
-                                            React.createElement('div', {
-                                                key: 'f1',
-                                                className: "flex items-center text-sm text-muted"
-                                            }, [
-                                                React.createElement('i', {
-                                                    className: 'fas fa-key accent-orange mr-2 text-xs'
-                                                }),
-                                                'Generating ECDH keys'
-                                            ]),
-                                            React.createElement('div', {
-                                                key: 'f2',
-                                                className: "flex items-center text-sm text-muted"
-                                            }, [
-                                                React.createElement('i', {
-                                                    className: 'fas fa-shield-alt accent-orange mr-2 text-xs'
-                                                }),
-                                                'Verification code'
-                                            ]),
-                                            React.createElement('div', {
-                                                key: 'f3',
-                                                className: "flex items-center text-sm text-muted"
-                                            }, [
-                                                React.createElement('i', {
-                                                    className: 'fas fa-sync-alt accent-purple mr-2 text-xs'
-                                                }),
-                                                'PFS key rotation'
-                                            ])
-                                        ])
-                                    ]),
-                                    React.createElement('div', {
-                                        key: 'divider',
-                                        className: "flex flex-row md:flex-col items-center gap-4 px-4 w-full md:w-auto"
-                                    }, [
-                                        React.createElement('div', {
-                                        key: 'line-a',
-                                        className: "h-px flex-1 bg-gradient-to-r from-transparent via-zinc-700 to-transparent md:h-32 md:w-px md:flex-none md:bg-gradient-to-b"
-                                        }),
-                                        React.createElement('div', {
-                                        key: 'or-text',
-                                        className: "text-zinc-600 text-sm font-medium px-3"
-                                        }, "OR"),
-                                        React.createElement('div', {
-                                        key: 'line-b',
-                                        className: "h-px flex-1 bg-gradient-to-r from-transparent via-zinc-700 to-transparent md:h-32 md:w-px md:flex-none md:bg-gradient-to-b"
-                                        })
-                                    ]),
-                                    // Join Connection
-                                    React.createElement('div', {
-                                        key: 'join',
-                                        onClick: () => {
-                                            requestNotificationPermissionOnInteraction();
-                                            setMode('join');
-                                        },
-                                        className: "card-minimal rounded-xl p-6 cursor-pointer group flex-1 join"
-                                    }, [
-                                        React.createElement('div', {
-                                            key: 'icon',
-                                            className: "w-12 h-12 bg-green-500/10 border border-green-500/20 rounded-lg flex items-center justify-center mx-auto mb-4"
-                                        }, [
-                                            React.createElement('i', {
-                                                className: 'fas fa-link text-xl accent-green'
-                                            })
-                                        ]),
-                                        React.createElement('h3', {
-                                            key: 'title',
-                                            className: "text-lg font-semibold text-primary text-center mb-3"
-                                        }, "Join"),
-                                        React.createElement('p', {
-                                            key: 'description',
-                                            className: "text-secondary text-center text-sm mb-4"
-                                        }, "Connect to an existing secure channel"),
-                                        React.createElement('div', {
-                                            key: 'features',
-                                            className: "space-y-2"
-                                        }, [
-                                            React.createElement('div', {
-                                                key: 'f1',
-                                                className: "flex items-center text-sm text-muted"
-                                            }, [
-                                                React.createElement('i', {
-                                                    className: 'fas fa-paste accent-green mr-2 text-xs'
-                                                }),
-                                                'Paste Offer invitation'
-                                            ]),
-                                            React.createElement('div', {
-                                                key: 'f2',
-                                                className: "flex items-center text-sm text-muted"
-                                            }, [
-                                                React.createElement('i', {
-                                                    className: 'fas fa-check-circle accent-green mr-2 text-xs'
-                                                }),
-                                                'Automatic verification'
-                                            ]),
-                                            React.createElement('div', {
-                                                key: 'f3',
-                                                className: "flex items-center text-sm text-muted"
-                                            }, [
-                                                React.createElement('i', {
-                                                    className: 'fas fa-sync-alt accent-purple mr-2 text-xs'
-                                                }),
-                                                'PFS protection'
-                                            ])
-                                        ])
-                                    ])
-                                ]),
-        
-                                           
-                                React.createElement(SecurityFeatures, { key: 'security-features' }),
-
-                                React.createElement(Testimonials, { key: 'testimonials' }),
-        
-                                React.createElement(UniqueFeatureSlider, { key: 'unique-features-slider' }),
-        
-                                React.createElement(DownloadApps, { key: 'download-apps' }),
-
-                                React.createElement(BecomePartner, { key: 'become-partner' }),
-
-                                React.createElement(ComparisonTable, { key: 'comparison-table' }),
-                                
-                                React.createElement(Roadmap, { key: 'roadmap' }),
-                            ])
+                                fa('fa-chevron-right', { color: '#6b6b73' })
+                            ]),
+                            h('div', { key: 'or', style: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' } }, [
+                                h('span', { key: 'a', style: { flex: 1, height: '1px', background: 'rgba(255,255,255,0.07)' } }),
+                                h('span', { key: 'm', style: { fontSize: '11px', fontWeight: 600, color: '#56565e', textTransform: 'uppercase', letterSpacing: '0.7px' } }, 'or paste code'),
+                                h('span', { key: 'b', style: { flex: 1, height: '1px', background: 'rgba(255,255,255,0.07)' } })
+                            ]),
+                            h('div', { key: 'ta', style: { borderRadius: '13px', border: `1px solid ${hasInvite ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.07)'}`, background: '#141416', padding: '13px 15px', marginBottom: '12px' } },
+                                h('textarea', { value: offerInput, onChange: (e) => { setOfferInput(e.target.value); if (e.target.value.trim().length > 0 && typeof markAnswerCreated === 'function') markAnswerCreated(); }, rows: 3, placeholder: 'Paste invitation code here…', style: { width: '100%', resize: 'none', border: 'none', outline: 'none', background: 'transparent', color: '#d7d7db', fontFamily: MONO, fontSize: '12.5px', lineHeight: 1.6, minHeight: '66px' } })),
+                            h('button', { key: 'connect', onClick: () => { requestNotificationPermissionOnInteraction(); onCreateAnswer(); }, disabled: !hasInvite || connectionStatus === 'connecting', style: { width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '14px', borderRadius: '13px', border: 'none', background: (hasInvite && connectionStatus !== 'connecting') ? C_ORANGE : 'rgba(255,255,255,0.05)', color: (hasInvite && connectionStatus !== 'connecting') ? '#1a0f04' : '#56565e', fontFamily: 'inherit', fontSize: '15px', fontWeight: 700, cursor: (hasInvite && connectionStatus !== 'connecting') ? 'pointer' : 'not-allowed', boxShadow: (hasInvite && connectionStatus !== 'connecting') ? '0 8px 24px rgba(240,137,42,0.28)' : 'none' } }, connectionStatus === 'connecting' ? 'Processing…' : 'Connect')
                         ]);
                     }
-        
-                    if (mode === 'create') {
-                        return React.createElement('div', {
-                            className: "min-h-[calc(100vh-104px)] flex items-center justify-center p-4"
-                        }, [
-                            React.createElement('div', {
-                                key: 'create-flow',
-                                className: "w-full max-w-3xl space-y-6"
-                            }, [
-                                React.createElement('div', {
-                                    key: 'header',
-                                    className: "text-center"
-                                }, [
-                                    React.createElement('button', {
-                                        key: 'back',
-                                        onClick: resetToSelect,
-                                        className: "mb-4 text-secondary hover:text-primary transition-colors flex items-center mx-auto text-sm"
-                                    }, [
-                                        React.createElement('i', {
-                                            className: 'fas fa-arrow-left mr-2'
-                                        }),
-                                        'Back to selection'
-                                    ]),
-                                    React.createElement('h2', {
-                                        key: 'title',
-                                        className: "text-xl font-semibold text-primary mb-2"
-                                    }, 'Creating a secure channel')
+
+                    // Desktop downloads (real GitHub release assets) + OS detection.
+                    const DOWNLOADS = {
+                        mac: { name: 'macOS', format: '.dmg · Apple Silicon & Intel', icon: 'fab fa-apple', url: 'https://github.com/SecureBitChat/securebit-desktop/releases/download/v0.1.0/SecureBit.Chat_0.1.0_x64.dmg' },
+                        win: { name: 'Windows', format: '.exe · 64-bit installer', icon: 'fab fa-windows', url: 'https://github.com/SecureBitChat/securebit-desktop/releases/latest/download/SecureBit.Chat_0.1.0_x64-setup.exe' },
+                        linux: { name: 'Linux', format: '.AppImage', icon: 'fab fa-linux', url: 'https://github.com/SecureBitChat/securebit-desktop/releases/latest/download/SecureBit.Chat_0.1.0_amd64.AppImage' }
+                    };
+                    const detectOS = () => {
+                        const ua = (navigator.userAgent || '') + ' ' + (navigator.platform || '');
+                        if (/Mac|iPhone|iPad|iPod/i.test(ua) && !/Android/i.test(ua)) return 'mac';
+                        if (/Win/i.test(ua)) return 'win';
+                        if (/Linux/i.test(ua) && !/Android/i.test(ua)) return 'linux';
+                        return 'win';
+                    };
+                    const detectedOS = detectOS();
+                    const otherOS = ['mac', 'win', 'linux'].filter((k) => k !== detectedOS);
+                    const dlLink = (url) => { try { window.open(url, '_blank', 'noopener'); } catch (e) {} };
+
+                    const platformsMenu = platformsOpen && h('div', { key: 'platmenu', style: { position: 'absolute', left: 0, bottom: 'calc(100% + 10px)', width: '344px', maxWidth: '100%', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', background: '#161618', boxShadow: '0 24px 60px rgba(0,0,0,0.55)', overflow: 'hidden', zIndex: 25, animation: 'sbUp .2s ease' } }, [
+                        h('div', { key: 'mh', style: { display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' } }, [
+                            h('div', { key: 't', style: { flex: 1, lineHeight: 1.2 } }, [
+                                h('div', { key: 'a', style: { fontSize: '14px', fontWeight: 800, color: '#f4f4f6' } }, 'Download SecureBit'),
+                                h('div', { key: 'b', style: { fontSize: '11.5px', color: '#7b7b83' } }, 'Free · open source')
+                            ]),
+                            h('span', { key: 'pill', style: { fontFamily: MONO, fontSize: '10px', fontWeight: 600, color: C_GREEN, padding: '3px 8px', borderRadius: '6px', background: 'rgba(62,207,142,0.1)', border: '1px solid rgba(62,207,142,0.22)' } }, "You're on Web")
+                        ]),
+                        h('div', { key: 'rec', style: { padding: '12px 12px 6px' } },
+                            h('button', { key: 'b', onClick: () => dlLink(DOWNLOADS[detectedOS].url), style: { width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '13px 14px', borderRadius: '12px', border: '1px solid rgba(240,137,42,0.4)', background: 'rgba(240,137,42,0.08)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'left' } }, [
+                                h('span', { key: 'ic', style: { flex: 'none', display: 'grid', placeItems: 'center', width: '38px', height: '38px', borderRadius: '11px', background: 'rgba(240,137,42,0.14)', border: '1px solid rgba(240,137,42,0.3)', color: C_ORANGE } }, h('i', { className: DOWNLOADS[detectedOS].icon, style: { fontSize: '17px' } })),
+                                h('span', { key: 'tx', style: { flex: 1, minWidth: 0 } }, [
+                                    h('span', { key: 'n', style: { display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#f4f4f6' } }, DOWNLOADS[detectedOS].name),
+                                    h('span', { key: 'f', style: { display: 'block', fontSize: '11px', color: '#f0b072', marginTop: '1px' } }, `Recommended for this device · ${DOWNLOADS[detectedOS].format}`)
                                 ]),
+                                fa('fa-download', { color: C_ORANGE })
+                            ])),
+                        h('div', { key: 'others', style: { padding: '0 12px 8px', display: 'flex', flexDirection: 'column', gap: '2px' } },
+                            otherOS.map((k) => h('button', { key: k, onClick: () => dlLink(DOWNLOADS[k].url), style: { width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 14px', borderRadius: '11px', border: 'none', background: 'transparent', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'left' } }, [
+                                h('span', { key: 'ic', style: { flex: 'none', display: 'grid', placeItems: 'center', width: '34px', height: '34px', borderRadius: '10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#cfcfd4' } }, h('i', { className: DOWNLOADS[k].icon, style: { fontSize: '15px' } })),
+                                h('span', { key: 'tx', style: { flex: 1, minWidth: 0 } }, [
+                                    h('span', { key: 'n', style: { display: 'block', fontSize: '13px', fontWeight: 600, color: '#e8e8eb' } }, DOWNLOADS[k].name),
+                                    h('span', { key: 'f', style: { display: 'block', fontSize: '11px', color: '#7b7b83', marginTop: '1px' } }, DOWNLOADS[k].format)
+                                ]),
+                                fa('fa-download', { color: '#8a8a92' })
+                            ]))),
+                        h('div', { key: 'soon', style: { display: 'flex', alignItems: 'center', gap: '9px', padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.015)' } }, [
+                            fa('fa-clock', { key: 'i', color: '#6b6b73' }),
+                            h('span', { key: 't', style: { fontSize: '11.5px', lineHeight: 1.45, color: '#7b7b83' } }, 'Mobile (iOS, Android) and browser extensions (Chrome, Firefox, Opera) are coming soon.')
+                        ])
+                    ]);
 
-                                // Step 1
-                                !showAnswerStep && React.createElement('div', {
-                                    key: 'step1',
-                                    className: "card-minimal rounded-xl p-6"
-                                }, [
-                                    React.createElement('div', {
-                                        key: 'step-header',
-                                        className: "flex items-center mb-4"
-                                    }, [
-                                        React.createElement('div', {
-                                            key: 'number',
-                                            className: "step-number mr-3"
-                                        }, '1'),
-                                        React.createElement('h3', {
-                                            key: 'title',
-                                            className: "text-lg font-medium text-primary"
-                                        }, "Generating ECDH keys and verification code")
-                                    ]),
-                                    React.createElement('p', {
-                                        key: 'description',
-                                        className: "text-secondary text-sm mb-4"
-                                    }, "Creating cryptographically strong keys and codes to protect against attacks"),
-                                    !showOfferStep && isGeneratingKeys && React.createElement('div', {
-                                        key: 'loading-state',
-                                        className: "w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center"
-                                    }, [
-                                        React.createElement('i', {
-                                            key: 'spinner',
-                                            className: 'fas fa-spinner fa-spin mr-2'
-                                        }),
-                                        'Generating secure keys...'
-                                    ]),
-        
-                                    showOfferStep && React.createElement('div', {
-                                        key: 'offer-result',
-                                        className: "mt-6 space-y-4"
-                                    }, [
-                                        React.createElement('div', {
-                                            key: 'success',
-                                            className: "p-3 bg-green-500/10 border border-green-500/20 rounded-lg"
-                                        }, [
-                                            React.createElement('p', {
-                                                className: "text-green-400 text-sm font-medium flex items-center"
-                                            }, [
-                                                React.createElement('i', {
-                                                    className: 'fas fa-check-circle mr-2'
-                                                }),
-                                                'Secure invitation created! Send the code to your contact'
-                                            ])
-                                        ]),
-                                        React.createElement('div', {
-                                            key: 'offer-data',
-                                            className: "space-y-3"
-                                        }, [
-                                            // Raw JSON hidden intentionally; users copy compressed string or use QR
-                                            React.createElement('div', {
-                                                key: 'buttons',
-                                                className: "flex gap-2"
-                                            }, [
-                                            React.createElement(EnhancedCopyButton, {
-                                                key: 'copy',
-                                                text: (() => {
-                                                    try {
-                                                        const min = typeof offerData === 'object' ? JSON.stringify(offerData) : (offerData || '');
-                                                        if (!min) return '';
-                                                        if (typeof window.encodeBinaryToPrefixed === 'function') {
-                                                            return window.encodeBinaryToPrefixed(min);
-                                                        }
-                                                        if (typeof window.compressToPrefixedGzip === 'function') {
-                                                            return window.compressToPrefixedGzip(min);
-                                                        }
-                                                        return min;
-                                                    } catch { return typeof offerData === 'object' ? JSON.stringify(offerData) : (offerData || ''); }
-                                                })(),
-                                                    className: "flex-1 px-3 py-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 rounded text-sm font-medium"
-                                                }, 'Copy invitation code'),
-                                            ]),
-                                            showQRCode && qrCodeUrl && React.createElement('div', {
-                                                key: 'qr-container',
-                                                className: "mt-4 p-4 border border-gray-600/30 rounded-lg text-center"
-                                            }, [
-                                                React.createElement('h4', {
-                                                    key: 'qr-title',
-                                                    className: "text-sm font-medium text-primary mb-3"
-                                                }, 'Scan QR code to connect'),
-                                                React.createElement('div', {
-                                                    key: 'qr-wrapper',
-                                                    className: "flex justify-center"
-                                                }, [
-                                                    React.createElement('img', {
-                                                        key: 'qr-image',
-                                                        src: qrCodeUrl,
-                                                        alt: "QR Code for secure connection",
-                                                        className: "max-w-none h-auto border border-gray-600/30 rounded w-[20rem] sm:w-[24rem] md:w-[28rem] lg:w-[32rem]"
-                                                    })
-                                                ]),
+                    const footer = h('div', { key: 'footer', style: { position: 'relative', marginTop: '30px', paddingTop: '18px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' } }, [
+                        h('button', { key: 'dl', onClick: () => setPlatformsOpen((v) => !v), style: { display: 'inline-flex', alignItems: 'center', gap: '9px', padding: '8px 13px 8px 9px', borderRadius: '10px', border: `1px solid ${platformsOpen ? 'rgba(240,137,42,0.4)' : 'rgba(255,255,255,0.08)'}`, background: platformsOpen ? 'rgba(240,137,42,0.06)' : 'rgba(255,255,255,0.02)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', transition: 'all .15s' } }, [
+                            fa('fa-download', { key: 'i', color: C_ORANGE }),
+                            h('span', { key: 't', style: { fontSize: '12.5px', fontWeight: 700, color: '#e8e8eb' } }, 'Download desktop app'),
+                            fa('fa-chevron-down', { key: 'c', color: '#6b6b73', style: { fontSize: '11px', transform: platformsOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s' } })
+                        ]),
+                        h('button', { key: 'settings', className: 'sb-link', onClick: () => setShowIceSettings && setShowIceSettings(true), style: { display: 'inline-flex', alignItems: 'center', gap: '7px', background: 'none', border: 'none', color: '#8a8a92', fontFamily: 'inherit', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' } }, [fa('fa-sliders-h', { key: 'i' }), 'Advanced settings']),
+                        platformsMenu
+                    ]);
 
-                                                ((qrFramesTotal || 0) >= 1) && React.createElement('div', {
-                                                    key: 'qr-controls-below',
-                                                    className: "mt-4 flex flex-col items-center gap-2"
-                                                }, [
-                                                    React.createElement('div', {
-                                                        key: 'frame-indicator',
-                                                        className: "text-xs text-gray-300"
-                                                    }, `Frame ${Math.max(1, (qrFrameIndex || 1))}/${qrFramesTotal || 1}`),
-                                                    React.createElement('div', {
-                                                        key: 'control-buttons',
-                                                        className: "flex gap-1"
-                                                    }, [
-                                                        (qrFramesTotal || 0) > 1 && React.createElement('button', {
-                                                            key: 'prev-frame',
-                                                            onClick: prevQrFrame,
-                                                            className: "w-6 h-6 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs flex items-center justify-center"
-                                                        }, '◀'),
-                                                        React.createElement('button', {
-                                                            key: 'toggle-manual',
-                                                            onClick: toggleQrManualMode,
-                                                            className: `px-2 py-1 rounded text-xs font-medium ${
-                                                                (qrManualMode || false)
-                                                                    ? 'bg-blue-500 text-white' 
-                                                                    : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
-                                                            }`
-                                                        }, (qrManualMode || false) ? 'Manual' : 'Auto'),
-                                                        (qrFramesTotal || 0) > 1 && React.createElement('button', {
-                                                            key: 'next-frame',
-                                                            onClick: nextQrFrame,
-                                                            className: "w-6 h-6 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs flex items-center justify-center"
-                                                        }, '▶')
-                                                    ])
-                                                ]),
-                                                React.createElement('p', {
-                                                    key: 'qr-description',
-                                                    className: "text-xs text-gray-400 mt-2"
-                                                }, 'Your contact can scan this QR code to quickly join the secure session')
-                                            ])
-                                        ])
-                                    ])
-                                ]),       
-        
-                                showOfferStep && React.createElement('div', {
-                                    key: 'step2',
-                                    className: "card-minimal rounded-xl p-6"
-                                }, [
-                                    React.createElement('div', {
-                                        key: 'step-header',
-                                        className: "flex items-center mb-4"
-                                    }, [
-                                        React.createElement('div', {
-                                            key: 'number',
-                                            className: "w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center font-semibold text-sm mr-3"
-                                        }, '2'),
-                                        React.createElement('h3', {
-                                            key: 'title',
-                                            className: "text-lg font-medium text-primary"
-                                        }, "Waiting for the peer's response")
-                                    ]),
-                                    React.createElement('p', {
-                                        key: 'description',
-                                        className: "text-secondary text-sm mb-4"
-                                    }, "Paste the encrypted invitation code from your contact."),
-                                    React.createElement('div', {
-                                        key: 'buttons',
-                                        className: "flex gap-2 mb-4"
-                                    }, [
-                                        React.createElement('button', {
-                                            key: 'scan-btn',
-                                            onClick: () => setShowQRScannerModal(true),
-                                            className: "px-4 py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 rounded text-sm font-medium transition-all duration-200"
-                                        }, [
-                                            React.createElement('i', {
-                                                key: 'icon',
-                                                className: 'fas fa-qrcode mr-2'
-                                            }),
-                                            'Scan QR Code'
-                                        ]),
-                                    ]),
-                                    React.createElement('textarea', {
-                                        key: 'input',
-                                        value: answerInput,
-                                        onChange: (e) => {
-                                            setAnswerInput(e.target.value);
-                                            // Mark answer as created when user manually enters data
-                                            if (e.target.value.trim().length > 0) {
-                                                if (typeof markAnswerCreated === 'function') {
-                                                    markAnswerCreated();
-                                                }
-                                            }
+                    // Advanced settings overlay — rendered inside the right column,
+                    // sliding up over it (z-30), exactly as in the design.
+                    const settingsOverlay = (showIceSettings && typeof window !== 'undefined' && window.IceServerSettings)
+                        ? h(window.IceServerSettings, {
+                            key: 'ice-settings',
+                            isOpen: true,
+                            embedded: true,
+                            onClose: () => setShowIceSettings(false),
+                            initial: {
+                                useCustom: Array.isArray(customIceServers) && customIceServers.length > 0,
+                                serversText: iceServersText,
+                                privacyMode: relayOnlyMode ? 'relay-only' : 'standard',
+                                persisted: iceSettingsPersisted
+                            },
+                            hasSaved: iceSettingsPersisted,
+                            onApply: handleApplyIceSettings,
+                            onForget: handleForgetIceSettings
+                        })
+                        : null;
 
-                                        },
-                                        rows: 6,
-                                        placeholder: "Paste the encrypted response code from your contact or scan QR code...",
-                                        className: "w-full p-3 bg-custom-bg border border-gray-500/20 rounded-lg resize-none mb-4 text-secondary placeholder-gray-500 focus:border-orange-500/40 focus:outline-none transition-all custom-scrollbar text-sm"
-                                    }),
-                                    React.createElement('button', {
-                                        key: 'connect-btn',
-                                        onClick: onConnect,
-                                        disabled: !answerInput.trim(),
-                                        className: "w-full btn-secondary text-white py-3 px-4 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    }, [
-                                        React.createElement('i', {
-                                            className: 'fas fa-rocket mr-2'
-                                        }),
-                                        'Establish connection'
-                                    ])
+                    const rightPanel = h('div', { key: 'right', style: { flex: '0.95 1 460px', minWidth: 'min(100%, 320px)', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100vh' } }, [
+                        h('div', { key: 'scroll', className: 'custom-scrollbar', style: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', padding: '42px 44px' } },
+                            h('div', { style: { maxWidth: '430px', width: '100%', margin: 'auto' } }, [
+                                h('div', { key: 'kicker', style: { fontFamily: MONO, fontSize: '11px', fontWeight: 600, color: '#6b6b73', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px' } }, kicker),
+                                segToggle,
+                                inner,
+                                footer
+                            ])),
+                        settingsOverlay
+                    ]);
+
+                    // ── QR display modal (real qrCodeUrl + frame controls) ──
+                    const qrModal = (qrModalOpen && qrCodeUrl) && h('div', { key: 'qrmodal', onClick: () => setQrModalOpen(false), style: { position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px', background: 'rgba(6,6,8,0.82)', backdropFilter: 'blur(10px)', animation: 'sbUp .2s ease' } },
+                        h('div', { onClick: (e) => e.stopPropagation(), style: { width: '100%', maxWidth: '460px', borderRadius: '22px', border: '1px solid rgba(255,255,255,0.1)', background: '#111113', boxShadow: '0 30px 90px rgba(0,0,0,0.6)', overflow: 'hidden' } }, [
+                            h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', gap: '11px', padding: '18px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' } }, [
+                                h('span', { key: 'd', style: { width: '9px', height: '9px', borderRadius: '50%', background: accent } }),
+                                h('div', { key: 'tx', style: { flex: 1, lineHeight: 1.2 } }, [
+                                    h('div', { key: 't', style: { fontSize: '15.5px', fontWeight: 800, color: '#f4f4f6' } }, isCreate ? 'Share your invitation' : 'Send back your answer'),
+                                    h('div', { key: 's', style: { fontSize: '12px', color: '#7b7b83' } }, `${isCreate ? 'offer' : 'answer'} · one-time`)
+                                ]),
+                                h('button', { key: 'x', onClick: () => setQrModalOpen(false), style: { width: '32px', height: '32px', display: 'grid', placeItems: 'center', borderRadius: '9px', border: 'none', background: 'rgba(255,255,255,0.05)', color: '#9a9aa2', cursor: 'pointer' } }, fa('fa-times'))
+                            ]),
+                            h('div', { key: 'body', style: { padding: '22px 24px 24px' } }, [
+                                h('div', { key: 'qr', style: { position: 'relative', width: '100%', aspectRatio: '1', borderRadius: '18px', overflow: 'hidden', background: '#fff', padding: '18px', display: 'grid', placeItems: 'center' } },
+                                    h('img', { src: qrCodeUrl, alt: 'QR code', style: { width: '100%', height: '100%', objectFit: 'contain', display: 'block' } })),
+                                h('div', { key: 'ctrls', style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginTop: '18px' } }, [
+                                    (qrFramesTotal || 0) >= 1 && h('div', { key: 'frame', style: { display: 'flex', alignItems: 'center', gap: '9px' } }, [
+                                        h('span', { key: 'l', style: { fontFamily: MONO, fontSize: '12px', fontWeight: 600, color: '#9a9aa2' } }, `Frame ${Math.max(1, qrFrameIndex || 1)} / ${qrFramesTotal || 1}`),
+                                        h('div', { key: 'dots', style: { display: 'flex', gap: '5px' } }, Array.from({ length: qrFramesTotal || 1 }, (_, i) => h('span', { key: i, style: { width: '7px', height: '7px', borderRadius: '50%', background: (i + 1) === (qrFrameIndex || 1) ? accent : 'rgba(255,255,255,0.14)', transition: 'background .25s' } })))
+                                    ]),
+                                    (qrFramesTotal || 0) > 1 && h('div', { key: 'nav', style: { display: 'flex', alignItems: 'center', gap: '6px' } }, [
+                                        h('button', { key: 'prev', onClick: prevQrFrame, style: { width: '40px', height: '36px', display: 'grid', placeItems: 'center', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#cfcfd4', cursor: 'pointer' } }, fa('fa-chevron-left')),
+                                        h('button', { key: 'auto', onClick: toggleQrManualMode, style: { display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '9px 18px', borderRadius: '10px', border: `1px solid ${qrManualMode ? 'rgba(255,255,255,0.1)' : 'rgba(240,137,42,0.45)'}`, background: qrManualMode ? 'rgba(255,255,255,0.04)' : 'rgba(240,137,42,0.08)', color: qrManualMode ? '#9a9aa2' : C_ORANGE, fontFamily: 'inherit', fontSize: '13px', fontWeight: 600, cursor: 'pointer' } }, qrManualMode ? 'Manual' : 'Auto'),
+                                        h('button', { key: 'next', onClick: nextQrFrame, style: { width: '40px', height: '36px', display: 'grid', placeItems: 'center', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#cfcfd4', cursor: 'pointer' } }, fa('fa-chevron-right'))
+                                    ]),
+                                    h('p', { key: 'hint', style: { margin: '2px 0 0', textAlign: 'center', fontSize: '12px', lineHeight: 1.5, color: '#6b6b73' } }, (qrFramesTotal || 0) > 1 ? `The handshake is split across ${qrFramesTotal} frames — keep this open until your peer captures all of them.` : 'Keep this open until your peer captures the code.')
                                 ])
                             ])
-                        ]);
-                    }
-        
-                    if (mode === 'join') {
-                        return React.createElement('div', {
-                            className: "min-h-[calc(100vh-104px)] flex items-center justify-center p-4"
-                        }, [
-                            React.createElement('div', {
-                                key: 'join-flow',
-                                className: "w-full max-w-3xl space-y-6"
-                            }, [
-                                React.createElement('div', {
-                                    key: 'header',
-                                    className: "text-center"
-                                }, [
-                                    React.createElement('button', {
-                                        key: 'back',
-                                        onClick: resetToSelect,
-                                        className: "mb-4 text-secondary hover:text-primary transition-colors flex items-center mx-auto text-sm"
-                                    }, [
-                                        React.createElement('i', {
-                                            className: 'fas fa-arrow-left mr-2'
-                                        }),
-                                        'Back to selection'
-                                    ]),
-                                    React.createElement('h2', {
-                                        key: 'title',
-                                        className: "text-xl font-semibold text-primary mb-2"
-                                    }, 'Joining the secure channel')
-                                ]),
-        
-                                (showAnswerStep ? null : React.createElement('div', {
-                                    key: 'step1',
-                                    className: "card-minimal rounded-xl p-6"
-                                }, [
-                                    React.createElement('div', {
-                                        key: 'step-header',
-                                        className: "flex items-center mb-4"
-                                    }, [
-                                        React.createElement('div', {
-                                            key: 'number',
-                                            className: "w-8 h-8 bg-green-500 text-white rounded-lg flex items-center justify-center font-semibold text-sm mr-3"
-                                        }, '1'),
-                                        React.createElement('h3', {
-                                            key: 'title',
-                                            className: "text-lg font-medium text-primary"
-                                        }, "Paste secure invitation")
-                                    ]),
-                                    React.createElement('p', {
-                                        key: 'description',
-                                        className: "text-secondary text-sm mb-4"
-                                    }, "Copy and paste the encrypted invitation code from the initiator."),
-                                    React.createElement('textarea', {
-                                        key: 'input',
-                                        value: offerInput,
-                                        onChange: (e) => {
-                                            setOfferInput(e.target.value);
-                                            if (e.target.value.trim().length > 0) {
-                                            if (typeof markAnswerCreated === 'function') {
-                                                markAnswerCreated();
-                                            }
-                                        }
-                                        },
-                                        rows: 8,
-                                        placeholder: "Paste the encrypted invitation code or scan QR code...",
-                                        className: "w-full p-3 bg-custom-bg border border-gray-500/20 rounded-lg resize-none mb-4 text-secondary placeholder-gray-500 focus:border-green-500/40 focus:outline-none transition-all custom-scrollbar text-sm"
-                                    }),
-                                    React.createElement('div', {
-                                        key: 'buttons',
-                                        className: "flex gap-2 mb-4"
-                                    }, [
-                                        React.createElement('button', {
-                                            key: 'scan-btn',
-                                            onClick: () => setShowQRScannerModal(true),
-                                            className: "px-4 py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 rounded text-sm font-medium transition-all duration-200"
-                                        }, [
-                                            React.createElement('i', {
-                                                key: 'icon',
-                                                className: 'fas fa-qrcode mr-2'
-                                            }),
-                                            'Scan QR Code'
-                                        ]),
-                                    React.createElement('button', {
-                                        key: 'process-btn',
-                                        onClick: onCreateAnswer,
-                                        disabled: !offerInput.trim() || connectionStatus === 'connecting',
-                                            className: "flex-1 btn-secondary text-white py-2 px-4 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    }, [
-                                        React.createElement('i', {
-                                            className: 'fas fa-cogs mr-2'
-                                        }),
-                                            'Process invitation'
-                                        ])
-                                    ]),
-                                    showQRScanner && React.createElement('div', {
-                                        key: 'qr-scanner',
-                                        className: "p-4 bg-gray-800/50 border border-gray-600/30 rounded-lg text-center"
-                                    }, [
-                                        React.createElement('h4', {
-                                            key: 'scanner-title',
-                                            className: "text-sm font-medium text-primary mb-3"
-                                        }, 'QR Code Scanner'),
-                                        React.createElement('p', {
-                                            key: 'scanner-description',
-                                            className: "text-xs text-gray-400 mb-3"
-                                        }, 'Use your device camera to scan the QR code from the invitation'),
-                                        React.createElement('button', {
-                                            key: 'open-scanner',
-                                            onClick: () => {
-                                                if (typeof setShowQRScannerModal === 'function') {
-                                                    setShowQRScannerModal(true);
-                                                } else {
-                                                    console.error('setShowQRScannerModal is not a function:', setShowQRScannerModal);
-                                                }
-                                            },
-                                            className: "w-full px-4 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-medium transition-all duration-200 mb-3"
-                                        }, [
-                                            React.createElement('i', {
-                                                key: 'camera-icon',
-                                                className: 'fas fa-camera mr-2'
-                                            }),
-                                            'Open Camera Scanner'
-                                        ]),
-                                        React.createElement('button', {
-                                            key: 'test-qr',
-                                            onClick: async () => {
-                                                console.log('Creating test QR code...');
-                                                if (window.generateQRCode) {
-                                                    const testData = '{"type":"test","message":"Hello QR Scanner!"}';
-                                                    const qrUrl = await window.generateQRCode(testData);
-                                                    console.log('Test QR code generated:', qrUrl);
-                                                    const newWindow = window.open();
-                                                    newWindow.document.write(`<img src="${qrUrl}" style="width: 300px; height: 300px;">`);
-                                                }
-                                            },
-                                            className: "px-3 py-1 bg-green-600/20 hover:bg-green-600/30 text-green-300 border border-green-500/20 rounded text-xs font-medium transition-all duration-200 mr-2"
-                                        }, 'Test QR'),
-                                        React.createElement('button', {
-                                            key: 'close-scanner',
-                                            onClick: () => setShowQRScanner(false),
-                                            className: "px-3 py-1 bg-gray-600/20 hover:bg-gray-600/30 text-gray-300 border border-gray-500/20 rounded text-xs font-medium transition-all duration-200"
-                                        }, 'Close Scanner')
-                                    ])
-                                ])),
-        
-                                // Step 2
-                                showAnswerStep && React.createElement('div', {
-                                    key: 'step2',
-                                    className: "card-minimal rounded-xl p-6"
-                                }, [
-                                    React.createElement('div', {
-                                        key: 'step-header',
-                                        className: "flex items-center mb-4"
-                                    }, [
-                                        React.createElement('div', {
-                                            key: 'number',
-                                            className: "step-number mr-3"
-                                        }, '2'),
-                                        React.createElement('h3', {
-                                            key: 'title',
-                                            className: "text-lg font-medium text-primary"
-                                        }, "Sending a secure response")
-                                    ]),
-                                    React.createElement('div', {
-                                        key: 'success',
-                                        className: "p-3 bg-green-500/10 border border-green-500/20 rounded-lg mb-4"
-                                    }, [
-                                        React.createElement('p', {
-                                            className: "text-green-400 text-sm font-medium flex items-center"
-                                        }, [
-                                            React.createElement('i', {
-                                                className: 'fas fa-check-circle mr-2'
-                                            }),
-                                            'Secure response created! Send this code to the initiator:'
-                                        ])
-                                    ]),
-                                    React.createElement('div', {
-                                        key: 'answer-data',
-                                        className: "space-y-3 mb-4"
-                                    }, [
-                                        // Raw JSON hidden intentionally; users copy compressed string or use QR
-                                        React.createElement(EnhancedCopyButton, {
-                                            key: 'copy',
-                                            text: (() => {
-                                                try {
-                                                    const min = typeof answerData === 'object' ? JSON.stringify(answerData) : (answerData || '');
-                                                    if (!min) return '';
-                                                    if (typeof window.encodeBinaryToPrefixed === 'function') {
-                                                        return window.encodeBinaryToPrefixed(min);
-                                                    }
-                                                    if (typeof window.compressToPrefixedGzip === 'function') {
-                                                        return window.compressToPrefixedGzip(min);
-                                                    }
-                                                    return min;
-                                                } catch { return typeof answerData === 'object' ? JSON.stringify(answerData) : (answerData || ''); }
-                                            })(),
-                                            className: "w-full px-3 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 rounded text-sm font-medium"
-                                        }, 'Copy response code')
-                                    ]),
-                                    // QR Code section for answer
-                                    qrCodeUrl && React.createElement('div', {
-                                        key: 'qr-container',
-                                        className: "mt-4 p-4 border border-gray-600/30 rounded-lg text-center"
-                                    }, [
-                                        React.createElement('h4', {
-                                            key: 'qr-title',
-                                            className: "text-sm font-medium text-primary mb-3"
-                                        }, 'Scan QR code to complete connection'),
-                                        React.createElement('div', {
-                                            key: 'qr-wrapper',
-                                            className: "flex justify-center"
-                                        }, [
-                                            React.createElement('img', {
-                                                key: 'qr-image',
-                                                src: qrCodeUrl,
-                                                alt: "QR Code for secure response",
-                                                className: "max-w-none h-auto border border-gray-600/30 rounded w-[20rem] sm:w-[24rem] md:w-[28rem] lg:w-[32rem]"
-                                            })
-                                        ]),
+                        ])
+                    );
 
-                                        ((qrFramesTotal || 0) >= 1) && React.createElement('div', {
-                                            key: 'qr-controls-below',
-                                            className: "mt-4 flex flex-col items-center gap-2"
-                                        }, [
-                                            React.createElement('div', {
-                                                key: 'frame-indicator',
-                                                className: "text-xs text-gray-300"
-                                            }, `Frame ${Math.max(1, (qrFrameIndex || 1))}/${qrFramesTotal || 1}`),
-                                            React.createElement('div', {
-                                                key: 'control-buttons',
-                                                className: "flex gap-1"
-                                            }, [
-                                                (qrFramesTotal || 0) > 1 && React.createElement('button', {
-                                                    key: 'prev-frame',
-                                                    onClick: prevQrFrame,
-                                                    className: "w-6 h-6 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs flex items-center justify-center"
-                                                }, '◀'),
-                                                React.createElement('button', {
-                                                    key: 'toggle-manual',
-                                                    onClick: toggleQrManualMode,
-                                                    className: `px-2 py-1 rounded text-xs font-medium ${
-                                                        qrManualMode 
-                                                            ? 'bg-blue-500 text-white' 
-                                                            : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
-                                                    }`
-                                                }, qrManualMode ? 'Manual' : 'Auto'),
-                                                (qrFramesTotal || 0) > 1 && React.createElement('button', {
-                                                    key: 'next-frame',
-                                                    onClick: nextQrFrame,
-                                                    className: "w-6 h-6 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs flex items-center justify-center"
-                                                }, '▶')
-                                            ])
-                                        ]),
-                                        React.createElement('p', {
-                                            key: 'qr-description',
-                                            className: "text-xs text-gray-400 mt-2"
-                                        }, 'The initiator can scan this QR code to complete the secure connection')
-                                    ]),
-                                    React.createElement('div', {
-                                        key: 'info',
-                                        className: "p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg"
-                                    }, [
-                                        React.createElement('p', {
-                                            className: "text-purple-400 text-sm flex items-center justify-center"
-                                        }, [
-                                            React.createElement('i', {
-                                                className: 'fas fa-shield-alt mr-2'
-                                            }),
-                                            'The connection will be established with verification'
-                                        ])
-                                    ])
-                                ])
-                            ])
-                        ]);
-                    }
+                    const hero = h('div', { key: 'hero', style: { display: 'flex', flexWrap: 'wrap', minHeight: '100vh', width: '100%', background: '#0f0f11', color: '#e8e8eb' } }, [leftPanel, rightPanel]);
+
+                    // Full-bleed dark bands — match the design mockups (not clamped to max-w-4xl).
+                    const uniqueSection = atIntro && h(UniqueFeatureSlider, { key: 'unique-features-slider' });
+                    const partnersSection = atIntro && h(BecomePartner, { key: 'become-partner' });
+                    const roadmapSection = atIntro && h(Roadmap, { key: 'roadmap' });
+                    const communitySection = atIntro && h(CommunityCTA, { key: 'community-cta' });
+
+                    // Ship the keyframes inside app.js so the animations can never go
+                    // stale against a service-worker-cached components.css.
+                    const keyframeStyle = h('style', { key: 'kf', dangerouslySetInnerHTML: { __html:
+                        '@keyframes sbFlowR{0%{left:4%;opacity:0}12%{opacity:1}88%{opacity:1}100%{left:96%;opacity:0}}' +
+                        '@keyframes sbFlowL{0%{left:96%;opacity:0}12%{opacity:1}88%{opacity:1}100%{left:4%;opacity:0}}' +
+                        '@keyframes sbPulse{0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.5}50%{transform:translate(-50%,-50%) scale(1.5);opacity:0}}' +
+                        '@keyframes sbSpin{to{transform:rotate(360deg)}}' +
+                        '@keyframes sbUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}' +
+                        '@keyframes sbNode{0%,100%{box-shadow:0 0 0 0 rgba(62,207,142,0)}50%{box-shadow:0 0 0 6px rgba(62,207,142,.06)}}' +
+                        '@keyframes sbBlink{0%,100%{opacity:1}50%{opacity:.35}}'
+                    } });
+
+                    return h('div', { className: 'sb-start', style: { width: '100%' } }, [keyframeStyle, hero, uniqueSection, partnersSection, roadmapSection, communitySection, qrModal]);
                 };
         
                 // Global scroll function - defined outside components to ensure availability
@@ -1559,8 +1330,225 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                         }
                     };
                 };
-        
-        
+
+
+            // Runs the real-time cryptographic verification and shows a detailed report
+            // modal (same behaviour the shared header used to provide on click).
+            const runSecurityReport = async (webrtcManager) => {
+                let securityData = null;
+                try {
+                    if (webrtcManager && window.EnhancedSecureCryptoUtils) {
+                        securityData = await window.EnhancedSecureCryptoUtils.calculateSecurityLevel(webrtcManager);
+                    }
+                } catch (e) { /* ignore */ }
+                if (!securityData) {
+                    alert('Security verification in progress…\nPlease wait for real-time cryptographic verification to complete.');
+                    return;
+                }
+
+                // Security verification report — translated from the Claude Design
+                // component (Security Verification.dc.html): a gauge + live test grid
+                // driven by the real cryptographic results in securityData.
+                const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+                const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+                const accent = securityData.color === 'orange' ? '#f0892a'
+                    : securityData.color === 'yellow' ? '#e3c84e'
+                    : securityData.color === 'red' ? '#e5727a'
+                    : '#3ecf8e';
+                const accentRGB = securityData.color === 'orange' ? '240,137,42'
+                    : securityData.color === 'yellow' ? '227,200,78'
+                    : securityData.color === 'red' ? '229,114,122'
+                    : '62,207,142';
+                const score = Math.max(0, Math.min(100, Math.round(securityData.score || 0)));
+                const circ = 2 * Math.PI * 56;
+                const dashArray = `${(circ * Math.min(1, score / 100)).toFixed(1)} ${circ.toFixed(1)}`;
+                const level = String(securityData.level || 'SECURE').toUpperCase();
+                const isReal = securityData.isRealData !== false;
+                const entries = securityData.verificationResults ? Object.entries(securityData.verificationResults) : [];
+                const passedCount = Number.isFinite(securityData.passedChecks) ? securityData.passedChecks : entries.filter(([, r]) => r && r.passed).length;
+                const totalCount = Number.isFinite(securityData.totalChecks) ? securityData.totalChecks : entries.length;
+                const verifiedAt = new Date(securityData.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+
+                const pretty = (k) => {
+                    let s = String(k).replace(/^verify/i, '').replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').trim();
+                    s = s.replace(/\b(ecdh|ecdsa|aes|gcm|hmac|pfs|sas|mitm|asn|dtls|hkdf|spki|oid|p384)\b/gi, (m) => m.toUpperCase());
+                    return s.charAt(0).toUpperCase() + s.slice(1);
+                };
+
+                const checkIcon = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11"/></svg>`;
+                const xIcon = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#e5727a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>`;
+                const testsHTML = entries.map(([k, r], i) => {
+                    const passed = !!(r && r.passed);
+                    const desc = (r && r.details) || (passed ? 'Test passed' : 'Test failed or unavailable');
+                    const bg = passed ? '#161618' : '#121214';
+                    const border = passed ? 'rgba(62,207,142,0.16)' : 'rgba(229,114,122,0.18)';
+                    const iconBg = passed ? 'rgba(62,207,142,0.12)' : 'rgba(229,114,122,0.1)';
+                    const iconBorder = passed ? 'rgba(62,207,142,0.26)' : 'rgba(229,114,122,0.24)';
+                    const titleColor = passed ? '#f4f4f6' : '#cfcfd4';
+                    return `<div style="display:flex; align-items:flex-start; gap:13px; padding:16px 18px; border-radius:14px; background:${bg}; border:1px solid ${border}; animation:svIn .3s cubic-bezier(.2,.7,.3,1) both; animation-delay:${(i * 0.04).toFixed(2)}s;">
+                        <span style="flex:none; width:34px; height:34px; border-radius:9px; display:grid; place-items:center; background:${iconBg}; border:1px solid ${iconBorder};">${passed ? checkIcon : xIcon}</span>
+                        <div style="flex:1; min-width:0;">
+                            <div style="font-size:14.5px; font-weight:700; letter-spacing:-0.2px; color:${titleColor}; margin-bottom:3px;">${esc(pretty(k))}</div>
+                            <div style="font-family:${MONO}; font-size:11.5px; line-height:1.45; color:#8a8a92;">${esc(desc)}</div>
+                        </div>
+                    </div>`;
+                }).join('');
+
+                const modal = document.createElement('div');
+                modal.id = 'sb-security-report';
+                modal.style.cssText = "position:fixed; inset:0; z-index:10000; display:flex; align-items:center; justify-content:center; padding:24px; background:rgba(8,8,10,0.62); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); font-family:'Manrope',system-ui,-apple-system,sans-serif; overflow:auto;";
+                modal.innerHTML = `
+                  <style>@keyframes svIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes svPulse{0%,100%{opacity:1}50%{opacity:.4}}</style>
+                  <div style="position:relative; max-width:960px; width:100%; border-radius:20px; background:radial-gradient(1100px 640px at 50% -6%, rgba(${accentRGB},0.05), transparent 62%), #0f0f11; border:1px solid rgba(255,255,255,0.08); color:#e8e8eb; padding:30px; box-shadow:0 30px 70px rgba(0,0,0,0.55); animation:svIn .3s cubic-bezier(.2,.7,.3,1); max-height:calc(100vh - 48px); overflow:auto;">
+                    <button class="sv-close" type="button" title="Close" style="position:absolute; top:16px; right:16px; width:32px; height:32px; border-radius:9px; display:grid; place-items:center; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.02); color:#8a8a92; cursor:pointer; z-index:2;">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                    </button>
+                    <div style="position:relative; overflow:hidden; border-radius:18px; background:#141416; border:1px solid rgba(255,255,255,0.07); padding:28px 30px; display:flex; align-items:center; gap:30px; flex-wrap:wrap; margin-bottom:20px;">
+                      <div style="position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg, transparent, rgba(${accentRGB},0.6), transparent);"></div>
+                      <div style="position:relative; flex:none; width:128px; height:128px;">
+                        <svg width="128" height="128" viewBox="0 0 128 128" style="transform:rotate(-90deg);">
+                          <circle cx="64" cy="64" r="56" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="9"/>
+                          <circle cx="64" cy="64" r="56" fill="none" stroke="${accent}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${dashArray}"/>
+                        </svg>
+                        <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                          <span style="font-size:30px; font-weight:800; letter-spacing:-1px; color:#f4f4f6; line-height:1;">${score}</span>
+                          <span style="font-family:${MONO}; font-size:10px; font-weight:600; color:#6b6b73; text-transform:uppercase; letter-spacing:1px; margin-top:4px;">/ 100 pts</span>
+                        </div>
+                      </div>
+                      <div style="flex:1; min-width:240px;">
+                        <div style="font-family:${MONO}; font-size:11px; font-weight:600; color:#6b6b73; text-transform:uppercase; letter-spacing:1.6px; margin-bottom:10px;">Real-time security verification</div>
+                        <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap;">
+                          <h2 style="margin:0; font-size:26px; font-weight:800; letter-spacing:-0.7px; color:#f4f4f6;">Security level: ${esc(level)}</h2>
+                          <span style="display:inline-flex; align-items:center; gap:8px; padding:6px 12px; border-radius:9px; background:rgba(${accentRGB},0.12); border:1px solid rgba(${accentRGB},0.3); font-family:${MONO}; font-size:11px; font-weight:700; color:${accent}; text-transform:uppercase; letter-spacing:0.6px;"><span style="width:7px; height:7px; border-radius:50%; background:${accent}; animation:svPulse 2s ease-in-out infinite;"></span>Active</span>
+                        </div>
+                        <div style="display:flex; gap:28px; flex-wrap:wrap;">
+                          <div><div style="font-family:${MONO}; font-size:10px; font-weight:600; color:#56565e; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Tests passed</div><div style="font-size:15px; font-weight:700; color:#e8e8eb;"><span style="color:${accent};">${passedCount}</span> / ${totalCount}</div></div>
+                          <div><div style="font-family:${MONO}; font-size:10px; font-weight:600; color:#56565e; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Verified at</div><div style="font-family:${MONO}; font-size:15px; font-weight:600; color:#e8e8eb;">${esc(verifiedAt)}</div></div>
+                          <div><div style="font-family:${MONO}; font-size:10px; font-weight:600; color:#56565e; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Source</div><div style="font-size:15px; font-weight:600; color:#e8e8eb;">${isReal ? 'Real cryptographic tests' : 'Simulated data'}</div></div>
+                        </div>
+                      </div>
+                      <button class="sv-rerun" type="button" style="flex:none; display:inline-flex; align-items:center; gap:9px; padding:12px 18px; border-radius:11px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.025); color:#cfcfd4; font-family:'Manrope',sans-serif; font-size:14px; font-weight:700; cursor:pointer; transition:all .2s;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+                        Re-run
+                      </button>
+                    </div>
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(248px, 1fr)); gap:12px;">${testsHTML}</div>
+                    <div style="display:flex; align-items:center; gap:12px; margin-top:18px; padding:16px 20px; border-radius:14px; background:rgba(${accentRGB},0.06); border:1px solid rgba(${accentRGB},0.18);">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${accent}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M12 3l8 4v5c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V7l8-4z"/><path d="M9.2 12.2l2 2 3.6-3.8"/></svg>
+                      <span style="font-size:14px; font-weight:600; color:#e8e8eb;">${isReal ? 'Real-time verification using actual cryptographic functions — no mock data.' : 'Warning: connection may not be fully established — values may be simulated.'}</span>
+                    </div>
+                  </div>`;
+
+                const onKey = (e) => { if (e.key === 'Escape') close(); };
+                const close = () => { if (modal.parentNode) modal.remove(); document.removeEventListener('keydown', onKey); };
+                modal.querySelector('.sv-close').addEventListener('click', close);
+                modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+                document.addEventListener('keydown', onKey);
+                const rerun = modal.querySelector('.sv-rerun');
+                rerun.addEventListener('mouseenter', () => { rerun.style.borderColor = 'rgba(240,137,42,0.45)'; rerun.style.color = '#f0892a'; });
+                rerun.addEventListener('mouseleave', () => { rerun.style.borderColor = 'rgba(255,255,255,0.1)'; rerun.style.color = '#cfcfd4'; });
+                rerun.addEventListener('click', () => { close(); runSecurityReport(webrtcManager); });
+                document.body.appendChild(modal);
+            };
+
+            // In-chat header matching the SecureBit Chat design: logo + version,
+            // a "Secure" pill (click = run the security verification report; the chevron
+            // toggles the network/crypto detail panel), a connection indicator, Disconnect.
+            const SecureBitChatHeader = ({ status, onDisconnect, webrtcManager }) => {
+                const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+                const [showNetwork, setShowNetwork] = React.useState(false);
+                const [sec, setSec] = React.useState(null);
+
+                React.useEffect(() => {
+                    let alive = true;
+                    const fetchSec = async () => {
+                        try {
+                            if (!webrtcManager) return;
+                            let data = null;
+                            if (typeof webrtcManager.getRealSecurityLevel === 'function') data = await webrtcManager.getRealSecurityLevel();
+                            else if (typeof webrtcManager.calculateAndReportSecurityLevel === 'function') data = await webrtcManager.calculateAndReportSecurityLevel();
+                            else if (window.EnhancedSecureCryptoUtils) data = await window.EnhancedSecureCryptoUtils.calculateSecurityLevel(webrtcManager);
+                            if (alive && data && data.isRealData !== false) setSec(data);
+                        } catch (e) { /* ignore */ }
+                    };
+                    fetchSec();
+                    const onCalc = (e) => { if (alive && e.detail && e.detail.securityData) setSec(e.detail.securityData); };
+                    document.addEventListener('real-security-calculated', onCalc);
+                    const iv = setInterval(fetchSec, 15000);
+                    return () => { alive = false; clearInterval(iv); document.removeEventListener('real-security-calculated', onCalc); };
+                }, [webrtcManager]);
+
+                const connected = status === 'connected' || status === 'verified';
+                const passed = sec && Number.isFinite(sec.passedChecks) ? sec.passedChecks : null;
+                const total = sec && Number.isFinite(sec.totalChecks) ? sec.totalChecks : null;
+                const scoreLabel = (passed != null && total) ? (passed + '/' + total) : (sec ? (sec.score + '%') : '—');
+                const accent = sec
+                    ? (sec.color === 'green' ? '#3ecf8e' : sec.color === 'orange' ? '#f0892a' : sec.color === 'yellow' ? '#e3c84e' : '#e5727a')
+                    : '#3ecf8e';
+
+                const secBtn = React.createElement('div', {
+                    key: 'sec', title: 'Run security verification',
+                    onClick: () => runSecurityReport(webrtcManager),
+                    className: 'sb-secpill',
+                    style: { display: 'flex', alignItems: 'center', gap: '9px', padding: '7px 13px', borderRadius: '9px', border: '1px solid ' + (showNetwork ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.07)'), background: showNetwork ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.02)', cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s' }
+                }, [
+                    React.createElement('i', { key: 'i', className: 'fas fa-shield-halved', style: { color: accent, fontSize: '13px' } }),
+                    React.createElement('span', { key: 'l', style: { fontSize: '13px', fontWeight: 600, color: '#e8e8eb' } }, sec ? (sec.level || 'Secure') : 'Secure'),
+                    React.createElement('span', { key: 'd', style: { width: '1px', height: '13px', background: 'rgba(255,255,255,0.12)' } }),
+                    React.createElement('span', { key: 's', style: { fontFamily: MONO, fontSize: '11.5px', fontWeight: 500, color: '#8a8a92' } }, scoreLabel),
+                    React.createElement('button', {
+                        key: 'c', type: 'button', title: 'Network & crypto details',
+                        onClick: (e) => { e.stopPropagation(); setShowNetwork(v => !v); },
+                        style: { background: 'none', border: 'none', padding: 0, margin: 0, cursor: 'pointer', display: 'grid', placeItems: 'center' }
+                    }, React.createElement('i', { className: 'fas fa-chevron-down', style: { color: '#6b6b73', fontSize: '11px', transform: showNetwork ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s' } }))
+                ]);
+
+                const header = React.createElement('header', {
+                    key: 'hdr', style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px', padding: '0 20px', height: '64px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(18,18,20,0.72)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }
+                }, [
+                    React.createElement('div', { key: 'left', style: { display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 } }, [
+                        React.createElement('div', { key: 'logo', style: { width: '36px', height: '36px', flex: 'none', display: 'grid', placeItems: 'center' } },
+                            React.createElement('img', { src: '/logo/securebit-mark.svg', alt: 'SecureBit', style: { width: '100%', height: '100%', objectFit: 'contain', display: 'block' } })
+                        ),
+                        React.createElement('div', { key: 'txt', style: { lineHeight: 1.2, minWidth: 0 } }, [
+                            React.createElement('div', { key: 'r1', style: { display: 'flex', alignItems: 'baseline', gap: '7px' } }, [
+                                React.createElement('span', { key: 'n', style: { fontSize: '16px', fontWeight: 800, letterSpacing: '-0.3px', color: '#e8e8eb' } }, 'SecureBit'),
+                                React.createElement('span', { key: 'v', style: { fontFamily: MONO, fontSize: '10px', fontWeight: 500, color: '#56565e' } }, 'v4.9.0')
+                            ]),
+                            React.createElement('div', { key: 'r2', style: { fontSize: '11px', color: '#6b6b73', fontWeight: 500 } }, 'End-to-end encrypted')
+                        ])
+                    ]),
+                    secBtn,
+                    React.createElement('div', { key: 'right', style: { display: 'flex', alignItems: 'center', gap: '9px' } }, [
+                        React.createElement('div', { key: 'conn', style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 13px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' } }, [
+                            React.createElement('span', { key: 'dot', style: { width: '7px', height: '7px', borderRadius: '50%', background: connected ? '#3ecf8e' : '#e3c84e', boxShadow: connected ? '0 0 0 3px rgba(62,207,142,0.16)' : '0 0 0 3px rgba(227,200,78,0.16)' } }),
+                            React.createElement('span', { key: 't', style: { fontSize: '13px', fontWeight: 600, color: '#cfcfd4' } }, connected ? 'Connected' : 'Connecting…')
+                        ]),
+                        React.createElement('button', { key: 'dc', onClick: onDisconnect, className: 'sb-disconnect', style: { display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 14px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#9a9aa2', fontFamily: 'inherit', fontSize: '13px', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' } }, [
+                            React.createElement('i', { key: 'i', className: 'fas fa-power-off', style: { fontSize: '12px' } }),
+                            React.createElement('span', { key: 't', className: 'sb-hide-sm' }, 'Disconnect')
+                        ])
+                    ])
+                ]);
+
+                const netPanel = showNetwork && React.createElement('div', {
+                    key: 'net', style: { flex: 'none', padding: '13px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(18,18,20,0.72)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }
+                }, React.createElement('div', { style: { maxWidth: '1000px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: '14px', fontFamily: MONO } },
+                    [
+                        ['Transport', 'WebRTC · DTLS'],
+                        ['Cipher', 'AES-256-GCM'],
+                        ['Key exchange', 'ECDH P-384'],
+                        ['Security', scoreLabel + (sec ? (' · ' + sec.score + '%') : '')]
+                    ].map(([k, v], i) => React.createElement('div', { key: 'nf' + i }, [
+                        React.createElement('div', { key: 'k', style: { fontSize: '10px', color: '#6b6b73', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '4px' } }, k),
+                        React.createElement('div', { key: 'v', style: { fontSize: '12.5px', color: i === 3 ? accent : '#cfcfd4', fontWeight: 500 } }, v)
+                    ]))
+                ));
+
+                return React.createElement('div', { style: { flex: 'none' } }, [header, netPanel]);
+            };
+
+
                const EnhancedChatInterface = ({
             messages,
             messageInput,
@@ -1572,6 +1560,7 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
             chatMessagesRef,
             scrollToBottom,
             webrtcManager,
+            status,
             pendingIncomingFiles = [],
             onIncomingDecision,
             // Secure chat extras
@@ -1589,6 +1578,22 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
         }) => {
             const [showScrollButton, setShowScrollButton] = React.useState(false);
             const [showFileTransfer, setShowFileTransfer] = React.useState(false);
+            // True only when the user opened the panel to SEND (shows the drop-zone).
+            // Incoming-file auto-open leaves this false, so the receiver sees the
+            // incoming request + receiving progress, not the "send attachments" UI.
+            const [fileSendMode, setFileSendMode] = React.useState(false);
+            const [showTimer, setShowTimer] = React.useState(false);
+            const [showOnce, setShowOnce] = React.useState(false);
+            const [showHandshake, setShowHandshake] = React.useState(false);
+            const taRef = React.useRef(null);
+
+            // Auto-grow the message textarea (and reset its height after sending).
+            React.useEffect(() => {
+                const el = taRef.current;
+                if (!el || codeMode) return;
+                el.style.height = 'auto';
+                el.style.height = Math.min(el.scrollHeight, 240) + 'px';
+            }, [messageInput, codeMode]);
 
             // Auto-open the file transfer panel when an incoming request arrives
             React.useEffect(() => {
@@ -1616,8 +1621,7 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                     }
                 }
             }, [messages, chatMessagesRef]);
-        
-            // Обработчик скролла
+
             const handleScroll = () => {
                 if (chatMessagesRef.current) {
                     const { scrollTop, scrollHeight, clientHeight } = chatMessagesRef.current;
@@ -1625,28 +1629,22 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                     setShowScrollButton(!isNearBottom);
                 }
             };
-        
-            // Прокрутка вниз по кнопке
+
             const handleScrollToBottom = () => {
-                console.log('🔍 handleScrollToBottom called, scrollToBottom type:', typeof scrollToBottom);
                 if (typeof scrollToBottom === 'function') {
                     scrollToBottom();
                     setShowScrollButton(false);
-                } else {
-                    console.error('scrollToBottom is not a function:', scrollToBottom);
-                    // Fallback: direct scroll
-                    if (chatMessagesRef.current) {
-                        chatMessagesRef.current.scrollTo({
-                            top: chatMessagesRef.current.scrollHeight,
-                            behavior: 'smooth'
-                        });
-                    }
+                } else if (chatMessagesRef.current) {
+                    chatMessagesRef.current.scrollTo({ top: chatMessagesRef.current.scrollHeight, behavior: 'smooth' });
                     setShowScrollButton(false);
                 }
             };
 
             const handleKeyPress = (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                if (e.key !== 'Enter') return;
+                if (codeMode) {
+                    if (e.metaKey || e.ctrlKey) { e.preventDefault(); onSendMessage(); }
+                } else if (!e.shiftKey) {
                     e.preventDefault();
                     onSendMessage();
                 }
@@ -1654,269 +1652,238 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
 
             const isFileTransferReady = () => {
                 if (!webrtcManager) return false;
-                
                 const connected = webrtcManager.isConnected ? webrtcManager.isConnected() : false;
                 const verified = webrtcManager.isVerified || false;
                 const hasDataChannel = webrtcManager.dataChannel && webrtcManager.dataChannel.readyState === 'open';
-                
                 return connected && verified && hasDataChannel;
             };
-        
-            // Возврат JSX через React.createElement
-            return React.createElement(
-                'div',
-                {
-                    className: "chat-container flex flex-col",
-                    style: { backgroundColor: '#272827', height: 'calc(100vh - 64px)' }
-                },
-                [
-                    // Область сообщений
-                    React.createElement(
-                        'div',
-                        { className: "flex-1 flex flex-col overflow-hidden" },
-                        React.createElement(
-                            'div',
-                            { className: "flex-1 max-w-4xl mx-auto w-full p-4 overflow-hidden" },
-                            React.createElement(
-                                'div',
-                                {
-                                    ref: chatMessagesRef,
-                                    onScroll: handleScroll,
-                                    className: "h-full overflow-y-auto space-y-3 hide-scrollbar pr-2 scroll-smooth"
-                                },
-                                messages.length === 0 ?
-                                    React.createElement(
-                                        'div',
-                                        { className: "flex items-center justify-center h-full" },
-                                        React.createElement(
-                                            'div',
-                                            { className: "text-center max-w-md" },
-                                            [
-                                                React.createElement(
-                                                    'div',
-                                                    { className: "w-16 h-16 bg-green-500/10 border border-green-500/20 rounded-xl flex items-center justify-center mx-auto mb-4" },
-                                                    React.createElement(
-                                                        'svg',
-                                                        { className: "w-8 h-8 text-green-500", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24" },
-                                                        React.createElement('path', {
-                                                            strokeLinecap: "round",
-                                                            strokeLinejoin: "round",
-                                                            strokeWidth: 2,
-                                                            d: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                                                        })
-                                                    )
-                                                ),
-                                                React.createElement('h3', { className: "text-lg font-medium text-gray-300 mb-2" }, "Secure channel is ready!"),
-                                                React.createElement('p', { className: "text-gray-400 text-sm mb-4" }, "All messages are protected by modern cryptographic algorithms"),
-                                                React.createElement(
-                                                    'div',
-                                                    { className: "text-left space-y-2" },
-                                                    [
-                                                        ['End-to-end encryption', 'M5 13l4 4L19 7'],
-                                                        ['Protection against replay attacks', 'M5 13l4 4L19 7'],
-                                                        ['Integrity verification', 'M5 13l4 4L19 7'],
-                                                        ['Perfect Forward Secrecy', 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15']
-                                                    ].map(([text, d], i) =>
-                                                        React.createElement(
-                                                            'div',
-                                                            { key: `f${i}`, className: "flex items-center text-sm text-gray-400" },
-                                                            [
-                                                                React.createElement(
-                                                                    'svg',
-                                                                    {
-                                                                        className: `w-4 h-4 mr-3 ${i === 3 ? 'text-purple-500' : 'text-green-500'}`,
-                                                                        fill: "none",
-                                                                        stroke: "currentColor",
-                                                                        viewBox: "0 0 24 24"
-                                                                    },
-                                                                    React.createElement('path', {
-                                                                        strokeLinecap: "round",
-                                                                        strokeLinejoin: "round",
-                                                                        strokeWidth: 2,
-                                                                        d: d
-                                                                    })
-                                                                ),
-                                                                text
-                                                            ]
-                                                        )
-                                                    )
-                                                )
-                                            ]
-                                        )
-                                    ) :
-                                    messages.map((msg) =>
-                                        React.createElement(EnhancedChatMessage, {
-                                            key: msg.id,
-                                            message: msg.message,
-                                            type: msg.type,
-                                            timestamp: msg.timestamp,
-                                            mid: msg.mid,
-                                            viewOnce: msg.viewOnce,
-                                            viewOnceTtl: msg.viewOnceTtl,
-                                            expiresAt: msg.expiresAt,
-                                            nowTick: nowTick,
-                                            canUnsend: typeof onUnsendMessage === 'function',
-                                            onUnsend: onUnsendMessage,
-                                            onExpire: () => onMessageExpire && onMessageExpire(msg.id)
-                                        })
-                                    )
-                            )
-                        )
-                    ),
-        
-                    // Кнопка прокрутки вниз
-                    showScrollButton &&
-                        React.createElement(
-                            'button',
-                            {
-                                onClick: handleScrollToBottom,
-                                className: "fixed right-6 w-12 h-12 bg-green-500/20 hover:bg-green-500/30 border border-green-500/30 text-green-400 rounded-full flex items-center justify-center transition-all duration-200 shadow-lg z-50",
-                                style: { bottom: '160px' }
-                            },
-                            React.createElement(
-                                'svg',
-                                { className: "w-6 h-6", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24" },
-                                React.createElement('path', {
-                                    strokeLinecap: "round",
-                                    strokeLinejoin: "round",
-                                    strokeWidth: 2,
-                                    d: "M19 14l-7 7m0 0l-7-7m7 7V3"
-                                })
-                            )
-                        ),
 
-                    React.createElement(
-                        'div',
-                        {
-                            className: "flex-shrink-0 border-t border-gray-500/10",
-                            style: { backgroundColor: '#272827' }
-                        },
-                        React.createElement(
-                            'div',
-                            { className: "max-w-4xl mx-auto px-4" },
-                            [
-                                React.createElement('div', {
-                                    key: 'composer-bar',
-                                    className: `flex items-center justify-between flex-wrap gap-2 ${showFileTransfer ? 'mb-4' : ''}`
-                                }, [
-                                React.createElement(
-                                    'button',
-                                    {
-                                        key: 'send-files-toggle',
-                                        onClick: () => setShowFileTransfer(!showFileTransfer),
-                                        className: "flex items-center text-sm text-gray-400 hover:text-gray-300 transition-colors py-4"
-                                    },
-                                    [
-                                        React.createElement(
-                                            'svg',
-                                            {
-                                                className: `w-4 h-4 mr-2 transform transition-transform ${showFileTransfer ? 'rotate-180' : ''}`,
-                                                fill: "none",
-                                                stroke: "currentColor",
-                                                viewBox: "0 0 24 24"
-                                            },
-                                            showFileTransfer ?
-                                                React.createElement('path', {
-                                                    strokeLinecap: "round",
-                                                    strokeLinejoin: "round",
-                                                    strokeWidth: 2,
-                                                    d: "M5 15l7-7 7 7"
-                                                }) :
-                                                React.createElement('path', {
-                                                    strokeLinecap: "round",
-                                                    strokeLinejoin: "round",
-                                                    strokeWidth: 2,
-                                                    d: "M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
-                                                })
-                                        ),
-                                        showFileTransfer ? 'Hide file transfer' : 'Send files'
-                                    ]
-                                ),
-                                React.createElement(ChatToolbar, {
-                                    key: 'toolbar',
-                                    codeMode, setCodeMode,
-                                    viewOnceMode, setViewOnceMode,
-                                    viewOnceTtl, setViewOnceTtl,
-                                    disappearTtl, setDisappearTtl
-                                })
-                                ]),
-                                showFileTransfer &&
-                                    React.createElement(window.FileTransferComponent || (() =>
-                                        React.createElement('div', {
-                                            className: "p-4 text-center text-red-400"
-                                        }, 'FileTransferComponent not loaded')
-                                    ), {
-                                        webrtcManager: webrtcManager,
-                                        isConnected: isFileTransferReady(),
-                                        pendingIncomingFiles: pendingIncomingFiles,
-                                        onIncomingDecision: onIncomingDecision
-                                    })
-                            ]
-                        )
-                    ),
+            // ---- design tokens / helpers ----
+            const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+            const fmtShort = (s) => {
+                if (!s) return '';
+                if (s >= 86400 && s % 86400 === 0) return (s / 86400) + 'd';
+                if (s >= 3600 && s % 3600 === 0) return (s / 3600) + 'h';
+                if (s >= 60) return Math.round(s / 60) + 'm';
+                return s + 's';
+            };
+            const chipStyle = (active) => ({
+                display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 11px', borderRadius: '8px',
+                border: '1px solid ' + (active ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.07)'),
+                background: active ? 'rgba(255,255,255,0.06)' : 'transparent',
+                color: active ? '#fff' : '#9a9aa2',
+                fontFamily: 'inherit', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', transition: 'all .15s'
+            });
+            const optStyle = (sel) => ({
+                padding: '6px 12px', borderRadius: '8px',
+                border: '1px solid ' + (sel ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)'),
+                background: sel ? 'rgba(255,255,255,0.07)' : 'transparent',
+                color: sel ? '#fff' : '#8a8a92',
+                fontFamily: MONO, fontSize: '12px', fontWeight: 500, cursor: 'pointer', transition: 'all .14s'
+            });
 
-                    React.createElement(
-                        'div',
-                        { className: "border-t border-gray-500/10" },
-                        React.createElement(
-                            'div',
-                            { className: "max-w-4xl mx-auto p-4" },
-                            [
-                            React.createElement(
-                                'div',
-                                { key: 'inputrow', className: "flex items-stretch space-x-3" },
-                                [
-                                    React.createElement(
-                                        'div',
-                                        { className: "flex-1 relative" },
-                                        [
-                                            React.createElement('textarea', {
-                                                value: messageInput,
-                                                onChange: (e) => setMessageInput(e.target.value),
-                                                onKeyDown: handleKeyPress,
-                                                placeholder: codeMode ? "Paste or type code…" : "Enter message to encrypt...",
-                                                rows: codeMode ? 8 : 2,
-                                                maxLength: 2000,
-                                                style: codeMode
-                                                    ? { backgroundColor: '#1b1c1b', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' }
-                                                    : { backgroundColor: '#272827' },
-                                                className: `w-full p-3 border rounded-lg resize-none text-gray-300 placeholder-gray-500 focus:outline-none transition-all custom-scrollbar text-sm ${codeMode ? 'border-orange-500/40 focus:border-orange-500/60' : 'border-gray-600 focus:border-green-500/40'}`
-                                            }),
-                                            React.createElement(
-                                                'div',
-                                                { className: "absolute bottom-2 right-3 flex items-center space-x-2 text-xs text-gray-400" },
-                                                [
-                                                    React.createElement('span', null, `${messageInput.length}/2000`),
-                                                    React.createElement('span', null, "• Enter to send")
-                                                ]
-                                            )
-                                        ]
-                                    ),
-                                    React.createElement(
-                                        'button',
-                                        {
-                                            onClick: onSendMessage,
-                                            disabled: !messageInput.trim(),
-                                            className: "bg-green-400/20 text-green-400 p-3 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-h-[72px]"
-                                        },
-                                        React.createElement(
-                                            'svg',
-                                            { className: "w-6 h-6", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24" },
-                                            React.createElement('path', {
-                                                strokeLinecap: "round",
-                                                strokeLinejoin: "round",
-                                                strokeWidth: 2,
-                                                d: "M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                                            })
-                                        )
-                                    )
-                                ]
-                            )
-                            ]
-                        )
-                    )
-                ]
+            const timerDefs = [
+                { label: 'Off', v: 0 }, { label: '5s', v: 5 }, { label: '30s', v: 30 },
+                { label: '1m', v: 60 }, { label: '1h', v: 3600 }, { label: '24h', v: 86400 }
+            ];
+            const onceDefs = [
+                { label: 'Off', v: 0 }, { label: '5s', v: 5 }, { label: '10s', v: 10 },
+                { label: '30s', v: 30 }, { label: '1m', v: 60 }
+            ];
+            const onceSelected = viewOnceMode ? viewOnceTtl : 0;
+            const pickTimer = (v) => { setDisappearTtl(v); setShowTimer(false); };
+            const pickOnce = (v) => {
+                if (v === 0) setViewOnceMode(false);
+                else { setViewOnceTtl(v); setViewOnceMode(true); }
+                setShowOnce(false);
+            };
+
+            const hasText = !!(messageInput && messageInput.trim());
+
+            // System notices are surfaced inside the handshake/connection log card
+            // (matching the design) rather than as bubbles in the message flow.
+            const fmtT = (ts) => { try { return new Date(ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); } catch (e) { return ''; } };
+            // Connection log = string-only system notices (a React-element message
+            // would render as "[object Object]" in the log, so it's excluded).
+            const systemMessages = messages.filter((m) => m.type === 'system' && typeof m.message === 'string' && m.message.trim());
+            const chatMessages = messages.filter((m) => m.type !== 'system');
+
+            // ---- handshake / connection log card ----
+            const handshakeCard = (isVerified || systemMessages.length > 0) && React.createElement('div', {
+                key: 'handshake',
+                style: { border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', background: '#161618', overflow: 'hidden' }
+            }, [
+                React.createElement('button', {
+                    key: 'hs-btn', onClick: () => setShowHandshake(v => !v),
+                    style: { width: '100%', display: 'flex', alignItems: 'center', gap: '13px', padding: '14px 16px', background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }
+                }, [
+                    React.createElement('div', { key: 'ic', style: { flex: 'none', width: '30px', height: '30px', display: 'grid', placeItems: 'center' } },
+                        React.createElement('i', { className: 'fas fa-check', style: { color: '#3ecf8e', fontSize: '16px' } })
+                    ),
+                    React.createElement('div', { key: 'tx', style: { flex: 1, minWidth: 0 } }, [
+                        React.createElement('div', { key: 't1', style: { fontSize: '13.5px', fontWeight: 600, color: '#e8e8eb', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, 'Secure channel established'),
+                        React.createElement('div', { key: 't2', style: { fontSize: '12px', color: '#7b7b83', marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, 'Verified · Perfect Forward Secrecy' + (systemMessages.length ? (' · ' + systemMessages.length + (systemMessages.length === 1 ? ' event' : ' events')) : ''))
+                    ]),
+                    React.createElement('i', { key: 'chev', className: 'fas fa-chevron-down', style: { flex: 'none', color: '#6b6b73', fontSize: '13px', transform: showHandshake ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s' } })
+                ]),
+                showHandshake && React.createElement('div', { key: 'hs-body', style: { padding: '2px 16px 14px 59px' } }, [
+                    systemMessages.length > 0 && React.createElement('div', { key: 'steps', className: 'sb-scroll', style: { marginBottom: '12px', maxHeight: '220px', overflowY: 'auto', paddingRight: '6px' } },
+                        systemMessages.map((m, i) => React.createElement('div', { key: 's' + i, style: { display: 'flex', gap: '11px', padding: '6px 0', borderTop: i === 0 ? 'none' : '1px solid rgba(255,255,255,0.04)' } }, [
+                            React.createElement('span', { key: 'd', style: { flex: 'none', width: '5px', height: '5px', borderRadius: '50%', background: '#3ecf8e', marginTop: '7px', opacity: 0.6 } }),
+                            React.createElement('span', { key: 't', style: { flex: 1, fontSize: '12.5px', color: '#9a9aa2', lineHeight: 1.5, wordBreak: 'break-word' } }, String(m.message || '').trim()),
+                            React.createElement('span', { key: 'tm', style: { flex: 'none', fontFamily: MONO, fontSize: '10.5px', color: '#56565e' } }, fmtT(m.timestamp))
+                        ]))
+                    ),
+                    keyFingerprint && React.createElement('div', { key: 'sn', style: { display: 'flex', alignItems: 'center', gap: '9px', padding: '10px 12px', borderRadius: '9px', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' } }, [
+                        React.createElement('i', { key: 'i', className: 'fas fa-lock', style: { color: '#8a8a92', fontSize: '12px' } }),
+                        React.createElement('span', { key: 'l', style: { fontSize: '11.5px', color: '#8a8a92' } }, 'Safety number'),
+                        React.createElement('span', { key: 'v', style: { fontFamily: MONO, fontSize: '12px', color: '#cfcfd4', letterSpacing: '0.8px', fontWeight: 500, wordBreak: 'break-all' } }, keyFingerprint)
+                    ])
+                ])
+            ]);
+
+            // ---- empty state ----
+            const emptyState = React.createElement('div', { key: 'empty', style: { display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, minHeight: '40vh' } },
+                React.createElement('div', { style: { textAlign: 'center', maxWidth: '420px' } }, [
+                    React.createElement('img', { key: 'ic', src: '/logo/securebit-mark.svg', alt: 'SecureBit', style: { width: '60px', height: '60px', objectFit: 'contain', display: 'block', margin: '0 auto 16px' } }),
+                    React.createElement('h3', { key: 't', style: { fontSize: '17px', fontWeight: 700, color: '#e8e8eb', margin: '0 0 6px' } }, 'Secure channel is ready'),
+                    React.createElement('p', { key: 'p', style: { fontSize: '13px', color: '#7b7b83', margin: 0 } }, 'Every message is end-to-end encrypted on your device before it leaves.')
+                ])
             );
+
+            // ---- messages list ----
+            const messagesArea = React.createElement('main', {
+                key: 'main',
+                ref: chatMessagesRef,
+                onScroll: handleScroll,
+                className: 'sb-scroll',
+                style: { flex: 1, overflowY: 'auto', padding: '20px 20px 22px' }
+            }, React.createElement('div', { style: { width: '100%', maxWidth: '1000px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '16px', minHeight: '100%' } },
+                chatMessages.length === 0
+                    ? [handshakeCard, emptyState]
+                    : [handshakeCard].concat(chatMessages.map((msg) => React.createElement(EnhancedChatMessage, {
+                        key: msg.id,
+                        message: msg.message,
+                        type: msg.type,
+                        timestamp: msg.timestamp,
+                        mid: msg.mid,
+                        status: msg.status,
+                        viewOnce: msg.viewOnce,
+                        viewOnceTtl: msg.viewOnceTtl,
+                        expiresAt: msg.expiresAt,
+                        expired: msg.expired,
+                        nowTick: nowTick,
+                        canUnsend: typeof onUnsendMessage === 'function',
+                        onUnsend: onUnsendMessage,
+                        onExpire: () => onMessageExpire && onMessageExpire(msg.id)
+                    })))
+            ));
+
+            // ---- option rows ----
+            const timerRow = showTimer && React.createElement('div', { key: 'timer-row', style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', padding: '10px 12px', marginBottom: '10px', borderRadius: '11px', border: '1px solid rgba(255,255,255,0.07)', background: '#161618' } },
+                [React.createElement('span', { key: 'lbl', style: { fontSize: '12px', color: '#8a8a92', fontWeight: 600, marginRight: '4px' } }, 'Disappear after')].concat(
+                    timerDefs.map((d) => React.createElement('button', { key: 'td' + d.v, onClick: () => pickTimer(d.v), style: optStyle(disappearTtl === d.v) }, d.label))
+                )
+            );
+            const onceRow = showOnce && React.createElement('div', { key: 'once-row', style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', padding: '10px 12px', marginBottom: '10px', borderRadius: '11px', border: '1px solid rgba(255,255,255,0.07)', background: '#161618' } },
+                [React.createElement('span', { key: 'lbl', style: { fontSize: '12px', color: '#8a8a92', fontWeight: 600, marginRight: '4px' } }, 'Visible for')].concat(
+                    onceDefs.map((d) => React.createElement('button', { key: 'od' + d.v, onClick: () => pickOnce(d.v), style: optStyle(onceSelected === d.v) }, d.label))
+                )
+            );
+
+            // ---- file transfer panel ----
+            const filePanel = showFileTransfer && React.createElement('div', { key: 'file-panel', style: { marginBottom: '10px' } },
+                React.createElement(window.FileTransferComponent || (() => React.createElement('div', { style: { padding: '16px', textAlign: 'center', color: '#e5727a' } }, 'FileTransferComponent not loaded')), {
+                    webrtcManager: webrtcManager,
+                    isConnected: isFileTransferReady(),
+                    pendingIncomingFiles: pendingIncomingFiles,
+                    onIncomingDecision: onIncomingDecision,
+                    showDropzone: fileSendMode
+                })
+            );
+
+            // ---- chips row ----
+            const chipsRow = React.createElement('div', { key: 'chips', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' } }, [
+                React.createElement('button', { key: 'files', onClick: () => {
+                    if (showFileTransfer && fileSendMode) { setShowFileTransfer(false); setFileSendMode(false); }
+                    else { setShowFileTransfer(true); setFileSendMode(true); }
+                }, className: 'sb-chip', style: chipStyle(showFileTransfer && fileSendMode) }, [
+                    React.createElement('i', { key: 'i', className: 'fas fa-paperclip', style: { fontSize: '13px' } }),
+                    (showFileTransfer && fileSendMode) ? 'Hide files' : 'Send files'
+                ]),
+                React.createElement('div', { key: 'right', style: { display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' } }, [
+                    React.createElement('button', { key: 'code', onClick: () => setCodeMode(v => !v), className: 'sb-chip', style: chipStyle(codeMode) }, [
+                        React.createElement('i', { key: 'i', className: 'fas fa-code', style: { fontSize: '13px' } }), 'Code'
+                    ]),
+                    React.createElement('button', { key: 'once', onClick: () => { setShowOnce(v => !v); setShowTimer(false); }, className: 'sb-chip', style: chipStyle(showOnce || viewOnceMode) }, [
+                        React.createElement('i', { key: 'i', className: 'fas fa-eye-slash', style: { fontSize: '13px' } }),
+                        viewOnceMode ? ('View once · ' + fmtShort(viewOnceTtl)) : 'View once'
+                    ]),
+                    React.createElement('button', { key: 'timer', onClick: () => { setShowTimer(v => !v); setShowOnce(false); }, className: 'sb-chip', style: chipStyle(showTimer || disappearTtl > 0) }, [
+                        React.createElement('i', { key: 'i', className: 'fas fa-stopwatch', style: { fontSize: '13px' } }),
+                        disappearTtl > 0 ? ('Timer · ' + fmtShort(disappearTtl)) : 'Timer'
+                    ])
+                ])
+            ]);
+
+            // ---- code-mode header strip ----
+            const codeStrip = codeMode && React.createElement('div', { key: 'code-strip', style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 14px', border: '1px solid rgba(255,255,255,0.08)', borderBottom: 'none', borderRadius: '14px 14px 0 0', background: '#161618' } }, [
+                React.createElement('i', { key: 'i', className: 'fas fa-code', style: { color: '#8a8a92', fontSize: '12px' } }),
+                React.createElement('span', { key: 's', style: { fontSize: '11.5px', fontWeight: 600, color: '#8a8a92' } }, 'Code snippet · formatting preserved · ⌘↵ to send'),
+                React.createElement('button', { key: 'c', onClick: () => setCodeMode(false), className: 'sb-link', style: { marginLeft: 'auto', background: 'none', border: 'none', color: '#6b6b73', cursor: 'pointer', fontSize: '11.5px', fontFamily: 'inherit', fontWeight: 600 } }, 'Close')
+            ]);
+
+            // ---- input row ----
+            const inputRow = React.createElement('div', {
+                key: 'input',
+                style: { display: 'flex', alignItems: 'flex-end', gap: '11px', padding: '11px 11px 11px 16px', border: '1px solid ' + (hasText ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)'), background: '#161618', borderRadius: codeMode ? '0 0 14px 14px' : '14px', transition: 'border .15s' }
+            }, [
+                React.createElement('div', { key: 'ta-wrap', style: { flex: 1, minWidth: 0 } }, [
+                    React.createElement('textarea', {
+                        key: 'ta',
+                        value: messageInput,
+                        ref: taRef,
+                        onChange: (e) => setMessageInput(e.target.value),
+                        onKeyDown: handleKeyPress,
+                        rows: 1,
+                        maxLength: 2000,
+                        placeholder: codeMode ? 'Paste or write code…' : 'Type an encrypted message…',
+                        className: 'sb-textarea',
+                        style: { width: '100%', minHeight: codeMode ? '120px' : '22px', maxHeight: '240px', resize: 'none', border: 'none', outline: 'none', background: 'transparent', color: '#e8e8eb', fontFamily: codeMode ? MONO : 'inherit', fontSize: codeMode ? '13px' : '14.5px', lineHeight: 1.55, padding: '6px 0' }
+                    }),
+                    React.createElement('div', { key: 'foot', style: { display: 'flex', alignItems: 'center', gap: '12px', marginTop: '3px' } }, [
+                        React.createElement('span', { key: 'enc', style: { display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: '#56565e' } }, [
+                            React.createElement('i', { key: 'i', className: 'fas fa-lock', style: { color: '#3ecf8e', fontSize: '10px' } }),
+                            'Encrypted on your device'
+                        ]),
+                        React.createElement('span', { key: 'cnt', style: { fontFamily: MONO, fontSize: '10.5px', color: '#56565e', marginLeft: 'auto' } }, (messageInput ? messageInput.length : 0) + '/2000')
+                    ])
+                ]),
+                React.createElement('button', {
+                    key: 'send', onClick: onSendMessage, disabled: !hasText, title: 'Send', className: 'sb-send',
+                    style: { flex: 'none', width: '44px', height: '44px', borderRadius: '11px', border: 'none', display: 'grid', placeItems: 'center', cursor: hasText ? 'pointer' : 'default', background: hasText ? '#f0892a' : 'rgba(255,255,255,0.05)', color: hasText ? '#1a0f04' : '#56565e', transition: 'all .15s' }
+                }, React.createElement('i', { className: 'fas fa-paper-plane', style: { fontSize: '15px' } }))
+            ]);
+
+            const composer = React.createElement('footer', { key: 'composer', style: { flex: 'none', padding: '12px 20px 18px', background: '#0f0f11', borderTop: '1px solid rgba(255,255,255,0.05)' } },
+                React.createElement('div', { style: { maxWidth: '1000px', margin: '0 auto' } }, [
+                    timerRow, onceRow, filePanel, chipsRow, codeStrip, inputRow
+                ])
+            );
+
+            const scrollBtn = showScrollButton && React.createElement('button', {
+                key: 'scrollbtn', onClick: handleScrollToBottom,
+                style: { position: 'fixed', right: '24px', bottom: '150px', width: '44px', height: '44px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.1)', background: '#26262b', color: '#cfcfd4', display: 'grid', placeItems: 'center', cursor: 'pointer', zIndex: 50, boxShadow: '0 6px 20px rgba(0,0,0,0.4)' }
+            }, React.createElement('i', { className: 'fas fa-arrow-down', style: { fontSize: '15px' } }));
+
+            const chatHeader = React.createElement(SecureBitChatHeader, {
+                key: 'chat-header', status: status, onDisconnect: onDisconnect, webrtcManager: webrtcManager
+            });
+
+            return React.createElement('div', {
+                className: 'chat-container',
+                style: { display: 'flex', flexDirection: 'column', height: '100vh', background: '#0f0f11', color: '#e8e8eb' }
+            }, [chatHeader, messagesArea, scrollBtn, composer]);
         };
         
         
@@ -1931,6 +1898,25 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                     const [disappearTtl, setDisappearTtl] = React.useState(0); // seconds; 0 = off (sticky)
                     const [nowTick, setNowTick] = React.useState(() => Date.now());
                     const [connectionStatus, setConnectionStatus] = React.useState('disconnected');
+                    // Offline awareness — tracks the real online/offline events (which is
+                    // also what a console-simulated `dispatchEvent(new Event('offline'))`
+                    // fires, even when navigator.onLine stays true).
+                    const [isOffline, setIsOffline] = React.useState(typeof navigator !== 'undefined' && navigator.onLine === false);
+                    // Ref mirror so manager callbacks (which close over stale state) always
+                    // read the current offline status. Two queues implement store-and-forward
+                    // over the still-live P2P channel: outgoing waits until WE reconnect,
+                    // incoming waits until WE reconnect before being shown/acked.
+                    const offlineRef = React.useRef(isOffline);
+                    const outgoingQueueRef = React.useRef([]);
+                    const incomingQueueRef = React.useRef([]);
+                    React.useEffect(() => { offlineRef.current = isOffline; }, [isOffline]);
+                    React.useEffect(() => {
+                        const goOffline = () => setIsOffline(true);
+                        const goOnline = () => setIsOffline(false);
+                        window.addEventListener('offline', goOffline);
+                        window.addEventListener('online', goOnline);
+                        return () => { window.removeEventListener('offline', goOffline); window.removeEventListener('online', goOnline); };
+                    }, []);
                     const [relayOnlyMode, setRelayOnlyMode] = React.useState(() => {
                         try { return localStorage.getItem('securebit_relay_only_mode') === 'true'; } catch { return false; }
                     });
@@ -2093,8 +2079,9 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                             message,
                             type,
                             id: Date.now() + Math.random(),
-                            timestamp: Date.now(),
+                            timestamp: (typeof opts.timestamp === 'number') ? opts.timestamp : Date.now(),
                             mid: opts.mid,
+                            status: opts.status,            // WhatsApp-style: sending | sent | delivered | failed
                             viewOnce: opts.viewOnce === true,
                             viewOnceTtl: (typeof opts.viewOnceTtl === 'number') ? opts.viewOnceTtl : 15,
                             expiresAt: (typeof opts.expiresAt === 'number') ? opts.expiresAt : undefined
@@ -2130,7 +2117,45 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                             return updated;
                         });
                     }, []);
-        
+
+                    // Flip a sent message's delivery state (sending → sent → delivered, or failed).
+                    const updateMessageStatus = React.useCallback((mid, status) => {
+                        if (!mid) return;
+                        setMessages(prev => prev.map(m => (String(m.mid) === String(mid) && m.type === 'sent') ? { ...m, status } : m));
+                    }, []);
+
+                    // When WE come back online: transmit anything we queued while offline,
+                    // and surface (and acknowledge) anything that arrived while we were offline.
+                    const flushOfflineQueues = React.useCallback(() => {
+                        const out = outgoingQueueRef.current;
+                        outgoingQueueRef.current = [];
+                        for (const item of out) {
+                            const send = webrtcManagerRef.current?.sendMessage?.(item.outText, item.meta);
+                            if (send && typeof send.then === 'function') {
+                                send.then(() => updateMessageStatus(item.mid, 'sent')).catch(() => updateMessageStatus(item.mid, 'failed'));
+                            }
+                        }
+                        const inc = incomingQueueRef.current;
+                        incomingQueueRef.current = [];
+                        if (inc.length > 0) {
+                            addMessageWithAutoScroll(
+                                `Connection restored — ${inc.length} message${inc.length === 1 ? '' : 's'} received while you were offline.`,
+                                'notice'
+                            );
+                        }
+                        for (const item of inc) {
+                            addMessageWithAutoScroll(item.message, item.type, item.opts);
+                            if (item.opts && item.opts.mid && (item.type === 'received' || item.type === 'sent')) {
+                                try { webrtcManagerRef.current?.sendDeliveryReceipt?.(item.opts.mid); } catch (_) {}
+                            }
+                        }
+                    }, [addMessageWithAutoScroll, updateMessageStatus]);
+
+                    React.useEffect(() => {
+                        if (isOffline) return;        // only act on the offline → online edge
+                        flushOfflineQueues();
+                    }, [isOffline, flushOfflineQueues]);
+
                     // Update security level based on real verification
                     const updateSecurityLevel = React.useCallback(async () => {
                         if (window.isUpdatingSecurity) {
@@ -2214,8 +2239,17 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                             const now = Date.now();
                             setNowTick(now);
                             setMessages(prev => {
-                                const kept = prev.filter(m => !(typeof m.expiresAt === 'number' && m.expiresAt <= now));
-                                return kept.length === prev.length ? prev : kept;
+                                // Disappearing messages leave a tombstone ("This message has
+                                // expired") instead of vanishing; the content is wiped.
+                                let changed = false;
+                                const next = prev.map(m => {
+                                    if (typeof m.expiresAt === 'number' && m.expiresAt <= now && !m.expired) {
+                                        changed = true;
+                                        return { ...m, expired: true, message: '', expiresAt: undefined };
+                                    }
+                                    return m;
+                                });
+                                return changed ? next : prev;
                             });
                         }, 1000);
                         return () => clearInterval(interval);
@@ -2249,7 +2283,9 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                                         'peer_disconnect',
                                         'key_rotation_signal',
                                         'key_rotation_ready',
-                                        'security_upgrade'
+                                        'security_upgrade',
+                                        'message_delete',
+                                        'message_receipt'
                                     ];
                                     if (parsedMessage.type && blockedTypes.includes(parsedMessage.type)) {
                                         console.log(`Blocked system/file message from chat: ${parsedMessage.type}`);
@@ -2271,8 +2307,23 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                                 if (Number.isFinite(meta.ttl) && meta.ttl > 0) {
                                     opts.expiresAt = Date.now() + meta.ttl * 1000;
                                 }
+                                if (Number.isFinite(meta.ts)) opts.timestamp = meta.ts;
                             }
+
+                            // If WE are offline, hold the peer's message back: don't show it
+                            // and don't acknowledge it yet, so the sender stays at one check.
+                            // It's surfaced (and acked → ✓✓) the moment we reconnect.
+                            if (offlineRef.current && type === 'received') {
+                                incomingQueueRef.current.push({ message, type, opts });
+                                return;
+                            }
+
                             addMessageWithAutoScroll(message, type, opts);
+
+                            // Acknowledge receipt so the sender's bubble shows "delivered" (✓✓).
+                            if (opts.mid && (type === 'received' || type === 'sent')) {
+                                try { webrtcManagerRef.current?.sendDeliveryReceipt?.(opts.mid); } catch (_) {}
+                            }
                         };
 
                         const handleStatusChange = (status) => {
@@ -2470,6 +2521,11 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                             setMessages(prev => prev.filter(m => String(m.mid) !== String(mid)));
                         };
 
+                        // Delivery receipt: peer confirmed they got our message → "delivered".
+                        webrtcManagerRef.current.onMessageDelivered = (mid) => {
+                            updateMessageStatus(mid, 'delivered');
+                        };
+
                         // Initialize notification integration if permission was already granted
                         if (typeof Notification !== 'undefined' && Notification && Notification.permission === 'granted' && window.NotificationIntegration && !notificationIntegrationRef.current) {
                             try {
@@ -2484,7 +2540,7 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                             }
                         }
         
-                        handleMessage(' SecureBit.chat Enhanced Security Edition v4.8.20 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.', 'system');
+                        handleMessage(' SecureBit.chat Enhanced Security Edition v4.9.0 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.', 'system');
         
                         const handleBeforeUnload = (event) => {
                             if (event.type === 'beforeunload' && !isTabSwitching) {
@@ -2550,33 +2606,33 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                                 console.log('File progress:', progress);
                             },
                             
-                            // File received callback
+                            // File received callback — auto-save to disk, no button press needed.
                             (fileData) => {
                                 const sizeMb = Math.max(1, Math.round((fileData.fileSize || 0) / (1024 * 1024)));
-                                const downloadMessage = React.createElement('div', {
-                                    className: 'flex items-center space-x-2'
-                                }, [
-                                    React.createElement('span', { key: 'label' }, ` File received: ${fileData.fileName} (${sizeMb} MB)`),
-                                    React.createElement('button', {
-                                        key: 'btn',
-                                        className: 'px-3 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs',
-                                        onClick: async () => {
-                                            try {
-                                                const url = await fileData.getObjectURL();
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = fileData.fileName;
-                                a.click();
-                                                setTimeout(() => fileData.revokeObjectURL(url), 15000);
-                                            } catch (e) {
-                                                console.error('Download failed:', e);
-                                                addMessageWithAutoScroll(` File upload error: ${String(e?.message || e)}`, 'system');
-                                            }
-                                        }
-                                    }, 'Download')
-                                ]);
-                                
-                                addMessageWithAutoScroll(downloadMessage, 'system');
+
+                                const saveToDisk = async () => {
+                                    const url = await fileData.getObjectURL();
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = fileData.fileName || 'file';
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    a.remove();
+                                    setTimeout(() => fileData.revokeObjectURL(url), 15000);
+                                };
+
+                                // Trigger the download automatically once assembly completes.
+                                // (Plain-string notice — system messages render as text in the
+                                // connection log, so a React button here would show "[object
+                                // Object]". The file panel keeps a manual Download as fallback.)
+                                saveToDisk()
+                                    .then(() => {
+                                        addMessageWithAutoScroll(`File received & saved: ${fileData.fileName} (${sizeMb} MB)`, 'system');
+                                    })
+                                    .catch((e) => {
+                                        console.error('Auto-save failed:', e);
+                                        addMessageWithAutoScroll(`File received: ${fileData.fileName} (${sizeMb} MB). Open the file panel to download it.`, 'system');
+                                    });
                             },
                             
                             // Error callback
@@ -3884,17 +3940,45 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                         if (!webrtcManagerRef.current.isConnected()) {
                             return;
                         }
-        
+
+                        const baseTextEarly = messageInput.trim();
+                        const midEarly = `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+
+                        // Offline guard: a P2P data channel can stay "open" after the
+                        // browser loses connectivity, so isConnected() isn't enough — show
+                        // the bubble as "not sent" (✗) instead of silently transmitting.
+                        // Uses the live offline state (catches console-simulated offline too).
+                        const offlineNow = isOffline
+                            || (typeof navigator !== 'undefined' && navigator.onLine === false)
+                            || (window.pwaOfflineManager && window.pwaOfflineManager.isOnline === false);
+                        if (offlineNow) {
+                            // Store-and-forward: show one check (sent), keep it in the
+                            // conversation at its original time, and transmit on reconnect.
+                            const outTextOff = codeMode ? '```\n' + baseTextEarly + '\n```' : baseTextEarly;
+                            const tsOff = Date.now();
+                            const metaOff = { mid: midEarly, ts: tsOff };
+                            if (viewOnceMode) { metaOff.once = true; metaOff.onceTtl = viewOnceTtl; }
+                            if (disappearTtl > 0) metaOff.ttl = disappearTtl;
+                            const echoOpts = { mid: midEarly, status: 'sent', timestamp: tsOff };
+                            if (disappearTtl > 0) echoOpts.expiresAt = tsOff + disappearTtl * 1000;
+                            addMessageWithAutoScroll(outTextOff, 'sent', echoOpts);
+                            outgoingQueueRef.current.push({ outText: outTextOff, meta: metaOff, mid: midEarly });
+                            setMessageInput('');
+                            if (codeMode) setCodeMode(false);
+                            if (viewOnceMode) setViewOnceMode(false);
+                            return;
+                        }
+
                         try {
-                            const baseText = messageInput.trim();
+                            const baseText = baseTextEarly;
                             // Code mode wraps the text in a fenced block so both sides render
                             // a code window with a copy button (the marker travels as text).
                             const outText = codeMode ? '```\n' + baseText + '\n```' : baseText;
 
-                            // Shared id lets unsend/disappearing reference the same message
-                            // on both peers.
-                            const mid = `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-                            const meta = { mid };
+                            // Shared id lets unsend/disappearing/receipts reference the
+                            // same message on both peers.
+                            const mid = midEarly;
+                            const meta = { mid, ts: Date.now() };        // ts → recipient shows the original send time
                             if (viewOnceMode) {                          // applies to the recipient
                                 meta.once = true;
                                 meta.onceTtl = viewOnceTtl;              // seconds visible after opening
@@ -3903,11 +3987,19 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
 
                             // Local echo: sender sees their own text normally (view-once is a
                             // recipient-side control), but disappearing also expires our copy.
-                            const localOpts = { mid };
+                            // Starts as "sending"; flips to "sent" once the channel accepts it
+                            // and "delivered" when the peer's receipt arrives.
+                            const localOpts = { mid, status: 'sending' };
                             if (disappearTtl > 0) localOpts.expiresAt = Date.now() + disappearTtl * 1000;
                             addMessageWithAutoScroll(outText, 'sent', localOpts);
 
-                            await webrtcManagerRef.current.sendMessage(outText, meta);
+                            try {
+                                await webrtcManagerRef.current.sendMessage(outText, meta);
+                                updateMessageStatus(mid, 'sent');
+                            } catch (sendErr) {
+                                updateMessageStatus(mid, 'failed');
+                                throw sendErr;
+                            }
                             setMessageInput('');
                             // Per-message toggles reset; disappearing stays as a sticky setting.
                             if (codeMode) setCodeMode(false);
@@ -3927,9 +4019,10 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                         try { webrtcManagerRef.current?.sendMessageDelete?.(String(mid)); } catch (_) {}
                     }, []);
 
-                    // View-once reveal timeout / disappearing expiry: drop a message by id.
+                    // View-once reveal timeout / disappearing expiry: wipe the content and
+                    // leave a "This message has expired" tombstone (per the design).
                     const handleMessageExpire = React.useCallback((id) => {
-                        setMessages(prev => prev.filter(m => m.id !== id));
+                        setMessages(prev => prev.map(m => m.id === id ? { ...m, expired: true, message: '', expiresAt: undefined } : m));
                     }, []);
 
                     // Panic wipe: clear the conversation, tear down the session and wipe keys.
@@ -4096,6 +4189,13 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                     }, [connectionStatus, isVerified]);
         
                     const isConnectedAndVerified = (connectionStatus === 'connected' || connectionStatus === 'verified') && isVerified;
+
+                    // The PWA "Install app" pill is a landing-page affordance — hide it once
+                    // we're inside the chat (CSS: body.sb-in-chat #pwa-install-button).
+                    React.useEffect(() => {
+                        document.body.classList.toggle('sb-in-chat', isConnectedAndVerified);
+                        return () => document.body.classList.remove('sb-in-chat');
+                    }, [isConnectedAndVerified]);
         
                     React.useEffect(() => {
                         // All security features are enabled by default - no session activation needed
@@ -4208,21 +4308,12 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                     return React.createElement('div', {
                         className: "minimal-bg min-h-screen"
                     }, [
-                        (typeof window !== 'undefined' && window.IceServerSettings) ? React.createElement(window.IceServerSettings, {
-                            key: 'ice-settings-modal',
-                            isOpen: showIceSettings,
-                            onClose: () => setShowIceSettings(false),
-                            initial: {
-                                useCustom: Array.isArray(customIceServers) && customIceServers.length > 0,
-                                serversText: iceServersText,
-                                privacyMode: relayOnlyMode ? 'relay-only' : 'standard',
-                                persisted: iceSettingsPersisted
-                            },
-                            hasSaved: iceSettingsPersisted,
-                            onApply: handleApplyIceSettings,
-                            onForget: handleForgetIceSettings
-                        }) : null,
-                        window.EnhancedMinimalHeader && React.createElement(window.EnhancedMinimalHeader, {
+                        // Advanced network settings now render inside the connection
+                        // screen's right panel (see EnhancedConnectionSetup), matching
+                        // the design's slide-up-within-the-right-column behavior.
+                        // The verified chat renders its own in-chat header (SecureBit Chat
+                        // design); the shared header is shown only on the landing/setup view.
+                        (!isConnectedAndVerified && window.EnhancedMinimalHeader) && React.createElement(window.EnhancedMinimalHeader, {
                             key: 'header',
                             status: connectionStatus,
                             fingerprint: keyFingerprint,
@@ -4252,6 +4343,7 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                                         chatMessagesRef: chatMessagesRef,
                                         scrollToBottom: scrollToBottom,
                                         webrtcManager: webrtcManagerRef.current,
+                                        status: connectionStatus,
                                         pendingIncomingFiles: pendingIncomingFiles,
                                         onIncomingDecision: handleIncomingDecision,
                                         // Secure chat extras
@@ -4310,7 +4402,14 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                                     handleCreateOffer: handleCreateOffer,
                                     relayOnlyMode: relayOnlyMode,
                                     setRelayOnlyMode: setRelayOnlyMode,
-                                    webrtcManagerRef: webrtcManagerRef
+                                    webrtcManagerRef: webrtcManagerRef,
+                                    showIceSettings: showIceSettings,
+                                    setShowIceSettings: setShowIceSettings,
+                                    iceServersText: iceServersText,
+                                    iceSettingsPersisted: iceSettingsPersisted,
+                                    customIceServers: customIceServers,
+                                    handleApplyIceSettings: handleApplyIceSettings,
+                                    handleForgetIceSettings: handleForgetIceSettings
                                 })
                         ),
                         

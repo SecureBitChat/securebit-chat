@@ -218,31 +218,38 @@ class PWAOfflineManager {
     updateConnectionStatus(isOnline) {
         if (!this.offlineIndicator) return;
 
+        // Clean pill matching the app's design language (no emoji, no FontAwesome,
+        // proper SVG close wired via a real listener — the old inline onclick was
+        // blocked by the CSP anyway).
+        const PILL = "display:inline-flex; align-items:center; gap:10px; padding:9px 14px; border-radius:11px; background:#161618; box-shadow:0 12px 30px rgba(0,0,0,0.45); font-family:'Manrope',system-ui,-apple-system,sans-serif; font-size:13px; font-weight:600; color:#e8e8eb;";
+
         if (isOnline) {
-            this.offlineIndicator.innerHTML = `
-                <div class="pwa-online-indicator flex items-center space-x-2 bg-green-500/90 text-white px-4 py-2 rounded-full backdrop-blur-sm">
-                    <div class="w-2 h-2 bg-green-200 rounded-full animate-pulse"></div>
-                    <span class="text-sm font-medium">🌐 Back online</span>
-                </div>
-            `;
+            this.offlineIndicator.innerHTML =
+                `<div style="${PILL} border:1px solid rgba(62,207,142,0.3);">
+                    <span style="width:8px; height:8px; border-radius:50%; background:#3ecf8e; box-shadow:0 0 8px rgba(62,207,142,0.6);"></span>
+                    <span>Back online</span>
+                </div>`;
             this.offlineIndicator.classList.remove('hidden');
-            
-            // Hide after 3 seconds
+            // Auto-hide after 3 seconds.
             setTimeout(() => {
-                this.offlineIndicator.classList.add('hidden');
+                if (this.offlineIndicator) this.offlineIndicator.classList.add('hidden');
             }, 3000);
         } else {
-            this.offlineIndicator.innerHTML = `
-                <div class="pwa-offline-indicator flex items-center space-x-2 bg-red-500/90 text-white px-4 py-2 rounded-full backdrop-blur-sm">
-                    <div class="w-2 h-2 bg-red-200 rounded-full"></div>
-                    <span class="text-sm font-medium">📴 Offline mode</span>
-                    <button onclick="this.parentElement.parentElement.classList.add('hidden')" 
-                            class="ml-2 text-red-200 hover:text-white">
-                        <i class="fas fa-times text-xs"></i>
+            this.offlineIndicator.innerHTML =
+                `<div style="${PILL} border:1px solid rgba(227,179,65,0.32);">
+                    <span style="width:8px; height:8px; border-radius:50%; background:#e3b341;"></span>
+                    <span>Offline mode</span>
+                    <button class="oi-close" type="button" aria-label="Dismiss" style="margin-left:4px; width:22px; height:22px; padding:0; display:grid; place-items:center; border:none; background:transparent; color:#8a8a92; cursor:pointer; border-radius:6px; transition:color .15s ease;">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M6 6l12 12M18 6L6 18"/></svg>
                     </button>
-                </div>
-            `;
+                </div>`;
             this.offlineIndicator.classList.remove('hidden');
+            const closeBtn = this.offlineIndicator.querySelector('.oi-close');
+            if (closeBtn) {
+                closeBtn.addEventListener('mouseenter', () => { closeBtn.style.color = '#e8e8eb'; });
+                closeBtn.addEventListener('mouseleave', () => { closeBtn.style.color = '#8a8a92'; });
+                closeBtn.addEventListener('click', () => this.offlineIndicator.classList.add('hidden'));
+            }
         }
     }
 
@@ -285,63 +292,138 @@ class PWAOfflineManager {
             return;
         }
 
+        // Offline modal — translated from the Claude Design component
+        // (Offline Modal.dc.html). Two views (main + details) inside one card.
+        if (!document.getElementById('pwa-offline-modal-kf')) {
+            const style = document.createElement('style');
+            style.id = 'pwa-offline-modal-kf';
+            style.textContent =
+                '@keyframes omPop{from{opacity:0;transform:scale(.96) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}' +
+                '@keyframes omFade{from{opacity:0}to{opacity:1}}' +
+                '@keyframes omSwap{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:translateX(0)}}';
+            document.head.appendChild(style);
+        }
+
         const guidance = document.createElement('div');
-        guidance.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm';
-        guidance.innerHTML = `
-            <div class="bg-gray-800 rounded-xl p-6 max-w-md w-full text-center">
-                <div class="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i class="fas fa-wifi-slash text-red-400 text-2xl"></i>
+        guidance.id = 'pwa-offline-modal';
+        guidance.style.cssText = "position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; padding:24px; background:rgba(8,8,10,0.55); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); animation:omFade .3s ease; font-family:'Manrope',system-ui,-apple-system,sans-serif;";
+
+        const feature = (bg, bd, stroke, sw, icon, text) => `
+            <div style="display:flex; align-items:center; gap:13px;">
+                <span style="flex:none; width:34px; height:34px; border-radius:9px; display:grid; place-items:center; background:${bg}; border:1px solid ${bd};"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${icon}</svg></span>
+                <span style="font-size:14.5px; color:#e8e8eb;">${text}</span>
+            </div>`;
+
+        const card = (bg, bd, stroke, icon, title, desc) => `
+            <div style="display:flex; align-items:flex-start; gap:13px; padding:14px 16px; border-radius:13px; background:#161618; border:1px solid rgba(255,255,255,0.06);">
+                <span style="flex:none; width:36px; height:36px; border-radius:10px; display:grid; place-items:center; background:${bg}; border:1px solid ${bd};"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${icon}</svg></span>
+                <div><div style="font-size:14.5px; font-weight:700; color:#f4f4f6; margin-bottom:2px;">${title}</div><div style="font-size:13px; line-height:1.5; color:#8a8a92;">${desc}</div></div>
+            </div>`;
+
+        const GREEN_BG = 'rgba(62,207,142,0.12)', GREEN_BD = 'rgba(62,207,142,0.24)';
+        const ORANGE_BG = 'rgba(240,137,42,0.12)', ORANGE_BD = 'rgba(240,137,42,0.24)';
+
+        const mainHTML = `
+            <div style="animation:omSwap .26s cubic-bezier(.2,.7,.3,1);">
+                <div style="text-align:center; margin-bottom:22px;">
+                    <div style="display:inline-flex; width:64px; height:64px; border-radius:50%; align-items:center; justify-content:center; background:rgba(227,179,65,0.12); border:1px solid rgba(227,179,65,0.3); margin-bottom:18px;">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#e3b341" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.8a15 15 0 0 1 20 0"/><path d="M5 12.5a11 11 0 0 1 14 0"/><path d="M8.5 16.3a6 6 0 0 1 7 0"/><path d="M12 20h.01"/><path d="M2 2l20 20"/></svg>
+                    </div>
+                    <h3 style="margin:0 0 10px; font-size:24px; font-weight:800; letter-spacing:-0.6px; color:#f4f4f6;">Connection lost</h3>
+                    <p style="margin:0 auto; max-width:380px; font-size:14px; line-height:1.55; color:#9a9aa2;">SecureBit is now in offline mode. Some features are limited, but your data stays safe.</p>
                 </div>
-                <h3 class="text-xl font-semibold text-white mb-3">Connection Lost</h3>
-                <p class="text-gray-300 mb-4 text-sm leading-relaxed">
-                    SecureBit.chat is now in offline mode. Some features are limited, but your data is safe.
-                </p>
-                
-                <div class="space-y-3 text-left mb-6">
-                    <div class="flex items-center text-sm">
-                        <div class="w-6 h-6 bg-green-500/20 rounded flex items-center justify-center mr-3">
-                            <i class="fas fa-check text-green-400 text-xs"></i>
-                        </div>
-                        <span class="text-gray-300">Your session and keys are preserved</span>
-                    </div>
-                    <div class="flex items-center text-sm">
-                        <div class="w-6 h-6 bg-green-500/20 rounded flex items-center justify-center mr-3">
-                            <i class="fas fa-shield-alt text-green-400 text-xs"></i>
-                        </div>
-                        <span class="text-gray-300">No data is stored on servers</span>
-                    </div>
-                    <div class="flex items-center text-sm">
-                        <div class="w-6 h-6 bg-blue-500/20 rounded flex items-center justify-center mr-3">
-                            <i class="fas fa-sync-alt text-blue-400 text-xs"></i>
-                        </div>
-                        <span class="text-gray-300">Messages will sync when online</span>
-                    </div>
+                <div style="display:flex; flex-direction:column; gap:14px; margin-bottom:24px; padding:0 6px;">
+                    ${feature(GREEN_BG, GREEN_BD, '#3ecf8e', '2.3', '<path d="M5 13l4 4 10-11"/>', 'Your session and keys are preserved')}
+                    ${feature(GREEN_BG, GREEN_BD, '#3ecf8e', '1.9', '<path d="M12 3l8 4v5c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V7l8-4z"/>', 'No data is stored on servers')}
+                    ${feature(ORANGE_BG, ORANGE_BD, '#f0892a', '1.9', '<path d="M21 8a8.5 8.5 0 0 0-15.6-2.5M3 4v4h4"/><path d="M3 16a8.5 8.5 0 0 0 15.6 2.5M21 20v-4h-4"/>', 'Messages &amp; files sync when you reconnect')}
                 </div>
-                
-                <div class="flex space-x-3">
-                    <button onclick="this.parentElement.parentElement.remove()" 
-                            class="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-3 px-4 rounded-lg font-medium transition-colors">
-                        Continue Offline
+                <div style="display:flex; flex-direction:column; gap:11px;">
+                    <div style="display:flex; gap:12px;">
+                        <button class="om-continue" type="button" style="flex:1; padding:14px 18px; border-radius:13px; border:none; background:#f0892a; color:#1a0f04; font-family:inherit; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 8px 24px rgba(240,137,42,0.28); transition:all .2s cubic-bezier(.2,.7,.3,1);">Continue offline</button>
+                        <button class="om-disconnect" type="button" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:9px; padding:14px 18px; border-radius:13px; border:1px solid rgba(229,114,122,0.3); background:rgba(229,114,122,0.08); color:#e5727a; font-family:inherit; font-size:15px; font-weight:700; cursor:pointer; transition:all .2s cubic-bezier(.2,.7,.3,1);">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M12 4v8"/><path d="M7 7a8 8 0 1 0 10 0"/></svg>
+                            Disconnect
+                        </button>
+                    </div>
+                    <button class="om-learn" type="button" style="width:100%; display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:12px 18px; border-radius:13px; border:none; background:transparent; color:#9a9aa2; font-family:inherit; font-size:14px; font-weight:600; cursor:pointer; transition:color .18s cubic-bezier(.2,.7,.3,1);">
+                        Learn more
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
                     </button>
-                    <button onclick="window.pwaOfflineManager.showOfflineHelp(); this.parentElement.parentElement.parentElement.remove();" 
-                            class="flex-1 bg-gray-600 hover:bg-gray-500 text-white py-3 px-4 rounded-lg font-medium transition-colors">
-                        Learn More
-                    </button>
                 </div>
-            </div>
-        `;
-        
+            </div>`;
+
+        const detailsHTML = `
+            <div style="animation:omSwap .26s cubic-bezier(.2,.7,.3,1);">
+                <div style="display:flex; align-items:center; gap:12px; margin-bottom:18px;">
+                    <button class="om-back" type="button" title="Back" style="flex:none; width:34px; height:34px; border-radius:10px; display:grid; place-items:center; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.025); color:#cfcfd4; cursor:pointer; transition:all .18s cubic-bezier(.2,.7,.3,1);">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M15 6l-6 6 6 6"/></svg>
+                    </button>
+                    <h3 style="margin:0; font-size:20px; font-weight:800; letter-spacing:-0.5px; color:#f4f4f6;">When you reconnect</h3>
+                </div>
+                <p style="margin:0 0 20px; font-size:14px; line-height:1.6; color:#9a9aa2;">A dropped connection costs you nothing. SecureBit queues everything locally and resumes the encrypted session the instant you're back online.</p>
+                <div style="display:flex; flex-direction:column; gap:11px; margin-bottom:22px;">
+                    ${card(GREEN_BG, GREEN_BD, '#3ecf8e', '<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/>', 'Your messages get delivered', 'Everything you wrote while offline is sent to your contact automatically.')}
+                    ${card(GREEN_BG, GREEN_BD, '#3ecf8e', '<path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M12 18v-6M9.5 14.5L12 12l2.5 2.5"/>', 'Files finish transferring', 'Uploads resume from where they stopped — no need to resend.')}
+                    ${card(GREEN_BG, GREEN_BD, '#3ecf8e', '<path d="M12 3v12"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M5 20h14"/>', 'Their messages &amp; files arrive', 'Whatever your contact sent during the outage is delivered to you in order.')}
+                    ${card(ORANGE_BG, ORANGE_BD, '#f0892a', '<path d="M12 3l8 4v5c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V7l8-4z"/><path d="M9.2 12.2l2 2 3.6-3.8"/>', 'Nothing is lost', "After reconnect there's no gap — the conversation continues exactly where it paused.")}
+                </div>
+                <button class="om-gotit" type="button" style="width:100%; padding:14px 18px; border-radius:13px; border:none; background:#f0892a; color:#1a0f04; font-family:inherit; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 8px 24px rgba(240,137,42,0.28); transition:all .2s cubic-bezier(.2,.7,.3,1);">Got it</button>
+            </div>`;
+
+        const cardWrap = document.createElement('div');
+        cardWrap.style.cssText = "position:relative; z-index:2; width:470px; max-width:calc(100vw - 48px); border-radius:22px; background:#121214; border:1px solid rgba(255,255,255,0.08); padding:34px 30px 26px; box-shadow:0 30px 70px rgba(0,0,0,0.6); animation:omPop .32s cubic-bezier(.2,.7,.3,1);";
+        guidance.appendChild(cardWrap);
+
+        const hoverLift = (btn) => {
+            btn.addEventListener('mouseenter', () => { btn.style.background = '#ff9637'; btn.style.transform = 'translateY(-2px)'; });
+            btn.addEventListener('mouseleave', () => { btn.style.background = '#f0892a'; btn.style.transform = 'none'; });
+        };
+        const close = () => guidance.remove();
+
+        const renderMain = () => {
+            cardWrap.innerHTML = mainHTML;
+            const cont = cardWrap.querySelector('.om-continue');
+            hoverLift(cont);
+            cont.addEventListener('click', close);
+
+            const disc = cardWrap.querySelector('.om-disconnect');
+            disc.addEventListener('mouseenter', () => { disc.style.background = 'rgba(229,114,122,0.14)'; disc.style.borderColor = 'rgba(229,114,122,0.5)'; });
+            disc.addEventListener('mouseleave', () => { disc.style.background = 'rgba(229,114,122,0.08)'; disc.style.borderColor = 'rgba(229,114,122,0.3)'; });
+            disc.addEventListener('click', () => {
+                try {
+                    if (window.webrtcManager && typeof window.webrtcManager.disconnect === 'function') {
+                        window.webrtcManager.disconnect();
+                    }
+                } catch (e) { console.warn('Offline modal disconnect failed:', e); }
+                close();
+            });
+
+            const learn = cardWrap.querySelector('.om-learn');
+            learn.addEventListener('mouseenter', () => { learn.style.color = '#f0892a'; });
+            learn.addEventListener('mouseleave', () => { learn.style.color = '#9a9aa2'; });
+            learn.addEventListener('click', renderDetails);
+        };
+
+        const renderDetails = () => {
+            cardWrap.innerHTML = detailsHTML;
+            const back = cardWrap.querySelector('.om-back');
+            back.addEventListener('mouseenter', () => { back.style.color = '#f0892a'; back.style.borderColor = 'rgba(240,137,42,0.45)'; });
+            back.addEventListener('mouseleave', () => { back.style.color = '#cfcfd4'; back.style.borderColor = 'rgba(255,255,255,0.1)'; });
+            back.addEventListener('click', renderMain);
+
+            const gotit = cardWrap.querySelector('.om-gotit');
+            hoverLift(gotit);
+            gotit.addEventListener('click', renderMain);
+        };
+
+        renderMain();
+        // Click on the backdrop (outside the card) dismisses.
+        guidance.addEventListener('click', (e) => { if (e.target === guidance) close(); });
+
         document.body.appendChild(guidance);
-        
+
         // Save that we showed the guidance
         localStorage.setItem('offline_guidance_shown', Date.now().toString());
-        
-        // Auto-remove after 15 seconds
-        setTimeout(() => {
-            if (guidance.parentElement) {
-                guidance.remove();
-            }
-        }, 15000);
     }
 
     startReconnectionAttempts() {

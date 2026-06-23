@@ -64,7 +64,7 @@ async function testIceServers(servers, timeoutMs = 6000) {
     });
 }
 
-const IceServerSettings = ({ isOpen, onClose, initial, hasSaved, onApply, onForget }) => {
+const IceServerSettings = ({ isOpen, onClose, initial, hasSaved, onApply, onForget, embedded }) => {
     if (!isOpen) return null;
 
     const [useCustom, setUseCustom] = React.useState(initial?.useCustom || false);
@@ -104,159 +104,153 @@ const IceServerSettings = ({ isOpen, onClose, initial, hasSaved, onApply, onForg
         setPersist(false);
     };
 
-    const labelCls = 'block text-sm font-medium text-primary';
-    const descCls = 'block text-sm text-secondary';
+    // ── Design import: dark slide-up overlay (orange/green accents) ──────────
+    const h = React.createElement;
+    const C_ORANGE = '#f0892a';
+    const C_GREEN = '#3ecf8e';
+    const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
 
-    const children = [];
-
-    // Header
-    children.push(React.createElement('div', { key: 'header', className: 'flex items-center mb-4' }, [
-        React.createElement('div', {
-            key: 'icon',
-            className: 'w-10 h-10 bg-purple-500/10 border border-purple-500/20 rounded-lg flex items-center justify-center mr-3'
-        }, [React.createElement('i', { className: 'fas fa-network-wired accent-purple' })]),
-        React.createElement('h3', { key: 'title', className: 'text-lg font-medium text-primary' }, 'Advanced network settings')
-    ]));
-
-    // Explainer
-    children.push(React.createElement('p', { key: 'intro', className: 'text-sm text-secondary mb-4' },
-        'By default SecureBit uses public STUN servers. You can supply your own STUN/TURN servers — useful if you self-host a TURN relay and do not want to rely on public infrastructure. Servers are configured locally on your side only; you do not need to share them with your peer.'
-    ));
-
-    // Mode radios
-    children.push(React.createElement('div', { key: 'mode', className: 'space-y-2 mb-4' }, [
-        React.createElement('label', { key: 'public', className: 'flex items-start gap-3' }, [
-            React.createElement('input', {
-                key: 'r', type: 'radio', name: 'ice-mode', checked: !useCustom,
-                onChange: () => setUseCustom(false), className: 'mt-1'
-            }),
-            React.createElement('span', { key: 's' }, [
-                React.createElement('span', { key: 't', className: labelCls }, 'Public servers (default)'),
-                React.createElement('span', { key: 'd', className: descCls }, 'Zero-config. Good for most users.')
-            ])
-        ]),
-        React.createElement('label', { key: 'custom', className: 'flex items-start gap-3' }, [
-            React.createElement('input', {
-                key: 'r', type: 'radio', name: 'ice-mode', checked: useCustom,
-                onChange: () => setUseCustom(true), className: 'mt-1'
-            }),
-            React.createElement('span', { key: 's' }, [
-                React.createElement('span', { key: 't', className: labelCls }, 'My own STUN/TURN servers'),
-                React.createElement('span', { key: 'd', className: descCls }, `Up to ${ICE_LIMITS.MAX_SERVERS} servers.`)
-            ])
+    // radio card (public / own servers)
+    const radioCard = (selected, onClick, title, desc, extraStyle) => h('button', {
+        type: 'button', onClick,
+        style: Object.assign({
+            width: '100%', textAlign: 'left', display: 'flex', alignItems: 'flex-start', gap: '12px',
+            padding: '14px 15px', borderRadius: '13px',
+            border: `1px solid ${selected ? 'rgba(240,137,42,0.45)' : 'rgba(255,255,255,0.07)'}`,
+            background: selected ? 'rgba(240,137,42,0.06)' : '#141416',
+            color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', transition: 'all .15s', marginBottom: '10px'
+        }, extraStyle || {})
+    }, [
+        h('span', { key: 'ring', style: { flex: 'none', width: '18px', height: '18px', marginTop: '1px', borderRadius: '50%', border: `1.5px solid ${selected ? C_ORANGE : 'rgba(255,255,255,0.22)'}`, display: 'grid', placeItems: 'center' } },
+            h('span', { style: { width: '8px', height: '8px', borderRadius: '50%', background: selected ? C_ORANGE : 'transparent' } })),
+        h('span', { key: 'tx', style: { flex: 1 } }, [
+            h('span', { key: 't', style: { display: 'block', fontSize: '14px', fontWeight: 700, color: '#f4f4f6' } }, title),
+            h('span', { key: 'd', style: { display: 'block', fontSize: '12.5px', color: '#8a8a92', marginTop: '2px' } }, desc)
         ])
-    ]));
+    ]);
 
-    // Textarea + validation (only in custom mode)
+    // pill toggle row (relay / save)
+    const toggleRow = (on, onClick, title, desc, accent, badge) => h('button', {
+        type: 'button', onClick,
+        style: {
+            width: '100%', textAlign: 'left', display: 'flex', alignItems: 'flex-start', gap: '12px',
+            padding: '14px 15px', borderRadius: '13px',
+            border: `1px solid ${on ? 'rgba(62,207,142,0.3)' : 'rgba(255,255,255,0.07)'}`,
+            background: on ? 'rgba(62,207,142,0.05)' : '#141416',
+            color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', transition: 'all .15s', marginBottom: '10px'
+        }
+    }, [
+        h('span', { key: 'tx', style: { flex: 1 } }, [
+            h('span', { key: 'r1', style: { display: 'flex', alignItems: 'center', gap: '8px' } }, [
+                h('span', { key: 't', style: { fontSize: '14px', fontWeight: 700, color: '#f4f4f6' } }, title),
+                badge && h('span', { key: 'b', style: { fontSize: '10px', fontWeight: 700, color: C_GREEN, padding: '2px 7px', borderRadius: '5px', background: 'rgba(62,207,142,0.1)', border: '1px solid rgba(62,207,142,0.22)' } }, badge)
+            ]),
+            h('span', { key: 'd', style: { display: 'block', fontSize: '12.5px', lineHeight: 1.5, color: '#8a8a92', marginTop: '3px' } }, desc)
+        ]),
+        h('span', { key: 'tr', style: { flex: 'none', width: '42px', height: '24px', borderRadius: '99px', background: on ? (accent || C_GREEN) : 'rgba(255,255,255,0.08)', border: `1px solid ${on ? (accent || C_GREEN) : 'rgba(255,255,255,0.12)'}`, position: 'relative', transition: 'all .18s', marginTop: '1px' } },
+            h('span', { style: { position: 'absolute', top: '2px', left: '2px', width: '18px', height: '18px', borderRadius: '50%', background: '#fff', transform: on ? 'translateX(18px)' : 'translateX(0)', transition: 'transform .18s' } }))
+    ]);
+
+    // ── scrollable body ──
+    const body = [];
+    body.push(h('p', { key: 'intro', style: { margin: '0 0 18px', fontSize: '13.5px', lineHeight: 1.6, color: '#9a9aa2' } },
+        'SecureBit uses public STUN servers by default to negotiate the peer-to-peer link. Point it at your own STUN/TURN if you self-host.'));
+    body.push(radioCard(!useCustom, () => setUseCustom(false), 'Public servers (default)', 'Zero-config. Good for most users.'));
+    body.push(radioCard(useCustom, () => setUseCustom(true), 'My own STUN/TURN servers', `Up to ${ICE_LIMITS.MAX_SERVERS} servers.`, useCustom ? { marginBottom: '14px' } : null));
+
     if (useCustom) {
-        children.push(React.createElement('textarea', {
-            key: 'textarea',
-            value: serversText,
-            onChange: (e) => setServersText(e.target.value),
-            placeholder: PLACEHOLDER,
-            spellCheck: false,
-            autoComplete: 'off',
-            className: 'w-full h-36 mb-2 p-3 rounded-lg bg-black/30 border border-purple-500/20 text-sm text-primary font-mono'
-        }));
-
+        const custom = [];
+        custom.push(h('div', { key: 'ta', style: { borderRadius: '13px', border: '1px solid rgba(255,255,255,0.08)', background: '#0c0c0e', overflow: 'hidden', marginBottom: '12px' } },
+            h('textarea', {
+                value: serversText, onChange: (e) => setServersText(e.target.value), rows: 5, spellCheck: false, autoComplete: 'off',
+                placeholder: PLACEHOLDER,
+                style: { width: '100%', resize: 'vertical', border: 'none', outline: 'none', background: 'transparent', color: '#c9ccd8', fontFamily: MONO, fontSize: '12px', lineHeight: 1.65, padding: '13px 14px', minHeight: '104px' }
+            })));
         if (parsed.errors.length > 0) {
-            children.push(React.createElement('ul', { key: 'errors', className: 'mb-2 text-sm text-red-400 list-disc pl-5' },
-                parsed.errors.slice(0, 6).map((err, i) => React.createElement('li', { key: i }, err))
-            ));
+            custom.push(h('ul', { key: 'err', style: { margin: '0 0 10px', paddingLeft: '18px', color: '#e5727a', fontSize: '12.5px' } },
+                parsed.errors.slice(0, 6).map((err, i) => h('li', { key: i }, err))));
         }
         if (parsed.warnings.length > 0) {
-            children.push(React.createElement('ul', { key: 'warnings', className: 'mb-2 text-sm text-yellow-400 list-disc pl-5' },
-                parsed.warnings.slice(0, 6).map((w, i) => React.createElement('li', { key: i }, w))
-            ));
+            custom.push(h('ul', { key: 'warn', style: { margin: '0 0 10px', paddingLeft: '18px', color: '#e3c84e', fontSize: '12.5px' } },
+                parsed.warnings.slice(0, 6).map((w, i) => h('li', { key: i }, w))));
         }
         if (parsed.servers.length > 0 && parsed.errors.length === 0) {
-            children.push(React.createElement('p', { key: 'ok', className: 'mb-2 text-sm text-green-400' },
-                `${parsed.servers.length} server(s) parsed${hasTurn ? ' (TURN present)' : ' (STUN only — does not hide IP)'}.`
-            ));
+            custom.push(h('p', { key: 'ok', style: { margin: '0 0 10px', fontSize: '12.5px', color: C_GREEN } },
+                `${parsed.servers.length} server(s) parsed${hasTurn ? ' (TURN present)' : ' (STUN only — does not hide IP)'}.`));
         }
-
-        // Privacy disclaimer about third-party relays
-        children.push(React.createElement('p', { key: 'disclaimer', className: 'mb-3 text-xs text-secondary' },
-            'Privacy note: a TURN relay sees the IP addresses and traffic timing of both peers (never your message contents, which stay end-to-end encrypted). Only a TURN server you trust or self-host improves privacy — pointing this at a random public relay does not. Prefer turns: (TLS).'
-        ));
-
-        // Test button + result
-        children.push(React.createElement('div', { key: 'test', className: 'mb-3' }, [
-            React.createElement('button', {
-                key: 'btn',
-                type: 'button',
-                disabled: !canApply || testState === 'running',
-                onClick: handleTest,
-                className: 'px-3 py-2 text-sm rounded-lg border border-purple-500/30 text-primary disabled:opacity-50'
-            }, testState === 'running' ? 'Testing…' : 'Test servers'),
-            testState === 'done' && testResult ? React.createElement('span', {
-                key: 'res',
-                className: 'ml-3 text-sm ' + (testResult.error ? 'text-red-400' : 'text-secondary')
-            }, testResult.error
-                ? `Test failed: ${testResult.error}`
-                : (testResult.srflx > 0 || testResult.relay > 0)
-                    ? `STUN ${testResult.srflx > 0 ? 'OK' : 'none'} · TURN ${testResult.relay > 0 ? 'OK' : 'none'} · host ${testResult.host}`
-                    : `host ${testResult.host} · this browser (e.g. Safari) hides STUN/TURN candidates from the test — your servers are still applied to real connections`
+        custom.push(h('div', { key: 'note', style: { display: 'flex', alignItems: 'flex-start', gap: '9px', padding: '12px 13px', borderRadius: '11px', border: '1px solid rgba(62,207,142,0.18)', background: 'rgba(62,207,142,0.05)', marginBottom: '12px' } }, [
+            h('i', { key: 'i', className: 'fas fa-info-circle', style: { color: C_GREEN, fontSize: '13px', marginTop: '2px', flex: 'none' } }),
+            h('span', { key: 't', style: { fontSize: '12px', lineHeight: 1.55, color: '#a8b8ae' } }, [
+                'A TURN relay sees both peers’ IP and traffic timing — but never message contents, which stay end-to-end encrypted. Prefer ',
+                h('span', { key: 'm', style: { fontFamily: MONO, color: C_GREEN } }, 'turns:'), ' (TLS).'
+            ])
+        ]));
+        const testColor = testState === 'done' && testResult && !testResult.error ? C_GREEN : '#cfcfd4';
+        custom.push(h('div', { key: 'test', style: { display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '4px' } }, [
+            h('button', {
+                key: 'btn', type: 'button', disabled: !canApply || testState === 'running', onClick: handleTest,
+                style: { display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 15px', borderRadius: '10px', border: `1px solid ${testState === 'done' && testResult && !testResult.error ? 'rgba(62,207,142,0.4)' : 'rgba(255,255,255,0.1)'}`, background: testState === 'done' && testResult && !testResult.error ? 'rgba(62,207,142,0.08)' : 'rgba(255,255,255,0.04)', color: testColor, fontFamily: 'inherit', fontSize: '13px', fontWeight: 600, cursor: (!canApply || testState === 'running') ? 'not-allowed' : 'pointer', opacity: (!canApply || testState === 'running') ? 0.6 : 1 }
+            }, [
+                h('i', { key: 'i', className: testState === 'running' ? 'fas fa-circle-notch' : 'fas fa-play-circle', style: testState === 'running' ? { animation: 'sbSpin 1s linear infinite' } : null }),
+                testState === 'running' ? 'Testing…' : 'Test servers'
+            ]),
+            (testState === 'done' && testResult) ? h('span', { key: 'res', style: { fontSize: '12px', color: testResult.error ? '#e5727a' : '#8a8a92' } },
+                testResult.error
+                    ? `Test failed: ${testResult.error}`
+                    : (testResult.srflx > 0 || testResult.relay > 0)
+                        ? `STUN ${testResult.srflx > 0 ? 'OK' : 'none'} · TURN ${testResult.relay > 0 ? 'OK' : 'none'} · host ${testResult.host}`
+                        : `host ${testResult.host} · this browser hides STUN/TURN candidates from the test — your servers still apply to real connections`
             ) : null
         ]));
+        body.push(h('div', { key: 'custom', style: { marginBottom: '16px' } }, custom));
     }
 
-    // Relay-only privacy toggle
-    children.push(React.createElement('label', { key: 'relay', className: 'flex items-start gap-3 mb-3 rounded-lg border border-purple-500/20 bg-purple-500/10 p-3' }, [
-        React.createElement('input', {
-            key: 'i', type: 'checkbox', checked: relayOnly,
-            onChange: (e) => setRelayOnly(e.target.checked), className: 'mt-1'
-        }),
-        React.createElement('span', { key: 's' }, [
-            React.createElement('span', { key: 't', className: labelCls }, 'Relay-only mode (maximum privacy)'),
-            React.createElement('span', { key: 'd', className: descCls }, 'Routes all traffic through TURN so your IP is not exposed to the peer. Requires a TURN server; connections cannot start without one.')
-        ])
-    ]));
+    body.push(toggleRow(relayOnly, () => setRelayOnly(!relayOnly), 'Relay-only mode',
+        'Routes all traffic through TURN so your IP is never exposed to the peer. Requires a TURN server.', C_GREEN, 'MAX PRIVACY'));
     if (relayOnly && useCustom && !hasTurn) {
-        children.push(React.createElement('p', { key: 'relaywarn', className: 'mb-3 text-sm text-yellow-400' },
-            'Relay-only is enabled but no TURN server is configured. The connection will not be able to start.'
-        ));
+        body.push(h('p', { key: 'relaywarn', style: { margin: '-4px 0 10px', fontSize: '12.5px', color: '#e3c84e' } },
+            'Relay-only is enabled but no TURN server is configured. The connection will not be able to start.'));
     }
+    body.push(toggleRow(persist, () => setPersist(!persist), 'Save on this device',
+        'Stored encrypted in this browser. Leave off to use only for this session.', C_ORANGE));
 
-    // Save on device
-    children.push(React.createElement('label', { key: 'persist', className: 'flex items-start gap-3 mb-4' }, [
-        React.createElement('input', {
-            key: 'i', type: 'checkbox', checked: persist,
-            onChange: (e) => setPersist(e.target.checked), className: 'mt-1'
-        }),
-        React.createElement('span', { key: 's' }, [
-            React.createElement('span', { key: 't', className: labelCls }, 'Save on this device'),
-            React.createElement('span', { key: 'd', className: descCls }, 'Stored encrypted in this browser. Leave off to use only for this session.')
-        ])
+    // ── footer actions ──
+    const footerBtns = [];
+    if (hasSaved) {
+        footerBtns.push(h('button', { key: 'forget', type: 'button', onClick: handleForget,
+            style: { marginRight: 'auto', padding: '11px 18px', borderRadius: '11px', border: '1px solid rgba(229,114,122,0.3)', background: 'transparent', color: '#e5727a', fontFamily: 'inherit', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' } }, 'Forget saved'));
+    }
+    footerBtns.push(h('button', { key: 'cancel', type: 'button', onClick: onClose,
+        style: { padding: '11px 18px', borderRadius: '11px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#b3b3ba', fontFamily: 'inherit', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' } }, 'Cancel'));
+    footerBtns.push(h('button', { key: 'apply', type: 'button', onClick: handleApply, disabled: !canApply,
+        style: { display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '11px 20px', borderRadius: '11px', border: 'none', background: C_ORANGE, color: '#1a0f04', fontFamily: 'inherit', fontSize: '13.5px', fontWeight: 700, cursor: canApply ? 'pointer' : 'not-allowed', opacity: canApply ? 1 : 0.5, boxShadow: '0 6px 18px rgba(240,137,42,0.28)' } }, [
+        h('i', { key: 'i', className: 'fas fa-check' }), 'Apply'
     ]));
 
-    // Action buttons
-    const actions = [
-        React.createElement('button', {
-            key: 'cancel', type: 'button', onClick: onClose,
-            className: 'px-4 py-2 text-sm rounded-lg border border-white/10 text-secondary'
-        }, 'Cancel'),
-        React.createElement('button', {
-            key: 'apply', type: 'button', onClick: handleApply, disabled: !canApply,
-            className: 'px-4 py-2 text-sm rounded-lg bg-purple-500/20 border border-purple-500/30 text-primary disabled:opacity-50'
-        }, 'Apply')
-    ];
-    if (hasSaved) {
-        actions.unshift(React.createElement('button', {
-            key: 'forget', type: 'button', onClick: handleForget,
-            className: 'px-4 py-2 text-sm rounded-lg border border-red-500/30 text-red-400 mr-auto'
-        }, 'Forget saved'));
-    }
-    children.push(React.createElement('div', { key: 'actions', className: 'flex items-center gap-2 flex-wrap' }, actions));
+    // Embedded mode (default for the new design): fill the connection screen's
+    // right column and slide up over it. Fallback: a fixed right-side drawer.
+    const wrapperStyle = embedded
+        ? { position: 'absolute', inset: 0, zIndex: 30, display: 'flex', flexDirection: 'column', background: '#0f0f11', animation: 'sbSlideUp .32s cubic-bezier(.2,.7,.3,1)' }
+        : { position: 'fixed', inset: 0, zIndex: 60, display: 'flex', flexDirection: 'column', alignItems: 'stretch', background: '#0f0f11', animation: 'sbSlideUp .32s cubic-bezier(.2,.7,.3,1)' };
 
-    return React.createElement('div', {
-        className: 'fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4',
-        onClick: (e) => { if (e.target === e.currentTarget) onClose(); }
-    }, [
-        React.createElement('div', {
-            key: 'modal',
-            className: 'card-minimal rounded-xl p-6 max-w-lg w-full border-purple-500/20 max-h-[90vh] overflow-y-auto'
-        }, children)
+    return h('div', { className: 'sb-ice-overlay', style: wrapperStyle }, [
+        h(React.Fragment, { key: 'panel' }, [
+            // header
+            h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', gap: '12px', padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)' } }, [
+                h('div', { key: 'ic', style: { width: '38px', height: '38px', flex: 'none', display: 'grid', placeItems: 'center', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' } },
+                    h('i', { className: 'fas fa-sliders-h', style: { color: '#cfcfd4', fontSize: '15px' } })),
+                h('div', { key: 'tx', style: { flex: 1, lineHeight: 1.25 } }, [
+                    h('div', { key: 't', style: { fontSize: '16.5px', fontWeight: 800, letterSpacing: '-0.3px', color: '#f4f4f6' } }, 'Network settings'),
+                    h('div', { key: 's', style: { fontSize: '12px', color: '#7b7b83' } }, 'Configured locally — never shared with your peer')
+                ]),
+                h('button', { key: 'x', type: 'button', onClick: onClose, style: { width: '32px', height: '32px', flex: 'none', display: 'grid', placeItems: 'center', borderRadius: '9px', border: 'none', background: 'rgba(255,255,255,0.04)', color: '#8a8a92', cursor: 'pointer' } },
+                    h('i', { className: 'fas fa-times' }))
+            ]),
+            // scroll body
+            h('div', { key: 'body', className: 'custom-scrollbar', style: { flex: 1, overflowY: 'auto', padding: '20px 24px' } }, body),
+            // footer
+            h('div', { key: 'foot', style: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.06)', background: '#0e0e10', borderRadius: '0' } }, footerBtns)
+        ])
     ]);
 };
 

@@ -1,6 +1,36 @@
-# SecureBit.chat v4.8.20
+<div align="center">
+
+<img src="logo/securebit-logo.png" width="120" alt="SecureBit.chat" />
+
+# SecureBit.chat
+
+**End-to-end encrypted, peer-to-peer chat — fully redesigned in v4.9.0**
+
+ECDH P-384 · AES-256-GCM · DTLS · SAS verification · no accounts, no servers
+
+</div>
 
 SecureBit.chat is a browser-based peer-to-peer chat application built on WebRTC and Web Crypto APIs. It is designed for direct encrypted communication, explicit peer verification, and a small operational footprint without account registration or server-side message storage.
+
+## Screenshots
+
+**Open a secure channel**
+
+![SecureBit.chat — open a channel](assets/screenshots/login.png)
+
+**Encrypted conversation**
+
+![SecureBit.chat — encrypted chat](assets/screenshots/chat.png)
+
+## What's new in v4.9.0 — full redesign
+
+A ground-up visual redesign of the entire surface — landing page, connection setup, in-chat header, security verification report, file transfer, and the PWA install / update / offline dialogs — together with a reworked offline experience and WhatsApp-style delivery status.
+
+**Offline mode, reworked.** SecureBit now does proper store-and-forward over the live P2P channel:
+
+- Sending while offline shows a single ✓ and **queues** the message; it transmits automatically once you reconnect, keeping its original send time.
+- A message addressed to an **offline peer** stays at one check until they come back — their client holds it back (not shown, not acknowledged) and surfaces it on reconnect with a "Connection restored" notice.
+- **Delivery status on every message:** sending → ✓ sent → ✓✓ delivered (peer-acknowledged), with a clear "not sent" state — and offline status no longer leaks into the connection indicator.
 
 ## Security model
 

@@ -73,6 +73,8 @@ class EnhancedSecureWebRTCManager {
 
         // Per-message control (unsend / disappearing sync)
         MESSAGE_DELETE: 'message_delete',
+        // Delivery receipt: recipient acks a chat message by id (WhatsApp ✓✓).
+        MESSAGE_RECEIPT: 'message_receipt',
 
         // System messages
         HEARTBEAT: 'heartbeat',
@@ -3203,9 +3205,24 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             this._secureMemoryManager.isCleaning = true;
             
             //   Clean up sensitive data, but DO NOT wipe active crypto in ratchet session
-            const shouldPreserveActiveKeys = (this.sessionMode === 'ratchet') && this.isConnected && this.dataChannel && this.dataChannel.readyState === 'open';
+            const preserveActiveRatchet = (this.sessionMode === 'ratchet') && this.isConnected && this.dataChannel && this.dataChannel.readyState === 'open';
+            // DO NOT wipe an offer that is still awaiting its answer: the creator
+            // holds a pending offer context (with the session salt) until the peer's
+            // response is applied. Wiping it here drops sessionSalt + the context and
+            // makes handleSecureAnswer fail with "Missing pending offer context".
+            // Keep it for as long as the offer itself is valid (OFFER_MAX_AGE).
+            const pendingOfferAgeMs = this._pendingOfferContext
+                ? (Date.now() - (this._pendingOfferContext.createdAt || 0))
+                : Infinity;
+            const hasPendingOffer = !!this._pendingOfferContext
+                && Array.isArray(this._pendingOfferContext.sessionSalt)
+                && this._pendingOfferContext.sessionSalt.length === 64
+                && pendingOfferAgeMs < EnhancedSecureWebRTCManager.LIMITS.OFFER_MAX_AGE;
+            const shouldPreserveActiveKeys = preserveActiveRatchet || hasPendingOffer;
             if (shouldPreserveActiveKeys) {
-                this._secureLog('debug', '🧹 Skipping crypto key wipe during periodic cleanup (ratchet mode, active connection)');
+                this._secureLog('debug', '🧹 Skipping crypto key wipe during periodic cleanup', {
+                    reason: preserveActiveRatchet ? 'active ratchet connection' : 'offer awaiting answer'
+                });
             } else {
                 this._secureCleanupCryptographicMaterials();
             }
@@ -6491,6 +6508,21 @@ async processOrderedPackets() {
         });
     }
 
+    /**
+     * Delivery receipt: tell the sender we received a chat message (by id), so
+     * their bubble can flip from "sent" (✓) to "delivered" (✓✓). Best-effort,
+     * over the same authenticated control channel as unsend.
+     * @param {string} messageId
+     * @returns {boolean}
+     */
+    sendDeliveryReceipt(messageId) {
+        if (typeof messageId !== 'string' || !messageId) return false;
+        return this.sendSystemMessage({
+            type: EnhancedSecureWebRTCManager.MESSAGE_TYPES.MESSAGE_RECEIPT,
+            messageId: messageId.slice(0, 64)
+        });
+    }
+
     async sendMessage(data, meta = null) {
         //   Comprehensive input validation
         const validation = this._validateInputData(data, 'sendMessage');
@@ -6808,7 +6840,16 @@ async processMessage(data) {
                     }
                     return;
                 }
-                
+
+                // Delivery receipt from the peer → flip our bubble to "delivered".
+                if (parsed.type === EnhancedSecureWebRTCManager.MESSAGE_TYPES.MESSAGE_RECEIPT) {
+                    const messageId = parsed?.data?.messageId ?? parsed?.messageId;
+                    if (typeof messageId === 'string' && messageId) {
+                        try { this.onMessageDelivered?.(messageId.slice(0, 64)); } catch (_) {}
+                    }
+                    return;
+                }
+
                 // ============================================
                 // SYSTEM MESSAGES (WITHOUT MUTEX)
                 // ============================================
@@ -7857,6 +7898,15 @@ async processMessage(data) {
                             const messageId = parsed?.data?.messageId ?? parsed?.messageId;
                             if (typeof messageId === 'string' && messageId) {
                                 try { this.onMessageDelete?.(messageId.slice(0, 64)); } catch (_) {}
+                            }
+                            return;
+                        }
+
+                        // Delivery receipt from the peer → mark our message "delivered".
+                        if (parsed.type === EnhancedSecureWebRTCManager.MESSAGE_TYPES.MESSAGE_RECEIPT) {
+                            const messageId = parsed?.data?.messageId ?? parsed?.messageId;
+                            if (typeof messageId === 'string' && messageId) {
+                                try { this.onMessageDelivered?.(messageId.slice(0, 64)); } catch (_) {}
                             }
                             return;
                         }

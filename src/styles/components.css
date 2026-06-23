@@ -733,3 +733,52 @@ button i {
         left: 250px; /* Move past button width (200px + buffer) */
     }
 }
+/* ============================================================
+   SecureBit Chat — redesigned chat surface (v4.8.21)
+   ============================================================ */
+.sb-scroll { scrollbar-gutter: auto; }
+.sb-scroll::-webkit-scrollbar { width: 9px; }
+.sb-scroll::-webkit-scrollbar-track { background: transparent; }
+.sb-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.07);
+    border-radius: 99px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+.sb-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.13);
+    background-clip: padding-box;
+}
+.sb-textarea::placeholder { color: #56565e; }
+.sb-chip:hover { border-color: rgba(255,255,255,0.16) !important; color: #e8e8eb !important; }
+.sb-send:hover:not(:disabled) { filter: brightness(1.06); }
+.sb-unsend:hover { color: #e5727a !important; }
+.sb-link:hover { color: #e8e8eb !important; }
+.sb-disconnect:hover { border-color: rgba(229,114,122,0.4) !important; color: #e5727a !important; background: rgba(229,114,122,0.06) !important; }
+@media (max-width: 560px) { .sb-hide-sm { display: none; } }
+.sb-secpill:hover { border-color: rgba(255,255,255,0.16) !important; background: rgba(255,255,255,0.05) !important; }
+
+/* ── Start Secure — new connection screen (design import) ───────────────── */
+@keyframes sbFlowR { 0% { left: 4%; opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 100% { left: 96%; opacity: 0; } }
+@keyframes sbFlowL { 0% { left: 96%; opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 100% { left: 4%; opacity: 0; } }
+@keyframes sbPulse { 0%,100% { transform: translate(-50%,-50%) scale(1); opacity: 0.5; } 50% { transform: translate(-50%,-50%) scale(1.5); opacity: 0; } }
+@keyframes sbSpin { to { transform: rotate(360deg); } }
+@keyframes sbUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes sbNode { 0%,100% { box-shadow: 0 0 0 0 rgba(62,207,142,0.0); } 50% { box-shadow: 0 0 0 6px rgba(62,207,142,0.06); } }
+@keyframes sbSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.sb-start textarea::placeholder, .sb-start input::placeholder { color: #56565e; }
+.sb-start .sb-sc::-webkit-scrollbar { width: 8px; }
+.sb-start .sb-sc::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 99px; }
+.sb-seg-btn { transition: color .2s; }
+.sb-soft-btn { transition: all .15s; }
+.sb-soft-btn:hover { border-color: rgba(255,255,255,0.18) !important; color: #e8e8eb !important; }
+.sb-scan-btn:hover { border-color: rgba(62,207,142,0.5) !important; background: rgba(62,207,142,0.1) !important; }
+.sb-gen-btn:hover { background: #ff9637 !important; }
+.sb-start-card { transition: transform .26s cubic-bezier(.3,.8,.3,1); }
+@media (max-width: 900px) { .sb-start-left { border-right: none !important; } }
+@media (max-width: 560px) { .sb-start-left { padding: 30px 22px !important; } }
+/* PWA install pill belongs to the landing page only — hide it inside the chat. */
+body.sb-in-chat #pwa-install-button { display: none !important; }
+/* The new design spaces icons with flex gap, not icon margins — neutralise the
+   global `button i { margin-right: .5rem }` so icons stay centered in their tiles. */
+.sb-start button i, .sb-ice-overlay button i { margin-right: 0; vertical-align: baseline; }

@@ -135,147 +135,98 @@ const UpdateChecker = ({ children, onUpdateAvailable, debug = false }) => {
         return version;
     };
     
+    const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+    const SANS = "'Manrope', system-ui, -apple-system, sans-serif";
+
+    // Update modal — translated from the Claude Design component
+    // (Update Notification.dc.html). Styling is inline so it tracks the design.
     return React.createElement(React.Fragment, null, [
         // Main application content
         children,
-        
-        // Update modal window
+
         updateState.showModal && React.createElement('div', {
             key: 'update-modal',
-            className: 'fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm',
             style: {
-                animation: 'fadeIn 0.3s ease-in-out'
+                position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '24px', background: 'rgba(8,8,10,0.55)', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)',
+                animation: 'unFade .3s ease', fontFamily: SANS
             }
         }, [
+            React.createElement('style', { key: 'kf', dangerouslySetInnerHTML: { __html:
+                '@keyframes unPop{from{opacity:0;transform:scale(.96) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}' +
+                '@keyframes unFade{from{opacity:0}to{opacity:1}}' +
+                '@keyframes unSpin{to{transform:rotate(360deg)}}'
+            } }),
+
             React.createElement('div', {
-                key: 'modal-content',
-                className: 'bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 border border-gray-200 dark:border-gray-700',
+                key: 'card',
                 style: {
-                    animation: 'slideUp 0.3s ease-out'
+                    position: 'relative', width: '440px', maxWidth: 'calc(100vw - 48px)', borderRadius: '22px',
+                    background: '#121214', border: '1px solid rgba(255,255,255,0.08)', padding: '36px 32px 28px',
+                    textAlign: 'center', boxShadow: '0 30px 70px rgba(0,0,0,0.6)', animation: 'unPop .32s cubic-bezier(.2,.7,.3,1)'
                 }
             }, [
-                // Header
+                // spinning update icon
                 React.createElement('div', {
-                    key: 'header',
-                    className: 'text-center mb-6'
-                }, [
-                    React.createElement('div', {
-                        key: 'icon',
-                        className: 'w-16 h-16 mx-auto mb-4 bg-blue-500/10 rounded-full flex items-center justify-center'
-                    }, [
-                        React.createElement('i', {
-                            key: 'icon-fa',
-                            className: 'fas fa-sync-alt text-blue-500 text-2xl animate-spin'
-                        })
-                    ]),
-                    React.createElement('h2', {
-                        key: 'title',
-                        className: 'text-2xl font-bold text-gray-900 dark:text-white mb-2'
-                    }, 'Update Available'),
-                    React.createElement('p', {
-                        key: 'subtitle',
-                        className: 'text-gray-600 dark:text-gray-300 text-sm'
-                    }, 'A new version of the application has been detected')
-                ]),
-                
-                // Version information
+                    key: 'icon',
+                    style: { display: 'inline-flex', width: '64px', height: '64px', borderRadius: '50%', alignItems: 'center', justifyContent: 'center', background: 'rgba(240,137,42,0.12)', border: '1px solid rgba(240,137,42,0.3)', marginBottom: '20px' }
+                }, React.createElement('svg', {
+                    width: 28, height: 28, viewBox: '0 0 24 24', fill: 'none', stroke: '#f0892a', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round',
+                    style: { animation: 'unSpin 6s linear infinite' },
+                    dangerouslySetInnerHTML: { __html: '<path d="M21 8a8.5 8.5 0 0 0-15.6-2.5M3 4v4h4"/><path d="M3 16a8.5 8.5 0 0 0 15.6 2.5M21 20v-4h-4"/>' }
+                })),
+
+                React.createElement('h2', { key: 'title', style: { margin: '0 0 9px', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.7px', color: '#f4f4f6' } }, 'Update available'),
+                React.createElement('p', { key: 'sub', style: { margin: '0 0 24px', fontSize: '14.5px', lineHeight: 1.55, color: '#9a9aa2' } }, 'A newer version of SecureBit has been detected.'),
+
+                // version comparison
                 React.createElement('div', {
-                    key: 'version-info',
-                    className: 'bg-gray-50 dark:bg-gray-900 rounded-lg p-4 mb-6 space-y-2'
+                    key: 'vbox',
+                    style: { borderRadius: '14px', background: '#0c0c0e', border: '1px solid rgba(255,255,255,0.06)', padding: '16px 18px', marginBottom: '24px', textAlign: 'left' }
                 }, [
-                    React.createElement('div', {
-                        key: 'current',
-                        className: 'flex justify-between items-center'
-                    }, [
-                        React.createElement('span', {
-                            key: 'current-label',
-                            className: 'text-sm text-gray-600 dark:text-gray-400'
-                        }, 'Current version:'),
-                        React.createElement('span', {
-                            key: 'current-value',
-                            className: 'text-sm font-mono text-gray-900 dark:text-white'
-                        }, formatVersion(updateState.currentVersion))
+                    React.createElement('div', { key: 'cur', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', padding: '5px 0' } }, [
+                        React.createElement('span', { key: 'l', style: { fontSize: '13.5px', fontWeight: 500, color: '#8a8a92' } }, 'Current version'),
+                        React.createElement('span', { key: 'v', style: { fontFamily: MONO, fontSize: '13px', fontWeight: 500, color: '#9a9aa2', whiteSpace: 'nowrap' } }, formatVersion(updateState.currentVersion))
                     ]),
-                    React.createElement('div', {
-                        key: 'new',
-                        className: 'flex justify-between items-center'
-                    }, [
-                        React.createElement('span', {
-                            key: 'new-label',
-                            className: 'text-sm text-gray-600 dark:text-gray-400'
-                        }, 'New version:'),
-                        React.createElement('span', {
-                            key: 'new-value',
-                            className: 'text-sm font-mono text-blue-600 dark:text-blue-400 font-semibold'
-                        }, formatVersion(updateState.newVersion))
+                    React.createElement('div', { key: 'sep', style: { height: '1px', background: 'rgba(255,255,255,0.05)', margin: '4px 0' } }),
+                    React.createElement('div', { key: 'new', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', padding: '5px 0' } }, [
+                        React.createElement('span', { key: 'l', style: { display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13.5px', fontWeight: 600, color: '#e8e8eb' } }, [
+                            React.createElement('span', { key: 'd', style: { width: '6px', height: '6px', borderRadius: '50%', background: '#f0892a' } }),
+                            'New version'
+                        ]),
+                        React.createElement('span', { key: 'v', style: { fontFamily: MONO, fontSize: '13px', fontWeight: 700, color: '#f0892a', whiteSpace: 'nowrap' } }, formatVersion(updateState.newVersion))
                     ])
                 ]),
-                
-                // Update progress
-                updateState.isUpdating && React.createElement('div', {
-                    key: 'progress',
-                    className: 'mb-6'
-                }, [
-                    React.createElement('div', {
-                        key: 'progress-bar',
-                        className: 'w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mb-2'
-                    }, [
+
+                // progress while updating, otherwise the action buttons
+                updateState.isUpdating
+                    ? React.createElement('div', { key: 'progress' }, [
                         React.createElement('div', {
-                            key: 'progress-fill',
-                            className: 'bg-blue-500 h-2.5 rounded-full transition-all duration-300',
-                            style: {
-                                width: `${updateState.progress}%`
-                            }
-                        })
-                    ]),
-                    React.createElement('p', {
-                        key: 'progress-text',
-                        className: 'text-center text-sm text-gray-600 dark:text-gray-400'
-                    }, `${updateState.progress}%`)
-                ]),
-                
-                // Action buttons
-                !updateState.isUpdating && React.createElement('div', {
-                    key: 'actions',
-                    className: 'flex gap-3'
-                }, [
-                    React.createElement('button', {
-                        key: 'update-btn',
-                        onClick: handleForceUpdate,
-                        className: 'flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2',
-                        disabled: updateState.isUpdating
-                    }, [
-                        React.createElement('i', {
-                            key: 'update-icon',
-                            className: 'fas fa-download'
-                        }),
-                        React.createElement('span', {
-                            key: 'update-text'
-                        }, 'Update Now')
-                    ]),
-                    React.createElement('button', {
-                        key: 'close-btn',
-                        onClick: handleCloseModal,
-                        className: 'px-4 py-3 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors duration-200',
-                        disabled: updateState.isUpdating
-                    }, [
-                        React.createElement('i', {
-                            key: 'close-icon',
-                            className: 'fas fa-times'
-                        })
+                            key: 'bar',
+                            style: { width: '100%', height: '8px', borderRadius: '99px', background: '#0c0c0e', border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden', marginBottom: '10px' }
+                        }, React.createElement('div', { key: 'fill', style: { height: '100%', width: `${updateState.progress}%`, background: 'linear-gradient(90deg,#3ecf8e,#f0892a)', transition: 'width .3s ease' } })),
+                        React.createElement('p', { key: 't', style: { margin: 0, fontFamily: MONO, fontSize: '12px', color: '#8a8a92' } }, `Updating… ${updateState.progress}%`)
                     ])
-                ]),
-                
-                // Update indicator
-                updateState.isUpdating && React.createElement('div', {
-                    key: 'updating',
-                    className: 'text-center'
-                }, [
-                    React.createElement('p', {
-                        key: 'updating-text',
-                        className: 'text-sm text-gray-600 dark:text-gray-400'
-                    }, 'Update in progress...')
-                ])
+                    : React.createElement('div', { key: 'actions', style: { display: 'flex', alignItems: 'center', gap: '12px' } }, [
+                        React.createElement('button', {
+                            key: 'update',
+                            onClick: handleForceUpdate,
+                            style: { flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '15px 20px', borderRadius: '13px', border: 'none', background: '#f0892a', color: '#1a0f04', fontFamily: 'inherit', fontSize: '15.5px', fontWeight: 700, letterSpacing: '-0.2px', cursor: 'pointer', boxShadow: '0 8px 24px rgba(240,137,42,0.28)', transition: 'all .2s cubic-bezier(.2,.7,.3,1)' },
+                            onMouseEnter: (e) => { e.currentTarget.style.background = '#ff9637'; e.currentTarget.style.transform = 'translateY(-2px)'; },
+                            onMouseLeave: (e) => { e.currentTarget.style.background = '#f0892a'; e.currentTarget.style.transform = 'none'; }
+                        }, [
+                            React.createElement('svg', { key: 'i', width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.1, strokeLinecap: 'round', strokeLinejoin: 'round', dangerouslySetInnerHTML: { __html: '<path d="M12 3v11"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M5 20h14"/>' } }),
+                            'Update now'
+                        ]),
+                        React.createElement('button', {
+                            key: 'later',
+                            onClick: handleCloseModal,
+                            title: 'Later',
+                            style: { flex: 'none', width: '50px', height: '50px', borderRadius: '13px', display: 'grid', placeItems: 'center', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.025)', color: '#9a9aa2', cursor: 'pointer', transition: 'all .18s cubic-bezier(.2,.7,.3,1)' },
+                            onMouseEnter: (e) => { e.currentTarget.style.color = '#e5727a'; e.currentTarget.style.borderColor = 'rgba(229,114,122,0.4)'; },
+                            onMouseLeave: (e) => { e.currentTarget.style.color = '#9a9aa2'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }
+                        }, React.createElement('svg', { width: 17, height: 17, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.1, strokeLinecap: 'round', strokeLinejoin: 'round', dangerouslySetInnerHTML: { __html: '<path d="M6 6l12 12M18 6L6 18"/>' } }))
+                    ])
             ])
         ])
     ]);

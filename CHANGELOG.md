@@ -1,5 +1,31 @@
 # Changelog
 
+## v4.9.0 — Full redesign + reworked offline mode
+
+A ground-up visual redesign of the whole application surface — landing page, "Why unique" / partners / roadmap / community sections, connection setup, in-chat header, real-time security verification report, file transfer, and the PWA install / update / offline / install-guide dialogs.
+
+Offline experience reworked with store-and-forward over the live P2P channel:
+
+- Messages sent while offline are queued (single ✓) and transmitted on reconnect, preserving their original send time.
+- Messages to an offline peer stay at one check until that peer returns; the offline client holds them back and surfaces them on reconnect with a notice.
+- WhatsApp-style per-message delivery status (sending → sent → delivered, plus a "not sent" state) via an authenticated delivery-receipt control message.
+- Browser offline state no longer leaks into the P2P connection indicator.
+
+Resilient file transfer: per-chunk segmented progress, receiver-driven retransmission of missing chunks with auto-resume after a connection blip, corrected receive rate limits, and automatic save on completion.
+
+## v4.8.21 — Redesigned chat surface
+
+A full visual refresh of the connected chat experience, ported from the SecureBit Chat design. No protocol, crypto or message-handling changes — only the presentation layer of the chat screen.
+
+### Changed
+
+- **Message bubbles** redesigned: tighter dark surface (`#0f0f11` canvas, `#26262b` sent / `#161618` received), asymmetric corner radii, monospace timestamps, and a compact per-message status row showing **Encrypted** / **Decrypted** with a lock glyph.
+- **View-once** now uses a Telegram-style blurred cover with an SVG grain overlay and a centered "View once · tap to reveal" prompt; after reveal it shows a "Viewed once" tag and still burns after the sender-chosen window.
+- **Disappearing timers** render a live `mm:ss` countdown in the message meta in brand orange.
+- **Composer** rebuilt: inline `Send files` / `Code` / `View once` / `Timer` chips with active states, inline time-picker rows (view-once: Off/5s/10s/30s/1m, timer: Off/5s/30s/1m/1h/24h), an auto-growing message field, an "Encrypted on your device" affordance, a live character counter, and an orange send button.
+- **Handshake summary** card at the top of a verified chat (collapsible): transport / cipher / key-exchange / integrity facts plus the safety number (key fingerprint).
+- Fonts are mapped to the self-hosted **Inter** + system monospace stack rather than loading Google Fonts, preserving the look without an external request from a privacy-focused client.
+
 ## v4.8.20 — Secure chat tools: completed, fixed and polished
 
 Completes the messaging controls introduced in v4.8.14 and fixes the bug that made them appear broken for recipients. All per-message options travel inside the encrypted message envelope (never in the sanitized text), so message content cannot spoof or corrupt them.
