@@ -36,7 +36,7 @@ It is designed for people who need a small, auditable, zero-infrastructure way t
 - Interactive **Short Authentication String (SAS)** verification — you confirm a code out-of-band before the session is trusted, defeating man-in-the-middle attacks.
 - Replay protection, message integrity (HMAC), and a live security report you can open at any time during a call.
 
-**🕶️ Privacy by design**
+** Privacy by design**
 - Direct peer-to-peer connection — messages never touch a SecureBit server.
 - No accounts, no phone numbers, no message history on disk.
 - Optional **relay-only mode** routes traffic through your own TURN server so your IP is never exposed to the peer.
