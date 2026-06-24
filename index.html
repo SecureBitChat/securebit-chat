@@ -23,7 +23,7 @@
 
     <!-- PWA Manifest -->
 <link rel="manifest" href="./manifest.json">
-<link rel="icon" type="image/x-icon" href="./logo/favicon.ico?v=1782329449554">
+<link rel="icon" type="image/x-icon" href="./logo/favicon.ico?v=1782331061287">
 
 <!-- PWA Meta Tags -->
 <meta name="mobile-web-app-capable" content="yes">
@@ -89,7 +89,7 @@
     <link rel="apple-touch-startup-image" media="screen and (device-width: 744px) and (device-height: 1133px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="./logo/splash/splash_screens/8.3__iPad_Mini_portrait.png">
     
 <!-- Apple Touch Icons -->
-<link rel="apple-touch-icon" href="./logo/icon-180x180.png?v=1782329449554">
+<link rel="apple-touch-icon" href="./logo/icon-180x180.png?v=1782331061287">
 <link rel="apple-touch-icon" sizes="57x57" href="./logo/icon-57x57.png">
 <link rel="apple-touch-icon" sizes="60x60" href="./logo/icon-60x60.png">
 <link rel="apple-touch-icon" sizes="72x72" href="./logo/icon-72x72.png">
@@ -98,7 +98,7 @@
 <link rel="apple-touch-icon" sizes="120x120" href="./logo/icon-120x120.png">
 <link rel="apple-touch-icon" sizes="144x144" href="./logo/icon-144x144.png">
 <link rel="apple-touch-icon" sizes="152x152" href="./logo/icon-152x152.png">
-<link rel="apple-touch-icon" sizes="180x180" href="./logo/icon-180x180.png?v=1782329449554">
+<link rel="apple-touch-icon" sizes="180x180" href="./logo/icon-180x180.png?v=1782331061287">
 
 <!-- Microsoft Tiles -->
 <meta name="msapplication-TileColor" content="#ff6b35">
@@ -112,54 +112,61 @@
 <!-- Security Headers for PWA - CSP is already defined above -->
 
 
-    <!-- GitHub Pages SEO -->
-    <meta name="description" content="SecureBit.chat v4.9.0 — P2P messenger with ECDH + DTLS + SAS security and 18-layer military-grade cryptography">
-    <meta name="keywords" content="P2P messenger, ECDH, DTLS, SAS, encryption, WebRTC, privacy, ASN.1 validation, military-grade security, 18-layer defense, MITM protection, PFS">
+    <!-- SEO -->
+    <meta name="description" content="End-to-end encrypted, peer-to-peer chat that runs entirely in your browser. No accounts, no servers storing your messages — ECDH P-384, AES-256-GCM and in-person SAS verification.">
+    <meta name="keywords" content="P2P messenger, end-to-end encryption, ECDH, DTLS, SAS, WebRTC, privacy, secure chat, no servers, MITM protection, PFS">
     <meta name="author" content="Volodymyr">
-    <link rel="canonical" href="https://github.com/SecureBitChat/securebit-chat/">
-    
+    <link rel="canonical" href="https://securebit.chat/">
+
     <!-- Open Graph -->
-    <meta property="og:title" content="SecureBit.chat - Enhanced Security Edition">
-    <meta property="og:description" content="The most secure P2P messenger with military-grade cryptography">
-    <meta property="og:url" content="https://github.com/SecureBitChat/securebit-chat/">
+    <meta property="og:site_name" content="SecureBit.chat">
+    <meta property="og:title" content="SecureBit.chat — end-to-end encrypted, peer-to-peer chat">
+    <meta property="og:description" content="A secure messenger that runs entirely in your browser. No accounts, no servers storing your messages. Bring your own STUN/TURN servers — we don't impose anything.">
+    <meta property="og:url" content="https://securebit.chat/">
     <meta property="og:type" content="website">
-    <meta property="og:image" content="https://github.com/SecureBitChat/securebit-chat/favicon.ico">
-    
+    <meta property="og:image" content="https://securebit.chat/assets/og-image.png">
+    <meta property="og:image:secure_url" content="https://securebit.chat/assets/og-image.png">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="SecureBit.chat — end-to-end encrypted, peer-to-peer chat">
+
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="SecureBit.chat - Enhanced Security Edition">
-    <meta name="twitter:description" content="P2P messenger with military-grade cryptography">
+    <meta name="twitter:title" content="SecureBit.chat — end-to-end encrypted, peer-to-peer chat">
+    <meta name="twitter:description" content="A secure messenger that runs entirely in your browser. No accounts, no servers storing your messages.">
+    <meta name="twitter:image" content="https://securebit.chat/assets/og-image.png">
 
     <title>SecureBit.chat - Enhanced Security Edition</title>
     <script src="config/ice-servers.js"></script>
     <script src="libs/react/react.production.min.js"></script>
     <script src="libs/react-dom/react-dom.production.min.js"></script>
-    <link rel="stylesheet" href="assets/tailwind.css?v=1782329449554">
-    <link rel="icon" type="image/x-icon" href="/logo/favicon.ico?v=1782329449554">
+    <link rel="stylesheet" href="assets/tailwind.css?v=1782331061287">
+    <link rel="icon" type="image/x-icon" href="/logo/favicon.ico?v=1782331061287">
     <link rel="stylesheet" href="/assets/fontawesome/css/all.min.css">
     <link rel="preload" href="/assets/fontawesome/webfonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/assets/fontawesome/webfonts/fa-regular-400.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/assets/fontawesome/webfonts/fa-brands-400.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="/assets/fonts/inter/inter.css">
-    <link rel="stylesheet" href="src/styles/main.css?v=1782329449554">
-    <link rel="stylesheet" href="src/styles/animations.css?v=1782329449554">
-    <link rel="stylesheet" href="src/styles/components.css?v=1782329449554">
-    <script src="src/scripts/fa-check.js?v=1782329449554"></script>
+    <link rel="stylesheet" href="src/styles/main.css?v=1782331061287">
+    <link rel="stylesheet" href="src/styles/animations.css?v=1782331061287">
+    <link rel="stylesheet" href="src/styles/components.css?v=1782331061287">
+    <script src="src/scripts/fa-check.js?v=1782331061287"></script>
     <!-- Update Manager - система принудительного обновления -->
-    <script src="src/utils/updateManager.js?v=1782329449554"></script>
-    <script type="module" src="src/components/UpdateChecker.jsx?v=1782329449554"></script>
-    <script type="module" src="dist/qr-local.js?v=1782329449554"></script>
-    <script type="module" src="src/components/QRScanner.js?v=1782329449554"></script>
+    <script src="src/utils/updateManager.js?v=1782331061287"></script>
+    <script type="module" src="src/components/UpdateChecker.jsx?v=1782331061287"></script>
+    <script type="module" src="dist/qr-local.js?v=1782331061287"></script>
+    <script type="module" src="src/components/QRScanner.js?v=1782331061287"></script>
 </head>
 <body>
     <div id="root"></div>
-    <script type="module" src="dist/app-boot.js?v=1782329449554"></script>
-    <script type="module" src="dist/app.js?v=1782329449554"></script>
+    <script type="module" src="dist/app-boot.js?v=1782331061287"></script>
+    <script type="module" src="dist/app.js?v=1782331061287"></script>
 
-<script src="src/scripts/pwa-register.js?v=1782329449554"></script>
-<script src="./src/pwa/install-prompt.js?v=1782329449554" type="module"></script>
-<script src="./src/pwa/pwa-manager.js?v=1782329449554" type="module"></script>
-<script src="./src/scripts/pwa-offline-test.js?v=1782329449554"></script>
-<link rel="stylesheet" href="./src/styles/pwa.css?v=1782329449554">
+<script src="src/scripts/pwa-register.js?v=1782331061287"></script>
+<script src="./src/pwa/install-prompt.js?v=1782331061287" type="module"></script>
+<script src="./src/pwa/pwa-manager.js?v=1782331061287" type="module"></script>
+<script src="./src/scripts/pwa-offline-test.js?v=1782331061287"></script>
+<link rel="stylesheet" href="./src/styles/pwa.css?v=1782331061287">
 </body>
 </html>
