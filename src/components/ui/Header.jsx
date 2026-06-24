@@ -559,7 +559,7 @@ const EnhancedMinimalHeader = ({
                     React.createElement('div', { key: 'txt', style: { lineHeight: 1.2, minWidth: 0 } }, [
                         React.createElement('div', { key: 'r1', style: { display: 'flex', alignItems: 'baseline', gap: '7px' } }, [
                             React.createElement('span', { key: 'n', style: { fontSize: '16px', fontWeight: 800, letterSpacing: '-0.3px', color: '#e8e8eb' } }, 'SecureBit'),
-                            React.createElement('span', { key: 'v', style: { fontFamily: MONO, fontSize: '10px', fontWeight: 500, color: '#56565e' } }, 'v4.9.0')
+                            React.createElement('span', { key: 'v', style: { fontFamily: MONO, fontSize: '10px', fontWeight: 500, color: '#56565e' } }, 'v4.9.1')
                         ]),
                         React.createElement('div', { key: 'r2', className: 'hidden sm:block', style: { fontSize: '11px', color: '#6b6b73', fontWeight: 500 } }, 'End-to-end encrypted')
                     ])

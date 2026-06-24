@@ -4,91 +4,96 @@
 
 # SecureBit.chat
 
-**End-to-end encrypted, peer-to-peer chat — fully redesigned in v4.9.0**
+**End-to-end encrypted, peer-to-peer chat that runs entirely in your browser.**
 
-ECDH P-384 · AES-256-GCM · DTLS · SAS verification · no accounts, no servers
+No accounts. No servers storing your messages. No installation required.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-f0892a.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-4.9.1-3ecf8e.svg)](CHANGELOG.md)
+[![PWA](https://img.shields.io/badge/PWA-installable-3ecf8e.svg)](#install-as-an-app)
+[![Encryption](https://img.shields.io/badge/crypto-ECDH%20P--384%20%C2%B7%20AES--256--GCM-blue.svg)](#security-model)
+
+[Features](#features) · [How it works](#how-it-works) · [Security](#security-model) · [Quick start](#quick-start) · [Documentation](#documentation)
 
 </div>
 
-SecureBit.chat is a browser-based peer-to-peer chat application built on WebRTC and Web Crypto APIs. It is designed for direct encrypted communication, explicit peer verification, and a small operational footprint without account registration or server-side message storage.
+---
+
+SecureBit.chat is a browser-based, peer-to-peer messenger built on **WebRTC** and the **Web Crypto API**. Two people establish a direct, end-to-end encrypted channel and verify each other in person — there is no registration, no central server relaying or storing messages, and no metadata account to leak. Everything cryptographic happens locally in the two browsers.
+
+It is designed for people who need a small, auditable, zero-infrastructure way to talk privately: journalists and sources, security researchers, or anyone who simply wants a conversation that leaves nothing behind.
 
 ## Screenshots
 
-**Open a secure channel**
+| Open a secure channel | Encrypted conversation |
+| :---: | :---: |
+| ![Open a channel](assets/screenshots/login.png) | ![Encrypted chat](assets/screenshots/chat.png) |
 
-![SecureBit.chat — open a channel](assets/screenshots/login.png)
+## Features
 
-**Encrypted conversation**
+**🔐 Encryption & verification**
+- ECDH P-384 key agreement with derived per-session keys, AES-256-GCM payloads, and DTLS-protected transport.
+- Interactive **Short Authentication String (SAS)** verification — you confirm a code out-of-band before the session is trusted, defeating man-in-the-middle attacks.
+- Replay protection, message integrity (HMAC), and a live security report you can open at any time during a call.
 
-![SecureBit.chat — encrypted chat](assets/screenshots/chat.png)
+**🕶️ Privacy by design**
+- Direct peer-to-peer connection — messages never touch a SecureBit server.
+- No accounts, no phone numbers, no message history on disk.
+- Optional **relay-only mode** routes traffic through your own TURN server so your IP is never exposed to the peer.
+- Local key metadata is stored encrypted in IndexedDB; disconnecting cleans up session state.
 
-## What's new in v4.9.0 — full redesign
+**💬 Messaging**
+- Code blocks with syntax highlighting and an auto-clearing copy button.
+- View-once and disappearing messages with countdown timers.
+- Unsend (delete for everyone) over the authenticated control channel.
+- WhatsApp-style delivery status (sending → sent → delivered) with offline store-and-forward.
 
-A ground-up visual redesign of the entire surface — landing page, connection setup, in-chat header, security verification report, file transfer, and the PWA install / update / offline dialogs — together with a reworked offline experience and WhatsApp-style delivery status.
+**📎 File transfer**
+- Consent-gated, end-to-end encrypted transfers with resumable, per-chunk progress.
+- Strict file-type allowlist; executable and scriptable formats are rejected.
 
-**Offline mode, reworked.** SecureBit now does proper store-and-forward over the live P2P channel:
+**📲 Progressive Web App**
+- Installable on desktop and mobile, works offline, and ships update notifications.
 
-- Sending while offline shows a single ✓ and **queues** the message; it transmits automatically once you reconnect, keeping its original send time.
-- A message addressed to an **offline peer** stays at one check until they come back — their client holds it back (not shown, not acknowledged) and surfaces it on reconnect with a "Connection restored" notice.
-- **Delivery status on every message:** sending → ✓ sent → ✓✓ delivered (peer-acknowledged), with a clear "not sent" state — and offline status no longer leaks into the connection indicator.
+## How it works
+
+SecureBit never sees your conversation. A session is built directly between the two browsers:
+
+```
+   Peer A                         Peer B
+     │   1. create encrypted offer   │
+     │ ────────────────────────────► │   (shared out-of-band: QR / link / paste)
+     │                               │
+     │   2. return encrypted answer  │
+     │ ◄──────────────────────────── │
+     │                               │
+     │   3. compare SAS code aloud   │
+     │  ✓ both confirm  → verified   │
+     │                               │
+     │ ═══ end-to-end encrypted ════ │
+```
+
+1. **Peer A** creates an offer (sharable as a QR code, link, or text).
+2. **Peer B** opens it and returns an answer the same way.
+3. Both sides see a **SAS code** and compare it over a trusted channel (in person, a call you recognize, etc.).
+4. Only after both peers confirm the matching code does the chat unlock. Three failed attempts terminate the session.
 
 ## Security model
 
-SecureBit.chat uses:
+| Layer | Mechanism |
+| --- | --- |
+| Key agreement | ECDH (P-384), per-session derived keys |
+| Transport | WebRTC data channel over DTLS |
+| Message encryption | AES-256-GCM, end-to-end |
+| Authentication | Interactive SAS bound to both peers' DTLS fingerprints |
+| Integrity | HMAC + replay protection |
+| Sanitization | DOMPurify text-only rendering boundary |
+| Local storage | Encrypted key metadata in IndexedDB |
 
-- ECDH key agreement with derived session keys
-- DTLS-protected WebRTC transport
-- deterministic Short Authentication String (SAS) verification
-- end-to-end encrypted chat payloads
-- replay protection and session-state cleanup
-- encrypted local key metadata in IndexedDB
+A session is **not** treated as verified until both peers complete the SAS flow. This is the step that protects you against a man-in-the-middle: the code must be compared through a channel an attacker cannot impersonate.
 
-A session is not treated as verified until both peers complete the interactive SAS flow. Each user must compare the displayed code with the peer through an out-of-band channel and enter the matching code manually. Three failed SAS attempts terminate the session.
-
-## Highlights in v4.8.20
-
-Secure messaging controls, available from a single composer toolbar next to **Send files**. Active controls use the brand-orange accent. Every per-message option travels **inside the encrypted message envelope** (never in the sanitized text), so message content can neither spoof nor corrupt these controls.
-
-- **Code blocks.** A `Code` button sends the message as a monospace code window with lightweight syntax highlighting and a one-click **Copy** button; the clipboard auto-clears ~30s after copying so keys/commands don't linger. Enabling it also expands the input box (monospace, 8 rows) for comfortable code entry. Highlighting is built from already-sanitized text via React nodes only — no `innerHTML`, no remote scripts, no new XSS surface.
-- **View-once messages.** Pick how long the message stays visible after the peer opens it (5s / 15s / 30s / 1m). The recipient sees a blurred bubble; tapping reveals it, then it is wiped after the chosen window. Cooperative, like WhatsApp view-once — it reduces accidental lingering but is **not** screenshot-proof.
-- **Disappearing messages.** A timer picker (30s / 5m / 1h) auto-deletes the message on **both** sides, with a live countdown. The incoming timer is clamped to a safe range.
-- **Unsend (delete for everyone).** Removes your message locally and asks the peer to drop it too, over the authenticated control channel.
-
-Earlier in v4.8.13:
-
-- Security/integrity: outgoing chat messages are no longer silently rejected by an over-broad keyword blocklist (plain words like "constructor", "global", "document." or the literal text "javascript:" were being blocked). XSS is still prevented at the rendering boundary by the receive-side DOMPurify pass and by message sanitization before encryption.
-- Integrity: multi-line messages and code snippets keep their newlines and indentation instead of being collapsed onto a single line.
-- Privacy: AAD validation failures no longer log the raw AAD (which carried `sessionId` and `keyFingerprint`); only its length is logged.
-- Hardening: production now sends `Strict-Transport-Security` (2-year, preload) and a restrictive `Permissions-Policy` (camera kept for in-page QR scanning; microphone, geolocation and sensors denied).
-
-Earlier in v4.8.11:
-
-- Fixed: file transfers that completed the consent handshake but never delivered any data. Chunks are now sized to stay under WebRTC's 64 KB SCTP message limit (most visible on Safari and cross-browser connections).
-- File-type validation is now extension-driven; the easily-spoofed MIME type is advisory, so files with a missing or cross-OS MIME variant are no longer wrongly rejected. Blocked executable/script extensions and size limits are still enforced.
-
-Earlier in v4.8.10:
-
-- New: users can configure their own STUN/TURN servers under "Advanced network settings" (header gear or the connection-creation screen). Input is allowlist-validated, optionally saved encrypted on-device, and a built-in "Test servers" check reports STUN/TURN reachability.
-- Relay-only privacy mode moved into the advanced settings panel; the standalone start-screen toggle was removed.
-
-Earlier in the v4.8 hardening line:
-
-- Patched a high-severity XSS advisory in the DOMPurify dependency (the message sanitizer) by upgrading to a fixed release.
-- Operator TURN credentials are no longer committed to the repository; use `config/ice-servers.example.js` as a template.
-- The production logger no longer prints error context or info/debug output, only opaque error codes.
-
-- Manual WebRTC setup preserves pending offer/answer state during slow out-of-band exchange.
-- TURN relay fallback can be configured through `config/ice-servers.js` for restrictive networks.
-- ICE diagnostics identify mDNS-only candidate failures without exposing full peer IPs.
-
-- SAS verification is bound to the actual DTLS fingerprint strings of both peers
-- chat sanitization uses DOMPurify-backed text-only output
-- WebRTC privacy mode is explicit and relay-only state stays synchronized at runtime
-- production debug window hooks are gated behind an explicit debug flag
-- receiver-side throttling covers inbound messages and file chunks
-- service-worker caching is restricted to an explicit safe-asset allowlist
-- disconnect cleanup leaves no orphaned delayed timer behind
-- `node_modules` is no longer tracked in Git
+> [!WARNING]
+> SecureBit.chat is privacy software, not a guarantee. View-once and disappearing messages are cooperative (not screenshot-proof), and a TURN relay can observe both peers' IPs and traffic timing — though never message contents. See [`SECURITY_DISCLAIMER.md`](SECURITY_DISCLAIMER.md).
 
 ## Quick start
 
@@ -100,82 +105,75 @@ npm run build
 npm run serve
 ```
 
-Then open the local server URL in two browser windows or profiles.
+Open the printed local URL in two browser windows or profiles, then:
 
-### Establish a session
+1. Create an offer in the first window.
+2. Transfer it to the second and create an answer.
+3. Return the answer to the first window.
+4. Compare the SAS code out-of-band and enter it on both sides.
+5. Start chatting once both peers are verified.
 
-1. Create an offer in the first browser.
-2. Transfer the offer to the peer and create an answer.
-3. Return the answer to the first browser.
-4. Compare the SAS code out of band.
-5. Enter the matching SAS code on both sides.
-6. Begin chatting only after both peers are verified.
+### Install as an app
+
+SecureBit is a PWA — open it in a supported browser and choose **Install** (or *Add to Home Screen* on mobile) to run it as a standalone, offline-capable app.
 
 ## Configuration
 
 ### TURN / privacy mode
 
-Direct WebRTC connections may expose IP addresses to peers. SecureBit.chat supports a relay-only privacy mode:
+Direct WebRTC connections can reveal IP addresses to the peer. SecureBit supports a relay-only privacy mode:
 
-- default mode keeps normal WebRTC behavior and existing STUN support
-- relay-only mode sets `iceTransportPolicy: "relay"`
-- relay-only mode requires a configured TURN server
-- STUN alone does not hide IP addresses
-- public TURN credentials are not bundled or hardcoded
+- **Default** keeps standard WebRTC behavior with public STUN.
+- **Relay-only** sets `iceTransportPolicy: "relay"` and requires a configured TURN server.
+- STUN alone does not hide IP addresses; public TURN credentials are never bundled.
 
-Configure ICE servers at deployment time and enable relay-only mode only when a TURN service is available. See [`doc/CONFIGURATION.md`](doc/CONFIGURATION.md).
+Configure your own STUN/TURN servers under **Advanced network settings**, or at deployment time. See [`doc/CONFIGURATION.md`](doc/CONFIGURATION.md).
 
 ### File transfer policy
 
-Incoming file transfers require explicit user consent. Before the consent prompt appears, metadata is validated and dangerous names are rejected. Safe accepted categories are:
-
-- common raster images
-- PDF
-- plain text
-- ZIP archives
-
-Executable, scriptable, and high-risk formats are rejected, including `.exe`, `.bat`, `.cmd`, `.sh`, `.js`, `.msi`, `.dmg`, `.app`, `.jar`, `.scr`, `.ps1`, `.vbs`, `.html`, and `.svg`. MIME type and filename extension must agree.
+Incoming transfers require explicit consent. Metadata is validated and dangerous names rejected before the prompt appears. Accepted: common raster images, PDF, plain text, and ZIP. Executable/scriptable formats (`.exe`, `.bat`, `.sh`, `.js`, `.msi`, `.dmg`, `.jar`, `.ps1`, `.vbs`, `.html`, `.svg`, …) are blocked, and MIME type must agree with the file extension.
 
 ## Development
 
-### Requirements
-
-- Node.js 18+
-- npm
-
-### Commands
+**Requirements:** Node.js 18+ and npm.
 
 ```bash
 npm install
-npm test
-npm audit
-npm run build
-npm run dev
+npm test          # run the test suite
+npm audit         # check dependencies
+npm run build     # build CSS + JS bundles and refresh meta.json
+npm run dev       # build and serve locally
 ```
 
-### Project layout
+### Project structure
 
 ```text
-src/network/   WebRTC connection and session lifecycle
-src/transfer/  secure file-transfer implementation
-src/crypto/    cryptographic utilities
-src/components React UI components
-doc/           technical documentation
+src/network/      WebRTC connection and session lifecycle
+src/transfer/     secure file-transfer implementation
+src/crypto/       cryptographic utilities
+src/components/   React UI components
+src/styles/       component styles
+doc/              technical documentation
+dist/             built bundles served in production
 ```
 
 ## Documentation
 
-- [`SECURITY.md`](SECURITY.md)
-- [`doc/CONFIGURATION.md`](doc/CONFIGURATION.md)
-- [`doc/CRYPTOGRAPHY.md`](doc/CRYPTOGRAPHY.md)
-- [`doc/SECURITY-ARCHITECTURE.md`](doc/SECURITY-ARCHITECTURE.md)
-- [`doc/API.md`](doc/API.md)
-- [`CHANGELOG.md`](CHANGELOG.md)
+- [`SECURITY.md`](SECURITY.md) — security policy & reporting
+- [`doc/CONFIGURATION.md`](doc/CONFIGURATION.md) — deployment & ICE configuration
+- [`doc/CRYPTOGRAPHY.md`](doc/CRYPTOGRAPHY.md) — cryptographic design
+- [`doc/SECURITY-ARCHITECTURE.md`](doc/SECURITY-ARCHITECTURE.md) — architecture overview
+- [`doc/API.md`](doc/API.md) — internal APIs
+- [`CHANGELOG.md`](CHANGELOG.md) — full release history
 
-## Responsible use
+## Contributing & responsible use
 
-SecureBit.chat is intended for lawful, ethical use. See [`RESPONSIBLE_USE.md`](RESPONSIBLE_USE.md) and [`SECURITY_DISCLAIMER.md`](SECURITY_DISCLAIMER.md).
+Issues and pull requests are welcome. SecureBit.chat is intended for lawful, ethical communication only — please read [`RESPONSIBLE_USE.md`](RESPONSIBLE_USE.md) before using or contributing.
 
 ## License
 
-MIT License. See [`LICENSE`](LICENSE).
+Released under the [MIT License](LICENSE).
+
+<div align="center">
+<sub>Built with WebRTC and the Web Crypto API · No servers, no accounts, no compromises.</sub>
+</div>

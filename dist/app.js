@@ -1048,7 +1048,7 @@ var EnhancedConnectionSetup = ({
     } catch (e) {
     }
   };
-  const platformsMenu = platformsOpen && h("div", { key: "platmenu", style: { position: "absolute", left: 0, bottom: "calc(100% + 10px)", width: "344px", maxWidth: "100%", borderRadius: "16px", border: "1px solid rgba(255,255,255,0.1)", background: "#161618", boxShadow: "0 24px 60px rgba(0,0,0,0.55)", overflow: "hidden", zIndex: 25, animation: "sbUp .2s ease" } }, [
+  const platformsMenu = platformsOpen && h("div", { key: "platmenu", className: "sb-platforms-menu", style: { position: "absolute", left: 0, bottom: "calc(100% + 10px)", width: "344px", maxWidth: "100%", borderRadius: "16px", border: "1px solid rgba(255,255,255,0.1)", background: "#161618", boxShadow: "0 24px 60px rgba(0,0,0,0.55)", overflow: "hidden", zIndex: 25, animation: "sbUp .2s ease" } }, [
     h("div", { key: "mh", style: { display: "flex", alignItems: "center", gap: "10px", padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" } }, [
       h("div", { key: "t", style: { flex: 1, lineHeight: 1.2 } }, [
         h("div", { key: "a", style: { fontSize: "14px", fontWeight: 800, color: "#f4f4f6" } }, "Download SecureBit"),
@@ -1085,7 +1085,7 @@ var EnhancedConnectionSetup = ({
       h("span", { key: "t", style: { fontSize: "11.5px", lineHeight: 1.45, color: "#7b7b83" } }, "Mobile (iOS, Android) and browser extensions (Chrome, Firefox, Opera) are coming soon.")
     ])
   ]);
-  const footer = h("div", { key: "footer", style: { position: "relative", marginTop: "30px", paddingTop: "18px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" } }, [
+  const footer = h("div", { key: "footer", className: "sb-conn-footer", style: { position: "relative", marginTop: "30px", paddingTop: "18px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" } }, [
     h("button", { key: "dl", onClick: () => setPlatformsOpen((v) => !v), style: { display: "inline-flex", alignItems: "center", gap: "9px", padding: "8px 13px 8px 9px", borderRadius: "10px", border: `1px solid ${platformsOpen ? "rgba(240,137,42,0.4)" : "rgba(255,255,255,0.08)"}`, background: platformsOpen ? "rgba(240,137,42,0.06)" : "rgba(255,255,255,0.02)", color: "inherit", fontFamily: "inherit", cursor: "pointer", transition: "all .15s" } }, [
       fa("fa-download", { key: "i", color: C_ORANGE }),
       h("span", { key: "t", style: { fontSize: "12.5px", fontWeight: 700, color: "#e8e8eb" } }, "Download desktop app"),
@@ -1161,7 +1161,7 @@ var EnhancedConnectionSetup = ({
   const roadmapSection = atIntro && h(Roadmap, { key: "roadmap" });
   const communitySection = atIntro && h(CommunityCTA, { key: "community-cta" });
   const keyframeStyle = h("style", { key: "kf", dangerouslySetInnerHTML: {
-    __html: "@keyframes sbFlowR{0%{left:4%;opacity:0}12%{opacity:1}88%{opacity:1}100%{left:96%;opacity:0}}@keyframes sbFlowL{0%{left:96%;opacity:0}12%{opacity:1}88%{opacity:1}100%{left:4%;opacity:0}}@keyframes sbPulse{0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.5}50%{transform:translate(-50%,-50%) scale(1.5);opacity:0}}@keyframes sbSpin{to{transform:rotate(360deg)}}@keyframes sbUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes sbNode{0%,100%{box-shadow:0 0 0 0 rgba(62,207,142,0)}50%{box-shadow:0 0 0 6px rgba(62,207,142,.06)}}@keyframes sbBlink{0%,100%{opacity:1}50%{opacity:.35}}"
+    __html: "@keyframes sbFlowR{0%{left:4%;opacity:0}12%{opacity:1}88%{opacity:1}100%{left:96%;opacity:0}}@keyframes sbFlowL{0%{left:96%;opacity:0}12%{opacity:1}88%{opacity:1}100%{left:4%;opacity:0}}@keyframes sbPulse{0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.5}50%{transform:translate(-50%,-50%) scale(1.5);opacity:0}}@keyframes sbSpin{to{transform:rotate(360deg)}}@keyframes sbUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes sbNode{0%,100%{box-shadow:0 0 0 0 rgba(62,207,142,0)}50%{box-shadow:0 0 0 6px rgba(62,207,142,.06)}}@keyframes sbScan{0%{top:8%}100%{top:88%}}@keyframes sbBlink{0%,100%{opacity:1}50%{opacity:.35}}"
   } });
   return h("div", { className: "sb-start", style: { width: "100%" } }, [keyframeStyle, hero, uniqueSection, partnersSection, roadmapSection, communitySection, qrModal]);
 };
@@ -3860,80 +3860,108 @@ var EnhancedSecureP2PChat = () => {
         handleForgetIceSettings
       })
     ),
-    // QR Scanner Modal
-    showQRScannerModal && React.createElement("div", {
-      key: "qr-scanner-modal",
-      className: "fixed inset-0 bg-black/80 flex items-center justify-center z-50"
-    }, [
-      React.createElement("div", {
-        key: "scanner-container",
-        className: "bg-gray-900 rounded-lg p-4 max-w-2xl w-full mx-4"
+    // QR Scanner Modal — camera scan (design import: "Start Secure" / Camera scan modal)
+    showQRScannerModal && (() => {
+      const closeScanner = () => {
+        setShowQRScannerModal(false);
+        qrChunksBufferRef.current = { id: null, total: 0, seen: /* @__PURE__ */ new Set(), items: [] };
+      };
+      const buf = qrChunksBufferRef.current;
+      const hasParts = !!(buf && buf.id && buf.total > 1);
+      const framesText = hasParts ? `Scanning frames\u2026 ${buf.seen.size} / ${buf.total}` : "Scanning\u2026";
+      const corner = (k, st) => React.createElement("span", {
+        key: k,
+        style: Object.assign({ position: "absolute", width: "34px", height: "34px", zIndex: 3 }, st)
+      });
+      return React.createElement("div", {
+        key: "qr-scanner-modal",
+        onClick: closeScanner,
+        style: { position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: "32px", background: "rgba(6,6,8,0.82)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", animation: "sbUp .2s ease" }
       }, [
         React.createElement("div", {
-          key: "scanner-header",
-          className: "flex items-center justify-between mb-4"
+          key: "scanner-container",
+          onClick: (e) => e.stopPropagation(),
+          style: { width: "100%", maxWidth: "420px", borderRadius: "22px", border: "1px solid rgba(255,255,255,0.1)", background: "#111113", boxShadow: "0 30px 90px rgba(0,0,0,0.6)", overflow: "hidden" }
         }, [
-          React.createElement("h3", {
-            key: "scanner-title",
-            className: "text-lg font-medium text-white"
-          }, "QR Code Scanner"),
-          React.createElement("button", {
-            key: "close-btn",
-            onClick: () => {
-              setShowQRScannerModal(false);
-              qrChunksBufferRef.current = { id: null, total: 0, seen: /* @__PURE__ */ new Set(), items: [] };
-            },
-            className: "text-gray-400 hover:text-white"
+          // Header
+          React.createElement("div", {
+            key: "scanner-header",
+            style: { display: "flex", alignItems: "center", gap: "11px", padding: "18px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" }
           }, [
-            React.createElement("i", {
-              key: "close-icon",
-              className: "fas fa-times"
-            })
-          ])
-        ]),
-        React.createElement("div", {
-          key: "scanner-content",
-          className: "text-center"
-        }, [
-          React.createElement("p", {
-            key: "scanner-description",
-            className: "text-gray-400 mb-4"
-          }, "Point your camera at the QR code to scan"),
-          qrChunksBufferRef.current && qrChunksBufferRef.current.id && React.createElement("div", {
-            key: "progress-indicator",
-            className: "mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg"
-          }, [
-            React.createElement("p", {
-              key: "progress-text",
-              className: "text-blue-400 text-sm"
-            }, `Scanned: ${qrChunksBufferRef.current.seen.size}/${qrChunksBufferRef.current.total} parts`),
+            React.createElement("span", {
+              key: "scanner-icon",
+              style: { display: "flex" },
+              dangerouslySetInnerHTML: { __html: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5V6.5A2.5 2.5 0 0 1 4.5 4h2M17.5 4h2A2.5 2.5 0 0 1 22 6.5v2M22 15.5v2a2.5 2.5 0 0 1-2.5 2.5h-2M6.5 20h-2A2.5 2.5 0 0 1 2 17.5v-2"/><circle cx="12" cy="12" r="3.2"/></svg>' }
+            }),
             React.createElement("div", {
-              key: "progress-bar",
-              className: "w-full bg-gray-700 rounded-full h-2 mt-2"
+              key: "scanner-titles",
+              style: { flex: 1, lineHeight: 1.2 }
             }, [
               React.createElement("div", {
-                key: "progress-fill",
-                className: "bg-blue-500 h-2 rounded-full transition-all duration-300",
-                style: {
-                  width: `${qrChunksBufferRef.current.seen.size / qrChunksBufferRef.current.total * 100}%`
-                }
-              })
-            ])
+                key: "scanner-title",
+                style: { fontSize: "15.5px", fontWeight: 800, color: "#f4f4f6" }
+              }, "Scan QR code"),
+              React.createElement("div", {
+                key: "scanner-hint",
+                style: { fontSize: "12px", color: "#7b7b83" }
+              }, "Point your camera at their QR")
+            ]),
+            React.createElement("button", {
+              key: "close-btn",
+              onClick: closeScanner,
+              style: { width: "32px", height: "32px", display: "grid", placeItems: "center", borderRadius: "9px", border: "none", background: "rgba(255,255,255,0.05)", color: "#9a9aa2", cursor: "pointer" }
+            }, React.createElement("i", { className: "fas fa-times" }))
           ]),
+          // Body
           React.createElement("div", {
-            key: "scanner-placeholder",
-            id: "qr-reader",
-            className: "w-full h-96 bg-gray-800 rounded-lg flex items-center justify-center",
-            style: { minHeight: "400px" }
+            key: "scanner-body",
+            style: { padding: "22px 24px 24px" }
           }, [
+            React.createElement("div", {
+              key: "viewfinder",
+              style: { position: "relative", aspectRatio: "1", borderRadius: "18px", overflow: "hidden", background: "#000", border: "1px solid rgba(255,255,255,0.1)" }
+            }, [
+              React.createElement("div", {
+                key: "vf-bg",
+                style: { position: "absolute", inset: 0, background: "radial-gradient(circle at 50% 45%, #1a1a1f, #000)" }
+              }),
+              // Camera video is injected here by Html5Qrcode
+              React.createElement("div", {
+                key: "qr-reader",
+                id: "qr-reader",
+                style: { position: "absolute", inset: 0, zIndex: 1 }
+              }),
+              corner("c-tl", { top: "18px", left: "18px", borderTop: "2.5px solid #3ecf8e", borderLeft: "2.5px solid #3ecf8e", borderRadius: "8px 0 0 0" }),
+              corner("c-tr", { top: "18px", right: "18px", borderTop: "2.5px solid #3ecf8e", borderRight: "2.5px solid #3ecf8e", borderRadius: "0 8px 0 0" }),
+              corner("c-bl", { bottom: "18px", left: "18px", borderBottom: "2.5px solid #3ecf8e", borderLeft: "2.5px solid #3ecf8e", borderRadius: "0 0 0 8px" }),
+              corner("c-br", { bottom: "18px", right: "18px", borderBottom: "2.5px solid #3ecf8e", borderRight: "2.5px solid #3ecf8e", borderRadius: "0 0 8px 0" }),
+              React.createElement("span", {
+                key: "scan-line",
+                style: { position: "absolute", left: "18px", right: "18px", height: "2.5px", zIndex: 2, background: "linear-gradient(90deg, transparent, #3ecf8e, transparent)", boxShadow: "0 0 16px #3ecf8e", animation: "sbScan 1.5s ease-in-out infinite alternate" }
+              }),
+              React.createElement("div", {
+                key: "scan-status",
+                style: { position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 3, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "14px", background: "linear-gradient(transparent, rgba(0,0,0,0.6))" }
+              }, [
+                React.createElement("span", {
+                  key: "spinner",
+                  style: { display: "flex", animation: "sbSpin 1.4s linear infinite" },
+                  dangerouslySetInnerHTML: { __html: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>' }
+                }),
+                React.createElement("span", {
+                  key: "scan-frames",
+                  style: { fontSize: "12.5px", fontWeight: 600, color: "#cfcfd4" }
+                }, framesText)
+              ])
+            ]),
             React.createElement("p", {
-              key: "scanner-placeholder-text",
-              className: "text-gray-500"
-            }, "Camera will start here...")
+              key: "scanner-note",
+              style: { margin: "16px 0 0", textAlign: "center", fontSize: "12px", lineHeight: 1.5, color: "#6b6b73" }
+            }, "Hold steady until all parts are captured. Camera access is local \u2014 nothing is uploaded.")
           ])
         ])
-      ])
-    ])
+      ]);
+    })()
   ]);
 };
 var UpdateCheckerWrapper = ({ children }) => {

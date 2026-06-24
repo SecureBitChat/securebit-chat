@@ -230,7 +230,7 @@ const IceServerSettings = ({ isOpen, onClose, initial, hasSaved, onApply, onForg
     // Embedded mode (default for the new design): fill the connection screen's
     // right column and slide up over it. Fallback: a fixed right-side drawer.
     const wrapperStyle = embedded
-        ? { position: 'absolute', inset: 0, zIndex: 30, display: 'flex', flexDirection: 'column', background: '#0f0f11', animation: 'sbSlideUp .32s cubic-bezier(.2,.7,.3,1)' }
+        ? { position: 'absolute', inset: 0, zIndex: 60, display: 'flex', flexDirection: 'column', background: '#0f0f11', animation: 'sbSlideUp .32s cubic-bezier(.2,.7,.3,1)' }
         : { position: 'fixed', inset: 0, zIndex: 60, display: 'flex', flexDirection: 'column', alignItems: 'stretch', background: '#0f0f11', animation: 'sbSlideUp .32s cubic-bezier(.2,.7,.3,1)' };
 
     return h('div', { className: 'sb-ice-overlay', style: wrapperStyle }, [

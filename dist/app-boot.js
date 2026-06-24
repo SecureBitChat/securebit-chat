@@ -17657,7 +17657,7 @@ Right-click or Ctrl+click to disconnect`,
           React.createElement("div", { key: "txt", style: { lineHeight: 1.2, minWidth: 0 } }, [
             React.createElement("div", { key: "r1", style: { display: "flex", alignItems: "baseline", gap: "7px" } }, [
               React.createElement("span", { key: "n", style: { fontSize: "16px", fontWeight: 800, letterSpacing: "-0.3px", color: "#e8e8eb" } }, "SecureBit"),
-              React.createElement("span", { key: "v", style: { fontFamily: MONO, fontSize: "10px", fontWeight: 500, color: "#56565e" } }, "v4.9.0")
+              React.createElement("span", { key: "v", style: { fontFamily: MONO, fontSize: "10px", fontWeight: 500, color: "#56565e" } }, "v4.9.1")
             ]),
             React.createElement("div", { key: "r2", className: "hidden sm:block", style: { fontSize: "11px", color: "#6b6b73", fontWeight: 500 } }, "End-to-end encrypted")
           ])
@@ -19392,7 +19392,7 @@ var IceServerSettings = ({ isOpen, onClose, initial, hasSaved, onApply, onForget
     h("i", { key: "i", className: "fas fa-check" }),
     "Apply"
   ]));
-  const wrapperStyle = embedded ? { position: "absolute", inset: 0, zIndex: 30, display: "flex", flexDirection: "column", background: "#0f0f11", animation: "sbSlideUp .32s cubic-bezier(.2,.7,.3,1)" } : { position: "fixed", inset: 0, zIndex: 60, display: "flex", flexDirection: "column", alignItems: "stretch", background: "#0f0f11", animation: "sbSlideUp .32s cubic-bezier(.2,.7,.3,1)" };
+  const wrapperStyle = embedded ? { position: "absolute", inset: 0, zIndex: 60, display: "flex", flexDirection: "column", background: "#0f0f11", animation: "sbSlideUp .32s cubic-bezier(.2,.7,.3,1)" } : { position: "fixed", inset: 0, zIndex: 60, display: "flex", flexDirection: "column", alignItems: "stretch", background: "#0f0f11", animation: "sbSlideUp .32s cubic-bezier(.2,.7,.3,1)" };
   return h("div", { className: "sb-ice-overlay", style: wrapperStyle }, [
     h(React2.Fragment, { key: "panel" }, [
       // header
