@@ -31,7 +31,7 @@ It is designed for people who need a small, auditable, zero-infrastructure way t
 
 ## Features
 
-**🔐 Encryption & verification**
+** Encryption & verification**
 - ECDH P-384 key agreement with derived per-session keys, AES-256-GCM payloads, and DTLS-protected transport.
 - Interactive **Short Authentication String (SAS)** verification — you confirm a code out-of-band before the session is trusted, defeating man-in-the-middle attacks.
 - Replay protection, message integrity (HMAC), and a live security report you can open at any time during a call.
@@ -42,17 +42,17 @@ It is designed for people who need a small, auditable, zero-infrastructure way t
 - Optional **relay-only mode** routes traffic through your own TURN server so your IP is never exposed to the peer.
 - Local key metadata is stored encrypted in IndexedDB; disconnecting cleans up session state.
 
-**💬 Messaging**
+** Messaging**
 - Code blocks with syntax highlighting and an auto-clearing copy button.
 - View-once and disappearing messages with countdown timers.
 - Unsend (delete for everyone) over the authenticated control channel.
 - WhatsApp-style delivery status (sending → sent → delivered) with offline store-and-forward.
 
-**📎 File transfer**
+** File transfer**
 - Consent-gated, end-to-end encrypted transfers with resumable, per-chunk progress.
 - Strict file-type allowlist; executable and scriptable formats are rejected.
 
-**📲 Progressive Web App**
+** Progressive Web App**
 - Installable on desktop and mobile, works offline, and ships update notifications.
 
 ## How it works
