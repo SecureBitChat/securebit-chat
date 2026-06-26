@@ -151,6 +151,271 @@ async function clearIceSettings() {
   }
 }
 
+// src/state/sessionsStore.js
+var SESSION_ACTIONS = Object.freeze({
+  CREATE_SESSION: "CREATE_SESSION",
+  REMOVE_SESSION: "REMOVE_SESSION",
+  SET_ACTIVE: "SET_ACTIVE",
+  SET_STATUS: "SET_STATUS",
+  SET_FINGERPRINT: "SET_FINGERPRINT",
+  SET_VERIFICATION: "SET_VERIFICATION",
+  SET_SAS: "SET_SAS",
+  ADD_MESSAGE: "ADD_MESSAGE",
+  SET_MESSAGES: "SET_MESSAGES",
+  UPDATE_MESSAGE_STATUS: "UPDATE_MESSAGE_STATUS",
+  DELETE_MESSAGE: "DELETE_MESSAGE",
+  EXPIRE_MESSAGE: "EXPIRE_MESSAGE",
+  INCREMENT_UNREAD: "INCREMENT_UNREAD",
+  CLEAR_UNREAD: "CLEAR_UNREAD",
+  SET_PENDING_FILES: "SET_PENDING_FILES",
+  PATCH_SETUP: "PATCH_SETUP",
+  RENAME: "RENAME",
+  SET_PEER_PRESENCE: "SET_PEER_PRESENCE"
+});
+var PRESENCE_DOT = { available: "#3ecf8e", away: "#e3b341", busy: "#e5727a", offline: "#6b6b73" };
+var PRESENCE_WORD = { available: "Available", away: "Away", busy: "Busy", offline: "Offline" };
+var MY_STATUS_OPTIONS = [
+  { key: "available", word: "Available", desc: "Online and reachable", dot: "#3ecf8e" },
+  { key: "away", word: "Away", desc: "Idle \xB7 stepped away", dot: "#e3b341" },
+  { key: "busy", word: "Busy", desc: "Do not disturb", dot: "#e5727a" },
+  { key: "invisible", word: "Invisible", desc: "Appear offline to peers", dot: "#6b6b73" }
+];
+function shortLabelFromId(id) {
+  const hex = String(id || "").replace(/[^a-z0-9]/gi, "");
+  return "Chat " + (hex.slice(0, 4) || "0000").toUpperCase();
+}
+function monoInitials(label) {
+  const words = String(label || "").trim().split(/\s+/).filter(Boolean);
+  const a = words[0]?.[0] || "";
+  const b = words[1]?.[0] || words[0]?.[1] || "";
+  return (a + b).toUpperCase() || "\xB7\xB7";
+}
+function statusSub(status) {
+  switch (status) {
+    case "connected":
+    case "verified":
+      return "P2P \xB7 connected";
+    case "verifying":
+      return "Verifying\u2026";
+    case "connecting":
+    case "new":
+      return "Connecting\u2026";
+    case "peer_disconnected":
+      return "Peer disconnected";
+    default:
+      return "Disconnected";
+  }
+}
+function emptySetup() {
+  return {
+    offerData: "",
+    answerData: "",
+    offerInput: "",
+    answerInput: "",
+    showOfferStep: false,
+    showAnswerStep: false,
+    showVerification: false,
+    showQRCode: false,
+    qrCodeUrl: "",
+    isGeneratingKeys: false,
+    qrFramesTotal: 0,
+    qrFrameIndex: 0,
+    qrManualMode: false
+  };
+}
+function createSessionEntry(opts = {}) {
+  const id = opts.id || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
+  return {
+    id,
+    peerLabel: opts.peerLabel || shortLabelFromId(id),
+    labelIsCustom: false,
+    // becomes true once the user renames; blocks SAS auto-relabel
+    createdAt: opts.createdAt || Date.now(),
+    role: opts.role || "offer",
+    // 'offer' | 'answer'
+    status: opts.status || "new",
+    keyFingerprint: "",
+    verificationCode: "",
+    sas: { localConfirmed: false, remoteConfirmed: false, bothConfirmed: false, isVerified: false },
+    messages: [],
+    unreadCount: 0,
+    pendingIncomingFiles: [],
+    peerPresence: null,
+    // peer's advertised availability ('available'|'away'|'busy'|'offline'); null = unknown
+    setup: emptySetup()
+  };
+}
+function createInitialState() {
+  return { sessions: {}, order: [], activeSessionId: null };
+}
+function patchSession(state, id, patch) {
+  const session = state.sessions[id];
+  if (!session) return state;
+  return {
+    ...state,
+    sessions: { ...state.sessions, [id]: { ...session, ...patch } }
+  };
+}
+function sessionsReducer(state, action) {
+  const A = SESSION_ACTIONS;
+  switch (action.type) {
+    case A.CREATE_SESSION: {
+      const entry = action.entry || createSessionEntry(action);
+      if (state.sessions[entry.id]) return state;
+      return {
+        sessions: { ...state.sessions, [entry.id]: entry },
+        order: [...state.order, entry.id],
+        activeSessionId: action.activate === false ? state.activeSessionId : entry.id
+      };
+    }
+    case A.REMOVE_SESSION: {
+      const { id } = action;
+      if (!state.sessions[id]) return state;
+      const sessions = { ...state.sessions };
+      delete sessions[id];
+      const order = state.order.filter((x) => x !== id);
+      let activeSessionId = state.activeSessionId;
+      if (activeSessionId === id) {
+        const removedIdx = state.order.indexOf(id);
+        activeSessionId = order[Math.max(0, removedIdx - 1)] || order[0] || null;
+      }
+      return { sessions, order, activeSessionId };
+    }
+    case A.SET_ACTIVE: {
+      if (!state.sessions[action.id]) return state;
+      if (state.activeSessionId === action.id) return state;
+      return { ...state, activeSessionId: action.id };
+    }
+    case A.SET_STATUS: {
+      const session = state.sessions[action.id];
+      if (!session || session.status === action.status) return state;
+      return patchSession(state, action.id, { status: action.status });
+    }
+    case A.SET_FINGERPRINT:
+      return patchSession(state, action.id, { keyFingerprint: action.fingerprint });
+    case A.SET_VERIFICATION:
+      return patchSession(state, action.id, { verificationCode: action.code });
+    case A.SET_SAS: {
+      const session = state.sessions[action.id];
+      if (!session) return state;
+      return patchSession(state, action.id, { sas: { ...session.sas, ...action.sas } });
+    }
+    case A.ADD_MESSAGE: {
+      const session = state.sessions[action.id];
+      if (!session) return state;
+      return patchSession(state, action.id, { messages: [...session.messages, action.message] });
+    }
+    case A.SET_MESSAGES: {
+      const session = state.sessions[action.id];
+      if (!session) return state;
+      const next = typeof action.updater === "function" ? action.updater(session.messages) : action.messages;
+      return patchSession(state, action.id, { messages: Array.isArray(next) ? next : [] });
+    }
+    case A.UPDATE_MESSAGE_STATUS: {
+      const session = state.sessions[action.id];
+      if (!session) return state;
+      let changed = false;
+      const messages = session.messages.map((m) => {
+        if (String(m.mid) === String(action.mid) && m.status !== action.status) {
+          changed = true;
+          return { ...m, status: action.status };
+        }
+        return m;
+      });
+      return changed ? patchSession(state, action.id, { messages }) : state;
+    }
+    case A.DELETE_MESSAGE: {
+      const session = state.sessions[action.id];
+      if (!session) return state;
+      const messages = session.messages.filter((m) => String(m.mid) !== String(action.mid));
+      if (messages.length === session.messages.length) return state;
+      return patchSession(state, action.id, { messages });
+    }
+    case A.EXPIRE_MESSAGE: {
+      const session = state.sessions[action.id];
+      if (!session) return state;
+      let changed = false;
+      const messages = session.messages.map((m) => {
+        if (String(m.id) === String(action.messageId) && !m.expired) {
+          changed = true;
+          return { ...m, expired: true, message: "", expiresAt: void 0 };
+        }
+        return m;
+      });
+      return changed ? patchSession(state, action.id, { messages }) : state;
+    }
+    case A.INCREMENT_UNREAD: {
+      const session = state.sessions[action.id];
+      if (!session) return state;
+      return patchSession(state, action.id, { unreadCount: session.unreadCount + 1 });
+    }
+    case A.CLEAR_UNREAD: {
+      const session = state.sessions[action.id];
+      if (!session || session.unreadCount === 0) return state;
+      return patchSession(state, action.id, { unreadCount: 0 });
+    }
+    case A.SET_PENDING_FILES: {
+      const session = state.sessions[action.id];
+      if (!session) return state;
+      const next = typeof action.updater === "function" ? action.updater(session.pendingIncomingFiles) : action.files;
+      return patchSession(state, action.id, { pendingIncomingFiles: Array.isArray(next) ? next : [] });
+    }
+    case A.PATCH_SETUP: {
+      const session = state.sessions[action.id];
+      if (!session) return state;
+      return patchSession(state, action.id, { setup: { ...session.setup, ...action.patch } });
+    }
+    case A.RENAME: {
+      const session = state.sessions[action.id];
+      if (!session) return state;
+      const label = String(action.label || "").trim() || session.peerLabel;
+      return patchSession(state, action.id, { peerLabel: label, labelIsCustom: true });
+    }
+    case A.SET_PEER_PRESENCE: {
+      const session = state.sessions[action.id];
+      if (!session || session.peerPresence === action.presence) return state;
+      return patchSession(state, action.id, { peerPresence: action.presence });
+    }
+    default:
+      return state;
+  }
+}
+function decorateSession(session, activeSessionId) {
+  const lastMessage = [...session.messages].reverse().find((m) => !m.expired && typeof m.message === "string" && m.message.trim());
+  const s = session.status;
+  const isUp = s === "connected" || s === "verified";
+  const isPending = s === "connecting" || s === "verifying" || s === "new";
+  let dot, headerSub;
+  if (isPending) {
+    dot = "#e3b341";
+    headerSub = statusSub(s);
+  } else if (isUp) {
+    dot = session.peerPresence ? PRESENCE_DOT[session.peerPresence] || "#6b6b73" : "#3ecf8e";
+    headerSub = session.peerPresence ? PRESENCE_WORD[session.peerPresence] || "Online" : "P2P \xB7 connected";
+  } else {
+    dot = "#e5727a";
+    headerSub = statusSub(s);
+  }
+  const preview = lastMessage ? lastMessage.message : headerSub;
+  return {
+    id: session.id,
+    name: session.peerLabel,
+    mono: monoInitials(session.peerLabel),
+    dot,
+    headerSub,
+    status: session.status,
+    peerPresence: session.peerPresence,
+    preview,
+    unread: session.unreadCount > 0 ? session.unreadCount > 99 ? "99+" : String(session.unreadCount) : null,
+    verified: !!session.sas.isVerified,
+    active: session.id === activeSessionId,
+    inactive: session.id !== activeSessionId
+  };
+}
+function decorateSessions(state) {
+  return state.order.map((id) => state.sessions[id]).filter(Boolean).map((s) => decorateSession(s, state.activeSessionId));
+}
+
 // src/app.jsx
 var copyToClipboardSecure = async (text, autoClearMs = 0) => {
   let ok = false;
@@ -326,6 +591,45 @@ var highlightCode = (code) => {
   flush();
   return nodes;
 };
+var PRISM_ALIAS = {
+  js: "javascript",
+  mjs: "javascript",
+  javascript: "javascript",
+  node: "javascript",
+  ts: "typescript",
+  typescript: "typescript",
+  jsx: "jsx",
+  tsx: "tsx",
+  py: "python",
+  python: "python",
+  sh: "bash",
+  shell: "bash",
+  zsh: "bash",
+  bash: "bash",
+  "c++": "cpp",
+  cpp: "cpp",
+  cc: "cpp",
+  cxx: "cpp",
+  c: "c",
+  h: "c",
+  cs: "csharp",
+  csharp: "csharp",
+  java: "java",
+  go: "go",
+  golang: "go",
+  rs: "rust",
+  rust: "rust",
+  json: "json",
+  yml: "yaml",
+  yaml: "yaml",
+  sql: "sql",
+  md: "markdown",
+  markdown: "markdown",
+  html: "markup",
+  xml: "markup",
+  svg: "markup",
+  css: "css"
+};
 var CodeBlock = ({ code, lang }) => {
   const [copied, setCopied] = React.useState(false);
   const handleCopy = async () => {
@@ -335,6 +639,20 @@ var CodeBlock = ({ code, lang }) => {
       setTimeout(() => setCopied(false), 2e3);
     }
   };
+  const norm = PRISM_ALIAS[(lang || "").toLowerCase()] || (lang || "").toLowerCase();
+  const prism = typeof window !== "undefined" ? window.Prism : null;
+  const grammar = prism && prism.languages ? prism.languages[norm] : null;
+  const usePrism = !!(prism && grammar && typeof prism.highlight === "function");
+  let highlightedHtml = null;
+  if (usePrism) {
+    try {
+      highlightedHtml = prism.highlight(code, grammar, norm);
+    } catch (_) {
+      highlightedHtml = null;
+    }
+  }
+  const displayLang = usePrism ? norm : lang || "code";
+  const codeEl = usePrism && highlightedHtml != null ? React.createElement("code", { className: "language-" + norm, dangerouslySetInnerHTML: { __html: highlightedHtml } }) : React.createElement("code", null, highlightCode(code));
   return React.createElement("div", {
     className: "my-1 rounded-lg overflow-hidden",
     style: { backgroundColor: "#1b1c1b", border: "0 solid #e5e7eb" }
@@ -347,7 +665,7 @@ var CodeBlock = ({ code, lang }) => {
       React.createElement("span", {
         key: "lang",
         className: "text-[11px] uppercase tracking-wide text-gray-500 font-mono"
-      }, lang || "code"),
+      }, displayLang),
       React.createElement("button", {
         key: "copy",
         onClick: handleCopy,
@@ -365,7 +683,7 @@ var CodeBlock = ({ code, lang }) => {
       key: "pre",
       className: "px-3 py-2 overflow-x-auto text-xs leading-relaxed text-gray-200 custom-scrollbar",
       style: { whiteSpace: "pre", fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", margin: 0 }
-    }, React.createElement("code", null, highlightCode(code)))
+    }, codeEl)
   ]);
 };
 var MessageBody = ({ text }) => {
@@ -470,7 +788,10 @@ var EnhancedChatMessage = ({ message, type, timestamp, mid, status, viewOnce, vi
     const stCfg = {
       sending: { icon: "fa-clock", color: "#6b6b73", label: "Sending" },
       sent: { icon: "fa-check", color: "#8a8a92", label: "Sent" },
-      delivered: { icon: "fa-check-double", color: "#3ecf8e", label: "Delivered" },
+      // Two GREY ticks = delivered to the peer's device but not yet read.
+      delivered: { icon: "fa-check-double", color: "#8a8a92", label: "Delivered" },
+      // Two GREEN ticks = the peer actually opened the chat and read it.
+      read: { icon: "fa-check-double", color: "#3ecf8e", label: "Read" },
       failed: { icon: "fa-triangle-exclamation", color: "#e5727a", label: "Not sent" }
     }[status || "sent"] || { icon: "fa-check", color: "#8a8a92", label: "Sent" };
     metaLeft.push(React.createElement("span", {
@@ -572,7 +893,10 @@ var EnhancedConnectionSetup = ({
   iceSettingsPersisted,
   customIceServers,
   handleApplyIceSettings,
-  handleForgetIceSettings
+  handleForgetIceSettings,
+  // When true, render ONLY the create/connect card (no marketing landing,
+  // no hero) so it slots into the chat column for an additional session.
+  compact = false
 }) => {
   const [mode, setMode] = React.useState("create");
   const [notificationPermissionRequested, setNotificationPermissionRequested] = React.useState(false);
@@ -1109,7 +1433,7 @@ var EnhancedConnectionSetup = ({
     onApply: handleApplyIceSettings,
     onForget: handleForgetIceSettings
   }) : null;
-  const rightPanel = h("div", { key: "right", style: { flex: "0.95 1 460px", minWidth: "min(100%, 320px)", position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", height: "100vh" } }, [
+  const rightPanel = h("div", { key: "right", style: compact ? { flex: 1, minWidth: 0, width: "100%", position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", height: "100%" } : { flex: "0.95 1 460px", minWidth: "min(100%, 320px)", position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", height: "100vh" } }, [
     h(
       "div",
       { key: "scroll", className: "custom-scrollbar", style: { flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", padding: "42px 44px" } },
@@ -1163,6 +1487,9 @@ var EnhancedConnectionSetup = ({
   const keyframeStyle = h("style", { key: "kf", dangerouslySetInnerHTML: {
     __html: "@keyframes sbFlowR{0%{left:4%;opacity:0}12%{opacity:1}88%{opacity:1}100%{left:96%;opacity:0}}@keyframes sbFlowL{0%{left:96%;opacity:0}12%{opacity:1}88%{opacity:1}100%{left:4%;opacity:0}}@keyframes sbPulse{0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.5}50%{transform:translate(-50%,-50%) scale(1.5);opacity:0}}@keyframes sbSpin{to{transform:rotate(360deg)}}@keyframes sbUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes sbNode{0%,100%{box-shadow:0 0 0 0 rgba(62,207,142,0)}50%{box-shadow:0 0 0 6px rgba(62,207,142,.06)}}@keyframes sbScan{0%{top:8%}100%{top:88%}}@keyframes sbBlink{0%,100%{opacity:1}50%{opacity:.35}}"
   } });
+  if (compact) {
+    return h("div", { className: "sb-start", style: { flex: 1, minHeight: 0, width: "100%", display: "flex", flexDirection: "column", background: "#0f0f11", color: "#e8e8eb" } }, [keyframeStyle, rightPanel, qrModal]);
+  }
   return h("div", { className: "sb-start", style: { width: "100%" } }, [keyframeStyle, hero, uniqueSection, partnersSection, roadmapSection, communitySection, qrModal]);
 };
 var createScrollToBottomFunction = (chatMessagesRef) => {
@@ -1305,10 +1632,12 @@ var runSecurityReport = async (webrtcManager) => {
   });
   document.body.appendChild(modal);
 };
-var SecureBitChatHeader = ({ status, onDisconnect, webrtcManager }) => {
+var SecureBitChatHeader = ({ status, onDisconnect, webrtcManager, title, isOffline, peerPresence, onRenameTitle }) => {
   const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
   const [showNetwork, setShowNetwork] = React.useState(false);
   const [sec, setSec] = React.useState(null);
+  const [editingName, setEditingName] = React.useState(false);
+  const [nameDraft, setNameDraft] = React.useState("");
   React.useEffect(() => {
     let alive = true;
     const fetchSec = async () => {
@@ -1334,7 +1663,30 @@ var SecureBitChatHeader = ({ status, onDisconnect, webrtcManager }) => {
       document.removeEventListener("real-security-calculated", onCalc);
     };
   }, [webrtcManager]);
-  const connected = status === "connected" || status === "verified";
+  const onlineConnected = status === "connected" || status === "verified";
+  const dropped = status === "disconnected" || status === "peer_disconnected";
+  const connected = onlineConnected && !isOffline;
+  const connDot = isOffline || dropped ? "#e5727a" : onlineConnected ? "#3ecf8e" : "#e3c84e";
+  const connLabel = isOffline ? "Offline" : onlineConnected ? "Connected" : status === "peer_disconnected" ? "Peer disconnected" : status === "disconnected" ? "Disconnected" : "Connecting\u2026";
+  const connGlow = isOffline || dropped ? "0 0 0 3px rgba(229,114,122,0.16)" : onlineConnected ? "0 0 0 3px rgba(62,207,142,0.16)" : "0 0 0 3px rgba(227,200,78,0.16)";
+  const peerDot = onlineConnected && !isOffline ? PRESENCE_DOT[peerPresence] || "#3ecf8e" : connDot;
+  const peerPresenceWord = onlineConnected && !isOffline && peerPresence ? PRESENCE_WORD[peerPresence] || null : null;
+  const startRename = () => {
+    setNameDraft(title || "");
+    setEditingName(true);
+  };
+  const commitRename = () => {
+    if (typeof onRenameTitle === "function") onRenameTitle(nameDraft);
+    setEditingName(false);
+  };
+  const renameKey = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      commitRename();
+    } else if (e.key === "Escape") {
+      setEditingName(false);
+    }
+  };
   const passed = sec && Number.isFinite(sec.passedChecks) ? sec.passedChecks : null;
   const total = sec && Number.isFinite(sec.totalChecks) ? sec.totalChecks : null;
   const scoreLabel = passed != null && total ? passed + "/" + total : sec ? sec.score + "%" : "\u2014";
@@ -1347,9 +1699,9 @@ var SecureBitChatHeader = ({ status, onDisconnect, webrtcManager }) => {
     style: { display: "flex", alignItems: "center", gap: "9px", padding: "7px 13px", borderRadius: "9px", border: "1px solid " + (showNetwork ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.07)"), background: showNetwork ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.02)", cursor: "pointer", fontFamily: "inherit", transition: "all .15s" }
   }, [
     React.createElement("i", { key: "i", className: "fas fa-shield-halved", style: { color: accent, fontSize: "13px" } }),
-    React.createElement("span", { key: "l", style: { fontSize: "13px", fontWeight: 600, color: "#e8e8eb" } }, sec ? sec.level || "Secure" : "Secure"),
-    React.createElement("span", { key: "d", style: { width: "1px", height: "13px", background: "rgba(255,255,255,0.12)" } }),
-    React.createElement("span", { key: "s", style: { fontFamily: MONO, fontSize: "11.5px", fontWeight: 500, color: "#8a8a92" } }, scoreLabel),
+    React.createElement("span", { key: "l", className: "sb-sec-label", style: { fontSize: "13px", fontWeight: 600, color: "#e8e8eb" } }, sec ? sec.level || "Secure" : "Secure"),
+    React.createElement("span", { key: "d", className: "sb-sec-div", style: { width: "1px", height: "13px", background: "rgba(255,255,255,0.12)" } }),
+    React.createElement("span", { key: "s", className: "sb-sec-score", style: { fontFamily: MONO, fontSize: "11.5px", fontWeight: 500, color: "#8a8a92" } }, scoreLabel),
     React.createElement("button", {
       key: "c",
       type: "button",
@@ -1361,29 +1713,45 @@ var SecureBitChatHeader = ({ status, onDisconnect, webrtcManager }) => {
       style: { background: "none", border: "none", padding: 0, margin: 0, cursor: "pointer", display: "grid", placeItems: "center" }
     }, React.createElement("i", { className: "fas fa-chevron-down", style: { color: "#6b6b73", fontSize: "11px", transform: showNetwork ? "rotate(180deg)" : "rotate(0deg)", transition: "transform .2s" } }))
   ]);
+  const headerResponsiveCss = React.createElement("style", { key: "hdr-css", dangerouslySetInnerHTML: {
+    __html: (
+      // Mobile: leave room for the drawer hamburger and shed non-essential header
+      // chrome so avatar + name + status + Disconnect fit a narrow screen.
+      "@media (max-width:768px){.sb-chat-header{padding-left:60px !important;gap:10px !important;}.sb-chat-header .sb-sec-score,.sb-chat-header .sb-sec-label,.sb-chat-header .sb-sec-div{display:none !important;}.sb-chat-header .sb-secpill{padding:8px !important;gap:6px !important;}.sb-chat-header .sb-conn-text{display:none !important;}.sb-chat-header .sb-conn{padding:9px !important;}.sb-chat-header .sb-hdr-sub{display:none !important;}}@media (max-width:480px){.sb-chat-header{padding-right:12px !important;gap:8px !important;}}"
+    )
+  } });
   const header = React.createElement("header", {
     key: "hdr",
+    className: "sb-chat-header",
     style: { flex: "none", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "24px", padding: "0 20px", height: "64px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(18,18,20,0.72)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }
   }, [
+    headerResponsiveCss,
+    // The SecureBit brand/logo lives in the left rail; this header identifies the
+    // ACTIVE conversation — avatar monogram + local label + connection status.
     React.createElement("div", { key: "left", style: { display: "flex", alignItems: "center", gap: "12px", minWidth: 0 } }, [
-      React.createElement(
-        "div",
-        { key: "logo", style: { width: "36px", height: "36px", flex: "none", display: "grid", placeItems: "center" } },
-        React.createElement("img", { src: "/logo/securebit-mark.svg", alt: "SecureBit", style: { width: "100%", height: "100%", objectFit: "contain", display: "block" } })
-      ),
-      React.createElement("div", { key: "txt", style: { lineHeight: 1.2, minWidth: 0 } }, [
-        React.createElement("div", { key: "r1", style: { display: "flex", alignItems: "baseline", gap: "7px" } }, [
-          React.createElement("span", { key: "n", style: { fontSize: "16px", fontWeight: 800, letterSpacing: "-0.3px", color: "#e8e8eb" } }, "SecureBit"),
-          React.createElement("span", { key: "v", style: { fontFamily: MONO, fontSize: "10px", fontWeight: 500, color: "#56565e" } }, "v4.9.0")
+      React.createElement("div", { key: "avatar", style: { position: "relative", flex: "none", width: "36px", height: "36px", borderRadius: "10px", display: "grid", placeItems: "center", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", fontSize: "13px", fontWeight: 700, letterSpacing: "-0.3px", color: "#e8e8eb" } }, [
+        monoInitials(title || "Chat"),
+        React.createElement("span", { key: "dot", style: { position: "absolute", right: "-2px", bottom: "-2px", width: "11px", height: "11px", borderRadius: "50%", background: peerDot, border: "2px solid #121214" } })
+      ]),
+      editingName ? React.createElement("div", { key: "edit", style: { display: "flex", flexDirection: "column", gap: "4px", minWidth: 0 } }, [
+        React.createElement("div", { key: "row", style: { display: "flex", alignItems: "center", gap: "6px" } }, [
+          React.createElement("input", { key: "in", autoFocus: true, value: nameDraft, maxLength: 32, placeholder: "Name this chat", onChange: (e) => setNameDraft(e.target.value), onKeyDown: renameKey, onBlur: commitRename, style: { width: "210px", padding: "5px 10px", borderRadius: "8px", border: "1px solid rgba(240,137,42,0.55)", background: "#0f0f11", color: "#f4f4f6", fontFamily: "inherit", fontSize: "14px", fontWeight: 700, outline: "none" } }),
+          React.createElement("button", { key: "ok", onMouseDown: (e) => e.preventDefault(), onClick: commitRename, title: "Save", style: { flex: "none", width: "28px", height: "28px", borderRadius: "8px", display: "grid", placeItems: "center", border: "none", background: "#f0892a", color: "#1a0f04", cursor: "pointer" } }, React.createElement("i", { className: "fas fa-check", style: { fontSize: "12px" } }))
         ]),
-        React.createElement("div", { key: "r2", style: { fontSize: "11px", color: "#6b6b73", fontWeight: 500 } }, "End-to-end encrypted")
+        React.createElement("div", { key: "hint", style: { fontSize: "11px", color: "#56565e" } }, "Local label \xB7 stored only on this device")
+      ]) : React.createElement("div", { key: "txt", style: { lineHeight: 1.2, minWidth: 0 } }, [
+        React.createElement("div", { key: "r1", style: { display: "flex", alignItems: "center", gap: "7px" } }, [
+          React.createElement("span", { key: "n", style: { fontSize: "15px", fontWeight: 800, letterSpacing: "-0.3px", color: "#f4f4f6", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, title || "Secure chat"),
+          React.createElement("button", { key: "edit", onClick: startRename, title: "Rename chat (local only)", style: { flex: "none", width: "24px", height: "24px", borderRadius: "7px", display: "grid", placeItems: "center", border: "none", background: "transparent", color: "#56565e", cursor: "pointer" } }, React.createElement("i", { className: "fas fa-pen", style: { fontSize: "11px" } }))
+        ]),
+        React.createElement("div", { key: "r2", className: "sb-hdr-sub", style: { fontSize: "11px", color: "#6b6b73", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, isOffline ? "No network \xB7 reconnecting" : peerPresenceWord || (onlineConnected ? "P2P \xB7 end-to-end encrypted" : status === "peer_disconnected" ? "Peer disconnected" : status === "disconnected" ? "Disconnected" : "Connecting\u2026"))
       ])
     ]),
     secBtn,
-    React.createElement("div", { key: "right", style: { display: "flex", alignItems: "center", gap: "9px" } }, [
-      React.createElement("div", { key: "conn", style: { display: "flex", alignItems: "center", gap: "8px", padding: "8px 13px", borderRadius: "9px", border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)" } }, [
-        React.createElement("span", { key: "dot", style: { width: "7px", height: "7px", borderRadius: "50%", background: connected ? "#3ecf8e" : "#e3c84e", boxShadow: connected ? "0 0 0 3px rgba(62,207,142,0.16)" : "0 0 0 3px rgba(227,200,78,0.16)" } }),
-        React.createElement("span", { key: "t", style: { fontSize: "13px", fontWeight: 600, color: "#cfcfd4" } }, connected ? "Connected" : "Connecting\u2026")
+    React.createElement("div", { key: "right", className: "sb-hdr-right", style: { display: "flex", alignItems: "center", gap: "9px" } }, [
+      React.createElement("div", { key: "conn", className: "sb-conn", style: { display: "flex", alignItems: "center", gap: "8px", padding: "8px 13px", borderRadius: "9px", border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)" } }, [
+        React.createElement("span", { key: "dot", style: { flex: "none", width: "7px", height: "7px", borderRadius: "50%", background: connDot, boxShadow: connGlow } }),
+        React.createElement("span", { key: "t", className: "sb-conn-text", style: { fontSize: "13px", fontWeight: 600, color: "#cfcfd4" } }, connLabel)
       ]),
       React.createElement("button", { key: "dc", onClick: onDisconnect, className: "sb-disconnect", style: { display: "flex", alignItems: "center", gap: "7px", padding: "8px 14px", borderRadius: "9px", border: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "#9a9aa2", fontFamily: "inherit", fontSize: "13px", fontWeight: 600, cursor: "pointer", transition: "all .15s" } }, [
         React.createElement("i", { key: "i", className: "fas fa-power-off", style: { fontSize: "12px" } }),
@@ -1410,6 +1778,10 @@ var SecureBitChatHeader = ({ status, onDisconnect, webrtcManager }) => {
   return React.createElement("div", { style: { flex: "none" } }, [header, netPanel]);
 };
 var EnhancedChatInterface = ({
+  title,
+  isOffline,
+  peerPresence,
+  onRenameTitle,
   messages,
   messageInput,
   setMessageInput,
@@ -1772,25 +2144,346 @@ var EnhancedChatInterface = ({
     key: "chat-header",
     status,
     onDisconnect,
-    webrtcManager
+    webrtcManager,
+    title,
+    isOffline,
+    peerPresence,
+    onRenameTitle
   });
   return React.createElement("div", {
     className: "chat-container",
     style: { display: "flex", flexDirection: "column", height: "100vh", background: "#0f0f11", color: "#e8e8eb" }
   }, [chatHeader, messagesArea, scrollBtn, composer]);
 };
+var buildSessionMessage = (message, type, opts = {}) => ({
+  message,
+  type,
+  id: Date.now() + Math.random(),
+  timestamp: typeof opts.timestamp === "number" ? opts.timestamp : Date.now(),
+  mid: opts.mid,
+  status: opts.status,
+  viewOnce: opts.viewOnce === true,
+  viewOnceTtl: typeof opts.viewOnceTtl === "number" ? opts.viewOnceTtl : 15,
+  expiresAt: typeof opts.expiresAt === "number" ? opts.expiresAt : void 0
+});
+var SB_SVG = {
+  chevL: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>',
+  chevR: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+  plus: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  users: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19"/><circle cx="10" cy="8" r="3.2"/><path d="M20 19v-1.5a3.5 3.5 0 0 0-2.6-3.4"/><path d="M15.5 5.3a3.2 3.2 0 0 1 0 5.4"/></svg>',
+  burger: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>'
+};
+var SessionsSidebar = ({ chats, collapsed, drawerOpen, onToggleCollapse, onSelect, onNewChat, onRename, onCloseDrawer, myStatus, onSetStatus }) => {
+  const h = React.createElement;
+  const [editingId, setEditingId] = React.useState(null);
+  const [draft, setDraft] = React.useState("");
+  const [presenceOpen, setPresenceOpen] = React.useState(false);
+  const startEdit = (c) => (e) => {
+    e.stopPropagation();
+    setEditingId(c.id);
+    setDraft(c.name);
+  };
+  const commitEdit = () => {
+    if (editingId) {
+      onRename(editingId, draft);
+      setEditingId(null);
+    }
+  };
+  const editKey = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      commitEdit();
+    } else if (e.key === "Escape") {
+      setEditingId(null);
+    }
+  };
+  const renameInput = (extra = {}) => h("input", {
+    autoFocus: true,
+    value: draft,
+    onChange: (e) => setDraft(e.target.value),
+    onKeyDown: editKey,
+    onBlur: commitEdit,
+    onClick: (e) => e.stopPropagation(),
+    style: Object.assign({ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(240,137,42,0.5)", borderRadius: "6px", color: "#f4f4f6", fontFamily: "inherit", fontSize: "14px", fontWeight: 700, padding: "2px 6px", outline: "none" }, extra)
+  });
+  const icon = (svg, style) => h("span", { style: Object.assign({ display: "grid", placeItems: "center" }, style || {}), dangerouslySetInnerHTML: { __html: svg } });
+  const avatar = (c, size, ring) => h("div", {
+    style: { position: "relative", flex: "none", width: size + "px", height: size + "px", borderRadius: (size >= 44 ? 12 : 11) + "px", display: "grid", placeItems: "center", background: c.active ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255," + (c.active ? "0.14" : "0.07") + ")", fontSize: "13px", fontWeight: 700, letterSpacing: "-0.3px", color: c.active ? "#f4f4f6" : "#9a9aa2" }
+  }, [c.mono, h("span", { key: "dot", style: { position: "absolute", right: "-2px", bottom: "-2px", width: "11px", height: "11px", borderRadius: "50%", background: c.dot, border: "2px solid " + ring } })]);
+  const expandedRow = (c) => h("div", {
+    key: c.id,
+    onClick: () => onSelect(c.id),
+    style: { position: "relative", display: "flex", alignItems: "center", gap: "12px", padding: "11px 12px", marginBottom: "4px", borderRadius: "11px", background: c.active ? "#161618" : "transparent", border: "1px solid " + (c.active ? "rgba(255,255,255,0.08)" : "transparent"), cursor: "pointer" }
+  }, [
+    c.active && h("span", { key: "bar", style: { position: "absolute", left: 0, top: "12px", bottom: "12px", width: "3px", borderRadius: "0 3px 3px 0", background: "#f0892a" } }),
+    avatar(c, 38, c.active ? "#161618" : "#0c0c0e"),
+    h("div", { key: "body", style: { flex: 1, minWidth: 0 } }, [
+      h("div", { key: "top", style: { display: "flex", alignItems: "center", gap: "7px" } }, [
+        editingId === c.id ? renameInput() : h("span", {
+          key: "name",
+          onDoubleClick: startEdit(c),
+          title: "Double-click to rename",
+          style: { flex: 1, minWidth: 0, fontSize: "14px", fontWeight: c.active ? 700 : 600, letterSpacing: "-0.2px", color: c.active ? "#f4f4f6" : "#cfcfd4", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }
+        }, c.name),
+        c.unread && editingId !== c.id && h("span", { key: "u", style: { flex: "none", minWidth: "18px", height: "18px", padding: "0 5px", borderRadius: "9px", display: "grid", placeItems: "center", background: "#f0892a", color: "#1a0f04", fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 700 } }, c.unread)
+      ]),
+      h("div", { key: "prev", style: { fontSize: "12px", color: c.active ? "#8a8a92" : "#6b6b73", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.preview)
+    ])
+  ]);
+  const dockItem = (c) => h("div", { key: c.id, style: { position: "relative" } }, [
+    c.active && h("span", { key: "bar", style: { position: "absolute", left: "-13px", top: "9px", bottom: "9px", width: "3px", borderRadius: "0 3px 3px 0", background: "#f0892a" } }),
+    h("div", {
+      key: "tile",
+      onClick: () => onSelect(c.id),
+      title: c.name,
+      style: { position: "relative", width: "44px", height: "44px", borderRadius: "12px", display: "grid", placeItems: "center", cursor: "pointer", background: c.active ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255," + (c.active ? "0.14" : "0.07") + ")", fontSize: "13px", fontWeight: 700, letterSpacing: "-0.3px", color: c.active ? "#f4f4f6" : "#9a9aa2" }
+    }, [
+      c.mono,
+      h("span", { key: "dot", style: { position: "absolute", right: "-2px", bottom: "-2px", width: "11px", height: "11px", borderRadius: "50%", background: c.dot, border: "2.5px solid #0c0c0e" } }),
+      c.unread && h("span", { key: "u", style: { position: "absolute", left: "-5px", top: "-5px", minWidth: "17px", height: "17px", padding: "0 4px", borderRadius: "9px", display: "grid", placeItems: "center", background: "#f0892a", color: "#1a0f04", fontFamily: "'JetBrains Mono',monospace", fontSize: "9.5px", fontWeight: 700, border: "2px solid #0c0c0e" } }, c.unread)
+    ])
+  ]);
+  const brandMark = (size) => h(
+    "div",
+    { style: { width: size + "px", height: size + "px", flex: "none", display: "grid", placeItems: "center" } },
+    h("img", { src: "/logo/securebit-mark.svg", alt: "SecureBit", style: { width: "100%", height: "100%", objectFit: "contain", display: "block" } })
+  );
+  const collapseBtn = (svg, title) => h("button", { onClick: onToggleCollapse, title, style: { width: "30px", height: "30px", borderRadius: "8px", display: "grid", placeItems: "center", border: "1px solid rgba(255,255,255,0.07)", background: "transparent", color: "#8a8a92", cursor: "pointer" }, dangerouslySetInnerHTML: { __html: svg } });
+  const myMeta = MY_STATUS_OPTIONS.find((o) => o.key === myStatus) || MY_STATUS_OPTIONS[0];
+  const PRES_SVG = {
+    user: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20v-1.5a4 4 0 0 0-4-4h-4a4 4 0 0 0-4 4V20"/><circle cx="12" cy="8" r="3.6"/></svg>',
+    check: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f0892a" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11"/></svg>',
+    chevUp: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b6b73" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>',
+    lock: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11V7a5 5 0 0 1 10 0v4"/><rect x="4.5" y="11" width="15" height="9" rx="2.2"/></svg>'
+  };
+  const presenceMenu = (pos) => presenceOpen ? h("div", {
+    key: "pmenu",
+    style: Object.assign({ position: "absolute", zIndex: 30, borderRadius: "14px", background: "#161618", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 16px 40px rgba(0,0,0,0.55)", padding: "6px" }, pos)
+  }, [
+    h("div", { key: "h", style: { padding: "9px 10px 7px", fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 600, color: "#56565e", textTransform: "uppercase", letterSpacing: "1.2px" } }, "Set your status"),
+    ...MY_STATUS_OPTIONS.map((o) => h("button", {
+      key: o.key,
+      onClick: () => {
+        onSetStatus(o.key);
+        setPresenceOpen(false);
+      },
+      style: { width: "100%", display: "flex", alignItems: "center", gap: "11px", padding: "9px 10px", borderRadius: "9px", border: "none", background: "transparent", cursor: "pointer", textAlign: "left" }
+    }, [
+      h("span", { key: "d", style: { flex: "none", width: "10px", height: "10px", borderRadius: "50%", background: o.dot } }),
+      h("span", { key: "t", style: { flex: 1, minWidth: 0 } }, [
+        h("span", { key: "w", style: { display: "block", fontSize: "13.5px", fontWeight: 600, color: "#e8e8eb" } }, o.word),
+        h("span", { key: "de", style: { display: "block", fontSize: "11.5px", color: "#6b6b73" } }, o.desc)
+      ]),
+      o.key === myStatus && h("span", { key: "c", style: { flex: "none", display: "grid", placeItems: "center" }, dangerouslySetInnerHTML: { __html: PRES_SVG.check } })
+    ])),
+    h("div", { key: "note", style: { display: "flex", alignItems: "flex-start", gap: "8px", margin: "6px 6px 4px", padding: "9px 10px", borderRadius: "9px", background: "rgba(62,207,142,0.06)", border: "1px solid rgba(62,207,142,0.16)" } }, [
+      h("span", { key: "i", style: { flex: "none", marginTop: "1px", display: "grid" }, dangerouslySetInnerHTML: { __html: PRES_SVG.lock } }),
+      h("span", { key: "t", style: { fontSize: "11px", lineHeight: 1.45, color: "#8a8a92" } }, "Sent end-to-end to connected peers only \u2014 never stored on a server.")
+    ])
+  ]) : null;
+  const presencePanelExpanded = h("div", { key: "you", style: { flex: "none", position: "relative", marginTop: "10px", borderTop: "1px solid rgba(255,255,255,0.06)", padding: "10px 12px 12px" } }, [
+    presenceMenu({ left: "12px", right: "12px", bottom: "64px" }),
+    h("button", { key: "btn", onClick: () => setPresenceOpen((v) => !v), style: { width: "100%", display: "flex", alignItems: "center", gap: "11px", padding: "7px 8px", borderRadius: "11px", border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)", cursor: "pointer" } }, [
+      h("div", { key: "av", style: { position: "relative", flex: "none", width: "36px", height: "36px", borderRadius: "10px", display: "grid", placeItems: "center", background: "rgba(240,137,42,0.12)", border: "1px solid rgba(240,137,42,0.24)", color: "#f0892a" } }, [
+        h("span", { key: "i", style: { display: "grid" }, dangerouslySetInnerHTML: { __html: PRES_SVG.user } }),
+        h("span", { key: "dot", style: { position: "absolute", right: "-2px", bottom: "-2px", width: "11px", height: "11px", borderRadius: "50%", background: myMeta.dot, border: "2px solid #0c0c0e" } })
+      ]),
+      h("div", { key: "tx", style: { flex: 1, minWidth: 0, textAlign: "left" } }, [
+        h("div", { key: "y", style: { fontSize: "13.5px", fontWeight: 700, color: "#f4f4f6" } }, "You"),
+        h("div", { key: "w", style: { fontSize: "12px", color: "#8a8a92" } }, myMeta.word)
+      ]),
+      h("span", { key: "ch", style: { display: "grid", placeItems: "center" }, dangerouslySetInnerHTML: { __html: PRES_SVG.chevUp } })
+    ])
+  ]);
+  const presencePanelCollapsed = h("div", { key: "you", style: { flex: "none", position: "relative", display: "flex", flexDirection: "column", alignItems: "center", padding: "0 0 13px" } }, [
+    presenceMenu({ left: "60px", bottom: "8px", width: "248px" }),
+    h("button", { key: "btn", onClick: () => setPresenceOpen((v) => !v), title: "Your status \u2014 " + myMeta.word, style: { position: "relative", width: "44px", height: "44px", borderRadius: "12px", display: "grid", placeItems: "center", cursor: "pointer", background: "rgba(240,137,42,0.12)", border: "1px solid rgba(240,137,42,0.24)", color: "#f0892a" } }, [
+      h("span", { key: "i", style: { display: "grid" }, dangerouslySetInnerHTML: { __html: PRES_SVG.user } }),
+      h("span", { key: "dot", style: { position: "absolute", right: "-2px", bottom: "-2px", width: "12px", height: "12px", borderRadius: "50%", background: myMeta.dot, border: "2.5px solid #0c0c0e" } })
+    ])
+  ]);
+  const expandedInner = [
+    h("div", { key: "head", style: { flex: "none", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px 0 16px", height: "64px", borderBottom: "1px solid rgba(255,255,255,0.06)" } }, [
+      h("div", { key: "brand", style: { display: "flex", alignItems: "center", gap: "10px" } }, [brandMark(30), h("span", { key: "t", style: { fontSize: "15px", fontWeight: 800, letterSpacing: "-0.3px", color: "#f4f4f6" } }, "SecureBit")]),
+      collapseBtn(SB_SVG.chevL, "Collapse")
+    ]),
+    h("div", { key: "label", style: { flex: "none", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 16px 9px" } }, [
+      h("span", { key: "l", style: { fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 600, color: "#56565e", textTransform: "uppercase", letterSpacing: "1.3px" } }, "Chats"),
+      h("span", { key: "c", style: { fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 600, color: "#6b6b73" } }, String(chats.length))
+    ]),
+    h("div", { key: "list", className: "msc-scroll", style: { flex: 1, overflowY: "auto", padding: "0 10px" } }, [
+      ...chats.map(expandedRow),
+      h("div", { key: "gh", style: { marginTop: "14px", padding: "0 2px 6px" } }, h("span", { style: { fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 600, color: "#56565e", textTransform: "uppercase", letterSpacing: "1.3px" } }, "Group chats")),
+      h("div", { key: "gph", title: "Coming in v6.0", style: { display: "flex", alignItems: "center", gap: "12px", padding: "11px 12px", borderRadius: "11px", background: "transparent", border: "1px dashed rgba(255,255,255,0.09)", cursor: "not-allowed" } }, [
+        h("div", { key: "i", style: { flex: "none", width: "38px", height: "38px", borderRadius: "11px", display: "grid", placeItems: "center", background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", color: "#56565e" }, dangerouslySetInnerHTML: { __html: SB_SVG.users } }),
+        h("div", { key: "b", style: { flex: 1, minWidth: 0 } }, [
+          h("div", { key: "t", style: { fontSize: "14px", fontWeight: 600, color: "#8a8a92" } }, "Group chats"),
+          h("div", { key: "s", style: { fontSize: "11.5px", color: "#56565e" } }, "Up to 8 peers \xB7 P2P mesh")
+        ]),
+        h("span", { key: "soon", style: { flex: "none", padding: "4px 9px", borderRadius: "7px", background: "rgba(240,137,42,0.1)", border: "1px solid rgba(240,137,42,0.24)", fontFamily: "'JetBrains Mono',monospace", fontSize: "9.5px", fontWeight: 700, color: "#f0892a", textTransform: "uppercase", letterSpacing: "0.8px" } }, "Soon")
+      ])
+    ]),
+    h("div", { key: "new", style: { flex: "none", padding: "12px" } }, h("button", {
+      onClick: onNewChat,
+      style: { width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "9px", padding: "12px", borderRadius: "11px", border: "none", background: "#f0892a", color: "#1a0f04", fontFamily: "inherit", fontSize: "14px", fontWeight: 700, cursor: "pointer", boxShadow: "0 8px 24px rgba(240,137,42,0.28)" }
+    }, [icon(SB_SVG.plus, { key: "p" }), "New chat"])),
+    presencePanelExpanded
+  ];
+  const collapsedInner = [
+    h("div", { key: "head", style: { flex: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", padding: "13px 0", width: "100%", borderBottom: "1px solid rgba(255,255,255,0.06)" } }, [brandMark(32), collapseBtn(SB_SVG.chevR, "Expand")]),
+    h("div", { key: "list", className: "msc-scroll", style: { flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", padding: "14px 0", width: "100%" } }, [
+      ...chats.map(dockItem),
+      h("div", { key: "sep", style: { width: "30px", height: "1px", background: "rgba(255,255,255,0.07)", margin: "2px 0" } }),
+      h("div", { key: "gph", title: "Group chats \u2014 coming in v6.0", style: { position: "relative", width: "44px", height: "44px", borderRadius: "12px", display: "grid", placeItems: "center", cursor: "not-allowed", background: "transparent", border: "1px dashed rgba(255,255,255,0.1)", color: "#56565e" }, dangerouslySetInnerHTML: { __html: SB_SVG.users } })
+    ]),
+    h("div", { key: "new", style: { flex: "none", padding: "13px 0" } }, h("button", {
+      onClick: onNewChat,
+      title: "New chat",
+      style: { width: "44px", height: "44px", borderRadius: "12px", display: "grid", placeItems: "center", border: "none", background: "#f0892a", color: "#1a0f04", cursor: "pointer", boxShadow: "0 8px 24px rgba(240,137,42,0.28)" },
+      dangerouslySetInnerHTML: { __html: SB_SVG.plus }
+    })),
+    presencePanelCollapsed
+  ];
+  const railWidth = collapsed ? "72px" : "292px";
+  const railStyle = { flex: "none", width: railWidth, display: "flex", flexDirection: "column", alignItems: collapsed ? "center" : "stretch", background: "#0c0c0e", borderRight: "1px solid rgba(255,255,255,0.06)" };
+  const inner = collapsed ? collapsedInner : expandedInner;
+  return h(React.Fragment, null, [
+    // Responsive behaviour (inline styles can't express media queries).
+    h("style", { key: "css", dangerouslySetInnerHTML: { __html: "@media (max-width:1023px){.sb-rail{display:none !important;}.sb-burger{display:grid !important;}}@media (min-width:1024px){.sb-drawer-overlay{display:none !important;}}" } }),
+    // Desktop rail
+    h("aside", { key: "rail", className: "sb-rail", style: railStyle }, inner),
+    // Mobile drawer overlay
+    h("div", {
+      key: "drawer",
+      className: "sb-drawer-overlay",
+      onClick: onCloseDrawer,
+      style: { position: "fixed", inset: 0, zIndex: 60, background: "rgba(6,6,8,0.6)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)", display: drawerOpen ? "block" : "none" }
+    }, h("aside", { onClick: (e) => e.stopPropagation(), style: { position: "absolute", left: 0, top: 0, bottom: 0, width: "292px", display: "flex", flexDirection: "column", background: "#0c0c0e", borderRight: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 0 60px rgba(0,0,0,0.6)" } }, expandedInner))
+  ]);
+};
 var EnhancedSecureP2PChat = () => {
-  const [messages, setMessages] = React.useState([]);
+  const [sessionsState, dispatch] = React.useReducer(sessionsReducer, void 0, createInitialState);
+  const activeSessionId = sessionsState.activeSessionId;
+  const activeIdRef = React.useRef(null);
+  activeIdRef.current = activeSessionId;
+  const active = activeSessionId ? sessionsState.sessions[activeSessionId] : null;
+  const EMPTY_ARR = React.useRef([]).current;
+  const managersRef = React.useRef(/* @__PURE__ */ new Map());
+  const integrationsRef = React.useRef(/* @__PURE__ */ new Map());
+  const queuesRef = React.useRef(/* @__PURE__ */ new Map());
+  const dispatchActive = React.useCallback((build) => {
+    const id = activeIdRef.current;
+    if (!id) return;
+    dispatch(build(id));
+  }, []);
+  const messages = active ? active.messages : EMPTY_ARR;
+  const setMessages = React.useCallback((updaterOrArr) => {
+    const id = activeIdRef.current;
+    if (!id) return;
+    if (typeof updaterOrArr === "function") dispatch({ type: SESSION_ACTIONS.SET_MESSAGES, id, updater: updaterOrArr });
+    else dispatch({ type: SESSION_ACTIONS.SET_MESSAGES, id, messages: updaterOrArr });
+  }, []);
+  const connectionStatus = active ? active.status : "disconnected";
+  const setConnectionStatus = React.useCallback((status) => dispatchActive((id) => ({ type: SESSION_ACTIONS.SET_STATUS, id, status })), [dispatchActive]);
+  const keyFingerprint = active ? active.keyFingerprint : "";
+  const setKeyFingerprint = React.useCallback((fingerprint) => dispatchActive((id) => ({ type: SESSION_ACTIONS.SET_FINGERPRINT, id, fingerprint })), [dispatchActive]);
+  const verificationCode = active ? active.verificationCode : "";
+  const setVerificationCode = React.useCallback((code) => dispatchActive((id) => ({ type: SESSION_ACTIONS.SET_VERIFICATION, id, code })), [dispatchActive]);
+  const isVerified = active ? active.sas.isVerified : false;
+  const setIsVerified = React.useCallback((v) => dispatchActive((id) => ({ type: SESSION_ACTIONS.SET_SAS, id, sas: { isVerified: !!v } })), [dispatchActive]);
+  const localVerificationConfirmed = active ? active.sas.localConfirmed : false;
+  const setLocalVerificationConfirmed = React.useCallback((v) => dispatchActive((id) => ({ type: SESSION_ACTIONS.SET_SAS, id, sas: { localConfirmed: !!v } })), [dispatchActive]);
+  const remoteVerificationConfirmed = active ? active.sas.remoteConfirmed : false;
+  const setRemoteVerificationConfirmed = React.useCallback((v) => dispatchActive((id) => ({ type: SESSION_ACTIONS.SET_SAS, id, sas: { remoteConfirmed: !!v } })), [dispatchActive]);
+  const bothVerificationsConfirmed = active ? active.sas.bothConfirmed : false;
+  const setBothVerificationsConfirmed = React.useCallback((v) => dispatchActive((id) => ({ type: SESSION_ACTIONS.SET_SAS, id, sas: { bothConfirmed: !!v } })), [dispatchActive]);
+  const pendingIncomingFiles = active ? active.pendingIncomingFiles : EMPTY_ARR;
+  const setPendingIncomingFiles = React.useCallback((updaterOrArr) => {
+    const id = activeIdRef.current;
+    if (!id) return;
+    if (typeof updaterOrArr === "function") dispatch({ type: SESSION_ACTIONS.SET_PENDING_FILES, id, updater: updaterOrArr });
+    else dispatch({ type: SESSION_ACTIONS.SET_PENDING_FILES, id, files: updaterOrArr });
+  }, []);
+  const setupField = (name, fallback) => active ? active.setup[name] : fallback;
+  const setSetupField = (name) => React.useCallback((value) => dispatchActive((id) => ({ type: SESSION_ACTIONS.PATCH_SETUP, id, patch: { [name]: value } })), [dispatchActive]);
+  const offerData = setupField("offerData", "");
+  const setOfferData = setSetupField("offerData");
+  const answerData = setupField("answerData", "");
+  const setAnswerData = setSetupField("answerData");
+  const offerInput = setupField("offerInput", "");
+  const setOfferInput = setSetupField("offerInput");
+  const answerInput = setupField("answerInput", "");
+  const setAnswerInput = setSetupField("answerInput");
+  const showOfferStep = setupField("showOfferStep", false);
+  const setShowOfferStep = setSetupField("showOfferStep");
+  const showAnswerStep = setupField("showAnswerStep", false);
+  const setShowAnswerStep = setSetupField("showAnswerStep");
+  const showVerification = setupField("showVerification", false);
+  const setShowVerification = setSetupField("showVerification");
+  const showQRCode = setupField("showQRCode", false);
+  const setShowQRCode = setSetupField("showQRCode");
+  const qrCodeUrl = setupField("qrCodeUrl", "");
+  const setQrCodeUrl = setSetupField("qrCodeUrl");
+  const isGeneratingKeys = setupField("isGeneratingKeys", false);
+  const setIsGeneratingKeys = setSetupField("isGeneratingKeys");
+  const webrtcManagerRef = React.useMemo(() => ({
+    get current() {
+      return managersRef.current.get(activeIdRef.current) || null;
+    },
+    set current(v) {
+      const id = activeIdRef.current;
+      if (!id) return;
+      if (v) managersRef.current.set(id, v);
+      else managersRef.current.delete(id);
+    }
+  }), []);
+  const notificationIntegrationRef = React.useMemo(() => ({
+    get current() {
+      return integrationsRef.current.get(activeIdRef.current) || null;
+    },
+    set current(v) {
+      const id = activeIdRef.current;
+      if (!id) return;
+      if (v) integrationsRef.current.set(id, v);
+      else integrationsRef.current.delete(id);
+    }
+  }), []);
+  const [myStatus, setMyStatusState] = React.useState(() => {
+    try {
+      return localStorage.getItem("securebit_my_status") || "available";
+    } catch {
+      return "available";
+    }
+  });
+  const myStatusRef = React.useRef(myStatus);
+  myStatusRef.current = myStatus;
+  const wirePresence = (s) => s === "invisible" ? "offline" : s;
+  const sendPresenceTo = React.useCallback((mgr, s) => {
+    if (!mgr || typeof mgr.sendMessage !== "function") return;
+    try {
+      if (mgr.isConnected && mgr.isConnected()) {
+        const p = mgr.sendMessage(JSON.stringify({ type: "presence", status: wirePresence(s) }));
+        if (p && typeof p.catch === "function") p.catch(() => {
+        });
+      }
+    } catch (_) {
+    }
+  }, []);
+  const setMyStatus = React.useCallback((key) => {
+    setMyStatusState(key);
+    try {
+      localStorage.setItem("securebit_my_status", key);
+    } catch {
+    }
+    for (const mgr of managersRef.current.values()) sendPresenceTo(mgr, key);
+  }, [sendPresenceTo]);
   const [codeMode, setCodeMode] = React.useState(false);
   const [viewOnceMode, setViewOnceMode] = React.useState(false);
   const [viewOnceTtl, setViewOnceTtl] = React.useState(15);
   const [disappearTtl, setDisappearTtl] = React.useState(0);
   const [nowTick, setNowTick] = React.useState(() => Date.now());
-  const [connectionStatus, setConnectionStatus] = React.useState("disconnected");
   const [isOffline, setIsOffline] = React.useState(typeof navigator !== "undefined" && navigator.onLine === false);
   const offlineRef = React.useRef(isOffline);
-  const outgoingQueueRef = React.useRef([]);
-  const incomingQueueRef = React.useRef([]);
   React.useEffect(() => {
     offlineRef.current = isOffline;
   }, [isOffline]);
@@ -1862,28 +2555,11 @@ var EnhancedSecureP2PChat = () => {
     setIceServersText("");
   }, []);
   const [messageInput, setMessageInput] = React.useState("");
-  const [offerData, setOfferData] = React.useState("");
-  const [answerData, setAnswerData] = React.useState("");
-  const [offerInput, setOfferInput] = React.useState("");
-  const [answerInput, setAnswerInput] = React.useState("");
-  const [keyFingerprint, setKeyFingerprint] = React.useState("");
-  const [verificationCode, setVerificationCode] = React.useState("");
-  const [showOfferStep, setShowOfferStep] = React.useState(false);
-  const [showAnswerStep, setShowAnswerStep] = React.useState(false);
-  const [showVerification, setShowVerification] = React.useState(false);
-  const [showQRCode, setShowQRCode] = React.useState(false);
-  const [qrCodeUrl, setQrCodeUrl] = React.useState("");
   const [showQRScanner, setShowQRScanner] = React.useState(false);
   const [showQRScannerModal, setShowQRScannerModal] = React.useState(false);
-  const [isGeneratingKeys, setIsGeneratingKeys] = React.useState(false);
-  const [isVerified, setIsVerified] = React.useState(false);
   const [securityLevel, setSecurityLevel] = React.useState(null);
   const [sessionTimeLeft, setSessionTimeLeft] = React.useState(0);
-  const [localVerificationConfirmed, setLocalVerificationConfirmed] = React.useState(false);
-  const [remoteVerificationConfirmed, setRemoteVerificationConfirmed] = React.useState(false);
-  const [bothVerificationsConfirmed, setBothVerificationsConfirmed] = React.useState(false);
   const [pendingSession, setPendingSession] = React.useState(null);
-  const [pendingIncomingFiles, setPendingIncomingFiles] = React.useState([]);
   const [connectionState, setConnectionState] = React.useState({
     status: "disconnected",
     hasActiveAnswer: false,
@@ -1912,8 +2588,6 @@ var EnhancedSecureP2PChat = () => {
       answerCreatedAt: Date.now()
     });
   };
-  const webrtcManagerRef = React.useRef(null);
-  const notificationIntegrationRef = React.useRef(null);
   React.useEffect(() => {
     return installDebugWindowHooks({
       targetWindow: window,
@@ -1966,32 +2640,38 @@ var EnhancedSecureP2PChat = () => {
     setMessages((prev) => prev.map((m) => String(m.mid) === String(mid) && m.type === "sent" ? { ...m, status } : m));
   }, []);
   const flushOfflineQueues = React.useCallback(() => {
-    const out = outgoingQueueRef.current;
-    outgoingQueueRef.current = [];
-    for (const item of out) {
-      const send = webrtcManagerRef.current?.sendMessage?.(item.outText, item.meta);
-      if (send && typeof send.then === "function") {
-        send.then(() => updateMessageStatus(item.mid, "sent")).catch(() => updateMessageStatus(item.mid, "failed"));
+    for (const [id, q] of queuesRef.current.entries()) {
+      const mgr = managersRef.current.get(id);
+      const out = q.outgoing;
+      q.outgoing = [];
+      for (const item of out) {
+        const send = mgr?.sendMessage?.(item.outText, item.meta);
+        if (send && typeof send.then === "function") {
+          send.then(() => dispatch({ type: SESSION_ACTIONS.UPDATE_MESSAGE_STATUS, id, mid: item.mid, status: "delivered" })).catch(() => dispatch({ type: SESSION_ACTIONS.UPDATE_MESSAGE_STATUS, id, mid: item.mid, status: "failed" }));
+        }
       }
-    }
-    const inc = incomingQueueRef.current;
-    incomingQueueRef.current = [];
-    if (inc.length > 0) {
-      addMessageWithAutoScroll(
-        `Connection restored \u2014 ${inc.length} message${inc.length === 1 ? "" : "s"} received while you were offline.`,
-        "notice"
-      );
-    }
-    for (const item of inc) {
-      addMessageWithAutoScroll(item.message, item.type, item.opts);
-      if (item.opts && item.opts.mid && (item.type === "received" || item.type === "sent")) {
-        try {
-          webrtcManagerRef.current?.sendDeliveryReceipt?.(item.opts.mid);
-        } catch (_) {
+      const inc = q.incoming;
+      q.incoming = [];
+      if (inc.length > 0) {
+        dispatch({ type: SESSION_ACTIONS.ADD_MESSAGE, id, message: buildSessionMessage(
+          `Connection restored \u2014 ${inc.length} message${inc.length === 1 ? "" : "s"} received while you were offline.`,
+          "notice"
+        ) });
+      }
+      const viewing = id === activeIdRef.current && (typeof document === "undefined" || document.visibilityState === "visible");
+      for (const item of inc) {
+        dispatch({ type: SESSION_ACTIONS.ADD_MESSAGE, id, message: buildSessionMessage(item.message, item.type, item.opts) });
+        if (item.opts && item.opts.mid && item.type === "received") {
+          if (viewing) {
+            try {
+              mgr?.sendDeliveryReceipt?.(item.opts.mid);
+            } catch (_) {
+            }
+          } else if (q.pendingReadAcks) q.pendingReadAcks.push(item.opts.mid);
         }
       }
     }
-  }, [addMessageWithAutoScroll, updateMessageStatus]);
+  }, []);
   React.useEffect(() => {
     if (isOffline) return;
     flushOfflineQueues();
@@ -2054,35 +2734,85 @@ var EnhancedSecureP2PChat = () => {
       setTimeout(scrollToBottom, 150);
     }
   }, [messages]);
-  const hasExpiring = messages.some((m) => typeof m.expiresAt === "number");
+  const anyExpiring = sessionsState.order.some((id) => (sessionsState.sessions[id]?.messages || []).some((m) => typeof m.expiresAt === "number"));
+  const sessionsStateRef = React.useRef(sessionsState);
+  sessionsStateRef.current = sessionsState;
   React.useEffect(() => {
-    if (!hasExpiring) return;
+    if (!anyExpiring) return;
+    const expireFn = (prev) => {
+      const now = Date.now();
+      let changed = false;
+      const next = prev.map((m) => {
+        if (typeof m.expiresAt === "number" && m.expiresAt <= now && !m.expired) {
+          changed = true;
+          return { ...m, expired: true, message: "", expiresAt: void 0 };
+        }
+        return m;
+      });
+      return changed ? next : prev;
+    };
     const interval = setInterval(() => {
       const now = Date.now();
       setNowTick(now);
-      setMessages((prev) => {
-        let changed = false;
-        const next = prev.map((m) => {
-          if (typeof m.expiresAt === "number" && m.expiresAt <= now && !m.expired) {
-            changed = true;
-            return { ...m, expired: true, message: "", expiresAt: void 0 };
-          }
-          return m;
-        });
-        return changed ? next : prev;
-      });
+      const st = sessionsStateRef.current;
+      for (const id of st.order) {
+        const msgs = st.sessions[id]?.messages || [];
+        if (msgs.some((m) => typeof m.expiresAt === "number" && m.expiresAt <= now && !m.expired)) {
+          dispatch({ type: SESSION_ACTIONS.SET_MESSAGES, id, updater: expireFn });
+        }
+      }
     }, 1e3);
     return () => clearInterval(interval);
-  }, [hasExpiring]);
-  React.useEffect(() => {
-    if (webrtcManagerRef.current) {
-      console.log("\u26A0\uFE0F WebRTC Manager already initialized, skipping...");
-      return;
-    }
+  }, [anyExpiring]);
+  const createSession = (opts = {}) => {
+    const role = opts.role || "offer";
+    const entry = createSessionEntry({ role });
+    const id = entry.id;
+    dispatch({ type: SESSION_ACTIONS.CREATE_SESSION, entry, activate: opts.activate !== false });
+    queuesRef.current.set(id, { incoming: [], outgoing: [], pendingReadAcks: [] });
+    const setMessages2 = (u) => {
+      if (typeof u === "function") dispatch({ type: SESSION_ACTIONS.SET_MESSAGES, id, updater: u });
+      else dispatch({ type: SESSION_ACTIONS.SET_MESSAGES, id, messages: u });
+    };
+    const addMessageWithAutoScroll2 = (message, type, opts2 = {}) => {
+      dispatch({ type: SESSION_ACTIONS.ADD_MESSAGE, id, message: buildSessionMessage(message, type, opts2) });
+      if (type === "received" && id !== activeIdRef.current) {
+        dispatch({ type: SESSION_ACTIONS.INCREMENT_UNREAD, id });
+      }
+    };
+    const updateMessageStatus2 = (mid, status) => {
+      if (mid) dispatch({ type: SESSION_ACTIONS.UPDATE_MESSAGE_STATUS, id, mid, status });
+    };
+    const setConnectionStatus2 = (status) => dispatch({ type: SESSION_ACTIONS.SET_STATUS, id, status });
+    const setKeyFingerprint2 = (fingerprint) => dispatch({ type: SESSION_ACTIONS.SET_FINGERPRINT, id, fingerprint });
+    const setVerificationCode2 = (code) => dispatch({ type: SESSION_ACTIONS.SET_VERIFICATION, id, code });
+    const setIsVerified2 = (v) => dispatch({ type: SESSION_ACTIONS.SET_SAS, id, sas: { isVerified: !!v } });
+    const setLocalVerificationConfirmed2 = (v) => dispatch({ type: SESSION_ACTIONS.SET_SAS, id, sas: { localConfirmed: !!v } });
+    const setRemoteVerificationConfirmed2 = (v) => dispatch({ type: SESSION_ACTIONS.SET_SAS, id, sas: { remoteConfirmed: !!v } });
+    const setBothVerificationsConfirmed2 = (v) => dispatch({ type: SESSION_ACTIONS.SET_SAS, id, sas: { bothConfirmed: !!v } });
+    const setShowVerification2 = (v) => dispatch({ type: SESSION_ACTIONS.PATCH_SETUP, id, patch: { showVerification: !!v } });
+    const setShowOfferStep2 = (v) => dispatch({ type: SESSION_ACTIONS.PATCH_SETUP, id, patch: { showOfferStep: !!v } });
+    const setShowAnswerStep2 = (v) => dispatch({ type: SESSION_ACTIONS.PATCH_SETUP, id, patch: { showAnswerStep: !!v } });
+    const setShowQRCode2 = (v) => dispatch({ type: SESSION_ACTIONS.PATCH_SETUP, id, patch: { showQRCode: !!v } });
+    const setQrCodeUrl2 = (v) => dispatch({ type: SESSION_ACTIONS.PATCH_SETUP, id, patch: { qrCodeUrl: v } });
+    const setOfferData2 = (v) => dispatch({ type: SESSION_ACTIONS.PATCH_SETUP, id, patch: { offerData: v } });
+    const setAnswerData2 = (v) => dispatch({ type: SESSION_ACTIONS.PATCH_SETUP, id, patch: { answerData: v } });
+    const setOfferInput2 = (v) => dispatch({ type: SESSION_ACTIONS.PATCH_SETUP, id, patch: { offerInput: v } });
+    const setAnswerInput2 = (v) => dispatch({ type: SESSION_ACTIONS.PATCH_SETUP, id, patch: { answerInput: v } });
+    const setPendingIncomingFiles2 = (u) => {
+      if (typeof u === "function") dispatch({ type: SESSION_ACTIONS.SET_PENDING_FILES, id, updater: u });
+      else dispatch({ type: SESSION_ACTIONS.SET_PENDING_FILES, id, files: u });
+    };
+    const sessionQueues = () => queuesRef.current.get(id) || { incoming: [], outgoing: [] };
     const handleMessage = (message, type, meta) => {
       if (typeof message === "string" && message.trim().startsWith("{")) {
         try {
           const parsedMessage = JSON.parse(message);
+          if (parsedMessage.type === "presence") {
+            const st = parsedMessage.data && parsedMessage.data.status || parsedMessage.status;
+            if (st) dispatch({ type: SESSION_ACTIONS.SET_PEER_PRESENCE, id, presence: st });
+            return;
+          }
           const blockedTypes = [
             "file_transfer_start",
             "file_transfer_response",
@@ -2106,53 +2836,75 @@ var EnhancedSecureP2PChat = () => {
             console.log(`Blocked system/file message from chat: ${parsedMessage.type}`);
             return;
           }
+          if (parsedMessage.type === "message" && typeof parsedMessage.data === "string") {
+            message = parsedMessage.data;
+            if (parsedMessage.meta && typeof parsedMessage.meta === "object") meta = parsedMessage.meta;
+          }
         } catch (parseError) {
         }
       }
-      const opts = {};
+      const opts2 = {};
       if (meta && typeof meta === "object") {
-        if (typeof meta.mid === "string") opts.mid = meta.mid;
+        if (typeof meta.mid === "string") opts2.mid = meta.mid;
         if (meta.once === true) {
-          opts.viewOnce = true;
-          opts.viewOnceTtl = Number.isFinite(meta.onceTtl) ? meta.onceTtl : 15;
+          opts2.viewOnce = true;
+          opts2.viewOnceTtl = Number.isFinite(meta.onceTtl) ? meta.onceTtl : 15;
         }
         if (Number.isFinite(meta.ttl) && meta.ttl > 0) {
-          opts.expiresAt = Date.now() + meta.ttl * 1e3;
+          opts2.expiresAt = Date.now() + meta.ttl * 1e3;
         }
-        if (Number.isFinite(meta.ts)) opts.timestamp = meta.ts;
+        if (Number.isFinite(meta.ts)) opts2.timestamp = meta.ts;
       }
       if (offlineRef.current && type === "received") {
-        incomingQueueRef.current.push({ message, type, opts });
+        sessionQueues().incoming.push({ message, type, opts: opts2 });
         return;
       }
-      addMessageWithAutoScroll(message, type, opts);
-      if (opts.mid && (type === "received" || type === "sent")) {
-        try {
-          webrtcManagerRef.current?.sendDeliveryReceipt?.(opts.mid);
-        } catch (_) {
+      addMessageWithAutoScroll2(message, type, opts2);
+      if (opts2.mid && type === "received") {
+        const beingViewed = id === activeIdRef.current && (typeof document === "undefined" || document.visibilityState === "visible");
+        if (beingViewed) {
+          try {
+            manager?.sendDeliveryReceipt?.(opts2.mid);
+          } catch (_) {
+          }
+        } else {
+          const q = sessionQueues();
+          if (q.pendingReadAcks) q.pendingReadAcks.push(opts2.mid);
         }
       }
     };
     const handleStatusChange = (status) => {
-      setConnectionStatus(status);
+      setConnectionStatus2(status);
       if (status === "connected") {
         document.dispatchEvent(new CustomEvent("new-connection"));
         if (!window.isUpdatingSecurity) {
           updateSecurityLevel().catch(console.error);
         }
       } else if (status === "verifying") {
-        setShowVerification(true);
+        setShowVerification2(true);
         if (!window.isUpdatingSecurity) {
           updateSecurityLevel().catch(console.error);
         }
       } else if (status === "verified") {
-        setIsVerified(true);
-        setShowVerification(false);
-        setBothVerificationsConfirmed(true);
-        setConnectionStatus("connected");
+        setIsVerified2(true);
+        setShowVerification2(false);
+        setBothVerificationsConfirmed2(true);
+        setConnectionStatus2("connected");
         setTimeout(() => {
-          setIsVerified(true);
+          setIsVerified2(true);
         }, 0);
+        try {
+          const s = myStatusRef.current === "invisible" ? "offline" : myStatusRef.current;
+          setTimeout(() => {
+            try {
+              const p = manager.sendMessage?.(JSON.stringify({ type: "presence", status: s }));
+              if (p && typeof p.catch === "function") p.catch(() => {
+              });
+            } catch (_) {
+            }
+          }, 400);
+        } catch (_) {
+        }
         if (!window.isUpdatingSecurity) {
           updateSecurityLevel().catch(console.error);
         }
@@ -2161,98 +2913,59 @@ var EnhancedSecureP2PChat = () => {
           updateSecurityLevel().catch(console.error);
         }
       } else if (status === "disconnected") {
-        updateConnectionState({ status: "disconnected" });
-        setConnectionStatus("disconnected");
-        if (shouldPreserveAnswerData()) {
-          setIsVerified(false);
-          setShowVerification(false);
-          return;
-        }
-        setIsVerified(false);
-        setShowVerification(false);
-        document.dispatchEvent(new CustomEvent("disconnected"));
-        setLocalVerificationConfirmed(false);
-        setRemoteVerificationConfirmed(false);
-        setBothVerificationsConfirmed(false);
-        setOfferData("");
-        setAnswerData("");
-        setOfferInput("");
-        setAnswerInput("");
-        setShowOfferStep(false);
-        setShowAnswerStep(false);
-        setKeyFingerprint("");
-        setVerificationCode("");
-        setSecurityLevel(null);
-        setTimeout(() => {
-          setConnectionStatus("disconnected");
-          setShowVerification(false);
-          setOfferData("");
-          setAnswerData("");
-          setOfferInput("");
-          setAnswerInput("");
-          setShowOfferStep(false);
-          setShowAnswerStep(false);
-          setMessages([]);
-        }, 1e3);
+        setConnectionStatus2("disconnected");
+        setIsVerified2(false);
+        setShowVerification2(false);
+        setLocalVerificationConfirmed2(false);
+        setRemoteVerificationConfirmed2(false);
+        setBothVerificationsConfirmed2(false);
+        if (id === activeIdRef.current) document.dispatchEvent(new CustomEvent("disconnected"));
       } else if (status === "peer_disconnected") {
-        setSessionTimeLeft(0);
-        document.dispatchEvent(new CustomEvent("peer-disconnect"));
-        setTimeout(() => {
-          setKeyFingerprint("");
-          setVerificationCode("");
-          setSecurityLevel(null);
-          setIsVerified(false);
-          setShowVerification(false);
-          setConnectionStatus("disconnected");
-          setLocalVerificationConfirmed(false);
-          setRemoteVerificationConfirmed(false);
-          setBothVerificationsConfirmed(false);
-          setOfferData("");
-          setAnswerData("");
-          setOfferInput("");
-          setAnswerInput("");
-          setShowOfferStep(false);
-          setShowAnswerStep(false);
-          setMessages([]);
-          if (typeof console.clear === "function") {
-            console.clear();
-          }
-        }, 2e3);
+        if (id === activeIdRef.current) {
+          setSessionTimeLeft(0);
+          document.dispatchEvent(new CustomEvent("peer-disconnect"));
+        }
+        setConnectionStatus2("peer_disconnected");
+        setIsVerified2(false);
+        setShowVerification2(false);
+        setLocalVerificationConfirmed2(false);
+        setRemoteVerificationConfirmed2(false);
+        setBothVerificationsConfirmed2(false);
       }
     };
     const handleKeyExchange = (fingerprint) => {
       if (fingerprint === "") {
-        setKeyFingerprint("");
+        setKeyFingerprint2("");
       } else {
-        setKeyFingerprint(fingerprint);
+        setKeyFingerprint2(fingerprint);
       }
     };
     const handleVerificationRequired = (code) => {
       if (code === "") {
-        setVerificationCode("");
-        setShowVerification(false);
+        setVerificationCode2("");
+        setShowVerification2(false);
       } else {
-        setVerificationCode(code);
-        setShowVerification(true);
+        setVerificationCode2(code);
+        setShowVerification2(true);
       }
     };
     const handleVerificationStateChange = (state) => {
-      setLocalVerificationConfirmed(state.localConfirmed);
-      setRemoteVerificationConfirmed(state.remoteConfirmed);
-      setBothVerificationsConfirmed(state.bothConfirmed);
+      setLocalVerificationConfirmed2(state.localConfirmed);
+      setRemoteVerificationConfirmed2(state.remoteConfirmed);
+      setBothVerificationsConfirmed2(state.bothConfirmed);
     };
     const handleAnswerError = (errorType, errorMessage) => {
       if (errorType === "replay_attack") {
         setSessionTimeLeft(0);
         setPendingSession(null);
-        addMessageWithAutoScroll("\u{1F4A1} Data is outdated. Please create a new invitation or use a current response code.", "system");
+        addMessageWithAutoScroll2("\u{1F4A1} Data is outdated. Please create a new invitation or use a current response code.", "system");
         if (typeof console.clear === "function") {
           console.clear();
         }
       } else if (errorType === "security_violation") {
         setSessionTimeLeft(0);
         setPendingSession(null);
-        addMessageWithAutoScroll(` Security breach: ${errorMessage}`, "system");
+        addMessageWithAutoScroll2(` Security breach: ${errorMessage}`, "system");
         if (typeof console.clear === "function") {
           console.clear();
         }
@@ -2261,7 +2974,7 @@ var EnhancedSecureP2PChat = () => {
     if (typeof console.clear === "function") {
       console.clear();
     }
-    webrtcManagerRef.current = new EnhancedSecureWebRTCManager(
+    const manager = new EnhancedSecureWebRTCManager(
       handleMessage,
       handleStatusChange,
       handleKeyExchange,
@@ -2276,57 +2989,184 @@ var EnhancedSecureP2PChat = () => {
         }
       }
     );
-    webrtcManagerRef.current.onMessageDelete = (mid) => {
+    managersRef.current.set(id, manager);
+    manager.onMessageDelete = (mid) => {
       if (!mid) return;
-      setMessages((prev) => prev.filter((m) => String(m.mid) !== String(mid)));
+      setMessages2((prev) => prev.filter((m) => String(m.mid) !== String(mid)));
     };
-    webrtcManagerRef.current.onMessageDelivered = (mid) => {
-      updateMessageStatus(mid, "delivered");
+    manager.onMessageDelivered = (mid) => {
+      updateMessageStatus2(mid, "read");
     };
-    if (typeof Notification !== "undefined" && Notification && Notification.permission === "granted" && window.NotificationIntegration && !notificationIntegrationRef.current) {
+    if (typeof Notification !== "undefined" && Notification && Notification.permission === "granted" && window.NotificationIntegration && !integrationsRef.current.get(id)) {
       try {
-        const integration = new window.NotificationIntegration(webrtcManagerRef.current);
+        const integration = new window.NotificationIntegration(manager);
         integration.init().then(() => {
-          notificationIntegrationRef.current = integration;
+          integrationsRef.current.set(id, integration);
         }).catch((error) => {
         });
       } catch (error) {
       }
     }
-    handleMessage(" SecureBit.chat Enhanced Security Edition v4.9.0 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.", "system");
+    handleMessage(" SecureBit.chat Enhanced Security Edition v4.10.0 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.", "system");
+    manager.setFileTransferCallbacks(
+      // Progress callback
+      (progress) => {
+        console.log("File progress:", progress);
+      },
+      // File received callback — auto-save to disk, no button press needed.
+      (fileData) => {
+        const sizeMb = Math.max(1, Math.round((fileData.fileSize || 0) / (1024 * 1024)));
+        const saveToDisk = async () => {
+          const url = await fileData.getObjectURL();
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = fileData.fileName || "file";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => fileData.revokeObjectURL(url), 15e3);
+        };
+        saveToDisk().then(() => {
+          addMessageWithAutoScroll2(`File received & saved: ${fileData.fileName} (${sizeMb} MB)`, "system");
+        }).catch((e) => {
+          console.error("Auto-save failed:", e);
+          addMessageWithAutoScroll2(`File received: ${fileData.fileName} (${sizeMb} MB). Open the file panel to download it.`, "system");
+        });
+      },
+      // Error callback
+      (error) => {
+        console.error("File transfer error:", error);
+        if (error.includes("Connection not ready")) {
+          addMessageWithAutoScroll2(` File transfer error: connection not ready. Try again later.`, "system");
+        } else if (error.includes("File too large")) {
+          addMessageWithAutoScroll2(` File is too big. Maximum size: 100 MB`, "system");
+        } else {
+          addMessageWithAutoScroll2(` File transfer error: ${error}`, "system");
+        }
+      },
+      // Incoming file request callback — receiver must explicitly accept before any data is sent
+      (fileRequest) => {
+        setPendingIncomingFiles2((prev) => {
+          if (prev.some((f) => f.fileId === fileRequest.fileId)) return prev;
+          return [...prev, fileRequest];
+        });
+      }
+    );
+    return id;
+  };
+  const createSessionRef = React.useRef(createSession);
+  createSessionRef.current = createSession;
+  const destroyingRef = React.useRef(/* @__PURE__ */ new Set());
+  const destroySession = React.useCallback((id) => {
+    if (!id || destroyingRef.current.has(id)) return;
+    destroyingRef.current.add(id);
+    try {
+      const mgr = managersRef.current.get(id);
+      if (mgr) {
+        try {
+          mgr.disconnect();
+        } catch (_) {
+        }
+        managersRef.current.delete(id);
+      }
+      const integ = integrationsRef.current.get(id);
+      if (integ) {
+        try {
+          integ.cleanup?.();
+        } catch (_) {
+        }
+        integrationsRef.current.delete(id);
+      }
+      queuesRef.current.delete(id);
+      dispatch({ type: SESSION_ACTIONS.REMOVE_SESSION, id });
+    } finally {
+      destroyingRef.current.delete(id);
+    }
+  }, []);
+  React.useEffect(() => {
+    if (sessionsState.order.length === 0) createSessionRef.current({ role: "offer" });
+  }, [sessionsState.order.length]);
+  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(() => {
+    try {
+      return localStorage.getItem("securebit_sidebar_collapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
+  React.useEffect(() => {
+    try {
+      localStorage.setItem("securebit_sidebar_collapsed", String(sidebarCollapsed));
+    } catch {
+    }
+  }, [sidebarCollapsed]);
+  const [sidebarDrawerOpen, setSidebarDrawerOpen] = React.useState(false);
+  const handleSelectSession = React.useCallback((id) => {
+    dispatch({ type: SESSION_ACTIONS.SET_ACTIVE, id });
+    dispatch({ type: SESSION_ACTIONS.CLEAR_UNREAD, id });
+    setSidebarDrawerOpen(false);
+  }, []);
+  const handleNewChat = React.useCallback(() => {
+    createSessionRef.current({ role: "offer" });
+    setSidebarDrawerOpen(false);
+  }, []);
+  const handleRenameSession = React.useCallback((id, label) => {
+    dispatch({ type: SESSION_ACTIONS.RENAME, id, label });
+  }, []);
+  const flushReadAcks = React.useCallback((id) => {
+    if (!id) return;
+    const q = queuesRef.current.get(id);
+    const mgr = managersRef.current.get(id);
+    if (!q || !mgr || !q.pendingReadAcks || q.pendingReadAcks.length === 0) return;
+    const acks = q.pendingReadAcks;
+    q.pendingReadAcks = [];
+    for (const mid of acks) {
+      try {
+        mgr.sendDeliveryReceipt?.(mid);
+      } catch (_) {
+      }
+    }
+  }, []);
+  React.useEffect(() => {
+    if (!activeSessionId) return;
+    dispatch({ type: SESSION_ACTIONS.CLEAR_UNREAD, id: activeSessionId });
+    if (typeof document === "undefined" || document.visibilityState === "visible") flushReadAcks(activeSessionId);
+  }, [activeSessionId, flushReadAcks]);
+  const didInitRef = React.useRef(false);
+  React.useEffect(() => {
+    if (didInitRef.current) return;
+    didInitRef.current = true;
+    let isTabSwitching = false;
+    let tabSwitchTimeout = null;
     const handleBeforeUnload = (event) => {
       if (event.type === "beforeunload" && !isTabSwitching) {
-        if (webrtcManagerRef.current && webrtcManagerRef.current.isConnected()) {
+        for (const mgr of managersRef.current.values()) {
           try {
-            webrtcManagerRef.current.sendSystemMessage({
-              type: "peer_disconnect",
-              reason: "user_disconnect",
-              timestamp: Date.now()
-            });
-          } catch (error) {
-          }
-          setTimeout(() => {
-            if (webrtcManagerRef.current) {
-              webrtcManagerRef.current.disconnect();
+            if (mgr.isConnected && mgr.isConnected()) {
+              try {
+                mgr.sendSystemMessage({ type: "peer_disconnect", reason: "user_disconnect", timestamp: Date.now() });
+              } catch (_) {
+              }
+              setTimeout(() => {
+                try {
+                  mgr.disconnect();
+                } catch (_) {
+                }
+              }, 100);
+            } else {
+              mgr.disconnect();
             }
-          }, 100);
-        } else if (webrtcManagerRef.current) {
-          webrtcManagerRef.current.disconnect();
+          } catch (_) {
+          }
         }
       } else if (isTabSwitching) {
         event.preventDefault();
         event.returnValue = "";
       }
     };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    let isTabSwitching = false;
-    let tabSwitchTimeout = null;
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
         isTabSwitching = true;
-        if (tabSwitchTimeout) {
-          clearTimeout(tabSwitchTimeout);
-        }
+        if (tabSwitchTimeout) clearTimeout(tabSwitchTimeout);
         tabSwitchTimeout = setTimeout(() => {
           isTabSwitching = false;
         }, 5e3);
@@ -2336,55 +3176,11 @@ var EnhancedSecureP2PChat = () => {
           clearTimeout(tabSwitchTimeout);
           tabSwitchTimeout = null;
         }
+        flushReadAcks(activeIdRef.current);
       }
     };
+    window.addEventListener("beforeunload", handleBeforeUnload);
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    if (webrtcManagerRef.current) {
-      webrtcManagerRef.current.setFileTransferCallbacks(
-        // Progress callback
-        (progress) => {
-          console.log("File progress:", progress);
-        },
-        // File received callback — auto-save to disk, no button press needed.
-        (fileData) => {
-          const sizeMb = Math.max(1, Math.round((fileData.fileSize || 0) / (1024 * 1024)));
-          const saveToDisk = async () => {
-            const url = await fileData.getObjectURL();
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = fileData.fileName || "file";
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            setTimeout(() => fileData.revokeObjectURL(url), 15e3);
-          };
-          saveToDisk().then(() => {
-            addMessageWithAutoScroll(`File received & saved: ${fileData.fileName} (${sizeMb} MB)`, "system");
-          }).catch((e) => {
-            console.error("Auto-save failed:", e);
-            addMessageWithAutoScroll(`File received: ${fileData.fileName} (${sizeMb} MB). Open the file panel to download it.`, "system");
-          });
-        },
-        // Error callback
-        (error) => {
-          console.error("File transfer error:", error);
-          if (error.includes("Connection not ready")) {
-            addMessageWithAutoScroll(` File transfer error: connection not ready. Try again later.`, "system");
-          } else if (error.includes("File too large")) {
-            addMessageWithAutoScroll(` File is too big. Maximum size: 100 MB`, "system");
-          } else {
-            addMessageWithAutoScroll(` File transfer error: ${error}`, "system");
-          }
-        },
-        // Incoming file request callback — receiver must explicitly accept before any data is sent
-        (fileRequest) => {
-          setPendingIncomingFiles((prev) => {
-            if (prev.some((f) => f.fileId === fileRequest.fileId)) return prev;
-            return [...prev, fileRequest];
-          });
-        }
-      );
-    }
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
@@ -2392,10 +3188,21 @@ var EnhancedSecureP2PChat = () => {
         clearTimeout(tabSwitchTimeout);
         tabSwitchTimeout = null;
       }
-      if (webrtcManagerRef.current) {
-        webrtcManagerRef.current.disconnect();
-        webrtcManagerRef.current = null;
+      for (const mgr of managersRef.current.values()) {
+        try {
+          mgr.disconnect();
+        } catch (_) {
+        }
       }
+      managersRef.current.clear();
+      for (const integ of integrationsRef.current.values()) {
+        try {
+          integ.cleanup?.();
+        } catch (_) {
+        }
+      }
+      integrationsRef.current.clear();
+      queuesRef.current.clear();
     };
   }, []);
   const compressOfferData = (offerData2) => {
@@ -2460,6 +3267,15 @@ var EnhancedSecureP2PChat = () => {
   const [qrFrameIndex, setQrFrameIndex] = React.useState(0);
   const [qrManualMode, setQrManualMode] = React.useState(false);
   const qrAnimationRef = React.useRef({ timer: null, chunks: [], idx: 0, active: false });
+  React.useEffect(() => () => {
+    try {
+      if (qrAnimationRef.current && qrAnimationRef.current.timer) {
+        clearInterval(qrAnimationRef.current.timer);
+        qrAnimationRef.current.timer = null;
+      }
+    } catch {
+    }
+  }, [activeSessionId]);
   const stopQrAnimation = () => {
     try {
       if (qrAnimationRef.current.timer) {
@@ -3132,7 +3948,7 @@ var EnhancedSecureP2PChat = () => {
           timestamp: Date.now()
         }]);
         setMessages((prev) => [...prev, {
-          message: "\u{1F4E4} Send the invitation code to your interlocutor via a secure channel (voice call, SMS, etc.)..",
+          message: "Send the invitation code to your interlocutor via a secure channel (voice call, SMS, etc.).",
           type: "system",
           id: Date.now(),
           timestamp: Date.now()
@@ -3478,9 +4294,6 @@ var EnhancedSecureP2PChat = () => {
     if (!webrtcManagerRef.current) {
       return;
     }
-    if (!webrtcManagerRef.current.isConnected()) {
-      return;
-    }
     const baseTextEarly = messageInput.trim();
     const midEarly = `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     const offlineNow = isOffline || typeof navigator !== "undefined" && navigator.onLine === false || window.pwaOfflineManager && window.pwaOfflineManager.isOnline === false;
@@ -3496,10 +4309,14 @@ var EnhancedSecureP2PChat = () => {
       const echoOpts = { mid: midEarly, status: "sent", timestamp: tsOff };
       if (disappearTtl > 0) echoOpts.expiresAt = tsOff + disappearTtl * 1e3;
       addMessageWithAutoScroll(outTextOff, "sent", echoOpts);
-      outgoingQueueRef.current.push({ outText: outTextOff, meta: metaOff, mid: midEarly });
+      const q = queuesRef.current.get(activeIdRef.current);
+      if (q) q.outgoing.push({ outText: outTextOff, meta: metaOff, mid: midEarly });
       setMessageInput("");
       if (codeMode) setCodeMode(false);
       if (viewOnceMode) setViewOnceMode(false);
+      return;
+    }
+    if (!webrtcManagerRef.current.isConnected()) {
       return;
     }
     try {
@@ -3517,7 +4334,7 @@ var EnhancedSecureP2PChat = () => {
       addMessageWithAutoScroll(outText, "sent", localOpts);
       try {
         await webrtcManagerRef.current.sendMessage(outText, meta);
-        updateMessageStatus(mid, "sent");
+        updateMessageStatus(mid, "delivered");
       } catch (sendErr) {
         updateMessageStatus(mid, "failed");
         throw sendErr;
@@ -3591,56 +4408,15 @@ var EnhancedSecureP2PChat = () => {
   }, []);
   const handleDisconnect = () => {
     try {
+      const id = activeIdRef.current;
       setSessionTimeLeft(0);
-      updateConnectionState({
-        status: "disconnected",
-        isUserInitiatedDisconnect: true
-      });
-      if (webrtcManagerRef.current) {
-        webrtcManagerRef.current.disconnect();
-      }
-      if (notificationIntegrationRef.current) {
-        notificationIntegrationRef.current.cleanup();
-        notificationIntegrationRef.current = null;
-      }
-      setKeyFingerprint("");
-      setVerificationCode("");
-      setSecurityLevel(null);
-      setIsVerified(false);
-      setShowVerification(false);
-      setConnectionStatus("disconnected");
-      setLocalVerificationConfirmed(false);
-      setRemoteVerificationConfirmed(false);
-      setBothVerificationsConfirmed(false);
-      setOfferData("");
-      setAnswerData("");
-      setOfferInput("");
-      setAnswerInput("");
-      setShowOfferStep(false);
-      setShowAnswerStep(false);
-      setIsGeneratingKeys(false);
-      setShowQRCode(false);
-      setQrCodeUrl("");
-      setShowQRScanner(false);
-      setShowQRScannerModal(false);
-      setMessages([]);
-      setPendingIncomingFiles([]);
-      if (typeof console.clear === "function") {
-        console.clear();
-      }
       document.dispatchEvent(new CustomEvent("peer-disconnect"));
       document.dispatchEvent(new CustomEvent("disconnected"));
       document.dispatchEvent(new CustomEvent("session-cleanup", {
-        detail: {
-          timestamp: Date.now(),
-          reason: "manual_disconnect"
-        }
+        detail: { timestamp: Date.now(), reason: "manual_disconnect" }
       }));
-      handleClearData();
-      setTimeout(() => {
-        setSessionTimeLeft(0);
-      }, 500);
-      console.log("Disconnect completed successfully");
+      destroySession(id);
+      if (typeof console.clear === "function") console.clear();
     } catch (error) {
       console.error("Error during disconnect:", error);
     }
@@ -3754,214 +4530,261 @@ var EnhancedSecureP2PChat = () => {
       };
     }
   }, [showQRScannerModal]);
+  const sessionChats = decorateSessions(sessionsState);
+  const showSidebar = sessionsState.order.length > 1 || sessionsState.order.some((id) => {
+    const s = sessionsState.sessions[id];
+    return s && s.sas && s.sas.isVerified;
+  });
   return React.createElement("div", {
-    className: "minimal-bg min-h-screen"
+    className: "minimal-bg",
+    // With the rail visible the app is a fixed-height shell (rail + column
+    // fill the viewport, design-style). Otherwise it's the scrollable landing.
+    // flexDirection:'row' is explicit — the .minimal-bg class forces
+    // flex-direction:column, which would otherwise stack the rail ABOVE the chat.
+    style: showSidebar ? { display: "flex", flexDirection: "row", height: "100vh", width: "100%", overflow: "hidden" } : { minHeight: "100vh" }
   }, [
-    // Advanced network settings now render inside the connection
-    // screen's right panel (see EnhancedConnectionSetup), matching
-    // the design's slide-up-within-the-right-column behavior.
-    // The verified chat renders its own in-chat header (SecureBit Chat
-    // design); the shared header is shown only on the landing/setup view.
-    !isConnectedAndVerified && window.EnhancedMinimalHeader && React.createElement(window.EnhancedMinimalHeader, {
-      key: "header",
-      status: connectionStatus,
-      fingerprint: keyFingerprint,
-      verificationCode,
-      onDisconnect: handleDisconnect,
-      isConnected: isConnectedAndVerified,
-      securityLevel,
-      // sessionManager removed - all features enabled by default
-      webrtcManager: webrtcManagerRef.current
+    showSidebar && React.createElement(SessionsSidebar, {
+      key: "sessions-sidebar",
+      chats: sessionChats,
+      collapsed: sidebarCollapsed,
+      drawerOpen: sidebarDrawerOpen,
+      onToggleCollapse: () => setSidebarCollapsed((v) => !v),
+      onSelect: handleSelectSession,
+      onNewChat: handleNewChat,
+      onRename: handleRenameSession,
+      onCloseDrawer: () => setSidebarDrawerOpen(false),
+      myStatus,
+      onSetStatus: setMyStatus
     }),
-    React.createElement(
-      "main",
-      {
-        key: "main"
-      },
-      /* @__PURE__ */ (() => {
-        return isConnectedAndVerified;
-      })() ? (() => {
-        return React.createElement(EnhancedChatInterface, {
-          messages,
-          messageInput,
-          setMessageInput,
-          onSendMessage: handleSendMessage,
-          onDisconnect: handleDisconnect,
-          keyFingerprint,
-          isVerified,
-          chatMessagesRef,
-          scrollToBottom,
-          webrtcManager: webrtcManagerRef.current,
-          status: connectionStatus,
-          pendingIncomingFiles,
-          onIncomingDecision: handleIncomingDecision,
-          // Secure chat extras
-          codeMode,
-          setCodeMode,
-          viewOnceMode,
-          setViewOnceMode,
-          viewOnceTtl,
-          setViewOnceTtl,
-          disappearTtl,
-          setDisappearTtl,
-          nowTick,
-          onUnsendMessage: handleUnsendMessage,
-          onMessageExpire: handleMessageExpire
-        });
-      })() : React.createElement(EnhancedConnectionSetup, {
-        onCreateOffer: handleCreateOffer,
-        onCreateAnswer: handleCreateAnswer,
-        onConnect: handleConnect,
-        onClearData: handleClearData,
-        onVerifyConnection: handleVerifyConnection,
-        connectionStatus,
-        offerData,
-        answerData,
-        offerInput,
-        setOfferInput,
-        answerInput,
-        setAnswerInput,
-        showOfferStep,
-        showAnswerStep,
+    // Mobile-only hamburger that opens the drawer (hidden on desktop via CSS).
+    showSidebar && React.createElement("button", {
+      key: "sb-burger",
+      className: "sb-burger",
+      onClick: () => setSidebarDrawerOpen(true),
+      style: { display: "none", position: "fixed", top: "13px", left: "13px", zIndex: 55, width: "38px", height: "38px", borderRadius: "10px", placeItems: "center", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(18,18,20,0.9)", color: "#cfcfd4", cursor: "pointer" },
+      dangerouslySetInnerHTML: { __html: SB_SVG.burger }
+    }),
+    React.createElement("div", {
+      key: "app-column",
+      className: showSidebar ? "minimal-bg" : "minimal-bg min-h-screen",
+      style: showSidebar ? { flex: 1, minWidth: 0, height: "100vh", overflow: "hidden", display: "flex", flexDirection: "column" } : {}
+    }, [
+      // Advanced network settings now render inside the connection
+      // screen's right panel (see EnhancedConnectionSetup), matching
+      // the design's slide-up-within-the-right-column behavior.
+      // The verified chat renders its own in-chat header (SecureBit Chat
+      // design); the shared header is shown only on the landing/setup view.
+      !isConnectedAndVerified && !showSidebar && window.EnhancedMinimalHeader && React.createElement(window.EnhancedMinimalHeader, {
+        key: "header",
+        status: connectionStatus,
+        fingerprint: keyFingerprint,
         verificationCode,
-        showVerification,
-        showQRCode,
-        qrCodeUrl,
-        showQRScanner,
-        setShowQRCode,
-        setShowQRScanner,
-        setShowQRScannerModal,
-        messages,
-        localVerificationConfirmed,
-        remoteVerificationConfirmed,
-        bothVerificationsConfirmed,
-        // QR control props
-        qrFramesTotal,
-        qrFrameIndex,
-        qrManualMode,
-        toggleQrManualMode,
-        nextQrFrame,
-        prevQrFrame,
-        // PAKE passwords removed - using SAS verification instead
-        markAnswerCreated,
-        notificationIntegrationRef,
-        isGeneratingKeys,
-        setIsGeneratingKeys,
-        handleCreateOffer,
-        relayOnlyMode,
-        setRelayOnlyMode,
-        webrtcManagerRef,
-        showIceSettings,
-        setShowIceSettings,
-        iceServersText,
-        iceSettingsPersisted,
-        customIceServers,
-        handleApplyIceSettings,
-        handleForgetIceSettings
-      })
-    ),
-    // QR Scanner Modal — camera scan (design import: "Start Secure" / Camera scan modal)
-    showQRScannerModal && (() => {
-      const closeScanner = () => {
-        setShowQRScannerModal(false);
-        qrChunksBufferRef.current = { id: null, total: 0, seen: /* @__PURE__ */ new Set(), items: [] };
-      };
-      const buf = qrChunksBufferRef.current;
-      const hasParts = !!(buf && buf.id && buf.total > 1);
-      const framesText = hasParts ? `Scanning frames\u2026 ${buf.seen.size} / ${buf.total}` : "Scanning\u2026";
-      const corner = (k, st) => React.createElement("span", {
-        key: k,
-        style: Object.assign({ position: "absolute", width: "34px", height: "34px", zIndex: 3 }, st)
-      });
-      return React.createElement("div", {
-        key: "qr-scanner-modal",
-        onClick: closeScanner,
-        style: { position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: "32px", background: "rgba(6,6,8,0.82)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", animation: "sbUp .2s ease" }
-      }, [
-        React.createElement("div", {
-          key: "scanner-container",
-          onClick: (e) => e.stopPropagation(),
-          style: { width: "100%", maxWidth: "420px", borderRadius: "22px", border: "1px solid rgba(255,255,255,0.1)", background: "#111113", boxShadow: "0 30px 90px rgba(0,0,0,0.6)", overflow: "hidden" }
+        onDisconnect: handleDisconnect,
+        isConnected: isConnectedAndVerified,
+        securityLevel,
+        // sessionManager removed - all features enabled by default
+        webrtcManager: webrtcManagerRef.current
+      }),
+      React.createElement(
+        "main",
+        {
+          key: "main"
+        },
+        /* @__PURE__ */ (() => {
+          return isConnectedAndVerified;
+        })() ? (() => {
+          return React.createElement(EnhancedChatInterface, {
+            title: active ? active.peerLabel : "",
+            isOffline,
+            peerPresence: active ? active.peerPresence : null,
+            onRenameTitle: (label) => {
+              if (activeSessionId) dispatch({ type: SESSION_ACTIONS.RENAME, id: activeSessionId, label });
+            },
+            messages,
+            messageInput,
+            setMessageInput,
+            onSendMessage: handleSendMessage,
+            onDisconnect: handleDisconnect,
+            keyFingerprint,
+            isVerified,
+            chatMessagesRef,
+            scrollToBottom,
+            webrtcManager: webrtcManagerRef.current,
+            status: connectionStatus,
+            pendingIncomingFiles,
+            onIncomingDecision: handleIncomingDecision,
+            // Secure chat extras
+            codeMode,
+            setCodeMode,
+            viewOnceMode,
+            setViewOnceMode,
+            viewOnceTtl,
+            setViewOnceTtl,
+            disappearTtl,
+            setDisappearTtl,
+            nowTick,
+            onUnsendMessage: handleUnsendMessage,
+            onMessageExpire: handleMessageExpire
+          });
+        })() : React.createElement(EnhancedConnectionSetup, {
+          onCreateOffer: handleCreateOffer,
+          onCreateAnswer: handleCreateAnswer,
+          onConnect: handleConnect,
+          onClearData: handleClearData,
+          onVerifyConnection: handleVerifyConnection,
+          connectionStatus,
+          offerData,
+          answerData,
+          offerInput,
+          setOfferInput,
+          answerInput,
+          setAnswerInput,
+          showOfferStep,
+          showAnswerStep,
+          verificationCode,
+          showVerification,
+          showQRCode,
+          qrCodeUrl,
+          showQRScanner,
+          setShowQRCode,
+          setShowQRScanner,
+          setShowQRScannerModal,
+          messages,
+          localVerificationConfirmed,
+          remoteVerificationConfirmed,
+          bothVerificationsConfirmed,
+          // QR control props
+          qrFramesTotal,
+          qrFrameIndex,
+          qrManualMode,
+          toggleQrManualMode,
+          nextQrFrame,
+          prevQrFrame,
+          // PAKE passwords removed - using SAS verification instead
+          markAnswerCreated,
+          notificationIntegrationRef,
+          isGeneratingKeys,
+          setIsGeneratingKeys,
+          handleCreateOffer,
+          relayOnlyMode,
+          setRelayOnlyMode,
+          webrtcManagerRef,
+          showIceSettings,
+          setShowIceSettings,
+          iceServersText,
+          iceSettingsPersisted,
+          customIceServers,
+          handleApplyIceSettings,
+          handleForgetIceSettings,
+          // Render only the create/connect card inside the chat column
+          // (an additional session), instead of the full landing.
+          compact: showSidebar
+        })
+      ),
+      // QR Scanner Modal — camera scan (design import: "Start Secure" / Camera scan modal)
+      showQRScannerModal && (() => {
+        const closeScanner = () => {
+          setShowQRScannerModal(false);
+          qrChunksBufferRef.current = { id: null, total: 0, seen: /* @__PURE__ */ new Set(), items: [] };
+        };
+        const buf = qrChunksBufferRef.current;
+        const hasParts = !!(buf && buf.id && buf.total > 1);
+        const framesText = hasParts ? `Scanning frames\u2026 ${buf.seen.size} / ${buf.total}` : "Scanning\u2026";
+        const corner = (k, st) => React.createElement("span", {
+          key: k,
+          style: Object.assign({ position: "absolute", width: "34px", height: "34px", zIndex: 3 }, st)
+        });
+        return React.createElement("div", {
+          key: "qr-scanner-modal",
+          onClick: closeScanner,
+          style: { position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: "32px", background: "rgba(6,6,8,0.82)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", animation: "sbUp .2s ease" }
         }, [
-          // Header
           React.createElement("div", {
-            key: "scanner-header",
-            style: { display: "flex", alignItems: "center", gap: "11px", padding: "18px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" }
+            key: "scanner-container",
+            onClick: (e) => e.stopPropagation(),
+            style: { width: "100%", maxWidth: "420px", borderRadius: "22px", border: "1px solid rgba(255,255,255,0.1)", background: "#111113", boxShadow: "0 30px 90px rgba(0,0,0,0.6)", overflow: "hidden" }
           }, [
-            React.createElement("span", {
-              key: "scanner-icon",
-              style: { display: "flex" },
-              dangerouslySetInnerHTML: { __html: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5V6.5A2.5 2.5 0 0 1 4.5 4h2M17.5 4h2A2.5 2.5 0 0 1 22 6.5v2M22 15.5v2a2.5 2.5 0 0 1-2.5 2.5h-2M6.5 20h-2A2.5 2.5 0 0 1 2 17.5v-2"/><circle cx="12" cy="12" r="3.2"/></svg>' }
-            }),
+            // Header
             React.createElement("div", {
-              key: "scanner-titles",
-              style: { flex: 1, lineHeight: 1.2 }
+              key: "scanner-header",
+              style: { display: "flex", alignItems: "center", gap: "11px", padding: "18px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" }
             }, [
-              React.createElement("div", {
-                key: "scanner-title",
-                style: { fontSize: "15.5px", fontWeight: 800, color: "#f4f4f6" }
-              }, "Scan QR code"),
-              React.createElement("div", {
-                key: "scanner-hint",
-                style: { fontSize: "12px", color: "#7b7b83" }
-              }, "Point your camera at their QR")
-            ]),
-            React.createElement("button", {
-              key: "close-btn",
-              onClick: closeScanner,
-              style: { width: "32px", height: "32px", display: "grid", placeItems: "center", borderRadius: "9px", border: "none", background: "rgba(255,255,255,0.05)", color: "#9a9aa2", cursor: "pointer" }
-            }, React.createElement("i", { className: "fas fa-times" }))
-          ]),
-          // Body
-          React.createElement("div", {
-            key: "scanner-body",
-            style: { padding: "22px 24px 24px" }
-          }, [
-            React.createElement("div", {
-              key: "viewfinder",
-              style: { position: "relative", aspectRatio: "1", borderRadius: "18px", overflow: "hidden", background: "#000", border: "1px solid rgba(255,255,255,0.1)" }
-            }, [
-              React.createElement("div", {
-                key: "vf-bg",
-                style: { position: "absolute", inset: 0, background: "radial-gradient(circle at 50% 45%, #1a1a1f, #000)" }
-              }),
-              // Camera video is injected here by Html5Qrcode
-              React.createElement("div", {
-                key: "qr-reader",
-                id: "qr-reader",
-                style: { position: "absolute", inset: 0, zIndex: 1 }
-              }),
-              corner("c-tl", { top: "18px", left: "18px", borderTop: "2.5px solid #3ecf8e", borderLeft: "2.5px solid #3ecf8e", borderRadius: "8px 0 0 0" }),
-              corner("c-tr", { top: "18px", right: "18px", borderTop: "2.5px solid #3ecf8e", borderRight: "2.5px solid #3ecf8e", borderRadius: "0 8px 0 0" }),
-              corner("c-bl", { bottom: "18px", left: "18px", borderBottom: "2.5px solid #3ecf8e", borderLeft: "2.5px solid #3ecf8e", borderRadius: "0 0 0 8px" }),
-              corner("c-br", { bottom: "18px", right: "18px", borderBottom: "2.5px solid #3ecf8e", borderRight: "2.5px solid #3ecf8e", borderRadius: "0 0 8px 0" }),
               React.createElement("span", {
-                key: "scan-line",
-                style: { position: "absolute", left: "18px", right: "18px", height: "2.5px", zIndex: 2, background: "linear-gradient(90deg, transparent, #3ecf8e, transparent)", boxShadow: "0 0 16px #3ecf8e", animation: "sbScan 1.5s ease-in-out infinite alternate" }
+                key: "scanner-icon",
+                style: { display: "flex" },
+                dangerouslySetInnerHTML: { __html: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5V6.5A2.5 2.5 0 0 1 4.5 4h2M17.5 4h2A2.5 2.5 0 0 1 22 6.5v2M22 15.5v2a2.5 2.5 0 0 1-2.5 2.5h-2M6.5 20h-2A2.5 2.5 0 0 1 2 17.5v-2"/><circle cx="12" cy="12" r="3.2"/></svg>' }
               }),
               React.createElement("div", {
-                key: "scan-status",
-                style: { position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 3, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "14px", background: "linear-gradient(transparent, rgba(0,0,0,0.6))" }
+                key: "scanner-titles",
+                style: { flex: 1, lineHeight: 1.2 }
               }, [
-                React.createElement("span", {
-                  key: "spinner",
-                  style: { display: "flex", animation: "sbSpin 1.4s linear infinite" },
-                  dangerouslySetInnerHTML: { __html: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>' }
-                }),
-                React.createElement("span", {
-                  key: "scan-frames",
-                  style: { fontSize: "12.5px", fontWeight: 600, color: "#cfcfd4" }
-                }, framesText)
-              ])
+                React.createElement("div", {
+                  key: "scanner-title",
+                  style: { fontSize: "15.5px", fontWeight: 800, color: "#f4f4f6" }
+                }, "Scan QR code"),
+                React.createElement("div", {
+                  key: "scanner-hint",
+                  style: { fontSize: "12px", color: "#7b7b83" }
+                }, "Point your camera at their QR")
+              ]),
+              React.createElement("button", {
+                key: "close-btn",
+                onClick: closeScanner,
+                style: { width: "32px", height: "32px", display: "grid", placeItems: "center", borderRadius: "9px", border: "none", background: "rgba(255,255,255,0.05)", color: "#9a9aa2", cursor: "pointer" }
+              }, React.createElement("i", { className: "fas fa-times" }))
             ]),
-            React.createElement("p", {
-              key: "scanner-note",
-              style: { margin: "16px 0 0", textAlign: "center", fontSize: "12px", lineHeight: 1.5, color: "#6b6b73" }
-            }, "Hold steady until all parts are captured. Camera access is local \u2014 nothing is uploaded.")
+            // Body
+            React.createElement("div", {
+              key: "scanner-body",
+              style: { padding: "22px 24px 24px" }
+            }, [
+              React.createElement("div", {
+                key: "viewfinder",
+                style: { position: "relative", aspectRatio: "1", borderRadius: "18px", overflow: "hidden", background: "#000", border: "1px solid rgba(255,255,255,0.1)" }
+              }, [
+                React.createElement("div", {
+                  key: "vf-bg",
+                  style: { position: "absolute", inset: 0, background: "radial-gradient(circle at 50% 45%, #1a1a1f, #000)" }
+                }),
+                // Camera video is injected here by Html5Qrcode
+                React.createElement("div", {
+                  key: "qr-reader",
+                  id: "qr-reader",
+                  style: { position: "absolute", inset: 0, zIndex: 1 }
+                }),
+                corner("c-tl", { top: "18px", left: "18px", borderTop: "2.5px solid #3ecf8e", borderLeft: "2.5px solid #3ecf8e", borderRadius: "8px 0 0 0" }),
+                corner("c-tr", { top: "18px", right: "18px", borderTop: "2.5px solid #3ecf8e", borderRight: "2.5px solid #3ecf8e", borderRadius: "0 8px 0 0" }),
+                corner("c-bl", { bottom: "18px", left: "18px", borderBottom: "2.5px solid #3ecf8e", borderLeft: "2.5px solid #3ecf8e", borderRadius: "0 0 0 8px" }),
+                corner("c-br", { bottom: "18px", right: "18px", borderBottom: "2.5px solid #3ecf8e", borderRight: "2.5px solid #3ecf8e", borderRadius: "0 0 8px 0" }),
+                React.createElement("span", {
+                  key: "scan-line",
+                  style: { position: "absolute", left: "18px", right: "18px", height: "2.5px", zIndex: 2, background: "linear-gradient(90deg, transparent, #3ecf8e, transparent)", boxShadow: "0 0 16px #3ecf8e", animation: "sbScan 1.5s ease-in-out infinite alternate" }
+                }),
+                React.createElement("div", {
+                  key: "scan-status",
+                  style: { position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 3, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "14px", background: "linear-gradient(transparent, rgba(0,0,0,0.6))" }
+                }, [
+                  React.createElement("span", {
+                    key: "spinner",
+                    style: { display: "flex", animation: "sbSpin 1.4s linear infinite" },
+                    dangerouslySetInnerHTML: { __html: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>' }
+                  }),
+                  React.createElement("span", {
+                    key: "scan-frames",
+                    style: { fontSize: "12.5px", fontWeight: 600, color: "#cfcfd4" }
+                  }, framesText)
+                ])
+              ]),
+              React.createElement("p", {
+                key: "scanner-note",
+                style: { margin: "16px 0 0", textAlign: "center", fontSize: "12px", lineHeight: 1.5, color: "#6b6b73" }
+              }, "Hold steady until all parts are captured. Camera access is local \u2014 nothing is uploaded.")
+            ])
           ])
-        ])
-      ]);
-    })()
+        ]);
+      })()
+    ])
+    // end app-column
   ]);
 };
 var UpdateCheckerWrapper = ({ children }) => {

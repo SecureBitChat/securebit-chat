@@ -9,7 +9,7 @@
 No accounts. No servers storing your messages. No installation required.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-f0892a.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-4.9.1-3ecf8e.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-4.10.0-3ecf8e.svg)](CHANGELOG.md)
 [![PWA](https://img.shields.io/badge/PWA-installable-3ecf8e.svg)](#install-as-an-app)
 [![Encryption](https://img.shields.io/badge/crypto-ECDH%20P--384%20%C2%B7%20AES--256--GCM-blue.svg)](#security-model)
 
@@ -47,6 +47,11 @@ It is designed for people who need a small, auditable, zero-infrastructure way t
 - View-once and disappearing messages with countdown timers.
 - Unsend (delete for everyone) over the authenticated control channel.
 - WhatsApp-style delivery status (sending → sent → delivered) with offline store-and-forward.
+
+**Multiple conversations**
+- Run several independent chats at the same time. Every conversation gets its own encrypted session, keys and verification, so two chats can never mix.
+- A side panel lists your open chats with unread badges. Switching is instant, and starting a new chat leaves the others connected.
+- Set your availability (Available, Away, Busy or Invisible) and connected peers can see it. You can also give each chat a private label that is stored only on your device and is never sent to the other side.
 
 ** File transfer**
 - Consent-gated, end-to-end encrypted transfers with resumable, per-chunk progress.

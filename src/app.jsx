@@ -1,5 +1,17 @@
 import { installDebugWindowHooks } from './utils/debugWindowHooks.js';
 import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/iceSettingsStore.js';
+import {
+    sessionsReducer,
+    createInitialState,
+    createSessionEntry,
+    decorateSessions,
+    monoInitials,
+    statusDot,
+    MY_STATUS_OPTIONS,
+    PRESENCE_DOT,
+    PRESENCE_WORD,
+    SESSION_ACTIONS as SA
+} from './state/sessionsStore.js';
 
                 // ── Secure chat extras: code blocks, clipboard hygiene ──────────────
                 // Copy text to the clipboard and (optionally) wipe it after a delay so
@@ -102,7 +114,23 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                     return nodes;
                 };
 
+                // Fenced-language → Prism grammar id (with common aliases).
+                const PRISM_ALIAS = {
+                    js: 'javascript', mjs: 'javascript', javascript: 'javascript', node: 'javascript',
+                    ts: 'typescript', typescript: 'typescript', jsx: 'jsx', tsx: 'tsx',
+                    py: 'python', python: 'python', sh: 'bash', shell: 'bash', zsh: 'bash', bash: 'bash',
+                    'c++': 'cpp', cpp: 'cpp', cc: 'cpp', cxx: 'cpp', c: 'c', h: 'c',
+                    cs: 'csharp', csharp: 'csharp', java: 'java', go: 'go', golang: 'go',
+                    rs: 'rust', rust: 'rust', json: 'json', yml: 'yaml', yaml: 'yaml', sql: 'sql',
+                    md: 'markdown', markdown: 'markdown', html: 'markup', xml: 'markup', svg: 'markup', css: 'css'
+                };
+
                 // Monospace code window with a copy button (clipboard auto-clears in 30s).
+                // Syntax highlighting is done by Prism when available. SECURITY: Prism only
+                // TOKENIZES the snippet — it never executes it. Prism.highlight() HTML-escapes
+                // the input before tokenizing, so the highlighted markup contains no live code
+                // and can't inject scripts (CSP also blocks inline execution). When Prism or the
+                // grammar is missing we fall back to the dependency-free React-node highlighter.
                 const CodeBlock = ({ code, lang }) => {
                     const [copied, setCopied] = React.useState(false);
                     const handleCopy = async () => {
@@ -112,6 +140,20 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                             setTimeout(() => setCopied(false), 2000);
                         }
                     };
+                    const norm = PRISM_ALIAS[(lang || '').toLowerCase()] || (lang || '').toLowerCase();
+                    const prism = (typeof window !== 'undefined') ? window.Prism : null;
+                    const grammar = (prism && prism.languages) ? prism.languages[norm] : null;
+                    const usePrism = !!(prism && grammar && typeof prism.highlight === 'function');
+                    let highlightedHtml = null;
+                    if (usePrism) {
+                        try { highlightedHtml = prism.highlight(code, grammar, norm); } catch (_) { highlightedHtml = null; }
+                    }
+                    const displayLang = (usePrism ? norm : (lang || 'code'));
+                    const codeEl = (usePrism && highlightedHtml != null)
+                        // Prism-escaped highlight markup — safe to inject (no live code).
+                        ? React.createElement('code', { className: 'language-' + norm, dangerouslySetInnerHTML: { __html: highlightedHtml } })
+                        // Fallback: React text nodes, never HTML.
+                        : React.createElement('code', null, highlightCode(code));
                     return React.createElement('div', {
                         className: "my-1 rounded-lg overflow-hidden",
                         style: { backgroundColor: '#1b1c1b', border: '0 solid #e5e7eb' }
@@ -124,7 +166,7 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                             React.createElement('span', {
                                 key: 'lang',
                                 className: "text-[11px] uppercase tracking-wide text-gray-500 font-mono"
-                            }, lang || 'code'),
+                            }, displayLang),
                             React.createElement('button', {
                                 key: 'copy',
                                 onClick: handleCopy,
@@ -142,7 +184,7 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                             key: 'pre',
                             className: "px-3 py-2 overflow-x-auto text-xs leading-relaxed text-gray-200 custom-scrollbar",
                             style: { whiteSpace: 'pre', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', margin: 0 }
-                        }, React.createElement('code', null, highlightCode(code)))
+                        }, codeEl)
                     ]);
                 };
 
@@ -584,7 +626,10 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                         const stCfg = ({
                             sending: { icon: 'fa-clock', color: '#6b6b73', label: 'Sending' },
                             sent: { icon: 'fa-check', color: '#8a8a92', label: 'Sent' },
-                            delivered: { icon: 'fa-check-double', color: '#3ecf8e', label: 'Delivered' },
+                            // Two GREY ticks = delivered to the peer's device but not yet read.
+                            delivered: { icon: 'fa-check-double', color: '#8a8a92', label: 'Delivered' },
+                            // Two GREEN ticks = the peer actually opened the chat and read it.
+                            read: { icon: 'fa-check-double', color: '#3ecf8e', label: 'Read' },
                             failed: { icon: 'fa-triangle-exclamation', color: '#e5727a', label: 'Not sent' }
                         })[status || 'sent'] || { icon: 'fa-check', color: '#8a8a92', label: 'Sent' };
                         metaLeft.push(React.createElement('span', {
@@ -687,7 +732,10 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                     iceSettingsPersisted,
                     customIceServers,
                     handleApplyIceSettings,
-                    handleForgetIceSettings
+                    handleForgetIceSettings,
+                    // When true, render ONLY the create/connect card (no marketing landing,
+                    // no hero) so it slots into the chat column for an additional session.
+                    compact = false
                 }) => {
                     const [mode, setMode] = React.useState('create');
                     const [notificationPermissionRequested, setNotificationPermissionRequested] = React.useState(false);
@@ -1242,7 +1290,9 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                         })
                         : null;
 
-                    const rightPanel = h('div', { key: 'right', style: { flex: '0.95 1 460px', minWidth: 'min(100%, 320px)', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100vh' } }, [
+                    const rightPanel = h('div', { key: 'right', style: compact
+                        ? { flex: 1, minWidth: 0, width: '100%', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100%' }
+                        : { flex: '0.95 1 460px', minWidth: 'min(100%, 320px)', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100vh' } }, [
                         h('div', { key: 'scroll', className: 'custom-scrollbar', style: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', padding: '42px 44px' } },
                             h('div', { style: { maxWidth: '430px', width: '100%', margin: 'auto' } }, [
                                 h('div', { key: 'kicker', style: { fontFamily: MONO, fontSize: '11px', fontWeight: 600, color: '#6b6b73', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px' } }, kicker),
@@ -1303,6 +1353,12 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                         '@keyframes sbScan{0%{top:8%}100%{top:88%}}' +
                         '@keyframes sbBlink{0%,100%{opacity:1}50%{opacity:.35}}'
                     } });
+
+                    // Embedded in the chat column (additional session): just the create/connect
+                    // card filling the area — no hero, no marketing landing.
+                    if (compact) {
+                        return h('div', { className: 'sb-start', style: { flex: 1, minHeight: 0, width: '100%', display: 'flex', flexDirection: 'column', background: '#0f0f11', color: '#e8e8eb' } }, [keyframeStyle, rightPanel, qrModal]);
+                    }
 
                     return h('div', { className: 'sb-start', style: { width: '100%' } }, [keyframeStyle, hero, uniqueSection, partnersSection, roadmapSection, communitySection, qrModal]);
                 };
@@ -1455,10 +1511,12 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
             // In-chat header matching the SecureBit Chat design: logo + version,
             // a "Secure" pill (click = run the security verification report; the chevron
             // toggles the network/crypto detail panel), a connection indicator, Disconnect.
-            const SecureBitChatHeader = ({ status, onDisconnect, webrtcManager }) => {
+            const SecureBitChatHeader = ({ status, onDisconnect, webrtcManager, title, isOffline, peerPresence, onRenameTitle }) => {
                 const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
                 const [showNetwork, setShowNetwork] = React.useState(false);
                 const [sec, setSec] = React.useState(null);
+                const [editingName, setEditingName] = React.useState(false);
+                const [nameDraft, setNameDraft] = React.useState('');
 
                 React.useEffect(() => {
                     let alive = true;
@@ -1479,7 +1537,25 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                     return () => { alive = false; clearInterval(iv); document.removeEventListener('real-security-calculated', onCalc); };
                 }, [webrtcManager]);
 
-                const connected = status === 'connected' || status === 'verified';
+                // Offline (our device lost connectivity) takes precedence over the P2P state —
+                // the data channel can stay "open" after the network drops, so without this the
+                // header would keep saying "Connected" while the user is actually offline.
+                const onlineConnected = status === 'connected' || status === 'verified';
+                const dropped = status === 'disconnected' || status === 'peer_disconnected';
+                const connected = onlineConnected && !isOffline;
+                const connDot = (isOffline || dropped) ? '#e5727a' : (onlineConnected ? '#3ecf8e' : '#e3c84e');
+                const connLabel = isOffline
+                    ? 'Offline'
+                    : (onlineConnected ? 'Connected'
+                        : (status === 'peer_disconnected' ? 'Peer disconnected'
+                            : (status === 'disconnected' ? 'Disconnected' : 'Connecting…')));
+                const connGlow = (isOffline || dropped) ? '0 0 0 3px rgba(229,114,122,0.16)' : (onlineConnected ? '0 0 0 3px rgba(62,207,142,0.16)' : '0 0 0 3px rgba(227,200,78,0.16)');
+                // The avatar dot + subtitle reflect the PEER's advertised availability while connected.
+                const peerDot = (onlineConnected && !isOffline) ? (PRESENCE_DOT[peerPresence] || '#3ecf8e') : connDot;
+                const peerPresenceWord = (onlineConnected && !isOffline && peerPresence) ? (PRESENCE_WORD[peerPresence] || null) : null;
+                const startRename = () => { setNameDraft(title || ''); setEditingName(true); };
+                const commitRename = () => { if (typeof onRenameTitle === 'function') onRenameTitle(nameDraft); setEditingName(false); };
+                const renameKey = (e) => { if (e.key === 'Enter') { e.preventDefault(); commitRename(); } else if (e.key === 'Escape') { setEditingName(false); } };
                 const passed = sec && Number.isFinite(sec.passedChecks) ? sec.passedChecks : null;
                 const total = sec && Number.isFinite(sec.totalChecks) ? sec.totalChecks : null;
                 const scoreLabel = (passed != null && total) ? (passed + '/' + total) : (sec ? (sec.score + '%') : '—');
@@ -1494,9 +1570,9 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                     style: { display: 'flex', alignItems: 'center', gap: '9px', padding: '7px 13px', borderRadius: '9px', border: '1px solid ' + (showNetwork ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.07)'), background: showNetwork ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.02)', cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s' }
                 }, [
                     React.createElement('i', { key: 'i', className: 'fas fa-shield-halved', style: { color: accent, fontSize: '13px' } }),
-                    React.createElement('span', { key: 'l', style: { fontSize: '13px', fontWeight: 600, color: '#e8e8eb' } }, sec ? (sec.level || 'Secure') : 'Secure'),
-                    React.createElement('span', { key: 'd', style: { width: '1px', height: '13px', background: 'rgba(255,255,255,0.12)' } }),
-                    React.createElement('span', { key: 's', style: { fontFamily: MONO, fontSize: '11.5px', fontWeight: 500, color: '#8a8a92' } }, scoreLabel),
+                    React.createElement('span', { key: 'l', className: 'sb-sec-label', style: { fontSize: '13px', fontWeight: 600, color: '#e8e8eb' } }, sec ? (sec.level || 'Secure') : 'Secure'),
+                    React.createElement('span', { key: 'd', className: 'sb-sec-div', style: { width: '1px', height: '13px', background: 'rgba(255,255,255,0.12)' } }),
+                    React.createElement('span', { key: 's', className: 'sb-sec-score', style: { fontFamily: MONO, fontSize: '11.5px', fontWeight: 500, color: '#8a8a92' } }, scoreLabel),
                     React.createElement('button', {
                         key: 'c', type: 'button', title: 'Network & crypto details',
                         onClick: (e) => { e.stopPropagation(); setShowNetwork(v => !v); },
@@ -1504,26 +1580,51 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                     }, React.createElement('i', { className: 'fas fa-chevron-down', style: { color: '#6b6b73', fontSize: '11px', transform: showNetwork ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s' } }))
                 ]);
 
+                const headerResponsiveCss = React.createElement('style', { key: 'hdr-css', dangerouslySetInnerHTML: { __html:
+                    // Mobile: leave room for the drawer hamburger and shed non-essential header
+                    // chrome so avatar + name + status + Disconnect fit a narrow screen.
+                    '@media (max-width:768px){' +
+                    '.sb-chat-header{padding-left:60px !important;gap:10px !important;}' +
+                    '.sb-chat-header .sb-sec-score,.sb-chat-header .sb-sec-label,.sb-chat-header .sb-sec-div{display:none !important;}' +
+                    '.sb-chat-header .sb-secpill{padding:8px !important;gap:6px !important;}' +
+                    '.sb-chat-header .sb-conn-text{display:none !important;}' +
+                    '.sb-chat-header .sb-conn{padding:9px !important;}' +
+                    '.sb-chat-header .sb-hdr-sub{display:none !important;}' +
+                    '}' +
+                    '@media (max-width:480px){.sb-chat-header{padding-right:12px !important;gap:8px !important;}}'
+                } });
                 const header = React.createElement('header', {
-                    key: 'hdr', style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px', padding: '0 20px', height: '64px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(18,18,20,0.72)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }
+                    key: 'hdr', className: 'sb-chat-header', style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px', padding: '0 20px', height: '64px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(18,18,20,0.72)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }
                 }, [
+                    headerResponsiveCss,
+                    // The SecureBit brand/logo lives in the left rail; this header identifies the
+                    // ACTIVE conversation — avatar monogram + local label + connection status.
                     React.createElement('div', { key: 'left', style: { display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 } }, [
-                        React.createElement('div', { key: 'logo', style: { width: '36px', height: '36px', flex: 'none', display: 'grid', placeItems: 'center' } },
-                            React.createElement('img', { src: '/logo/securebit-mark.svg', alt: 'SecureBit', style: { width: '100%', height: '100%', objectFit: 'contain', display: 'block' } })
-                        ),
-                        React.createElement('div', { key: 'txt', style: { lineHeight: 1.2, minWidth: 0 } }, [
-                            React.createElement('div', { key: 'r1', style: { display: 'flex', alignItems: 'baseline', gap: '7px' } }, [
-                                React.createElement('span', { key: 'n', style: { fontSize: '16px', fontWeight: 800, letterSpacing: '-0.3px', color: '#e8e8eb' } }, 'SecureBit'),
-                                React.createElement('span', { key: 'v', style: { fontFamily: MONO, fontSize: '10px', fontWeight: 500, color: '#56565e' } }, 'v4.9.0')
-                            ]),
-                            React.createElement('div', { key: 'r2', style: { fontSize: '11px', color: '#6b6b73', fontWeight: 500 } }, 'End-to-end encrypted')
-                        ])
+                        React.createElement('div', { key: 'avatar', style: { position: 'relative', flex: 'none', width: '36px', height: '36px', borderRadius: '10px', display: 'grid', placeItems: 'center', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', fontSize: '13px', fontWeight: 700, letterSpacing: '-0.3px', color: '#e8e8eb' } }, [
+                            monoInitials(title || 'Chat'),
+                            React.createElement('span', { key: 'dot', style: { position: 'absolute', right: '-2px', bottom: '-2px', width: '11px', height: '11px', borderRadius: '50%', background: peerDot, border: '2px solid #121214' } })
+                        ]),
+                        editingName
+                            ? React.createElement('div', { key: 'edit', style: { display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 } }, [
+                                React.createElement('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: '6px' } }, [
+                                    React.createElement('input', { key: 'in', autoFocus: true, value: nameDraft, maxLength: 32, placeholder: 'Name this chat', onChange: (e) => setNameDraft(e.target.value), onKeyDown: renameKey, onBlur: commitRename, style: { width: '210px', padding: '5px 10px', borderRadius: '8px', border: '1px solid rgba(240,137,42,0.55)', background: '#0f0f11', color: '#f4f4f6', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, outline: 'none' } }),
+                                    React.createElement('button', { key: 'ok', onMouseDown: (e) => e.preventDefault(), onClick: commitRename, title: 'Save', style: { flex: 'none', width: '28px', height: '28px', borderRadius: '8px', display: 'grid', placeItems: 'center', border: 'none', background: '#f0892a', color: '#1a0f04', cursor: 'pointer' } }, React.createElement('i', { className: 'fas fa-check', style: { fontSize: '12px' } }))
+                                ]),
+                                React.createElement('div', { key: 'hint', style: { fontSize: '11px', color: '#56565e' } }, 'Local label · stored only on this device')
+                            ])
+                            : React.createElement('div', { key: 'txt', style: { lineHeight: 1.2, minWidth: 0 } }, [
+                                React.createElement('div', { key: 'r1', style: { display: 'flex', alignItems: 'center', gap: '7px' } }, [
+                                    React.createElement('span', { key: 'n', style: { fontSize: '15px', fontWeight: 800, letterSpacing: '-0.3px', color: '#f4f4f6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, title || 'Secure chat'),
+                                    React.createElement('button', { key: 'edit', onClick: startRename, title: 'Rename chat (local only)', style: { flex: 'none', width: '24px', height: '24px', borderRadius: '7px', display: 'grid', placeItems: 'center', border: 'none', background: 'transparent', color: '#56565e', cursor: 'pointer' } }, React.createElement('i', { className: 'fas fa-pen', style: { fontSize: '11px' } }))
+                                ]),
+                                React.createElement('div', { key: 'r2', className: 'sb-hdr-sub', style: { fontSize: '11px', color: '#6b6b73', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, isOffline ? 'No network · reconnecting' : (peerPresenceWord || (onlineConnected ? 'P2P · end-to-end encrypted' : (status === 'peer_disconnected' ? 'Peer disconnected' : (status === 'disconnected' ? 'Disconnected' : 'Connecting…')))))
+                            ])
                     ]),
                     secBtn,
-                    React.createElement('div', { key: 'right', style: { display: 'flex', alignItems: 'center', gap: '9px' } }, [
-                        React.createElement('div', { key: 'conn', style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 13px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' } }, [
-                            React.createElement('span', { key: 'dot', style: { width: '7px', height: '7px', borderRadius: '50%', background: connected ? '#3ecf8e' : '#e3c84e', boxShadow: connected ? '0 0 0 3px rgba(62,207,142,0.16)' : '0 0 0 3px rgba(227,200,78,0.16)' } }),
-                            React.createElement('span', { key: 't', style: { fontSize: '13px', fontWeight: 600, color: '#cfcfd4' } }, connected ? 'Connected' : 'Connecting…')
+                    React.createElement('div', { key: 'right', className: 'sb-hdr-right', style: { display: 'flex', alignItems: 'center', gap: '9px' } }, [
+                        React.createElement('div', { key: 'conn', className: 'sb-conn', style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 13px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' } }, [
+                            React.createElement('span', { key: 'dot', style: { flex: 'none', width: '7px', height: '7px', borderRadius: '50%', background: connDot, boxShadow: connGlow } }),
+                            React.createElement('span', { key: 't', className: 'sb-conn-text', style: { fontSize: '13px', fontWeight: 600, color: '#cfcfd4' } }, connLabel)
                         ]),
                         React.createElement('button', { key: 'dc', onClick: onDisconnect, className: 'sb-disconnect', style: { display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 14px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#9a9aa2', fontFamily: 'inherit', fontSize: '13px', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' } }, [
                             React.createElement('i', { key: 'i', className: 'fas fa-power-off', style: { fontSize: '12px' } }),
@@ -1551,6 +1652,10 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
 
 
                const EnhancedChatInterface = ({
+            title,
+            isOffline,
+            peerPresence,
+            onRenameTitle,
             messages,
             messageInput,
             setMessageInput,
@@ -1878,7 +1983,7 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
             }, React.createElement('i', { className: 'fas fa-arrow-down', style: { fontSize: '15px' } }));
 
             const chatHeader = React.createElement(SecureBitChatHeader, {
-                key: 'chat-header', status: status, onDisconnect: onDisconnect, webrtcManager: webrtcManager
+                key: 'chat-header', status: status, onDisconnect: onDisconnect, webrtcManager: webrtcManager, title: title, isOffline: isOffline, peerPresence: peerPresence, onRenameTitle: onRenameTitle
             });
 
             return React.createElement('div', {
@@ -1888,17 +1993,358 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
         };
         
         
+                // Build a chat message in the shape addMessageWithAutoScroll produces, so the
+                // per-session callbacks can dispatch ADD_MESSAGE without an active-view setter.
+                const buildSessionMessage = (message, type, opts = {}) => ({
+                    message,
+                    type,
+                    id: Date.now() + Math.random(),
+                    timestamp: (typeof opts.timestamp === 'number') ? opts.timestamp : Date.now(),
+                    mid: opts.mid,
+                    status: opts.status,
+                    viewOnce: opts.viewOnce === true,
+                    viewOnceTtl: (typeof opts.viewOnceTtl === 'number') ? opts.viewOnceTtl : 15,
+                    expiresAt: (typeof opts.expiresAt === 'number') ? opts.expiresAt : undefined
+                });
+
+                // Left rail listing every open session (design import: "Multi Session
+                // Concepts"). Two desktop states — expanded (292px) and a collapsed icon dock
+                // (72px) — plus a mobile slide-out drawer. Pure presentational: all data comes
+                // from decorated session objects, all actions are callbacks.
+                const SB_SVG = {
+                    chevL: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>',
+                    chevR: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+                    plus: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+                    users: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19"/><circle cx="10" cy="8" r="3.2"/><path d="M20 19v-1.5a3.5 3.5 0 0 0-2.6-3.4"/><path d="M15.5 5.3a3.2 3.2 0 0 1 0 5.4"/></svg>',
+                    burger: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>'
+                };
+
+                const SessionsSidebar = ({ chats, collapsed, drawerOpen, onToggleCollapse, onSelect, onNewChat, onRename, onCloseDrawer, myStatus, onSetStatus }) => {
+                    const h = React.createElement;
+                    const [editingId, setEditingId] = React.useState(null);
+                    const [draft, setDraft] = React.useState('');
+                    const [presenceOpen, setPresenceOpen] = React.useState(false);
+                    const startEdit = (c) => (e) => { e.stopPropagation(); setEditingId(c.id); setDraft(c.name); };
+                    const commitEdit = () => { if (editingId) { onRename(editingId, draft); setEditingId(null); } };
+                    const editKey = (e) => {
+                        if (e.key === 'Enter') { e.preventDefault(); commitEdit(); }
+                        else if (e.key === 'Escape') { setEditingId(null); }
+                    };
+                    const renameInput = (extra = {}) => h('input', {
+                        autoFocus: true,
+                        value: draft,
+                        onChange: (e) => setDraft(e.target.value),
+                        onKeyDown: editKey,
+                        onBlur: commitEdit,
+                        onClick: (e) => e.stopPropagation(),
+                        style: Object.assign({ width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(240,137,42,0.5)', borderRadius: '6px', color: '#f4f4f6', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, padding: '2px 6px', outline: 'none' }, extra)
+                    });
+                    const icon = (svg, style) => h('span', { style: Object.assign({ display: 'grid', placeItems: 'center' }, style || {}), dangerouslySetInnerHTML: { __html: svg } });
+                    const avatar = (c, size, ring) => h('div', {
+                        style: { position: 'relative', flex: 'none', width: size + 'px', height: size + 'px', borderRadius: (size >= 44 ? 12 : 11) + 'px', display: 'grid', placeItems: 'center', background: c.active ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,' + (c.active ? '0.14' : '0.07') + ')', fontSize: '13px', fontWeight: 700, letterSpacing: '-0.3px', color: c.active ? '#f4f4f6' : '#9a9aa2' }
+                    }, [c.mono, h('span', { key: 'dot', style: { position: 'absolute', right: '-2px', bottom: '-2px', width: '11px', height: '11px', borderRadius: '50%', background: c.dot, border: '2px solid ' + ring } })]);
+
+                    // ---- Expanded list row ----
+                    const expandedRow = (c) => h('div', {
+                        key: c.id,
+                        onClick: () => onSelect(c.id),
+                        style: { position: 'relative', display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 12px', marginBottom: '4px', borderRadius: '11px', background: c.active ? '#161618' : 'transparent', border: '1px solid ' + (c.active ? 'rgba(255,255,255,0.08)' : 'transparent'), cursor: 'pointer' }
+                    }, [
+                        c.active && h('span', { key: 'bar', style: { position: 'absolute', left: 0, top: '12px', bottom: '12px', width: '3px', borderRadius: '0 3px 3px 0', background: '#f0892a' } }),
+                        avatar(c, 38, c.active ? '#161618' : '#0c0c0e'),
+                        h('div', { key: 'body', style: { flex: 1, minWidth: 0 } }, [
+                            h('div', { key: 'top', style: { display: 'flex', alignItems: 'center', gap: '7px' } }, [
+                                editingId === c.id
+                                    ? renameInput()
+                                    : h('span', {
+                                        key: 'name',
+                                        onDoubleClick: startEdit(c),
+                                        title: 'Double-click to rename',
+                                        style: { flex: 1, minWidth: 0, fontSize: '14px', fontWeight: c.active ? 700 : 600, letterSpacing: '-0.2px', color: c.active ? '#f4f4f6' : '#cfcfd4', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
+                                    }, c.name),
+                                c.unread && editingId !== c.id && h('span', { key: 'u', style: { flex: 'none', minWidth: '18px', height: '18px', padding: '0 5px', borderRadius: '9px', display: 'grid', placeItems: 'center', background: '#f0892a', color: '#1a0f04', fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 700 } }, c.unread)
+                            ]),
+                            h('div', { key: 'prev', style: { fontSize: '12px', color: c.active ? '#8a8a92' : '#6b6b73', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, c.preview)
+                        ])
+                    ]);
+
+                    // ---- Collapsed dock item ----
+                    const dockItem = (c) => h('div', { key: c.id, style: { position: 'relative' } }, [
+                        c.active && h('span', { key: 'bar', style: { position: 'absolute', left: '-13px', top: '9px', bottom: '9px', width: '3px', borderRadius: '0 3px 3px 0', background: '#f0892a' } }),
+                        h('div', {
+                            key: 'tile',
+                            onClick: () => onSelect(c.id),
+                            title: c.name,
+                            style: { position: 'relative', width: '44px', height: '44px', borderRadius: '12px', display: 'grid', placeItems: 'center', cursor: 'pointer', background: c.active ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,' + (c.active ? '0.14' : '0.07') + ')', fontSize: '13px', fontWeight: 700, letterSpacing: '-0.3px', color: c.active ? '#f4f4f6' : '#9a9aa2' }
+                        }, [
+                            c.mono,
+                            h('span', { key: 'dot', style: { position: 'absolute', right: '-2px', bottom: '-2px', width: '11px', height: '11px', borderRadius: '50%', background: c.dot, border: '2.5px solid #0c0c0e' } }),
+                            c.unread && h('span', { key: 'u', style: { position: 'absolute', left: '-5px', top: '-5px', minWidth: '17px', height: '17px', padding: '0 4px', borderRadius: '9px', display: 'grid', placeItems: 'center', background: '#f0892a', color: '#1a0f04', fontFamily: "'JetBrains Mono',monospace", fontSize: '9.5px', fontWeight: 700, border: '2px solid #0c0c0e' } }, c.unread)
+                        ])
+                    ]);
+
+                    // Same logo treatment as the landing header (Header.jsx): the mark on a
+                    // transparent background — no black tile.
+                    const brandMark = (size) => h('div', { style: { width: size + 'px', height: size + 'px', flex: 'none', display: 'grid', placeItems: 'center' } },
+                        h('img', { src: '/logo/securebit-mark.svg', alt: 'SecureBit', style: { width: '100%', height: '100%', objectFit: 'contain', display: 'block' } }));
+                    const collapseBtn = (svg, title) => h('button', { onClick: onToggleCollapse, title, style: { width: '30px', height: '30px', borderRadius: '8px', display: 'grid', placeItems: 'center', border: '1px solid rgba(255,255,255,0.07)', background: 'transparent', color: '#8a8a92', cursor: 'pointer' }, dangerouslySetInnerHTML: { __html: svg } });
+
+                    // ---- Expanded rail content ----
+                    // ---- Presence ("You" status) panel ----
+                    const myMeta = MY_STATUS_OPTIONS.find((o) => o.key === myStatus) || MY_STATUS_OPTIONS[0];
+                    const PRES_SVG = {
+                        user: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20v-1.5a4 4 0 0 0-4-4h-4a4 4 0 0 0-4 4V20"/><circle cx="12" cy="8" r="3.6"/></svg>',
+                        check: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f0892a" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11"/></svg>',
+                        chevUp: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b6b73" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>',
+                        lock: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11V7a5 5 0 0 1 10 0v4"/><rect x="4.5" y="11" width="15" height="9" rx="2.2"/></svg>'
+                    };
+                    const presenceMenu = (pos) => (presenceOpen ? h('div', {
+                        key: 'pmenu',
+                        style: Object.assign({ position: 'absolute', zIndex: 30, borderRadius: '14px', background: '#161618', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 16px 40px rgba(0,0,0,0.55)', padding: '6px' }, pos)
+                    }, [
+                        h('div', { key: 'h', style: { padding: '9px 10px 7px', fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 600, color: '#56565e', textTransform: 'uppercase', letterSpacing: '1.2px' } }, 'Set your status'),
+                        ...MY_STATUS_OPTIONS.map((o) => h('button', {
+                            key: o.key,
+                            onClick: () => { onSetStatus(o.key); setPresenceOpen(false); },
+                            style: { width: '100%', display: 'flex', alignItems: 'center', gap: '11px', padding: '9px 10px', borderRadius: '9px', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }
+                        }, [
+                            h('span', { key: 'd', style: { flex: 'none', width: '10px', height: '10px', borderRadius: '50%', background: o.dot } }),
+                            h('span', { key: 't', style: { flex: 1, minWidth: 0 } }, [
+                                h('span', { key: 'w', style: { display: 'block', fontSize: '13.5px', fontWeight: 600, color: '#e8e8eb' } }, o.word),
+                                h('span', { key: 'de', style: { display: 'block', fontSize: '11.5px', color: '#6b6b73' } }, o.desc)
+                            ]),
+                            o.key === myStatus && h('span', { key: 'c', style: { flex: 'none', display: 'grid', placeItems: 'center' }, dangerouslySetInnerHTML: { __html: PRES_SVG.check } })
+                        ])),
+                        h('div', { key: 'note', style: { display: 'flex', alignItems: 'flex-start', gap: '8px', margin: '6px 6px 4px', padding: '9px 10px', borderRadius: '9px', background: 'rgba(62,207,142,0.06)', border: '1px solid rgba(62,207,142,0.16)' } }, [
+                            h('span', { key: 'i', style: { flex: 'none', marginTop: '1px', display: 'grid' }, dangerouslySetInnerHTML: { __html: PRES_SVG.lock } }),
+                            h('span', { key: 't', style: { fontSize: '11px', lineHeight: 1.45, color: '#8a8a92' } }, 'Sent end-to-end to connected peers only — never stored on a server.')
+                        ])
+                    ]) : null);
+                    const presencePanelExpanded = h('div', { key: 'you', style: { flex: 'none', position: 'relative', marginTop: '10px', borderTop: '1px solid rgba(255,255,255,0.06)', padding: '10px 12px 12px' } }, [
+                        presenceMenu({ left: '12px', right: '12px', bottom: '64px' }),
+                        h('button', { key: 'btn', onClick: () => setPresenceOpen((v) => !v), style: { width: '100%', display: 'flex', alignItems: 'center', gap: '11px', padding: '7px 8px', borderRadius: '11px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', cursor: 'pointer' } }, [
+                            h('div', { key: 'av', style: { position: 'relative', flex: 'none', width: '36px', height: '36px', borderRadius: '10px', display: 'grid', placeItems: 'center', background: 'rgba(240,137,42,0.12)', border: '1px solid rgba(240,137,42,0.24)', color: '#f0892a' } }, [
+                                h('span', { key: 'i', style: { display: 'grid' }, dangerouslySetInnerHTML: { __html: PRES_SVG.user } }),
+                                h('span', { key: 'dot', style: { position: 'absolute', right: '-2px', bottom: '-2px', width: '11px', height: '11px', borderRadius: '50%', background: myMeta.dot, border: '2px solid #0c0c0e' } })
+                            ]),
+                            h('div', { key: 'tx', style: { flex: 1, minWidth: 0, textAlign: 'left' } }, [
+                                h('div', { key: 'y', style: { fontSize: '13.5px', fontWeight: 700, color: '#f4f4f6' } }, 'You'),
+                                h('div', { key: 'w', style: { fontSize: '12px', color: '#8a8a92' } }, myMeta.word)
+                            ]),
+                            h('span', { key: 'ch', style: { display: 'grid', placeItems: 'center' }, dangerouslySetInnerHTML: { __html: PRES_SVG.chevUp } })
+                        ])
+                    ]);
+                    const presencePanelCollapsed = h('div', { key: 'you', style: { flex: 'none', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 0 13px' } }, [
+                        presenceMenu({ left: '60px', bottom: '8px', width: '248px' }),
+                        h('button', { key: 'btn', onClick: () => setPresenceOpen((v) => !v), title: 'Your status — ' + myMeta.word, style: { position: 'relative', width: '44px', height: '44px', borderRadius: '12px', display: 'grid', placeItems: 'center', cursor: 'pointer', background: 'rgba(240,137,42,0.12)', border: '1px solid rgba(240,137,42,0.24)', color: '#f0892a' } }, [
+                            h('span', { key: 'i', style: { display: 'grid' }, dangerouslySetInnerHTML: { __html: PRES_SVG.user } }),
+                            h('span', { key: 'dot', style: { position: 'absolute', right: '-2px', bottom: '-2px', width: '12px', height: '12px', borderRadius: '50%', background: myMeta.dot, border: '2.5px solid #0c0c0e' } })
+                        ])
+                    ]);
+
+                    const expandedInner = [
+                        h('div', { key: 'head', style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px 0 16px', height: '64px', borderBottom: '1px solid rgba(255,255,255,0.06)' } }, [
+                            h('div', { key: 'brand', style: { display: 'flex', alignItems: 'center', gap: '10px' } }, [brandMark(30), h('span', { key: 't', style: { fontSize: '15px', fontWeight: 800, letterSpacing: '-0.3px', color: '#f4f4f6' } }, 'SecureBit')]),
+                            collapseBtn(SB_SVG.chevL, 'Collapse')
+                        ]),
+                        h('div', { key: 'label', style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 16px 9px' } }, [
+                            h('span', { key: 'l', style: { fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 600, color: '#56565e', textTransform: 'uppercase', letterSpacing: '1.3px' } }, 'Chats'),
+                            h('span', { key: 'c', style: { fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 600, color: '#6b6b73' } }, String(chats.length))
+                        ]),
+                        h('div', { key: 'list', className: 'msc-scroll', style: { flex: 1, overflowY: 'auto', padding: '0 10px' } }, [
+                            ...chats.map(expandedRow),
+                            h('div', { key: 'gh', style: { marginTop: '14px', padding: '0 2px 6px' } }, h('span', { style: { fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 600, color: '#56565e', textTransform: 'uppercase', letterSpacing: '1.3px' } }, 'Group chats')),
+                            h('div', { key: 'gph', title: 'Coming in v6.0', style: { display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 12px', borderRadius: '11px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.09)', cursor: 'not-allowed' } }, [
+                                h('div', { key: 'i', style: { flex: 'none', width: '38px', height: '38px', borderRadius: '11px', display: 'grid', placeItems: 'center', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', color: '#56565e' }, dangerouslySetInnerHTML: { __html: SB_SVG.users } }),
+                                h('div', { key: 'b', style: { flex: 1, minWidth: 0 } }, [
+                                    h('div', { key: 't', style: { fontSize: '14px', fontWeight: 600, color: '#8a8a92' } }, 'Group chats'),
+                                    h('div', { key: 's', style: { fontSize: '11.5px', color: '#56565e' } }, 'Up to 8 peers · P2P mesh')
+                                ]),
+                                h('span', { key: 'soon', style: { flex: 'none', padding: '4px 9px', borderRadius: '7px', background: 'rgba(240,137,42,0.1)', border: '1px solid rgba(240,137,42,0.24)', fontFamily: "'JetBrains Mono',monospace", fontSize: '9.5px', fontWeight: 700, color: '#f0892a', textTransform: 'uppercase', letterSpacing: '0.8px' } }, 'Soon')
+                            ])
+                        ]),
+                        h('div', { key: 'new', style: { flex: 'none', padding: '12px' } }, h('button', {
+                            onClick: onNewChat,
+                            style: { width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '12px', borderRadius: '11px', border: 'none', background: '#f0892a', color: '#1a0f04', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 8px 24px rgba(240,137,42,0.28)' }
+                        }, [icon(SB_SVG.plus, { key: 'p' }), 'New chat'])),
+                        presencePanelExpanded
+                    ];
+
+                    // ---- Collapsed dock content ----
+                    const collapsedInner = [
+                        h('div', { key: 'head', style: { flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '13px 0', width: '100%', borderBottom: '1px solid rgba(255,255,255,0.06)' } }, [brandMark(32), collapseBtn(SB_SVG.chevR, 'Expand')]),
+                        h('div', { key: 'list', className: 'msc-scroll', style: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '14px 0', width: '100%' } }, [
+                            ...chats.map(dockItem),
+                            h('div', { key: 'sep', style: { width: '30px', height: '1px', background: 'rgba(255,255,255,0.07)', margin: '2px 0' } }),
+                            h('div', { key: 'gph', title: 'Group chats — coming in v6.0', style: { position: 'relative', width: '44px', height: '44px', borderRadius: '12px', display: 'grid', placeItems: 'center', cursor: 'not-allowed', background: 'transparent', border: '1px dashed rgba(255,255,255,0.1)', color: '#56565e' }, dangerouslySetInnerHTML: { __html: SB_SVG.users } })
+                        ]),
+                        h('div', { key: 'new', style: { flex: 'none', padding: '13px 0' } }, h('button', {
+                            onClick: onNewChat, title: 'New chat',
+                            style: { width: '44px', height: '44px', borderRadius: '12px', display: 'grid', placeItems: 'center', border: 'none', background: '#f0892a', color: '#1a0f04', cursor: 'pointer', boxShadow: '0 8px 24px rgba(240,137,42,0.28)' }, dangerouslySetInnerHTML: { __html: SB_SVG.plus }
+                        })),
+                        presencePanelCollapsed
+                    ];
+
+                    const railWidth = collapsed ? '72px' : '292px';
+                    const railStyle = { flex: 'none', width: railWidth, display: 'flex', flexDirection: 'column', alignItems: collapsed ? 'center' : 'stretch', background: '#0c0c0e', borderRight: '1px solid rgba(255,255,255,0.06)' };
+                    const inner = collapsed ? collapsedInner : expandedInner;
+
+                    return h(React.Fragment, null, [
+                        // Responsive behaviour (inline styles can't express media queries).
+                        h('style', { key: 'css', dangerouslySetInnerHTML: { __html: '@media (max-width:1023px){.sb-rail{display:none !important;}.sb-burger{display:grid !important;}}@media (min-width:1024px){.sb-drawer-overlay{display:none !important;}}' } }),
+                        // Desktop rail
+                        h('aside', { key: 'rail', className: 'sb-rail', style: railStyle }, inner),
+                        // Mobile drawer overlay
+                        h('div', {
+                            key: 'drawer', className: 'sb-drawer-overlay',
+                            onClick: onCloseDrawer,
+                            style: { position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(6,6,8,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', display: drawerOpen ? 'block' : 'none' }
+                        }, h('aside', { onClick: (e) => e.stopPropagation(), style: { position: 'absolute', left: 0, top: 0, bottom: 0, width: '292px', display: 'flex', flexDirection: 'column', background: '#0c0c0e', borderRight: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 0 60px rgba(0,0,0,0.6)' } }, expandedInner))
+                    ]);
+                };
+
                 // Main Enhanced Application Component
                 const EnhancedSecureP2PChat = () => {
 
-                    const [messages, setMessages] = React.useState([]);
+                    // ============================================
+                    // MULTI-SESSION REGISTRY
+                    // Each conversation is an independent session with its OWN
+                    // EnhancedSecureWebRTCManager (full key/ratchet/SAS isolation). The reducer
+                    // holds serializable per-session state; non-serializable objects (managers,
+                    // notification integrations, offline queues) live in ref-held Maps keyed by
+                    // sessionId and are NEVER shared between sessions. sessionId is local-only.
+                    // ============================================
+                    const [sessionsState, dispatch] = React.useReducer(sessionsReducer, undefined, createInitialState);
+                    const activeSessionId = sessionsState.activeSessionId;
+                    const activeIdRef = React.useRef(null);
+                    activeIdRef.current = activeSessionId;
+                    const active = activeSessionId ? sessionsState.sessions[activeSessionId] : null;
+                    const EMPTY_ARR = React.useRef([]).current;
+
+                    const managersRef = React.useRef(new Map());      // id -> EnhancedSecureWebRTCManager
+                    const integrationsRef = React.useRef(new Map());  // id -> NotificationIntegration
+                    const queuesRef = React.useRef(new Map());        // id -> { incoming:[], outgoing:[] }
+
+                    // Active-session VIEW. The rest of the component (and the child setup/chat
+                    // components) read these names unchanged; the setters dispatch to the active
+                    // session read from activeIdRef at call time, so even memoized callbacks stay
+                    // correct across session switches.
+                    const dispatchActive = React.useCallback((build) => {
+                        const id = activeIdRef.current; if (!id) return;
+                        dispatch(build(id));
+                    }, []);
+
+                    const messages = active ? active.messages : EMPTY_ARR;
+                    const setMessages = React.useCallback((updaterOrArr) => {
+                        const id = activeIdRef.current; if (!id) return;
+                        if (typeof updaterOrArr === 'function') dispatch({ type: SA.SET_MESSAGES, id, updater: updaterOrArr });
+                        else dispatch({ type: SA.SET_MESSAGES, id, messages: updaterOrArr });
+                    }, []);
+
+                    const connectionStatus = active ? active.status : 'disconnected';
+                    const setConnectionStatus = React.useCallback((status) => dispatchActive((id) => ({ type: SA.SET_STATUS, id, status })), [dispatchActive]);
+
+                    const keyFingerprint = active ? active.keyFingerprint : '';
+                    const setKeyFingerprint = React.useCallback((fingerprint) => dispatchActive((id) => ({ type: SA.SET_FINGERPRINT, id, fingerprint })), [dispatchActive]);
+
+                    const verificationCode = active ? active.verificationCode : '';
+                    const setVerificationCode = React.useCallback((code) => dispatchActive((id) => ({ type: SA.SET_VERIFICATION, id, code })), [dispatchActive]);
+
+                    const isVerified = active ? active.sas.isVerified : false;
+                    const setIsVerified = React.useCallback((v) => dispatchActive((id) => ({ type: SA.SET_SAS, id, sas: { isVerified: !!v } })), [dispatchActive]);
+                    const localVerificationConfirmed = active ? active.sas.localConfirmed : false;
+                    const setLocalVerificationConfirmed = React.useCallback((v) => dispatchActive((id) => ({ type: SA.SET_SAS, id, sas: { localConfirmed: !!v } })), [dispatchActive]);
+                    const remoteVerificationConfirmed = active ? active.sas.remoteConfirmed : false;
+                    const setRemoteVerificationConfirmed = React.useCallback((v) => dispatchActive((id) => ({ type: SA.SET_SAS, id, sas: { remoteConfirmed: !!v } })), [dispatchActive]);
+                    const bothVerificationsConfirmed = active ? active.sas.bothConfirmed : false;
+                    const setBothVerificationsConfirmed = React.useCallback((v) => dispatchActive((id) => ({ type: SA.SET_SAS, id, sas: { bothConfirmed: !!v } })), [dispatchActive]);
+
+                    const pendingIncomingFiles = active ? active.pendingIncomingFiles : EMPTY_ARR;
+                    const setPendingIncomingFiles = React.useCallback((updaterOrArr) => {
+                        const id = activeIdRef.current; if (!id) return;
+                        if (typeof updaterOrArr === 'function') dispatch({ type: SA.SET_PENDING_FILES, id, updater: updaterOrArr });
+                        else dispatch({ type: SA.SET_PENDING_FILES, id, files: updaterOrArr });
+                    }, []);
+
+                    // Per-session offer/answer setup flow (preserved when switching chats).
+                    const setupField = (name, fallback) => (active ? active.setup[name] : fallback);
+                    const setSetupField = (name) => React.useCallback((value) => dispatchActive((id) => ({ type: SA.PATCH_SETUP, id, patch: { [name]: value } })), [dispatchActive]);
+                    const offerData = setupField('offerData', '');
+                    const setOfferData = setSetupField('offerData');
+                    const answerData = setupField('answerData', '');
+                    const setAnswerData = setSetupField('answerData');
+                    const offerInput = setupField('offerInput', '');
+                    const setOfferInput = setSetupField('offerInput');
+                    const answerInput = setupField('answerInput', '');
+                    const setAnswerInput = setSetupField('answerInput');
+                    const showOfferStep = setupField('showOfferStep', false);
+                    const setShowOfferStep = setSetupField('showOfferStep');
+                    const showAnswerStep = setupField('showAnswerStep', false);
+                    const setShowAnswerStep = setSetupField('showAnswerStep');
+                    const showVerification = setupField('showVerification', false);
+                    const setShowVerification = setSetupField('showVerification');
+                    const showQRCode = setupField('showQRCode', false);
+                    const setShowQRCode = setSetupField('showQRCode');
+                    const qrCodeUrl = setupField('qrCodeUrl', '');
+                    const setQrCodeUrl = setSetupField('qrCodeUrl');
+                    const isGeneratingKeys = setupField('isGeneratingKeys', false);
+                    const setIsGeneratingKeys = setSetupField('isGeneratingKeys');
+
+                    // Accessor over the ACTIVE session's manager / notification integration.
+                    // Existing `webrtcManagerRef.current.X()` call sites keep working against the
+                    // active session; per-session callbacks use their own captured manager instead.
+                    const webrtcManagerRef = React.useMemo(() => ({
+                        get current() { return managersRef.current.get(activeIdRef.current) || null; },
+                        set current(v) {
+                            const id = activeIdRef.current; if (!id) return;
+                            if (v) managersRef.current.set(id, v); else managersRef.current.delete(id);
+                        }
+                    }), []);
+                    const notificationIntegrationRef = React.useMemo(() => ({
+                        get current() { return integrationsRef.current.get(activeIdRef.current) || null; },
+                        set current(v) {
+                            const id = activeIdRef.current; if (!id) return;
+                            if (v) integrationsRef.current.set(id, v); else integrationsRef.current.delete(id);
+                        }
+                    }), []);
+
+                    // ---- Presence / availability ----
+                    // My status is broadcast E2E over each connected session's data channel
+                    // (sendSystemMessage) and never stored on a server. 'invisible' goes on the
+                    // wire as 'offline' so peers cannot tell. myStatusRef lets the per-session
+                    // callbacks (captured at create time) read the current status.
+                    const [myStatus, setMyStatusState] = React.useState(() => {
+                        try { return localStorage.getItem('securebit_my_status') || 'available'; } catch { return 'available'; }
+                    });
+                    const myStatusRef = React.useRef(myStatus);
+                    myStatusRef.current = myStatus;
+                    const wirePresence = (s) => (s === 'invisible' ? 'offline' : s);
+                    // Presence travels as a normal ENCRYPTED chat message (type 'message') — that is
+                    // the only inbound path the manager delivers to onMessage; unknown raw system
+                    // types are dropped. handleMessage recognises the {type:'presence'} payload and
+                    // consumes it without displaying it.
+                    const sendPresenceTo = React.useCallback((mgr, s) => {
+                        if (!mgr || typeof mgr.sendMessage !== 'function') return;
+                        try {
+                            if (mgr.isConnected && mgr.isConnected()) {
+                                const p = mgr.sendMessage(JSON.stringify({ type: 'presence', status: wirePresence(s) }));
+                                if (p && typeof p.catch === 'function') p.catch(() => {});
+                            }
+                        } catch (_) {}
+                    }, []);
+                    const setMyStatus = React.useCallback((key) => {
+                        setMyStatusState(key);
+                        try { localStorage.setItem('securebit_my_status', key); } catch {}
+                        for (const mgr of managersRef.current.values()) sendPresenceTo(mgr, key);
+                    }, [sendPresenceTo]);
+
                     // Secure chat extras: per-message send modes + 1s tick for countdowns.
                     const [codeMode, setCodeMode] = React.useState(false);
                     const [viewOnceMode, setViewOnceMode] = React.useState(false);
                     const [viewOnceTtl, setViewOnceTtl] = React.useState(15); // seconds visible after the peer opens it
                     const [disappearTtl, setDisappearTtl] = React.useState(0); // seconds; 0 = off (sticky)
                     const [nowTick, setNowTick] = React.useState(() => Date.now());
-                    const [connectionStatus, setConnectionStatus] = React.useState('disconnected');
+                    // connectionStatus → per-session status (active-session view, above).
                     // Offline awareness — tracks the real online/offline events (which is
                     // also what a console-simulated `dispatchEvent(new Event('offline'))`
                     // fires, even when navigator.onLine stays true).
@@ -1908,8 +2354,7 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                     // over the still-live P2P channel: outgoing waits until WE reconnect,
                     // incoming waits until WE reconnect before being shown/acked.
                     const offlineRef = React.useRef(isOffline);
-                    const outgoingQueueRef = React.useRef([]);
-                    const incomingQueueRef = React.useRef([]);
+                    // Offline store-and-forward queues are now per-session (queuesRef, above).
                     React.useEffect(() => { offlineRef.current = isOffline; }, [isOffline]);
                     React.useEffect(() => {
                         const goOffline = () => setIsOffline(true);
@@ -1976,39 +2421,23 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                     
                     // Moved scrollToBottom logic to be available globally
                     const [messageInput, setMessageInput] = React.useState('');
-                    const [offerData, setOfferData] = React.useState('');
-                    const [answerData, setAnswerData] = React.useState('');
-                    const [offerInput, setOfferInput] = React.useState('');
-                    const [answerInput, setAnswerInput] = React.useState('');
-                    const [keyFingerprint, setKeyFingerprint] = React.useState('');
-                    const [verificationCode, setVerificationCode] = React.useState('');
-                    const [showOfferStep, setShowOfferStep] = React.useState(false);
-                    const [showAnswerStep, setShowAnswerStep] = React.useState(false);
-                    const [showVerification, setShowVerification] = React.useState(false);
-                    const [showQRCode, setShowQRCode] = React.useState(false);
-                    const [qrCodeUrl, setQrCodeUrl] = React.useState('');
+                    // offerData/answerData/offerInput/answerInput, showOfferStep/showAnswerStep,
+                    // showVerification/showQRCode/qrCodeUrl, isGeneratingKeys → per-session setup
+                    // slice (declared in the active-session view block above).
                     const [showQRScanner, setShowQRScanner] = React.useState(false);
                     const [showQRScannerModal, setShowQRScannerModal] = React.useState(false);
-                    const [isGeneratingKeys, setIsGeneratingKeys] = React.useState(false);
-                    
 
-                    const [isVerified, setIsVerified] = React.useState(false);
+                    // isVerified + mutual-verification flags → per-session SAS slice (above).
                     const [securityLevel, setSecurityLevel] = React.useState(null);
                     const [sessionTimeLeft, setSessionTimeLeft] = React.useState(0);
-                    
-                    // Mutual verification states
-                    const [localVerificationConfirmed, setLocalVerificationConfirmed] = React.useState(false);
-                    const [remoteVerificationConfirmed, setRemoteVerificationConfirmed] = React.useState(false);
-                    const [bothVerificationsConfirmed, setBothVerificationsConfirmed] = React.useState(false);
-                    
+
                     // PAKE password states removed - using SAS verification instead
-                    
+
                     // Session state - all security features enabled by default
                     const [pendingSession, setPendingSession] = React.useState(null);
-                    
-                    // All security features are enabled by default - no payment required
 
-                    const [pendingIncomingFiles, setPendingIncomingFiles] = React.useState([]);
+                    // All security features are enabled by default - no payment required
+                    // pendingIncomingFiles → per-session slice (above).
 
 
 
@@ -2062,8 +2491,8 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                         });
                     };
                     
-                    const webrtcManagerRef = React.useRef(null);
-                    const notificationIntegrationRef = React.useRef(null);
+                    // webrtcManagerRef / notificationIntegrationRef → accessors over the active
+                    // session's manager / integration (active-session view block, above).
 
                     // Development-only debug helpers. Production never exposes
                     // manager internals or cleanup controls on `window`.
@@ -2125,32 +2554,37 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                         setMessages(prev => prev.map(m => (String(m.mid) === String(mid) && m.type === 'sent') ? { ...m, status } : m));
                     }, []);
 
-                    // When WE come back online: transmit anything we queued while offline,
-                    // and surface (and acknowledge) anything that arrived while we were offline.
+                    // When WE come back online: for EVERY session, transmit anything queued while
+                    // offline and surface (and acknowledge) anything that arrived meanwhile. Each
+                    // session flushes against its own manager and into its own slice.
                     const flushOfflineQueues = React.useCallback(() => {
-                        const out = outgoingQueueRef.current;
-                        outgoingQueueRef.current = [];
-                        for (const item of out) {
-                            const send = webrtcManagerRef.current?.sendMessage?.(item.outText, item.meta);
-                            if (send && typeof send.then === 'function') {
-                                send.then(() => updateMessageStatus(item.mid, 'sent')).catch(() => updateMessageStatus(item.mid, 'failed'));
+                        for (const [id, q] of queuesRef.current.entries()) {
+                            const mgr = managersRef.current.get(id);
+                            const out = q.outgoing; q.outgoing = [];
+                            for (const item of out) {
+                                const send = mgr?.sendMessage?.(item.outText, item.meta);
+                                if (send && typeof send.then === 'function') {
+                                    send.then(() => dispatch({ type: SA.UPDATE_MESSAGE_STATUS, id, mid: item.mid, status: 'delivered' }))
+                                        .catch(() => dispatch({ type: SA.UPDATE_MESSAGE_STATUS, id, mid: item.mid, status: 'failed' }));
+                                }
+                            }
+                            const inc = q.incoming; q.incoming = [];
+                            if (inc.length > 0) {
+                                dispatch({ type: SA.ADD_MESSAGE, id, message: buildSessionMessage(
+                                    `Connection restored — ${inc.length} message${inc.length === 1 ? '' : 's'} received while you were offline.`,
+                                    'notice'
+                                ) });
+                            }
+                            const viewing = id === activeIdRef.current && (typeof document === 'undefined' || document.visibilityState === 'visible');
+                            for (const item of inc) {
+                                dispatch({ type: SA.ADD_MESSAGE, id, message: buildSessionMessage(item.message, item.type, item.opts) });
+                                if (item.opts && item.opts.mid && item.type === 'received') {
+                                    if (viewing) { try { mgr?.sendDeliveryReceipt?.(item.opts.mid); } catch (_) {} }
+                                    else if (q.pendingReadAcks) q.pendingReadAcks.push(item.opts.mid);
+                                }
                             }
                         }
-                        const inc = incomingQueueRef.current;
-                        incomingQueueRef.current = [];
-                        if (inc.length > 0) {
-                            addMessageWithAutoScroll(
-                                `Connection restored — ${inc.length} message${inc.length === 1 ? '' : 's'} received while you were offline.`,
-                                'notice'
-                            );
-                        }
-                        for (const item of inc) {
-                            addMessageWithAutoScroll(item.message, item.type, item.opts);
-                            if (item.opts && item.opts.mid && (item.type === 'received' || item.type === 'sent')) {
-                                try { webrtcManagerRef.current?.sendDeliveryReceipt?.(item.opts.mid); } catch (_) {}
-                            }
-                        }
-                    }, [addMessageWithAutoScroll, updateMessageStatus]);
+                    }, []);
 
                     React.useEffect(() => {
                         if (isOffline) return;        // only act on the offline → online edge
@@ -2231,44 +2665,103 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                         }
                     }, [messages]);
 
-                    // Disappearing-message clock: tick every second (only while some
-                    // message has an expiry) and prune anything past its deadline.
-                    const hasExpiring = messages.some(m => typeof m.expiresAt === 'number');
+                    // Disappearing-message clock: tick every second (while ANY session has an
+                    // expiry) and prune past-deadline messages — independently per session, so
+                    // a background conversation's timers keep running too.
+                    const anyExpiring = sessionsState.order.some((id) => (sessionsState.sessions[id]?.messages || []).some((m) => typeof m.expiresAt === 'number'));
+                    const sessionsStateRef = React.useRef(sessionsState);
+                    sessionsStateRef.current = sessionsState;
                     React.useEffect(() => {
-                        if (!hasExpiring) return;
+                        if (!anyExpiring) return;
+                        // Disappearing messages leave a tombstone (content wiped) instead of vanishing.
+                        const expireFn = (prev) => {
+                            const now = Date.now();
+                            let changed = false;
+                            const next = prev.map((m) => {
+                                if (typeof m.expiresAt === 'number' && m.expiresAt <= now && !m.expired) {
+                                    changed = true;
+                                    return { ...m, expired: true, message: '', expiresAt: undefined };
+                                }
+                                return m;
+                            });
+                            return changed ? next : prev;
+                        };
                         const interval = setInterval(() => {
                             const now = Date.now();
                             setNowTick(now);
-                            setMessages(prev => {
-                                // Disappearing messages leave a tombstone ("This message has
-                                // expired") instead of vanishing; the content is wiped.
-                                let changed = false;
-                                const next = prev.map(m => {
-                                    if (typeof m.expiresAt === 'number' && m.expiresAt <= now && !m.expired) {
-                                        changed = true;
-                                        return { ...m, expired: true, message: '', expiresAt: undefined };
-                                    }
-                                    return m;
-                                });
-                                return changed ? next : prev;
-                            });
+                            const st = sessionsStateRef.current;
+                            for (const id of st.order) {
+                                const msgs = st.sessions[id]?.messages || [];
+                                if (msgs.some((m) => typeof m.expiresAt === 'number' && m.expiresAt <= now && !m.expired)) {
+                                    dispatch({ type: SA.SET_MESSAGES, id, updater: expireFn });
+                                }
+                            }
                         }, 1000);
                         return () => clearInterval(interval);
-                    }, [hasExpiring]);
+                    }, [anyExpiring]);
                     
                     // PAKE password functions removed - using SAS verification instead
         
-                    React.useEffect(() => {
-                        // Prevent multiple initializations
-                        if (webrtcManagerRef.current) {
-                            console.log('⚠️ WebRTC Manager already initialized, skipping...');
-                            return;
-                        }
-        
+                    // Build a brand-new, fully-isolated session: its own manager, its own
+                    // id-bound callbacks, its own notification integration and offline queues.
+                    // The callback bodies below are the original single-session handlers; the
+                    // id-bound shadow setters declared here redirect every set*/dispatch into
+                    // THIS session's slice, so nothing leaks into another conversation.
+                    const createSession = (opts = {}) => {
+                        const role = opts.role || 'offer';
+                        const entry = createSessionEntry({ role });
+                        const id = entry.id;
+                        dispatch({ type: SA.CREATE_SESSION, entry, activate: opts.activate !== false });
+                        // pendingReadAcks: mids received while this chat was NOT being viewed; the
+                        // read receipt is held back until the user actually opens the conversation.
+                        queuesRef.current.set(id, { incoming: [], outgoing: [], pendingReadAcks: [] });
+
+                        // --- id-bound shadow setters (override the active-session view names) ---
+                        const setMessages = (u) => {
+                            if (typeof u === 'function') dispatch({ type: SA.SET_MESSAGES, id, updater: u });
+                            else dispatch({ type: SA.SET_MESSAGES, id, messages: u });
+                        };
+                        const addMessageWithAutoScroll = (message, type, opts2 = {}) => {
+                            dispatch({ type: SA.ADD_MESSAGE, id, message: buildSessionMessage(message, type, opts2) });
+                            // Background session received a chat message → bump its unread badge.
+                            if (type === 'received' && id !== activeIdRef.current) {
+                                dispatch({ type: SA.INCREMENT_UNREAD, id });
+                            }
+                        };
+                        const updateMessageStatus = (mid, status) => { if (mid) dispatch({ type: SA.UPDATE_MESSAGE_STATUS, id, mid, status }); };
+                        const setConnectionStatus = (status) => dispatch({ type: SA.SET_STATUS, id, status });
+                        const setKeyFingerprint = (fingerprint) => dispatch({ type: SA.SET_FINGERPRINT, id, fingerprint });
+                        const setVerificationCode = (code) => dispatch({ type: SA.SET_VERIFICATION, id, code });
+                        const setIsVerified = (v) => dispatch({ type: SA.SET_SAS, id, sas: { isVerified: !!v } });
+                        const setLocalVerificationConfirmed = (v) => dispatch({ type: SA.SET_SAS, id, sas: { localConfirmed: !!v } });
+                        const setRemoteVerificationConfirmed = (v) => dispatch({ type: SA.SET_SAS, id, sas: { remoteConfirmed: !!v } });
+                        const setBothVerificationsConfirmed = (v) => dispatch({ type: SA.SET_SAS, id, sas: { bothConfirmed: !!v } });
+                        const setShowVerification = (v) => dispatch({ type: SA.PATCH_SETUP, id, patch: { showVerification: !!v } });
+                        const setShowOfferStep = (v) => dispatch({ type: SA.PATCH_SETUP, id, patch: { showOfferStep: !!v } });
+                        const setShowAnswerStep = (v) => dispatch({ type: SA.PATCH_SETUP, id, patch: { showAnswerStep: !!v } });
+                        const setShowQRCode = (v) => dispatch({ type: SA.PATCH_SETUP, id, patch: { showQRCode: !!v } });
+                        const setQrCodeUrl = (v) => dispatch({ type: SA.PATCH_SETUP, id, patch: { qrCodeUrl: v } });
+                        const setOfferData = (v) => dispatch({ type: SA.PATCH_SETUP, id, patch: { offerData: v } });
+                        const setAnswerData = (v) => dispatch({ type: SA.PATCH_SETUP, id, patch: { answerData: v } });
+                        const setOfferInput = (v) => dispatch({ type: SA.PATCH_SETUP, id, patch: { offerInput: v } });
+                        const setAnswerInput = (v) => dispatch({ type: SA.PATCH_SETUP, id, patch: { answerInput: v } });
+                        const setPendingIncomingFiles = (u) => {
+                            if (typeof u === 'function') dispatch({ type: SA.SET_PENDING_FILES, id, updater: u });
+                            else dispatch({ type: SA.SET_PENDING_FILES, id, files: u });
+                        };
+                        const sessionQueues = () => queuesRef.current.get(id) || { incoming: [], outgoing: [] };
+
                         const handleMessage = (message, type, meta) => {
                             if (typeof message === 'string' && message.trim().startsWith('{')) {
                                 try {
                                     const parsedMessage = JSON.parse(message);
+                                    // Peer availability update (E2E control message) — store it for THIS
+                                    // session and never show it in the chat.
+                                    if (parsedMessage.type === 'presence') {
+                                        const st = (parsedMessage.data && parsedMessage.data.status) || parsedMessage.status;
+                                        if (st) dispatch({ type: SA.SET_PEER_PRESENCE, id, presence: st });
+                                        return;
+                                    }
                                     const blockedTypes = [
                                         'file_transfer_start',
                                         'file_transfer_response',
@@ -2290,7 +2783,14 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                                     ];
                                     if (parsedMessage.type && blockedTypes.includes(parsedMessage.type)) {
                                         console.log(`Blocked system/file message from chat: ${parsedMessage.type}`);
-                                        return; 
+                                        return;
+                                    }
+                                    // Defensive unwrap: a plain-message envelope can leak through as
+                                    // raw JSON for some payloads (e.g. fenced code blocks). Show the
+                                    // real text, not {"type":"message","data":"```..."}.
+                                    if (parsedMessage.type === 'message' && typeof parsedMessage.data === 'string') {
+                                        message = parsedMessage.data;
+                                        if (parsedMessage.meta && typeof parsedMessage.meta === 'object') meta = parsedMessage.meta;
                                     }
                                 } catch (parseError) {
 
@@ -2315,15 +2815,25 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                             // and don't acknowledge it yet, so the sender stays at one check.
                             // It's surfaced (and acked → ✓✓) the moment we reconnect.
                             if (offlineRef.current && type === 'received') {
-                                incomingQueueRef.current.push({ message, type, opts });
+                                sessionQueues().incoming.push({ message, type, opts });
                                 return;
                             }
 
                             addMessageWithAutoScroll(message, type, opts);
 
-                            // Acknowledge receipt so the sender's bubble shows "delivered" (✓✓).
-                            if (opts.mid && (type === 'received' || type === 'sent')) {
-                                try { webrtcManagerRef.current?.sendDeliveryReceipt?.(opts.mid); } catch (_) {}
+                            // Read receipt: only ack once the user is actually looking at THIS
+                            // conversation (active session + visible tab). Otherwise hold the mid
+                            // back so a message read in a background chat stays "delivered" (grey
+                            // ✓✓) on the sender's side — it flips to green only when this chat is
+                            // opened (see flushReadAcks).
+                            if (opts.mid && type === 'received') {
+                                const beingViewed = id === activeIdRef.current && (typeof document === 'undefined' || document.visibilityState === 'visible');
+                                if (beingViewed) {
+                                    try { manager?.sendDeliveryReceipt?.(opts.mid); } catch (_) {}
+                                } else {
+                                    const q = sessionQueues();
+                                    if (q.pendingReadAcks) q.pendingReadAcks.push(opts.mid);
+                                }
                             }
                         };
 
@@ -2353,6 +2863,17 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                                 setTimeout(() => {
                                     setIsVerified(true);
                                 }, 0);
+                                // Tell the newly-connected peer my current availability (E2E, via
+                                // the normal encrypted message path — see sendPresenceTo).
+                                try {
+                                    const s = myStatusRef.current === 'invisible' ? 'offline' : myStatusRef.current;
+                                    setTimeout(() => {
+                                        try {
+                                            const p = manager.sendMessage?.(JSON.stringify({ type: 'presence', status: s }));
+                                            if (p && typeof p.catch === 'function') p.catch(() => {});
+                                        } catch (_) {}
+                                    }, 400);
+                                } catch (_) {}
                                 if (!window.isUpdatingSecurity) {
                                     updateSecurityLevel().catch(console.error);
                                 }
@@ -2361,86 +2882,30 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                                     updateSecurityLevel().catch(console.error);
                                 }
                             } else if (status === 'disconnected') {
-                                updateConnectionState({ status: 'disconnected' });
+                                // Drop: the manager has cleared its verification (re-establishment
+                                // required), so reset this session's verification flags too — the
+                                // setup/connect screen then shows so the user can reconnect. We do
+                                // NOT remove the session (that create→destroy→create churn flashed
+                                // the console) and we keep the message history; closing a chat is
+                                // done only via the Disconnect button.
                                 setConnectionStatus('disconnected');
-
-                                if (shouldPreserveAnswerData()) {
-                                    setIsVerified(false);
-                                    setShowVerification(false);
-                                    return;
-                                }
-
                                 setIsVerified(false);
                                 setShowVerification(false);
-                                
-                                // Dispatch disconnected event for SessionTimer
-                                document.dispatchEvent(new CustomEvent('disconnected'));
-                                
-                                // Clear verification states
                                 setLocalVerificationConfirmed(false);
                                 setRemoteVerificationConfirmed(false);
                                 setBothVerificationsConfirmed(false);
-                                
-                                // Clear connection data
-                                setOfferData('');
-                                setAnswerData('');
-                                setOfferInput('');
-                                setAnswerInput('');
-                                setShowOfferStep(false);
-                                setShowAnswerStep(false);
-                                setKeyFingerprint('');
-                                setVerificationCode('');
-                                setSecurityLevel(null);
-                                
-                                
-                                // Return to main page after a short delay
-                                setTimeout(() => {
-                                    setConnectionStatus('disconnected');
-                                    setShowVerification(false);
-                                    
-                                    setOfferData('');
-                                    setAnswerData('');
-                                    setOfferInput('');
-                                    setAnswerInput('');
-                                    setShowOfferStep(false);
-                                    setShowAnswerStep(false);
-                                    setMessages([]);
-                                }, 1000);
-
+                                if (id === activeIdRef.current) document.dispatchEvent(new CustomEvent('disconnected'));
                             } else if (status === 'peer_disconnected') {
+                                if (id === activeIdRef.current) {
                                     setSessionTimeLeft(0);
-        
-                                document.dispatchEvent(new CustomEvent('peer-disconnect'));
-                                
-                                // A short delay before clearing to display the status
-                                setTimeout(() => {
-                                    setKeyFingerprint('');
-                                    setVerificationCode('');
-                                    setSecurityLevel(null);
-                                    setIsVerified(false);
-                                    setShowVerification(false);
-                                    setConnectionStatus('disconnected');
-                                    
-                                    // Clear verification states
-                                    setLocalVerificationConfirmed(false);
-                                    setRemoteVerificationConfirmed(false);
-                                    setBothVerificationsConfirmed(false);
-                                    
-                                    // Clear connection data
-                                    setOfferData('');
-                                    setAnswerData('');
-                                    setOfferInput('');
-                                    setAnswerInput('');
-                                    setShowOfferStep(false);
-                                    setShowAnswerStep(false);
-                                    setMessages([]);
-        
-
-                                    if (typeof console.clear === 'function') {
-                                        console.clear();
-                                    }
-
-                                }, 2000);
+                                    document.dispatchEvent(new CustomEvent('peer-disconnect'));
+                                }
+                                setConnectionStatus('peer_disconnected');
+                                setIsVerified(false);
+                                setShowVerification(false);
+                                setLocalVerificationConfirmed(false);
+                                setRemoteVerificationConfirmed(false);
+                                setBothVerificationsConfirmed(false);
                             }
                         };
         
@@ -2498,9 +2963,9 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                             console.clear();
                         }
                         
-                        webrtcManagerRef.current = new EnhancedSecureWebRTCManager(
-                            handleMessage, 
-                            handleStatusChange, 
+                        const manager = new EnhancedSecureWebRTCManager(
+                            handleMessage,
+                            handleStatusChange,
                             handleKeyExchange,
                             handleVerificationRequired,
                             handleAnswerError,
@@ -2515,24 +2980,28 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                                 }
                             }
                         );
+                        managersRef.current.set(id, manager);
 
                         // Unsend / delete-for-everyone: peer asked us to drop a message.
-                        webrtcManagerRef.current.onMessageDelete = (mid) => {
+                        manager.onMessageDelete = (mid) => {
                             if (!mid) return;
                             setMessages(prev => prev.filter(m => String(m.mid) !== String(mid)));
                         };
 
-                        // Delivery receipt: peer confirmed they got our message → "delivered".
-                        webrtcManagerRef.current.onMessageDelivered = (mid) => {
-                            updateMessageStatus(mid, 'delivered');
+                        // Read receipt: the peer actually opened the chat and read it → green.
+                        // (A receipt is only sent once the recipient is viewing the conversation,
+                        // so background-read messages stay at two grey 'delivered' ticks.)
+                        manager.onMessageDelivered = (mid) => {
+                            updateMessageStatus(mid, 'read');
                         };
 
-                        // Initialize notification integration if permission was already granted
-                        if (typeof Notification !== 'undefined' && Notification && Notification.permission === 'granted' && window.NotificationIntegration && !notificationIntegrationRef.current) {
+                        // Per-session notification integration (raises OS notifications when the
+                        // tab is hidden; the unread badge handles the in-app, focused case).
+                        if (typeof Notification !== 'undefined' && Notification && Notification.permission === 'granted' && window.NotificationIntegration && !integrationsRef.current.get(id)) {
                             try {
-                                const integration = new window.NotificationIntegration(webrtcManagerRef.current);
+                                const integration = new window.NotificationIntegration(manager);
                                 integration.init().then(() => {
-                                    notificationIntegrationRef.current = integration;
+                                    integrationsRef.current.set(id, integration);
                                 }).catch((error) => {
                                     // Handle error silently
                                 });
@@ -2540,73 +3009,16 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                                 // Handle error silently
                             }
                         }
-        
-                        handleMessage(' SecureBit.chat Enhanced Security Edition v4.9.0 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.', 'system');
-        
-                        const handleBeforeUnload = (event) => {
-                            if (event.type === 'beforeunload' && !isTabSwitching) {
-                                
-                                if (webrtcManagerRef.current && webrtcManagerRef.current.isConnected()) {
-                                    try {
-                                        webrtcManagerRef.current.sendSystemMessage({
-                                            type: 'peer_disconnect',
-                                            reason: 'user_disconnect',
-                                            timestamp: Date.now()
-                                        });
-                                    } catch (error) {
-                                    }
-                                    
-                                    setTimeout(() => {
-                            if (webrtcManagerRef.current) {
-                                webrtcManagerRef.current.disconnect();
-                                        }
-                                    }, 100);
-                                } else if (webrtcManagerRef.current) {
-                                    webrtcManagerRef.current.disconnect();
-                                }
-                            } else if (isTabSwitching) {
-                                event.preventDefault();
-                                event.returnValue = '';
-                            }
-                        };
-                        
-                        window.addEventListener('beforeunload', handleBeforeUnload);
-                        
-                        let isTabSwitching = false;
-                        let tabSwitchTimeout = null;
-                        
-                        const handleVisibilityChange = () => {
-                            if (document.visibilityState === 'hidden') {
-                                isTabSwitching = true;
-                                
-                                if (tabSwitchTimeout) {
-                                    clearTimeout(tabSwitchTimeout);
-                                }
-                                
-                                tabSwitchTimeout = setTimeout(() => {
-                                    isTabSwitching = false;
-                                }, 5000); 
-                                
-                            } else if (document.visibilityState === 'visible') {
-                                isTabSwitching = false;
-                                
-                                if (tabSwitchTimeout) {
-                                    clearTimeout(tabSwitchTimeout);
-                                    tabSwitchTimeout = null;
-                                }
-                            }
-                        };
-                        
-                        document.addEventListener('visibilitychange', handleVisibilityChange);
-        
-                    // Setup file transfer callbacks
-                    if (webrtcManagerRef.current) {
-                        webrtcManagerRef.current.setFileTransferCallbacks(
+
+                        handleMessage(' SecureBit.chat Enhanced Security Edition v4.10.0 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.', 'system');
+
+                        // Setup file transfer callbacks (id-bound to THIS session's manager).
+                        manager.setFileTransferCallbacks(
                             // Progress callback
                             (progress) => {
                                 console.log('File progress:', progress);
                             },
-                            
+
                             // File received callback — auto-save to disk, no button press needed.
                             (fileData) => {
                                 const sizeMb = Math.max(1, Math.round((fileData.fileSize || 0) / (1024 * 1024)));
@@ -2622,10 +3034,6 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                                     setTimeout(() => fileData.revokeObjectURL(url), 15000);
                                 };
 
-                                // Trigger the download automatically once assembly completes.
-                                // (Plain-string notice — system messages render as text in the
-                                // connection log, so a React button here would show "[object
-                                // Object]". The file panel keeps a manual Download as fallback.)
                                 saveToDisk()
                                     .then(() => {
                                         addMessageWithAutoScroll(`File received & saved: ${fileData.fileName} (${sizeMb} MB)`, 'system');
@@ -2635,7 +3043,7 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                                         addMessageWithAutoScroll(`File received: ${fileData.fileName} (${sizeMb} MB). Open the file panel to download it.`, 'system');
                                     });
                             },
-                            
+
                             // Error callback
                             (error) => {
                                 console.error('File transfer error:', error);
@@ -2657,23 +3065,130 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                                 });
                             }
                         );
-                    }
-        
-                    return () => {
-                        window.removeEventListener('beforeunload', handleBeforeUnload);
-                        document.removeEventListener('visibilitychange', handleVisibilityChange);
-                        
-                        if (tabSwitchTimeout) {
-                            clearTimeout(tabSwitchTimeout);
-                            tabSwitchTimeout = null;
-                        }
-                        
-                        if (webrtcManagerRef.current) {
-                            webrtcManagerRef.current.disconnect();
-                            webrtcManagerRef.current = null;
-                        }
+
+                        return id;
                     };
-                    }, []); // Empty dependency array to run only once
+
+                    // Keep createSession reachable from non-render callers (new-chat button etc.).
+                    const createSessionRef = React.useRef(createSession);
+                    createSessionRef.current = createSession;
+
+                    // Tear down ONE session completely: its manager (existing key-wipe logic),
+                    // its notification integration and its queues. Other sessions are untouched.
+                    // Re-entrancy guarded: mgr.disconnect() can synchronously re-fire the
+                    // 'disconnected' status callback, which would otherwise recurse back in here.
+                    const destroyingRef = React.useRef(new Set());
+                    const destroySession = React.useCallback((id) => {
+                        if (!id || destroyingRef.current.has(id)) return;
+                        destroyingRef.current.add(id);
+                        try {
+                            const mgr = managersRef.current.get(id);
+                            if (mgr) { try { mgr.disconnect(); } catch (_) {} managersRef.current.delete(id); }
+                            const integ = integrationsRef.current.get(id);
+                            if (integ) { try { integ.cleanup?.(); } catch (_) {} integrationsRef.current.delete(id); }
+                            queuesRef.current.delete(id);
+                            dispatch({ type: SA.REMOVE_SESSION, id });
+                        } finally {
+                            destroyingRef.current.delete(id);
+                        }
+                    }, []);
+
+                    // Always keep at least one session around: when the last chat is removed the
+                    // user lands back on the single-column "Start Secure" page with a fresh session.
+                    React.useEffect(() => {
+                        if (sessionsState.order.length === 0) createSessionRef.current({ role: 'offer' });
+                    }, [sessionsState.order.length]);
+
+                    // ---- Sidebar (session list) state + actions ----
+                    const [sidebarCollapsed, setSidebarCollapsed] = React.useState(() => {
+                        try { return localStorage.getItem('securebit_sidebar_collapsed') === 'true'; } catch { return false; }
+                    });
+                    React.useEffect(() => { try { localStorage.setItem('securebit_sidebar_collapsed', String(sidebarCollapsed)); } catch {} }, [sidebarCollapsed]);
+                    const [sidebarDrawerOpen, setSidebarDrawerOpen] = React.useState(false);
+                    const handleSelectSession = React.useCallback((id) => {
+                        dispatch({ type: SA.SET_ACTIVE, id });
+                        dispatch({ type: SA.CLEAR_UNREAD, id });
+                        setSidebarDrawerOpen(false);
+                    }, []);
+                    const handleNewChat = React.useCallback(() => {
+                        createSessionRef.current({ role: 'offer' });
+                        setSidebarDrawerOpen(false);
+                    }, []);
+                    const handleRenameSession = React.useCallback((id, label) => { dispatch({ type: SA.RENAME, id, label }); }, []);
+                    // Send any held-back read receipts for a session (call when the user opens it).
+                    const flushReadAcks = React.useCallback((id) => {
+                        if (!id) return;
+                        const q = queuesRef.current.get(id);
+                        const mgr = managersRef.current.get(id);
+                        if (!q || !mgr || !q.pendingReadAcks || q.pendingReadAcks.length === 0) return;
+                        const acks = q.pendingReadAcks; q.pendingReadAcks = [];
+                        for (const mid of acks) { try { mgr.sendDeliveryReceipt?.(mid); } catch (_) {} }
+                    }, []);
+                    // Opening a session clears its unread badge and releases its read receipts.
+                    React.useEffect(() => {
+                        if (!activeSessionId) return;
+                        dispatch({ type: SA.CLEAR_UNREAD, id: activeSessionId });
+                        if (typeof document === 'undefined' || document.visibilityState === 'visible') flushReadAcks(activeSessionId);
+                    }, [activeSessionId, flushReadAcks]);
+
+                    // App-level lifecycle: create the first session on mount, wire the global
+                    // tab/unload guards, and on unmount disconnect EVERY live manager.
+                    const didInitRef = React.useRef(false);
+                    React.useEffect(() => {
+                        if (didInitRef.current) return;
+                        didInitRef.current = true;
+
+                        // (The first session is created by the ensure-at-least-one-session effect,
+                        // which also handles re-landing after the last chat is closed.)
+
+                        let isTabSwitching = false;
+                        let tabSwitchTimeout = null;
+
+                        const handleBeforeUnload = (event) => {
+                            if (event.type === 'beforeunload' && !isTabSwitching) {
+                                for (const mgr of managersRef.current.values()) {
+                                    try {
+                                        if (mgr.isConnected && mgr.isConnected()) {
+                                            try { mgr.sendSystemMessage({ type: 'peer_disconnect', reason: 'user_disconnect', timestamp: Date.now() }); } catch (_) {}
+                                            setTimeout(() => { try { mgr.disconnect(); } catch (_) {} }, 100);
+                                        } else {
+                                            mgr.disconnect();
+                                        }
+                                    } catch (_) {}
+                                }
+                            } else if (isTabSwitching) {
+                                event.preventDefault();
+                                event.returnValue = '';
+                            }
+                        };
+
+                        const handleVisibilityChange = () => {
+                            if (document.visibilityState === 'hidden') {
+                                isTabSwitching = true;
+                                if (tabSwitchTimeout) clearTimeout(tabSwitchTimeout);
+                                tabSwitchTimeout = setTimeout(() => { isTabSwitching = false; }, 5000);
+                            } else if (document.visibilityState === 'visible') {
+                                isTabSwitching = false;
+                                if (tabSwitchTimeout) { clearTimeout(tabSwitchTimeout); tabSwitchTimeout = null; }
+                                // Tab regained focus → release held read receipts for the open chat.
+                                flushReadAcks(activeIdRef.current);
+                            }
+                        };
+
+                        window.addEventListener('beforeunload', handleBeforeUnload);
+                        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+                        return () => {
+                            window.removeEventListener('beforeunload', handleBeforeUnload);
+                            document.removeEventListener('visibilitychange', handleVisibilityChange);
+                            if (tabSwitchTimeout) { clearTimeout(tabSwitchTimeout); tabSwitchTimeout = null; }
+                            for (const mgr of managersRef.current.values()) { try { mgr.disconnect(); } catch (_) {} }
+                            managersRef.current.clear();
+                            for (const integ of integrationsRef.current.values()) { try { integ.cleanup?.(); } catch (_) {} }
+                            integrationsRef.current.clear();
+                            queuesRef.current.clear();
+                        };
+                    }, []); // run once
         
                     // All security features are enabled by default - no session purchase needed
         
@@ -2759,6 +3274,11 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
 
                     // Animated QR state (for multi-chunk COSE)
                     const qrAnimationRef = React.useRef({ timer: null, chunks: [], idx: 0, active: false });
+                    // Stop any running QR auto-advance when the active session changes, so frames
+                    // are never pushed into the wrong session's setup slice.
+                    React.useEffect(() => () => {
+                        try { if (qrAnimationRef.current && qrAnimationRef.current.timer) { clearInterval(qrAnimationRef.current.timer); qrAnimationRef.current.timer = null; } } catch {}
+                    }, [activeSessionId]);
                     const stopQrAnimation = () => {
                         try { if (qrAnimationRef.current.timer) { clearInterval(qrAnimationRef.current.timer); } } catch {}
                         qrAnimationRef.current = { timer: null, chunks: [], idx: 0, active: false };
@@ -3518,7 +4038,7 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                                 }]);
                                 
                                 setMessages(prev => [...prev, { 
-                                    message: '📤 Send the invitation code to your interlocutor via a secure channel (voice call, SMS, etc.)..', 
+                                    message: 'Send the invitation code to your interlocutor via a secure channel (voice call, SMS, etc.).',
                                     type: 'system',
                                     id: Date.now(),
                                     timestamp: Date.now()
@@ -3937,10 +4457,6 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                         if (!webrtcManagerRef.current) {
                             return;
                         }
-        
-                        if (!webrtcManagerRef.current.isConnected()) {
-                            return;
-                        }
 
                         const baseTextEarly = messageInput.trim();
                         const midEarly = `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -3963,10 +4479,19 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                             const echoOpts = { mid: midEarly, status: 'sent', timestamp: tsOff };
                             if (disappearTtl > 0) echoOpts.expiresAt = tsOff + disappearTtl * 1000;
                             addMessageWithAutoScroll(outTextOff, 'sent', echoOpts);
-                            outgoingQueueRef.current.push({ outText: outTextOff, meta: metaOff, mid: midEarly });
+                            // Queue on the ACTIVE session's outgoing queue (created in createSession);
+                            // guard in case the entry is missing so the echo never gets lost.
+                            const q = queuesRef.current.get(activeIdRef.current);
+                            if (q) q.outgoing.push({ outText: outTextOff, meta: metaOff, mid: midEarly });
                             setMessageInput('');
                             if (codeMode) setCodeMode(false);
                             if (viewOnceMode) setViewOnceMode(false);
+                            return;
+                        }
+
+                        // Online but the channel isn't ready (e.g. dropped/not yet established) —
+                        // can't transmit. The setup screen is shown for re-establishment in that case.
+                        if (!webrtcManagerRef.current.isConnected()) {
                             return;
                         }
 
@@ -3996,7 +4521,10 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
 
                             try {
                                 await webrtcManagerRef.current.sendMessage(outText, meta);
-                                updateMessageStatus(mid, 'sent');
+                                // Reliable ordered data channel: a resolved send means the peer's
+                                // device received it → two grey ticks. The peer's read receipt
+                                // (onMessageDelivered) upgrades it to two green ticks ('read').
+                                updateMessageStatus(mid, 'delivered');
                             } catch (sendErr) {
                                 updateMessageStatus(mid, 'failed');
                                 throw sendErr;
@@ -4089,82 +4617,25 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                         }
                     }, []);
 
+                    // Disconnect tears down ONLY the active session — its peerConnection, its
+                    // manager (with the manager's own key-wipe logic) and its notification
+                    // integration. Every other session keeps running untouched. If it was the
+                    // last session we immediately open a fresh blank one so the UI isn't empty.
                     const handleDisconnect = () => {
                         try {
+                            const id = activeIdRef.current;
                             setSessionTimeLeft(0);
-                        
-                        // Mark as user-initiated disconnect
-                        updateConnectionState({ 
-                            status: 'disconnected',
-                            isUserInitiatedDisconnect: true 
-                        });
-                        
-                            // Cleanup WebRTC connection
-                        if (webrtcManagerRef.current) {
-                            webrtcManagerRef.current.disconnect();
-                        }
-                        
-                        // Cleanup notification integration
-                        if (notificationIntegrationRef.current) {
-                            notificationIntegrationRef.current.cleanup();
-                            notificationIntegrationRef.current = null;
-                        }
-        
-                            // Clear all connection-related states
-                        setKeyFingerprint('');
-                        setVerificationCode('');
-                        setSecurityLevel(null);
-                        setIsVerified(false);
-                        setShowVerification(false);
-                        setConnectionStatus('disconnected');
-                        
-                        // Clear verification states
-                        setLocalVerificationConfirmed(false);
-                        setRemoteVerificationConfirmed(false);
-                        setBothVerificationsConfirmed(false);
-        
-                        // Reset UI to initial state
-                        setOfferData('');
-                        setAnswerData('');
-                        setOfferInput('');
-                        setAnswerInput('');
-                        setShowOfferStep(false);
-                        setShowAnswerStep(false);
-                        setIsGeneratingKeys(false);
-                            setShowQRCode(false);
-                            setQrCodeUrl('');
-                            setShowQRScanner(false);
-                            setShowQRScannerModal(false);
-            
-                            // Clear messages
-                        setMessages([]);
-                        setPendingIncomingFiles([]);
-
-                            // Clear console
-                        if (typeof console.clear === 'function') {
-                            console.clear();
-                        }
-        
-                            // Dispatch disconnect events
-                        document.dispatchEvent(new CustomEvent('peer-disconnect'));
-                        document.dispatchEvent(new CustomEvent('disconnected'));
-        
-                            // Dispatch session cleanup event
-                        document.dispatchEvent(new CustomEvent('session-cleanup', {
-                            detail: { 
-                                timestamp: Date.now(),
-                                reason: 'manual_disconnect'
-                            }
-                        }));
-                            
-                            // Clear data and reset session timer
-                            handleClearData();
-        
-                        setTimeout(() => {
-                                setSessionTimeLeft(0);
-                        }, 500);
-        
-                            console.log('Disconnect completed successfully');
+                            // Global lifecycle events (consumed by any remaining listeners).
+                            document.dispatchEvent(new CustomEvent('peer-disconnect'));
+                            document.dispatchEvent(new CustomEvent('disconnected'));
+                            document.dispatchEvent(new CustomEvent('session-cleanup', {
+                                detail: { timestamp: Date.now(), reason: 'manual_disconnect' }
+                            }));
+                            // Manual disconnect always wipes this chat's data and removes it; the
+                            // ensure-at-least-one-session effect re-opens the landing if it was the
+                            // last one. Siblings keep running untouched.
+                            destroySession(id);
+                            if (typeof console.clear === 'function') console.clear();
                         } catch (error) {
                             console.error('Error during disconnect:', error);
                         }
@@ -4189,6 +4660,11 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                         }
                     }, [connectionStatus, isVerified]);
         
+                    // Chat view requires an ACTIVE verified connection. On a drop the manager
+                    // clears its verification state (it must be re-established — there is no
+                    // "keep chatting while disconnected" in this P2P design), so we fall back to
+                    // the setup screen, which is the re-establish path. Note: this means a dropped
+                    // chat shows the connect screen; the conversation history stays in the session.
                     const isConnectedAndVerified = (connectionStatus === 'connected' || connectionStatus === 'verified') && isVerified;
 
                     // The PWA "Install app" pill is a landing-page affordance — hide it once
@@ -4306,15 +4782,58 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                         }
                     }, [showQRScannerModal]);
         
+                    const sessionChats = decorateSessions(sessionsState);
+                    // The multi-session chrome (left rail + chat column) appears only once there
+                    // is a genuinely WORKING conversation — a session whose SAS is verified — or
+                    // when more than one session exists. The whole offer/answer/verification flow
+                    // of the first session (which the manager reports as 'connecting'/'verifying')
+                    // stays on the original single-column "Start Secure" screen, exactly as before;
+                    // the rail only shows up after the first secure channel is actually established.
+                    const showSidebar = sessionsState.order.length > 1 || sessionsState.order.some((id) => {
+                        const s = sessionsState.sessions[id];
+                        return s && s.sas && s.sas.isVerified;
+                    });
+
                     return React.createElement('div', {
-                        className: "minimal-bg min-h-screen"
+                        className: "minimal-bg",
+                        // With the rail visible the app is a fixed-height shell (rail + column
+                        // fill the viewport, design-style). Otherwise it's the scrollable landing.
+                        // flexDirection:'row' is explicit — the .minimal-bg class forces
+                        // flex-direction:column, which would otherwise stack the rail ABOVE the chat.
+                        style: showSidebar ? { display: 'flex', flexDirection: 'row', height: '100vh', width: '100%', overflow: 'hidden' } : { minHeight: '100vh' }
                     }, [
+                        showSidebar && React.createElement(SessionsSidebar, {
+                            key: 'sessions-sidebar',
+                            chats: sessionChats,
+                            collapsed: sidebarCollapsed,
+                            drawerOpen: sidebarDrawerOpen,
+                            onToggleCollapse: () => setSidebarCollapsed(v => !v),
+                            onSelect: handleSelectSession,
+                            onNewChat: handleNewChat,
+                            onRename: handleRenameSession,
+                            onCloseDrawer: () => setSidebarDrawerOpen(false),
+                            myStatus: myStatus,
+                            onSetStatus: setMyStatus
+                        }),
+                        // Mobile-only hamburger that opens the drawer (hidden on desktop via CSS).
+                        showSidebar && React.createElement('button', {
+                            key: 'sb-burger',
+                            className: 'sb-burger',
+                            onClick: () => setSidebarDrawerOpen(true),
+                            style: { display: 'none', position: 'fixed', top: '13px', left: '13px', zIndex: 55, width: '38px', height: '38px', borderRadius: '10px', placeItems: 'center', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(18,18,20,0.9)', color: '#cfcfd4', cursor: 'pointer' },
+                            dangerouslySetInnerHTML: { __html: SB_SVG.burger }
+                        }),
+                        React.createElement('div', {
+                            key: 'app-column',
+                            className: showSidebar ? 'minimal-bg' : 'minimal-bg min-h-screen',
+                            style: showSidebar ? { flex: 1, minWidth: 0, height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' } : {}
+                        }, [
                         // Advanced network settings now render inside the connection
                         // screen's right panel (see EnhancedConnectionSetup), matching
                         // the design's slide-up-within-the-right-column behavior.
                         // The verified chat renders its own in-chat header (SecureBit Chat
                         // design); the shared header is shown only on the landing/setup view.
-                        (!isConnectedAndVerified && window.EnhancedMinimalHeader) && React.createElement(window.EnhancedMinimalHeader, {
+                        (!isConnectedAndVerified && !showSidebar && window.EnhancedMinimalHeader) && React.createElement(window.EnhancedMinimalHeader, {
                             key: 'header',
                             status: connectionStatus,
                             fingerprint: keyFingerprint,
@@ -4334,6 +4853,10 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                             })()
                                 ? (() => {
                                     return React.createElement(EnhancedChatInterface, {
+                                        title: active ? active.peerLabel : '',
+                                        isOffline: isOffline,
+                                        peerPresence: active ? active.peerPresence : null,
+                                        onRenameTitle: (label) => { if (activeSessionId) dispatch({ type: SA.RENAME, id: activeSessionId, label }); },
                                         messages: messages,
                                         messageInput: messageInput,
                                         setMessageInput: setMessageInput,
@@ -4410,7 +4933,10 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                                     iceSettingsPersisted: iceSettingsPersisted,
                                     customIceServers: customIceServers,
                                     handleApplyIceSettings: handleApplyIceSettings,
-                                    handleForgetIceSettings: handleForgetIceSettings
+                                    handleForgetIceSettings: handleForgetIceSettings,
+                                    // Render only the create/connect card inside the chat column
+                                    // (an additional session), instead of the full landing.
+                                    compact: showSidebar
                                 })
                         ),
                         
@@ -4518,9 +5044,8 @@ import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/ic
                                     ])
                                 ])
                             ]);
-                        })(),
-                        
-                        
+                        })()
+                        ])  // end app-column
                     ]);
                 };
                 // UpdateChecker компонент для автоматической проверки обновлений

@@ -155,8 +155,20 @@ class UpdateManager {
             }
             
             const meta = await response.json();
+
+            // The service worker returns a fallback meta { error: 'Network unavailable',
+            // version: <default> } when it can't reach the network. That default ("v4.7.56")
+            // must NOT be treated as a real server version — otherwise a transient drop pops a
+            // bogus "Update available → v4.7.56". Ignore any error-tagged response.
+            if (meta && meta.error) {
+                if (this.options.debug) {
+                    console.warn('⚠️ meta.json came from offline fallback — skipping update check:', meta.error);
+                }
+                return { hasUpdate: false, error: meta.error };
+            }
+
             this.serverVersion = meta.version || meta.buildVersion || null;
-            
+
             if (!this.serverVersion) {
                 throw new Error('Version not found in meta.json');
             }
@@ -249,47 +261,55 @@ class UpdateManager {
         }
         
         this.isUpdating = true;
-        
+
+        // Step logging (always on) so we can see exactly where an update stalls.
+        const log = (m) => { try { console.log('🔧 [update] ' + m); } catch (_) {} };
+        // Run a cleanup step but never let it block the reload: it still executes fully, we just
+        // stop AWAITING it past `ms`. This keeps all the security cleanup (SW caches, SW
+        // unregister, storage wipe) while guaranteeing the page reloads.
+        const capped = (label, promise, ms) => Promise.race([
+            Promise.resolve(promise).then(() => log(label + ' done')).catch((e) => log(label + ' error: ' + (e && e.message))),
+            new Promise((resolve) => setTimeout(() => { log(label + ' still running after ' + ms + 'ms — continuing'); resolve(); }, ms))
+        ]);
+        const navigate = () => {
+            log('navigating to new version…');
+            try { window.location.href = `${window.location.pathname}?v=${Date.now()}&_update=true`; }
+            catch (_) { try { window.location.reload(); } catch (__) {} }
+        };
+
         try {
-            if (this.options.debug) {
-                console.log('🚀 Starting force update...');
-            }
-            
+            log('start (online=' + (typeof navigator !== 'undefined' ? navigator.onLine : 'n/a') + ')');
+
             // Step 1: Preserve critical data
             const preservedData = this.preserveCriticalData();
-            
-            // Step 2: Clear Service Worker caches
-            await this.clearServiceWorkerCaches();
-            
-            // Step 3: Unregister Service Workers
-            await this.unregisterServiceWorkers();
-            
+
+            // Step 2: Clear Service Worker caches (time-boxed, still runs fully)
+            await capped('clearServiceWorkerCaches', this.clearServiceWorkerCaches(), 3000);
+
+            // Step 3: Unregister Service Workers (time-boxed, still runs fully)
+            await capped('unregisterServiceWorkers', this.unregisterServiceWorkers(), 3000);
+
             // Step 4: Clear browser cache (localStorage, sessionStorage)
             this.clearBrowserCaches();
-            
+            log('browser caches cleared');
+
             // Step 5: Update version
             if (this.serverVersion) {
                 this.setLocalVersion(this.serverVersion);
             }
-            
+
             // Step 6: Restore critical data
             this.restoreCriticalData(preservedData);
-            
+
             // Step 7: Force reload with cache-busting
-            if (this.options.debug) {
-                console.log('🔄 Reloading page with new version...');
-            }
-            
-            // Small delay to complete operations
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            // Reload with full cache bypass
-            window.location.href = `${window.location.pathname}?v=${Date.now()}&_update=true`;
-            
+            await new Promise(resolve => setTimeout(resolve, 300));
+            navigate();
+
         } catch (error) {
             this.handleError('Force update failed', error);
             this.isUpdating = false;
-            throw error;
+            // The new build loads from the network regardless — never leave the user stuck.
+            navigate();
         }
     }
     

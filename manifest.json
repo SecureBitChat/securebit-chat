@@ -1,5 +1,5 @@
 {
-  "name": "SecureBit.chat v4.9.1 - ECDH + DTLS + SAS",
+  "name": "SecureBit.chat — Private, Encrypted Messenger",
   "short_name": "SecureBit",
   "description": "P2P messenger with ECDH + DTLS + SAS security, military-grade cryptography and Lightning Network payments",
   "start_url": "./",

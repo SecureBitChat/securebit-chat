@@ -141,9 +141,34 @@ function updateIndexHtmlVersions(buildVersion) {
         
         fs.writeFileSync(indexHtmlPath, indexHtml, 'utf-8');
         console.log('✅ index.html versions updated');
-        
+
     } catch (error) {
         console.warn('⚠️  Failed to update index.html versions:', error.message);
+    }
+}
+
+/**
+ * Stamp the build version into sw.js so the file's bytes change every deploy. The browser
+ * only reinstalls a Service Worker when sw.js differs byte-for-byte; without this the SW
+ * (and its caches) stay frozen and clients never pick up new releases automatically.
+ */
+function updateServiceWorkerVersion(buildVersion) {
+    try {
+        const swPath = path.join(CONFIG.publicDir, 'sw.js');
+        if (!fs.existsSync(swPath)) {
+            console.warn('⚠️  sw.js not found, skipping SW version stamp');
+            return;
+        }
+        let sw = fs.readFileSync(swPath, 'utf-8');
+        if (/const SW_BUILD_VERSION = '[^']*';/.test(sw)) {
+            sw = sw.replace(/const SW_BUILD_VERSION = '[^']*';/, `const SW_BUILD_VERSION = '${buildVersion}';`);
+            fs.writeFileSync(swPath, sw, 'utf-8');
+            console.log(`✅ sw.js build stamp updated → ${buildVersion}`);
+        } else {
+            console.warn('⚠️  SW_BUILD_VERSION marker not found in sw.js');
+        }
+    } catch (error) {
+        console.warn('⚠️  Failed to stamp sw.js version:', error.message);
     }
 }
 
@@ -184,7 +209,10 @@ function main() {
     
     // Update versions in index.html
     updateIndexHtmlVersions(meta.version);
-    
+
+    // Stamp the build version into sw.js so the Service Worker reinstalls each deploy.
+    updateServiceWorkerVersion(meta.version);
+
     console.log('✅ Build metadata generation completed');
 }
 
