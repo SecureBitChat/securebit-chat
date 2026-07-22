@@ -8644,7 +8644,7 @@ async processMessage(data) {
                         publicKeyType: ecdhKeyPair.publicKey.algorithm?.name,
                         isEphemeral: true
                     });
-                    
+
                 } catch (ecdhError) {
                     this._secureLog('error', 'Ephemeral ECDH key generation failed', {
                         operationId: operationId,
