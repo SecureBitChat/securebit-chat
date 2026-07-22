@@ -18,6 +18,16 @@
 - `setFileTransferCallbacks(onProgress, onReceived, onError, onIncomingRequest)` updates manager fields and any live `EnhancedSecureFileTransfer` instance.
 - Passing `null` values detaches callbacks from the active transfer system.
 
+### Voice messages
+
+- `sendFile(file, options)` accepts an optional `options` object. `options.voice`
+  (`{ dur, bars }`) marks the transfer as a voice note and rides along as unsigned
+  metadata; `options.uiId` correlates progress events to a UI bubble before the
+  `fileId` resolves.
+- `onProgress` receives `{ fileId, uiId, direction, progress, isVoice, voice }`.
+  `onIncomingFileRequest` and `onReceived` include `isVoice` and `voice` so the UI
+  can auto-accept and render a voice bubble instead of a file card.
+
 ## EnhancedSecureFileTransfer
 
 ### Incoming transfers

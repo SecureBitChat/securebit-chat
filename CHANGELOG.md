@@ -1,5 +1,20 @@
 # Changelog
 
+## v5.4.5 — Encrypted voice messages
+
+SecureBit now supports **end-to-end encrypted voice messages**, sent over the same secure transfer channel as files.
+
+### Added
+
+- **Voice messages.** Record a note in the browser and send it over the existing chunked, AES-GCM-encrypted file-transfer pipeline, so it inherits the same per-file session key and SHA-256 integrity check. Audio is captured as raw PCM and encoded to **WAV**, so it plays back on every platform — including iOS/Safari. Duration and a downsampled waveform travel as unsigned presentation metadata; the audio bytes stay integrity-protected by the signed file hash.
+- Voice notes are **auto-accepted** on the receiver (no consent prompt) and played **inline** from an in-memory blob — nothing is written to disk. The bubble shows an upload/download progress ring, a seekable waveform, play/pause and duration, and the usual Encrypted/Decrypted status.
+- **Composer.** A mic button records a note with a live waveform and timer plus discard / send controls. On desktop the mic and send buttons sit side by side; on mobile the mic swaps to a send button as soon as you type text.
+
+### Changed
+
+- Content Security Policy `media-src` now allows `blob:` so recorded and received audio can be played back.
+- Version scheme moved to the 5.x line (Desktop Edition = **5.0**). The roadmap gains a **5.5 "Secure Voice & Calls"** milestone (encrypted voice messages, audio calls, video calls); later milestones shift accordingly.
+
 ## v4.9.0 — Full redesign + reworked offline mode
 
 A ground-up visual redesign of the whole application surface — landing page, "Why unique" / partners / roadmap / community sections, connection setup, in-chat header, real-time security verification report, file transfer, and the PWA install / update / offline / install-guide dialogs.

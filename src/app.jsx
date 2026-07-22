@@ -538,8 +538,372 @@ import {
                 const GRAIN_URL = `url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='100'%20height='100'%3E%3Cfilter%20id='n'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.9'%20numOctaves='2'%20stitchTiles='stitch'/%3E%3C/filter%3E%3Crect%20width='100%25'%20height='100%25'%20filter='url(%23n)'/%3E%3C/svg%3E")`;
                 const SB_MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
 
+                // Deterministic fallback waveform when a peer sent no peaks (older builds).
+                const sbGenBars = (seed, n) => {
+                    const out = [];
+                    let s = seed || 1;
+                    for (let i = 0; i < n; i++) {
+                        s = (s * 9301 + 49297) % 233280;
+                        const r = s / 233280;
+                        const env = 0.45 + 0.55 * Math.sin((i / n) * Math.PI);
+                        out.push(Math.max(0.16, Math.min(1, (0.3 + r * 0.7) * env)));
+                    }
+                    return out;
+                };
+                const sbFmtClock = (sec) => {
+                    sec = Math.max(0, Math.round(sec));
+                    const m = Math.floor(sec / 60), s = sec % 60;
+                    return m + ':' + String(s).padStart(2, '0');
+                };
+
+                // ── Voice message player (bubble body) ───────────────────────────
+                // Play/pause + seekable waveform + duration, plus an upload/download
+                // progress ring while the encrypted audio is still transferring.
+                // Ported 1:1 from the "MessageBubble" design, wired to a real <audio>.
+                const VoicePlayer = ({ voice, isMe }) => {
+                    const h = React.createElement;
+                    const [playing, setPlaying] = React.useState(false);
+                    const [progress, setProgress] = React.useState(0);
+                    const [playErr, setPlayErr] = React.useState(false);
+                    const audioRef = React.useRef(null);
+                    const rafRef = React.useRef(null);
+
+                    const v = voice || {};
+                    const dur = Number.isFinite(v.dur) && v.dur > 0 ? v.dur : 8;
+                    const bars = (Array.isArray(v.bars) && v.bars.length) ? v.bars : sbGenBars(dur * 37 + 11, 34);
+                    const src = v.url || null;
+                    const transfer = v.transfer || null;
+                    const transferring = !!transfer && !src;
+                    const failed = !!v.error || playErr;
+                    const dir = transfer ? transfer.dir : null;
+                    const pct = transfer ? Math.max(0, Math.min(100, transfer.pct || 0)) : 100;
+
+                    React.useEffect(() => () => {
+                        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+                        if (audioRef.current) { try { audioRef.current.pause(); } catch (_) {} audioRef.current = null; }
+                    }, []);
+                    // If the audio URL is swapped/removed, reset playback.
+                    React.useEffect(() => {
+                        if (!src && audioRef.current) { try { audioRef.current.pause(); } catch (_) {} audioRef.current = null; setPlaying(false); setProgress(0); }
+                    }, [src]);
+
+                    const pause = () => {
+                        if (audioRef.current) { try { audioRef.current.pause(); } catch (_) {} }
+                        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+                        setPlaying(false);
+                    };
+                    const play = () => {
+                        if (!src) return;
+                        setPlayErr(false);
+                        if (!audioRef.current) {
+                            const a = new Audio();
+                            a.preload = 'auto';
+                            a.addEventListener('timeupdate', () => {
+                                const d = a.duration && isFinite(a.duration) ? a.duration : dur;
+                                if (d) setProgress(Math.min(1, a.currentTime / d));
+                            });
+                            a.addEventListener('ended', () => { setPlaying(false); setProgress(0); });
+                            a.addEventListener('error', () => { setPlaying(false); setPlayErr(true); });
+                            a.src = src;
+                            audioRef.current = a;
+                        }
+                        const p = audioRef.current.play();
+                        if (p && typeof p.then === 'function') {
+                            p.then(() => setPlaying(true)).catch((err) => { console.warn('Voice playback failed:', err && err.name, err && err.message); setPlayErr(true); setPlaying(false); });
+                        } else {
+                            setPlaying(true);
+                        }
+                    };
+                    const toggle = () => {
+                        if (transferring || failed || !src) return;
+                        if (playing) pause(); else play();
+                    };
+                    const seek = (e) => {
+                        if (transferring || failed || !src) return;
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const p = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                        if (audioRef.current && audioRef.current.duration) audioRef.current.currentTime = p * audioRef.current.duration;
+                        setProgress(p);
+                    };
+
+                    const elapsed = progress * dur;
+                    const circ = 2 * Math.PI * 23;
+                    const playBg = isMe ? '#f0892a' : 'rgba(240,137,42,0.14)';
+                    const playColor = isMe ? '#1a0f04' : '#f0892a';
+
+                    const barEls = bars.map((hgt, i) => {
+                        const played = (i + 0.5) / bars.length <= progress;
+                        let col;
+                        if (transferring) col = isMe ? 'rgba(255,255,255,0.13)' : 'rgba(255,255,255,0.1)';
+                        else col = played ? '#f0892a' : (isMe ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.16)');
+                        return h('span', { key: i, style: { flex: '1 1 0', minWidth: 0, width: '3px', height: Math.round(6 + hgt * 22) + 'px', borderRadius: '2px', background: col, transition: 'background .12s' } });
+                    });
+
+                    const ring = transferring && h('svg', { key: 'ring', width: 50, height: 50, viewBox: '0 0 50 50', style: { position: 'absolute', inset: 0, transform: 'rotate(-90deg)' } }, [
+                        h('circle', { key: 'bg', cx: 25, cy: 25, r: 23, fill: 'none', stroke: 'rgba(240,137,42,0.2)', strokeWidth: 2.5 }),
+                        h('circle', { key: 'fg', cx: 25, cy: 25, r: 23, fill: 'none', stroke: '#f0892a', strokeWidth: 2.5, strokeLinecap: 'round', strokeDasharray: circ.toFixed(1), strokeDashoffset: (circ * (1 - pct / 100)).toFixed(1), style: { transition: 'stroke-dashoffset .12s linear' } })
+                    ]);
+
+                    const icon = failed
+                        ? h('i', { className: 'fas fa-triangle-exclamation', style: { fontSize: '14px' } })
+                        : (transferring
+                            ? h('svg', { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'currentColor', style: { opacity: 0.5 } }, h('path', { d: 'M8 5.2v13.6l11-6.8z' }))
+                            : (playing
+                                ? h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'currentColor' }, [h('rect', { key: 'a', x: 6, y: 5, width: 4, height: 14, rx: 1.2 }), h('rect', { key: 'b', x: 14, y: 5, width: 4, height: 14, rx: 1.2 })])
+                                : h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'currentColor' }, h('path', { d: 'M8 5.2v13.6l11-6.8z' }))));
+
+                    const label = failed ? 'Failed' : (transferring ? (dir === 'up' ? 'Uploading' : 'Downloading') : 'Voice');
+                    const timeText = transferring ? (pct + '%') : sbFmtClock((playing || progress > 0) ? elapsed : dur);
+
+                    return h('div', { style: { display: 'flex', alignItems: 'center', gap: '13px', padding: '13px 15px 12px' } }, [
+                        h('div', { key: 'pw', style: { position: 'relative', flex: 'none', width: '50px', height: '50px', display: 'grid', placeItems: 'center' } }, [
+                            ring,
+                            h('button', {
+                                key: 'pb', onClick: toggle, title: transferring ? 'Transferring…' : (playing ? 'Pause' : 'Play'),
+                                style: { width: '42px', height: '42px', borderRadius: '50%', display: 'grid', placeItems: 'center', border: 'none', background: failed ? 'rgba(229,114,122,0.15)' : playBg, color: failed ? '#e5727a' : playColor, cursor: (transferring || failed || !src) ? 'default' : 'pointer', transition: 'transform .15s cubic-bezier(.2,.7,.3,1)' }
+                            }, icon)
+                        ]),
+                        h('div', { key: 'body', style: { flex: 1, minWidth: 0 } }, [
+                            h('div', { key: 'wave', onClick: seek, style: { display: 'flex', alignItems: 'center', gap: '2px', height: '30px', cursor: (transferring || failed || !src) ? 'default' : 'pointer' } }, barEls),
+                            h('div', { key: 'meta', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px' } }, [
+                                h('span', { key: 't', style: { fontFamily: SB_MONO, fontSize: '10.5px', fontWeight: 500, color: transferring ? '#f0b072' : '#9a9aa2' } }, timeText),
+                                h('span', { key: 'l', style: { fontFamily: SB_MONO, fontSize: '9.5px', fontWeight: 600, color: failed ? '#e5727a' : (transferring ? '#f0892a' : '#56565e'), textTransform: 'uppercase', letterSpacing: '0.8px' } }, label)
+                            ])
+                        ])
+                    ]);
+                };
+
+                // ── Voice recorder (composer) ────────────────────────────────────
+                // Auto-starts on mount; shows a live mic waveform + timer, with
+                // discard / send controls. Emits (blob, durationSec, waveformPeaks).
+                const VoiceRecorder = ({ onSend, onCancel }) => {
+                    const h = React.createElement;
+                    const MAX_SECONDS = 300; // hard cap so a note never balloons past the size limit
+                    const NBARS = 40;
+                    const [elapsed, setElapsed] = React.useState(0);
+                    const [liveBars, setLiveBars] = React.useState(() => new Array(NBARS).fill(0.06));
+                    const [micError, setMicError] = React.useState(false);
+                    const R = React.useRef({}).current;
+
+                    const teardownGraph = () => {
+                        try { if (R.node) { R.node.disconnect(); if (R.node.port) R.node.port.onmessage = null; R.node.onaudioprocess = null; } } catch (_) {}
+                        try { if (R.srcNode) R.srcNode.disconnect(); } catch (_) {}
+                        try { if (R.sink) R.sink.disconnect(); } catch (_) {}
+                        R.node = R.srcNode = R.sink = null;
+                    };
+                    const cleanup = () => {
+                        if (R.timer) clearInterval(R.timer);
+                        R.timer = null;
+                        teardownGraph();
+                        try { if (R.stream) R.stream.getTracks().forEach(t => t.stop()); } catch (_) {}
+                        try { if (R.ac) R.ac.close(); } catch (_) {}
+                        if (R.wurl) { try { URL.revokeObjectURL(R.wurl); } catch (_) {} R.wurl = null; }
+                        R.stream = R.ac = null;
+                    };
+
+                    const pushPeak = (amp) => {
+                        R.peaks = R.peaks || [];
+                        R.peaks.push(amp);
+                        const now = performance.now();
+                        if (!R.lastDraw || now - R.lastDraw > 55) {
+                            R.lastDraw = now;
+                            setLiveBars(prev => { const live = prev.slice(1); live.push(Math.max(0.08, amp)); return live; });
+                        }
+                    };
+
+                    const downsample = (peaks, n) => {
+                        if (!peaks || !peaks.length) return new Array(n).fill(0.3);
+                        const out = [];
+                        const step = peaks.length / n;
+                        for (let i = 0; i < n; i++) {
+                            const a = Math.floor(i * step), b = Math.max(a + 1, Math.floor((i + 1) * step));
+                            let m = 0;
+                            for (let j = a; j < b && j < peaks.length; j++) m = Math.max(m, peaks[j]);
+                            out.push(Math.max(0.16, Math.min(1, m)));
+                        }
+                        return out;
+                    };
+
+                    // Average-decimate captured PCM to a lower rate (voice-grade),
+                    // keeping the WAV small while staying universally decodable.
+                    const resample = (data, from, to) => {
+                        if (!data || !data.length || to >= from) return data || new Float32Array(0);
+                        const ratio = from / to;
+                        const outLen = Math.floor(data.length / ratio);
+                        const out = new Float32Array(outLen);
+                        for (let i = 0; i < outLen; i++) {
+                            const start = Math.floor(i * ratio), end = Math.min(data.length, Math.floor((i + 1) * ratio));
+                            let s = 0, n = 0;
+                            for (let j = start; j < end; j++) { s += data[j]; n++; }
+                            out[i] = n ? s / n : 0;
+                        }
+                        return out;
+                    };
+                    // Encode mono Float32 samples as a 16-bit PCM WAV blob. WAV plays
+                    // on every platform (incl. iOS/Safari), unlike webm/opus.
+                    const encodeWav = (samples, rate) => {
+                        const buf = new ArrayBuffer(44 + samples.length * 2);
+                        const view = new DataView(buf);
+                        const ws = (o, s) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
+                        ws(0, 'RIFF'); view.setUint32(4, 36 + samples.length * 2, true); ws(8, 'WAVE');
+                        ws(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+                        view.setUint32(24, rate, true); view.setUint32(28, rate * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+                        ws(36, 'data'); view.setUint32(40, samples.length * 2, true);
+                        let o = 44;
+                        for (let i = 0; i < samples.length; i++) { const s = Math.max(-1, Math.min(1, samples[i])); view.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7FFF, true); o += 2; }
+                        return new Blob([buf], { type: 'audio/wav' });
+                    };
+
+                    // Push one captured PCM frame: store it and update the live waveform.
+                    const onPcmFrame = (frame) => {
+                        if (!frame || !frame.length) return;
+                        R.pcm.push(frame);
+                        R.sampleCount = (R.sampleCount || 0) + frame.length;
+                        let sum = 0;
+                        for (let i = 0; i < frame.length; i++) sum += frame[i] * frame[i];
+                        pushPeak(Math.min(1, Math.sqrt(sum / frame.length) * 3.2));
+                    };
+
+                    const finish = (send) => {
+                        if (R.finished) return;
+                        R.finished = true;
+                        if (R.timer) clearInterval(R.timer);
+                        R.timer = null;
+                        const peaks = (R.peaks || []).slice();
+                        const srcRate = (R.ac && R.ac.sampleRate) || 48000;
+                        teardownGraph();
+
+                        let outBlob = null, outDur = 1;
+                        const total = R.sampleCount || 0;
+                        // Require a little real audio so we never ship an empty/silent note.
+                        if (send && R.pcm && R.pcm.length && total > srcRate * 0.2) {
+                            const merged = new Float32Array(total);
+                            let off = 0;
+                            for (const c of R.pcm) { merged.set(c, off); off += c.length; }
+                            const targetRate = 24000;
+                            const out = resample(merged, srcRate, targetRate);
+                            outDur = Math.max(1, Math.round(out.length / targetRate));
+                            outBlob = encodeWav(out, targetRate); // always a valid, universally-playable WAV
+                        }
+
+                        try { if (R.stream) R.stream.getTracks().forEach(t => t.stop()); } catch (_) {}
+                        try { if (R.ac) R.ac.close(); } catch (_) {}
+                        if (R.wurl) { try { URL.revokeObjectURL(R.wurl); } catch (_) {} R.wurl = null; }
+                        R.stream = R.ac = null;
+                        R.pcm = [];
+
+                        if (send && outBlob && outBlob.size > 44) onSend(outBlob, outDur, downsample(peaks, 34));
+                        else if (send) { setMicError(true); R.finished = false; } // captured nothing — let the user retry/close
+                        else onCancel();
+                    };
+
+                    React.useEffect(() => {
+                        let cancelled = false;
+                        R.finished = false;
+                        R.peaks = [];
+                        R.pcm = [];
+                        R.sampleCount = 0;
+                        R.t0 = performance.now();
+                        R.timer = setInterval(() => {
+                            const e = (performance.now() - R.t0) / 1000;
+                            setElapsed(e);
+                            if (e >= MAX_SECONDS) finish(true);
+                        }, 200);
+
+                        (async () => {
+                            let stream = null;
+                            try {
+                                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                                    stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+                                }
+                            } catch (_) { stream = null; }
+                            if (cancelled) { if (stream) stream.getTracks().forEach(t => t.stop()); return; }
+                            if (!stream) { setMicError(true); if (R.timer) clearInterval(R.timer); return; }
+
+                            R.stream = stream;
+                            // Capture raw PCM directly (no MediaRecorder / no decodeAudioData),
+                            // so we ALWAYS produce a valid WAV that plays on every platform,
+                            // incl. iOS/Safari. Prefer an AudioWorklet; fall back to a
+                            // ScriptProcessor. A muted sink keeps the graph pulling audio
+                            // without routing the mic back to the speakers.
+                            try {
+                                const AC = window.AudioContext || window.webkitAudioContext;
+                                R.ac = new AC();
+                                if (R.ac.state === 'suspended') { try { await R.ac.resume(); } catch (_) {} }
+                                R.srcNode = R.ac.createMediaStreamSource(stream);
+                                R.sink = R.ac.createGain();
+                                R.sink.gain.value = 0;
+
+                                let useWorklet = false;
+                                if (R.ac.audioWorklet && typeof R.ac.audioWorklet.addModule === 'function' && window.AudioWorkletNode) {
+                                    try {
+                                        const code = 'class P extends AudioWorkletProcessor{process(i){const c=i[0]&&i[0][0];if(c){this.port.postMessage(c.slice(0));}return true;}}registerProcessor("sb-pcm",P);';
+                                        R.wurl = URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
+                                        await R.ac.audioWorklet.addModule(R.wurl);
+                                        if (cancelled) return;
+                                        R.node = new AudioWorkletNode(R.ac, 'sb-pcm');
+                                        R.node.port.onmessage = (e) => onPcmFrame(e.data);
+                                        R.srcNode.connect(R.node);
+                                        R.node.connect(R.sink);
+                                        R.sink.connect(R.ac.destination);
+                                        useWorklet = true;
+                                    } catch (_) { useWorklet = false; }
+                                }
+
+                                if (!useWorklet) {
+                                    const bufSize = 4096;
+                                    R.node = R.ac.createScriptProcessor(bufSize, 1, 1);
+                                    R.node.onaudioprocess = (e) => {
+                                        const inBuf = e.inputBuffer.getChannelData(0);
+                                        onPcmFrame(new Float32Array(inBuf));
+                                    };
+                                    R.srcNode.connect(R.node);
+                                    R.node.connect(R.sink);
+                                    R.sink.connect(R.ac.destination);
+                                }
+                            } catch (_) {
+                                setMicError(true);
+                                if (R.timer) clearInterval(R.timer);
+                            }
+                        })();
+
+                        return () => { cancelled = true; cleanup(); };
+                        // eslint-disable-next-line react-hooks/exhaustive-deps
+                    }, []);
+
+                    if (micError) {
+                        return h('div', { style: { display: 'flex', alignItems: 'center', gap: '12px' } }, [
+                            h('div', { key: 'msg', style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '9px', height: '46px', padding: '0 16px', borderRadius: '13px', background: 'rgba(229,72,72,0.06)', border: '1px solid rgba(229,72,72,0.22)', color: '#e5727a', fontSize: '13.5px' } }, [
+                                h('i', { key: 'i', className: 'fas fa-microphone-slash', style: { fontSize: '14px' } }),
+                                'No audio captured — check microphone permission and try again.'
+                            ]),
+                            h('button', { key: 'x', onClick: onCancel, title: 'Close', style: { flex: 'none', width: '46px', height: '46px', borderRadius: '50%', display: 'grid', placeItems: 'center', border: 'none', background: 'rgba(255,255,255,0.05)', color: '#9a9aa2', cursor: 'pointer' } },
+                                h('i', { className: 'fas fa-xmark', style: { fontSize: '16px' } }))
+                        ]);
+                    }
+
+                    const barEls = liveBars.map((hgt, i) => h('span', { key: i, style: { flex: 'none', width: '3px', height: Math.round(4 + hgt * 24) + 'px', borderRadius: '2px', background: '#e5727a', opacity: (0.45 + hgt * 0.55) } }));
+
+                    return h('div', { style: { display: 'flex', alignItems: 'center', gap: '12px' } }, [
+                        h('button', {
+                            key: 'cancel', onClick: () => finish(false), title: 'Discard',
+                            style: { flex: 'none', width: '42px', height: '42px', borderRadius: '12px', display: 'grid', placeItems: 'center', border: 'none', background: 'rgba(255,255,255,0.04)', color: '#9a9aa2', cursor: 'pointer' }
+                        }, h('i', { className: 'fas fa-trash-can', style: { fontSize: '15px' } })),
+                        h('div', { key: 'bar', style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '11px', height: '46px', padding: '0 16px', borderRadius: '13px', background: 'rgba(229,72,72,0.06)', border: '1px solid rgba(229,72,72,0.22)' } }, [
+                            h('span', { key: 'dot', style: { position: 'relative', flex: 'none', width: '9px', height: '9px' } },
+                                h('span', { style: { position: 'absolute', inset: 0, borderRadius: '50%', background: '#e5727a', animation: 'vmRec 1.3s ease-in-out infinite' } })),
+                            h('span', { key: 'time', style: { flex: 'none', fontFamily: SB_MONO, fontSize: '13px', fontWeight: 600, color: '#f4f4f6', minWidth: '42px' } }, sbFmtClock(elapsed)),
+                            h('div', { key: 'wave', style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '2px', height: '30px', overflow: 'hidden' } }, barEls)
+                        ]),
+                        h('button', {
+                            key: 'send', onClick: () => finish(true), title: 'Send voice message',
+                            style: { flex: 'none', width: '46px', height: '46px', borderRadius: '50%', display: 'grid', placeItems: 'center', border: 'none', background: '#f0892a', color: '#1a0f04', cursor: 'pointer', boxShadow: '0 8px 22px rgba(240,137,42,0.3)', transition: 'transform .15s cubic-bezier(.2,.7,.3,1)' }
+                        }, h('svg', { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }, [h('path', { key: 'a', d: 'M22 2L11 13' }), h('path', { key: 'b', d: 'M22 2l-7 20-4-9-9-4 20-7z' })]))
+                    ]);
+                };
+
                 // Enhanced Chat Message — redesigned bubbles (SecureBit Chat design).
-                const EnhancedChatMessage = ({ message, type, timestamp, mid, status, viewOnce, viewOnceTtl, expiresAt, expired, nowTick, canUnsend, onUnsend, onExpire }) => {
+                const EnhancedChatMessage = ({ message, type, timestamp, mid, status, viewOnce, viewOnceTtl, expiresAt, expired, nowTick, canUnsend, onUnsend, onExpire, voice }) => {
                     const [revealed, setRevealed] = React.useState(false);
                     const revealTimerRef = React.useRef(null);
 
@@ -599,7 +963,9 @@ import {
                     }
 
                     let body;
-                    if (isViewOnce && !revealed) {
+                    if (voice) {
+                        body = React.createElement(VoicePlayer, { key: 'voice', voice, isMe });
+                    } else if (isViewOnce && !revealed) {
                         body = React.createElement('div', {
                             key: 'cover',
                             onClick: handleReveal,
@@ -1660,6 +2026,7 @@ import {
             messageInput,
             setMessageInput,
             onSendMessage,
+            onSendVoice,
             onDisconnect,
             keyFingerprint,
             isVerified,
@@ -1691,6 +2058,16 @@ import {
             const [showTimer, setShowTimer] = React.useState(false);
             const [showOnce, setShowOnce] = React.useState(false);
             const [showHandshake, setShowHandshake] = React.useState(false);
+            const [isRecording, setIsRecording] = React.useState(false);
+            // Desktop shows mic + send side by side; mobile toggles between them.
+            const [isDesktop, setIsDesktop] = React.useState(() => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(min-width:1024px)').matches);
+            React.useEffect(() => {
+                if (typeof window === 'undefined' || !window.matchMedia) return;
+                const mq = window.matchMedia('(min-width:1024px)');
+                const onCh = () => setIsDesktop(mq.matches);
+                try { mq.addEventListener('change', onCh); } catch (_) { mq.addListener(onCh); }
+                return () => { try { mq.removeEventListener('change', onCh); } catch (_) { mq.removeListener(onCh); } };
+            }, []);
             const taRef = React.useRef(null);
 
             // Auto-grow the message textarea (and reset its height after sending).
@@ -1805,6 +2182,14 @@ import {
             };
 
             const hasText = !!(messageInput && messageInput.trim());
+            // Voice recording is offered only over a live, verified channel with a
+            // usable mic API (it rides the same transfer path as files).
+            const canRecord = typeof onSendVoice === 'function'
+                && !isOffline
+                && isFileTransferReady()
+                && typeof navigator !== 'undefined'
+                && navigator.mediaDevices
+                && typeof navigator.mediaDevices.getUserMedia === 'function';
 
             // System notices are surfaced inside the handshake/connection log card
             // (matching the design) rather than as bubbles in the message flow.
@@ -1881,7 +2266,8 @@ import {
                         nowTick: nowTick,
                         canUnsend: typeof onUnsendMessage === 'function',
                         onUnsend: onUnsendMessage,
-                        onExpire: () => onMessageExpire && onMessageExpire(msg.id)
+                        onExpire: () => onMessageExpire && onMessageExpire(msg.id),
+                        voice: msg.voice
                     })))
             ));
 
@@ -1940,6 +2326,24 @@ import {
             ]);
 
             // ---- input row ----
+            const sendBtn = React.createElement('button', {
+                key: 'send', onClick: onSendMessage, disabled: !hasText, title: 'Send message', className: 'sb-send',
+                style: { flex: 'none', width: '44px', height: '44px', borderRadius: '11px', border: 'none', display: 'grid', placeItems: 'center', cursor: hasText ? 'pointer' : 'default', background: hasText ? '#f0892a' : 'rgba(255,255,255,0.05)', color: hasText ? '#1a0f04' : '#56565e', transition: 'all .15s' }
+            }, React.createElement('i', { className: 'fas fa-paper-plane', style: { fontSize: '15px' } }));
+            const micBtn = React.createElement('button', {
+                key: 'mic', onClick: () => setIsRecording(true), title: 'Record voice message', className: 'sb-send',
+                style: { flex: 'none', width: '44px', height: '44px', borderRadius: '50%', border: 'none', display: 'grid', placeItems: 'center', cursor: 'pointer', background: '#f0892a', color: '#1a0f04', boxShadow: '0 8px 22px rgba(240,137,42,0.3)', transition: 'transform .15s cubic-bezier(.2,.7,.3,1)' }
+            }, React.createElement('svg', { width: 19, height: 19, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.9, strokeLinecap: 'round', strokeLinejoin: 'round' }, [
+                React.createElement('rect', { key: 'a', x: 9, y: 3, width: 6, height: 11, rx: 3 }),
+                React.createElement('path', { key: 'b', d: 'M5 11a7 7 0 0 0 14 0' }),
+                React.createElement('path', { key: 'c', d: 'M12 18v3' })
+            ]));
+            // Desktop → mic + send together (two buttons). Mobile → mic by default,
+            // swapping to send as soon as the user types text.
+            const trailingButtons = !canRecord
+                ? [sendBtn]
+                : (isDesktop ? [micBtn, sendBtn] : (hasText ? [sendBtn] : [micBtn]));
+
             const inputRow = React.createElement('div', {
                 key: 'input',
                 style: { display: 'flex', alignItems: 'flex-end', gap: '11px', padding: '11px 11px 11px 16px', border: '1px solid ' + (hasText ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)'), background: '#161618', borderRadius: codeMode ? '0 0 14px 14px' : '14px', transition: 'border .15s' }
@@ -1964,17 +2368,24 @@ import {
                         ]),
                         React.createElement('span', { key: 'cnt', style: { fontFamily: MONO, fontSize: '10.5px', color: '#56565e', marginLeft: 'auto' } }, (messageInput ? messageInput.length : 0) + '/2000')
                     ])
-                ]),
-                React.createElement('button', {
-                    key: 'send', onClick: onSendMessage, disabled: !hasText, title: 'Send', className: 'sb-send',
-                    style: { flex: 'none', width: '44px', height: '44px', borderRadius: '11px', border: 'none', display: 'grid', placeItems: 'center', cursor: hasText ? 'pointer' : 'default', background: hasText ? '#f0892a' : 'rgba(255,255,255,0.05)', color: hasText ? '#1a0f04' : '#56565e', transition: 'all .15s' }
-                }, React.createElement('i', { className: 'fas fa-paper-plane', style: { fontSize: '15px' } }))
-            ]);
+                ])
+            ].concat(trailingButtons));
+
+            // While recording, the whole input row is replaced by the recorder bar
+            // (clean row on the composer background, matching the design mockup).
+            const recordingBar = React.createElement('div', { key: 'recbar' },
+                React.createElement(VoiceRecorder, {
+                    onCancel: () => setIsRecording(false),
+                    onSend: (blob, dur, bars) => { setIsRecording(false); if (typeof onSendVoice === 'function') onSendVoice(blob, dur, bars); }
+                })
+            );
 
             const composer = React.createElement('footer', { key: 'composer', style: { flex: 'none', padding: '12px 20px 18px', background: '#0f0f11', borderTop: '1px solid rgba(255,255,255,0.05)' } },
-                React.createElement('div', { style: { maxWidth: '1000px', margin: '0 auto' } }, [
-                    timerRow, onceRow, filePanel, chipsRow, codeStrip, inputRow
-                ])
+                React.createElement('div', { style: { maxWidth: '1000px', margin: '0 auto' } },
+                    isRecording
+                        ? [recordingBar]
+                        : [timerRow, onceRow, filePanel, chipsRow, codeStrip, inputRow]
+                )
             );
 
             const scrollBtn = showScrollButton && React.createElement('button', {
@@ -2004,7 +2415,10 @@ import {
                     status: opts.status,
                     viewOnce: opts.viewOnce === true,
                     viewOnceTtl: (typeof opts.viewOnceTtl === 'number') ? opts.viewOnceTtl : 15,
-                    expiresAt: (typeof opts.expiresAt === 'number') ? opts.expiresAt : undefined
+                    expiresAt: (typeof opts.expiresAt === 'number') ? opts.expiresAt : undefined,
+                    // Encrypted voice note descriptor: { url, dur, bars, transfer, fileId }.
+                    voice: opts.voice || undefined,
+                    fileId: opts.fileId || undefined
                 });
 
                 // Left rail listing every open session (design import: "Multi Session
@@ -2505,16 +2919,19 @@ import {
                     }, []);
         
                     const addMessageWithAutoScroll = React.useCallback((message, type, opts = {}) => {
+                        const newId = Date.now() + Math.random();
                         const newMessage = {
                             message,
                             type,
-                            id: Date.now() + Math.random(),
+                            id: newId,
                             timestamp: (typeof opts.timestamp === 'number') ? opts.timestamp : Date.now(),
                             mid: opts.mid,
                             status: opts.status,            // WhatsApp-style: sending | sent | delivered | failed
                             viewOnce: opts.viewOnce === true,
                             viewOnceTtl: (typeof opts.viewOnceTtl === 'number') ? opts.viewOnceTtl : 15,
-                            expiresAt: (typeof opts.expiresAt === 'number') ? opts.expiresAt : undefined
+                            expiresAt: (typeof opts.expiresAt === 'number') ? opts.expiresAt : undefined,
+                            voice: opts.voice || undefined,
+                            fileId: opts.fileId || undefined
                         };
 
                         setMessages(prev => {
@@ -2546,12 +2963,29 @@ import {
                             
                             return updated;
                         });
+                        return newId;
                     }, []);
 
                     // Flip a sent message's delivery state (sending → sent → delivered, or failed).
                     const updateMessageStatus = React.useCallback((mid, status) => {
                         if (!mid) return;
                         setMessages(prev => prev.map(m => (String(m.mid) === String(mid) && m.type === 'sent') ? { ...m, status } : m));
+                    }, []);
+
+                    // Shallow-merge a partial into one message (matched by local id), used to
+                    // drive voice-note transfer progress and attach the decrypted audio URL.
+                    const patchMessageById = React.useCallback((messageId, patch) => {
+                        if (messageId == null) return;
+                        setMessages(prev => prev.map(m => (String(m.id) === String(messageId))
+                            ? { ...m, ...(typeof patch === 'function' ? patch(m) : patch) }
+                            : m));
+                    }, []);
+                    // Same, matched by fileId (receiver side, where we don't hold the local id yet).
+                    const patchMessageByFileId = React.useCallback((fileId, patch) => {
+                        if (!fileId) return;
+                        setMessages(prev => prev.map(m => (m.fileId && String(m.fileId) === String(fileId))
+                            ? { ...m, ...(typeof patch === 'function' ? patch(m) : patch) }
+                            : m));
                     }, []);
 
                     // When WE come back online: for EVERY session, transmit anything queued while
@@ -2729,6 +3163,9 @@ import {
                             }
                         };
                         const updateMessageStatus = (mid, status) => { if (mid) dispatch({ type: SA.UPDATE_MESSAGE_STATUS, id, mid, status }); };
+                        // Voice-note helpers: merge a partial into a message by local id or by fileId.
+                        const patchMessageById = (messageId, patch) => { if (messageId != null) dispatch({ type: SA.PATCH_MESSAGE, id, messageId, patch }); };
+                        const patchMessageByFileId = (fileId, patch) => { if (fileId) dispatch({ type: SA.PATCH_MESSAGE, id, fileId, patch }); };
                         const setConnectionStatus = (status) => dispatch({ type: SA.SET_STATUS, id, status });
                         const setKeyFingerprint = (fingerprint) => dispatch({ type: SA.SET_FINGERPRINT, id, fingerprint });
                         const setVerificationCode = (code) => dispatch({ type: SA.SET_VERIFICATION, id, code });
@@ -3010,17 +3447,47 @@ import {
                             }
                         }
 
-                        handleMessage(' SecureBit.chat Enhanced Security Edition v4.10.0 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.', 'system');
+                        handleMessage(' SecureBit.chat Enhanced Security Edition v5.4.5 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.', 'system');
 
                         // Setup file transfer callbacks (id-bound to THIS session's manager).
                         manager.setFileTransferCallbacks(
-                            // Progress callback
+                            // Progress callback — drives the voice-note upload/download ring.
                             (progress) => {
+                                if (progress && progress.isVoice) {
+                                    const pct = Math.max(0, Math.min(100, progress.progress || 0));
+                                    const applyPct = (m) => {
+                                        if (!m.voice) return {};
+                                        // Sender clears the ring once every chunk is out (playable
+                                        // from the local copy); receiver keeps it until the audio is
+                                        // assembled and decrypted (onFileReceived attaches the URL).
+                                        if (progress.direction === 'up' && pct >= 100) {
+                                            return { voice: { ...m.voice, transfer: null } };
+                                        }
+                                        return { voice: { ...m.voice, transfer: { dir: progress.direction, pct } } };
+                                    };
+                                    if (progress.direction === 'up' && progress.uiId != null) patchMessageById(progress.uiId, applyPct);
+                                    else if (progress.fileId) patchMessageByFileId(progress.fileId, applyPct);
+                                    return;
+                                }
                                 console.log('File progress:', progress);
                             },
 
-                            // File received callback — auto-save to disk, no button press needed.
+                            // File received callback. Voice notes play inline (never touch disk);
+                            // ordinary files still auto-save.
                             (fileData) => {
+                                const isVoice = !!fileData.isVoice || (typeof fileData.mimeType === 'string' && fileData.mimeType.startsWith('audio/'));
+                                if (isVoice) {
+                                    fileData.getObjectURL()
+                                        .then((url) => {
+                                            patchMessageByFileId(fileData.fileId, (m) => ({ voice: { ...(m.voice || {}), url, transfer: null } }));
+                                        })
+                                        .catch((e) => {
+                                            console.error('Voice decode failed:', e);
+                                            patchMessageByFileId(fileData.fileId, (m) => ({ voice: { ...(m.voice || {}), transfer: null, error: true } }));
+                                        });
+                                    return;
+                                }
+
                                 const sizeMb = Math.max(1, Math.round((fileData.fileSize || 0) / (1024 * 1024)));
 
                                 const saveToDisk = async () => {
@@ -3057,8 +3524,24 @@ import {
                                 }
                             },
 
-                            // Incoming file request callback — receiver must explicitly accept before any data is sent
+                            // Incoming file request callback. Voice notes are auto-accepted and
+                            // rendered inline (a receiving bubble appears immediately and tracks
+                            // the download ring); ordinary files still require explicit consent.
                             (fileRequest) => {
+                                if (fileRequest && fileRequest.isVoice) {
+                                    const v = fileRequest.voice || {};
+                                    addMessageWithAutoScroll('', 'received', {
+                                        voice: {
+                                            dur: Number.isFinite(v.dur) ? v.dur : 0,
+                                            bars: Array.isArray(v.bars) ? v.bars : null,
+                                            transfer: { dir: 'down', pct: 0 },
+                                            url: null
+                                        },
+                                        fileId: fileRequest.fileId
+                                    });
+                                    try { manager.acceptIncomingFile(fileRequest.fileId); } catch (_) {}
+                                    return;
+                                }
                                 setPendingIncomingFiles(prev => {
                                     if (prev.some(f => f.fileId === fileRequest.fileId)) return prev;
                                     return [...prev, fileRequest];
@@ -4541,6 +5024,59 @@ import {
                         }
                     };
 
+                    // Send an encrypted voice note. The recorded audio rides the exact same
+                    // chunked + AES-GCM file-transfer pipeline as files (so it inherits the
+                    // audited E2E crypto); the duration + waveform peaks travel alongside so
+                    // both peers render the designed voice bubble with an upload/download ring.
+                    const handleSendVoice = async (blob, dur, bars) => {
+                        if (!blob || !webrtcManagerRef.current) return;
+
+                        // Normalise the mime to a bare, allow-listed audio type. The
+                        // recorder emits WAV (universally decodable); we still tolerate
+                        // other encodings defensively.
+                        const rawType = String(blob.type || '').toLowerCase();
+                        let mime = 'audio/wav';
+                        if (rawType.startsWith('audio/webm')) mime = 'audio/webm';
+                        else if (rawType.startsWith('audio/mp4') || rawType.startsWith('audio/x-m4a')) mime = 'audio/mp4';
+                        else if (rawType.startsWith('audio/ogg')) mime = 'audio/ogg';
+                        const ext = mime === 'audio/mp4' ? 'm4a' : (mime === 'audio/ogg' ? 'ogg' : (mime === 'audio/webm' ? 'webm' : 'wav'));
+                        const file = new File([blob], `voice-message.${ext}`, { type: mime });
+
+                        // Local, instantly-playable copy for the sender's own bubble.
+                        let localUrl = null;
+                        try { localUrl = URL.createObjectURL(blob); } catch (_) {}
+
+                        const offlineNow = isOffline
+                            || (typeof navigator !== 'undefined' && navigator.onLine === false)
+                            || (window.pwaOfflineManager && window.pwaOfflineManager.isOnline === false);
+                        const notReady = offlineNow || !webrtcManagerRef.current.isConnected || !webrtcManagerRef.current.isConnected();
+                        if (notReady) {
+                            if (localUrl) { try { URL.revokeObjectURL(localUrl); } catch (_) {} }
+                            addMessageWithAutoScroll('Voice message needs an active secure connection. Reconnect and try again.', 'system');
+                            return;
+                        }
+
+                        const voiceMeta = {
+                            dur: Math.max(1, Math.round(dur || 0)),
+                            bars: Array.isArray(bars) ? bars.map(n => Math.round(n * 1000) / 1000) : []
+                        };
+
+                        const localId = addMessageWithAutoScroll('', 'sent', {
+                            voice: { dur: voiceMeta.dur, bars: voiceMeta.bars, url: localUrl, transfer: { dir: 'up', pct: 0 } }
+                        });
+
+                        try {
+                            await webrtcManagerRef.current.sendFile(file, { voice: voiceMeta, uiId: localId });
+                            patchMessageById(localId, (m) => ({ voice: { ...(m.voice || {}), transfer: null } }));
+                        } catch (err) {
+                            patchMessageById(localId, (m) => ({ voice: { ...(m.voice || {}), transfer: null, error: true } }));
+                            const msg = String(err?.message || err);
+                            if (!/queued for sending|Data channel not ready/i.test(msg)) {
+                                addMessageWithAutoScroll(`Voice message failed: ${msg}`, 'system');
+                            }
+                        }
+                    };
+
                     // Unsend: remove locally and ask the peer to drop it too.
                     const handleUnsendMessage = React.useCallback((mid) => {
                         if (!mid) return;
@@ -4861,6 +5397,7 @@ import {
                                         messageInput: messageInput,
                                         setMessageInput: setMessageInput,
                                         onSendMessage: handleSendMessage,
+                                        onSendVoice: handleSendVoice,
                                         onDisconnect: handleDisconnect,
                                         keyFingerprint: keyFingerprint,
                                         isVerified: isVerified,

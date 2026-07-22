@@ -10,6 +10,7 @@
 | Privacy mode | optional TURN relay-only mode |
 | Message UI safety | incoming decrypted text sanitized before display |
 | File transfer | validated metadata, explicit consent, allowlist policy |
+| Voice messages | same chunked AES-GCM transfer as files; auto-accepted and played inline |
 | Local metadata | encrypted IndexedDB envelopes with migration |
 | Lifecycle | unified disconnect cleanup and bounded resource retention |
 
@@ -41,6 +42,18 @@ The verified state is reached only when both local and remote confirmation flags
 4. no receive buffers are allocated before acceptance
 5. sender transmits chunks only after acceptance
 6. completed received buffers are retained within a bounded window
+
+## Voice messages
+
+Voice notes reuse the file-transfer pipeline, so they inherit its per-file
+AES-GCM session key, chunking, and SHA-256 integrity check. Differences from a
+regular file:
+
+1. audio is recorded in-browser and encoded as PCM/WAV before sending
+2. duration and a downsampled waveform travel as **unsigned** presentation
+   metadata; the audio bytes remain integrity-protected by the signed file hash
+3. the receiver **auto-accepts** voice transfers (no consent prompt) and plays
+   them inline from an in-memory blob — nothing is written to disk
 
 ## Disconnect cleanup
 

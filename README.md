@@ -9,7 +9,7 @@
 No accounts. No servers storing your messages. No installation required.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-f0892a.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-4.10.0-3ecf8e.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.4.5-3ecf8e.svg)](CHANGELOG.md)
 [![PWA](https://img.shields.io/badge/PWA-installable-3ecf8e.svg)](#install-as-an-app)
 [![Encryption](https://img.shields.io/badge/crypto-ECDH%20P--384%20%C2%B7%20AES--256--GCM-blue.svg)](#security-model)
 
@@ -43,6 +43,7 @@ It is designed for people who need a small, auditable, zero-infrastructure way t
 - Local key metadata is stored encrypted in IndexedDB; disconnecting cleans up session state.
 
 ** Messaging**
+- **Encrypted voice messages** — record in the browser and send over the same end-to-end encrypted transfer channel as files. Audio is captured as PCM/WAV, integrity-protected by a signed hash, and played back inline on the recipient's device without ever touching disk.
 - Code blocks with syntax highlighting and an auto-clearing copy button.
 - View-once and disappearing messages with countdown timers.
 - Unsend (delete for everyone) over the authenticated control channel.

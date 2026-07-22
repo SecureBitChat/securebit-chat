@@ -9,3 +9,8 @@ fly.toml
 *.log
 .DS_Store
 **/.DS_Store
+# Source maps are debug-only and never needed at runtime; excluding them keeps the
+# build context small (the .map files are several MB) and the deploy upload fast.
+**/*.map
+# Marketing screenshots are referenced only from the README, not served by the app.
+assets/screenshots

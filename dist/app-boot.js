@@ -4467,6 +4467,29 @@ var EnhancedSecureFileTransfer = class {
         // 100 MB
         category: "Archives",
         description: "ZIP"
+      },
+      // Encrypted voice messages. Recorded in-browser via MediaRecorder and
+      // sent as a normal chunked+AES-GCM transfer, so they inherit the exact
+      // same end-to-end security as files. The app normalises the mime to a
+      // bare `audio/webm` (or `audio/mp4` on Safari) before sending so the
+      // codec-suffixed MediaRecorder type still matches this allow-list.
+      voice: {
+        extensions: [".webm", ".ogg", ".oga", ".opus", ".m4a", ".mp4", ".mp3", ".wav"],
+        mimeTypes: [
+          "audio/webm",
+          "audio/ogg",
+          "audio/opus",
+          "audio/mp4",
+          "audio/mpeg",
+          "audio/mp3",
+          "audio/wav",
+          "audio/x-m4a",
+          "audio/aac"
+        ],
+        maxSize: 20 * 1024 * 1024,
+        // 20 MB (well beyond any sane voice note)
+        category: "Voice",
+        description: "Voice messages"
       }
     };
     this.BLOCKED_EXTENSIONS = /* @__PURE__ */ new Set([
@@ -4904,7 +4927,30 @@ var EnhancedSecureFileTransfer = class {
   // ============================================
   // FILE TRANSFER IMPLEMENTATION
   // ============================================
-  async sendFile(file) {
+  // Emit a progress update to the app layer. `direction` is 'up' for the
+  // sender and 'down' for the receiver. `uiId` (sender only) lets the UI match
+  // the event to a locally-created bubble before sendFile() has resolved a
+  // fileId. Voice fields ride along so the receiver can render the waveform.
+  _emitTransferProgress(state, direction) {
+    if (typeof this.onProgress !== "function" || !state) return;
+    const total = state.totalChunks || 0;
+    const done = direction === "up" ? state.sentChunks || 0 : state.receivedCount || 0;
+    const progress = total > 0 ? Math.min(100, Math.round(done / total * 100)) : 0;
+    try {
+      this.onProgress({
+        fileId: state.fileId,
+        uiId: state.uiId || null,
+        direction,
+        progress,
+        transferredChunks: done,
+        totalChunks: total,
+        isVoice: !!state.isVoice,
+        voice: state.voice || null
+      });
+    } catch (_) {
+    }
+  }
+  async sendFile(file, options = {}) {
     try {
       if (!this.webrtcManager) {
         throw new Error("WebRTC Manager not initialized");
@@ -4942,7 +4988,11 @@ var EnhancedSecureFileTransfer = class {
         startTime: Date.now(),
         status: "preparing",
         retryCount: 0,
-        lastChunkTime: Date.now()
+        lastChunkTime: Date.now(),
+        // Voice-message extras (undefined for ordinary files).
+        isVoice: !!(options && options.voice),
+        voice: options && options.voice ? options.voice : null,
+        uiId: options && options.uiId ? options.uiId : null
       };
       this.activeTransfers.set(fileId, transferState);
       this.transferNonces.set(fileId, 0);
@@ -4980,6 +5030,10 @@ var EnhancedSecureFileTransfer = class {
         timestamp: Date.now(),
         version: "2.0"
       };
+      if (transferState.isVoice) {
+        metadata.isVoice = true;
+        if (transferState.voice) metadata.voice = transferState.voice;
+      }
       if (this.signingKey) {
         try {
           metadata.signature = await FileMetadataSigner.signFileMetadata(metadata, this.signingKey);
@@ -5012,6 +5066,7 @@ var EnhancedSecureFileTransfer = class {
         await this.sendFileChunk(transferState, chunkIndex, chunkData);
         transferState.sentChunks++;
         const progress = Math.round(transferState.sentChunks / totalChunks * 95) + 5;
+        this._emitTransferProgress(transferState, "up");
         await this.waitForBackpressure();
       }
       transferState.status = "waiting_confirmation";
@@ -5216,7 +5271,10 @@ var EnhancedSecureFileTransfer = class {
           fileId: pendingMetadata.fileId,
           fileName: pendingMetadata.fileName,
           fileSize: pendingMetadata.fileSize,
-          mimeType: pendingMetadata.fileType || "application/octet-stream"
+          mimeType: pendingMetadata.fileType || "application/octet-stream",
+          // Voice notes auto-accept and render inline (no consent card).
+          isVoice: !!pendingMetadata.isVoice,
+          voice: pendingMetadata.voice || null
         });
       } else {
         await this.rejectIncomingFile(metadata.fileId, "User consent unavailable");
@@ -5280,6 +5338,7 @@ var EnhancedSecureFileTransfer = class {
           }
           receivingState.receivedChunks.set(chunkMessage.chunkIndex, decryptedChunk);
           receivingState.receivedCount++;
+          this._emitTransferProgress(receivingState, "down");
           const confirmation = {
             type: "chunk_confirmation",
             fileId: chunkMessage.fileId,
@@ -5387,6 +5446,9 @@ var EnhancedSecureFileTransfer = class {
           fileSize: receivingState.fileSize,
           mimeType: receivingState.fileType,
           transferTime: receivingState.endTime - receivingState.startTime,
+          // Voice notes are played inline, not saved to disk.
+          isVoice: !!receivingState.isVoice,
+          voice: receivingState.voice || null,
           // backward-compatibility for existing UIs
           fileBlob,
           getBlob,
@@ -5582,7 +5644,9 @@ var EnhancedSecureFileTransfer = class {
       receivedCount: 0,
       startTime: Date.now(),
       lastChunkTime: Date.now(),
-      status: "receiving"
+      status: "receiving",
+      isVoice: !!metadata.isVoice,
+      voice: metadata.voice || null
     });
     this.pendingIncomingTransfers.delete(fileId);
     await this.sendSecureMessage({ type: "file_transfer_response", fileId, accepted: true, timestamp: Date.now() });
@@ -15634,7 +15698,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     }
   }
   // Public method to send files
-  async sendFile(file) {
+  async sendFile(file, options = {}) {
     this._enforceVerificationGate("sendFile");
     if (!this.isConnected()) {
       throw new Error("Connection not ready for file transfer. Please ensure the connection is established.");
@@ -15650,7 +15714,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       throw new Error("Encryption keys not ready. Please wait for connection to be fully established.");
     }
     try {
-      const fileId = await this.fileTransferSystem.sendFile(file);
+      const fileId = await this.fileTransferSystem.sendFile(file, options);
       return fileId;
     } catch (error) {
       this._secureLog("error", "File transfer error:", { errorType: error?.constructor?.name || "Unknown" });
@@ -17657,7 +17721,7 @@ Right-click or Ctrl+click to disconnect`,
           React.createElement("div", { key: "txt", style: { lineHeight: 1.2, minWidth: 0 } }, [
             React.createElement("div", { key: "r1", style: { display: "flex", alignItems: "baseline", gap: "7px" } }, [
               React.createElement("span", { key: "n", style: { fontSize: "16px", fontWeight: 800, letterSpacing: "-0.3px", color: "#e8e8eb" } }, "SecureBit"),
-              React.createElement("span", { key: "v", style: { fontFamily: MONO, fontSize: "10px", fontWeight: 500, color: "#56565e" } }, "v4.9.1")
+              React.createElement("span", { key: "v", style: { fontFamily: MONO, fontSize: "10px", fontWeight: 500, color: "#56565e" } }, "v5.4.5")
             ]),
             React.createElement("div", { key: "r2", className: "hidden sm:block", style: { fontSize: "11px", color: "#6b6b73", fontWeight: 500 } }, "End-to-end encrypted")
           ])
@@ -18316,47 +18380,55 @@ function Roadmap() {
       features: ["ECDH + DTLS + SAS triple-layer security", "ECDH P-384 + AES-GCM 256-bit encryption", "DTLS fingerprint verification", "SAS (Short Authentication String) verification", "Perfect Forward Secrecy with key rotation", "Enhanced MITM attack prevention", "Complete ASN.1 DER validation", "OID and EC point verification", "SPKI structure validation", "P2P WebRTC architecture", "Metadata protection", "100% open source code"]
     },
     {
-      v: "v4.7",
+      v: "v5.0",
       title: "Desktop Edition",
       sub: "Native desktop apps for Windows, macOS, and Linux",
-      status: "current",
-      date: "Now",
+      status: "released",
+      date: "Early 2026",
       features: ["Windows desktop app (Tauri v2)", "macOS desktop app (Tauri v2)", "Linux AppImage support (Tauri v2)", "Real-time notifications", "Automatic reconnection", "Cross-device synchronization", "Improved UX/UI", "Support for files up to 100MB"]
     },
     {
-      v: "v5.0",
-      title: "Mobile Edition",
-      sub: "Native mobile apps for iOS and Android",
-      status: "dev",
-      date: "Q1 2026",
-      features: ["iOS native app (Swift/SwiftUI)", "Android native app (Kotlin/Jetpack Compose)", "PWA support for mobile browsers", "Real-time push notifications", "Battery optimization", "Mobile-optimized UX/UI", "Offline message queuing", "Biometric authentication"]
-    },
-    {
       v: "v5.5",
-      title: "Quantum-Resistant Edition",
-      sub: "Protection against quantum computers",
-      status: "planned",
-      date: "Q2 2026",
-      features: ["Post-quantum cryptography CRYSTALS-Kyber", "SPHINCS+ digital signatures", "Hybrid scheme: classic + PQ", "Quantum-safe key exchange", "Updated hashing algorithms", "Migration of existing sessions", "Compatibility with v4.x", "Quantum-resistant protocols"]
+      title: "Secure Voice & Calls",
+      sub: "Encrypted voice messages, audio calls, and video calls",
+      status: "current",
+      date: "Now",
+      features: ["End-to-end encrypted voice messages", "1:1 encrypted audio calls (WebRTC)", "1:1 encrypted video calls (WebRTC)", "Perfect Forward Secrecy for live media", "SRTP/DTLS-protected media streams", "In-call SAS verification", "Call notifications and auto-reconnection", "Low-latency P2P media"]
     },
     {
       v: "v6.0",
-      title: "Group Communications",
-      sub: "Group chats with preserved privacy",
-      status: "planned",
+      title: "Mobile Edition",
+      sub: "Native mobile apps for iOS and Android",
+      status: "dev",
       date: "Q4 2026",
-      features: ["P2P group connections up to 8 participants", "Mesh networking for groups", "Signal Double Ratchet for groups", "Anonymous groups without metadata", "Ephemeral groups (disappear after session)", "Cryptographic group administration", "Group member auditing"]
+      features: ["iOS native app (Swift/SwiftUI)", "Android native app (Kotlin/Jetpack Compose)", "PWA support for mobile browsers", "Real-time push notifications", "Battery optimization", "Mobile-optimized UX/UI", "Offline message queuing", "Biometric authentication"]
     },
     {
       v: "v6.5",
-      title: "Decentralized Network",
-      sub: "Fully decentralized network",
-      status: "research",
-      date: "2027",
-      features: ["Node mesh network", "DHT for peer discovery", "Built-in onion routing", "Tokenomics and node incentives", "Governance via DAO", "Interoperability with other networks", "Cross-platform compatibility", "Self-healing network"]
+      title: "Quantum-Resistant Edition",
+      sub: "Protection against quantum computers",
+      status: "planned",
+      date: "Q2 2027",
+      features: ["Post-quantum cryptography CRYSTALS-Kyber", "SPHINCS+ digital signatures", "Hybrid scheme: classic + PQ", "Quantum-safe key exchange", "Updated hashing algorithms", "Migration of existing sessions", "Compatibility with v5.x", "Quantum-resistant protocols"]
     },
     {
       v: "v7.0",
+      title: "Group Communications",
+      sub: "Group chats with preserved privacy",
+      status: "planned",
+      date: "Q4 2027",
+      features: ["P2P group connections up to 8 participants", "Mesh networking for groups", "Signal Double Ratchet for groups", "Anonymous groups without metadata", "Ephemeral groups (disappear after session)", "Cryptographic group administration", "Group member auditing"]
+    },
+    {
+      v: "v7.5",
+      title: "Decentralized Network",
+      sub: "Fully decentralized network",
+      status: "research",
+      date: "2028",
+      features: ["Node mesh network", "DHT for peer discovery", "Built-in onion routing", "Tokenomics and node incentives", "Governance via DAO", "Interoperability with other networks", "Cross-platform compatibility", "Self-healing network"]
+    },
+    {
+      v: "v8.0",
       title: "AI Privacy Assistant",
       sub: "AI for privacy and security",
       status: "research",

@@ -54,6 +54,29 @@ function withTwoSessions() {
     assert.equal(state.sessions.b.keyFingerprint, '', 'sibling fingerprint untouched');
 }
 
+// Peer presence is cleared when the session leaves the connected state, so a reconnect
+// never re-shows the peer's stale status before they re-broadcast it.
+{
+    let state = withTwoSessions();
+    state = sessionsReducer(state, { type: A.SET_STATUS, id: 'a', status: 'connected' });
+    state = sessionsReducer(state, { type: A.SET_PEER_PRESENCE, id: 'a', presence: 'busy' });
+    assert.equal(state.sessions.a.peerPresence, 'busy');
+
+    // connected -> verified keeps presence (still connected).
+    state = sessionsReducer(state, { type: A.SET_STATUS, id: 'a', status: 'verified' });
+    assert.equal(state.sessions.a.peerPresence, 'busy', 'presence kept while still connected');
+
+    // verified -> peer_disconnected clears it.
+    state = sessionsReducer(state, { type: A.SET_STATUS, id: 'a', status: 'peer_disconnected' });
+    assert.equal(state.sessions.a.peerPresence, null, 'presence cleared on disconnect');
+
+    // Reconnecting does not resurrect the old presence; it stays null until re-broadcast.
+    state = sessionsReducer(state, { type: A.SET_STATUS, id: 'a', status: 'connected' });
+    assert.equal(state.sessions.a.peerPresence, null, 'no stale presence after reconnect');
+    state = sessionsReducer(state, { type: A.SET_PEER_PRESENCE, id: 'a', presence: 'available' });
+    assert.equal(state.sessions.a.peerPresence, 'available', 'fresh presence applies after reconnect');
+}
+
 // UPDATE_MESSAGE_STATUS and DELETE_MESSAGE only touch the named session/message.
 {
     let state = withTwoSessions();

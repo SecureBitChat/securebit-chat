@@ -20,6 +20,7 @@ export const SESSION_ACTIONS = Object.freeze({
     ADD_MESSAGE: 'ADD_MESSAGE',
     SET_MESSAGES: 'SET_MESSAGES',
     UPDATE_MESSAGE_STATUS: 'UPDATE_MESSAGE_STATUS',
+    PATCH_MESSAGE: 'PATCH_MESSAGE',
     DELETE_MESSAGE: 'DELETE_MESSAGE',
     EXPIRE_MESSAGE: 'EXPIRE_MESSAGE',
     INCREMENT_UNREAD: 'INCREMENT_UNREAD',
@@ -180,7 +181,14 @@ export function sessionsReducer(state, action) {
         case A.SET_STATUS: {
             const session = state.sessions[action.id];
             if (!session || session.status === action.status) return state; // no-op if unchanged
-            return patchSession(state, action.id, { status: action.status });
+            // Peer presence is only meaningful while connected. Clear it whenever the
+            // session leaves the connected state, so a later reconnect doesn't briefly
+            // re-show the peer's stale status before they re-broadcast their presence.
+            const connected = action.status === 'connected' || action.status === 'verified';
+            const patch = (!connected && session.peerPresence !== null)
+                ? { status: action.status, peerPresence: null }
+                : { status: action.status };
+            return patchSession(state, action.id, patch);
         }
 
         case A.SET_FINGERPRINT:
@@ -220,6 +228,28 @@ export function sessionsReducer(state, action) {
                     return { ...m, status: action.status };
                 }
                 return m;
+            });
+            return changed ? patchSession(state, action.id, { messages }) : state;
+        }
+
+        case A.PATCH_MESSAGE: {
+            // Shallow-merge a partial into a single message, matched by local `id`
+            // or `mid` (whichever the caller provides). Used to drive voice-message
+            // transfer progress and to attach the decrypted audio URL on completion.
+            const session = state.sessions[action.id];
+            if (!session) return state;
+            const byId = action.messageId != null ? String(action.messageId) : null;
+            const byMid = action.mid != null ? String(action.mid) : null;
+            const byFileId = action.fileId != null ? String(action.fileId) : null;
+            let changed = false;
+            const messages = session.messages.map((m) => {
+                const hit = (byId != null && String(m.id) === byId)
+                    || (byMid != null && String(m.mid) === byMid)
+                    || (byFileId != null && m.fileId != null && String(m.fileId) === byFileId);
+                if (!hit) return m;
+                changed = true;
+                const patch = typeof action.patch === 'function' ? action.patch(m) : action.patch;
+                return { ...m, ...patch };
             });
             return changed ? patchSession(state, action.id, { messages }) : state;
         }
@@ -294,7 +324,7 @@ export function sessionsReducer(state, action) {
 // Decorate a session into the shape the sidebar/header rendering consumes (avatar monogram,
 // status dot, sub-text, last-message preview, unread badge). Pure derivation — no state.
 export function decorateSession(session, activeSessionId) {
-    const lastMessage = [...session.messages].reverse().find((m) => !m.expired && typeof m.message === 'string' && m.message.trim());
+    const lastMessage = [...session.messages].reverse().find((m) => !m.expired && ((typeof m.message === 'string' && m.message.trim()) || m.voice));
     const s = session.status;
     const isUp = s === 'connected' || s === 'verified';
     const isPending = s === 'connecting' || s === 'verifying' || s === 'new';
@@ -311,7 +341,7 @@ export function decorateSession(session, activeSessionId) {
         dot = '#e5727a';
         headerSub = statusSub(s);
     }
-    const preview = lastMessage ? lastMessage.message : headerSub;
+    const preview = lastMessage ? (lastMessage.voice ? '🎙 Voice message' : lastMessage.message) : headerSub;
     return {
         id: session.id,
         name: session.peerLabel,

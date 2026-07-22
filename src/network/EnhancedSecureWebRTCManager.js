@@ -12345,10 +12345,10 @@ async processMessage(data) {
         }
     }
     // Public method to send files
-    async sendFile(file) {
+    async sendFile(file, options = {}) {
         //   Enforce verification gate for file transfers
         this._enforceVerificationGate('sendFile');
-        
+
         if (!this.isConnected()) {
             throw new Error('Connection not ready for file transfer. Please ensure the connection is established.');
         }
@@ -12371,7 +12371,7 @@ async processMessage(data) {
 
 
         try {
-            const fileId = await this.fileTransferSystem.sendFile(file);
+            const fileId = await this.fileTransferSystem.sendFile(file, options);
             return fileId;
         } catch (error) {
             this._secureLog('error', 'File transfer error:', { errorType: error?.constructor?.name || 'Unknown' });

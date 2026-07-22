@@ -348,6 +348,29 @@ class EnhancedSecureFileTransfer {
                 maxSize: 100 * 1024 * 1024, // 100 MB
                 category: 'Archives',
                 description: 'ZIP'
+            },
+
+            // Encrypted voice messages. Recorded in-browser via MediaRecorder and
+            // sent as a normal chunked+AES-GCM transfer, so they inherit the exact
+            // same end-to-end security as files. The app normalises the mime to a
+            // bare `audio/webm` (or `audio/mp4` on Safari) before sending so the
+            // codec-suffixed MediaRecorder type still matches this allow-list.
+            voice: {
+                extensions: ['.webm', '.ogg', '.oga', '.opus', '.m4a', '.mp4', '.mp3', '.wav'],
+                mimeTypes: [
+                    'audio/webm',
+                    'audio/ogg',
+                    'audio/opus',
+                    'audio/mp4',
+                    'audio/mpeg',
+                    'audio/mp3',
+                    'audio/wav',
+                    'audio/x-m4a',
+                    'audio/aac'
+                ],
+                maxSize: 20 * 1024 * 1024, // 20 MB (well beyond any sane voice note)
+                category: 'Voice',
+                description: 'Voice messages'
             }
         };
         this.BLOCKED_EXTENSIONS = new Set([
@@ -893,7 +916,30 @@ class EnhancedSecureFileTransfer {
     // FILE TRANSFER IMPLEMENTATION
     // ============================================
 
-    async sendFile(file) {
+    // Emit a progress update to the app layer. `direction` is 'up' for the
+    // sender and 'down' for the receiver. `uiId` (sender only) lets the UI match
+    // the event to a locally-created bubble before sendFile() has resolved a
+    // fileId. Voice fields ride along so the receiver can render the waveform.
+    _emitTransferProgress(state, direction) {
+        if (typeof this.onProgress !== 'function' || !state) return;
+        const total = state.totalChunks || 0;
+        const done = direction === 'up' ? (state.sentChunks || 0) : (state.receivedCount || 0);
+        const progress = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
+        try {
+            this.onProgress({
+                fileId: state.fileId,
+                uiId: state.uiId || null,
+                direction,
+                progress,
+                transferredChunks: done,
+                totalChunks: total,
+                isVoice: !!state.isVoice,
+                voice: state.voice || null
+            });
+        } catch (_) { /* progress is best-effort */ }
+    }
+
+    async sendFile(file, options = {}) {
         try {
             // Validate webrtcManager
             if (!this.webrtcManager) {
@@ -944,7 +990,11 @@ class EnhancedSecureFileTransfer {
                 startTime: Date.now(),
                 status: 'preparing',
                 retryCount: 0,
-                lastChunkTime: Date.now()
+                lastChunkTime: Date.now(),
+                // Voice-message extras (undefined for ordinary files).
+                isVoice: !!(options && options.voice),
+                voice: (options && options.voice) ? options.voice : null,
+                uiId: (options && options.uiId) ? options.uiId : null
             };
 
             this.activeTransfers.set(fileId, transferState);
@@ -988,10 +1038,19 @@ class EnhancedSecureFileTransfer {
                 fileHash: transferState.fileHash,
                 totalChunks: transferState.totalChunks,
                 chunkSize: this.CHUNK_SIZE,
-                salt: transferState.salt, 
+                salt: transferState.salt,
                 timestamp: Date.now(),
                 version: '2.0'
             };
+
+            // Voice descriptor (duration + waveform peaks) travels as unsigned
+            // presentation metadata — the audio bytes themselves stay integrity-
+            // protected by the signed `fileHash`. `isVoice` lets the receiver
+            // auto-accept and render a voice bubble instead of a file card.
+            if (transferState.isVoice) {
+                metadata.isVoice = true;
+                if (transferState.voice) metadata.voice = transferState.voice;
+            }
 
             if (this.signingKey) {
                 try {
@@ -1038,6 +1097,7 @@ class EnhancedSecureFileTransfer {
                 // Update progress
                 transferState.sentChunks++;
                 const progress = Math.round((transferState.sentChunks / totalChunks) * 95) + 5; // 5-100%
+                this._emitTransferProgress(transferState, 'up');
 
                 await this.waitForBackpressure();
             }
@@ -1283,7 +1343,10 @@ class EnhancedSecureFileTransfer {
                     fileId: pendingMetadata.fileId,
                     fileName: pendingMetadata.fileName,
                     fileSize: pendingMetadata.fileSize,
-                    mimeType: pendingMetadata.fileType || 'application/octet-stream'
+                    mimeType: pendingMetadata.fileType || 'application/octet-stream',
+                    // Voice notes auto-accept and render inline (no consent card).
+                    isVoice: !!pendingMetadata.isVoice,
+                    voice: pendingMetadata.voice || null
                 });
             } else {
                 await this.rejectIncomingFile(metadata.fileId, 'User consent unavailable');
@@ -1370,7 +1433,8 @@ class EnhancedSecureFileTransfer {
                     // Store chunk
                     receivingState.receivedChunks.set(chunkMessage.chunkIndex, decryptedChunk);
                     receivingState.receivedCount++;
-                    
+                    this._emitTransferProgress(receivingState, 'down');
+
                     // Send chunk confirmation
                     const confirmation = {
                         type: 'chunk_confirmation',
@@ -1509,6 +1573,9 @@ class EnhancedSecureFileTransfer {
                     fileSize: receivingState.fileSize,
                     mimeType: receivingState.fileType,
                     transferTime: receivingState.endTime - receivingState.startTime,
+                    // Voice notes are played inline, not saved to disk.
+                    isVoice: !!receivingState.isVoice,
+                    voice: receivingState.voice || null,
                     // backward-compatibility for existing UIs
                     fileBlob,
                     getBlob,
@@ -1741,7 +1808,9 @@ class EnhancedSecureFileTransfer {
             receivedCount: 0,
             startTime: Date.now(),
             lastChunkTime: Date.now(),
-            status: 'receiving'
+            status: 'receiving',
+            isVoice: !!metadata.isVoice,
+            voice: metadata.voice || null
         });
         this.pendingIncomingTransfers.delete(fileId);
         await this.sendSecureMessage({ type: 'file_transfer_response', fileId, accepted: true, timestamp: Date.now() });

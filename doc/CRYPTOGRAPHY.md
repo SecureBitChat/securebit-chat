@@ -2,7 +2,7 @@
 
 ## Release context
 
-- Product release: `v4.8.5`
+- Product release: `v5.4.5`
 - Protocol version: `4.1`
 
 ## Session establishment
@@ -16,6 +16,9 @@ The SAS is deterministic for both peers in the same authenticated session. Users
 - encrypted payloads are validated before decryption
 - decrypted chat text is sanitized before entering React state or the UI
 - replay and ordering controls remain part of the session layer
+- voice messages are transported over the file-transfer channel: each is
+  encrypted with a per-file AES-GCM session key and integrity-checked with a
+  signed SHA-256 hash before playback
 
 ## Local key metadata
 
@@ -23,4 +26,4 @@ Sensitive IndexedDB metadata is stored in encrypted envelopes. Legacy plaintext 
 
 ## Scope note
 
-This document describes the current browser implementation behavior relevant to the v4.8.5 hardening release. It does not replace independent cryptographic review.
+This document describes the current browser implementation behavior relevant to the v5.4.5 release. It does not replace independent cryptographic review.
