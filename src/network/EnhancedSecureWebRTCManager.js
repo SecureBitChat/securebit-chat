@@ -1,6 +1,13 @@
 // Import EnhancedSecureFileTransfer
 import { EnhancedSecureFileTransfer } from '../transfer/EnhancedSecureFileTransfer.js';
 
+// Adaptive voice/video call stack: codec tuning, SDP munging, network adaptation.
+import { AUDIO_CONFIG, TRANSPORT_CONFIG } from './webrtc/config.js';
+import { applyOpusSettings, applyTransport } from './webrtc/sdp.js';
+import { configureAudioSender, applyAudioCodecPreferences } from './webrtc/audio.js';
+import { configureVideoSender, applyVideoCodecPreferences } from './webrtc/video.js';
+import { NetworkAdaptationController } from './webrtc/adaptation/controller.js';
+
 // MUTEX SYSTEM FIXES - RESOLVING MESSAGE DELIVERY ISSUES
 // ============================================
 // Issue: After introducing the Mutex system, messages stopped being delivered between users
@@ -94,7 +101,17 @@ class EnhancedSecureWebRTCManager {
         CHUNK_CONFIRMATION: 'chunk_confirmation',
         FILE_TRANSFER_COMPLETE: 'file_transfer_complete',
         FILE_TRANSFER_ERROR: 'file_transfer_error',
-        
+
+        // Encrypted voice / video calls. SDP + ICE are exchanged over the
+        // already-authenticated (ECDH + SAS-verified) data channel, so the
+        // DTLS-SRTP fingerprints negotiated for the media are themselves
+        // authenticated end-to-end — a signalling server never sees them.
+        CALL_OFFER: 'call_offer',
+        CALL_ANSWER: 'call_answer',
+        CALL_ICE: 'call_ice',
+        CALL_DECLINE: 'call_decline',
+        CALL_END: 'call_end',
+
         // Fake traffic
         FAKE: 'fake'
     };
@@ -119,7 +136,7 @@ class EnhancedSecureWebRTCManager {
     ]);
 
     //   Static debug flag instead of this._debugMode
-    static DEBUG_MODE = true; // Set to true during development, false in production
+    static DEBUG_MODE = false; // Set to true during development, false in production
 
 
     constructor(onMessage, onStatusChange, onKeyExchange, onVerificationRequired, onAnswerError = null, onVerificationStateChange = null, config = {}) {
@@ -364,7 +381,34 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     };
     this.onFileReceived = null;
     this.onFileError = null;
-    
+
+    // ── Encrypted call subsystem ───────────────────────────────────────────
+    // Media (audio/video) rides the SAME RTCPeerConnection as the data channel
+    // (bundled over one DTLS-SRTP transport), so it inherits the connection's
+    // end-to-end encryption and needs no new ICE. Signalling is renegotiated
+    // in-band over the verified data channel. UI observes state via the
+    // onCallStateChanged callback and the 'securebit-call-state' DOM event.
+    this.onCallStateChanged = null;   // (state) => void
+    this.callState = {
+        active: false,        // a call session exists (ringing or connected)
+        phase: 'idle',        // idle | outgoing | incoming | connecting | active | ended
+        withVideo: false,     // whether video is part of this call
+        micEnabled: true,
+        cameraEnabled: false,
+        remoteHasVideo: false,
+        callId: null,
+        quality: null,        // 'excellent'|'good'|'fair'|'poor'|null — link quality for the UI
+        error: null
+    };
+    this.localMediaStream = null;
+    this.remoteMediaStream = null;
+    this._pendingCallOffer = null;    // { sdp, callId, withVideo } awaiting accept
+    this._callMakingOffer = false;    // perfect-negotiation guard
+    this._callAudioSender = null;
+    this._callVideoSender = null;
+    this._callFacingMode = 'user';
+    this._adaptationController = null; // NetworkAdaptationController while a call is active
+
     // PFS (Perfect Forward Secrecy) Implementation
     this.keyRotationInterval = null; // отключаем таймерную ротацию
     this.lastKeyRotation = Date.now();
@@ -6850,6 +6894,20 @@ async processMessage(data) {
                     return;
                 }
 
+                // Encrypted call signalling (offer / answer / ice / decline / end).
+                if (parsed.type && [
+                    EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_OFFER,
+                    EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_ANSWER,
+                    EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_ICE,
+                    EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_DECLINE,
+                    EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_END
+                ].includes(parsed.type)) {
+                    try { await this._handleCallSignal(parsed.type, parsed.data || {}); } catch (e) {
+                        this._secureLog('error', '❌ Call signal handling failed', { errorType: e?.constructor?.name });
+                    }
+                    return;
+                }
+
                 // ============================================
                 // SYSTEM MESSAGES (WITHOUT MUTEX)
                 // ============================================
@@ -7669,6 +7727,11 @@ async processMessage(data) {
 
         this.peerConnection = new RTCPeerConnection(config);
 
+        // A fresh PC invalidates any call senders kept from a previous PC — reset
+        // them so the next call creates new transceivers on this connection.
+        this._callAudioSender = null;
+        this._callVideoSender = null;
+
         this.peerConnection.onconnectionstatechange = () => {
             const state = this.peerConnection.connectionState;
             console.info('[SecureBit ICE] connection state changed', {
@@ -7729,8 +7792,20 @@ async processMessage(data) {
             });
         };
 
+        // Inbound call media (DTLS-SRTP encrypted, bundled on this same transport).
+        // ontrack does NOT re-fire for a REUSED transceiver on a later call, so we
+        // never rely on the event's track alone — we rebuild the remote stream from
+        // pc.getReceivers() (the source of truth for current live inbound tracks).
+        this.peerConnection.ontrack = (event) => {
+            try {
+                this._refreshRemoteStream();
+            } catch (e) {
+                this._secureLog('warn', '⚠️ ontrack handling failed', { errorType: e?.constructor?.name });
+            }
+        };
+
         this.peerConnection.ondatachannel = (event) => {
-            
+
             // CRITICAL: Store the received data channel
             if (event.channel.label === 'securechat') {
                 this.dataChannel = event.channel;
@@ -7908,6 +7983,22 @@ async processMessage(data) {
                             if (typeof messageId === 'string' && messageId) {
                                 try { this.onMessageDelivered?.(messageId.slice(0, 64)); } catch (_) {}
                             }
+                            return;
+                        }
+
+                        // Encrypted call signalling (offer / answer / ice / decline / end).
+                        // This is the live inbound path for the data channel — the call
+                        // types are NOT in the system-message list above, so they must be
+                        // routed explicitly here or they would be silently dropped.
+                        if (parsed.type && [
+                            EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_OFFER,
+                            EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_ANSWER,
+                            EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_ICE,
+                            EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_DECLINE,
+                            EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_END
+                        ].includes(parsed.type)) {
+                            try { await this._handleCallSignal(parsed.type, parsed.data || {}); }
+                            catch (_) {}
                             return;
                         }
 
@@ -12226,6 +12317,13 @@ async processMessage(data) {
         try {
             this._sessionAlive = false;
 
+            // End any active call and fully release the persistent mic/camera capture
+            // (kept alive between calls; the session is ending now).
+            try { this._stopAdaptation?.(); } catch (_) {}
+            try { this._stopLocalMediaPermanently?.(); } catch (_) {}
+            this._callAudioSender = null;
+            this._callVideoSender = null;
+
             // Preserve the explicit-disconnect notification flow before channels are closed.
             this.intentionalDisconnect = true;
             window.EnhancedSecureCryptoUtils.secureLog.log('info', 'Starting intentional disconnect');
@@ -12840,6 +12938,505 @@ checkFileTransferReadiness() {
             }
         }
         return true;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    //   ENCRYPTED VOICE / VIDEO CALLS
+    //
+    //   Media is carried by the existing RTCPeerConnection: audio/video tracks
+    //   are bundled onto the same DTLS-SRTP transport already used by the data
+    //   channel, so they are end-to-end encrypted with the very connection that
+    //   in-person SAS verification authenticated. Renegotiation SDP travels over
+    //   the verified data channel (never a server), so the media's DTLS
+    //   fingerprints are authenticated end-to-end too. Calls are therefore only
+    //   permitted once the session is connected AND SAS-verified.
+    // ════════════════════════════════════════════════════════════════════════
+
+    getCallState() {
+        return { ...this.callState };
+    }
+
+    getRemoteMediaStream() {
+        return this.remoteMediaStream;
+    }
+
+    getLocalMediaStream() {
+        return this.localMediaStream;
+    }
+
+    // Rebuild the remote MediaStream from the PC's current receivers. This is the
+    // reliable source of inbound tracks — ontrack does not re-fire for a reused
+    // transceiver on a later call, so relying on it dropped remote audio/video.
+    _refreshRemoteStream() {
+        const pc = this.peerConnection;
+        if (!pc || typeof pc.getReceivers !== 'function') return;
+        const live = pc.getReceivers()
+            .map(r => r.track)
+            .filter(t => t && (t.kind === 'audio' || t.kind === 'video') && t.readyState === 'live');
+        const prev = this.remoteMediaStream ? this.remoteMediaStream.getTracks() : [];
+        const unchanged = prev.length === live.length && prev.every(t => live.includes(t));
+        if (!unchanged) {
+            // Build a NEW MediaStream so the UI's srcObject-changed check fires and
+            // re-attaches (an element does not reliably pick up a track added to a
+            // stream that is already its srcObject).
+            this.remoteMediaStream = new MediaStream(live);
+        }
+        this._updateCallState({ remoteHasVideo: live.some(t => t.kind === 'video') });
+    }
+
+    // Remote tracks can take a beat to go 'live' after setRemoteDescription, and
+    // ontrack may not fire for reused transceivers — so refresh now and shortly
+    // after to reliably pick up the inbound audio/video.
+    _scheduleRemoteRefresh() {
+        this._refreshRemoteStream();
+        setTimeout(() => { try { this._refreshRemoteStream(); } catch (_) {} }, 300);
+        setTimeout(() => { try { this._refreshRemoteStream(); } catch (_) {} }, 1200);
+    }
+
+    _updateCallState(patch) {
+        this.callState = { ...this.callState, ...patch };
+        const snapshot = this.getCallState();
+        // Adaptation controller follows the call lifecycle: run while active,
+        // stop when the call ends.
+        if (snapshot.phase === 'active') this._startAdaptation();
+        else if (snapshot.phase === 'idle') this._stopAdaptation();
+        try { this.onCallStateChanged?.(snapshot); } catch (_) {}
+        if (typeof document !== 'undefined') {
+            try {
+                document.dispatchEvent(new CustomEvent('securebit-call-state', {
+                    detail: { managerId: this._managerId || null, state: snapshot }
+                }));
+            } catch (_) {}
+        }
+    }
+
+    _callCanStart() {
+        const connected = typeof this.isConnected === 'function' ? this.isConnected() : false;
+        const channelOpen = this.dataChannel && this.dataChannel.readyState === 'open';
+        // SAS verification is mandatory: it is what authenticates the DTLS
+        // transport the media rides on, closing the MITM window.
+        const ok = !!(connected && channelOpen && this.isVerified);
+        return ok;
+    }
+
+    async _sendCallSignal(type, data) {
+        const sent = await this.sendSystemMessage({ type, ...data });
+        return sent;
+    }
+
+    _audioConstraints() {
+        return { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+    }
+    _videoConstraints() {
+        return { facingMode: this._callFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } };
+    }
+
+    async _acquireLocalMedia(withVideo) {
+        // Fresh capture each call (the mic/camera is fully released on hang-up, so
+        // the OS indicator goes off). Senders are reused across calls via
+        // replaceTrack; addTrack only on first use.
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: this._audioConstraints(),
+            video: withVideo ? this._videoConstraints() : false
+        });
+        this.localMediaStream = stream;
+        const pc = this.peerConnection;
+        const audioTrack = stream.getAudioTracks()[0] || null;
+        const videoTrack = stream.getVideoTracks()[0] || null;
+        if (audioTrack) {
+            if (this._callAudioSender) await this._callAudioSender.replaceTrack(audioTrack);
+            else this._callAudioSender = pc.addTrack(audioTrack, stream);
+        }
+        if (videoTrack) {
+            if (this._callVideoSender) await this._callVideoSender.replaceTrack(videoTrack);
+            else this._callVideoSender = pc.addTrack(videoTrack, stream);
+        }
+        this._applyCallCodecPrefs();   // codec prefs BEFORE createOffer/createAnswer
+        return stream;
+    }
+
+    // Fully release the mic/camera — only on session disconnect, not between calls.
+    _stopLocalMediaPermanently() {
+        try {
+            if (this.localMediaStream) {
+                for (const t of this.localMediaStream.getTracks()) { try { t.stop(); } catch (_) {} }
+            }
+        } catch (_) {}
+        this.localMediaStream = null;
+    }
+
+    // Codec preferences on the audio (RED→Opus) and video (VP9→AV1→H264→VP8)
+    // transceivers created by addTrack. Called before offer/answer creation.
+    _applyCallCodecPrefs() {
+        try {
+            const trs = this.peerConnection?.getTransceivers?.() || [];
+            const audioTr = trs.find(t => t.sender && t.sender === this._callAudioSender);
+            if (audioTr) applyAudioCodecPreferences(audioTr);
+            const videoTr = trs.find(t => t.sender && t.sender === this._callVideoSender);
+            if (videoTr) applyVideoCodecPreferences(videoTr);
+        } catch (_) {}
+    }
+
+    // Munge locally-created call SDP: Opus FEC/DTX/bitrate fmtp + transport
+    // feedback (TWCC/NACK/PLI/FIR/REMB) & the TWCC header extension. Both peers
+    // run this, so the negotiated result carries it.
+    _mungeCallSdp(sdp) {
+        try {
+            let out = applyOpusSettings(sdp, AUDIO_CONFIG.opusFmtp);
+            out = applyTransport(out, TRANSPORT_CONFIG);
+            return out;
+        } catch (e) { return sdp; }
+    }
+
+    // setLocalDescription with progressive fallback so munging can never break a
+    // call: try full munge → Opus-only munge → raw. (Some browsers reject added
+    // rtcp-fb/extmap lines in a local description; the raw path always works.)
+    async _setLocalMunged(desc) {
+        const pc = this.peerConnection;
+        try {
+            await pc.setLocalDescription({ type: desc.type, sdp: this._mungeCallSdp(desc.sdp) });
+            return;
+        } catch (e) {
+            try {
+                await pc.setLocalDescription({ type: desc.type, sdp: applyOpusSettings(desc.sdp, AUDIO_CONFIG.opusFmtp) });
+                return;
+            } catch (e2) {
+                await pc.setLocalDescription(desc);
+            }
+        }
+    }
+
+    // Apply sender-level params after setLocalDescription, when senders have live
+    // parameters: audio priority/bitrate, video SVC/bitrate/degradation.
+    async _applyCallSenderParams() {
+        try {
+            if (this._callAudioSender) await configureAudioSender(this._callAudioSender, {});
+            if (this._callVideoSender) await configureVideoSender(this._callVideoSender, {});
+        } catch (_) {}
+    }
+
+    // Start the reactive bitrate controller for the active call. Idempotent. It
+    // also feeds the connection-quality indicator shown in the call UI.
+    _startAdaptation() {
+        if (this._adaptationController || !this.peerConnection) return;
+        try {
+            this._adaptationController = new NetworkAdaptationController(this.peerConnection, {
+                getVideoSender: () => this._callVideoSender,
+                ceilingBitrate: 1500000,
+                onQuality: (q) => {
+                    if (q !== this.callState.quality) this._updateCallState({ quality: q });
+                },
+            });
+            this._adaptationController.start();
+        } catch (_) {}
+    }
+
+    _stopAdaptation() {
+        if (this._adaptationController) {
+            try { this._adaptationController.stop(); } catch (_) {}
+            this._adaptationController = null;
+        }
+    }
+
+    // Turn a getUserMedia failure into a clear, user-visible reason (shown in the
+    // chat as a system message) + a machine-readable callState.error code. These
+    // are device/permission problems, NOT connection problems — surfacing them
+    // stops the call from looking like it "silently drops".
+    _notifyCallMediaError(error, wantVideo) {
+        const name = error?.name || '';
+        const dev = wantVideo ? 'camera/microphone' : 'microphone';
+        let msg, code;
+        if (name === 'NotAllowedError') {
+            code = 'permission_denied';
+            msg = `⚠️ Call not started — ${dev} access is blocked. Allow it for this site in the browser, and enable your browser under System Settings → Privacy & Security → ${wantVideo ? 'Camera/Microphone' : 'Microphone'}, then try again.`;
+        } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+            code = 'device_not_found';
+            msg = `⚠️ Call not started — no ${dev} found on this device.`;
+        } else if (name === 'NotReadableError' || name === 'AbortError') {
+            code = 'device_busy';
+            msg = `⚠️ Call not started — your ${dev} is in use by another app. Close it and try again.`;
+        } else {
+            code = 'media_failed';
+            msg = `⚠️ Call not started — could not access ${dev}${name ? ' (' + name + ')' : ''}.`;
+        }
+        try { this.deliverMessageToUI(msg, 'system'); } catch (_) {}
+        return code;
+    }
+
+    // Caller side: begin an outgoing call.
+    async startCall(withVideo = false) {
+        if (!this._callCanStart()) {
+            this._updateCallState({ error: 'not_verified' });
+            throw new Error('Calls require a connected, SAS-verified session.');
+        }
+        if (this.callState.active) {
+            this._secureLog('warn', '⚠️ startCall ignored — a call is already active');
+            return;
+        }
+        const callId = (crypto?.randomUUID?.() || String(Date.now()) + Math.random().toString(36).slice(2));
+        this._updateCallState({
+            active: true, phase: 'outgoing', withVideo, callId,
+            micEnabled: true, cameraEnabled: withVideo, remoteHasVideo: false, error: null
+        });
+        try {
+            await this._acquireLocalMedia(withVideo);
+            this._callMakingOffer = true;
+            const offer = await this.peerConnection.createOffer();
+            await this._setLocalMunged(offer);
+            this._callMakingOffer = false;
+            await this._applyCallSenderParams();
+            await this._sendCallSignal(EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_OFFER, {
+                callId, withVideo, sdp: this.peerConnection.localDescription.sdp
+            });
+        } catch (error) {
+            this._callMakingOffer = false;
+            this._secureLog('error', '❌ startCall failed', { errorType: error?.constructor?.name });
+            const code = this._notifyCallMediaError(error, withVideo);
+            await this._teardownCallMedia();
+            this._updateCallState({ active: false, phase: 'idle', error: code });
+            throw error;
+        }
+    }
+
+    // Callee side: an inbound call offer arrived → surface it to the UI.
+    async _onIncomingCallOffer(data) {
+        // A renegotiation of an ALREADY-active call (e.g. audio → video upgrade,
+        // or the peer turning their camera on) is auto-accepted transparently.
+        if (this.callState.active && (this.callState.phase === 'active' || this.callState.phase === 'connecting')) {
+            await this._answerCallOffer(data, /* renegotiation */ true);
+            if (data.withVideo) this._updateCallState({ withVideo: true });
+            return;
+        }
+        this._pendingCallOffer = data;
+        this._updateCallState({
+            active: true, phase: 'incoming', withVideo: !!data.withVideo,
+            callId: data.callId, remoteHasVideo: !!data.withVideo, error: null
+        });
+    }
+
+    async _answerCallOffer(data, renegotiation = false) {
+        await this.peerConnection.setRemoteDescription({ type: 'offer', sdp: data.sdp });
+        // Attach OUR media on every fresh accept. Crucial: _acquireLocalMedia must
+        // run even when a persistent localMediaStream already exists — teardown
+        // detached the tracks from the senders (replaceTrack(null)), and this
+        // re-attaches them. Without it the answerer sends silence/black (the "no
+        // sound when I pick up / on the reverse call" bug). It reuses the live
+        // capture internally, so no extra getUserMedia. Skip only on renegotiation
+        // (upgrade to video), where the senders already carry live tracks.
+        if (!renegotiation) {
+            await this._acquireLocalMedia(!!data.withVideo);
+        }
+        const answer = await this.peerConnection.createAnswer();
+        await this._setLocalMunged(answer);
+        await this._applyCallSenderParams();
+        await this._sendCallSignal(EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_ANSWER, {
+            callId: data.callId, sdp: this.peerConnection.localDescription.sdp
+        });
+    }
+
+    // Callee accepts the ringing call.
+    async acceptCall() {
+        const data = this._pendingCallOffer;
+        if (!data) return;
+        this._pendingCallOffer = null;
+        this._updateCallState({ phase: 'connecting', cameraEnabled: !!data.withVideo });
+        try {
+            await this._answerCallOffer(data, false);
+            this._updateCallState({ phase: 'active' });
+            this._scheduleRemoteRefresh();
+        } catch (error) {
+            this._secureLog('error', '❌ acceptCall failed', { errorType: error?.constructor?.name });
+            const code = this._notifyCallMediaError(error, !!data.withVideo);
+            // Tell the caller we couldn't pick up so their ringing UI stops.
+            try { await this._sendCallSignal(EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_END, { callId: data.callId }); } catch (_) {}
+            await this._teardownCallMedia();
+            this._updateCallState({ active: false, phase: 'idle', error: code });
+        }
+    }
+
+    // Callee rejects the ringing call.
+    async declineCall() {
+        const callId = this.callState.callId;
+        this._pendingCallOffer = null;
+        await this._sendCallSignal(EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_DECLINE, { callId });
+        this._updateCallState({ active: false, phase: 'idle', withVideo: false, remoteHasVideo: false });
+    }
+
+    // Either side hangs up.
+    async endCall(sendSignal = true) {
+        const callId = this.callState.callId;
+        if (sendSignal && callId) {
+            try { await this._sendCallSignal(EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_END, { callId }); } catch (_) {}
+        }
+        await this._teardownCallMedia();
+        this._updateCallState({
+            active: false, phase: 'idle', withVideo: false, micEnabled: true,
+            cameraEnabled: false, remoteHasVideo: false, callId: null, quality: null
+        });
+    }
+
+    async _teardownCallMedia() {
+        this._stopAdaptation();
+        const pc = this.peerConnection;
+        try {
+            // 1. STOP our capture tracks → releases the mic/camera so the OS
+            //    indicator goes off after the call.
+            if (this.localMediaStream) {
+                for (const track of this.localMediaStream.getTracks()) { try { track.stop(); } catch (_) {} }
+            }
+            // 2. Do NOT stop the REMOTE receiver tracks: the transceivers are reused
+            //    on the next call and ontrack won't re-fire, so a stopped receiver
+            //    track would leave the next call with NO remote audio/video. They go
+            //    'muted' when the peer stops sending (idle, negligible CPU) and are
+            //    fully released in disconnect(). Just detach our senders.
+            if (pc) {
+                for (const sender of [this._callAudioSender, this._callVideoSender].filter(Boolean)) {
+                    try { await sender.replaceTrack(null); } catch (_) {}
+                }
+            }
+        } catch (_) {}
+        this.localMediaStream = null;
+        this.remoteMediaStream = null;
+        // _callAudioSender/_callVideoSender are KEPT (reused next call; reset only
+        // when the PC is rebuilt — see createPeerConnection).
+        this._callMakingOffer = false;
+        // If we created an offer that was never answered (call declined / failed
+        // mid-negotiation), the PC is stuck in 'have-local-offer'. Roll it back to
+        // 'stable' so the data channel and future calls keep working.
+        try {
+            if (this.peerConnection &&
+                (this.peerConnection.signalingState === 'have-local-offer' ||
+                 this.peerConnection.signalingState === 'have-local-pranswer')) {
+                await this.peerConnection.setLocalDescription({ type: 'rollback' });
+            }
+        } catch (_) {}
+        // No teardown renegotiation otherwise: stopping the tracks fires
+        // 'ended'/'mute' on the peer's receivers, and the next startCall
+        // renegotiates the PC from scratch anyway. Skipping it avoids offer/answer
+        // glare when both ends hang up at once; dormant transceivers are reused.
+    }
+
+    // Mute / unmute the microphone (no renegotiation — just toggles the track).
+    setMicEnabled(enabled) {
+        if (this.localMediaStream) {
+            this.localMediaStream.getAudioTracks().forEach(t => { t.enabled = enabled; });
+        }
+        this._updateCallState({ micEnabled: enabled });
+    }
+
+    toggleMic() { this.setMicEnabled(!this.callState.micEnabled); }
+
+    // Turn the camera on/off. Turning it on for an audio-only call adds a video
+    // track and renegotiates (an in-call "upgrade to video").
+    async setCameraEnabled(enabled) {
+        if (!enabled) {
+            if (this.localMediaStream) {
+                this.localMediaStream.getVideoTracks().forEach(t => { t.enabled = false; });
+            }
+            this._updateCallState({ cameraEnabled: false });
+            return;
+        }
+        // Enabling: reuse an existing (disabled) track, otherwise add one.
+        const existing = this.localMediaStream?.getVideoTracks?.() || [];
+        if (existing.length) {
+            existing.forEach(t => { t.enabled = true; });
+            this._updateCallState({ cameraEnabled: true, withVideo: true });
+            return;
+        }
+        await this.upgradeToVideo();
+    }
+
+    async toggleCamera() { await this.setCameraEnabled(!this.callState.cameraEnabled); }
+
+    // Add a camera to an in-progress audio call and renegotiate.
+    async upgradeToVideo() {
+        if (!this.localMediaStream) return;
+        try {
+            // Add ONLY a camera track to the in-call stream (don't re-capture audio).
+            const camStream = await navigator.mediaDevices.getUserMedia({ video: this._videoConstraints() });
+            const videoTrack = camStream.getVideoTracks()[0];
+            if (!videoTrack) return;
+            this.localMediaStream.addTrack(videoTrack);
+            if (this._callVideoSender) await this._callVideoSender.replaceTrack(videoTrack);
+            else this._callVideoSender = this.peerConnection.addTrack(videoTrack, this.localMediaStream);
+            this._applyCallCodecPrefs();
+            this._updateCallState({ cameraEnabled: true, withVideo: true });
+            await this._renegotiateCall();
+        } catch (error) {
+            this._secureLog('error', '❌ upgradeToVideo failed', { errorType: error?.constructor?.name });
+            this._updateCallState({ cameraEnabled: false, error: 'camera_failed' });
+        }
+    }
+
+    // Flip between front/back cameras without renegotiation (replaceTrack).
+    async switchCamera() {
+        if (!this._callVideoSender || !this.localMediaStream) return;
+        this._callFacingMode = this._callFacingMode === 'user' ? 'environment' : 'user';
+        try {
+            const camStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: this._callFacingMode }
+            });
+            const newTrack = camStream.getVideoTracks()[0];
+            const old = this.localMediaStream.getVideoTracks()[0];
+            if (old) { this.localMediaStream.removeTrack(old); try { old.stop(); } catch (_) {} }
+            this.localMediaStream.addTrack(newTrack);
+            await this._callVideoSender.replaceTrack(newTrack);
+        } catch (error) {
+            this._secureLog('warn', '⚠️ switchCamera failed', { errorType: error?.constructor?.name });
+        }
+    }
+
+    async _renegotiateCall() {
+        if (this._callMakingOffer) return;
+        try {
+            this._callMakingOffer = true;
+            const offer = await this.peerConnection.createOffer();
+            await this._setLocalMunged(offer);
+            await this._applyCallSenderParams();
+            await this._sendCallSignal(EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_OFFER, {
+                callId: this.callState.callId, withVideo: this.callState.withVideo,
+                sdp: this.peerConnection.localDescription.sdp
+            });
+        } finally {
+            this._callMakingOffer = false;
+        }
+    }
+
+    // Central inbound call-signal router (called from processMessage).
+    async _handleCallSignal(type, data) {
+        const T = EnhancedSecureWebRTCManager.MESSAGE_TYPES;
+        switch (type) {
+            case T.CALL_OFFER: {
+                await this._onIncomingCallOffer(data);
+                return;
+            }
+            case T.CALL_ANSWER: {
+                try {
+                    if (this.peerConnection.signalingState === 'have-local-offer') {
+                        await this.peerConnection.setRemoteDescription({ type: 'answer', sdp: data.sdp });
+                    }
+                    if (this.callState.phase === 'outgoing') this._updateCallState({ phase: 'active' });
+                    this._scheduleRemoteRefresh();   // caller: pick up the answerer's tracks
+                } catch (e) {
+                    this._secureLog('warn', '⚠️ Failed to apply call answer', { errorType: e?.constructor?.name });
+                }
+                return;
+            }
+            case T.CALL_ICE: {
+                try { if (data.candidate) await this.peerConnection.addIceCandidate(data.candidate); } catch (_) {}
+                return;
+            }
+            case T.CALL_DECLINE: {
+                await this._teardownCallMedia();
+                this._updateCallState({ active: false, phase: 'idle', withVideo: false, remoteHasVideo: false, error: 'declined' });
+                return;
+            }
+            case T.CALL_END: {
+                await this.endCall(/* sendSignal */ false);
+                return;
+            }
+            default: return;
+        }
     }
 }
 

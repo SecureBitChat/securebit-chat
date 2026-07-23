@@ -145,8 +145,8 @@
     Header set X-Frame-Options "DENY"
     # Force HTTPS (2 years + preload) to close the first-visit SSL-strip window.
     Header set Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
-    # Restrict powerful features; camera kept for in-page QR scanning.
-    Header set Permissions-Policy "camera=(self), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()"
+    # Restrict powerful features; camera + microphone kept for QR scanning and calls.
+    Header set Permissions-Policy "camera=(self), microphone=(self), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()"
 </IfModule>
 
 # Content Security Policy (frame-ancestors and report-uri only work in HTTP headers, not meta tags)

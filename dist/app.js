@@ -2168,9 +2168,8 @@ var SecureBitChatHeader = ({ status, onDisconnect, webrtcManager, title, isOffli
   ]);
   const headerResponsiveCss = React.createElement("style", { key: "hdr-css", dangerouslySetInnerHTML: {
     __html: (
-      // Mobile: leave room for the drawer hamburger and shed non-essential header
-      // chrome so avatar + name + status + Disconnect fit a narrow screen.
-      "@media (max-width:768px){.sb-chat-header{padding-left:60px !important;gap:10px !important;}.sb-chat-header .sb-sec-score,.sb-chat-header .sb-sec-label,.sb-chat-header .sb-sec-div{display:none !important;}.sb-chat-header .sb-secpill{padding:8px !important;gap:6px !important;}.sb-chat-header .sb-conn-text{display:none !important;}.sb-chat-header .sb-conn{padding:9px !important;}.sb-chat-header .sb-hdr-sub{display:none !important;}}@media (max-width:480px){.sb-chat-header{padding-right:12px !important;gap:8px !important;}}"
+      // Encrypted call buttons — green hover per the design.
+      ".sb-call-btn:not(.sb-call-off):hover{border-color:rgba(62,207,142,0.45) !important;color:#3ecf8e !important;background:rgba(62,207,142,0.07) !important;}@media (max-width:768px){.sb-chat-header{padding-left:58px !important;gap:8px !important;}.sb-chat-header .sb-secpill{display:none !important;}.sb-chat-header .sb-conn-text{display:none !important;}.sb-chat-header .sb-conn{padding:9px !important;}.sb-chat-header .sb-hdr-sub{display:none !important;}.sb-chat-header .sb-disconnect{width:40px !important;height:40px !important;padding:0 !important;gap:0 !important;justify-content:center !important;border-radius:9px !important;color:#e5727a !important;border-color:rgba(229,114,122,0.28) !important;}}@media (max-width:600px){.sb-chips{flex-wrap:nowrap !important;justify-content:flex-start !important;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}.sb-chips::-webkit-scrollbar{display:none;}.sb-chips>*{flex:0 0 auto !important;}.sb-chips .sb-chips-right{flex-wrap:nowrap !important;}.sb-chips .sb-chip{white-space:nowrap;}}@media (max-width:480px){.sb-chat-header{padding-right:12px !important;}}"
     )
   } });
   const header = React.createElement("header", {
@@ -2195,13 +2194,47 @@ var SecureBitChatHeader = ({ status, onDisconnect, webrtcManager, title, isOffli
       ]) : React.createElement("div", { key: "txt", style: { lineHeight: 1.2, minWidth: 0 } }, [
         React.createElement("div", { key: "r1", style: { display: "flex", alignItems: "center", gap: "7px" } }, [
           React.createElement("span", { key: "n", style: { fontSize: "15px", fontWeight: 800, letterSpacing: "-0.3px", color: "#f4f4f6", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, title || "Secure chat"),
-          React.createElement("button", { key: "edit", onClick: startRename, title: "Rename chat (local only)", style: { flex: "none", width: "24px", height: "24px", borderRadius: "7px", display: "grid", placeItems: "center", border: "none", background: "transparent", color: "#56565e", cursor: "pointer" } }, React.createElement("i", { className: "fas fa-pen", style: { fontSize: "11px" } }))
+          React.createElement("button", { key: "edit", className: "sb-rename-btn", onClick: startRename, title: "Rename chat (local only)", style: { flex: "none", width: "24px", height: "24px", borderRadius: "7px", display: "grid", placeItems: "center", border: "none", background: "transparent", color: "#56565e", cursor: "pointer" } }, React.createElement("i", { className: "fas fa-pen", style: { fontSize: "11px" } }))
         ]),
         React.createElement("div", { key: "r2", className: "sb-hdr-sub", style: { fontSize: "11px", color: "#6b6b73", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, isOffline ? "No network \xB7 reconnecting" : peerPresenceWord || (onlineConnected ? "P2P \xB7 end-to-end encrypted" : status === "peer_disconnected" ? "Peer disconnected" : status === "disconnected" ? "Disconnected" : "Connecting\u2026"))
       ])
     ]),
     secBtn,
     React.createElement("div", { key: "right", className: "sb-hdr-right", style: { display: "flex", alignItems: "center", gap: "9px" } }, [
+      // Encrypted call buttons — enabled only once the session is
+      // connected AND SAS-verified (the manager enforces the same
+      // gate; this just reflects it). Media rides the verified
+      // DTLS-SRTP transport, so calls inherit the E2E encryption.
+      ...(() => {
+        const callReady = connected && webrtcManager && webrtcManager.isVerified === true;
+        const startCall = (video) => {
+          if (!callReady || !webrtcManager) return;
+          try {
+            const p = webrtcManager.startCall(video);
+            if (p && p.catch) p.catch(() => {
+            });
+          } catch (_) {
+          }
+        };
+        const callBtnStyle = {
+          width: "40px",
+          height: "40px",
+          borderRadius: "9px",
+          display: "grid",
+          placeItems: "center",
+          border: "1px solid rgba(255,255,255,0.08)",
+          background: "rgba(255,255,255,0.02)",
+          color: callReady ? "#9a9aa2" : "#3f3f47",
+          cursor: callReady ? "pointer" : "not-allowed",
+          transition: "all .15s"
+        };
+        const PHONE_SVG = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
+        const VIDEO_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2.5"/></svg>';
+        return [
+          React.createElement("button", { key: "call-audio", className: callReady ? "sb-call-btn" : "sb-call-btn sb-call-off", disabled: !callReady, onClick: () => startCall(false), title: callReady ? "Start encrypted voice call" : "Verify the session to enable calls", style: callBtnStyle, dangerouslySetInnerHTML: { __html: PHONE_SVG } }),
+          React.createElement("button", { key: "call-video", className: callReady ? "sb-call-btn" : "sb-call-btn sb-call-off", disabled: !callReady, onClick: () => startCall(true), title: callReady ? "Start encrypted video call" : "Verify the session to enable calls", style: callBtnStyle, dangerouslySetInnerHTML: { __html: VIDEO_SVG } })
+        ];
+      })(),
       React.createElement("div", { key: "conn", className: "sb-conn", style: { display: "flex", alignItems: "center", gap: "8px", padding: "8px 13px", borderRadius: "9px", border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)" } }, [
         React.createElement("span", { key: "dot", style: { flex: "none", width: "7px", height: "7px", borderRadius: "50%", background: connDot, boxShadow: connGlow } }),
         React.createElement("span", { key: "t", className: "sb-conn-text", style: { fontSize: "13px", fontWeight: 600, color: "#cfcfd4" } }, connLabel)
@@ -2525,7 +2558,7 @@ var EnhancedChatInterface = ({
       showDropzone: fileSendMode
     })
   );
-  const chipsRow = React.createElement("div", { key: "chips", style: { display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px", marginBottom: "10px" } }, [
+  const chipsRow = React.createElement("div", { key: "chips", className: "sb-chips", style: { display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px", marginBottom: "10px" } }, [
     React.createElement("button", { key: "files", onClick: () => {
       if (showFileTransfer && fileSendMode) {
         setShowFileTransfer(false);
@@ -2538,7 +2571,7 @@ var EnhancedChatInterface = ({
       React.createElement("i", { key: "i", className: "fas fa-paperclip", style: { fontSize: "13px" } }),
       showFileTransfer && fileSendMode ? "Hide files" : "Send files"
     ]),
-    React.createElement("div", { key: "right", style: { display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" } }, [
+    React.createElement("div", { key: "right", className: "sb-chips-right", style: { display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" } }, [
       React.createElement("button", { key: "code", onClick: () => setCodeMode((v) => !v), className: "sb-chip", style: chipStyle(codeMode) }, [
         React.createElement("i", { key: "i", className: "fas fa-code", style: { fontSize: "13px" } }),
         "Code"
@@ -2623,7 +2656,7 @@ var EnhancedChatInterface = ({
   );
   const composer = React.createElement(
     "footer",
-    { key: "composer", style: { flex: "none", padding: "12px 20px 18px", background: "#0f0f11", borderTop: "1px solid rgba(255,255,255,0.05)" } },
+    { key: "composer", style: { flex: "none", padding: "12px 20px calc(18px + env(safe-area-inset-bottom, 0px))", background: "#0f0f11", borderTop: "1px solid rgba(255,255,255,0.05)" } },
     React.createElement(
       "div",
       { style: { maxWidth: "1000px", margin: "0 auto" } },
@@ -2645,10 +2678,15 @@ var EnhancedChatInterface = ({
     peerPresence,
     onRenameTitle
   });
+  const callOverlay = window.CallUIComponent && React.createElement(window.CallUIComponent, {
+    key: "call-overlay",
+    webrtcManager,
+    peerTitle: title
+  });
   return React.createElement("div", {
     className: "chat-container",
-    style: { display: "flex", flexDirection: "column", height: "100vh", background: "#0f0f11", color: "#e8e8eb" }
-  }, [chatHeader, messagesArea, scrollBtn, composer]);
+    style: { position: "relative", display: "flex", flexDirection: "column", height: "100vh", background: "#0f0f11", color: "#e8e8eb" }
+  }, [chatHeader, messagesArea, scrollBtn, composer, callOverlay]);
 };
 var buildSessionMessage = (message, type, opts = {}) => ({
   message,
@@ -2746,7 +2784,7 @@ var SessionsSidebar = ({ chats, collapsed, drawerOpen, onToggleCollapse, onSelec
     { style: { width: size + "px", height: size + "px", flex: "none", display: "grid", placeItems: "center" } },
     h("img", { src: "/logo/securebit-mark.svg", alt: "SecureBit", style: { width: "100%", height: "100%", objectFit: "contain", display: "block" } })
   );
-  const collapseBtn = (svg, title) => h("button", { onClick: onToggleCollapse, title, style: { width: "30px", height: "30px", borderRadius: "8px", display: "grid", placeItems: "center", border: "1px solid rgba(255,255,255,0.07)", background: "transparent", color: "#8a8a92", cursor: "pointer" }, dangerouslySetInnerHTML: { __html: svg } });
+  const collapseBtn = (svg, title) => h("button", { className: "sb-collapse-btn", onClick: onToggleCollapse, title, style: { width: "30px", height: "30px", borderRadius: "8px", display: "grid", placeItems: "center", border: "1px solid rgba(255,255,255,0.07)", background: "transparent", color: "#8a8a92", cursor: "pointer" }, dangerouslySetInnerHTML: { __html: svg } });
   const myMeta = MY_STATUS_OPTIONS.find((o) => o.key === myStatus) || MY_STATUS_OPTIONS[0];
   const PRES_SVG = {
     user: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20v-1.5a4 4 0 0 0-4-4h-4a4 4 0 0 0-4 4V20"/><circle cx="12" cy="8" r="3.6"/></svg>',
@@ -2847,7 +2885,7 @@ var SessionsSidebar = ({ chats, collapsed, drawerOpen, onToggleCollapse, onSelec
   const inner = collapsed ? collapsedInner : expandedInner;
   return h(React.Fragment, null, [
     // Responsive behaviour (inline styles can't express media queries).
-    h("style", { key: "css", dangerouslySetInnerHTML: { __html: "@media (max-width:1023px){.sb-rail{display:none !important;}.sb-burger{display:grid !important;}}@media (min-width:1024px){.sb-drawer-overlay{display:none !important;}}" } }),
+    h("style", { key: "css", dangerouslySetInnerHTML: { __html: "@media (max-width:1023px){.sb-rail{display:none !important;}.sb-burger{display:grid !important;}}@media (min-width:1024px){.sb-drawer-overlay{display:none !important;}}.sb-mobile-drawer .sb-collapse-btn{display:none !important;}html,body{background:#0f0f11 !important;overscroll-behavior:none;}.sb-app-shell{height:var(--sb-vh,100dvh) !important;}.sb-app-col{height:var(--sb-vh,100dvh) !important;}.chat-container{height:var(--sb-vh,100dvh) !important;}@media (max-width:768px){textarea,input,select{font-size:16px !important;}}@media (max-width:768px){.sb-rename-btn{display:none !important;}}" } }),
     // Desktop rail
     h("aside", { key: "rail", className: "sb-rail", style: railStyle }, inner),
     // Mobile drawer overlay
@@ -2856,7 +2894,13 @@ var SessionsSidebar = ({ chats, collapsed, drawerOpen, onToggleCollapse, onSelec
       className: "sb-drawer-overlay",
       onClick: onCloseDrawer,
       style: { position: "fixed", inset: 0, zIndex: 60, background: "rgba(6,6,8,0.6)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)", display: drawerOpen ? "block" : "none" }
-    }, h("aside", { onClick: (e) => e.stopPropagation(), style: { position: "absolute", left: 0, top: 0, bottom: 0, width: "292px", display: "flex", flexDirection: "column", background: "#0c0c0e", borderRight: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 0 60px rgba(0,0,0,0.6)" } }, expandedInner))
+    }, h("aside", { className: "sb-mobile-drawer", onClick: (e) => e.stopPropagation(), style: { position: "absolute", left: 0, top: 0, bottom: 0, width: "min(292px, 86vw)", display: "flex", flexDirection: "column", background: "#0c0c0e", borderRight: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 0 60px rgba(0,0,0,0.6)" } }, [
+      // Explicit close button — the drawer's own header only has a
+      // "collapse" chevron (a desktop-rail action), so on mobile there was
+      // no obvious way to dismiss it. This X closes the drawer reliably.
+      h("button", { key: "x", onClick: onCloseDrawer, title: "Close menu", "aria-label": "Close menu", style: { position: "absolute", top: "15px", right: "13px", zIndex: 2, width: "34px", height: "34px", borderRadius: "9px", display: "grid", placeItems: "center", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", color: "#cfcfd4", cursor: "pointer" } }, h("i", { className: "fas fa-xmark", style: { fontSize: "16px" } })),
+      expandedInner
+    ]))
   ]);
 };
 var EnhancedSecureP2PChat = () => {
@@ -2993,6 +3037,28 @@ var EnhancedSecureP2PChat = () => {
     return () => {
       window.removeEventListener("offline", goOffline);
       window.removeEventListener("online", goOnline);
+    };
+  }, []);
+  React.useEffect(() => {
+    const vv = typeof window !== "undefined" ? window.visualViewport : null;
+    const apply = () => {
+      const h = vv ? vv.height : window.innerHeight || 0;
+      if (h) document.documentElement.style.setProperty("--sb-vh", h + "px");
+    };
+    apply();
+    if (vv) {
+      vv.addEventListener("resize", apply);
+      vv.addEventListener("scroll", apply);
+    }
+    window.addEventListener("resize", apply);
+    window.addEventListener("orientationchange", apply);
+    return () => {
+      if (vv) {
+        vv.removeEventListener("resize", apply);
+        vv.removeEventListener("scroll", apply);
+      }
+      window.removeEventListener("resize", apply);
+      window.removeEventListener("orientationchange", apply);
     };
   }, []);
   const [relayOnlyMode, setRelayOnlyMode] = React.useState(() => {
@@ -3523,7 +3589,7 @@ var EnhancedSecureP2PChat = () => {
       } catch (error) {
       }
     }
-    handleMessage(" SecureBit.chat Enhanced Security Edition v5.4.10 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.", "system");
+    handleMessage(" SecureBit.chat Enhanced Security Edition v5.5.0 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.", "system");
     manager.setFileTransferCallbacks(
       // Progress callback — drives the voice-note upload/download ring.
       (progress) => {
@@ -5139,11 +5205,13 @@ var EnhancedSecureP2PChat = () => {
     return s && s.sas && s.sas.isVerified;
   });
   return React.createElement("div", {
-    className: "minimal-bg",
+    className: showSidebar ? "minimal-bg sb-app-shell" : "minimal-bg",
     // With the rail visible the app is a fixed-height shell (rail + column
     // fill the viewport, design-style). Otherwise it's the scrollable landing.
     // flexDirection:'row' is explicit — the .minimal-bg class forces
     // flex-direction:column, which would otherwise stack the rail ABOVE the chat.
+    // height:100vh is the fallback; .sb-app-shell upgrades it to 100dvh on
+    // mobile so the shell fits under the browser toolbar (header stays put).
     style: showSidebar ? { display: "flex", flexDirection: "row", height: "100vh", width: "100%", overflow: "hidden" } : { minHeight: "100vh" }
   }, [
     showSidebar && React.createElement(SessionsSidebar, {
@@ -5169,7 +5237,7 @@ var EnhancedSecureP2PChat = () => {
     }),
     React.createElement("div", {
       key: "app-column",
-      className: showSidebar ? "minimal-bg" : "minimal-bg min-h-screen",
+      className: showSidebar ? "minimal-bg sb-app-col" : "minimal-bg min-h-screen",
       style: showSidebar ? { flex: 1, minWidth: 0, height: "100vh", overflow: "hidden", display: "flex", flexDirection: "column" } : {}
     }, [
       // Advanced network settings now render inside the connection

@@ -12,6 +12,7 @@ import '../components/ui/Roadmap.jsx';
 import '../components/ui/CommunityCTA.jsx';
 import '../components/ui/FileTransfer.jsx';
 import '../components/ui/IceServerSettings.jsx';
+import '../components/ui/CallUI.jsx';
 
 // Expose to global for legacy usage inside app code
 window.EnhancedSecureCryptoUtils = EnhancedSecureCryptoUtils;

@@ -6155,6 +6155,534 @@ var EnhancedSecureFileTransfer = class {
   }
 };
 
+// src/network/webrtc/config.js
+var IS_WEBKIT = typeof navigator !== "undefined" && /AppleWebKit/.test(navigator.userAgent) && !/Chrome|Chromium|Edg\//.test(navigator.userAgent);
+var AUDIO_CONFIG = {
+  // Opus fmtp params applied via SDP munging.
+  //  - minptime=10          smaller packets → lower latency (Opus RFC 7587 §7).
+  //  - useinbandfec=1       in-band Forward Error Correction — reconstructs lost
+  //                         packets from the next one (RFC 6716 §2.1.7). Key for loss.
+  //  - usedtx=1             Discontinuous Transmission — stop sending in silence,
+  //                         frees the pipe for video/FEC (RFC 7587 §3.1.3).
+  //  - stereo=0             mono: voice doesn't need stereo, halves the bitrate.
+  //  - maxaveragebitrate    32 kbps — brief says 32000; comfortable wideband speech.
+  //  - cbr=0                variable bitrate: lets the encoder spend bits only when
+  //                         needed, better quality per bit than CBR for speech.
+  opusFmtp: {
+    minptime: 10,
+    useinbandfec: 1,
+    usedtx: 1,
+    stereo: 0,
+    maxaveragebitrate: 32e3,
+    cbr: 0
+  },
+  // RED (RFC 2198) wraps Opus payloads with a redundant copy of the previous
+  // frame — recovers isolated losses without waiting for retransmission. Only
+  // enabled when the browser advertises audio/red (Chromium yes; Safari/FF vary).
+  preferRed: true,
+  // RTCRtpSender.setParameters — encoding-level knobs. Audio is prioritised over
+  // video on the shared transport so speech survives congestion.
+  sender: {
+    maxBitrate: 4e4,
+    // bps — brief: 40000. Head-room over 32 kbps for RED.
+    priority: "high",
+    // RTCPriorityType — bandwidth arbitration within the PC.
+    networkPriority: "high"
+    // DSCP marking hint — audio ahead of video on the wire.
+  }
+};
+var VIDEO_CONFIG = {
+  codecPreferenceOrder: ["VP9", "AV1", "H264", "VP8"],
+  // Preferred single-encoding SVC mode for VP9 (3 spatial × 3 temporal, key-frame
+  // aligned). If the browser rejects it we fall back to the simulcast ladder below.
+  vp9: {
+    preferredScalabilityMode: "L3T3_KEY",
+    simulcast: [
+      { rid: "low", scaleResolutionDownBy: 4, maxBitrate: 15e4, scalabilityMode: "L1T3" },
+      { rid: "mid", scaleResolutionDownBy: 2, maxBitrate: 5e5, scalabilityMode: "L1T3" },
+      { rid: "high", scaleResolutionDownBy: 1, maxBitrate: 15e5, scalabilityMode: "L1T3" }
+    ],
+    degradationPreference: "balanced"
+  },
+  av1: {
+    scalabilityMode: "L1T3",
+    maxBitrate: 12e5,
+    degradationPreference: "maintain-framerate"
+  },
+  // H.264 / VP8: ordinary simulcast, no SVC.
+  simulcast: [
+    { rid: "low", scaleResolutionDownBy: 4, maxBitrate: 15e4 },
+    { rid: "mid", scaleResolutionDownBy: 2, maxBitrate: 5e5 },
+    { rid: "high", scaleResolutionDownBy: 1, maxBitrate: 15e5 }
+  ],
+  networkPriority: "medium"
+  // below audio's 'high'.
+};
+var TRANSPORT_CONFIG = {
+  twccUri: "http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01",
+  video: {
+    rtcpFb: ["transport-cc", "nack", "nack pli", "ccm fir", "goog-remb"],
+    twcc: true
+  },
+  audio: {
+    rtcpFb: ["transport-cc", "nack"],
+    twcc: true
+  }
+};
+var ADAPTATION_CONFIG = {
+  intervalMs: 1e3,
+  loss: {
+    highPct: 0.1,
+    // >10% loss → back off video.
+    recoverPct: 0.03,
+    // <3% loss (sustained) → ramp up.
+    audioProtectPct: 0.25
+    // don't touch audio until loss exceeds 25%.
+  },
+  rtt: {
+    highMs: 300,
+    // >300 ms → back off.
+    recoverMs: 150
+    // <150 ms (sustained) → ramp up.
+  },
+  stepDownPct: 0.2,
+  // shrink video maxBitrate by 20% per bad tick.
+  stepUpPct: 0.1,
+  // grow by 10% per good window.
+  minVideoBitrate: 1e5,
+  // floor for the low layer (bps).
+  recoverStableTicks: 5,
+  // consecutive good ticks before ramping up.
+  cpuScaleStep: 1.5
+  // qualityLimitationReason 'cpu' → bump scaleResolutionDownBy ×1.5.
+};
+
+// src/network/webrtc/sdp.js
+function detectEol(sdp) {
+  return sdp.indexOf("\r\n") !== -1 ? "\r\n" : "\n";
+}
+function splitSdp(sdp) {
+  const eol = detectEol(sdp);
+  const lines = sdp.split(/\r\n|\n/);
+  const session = [];
+  const media = [];
+  let current = null;
+  for (const line of lines) {
+    if (line.startsWith("m=")) {
+      current = { lines: [line] };
+      media.push(current);
+    } else if (current) {
+      current.lines.push(line);
+    } else {
+      session.push(line);
+    }
+  }
+  return { eol, session, media };
+}
+function joinSdp(parsed) {
+  const all = [...parsed.session];
+  for (const m of parsed.media) all.push(...m.lines);
+  return all.join(parsed.eol);
+}
+function sectionKind(section) {
+  const m = section.lines[0].match(/^m=(\w+)/);
+  return m ? m[1] : null;
+}
+function findPayloadTypes(section, codecName) {
+  const re = new RegExp("^a=rtpmap:(\\d+)\\s+" + codecName + "\\/", "i");
+  const pts = [];
+  for (const line of section.lines) {
+    const m = line.match(re);
+    if (m) pts.push(m[1]);
+  }
+  return pts;
+}
+function parseFmtpParams(value) {
+  const map = /* @__PURE__ */ new Map();
+  for (const part of value.split(";")) {
+    const p = part.trim();
+    if (!p) continue;
+    const eq = p.indexOf("=");
+    if (eq === -1) map.set(p, void 0);
+    else map.set(p.slice(0, eq).trim(), p.slice(eq + 1).trim());
+  }
+  return map;
+}
+function serializeFmtpParams(map) {
+  const parts = [];
+  for (const [k, v] of map) parts.push(v === void 0 ? k : `${k}=${v}`);
+  return parts.join(";");
+}
+function upsertFmtp(section, pt, params) {
+  const fmtpIdx = section.lines.findIndex((l) => l.startsWith(`a=fmtp:${pt} `) || l === `a=fmtp:${pt}`);
+  if (fmtpIdx !== -1) {
+    const existing = section.lines[fmtpIdx].slice(`a=fmtp:${pt} `.length);
+    const map2 = parseFmtpParams(existing);
+    for (const [k, v] of Object.entries(params)) map2.set(k, String(v));
+    section.lines[fmtpIdx] = `a=fmtp:${pt} ${serializeFmtpParams(map2)}`;
+    return;
+  }
+  const map = /* @__PURE__ */ new Map();
+  for (const [k, v] of Object.entries(params)) map.set(k, String(v));
+  const newLine = `a=fmtp:${pt} ${serializeFmtpParams(map)}`;
+  const rtpmapIdx = section.lines.findIndex((l) => l.startsWith(`a=rtpmap:${pt} `));
+  if (rtpmapIdx !== -1) section.lines.splice(rtpmapIdx + 1, 0, newLine);
+  else section.lines.push(newLine);
+}
+function applyOpusSettings(sdp, opusFmtp) {
+  if (!sdp || typeof sdp !== "string") return sdp;
+  const parsed = splitSdp(sdp);
+  let changed = false;
+  for (const section of parsed.media) {
+    if (sectionKind(section) !== "audio") continue;
+    for (const pt of findPayloadTypes(section, "opus")) {
+      upsertFmtp(section, pt, opusFmtp);
+      changed = true;
+    }
+  }
+  return changed ? joinSdp(parsed) : sdp;
+}
+var AUX_CODEC = /^(rtx|red|ulpfec|flexfec-03|telephone-event|CN)$/i;
+function getCodecPayloadTypes(section) {
+  const pts = [];
+  for (const line of section.lines) {
+    const m = line.match(/^a=rtpmap:(\d+)\s+([^/]+)\//);
+    if (m && !AUX_CODEC.test(m[2])) pts.push(m[1]);
+  }
+  return pts;
+}
+function ensureRtcpFb(section, feedbacks) {
+  for (const pt of getCodecPayloadTypes(section)) {
+    for (const fb of feedbacks) {
+      const line = `a=rtcp-fb:${pt} ${fb}`;
+      if (section.lines.includes(line)) continue;
+      let insertAt = -1;
+      for (let i = 0; i < section.lines.length; i++) {
+        const l = section.lines[i];
+        if (l.startsWith(`a=rtpmap:${pt} `) || l.startsWith(`a=fmtp:${pt} `) || l.startsWith(`a=rtcp-fb:${pt} `)) insertAt = i;
+      }
+      if (insertAt === -1) insertAt = section.lines.length - 1;
+      section.lines.splice(insertAt + 1, 0, line);
+    }
+  }
+}
+function ensureExtmap(section, uri) {
+  if (section.lines.some((l) => l.startsWith("a=extmap:") && l.includes(uri))) return;
+  let maxId = 0, insertAt = -1;
+  for (let i = 0; i < section.lines.length; i++) {
+    const m = section.lines[i].match(/^a=extmap:(\d+)/);
+    if (m) {
+      maxId = Math.max(maxId, Number(m[1]));
+      insertAt = i;
+    }
+  }
+  if (insertAt === -1) {
+    insertAt = section.lines.findIndex((l) => l.startsWith("a=mid:"));
+    if (insertAt === -1) insertAt = section.lines.length - 1;
+  }
+  section.lines.splice(insertAt + 1, 0, `a=extmap:${maxId + 1} ${uri}`);
+}
+function applyTransport(sdp, cfg) {
+  if (!sdp || typeof sdp !== "string" || !cfg) return sdp;
+  const parsed = splitSdp(sdp);
+  let changed = false;
+  for (const section of parsed.media) {
+    const kind = sectionKind(section);
+    const c = kind === "video" ? cfg.video : kind === "audio" ? cfg.audio : null;
+    if (!c) continue;
+    if (Array.isArray(c.rtcpFb)) {
+      ensureRtcpFb(section, c.rtcpFb);
+      changed = true;
+    }
+    if (c.twcc && cfg.twccUri) {
+      ensureExtmap(section, cfg.twccUri);
+      changed = true;
+    }
+  }
+  return changed ? joinSdp(parsed) : sdp;
+}
+
+// src/network/webrtc/audio.js
+function applyAudioCodecPreferences(transceiver) {
+  try {
+    if (IS_WEBKIT) return false;
+    if (!transceiver || typeof transceiver.setCodecPreferences !== "function") return false;
+    if (!AUDIO_CONFIG.preferRed) return false;
+    const caps = typeof RTCRtpSender !== "undefined" && RTCRtpSender.getCapabilities ? RTCRtpSender.getCapabilities("audio") : null;
+    if (!caps || !Array.isArray(caps.codecs)) return false;
+    const isRed = (c) => /red$/i.test(c.mimeType);
+    const isOpus = (c) => /opus$/i.test(c.mimeType);
+    if (!caps.codecs.some(isRed)) return false;
+    const red = caps.codecs.filter(isRed);
+    const opus = caps.codecs.filter(isOpus);
+    const rest = caps.codecs.filter((c) => !isRed(c) && !isOpus(c));
+    transceiver.setCodecPreferences([...red, ...opus, ...rest]);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+async function configureAudioSender(sender, options = {}) {
+  try {
+    if (IS_WEBKIT) return false;
+    if (!sender || typeof sender.getParameters !== "function") return false;
+    const cfg = { ...AUDIO_CONFIG.sender, ...options };
+    const params = sender.getParameters();
+    if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
+    for (const enc of params.encodings) {
+      enc.maxBitrate = cfg.maxBitrate;
+      enc.priority = cfg.priority;
+      enc.networkPriority = cfg.networkPriority;
+    }
+    await sender.setParameters(params);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+// src/network/webrtc/video.js
+var CODEC_RANK = { VP9: 0, AV1: 1, H264: 2, VP8: 3 };
+function codecShortName(mimeType) {
+  const sub = String(mimeType || "").split("/")[1] || "";
+  return sub.toUpperCase();
+}
+function sortVideoCodecs(codecs) {
+  const rank = (c) => {
+    const n = codecShortName(c.mimeType);
+    return Object.prototype.hasOwnProperty.call(CODEC_RANK, n) ? CODEC_RANK[n] : 99;
+  };
+  return codecs.map((c, i) => ({ c, i })).sort((a, b) => rank(a.c) - rank(b.c) || a.i - b.i).map((x) => x.c);
+}
+function pickPreferredVideoCodec(caps) {
+  if (!caps || !Array.isArray(caps.codecs)) return null;
+  const present = new Set(caps.codecs.map((c) => codecShortName(c.mimeType)));
+  for (const name of VIDEO_CONFIG.codecPreferenceOrder) if (present.has(name)) return name;
+  return null;
+}
+function videoCaps() {
+  return typeof RTCRtpSender !== "undefined" && RTCRtpSender.getCapabilities ? RTCRtpSender.getCapabilities("video") : null;
+}
+function applyVideoCodecPreferences(transceiver) {
+  try {
+    if (IS_WEBKIT) return false;
+    if (!transceiver || typeof transceiver.setCodecPreferences !== "function") return false;
+    const caps = videoCaps();
+    if (!caps || !Array.isArray(caps.codecs)) return false;
+    transceiver.setCodecPreferences(sortVideoCodecs(caps.codecs));
+    return pickPreferredVideoCodec(caps);
+  } catch (e) {
+    return false;
+  }
+}
+function encodingPlanFor(codecName) {
+  if (codecName === "VP9") {
+    return { scalabilityMode: VIDEO_CONFIG.vp9.preferredScalabilityMode, maxBitrate: 15e5, degradationPreference: VIDEO_CONFIG.vp9.degradationPreference };
+  }
+  if (codecName === "AV1") {
+    return { scalabilityMode: VIDEO_CONFIG.av1.scalabilityMode, maxBitrate: VIDEO_CONFIG.av1.maxBitrate, degradationPreference: VIDEO_CONFIG.av1.degradationPreference };
+  }
+  return { scalabilityMode: void 0, maxBitrate: 15e5, degradationPreference: "balanced" };
+}
+async function configureVideoSender(sender, options = {}) {
+  try {
+    if (IS_WEBKIT) return false;
+    if (!sender || typeof sender.getParameters !== "function") return false;
+    const preferred = pickPreferredVideoCodec(videoCaps()) || "VP8";
+    const plan = { ...encodingPlanFor(preferred), ...options };
+    const params = sender.getParameters();
+    if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
+    const simulcast = params.encodings.length > 1;
+    if (simulcast) {
+      for (const enc of params.encodings) enc.networkPriority = VIDEO_CONFIG.networkPriority;
+    } else {
+      const enc = params.encodings[0];
+      enc.maxBitrate = plan.maxBitrate;
+      enc.networkPriority = VIDEO_CONFIG.networkPriority;
+      if (plan.scalabilityMode) enc.scalabilityMode = plan.scalabilityMode;
+    }
+    if (plan.degradationPreference) params.degradationPreference = plan.degradationPreference;
+    try {
+      await sender.setParameters(params);
+      return true;
+    } catch (e) {
+      if (!simulcast && plan.scalabilityMode) {
+        delete params.encodings[0].scalabilityMode;
+        try {
+          await sender.setParameters(params);
+          return true;
+        } catch (e2) {
+          return false;
+        }
+      }
+      return false;
+    }
+  } catch (e) {
+    return false;
+  }
+}
+
+// src/network/webrtc/adaptation/metrics.js
+function summarizeStats(stats, prev = {}) {
+  let outbound = null, remoteInbound = null, candidatePair = null;
+  for (const s of stats) {
+    if (!s || typeof s.type !== "string") continue;
+    if (s.type === "outbound-rtp" && !s.isRemote) {
+      if (!outbound || s.kind === "video") outbound = s;
+    } else if (s.type === "remote-inbound-rtp") {
+      if (!remoteInbound || s.kind === "video") remoteInbound = s;
+    } else if (s.type === "candidate-pair") {
+      const active = s.nominated || s.selected || s.state === "succeeded";
+      if (active && (!candidatePair || s.nominated)) candidatePair = s;
+    }
+  }
+  const packetsSent = Number(outbound?.packetsSent ?? 0);
+  const packetsLost = Number(remoteInbound?.packetsLost ?? 0);
+  const dSent = packetsSent - (prev.packetsSent ?? packetsSent);
+  const dLost = packetsLost - (prev.packetsLost ?? packetsLost);
+  const denom = dSent + dLost;
+  const lossPct = denom > 0 ? Math.min(1, Math.max(0, dLost / denom)) : 0;
+  const rttSec = candidatePair?.currentRoundTripTime ?? remoteInbound?.roundTripTime ?? 0;
+  const rttMs = Number(rttSec) * 1e3;
+  const jitterMs = Number(remoteInbound?.jitter ?? 0) * 1e3;
+  const availableOutgoingBitrate = candidatePair?.availableOutgoingBitrate != null ? Number(candidatePair.availableOutgoingBitrate) : null;
+  const qualityLimitationReason = outbound?.qualityLimitationReason ?? "none";
+  return {
+    lossPct,
+    rttMs,
+    jitterMs,
+    availableOutgoingBitrate,
+    qualityLimitationReason,
+    counters: { packetsSent, packetsLost },
+    hasData: !!(outbound && (remoteInbound || candidatePair))
+  };
+}
+function qualityFromMetrics(m) {
+  if (!m || !m.hasData) return null;
+  const l = m.lossPct, r = m.rttMs;
+  if (l < 0.03 && r < 150) return "excellent";
+  if (l < 0.07 && r < 250) return "good";
+  if (l < 0.15 && r < 400) return "fair";
+  return "poor";
+}
+
+// src/network/webrtc/adaptation/controller.js
+function decideAdaptation(m, state, cfg = ADAPTATION_CONFIG) {
+  let { targetBitrate, ceilingBitrate, scaleResolutionDownBy, goodTicks } = state;
+  let changed = false, reason = "steady";
+  if (m.qualityLimitationReason === "cpu") {
+    const next = Math.min(4, +(scaleResolutionDownBy * cfg.cpuScaleStep).toFixed(3));
+    if (next !== scaleResolutionDownBy) {
+      scaleResolutionDownBy = next;
+      changed = true;
+    }
+    goodTicks = 0;
+    reason = "cpu";
+  } else if (m.lossPct > cfg.loss.highPct || m.rttMs > cfg.rtt.highMs) {
+    const next = Math.max(cfg.minVideoBitrate, Math.round(targetBitrate * (1 - cfg.stepDownPct)));
+    if (next !== targetBitrate) {
+      targetBitrate = next;
+      changed = true;
+    }
+    goodTicks = 0;
+    reason = "backoff";
+  } else if (m.lossPct < cfg.loss.recoverPct && m.rttMs < cfg.rtt.recoverMs) {
+    goodTicks += 1;
+    reason = "recovering";
+    if (goodTicks >= cfg.recoverStableTicks) {
+      const next = Math.min(ceilingBitrate, Math.round(targetBitrate * (1 + cfg.stepUpPct)));
+      if (next !== targetBitrate) {
+        targetBitrate = next;
+        changed = true;
+        reason = "rampup";
+      }
+      goodTicks = 0;
+    }
+  } else {
+    goodTicks = 0;
+  }
+  return { targetBitrate, scaleResolutionDownBy, goodTicks, changed, reason };
+}
+var NetworkAdaptationController = class {
+  /**
+   * @param {RTCPeerConnection} pc
+   * @param {object} opts { getVideoSender:()=>RTCRtpSender|null, ceilingBitrate?, onQuality?, cfg? }
+   */
+  constructor(pc, opts = {}) {
+    this.pc = pc;
+    this.getVideoSender = opts.getVideoSender || (() => null);
+    this.onQuality = opts.onQuality || (() => {
+    });
+    this.cfg = opts.cfg || ADAPTATION_CONFIG;
+    this._timer = null;
+    this._prevCounters = {};
+    this._lastQuality = void 0;
+    this.state = {
+      targetBitrate: opts.ceilingBitrate || 15e5,
+      ceilingBitrate: opts.ceilingBitrate || 15e5,
+      scaleResolutionDownBy: 1,
+      goodTicks: 0
+    };
+  }
+  start() {
+    if (this._timer) return;
+    this._timer = setInterval(() => {
+      this._tick().catch(() => {
+      });
+    }, this.cfg.intervalMs);
+  }
+  stop() {
+    if (this._timer) {
+      clearInterval(this._timer);
+      this._timer = null;
+    }
+  }
+  async _tick() {
+    if (!this.pc || typeof this.pc.getStats !== "function") return;
+    const report = await this.pc.getStats();
+    const stats = typeof report.values === "function" ? Array.from(report.values()) : report;
+    const m = summarizeStats(stats, this._prevCounters);
+    this._prevCounters = m.counters;
+    const q = qualityFromMetrics(m);
+    if (q && q !== this._lastQuality) {
+      this._lastQuality = q;
+      try {
+        this.onQuality(q, m);
+      } catch (_) {
+      }
+    }
+    if (!m.hasData) return;
+    const decision = decideAdaptation(m, this.state, this.cfg);
+    this.state = {
+      targetBitrate: decision.targetBitrate,
+      ceilingBitrate: this.state.ceilingBitrate,
+      scaleResolutionDownBy: decision.scaleResolutionDownBy,
+      goodTicks: decision.goodTicks
+    };
+    if (decision.changed) {
+      await this._applyToVideoSender();
+    }
+  }
+  async _applyToVideoSender() {
+    if (IS_WEBKIT) return;
+    const sender = this.getVideoSender();
+    if (!sender || typeof sender.getParameters !== "function") return;
+    try {
+      const params = sender.getParameters();
+      if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
+      if (params.encodings.length === 1) {
+        params.encodings[0].maxBitrate = this.state.targetBitrate;
+        params.encodings[0].scaleResolutionDownBy = this.state.scaleResolutionDownBy;
+      } else {
+        const top = params.encodings[params.encodings.length - 1];
+        top.maxBitrate = this.state.targetBitrate;
+      }
+      await sender.setParameters(params);
+    } catch (e) {
+    }
+  }
+};
+
 // src/network/EnhancedSecureWebRTCManager.js
 var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   // ============================================
@@ -6259,6 +6787,15 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     CHUNK_CONFIRMATION: "chunk_confirmation",
     FILE_TRANSFER_COMPLETE: "file_transfer_complete",
     FILE_TRANSFER_ERROR: "file_transfer_error",
+    // Encrypted voice / video calls. SDP + ICE are exchanged over the
+    // already-authenticated (ECDH + SAS-verified) data channel, so the
+    // DTLS-SRTP fingerprints negotiated for the media are themselves
+    // authenticated end-to-end — a signalling server never sees them.
+    CALL_OFFER: "call_offer",
+    CALL_ANSWER: "call_answer",
+    CALL_ICE: "call_ice",
+    CALL_DECLINE: "call_decline",
+    CALL_END: "call_end",
     // Fake traffic
     FAKE: "fake"
   };
@@ -6280,7 +6817,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     Object.freeze({ urls: "stun:stun4.l.google.com:19302" })
   ]);
   //   Static debug flag instead of this._debugMode
-  static DEBUG_MODE = true;
+  static DEBUG_MODE = false;
   // Set to true during development, false in production
   constructor(onMessage, onStatusChange, onKeyExchange, onVerificationRequired, onAnswerError = null, onVerificationStateChange = null, config = {}) {
     this._isProductionMode = this._detectProductionMode();
@@ -6485,6 +7022,30 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     };
     this.onFileReceived = null;
     this.onFileError = null;
+    this.onCallStateChanged = null;
+    this.callState = {
+      active: false,
+      // a call session exists (ringing or connected)
+      phase: "idle",
+      // idle | outgoing | incoming | connecting | active | ended
+      withVideo: false,
+      // whether video is part of this call
+      micEnabled: true,
+      cameraEnabled: false,
+      remoteHasVideo: false,
+      callId: null,
+      quality: null,
+      // 'excellent'|'good'|'fair'|'poor'|null — link quality for the UI
+      error: null
+    };
+    this.localMediaStream = null;
+    this.remoteMediaStream = null;
+    this._pendingCallOffer = null;
+    this._callMakingOffer = false;
+    this._callAudioSender = null;
+    this._callVideoSender = null;
+    this._callFacingMode = "user";
+    this._adaptationController = null;
     this.keyRotationInterval = null;
     this.lastKeyRotation = Date.now();
     this.currentKeyVersion = 0;
@@ -11543,6 +12104,20 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
             }
             return;
           }
+          if (parsed.type && [
+            _EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_OFFER,
+            _EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_ANSWER,
+            _EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_ICE,
+            _EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_DECLINE,
+            _EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_END
+          ].includes(parsed.type)) {
+            try {
+              await this._handleCallSignal(parsed.type, parsed.data || {});
+            } catch (e) {
+              this._secureLog("error", "\u274C Call signal handling failed", { errorType: e?.constructor?.name });
+            }
+            return;
+          }
           if (parsed.type && ["heartbeat", "verification", "verification_response", "verification_confirmed", "verification_both_confirmed", "peer_disconnect", "security_upgrade"].includes(parsed.type)) {
             this.handleSystemMessage(parsed);
             return;
@@ -12185,6 +12760,8 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     this._warnIfTurnMissing();
     console.info("[SecureBit ICE] peer connection config", this._summarizeIceServerConfig(config.iceServers));
     this.peerConnection = new RTCPeerConnection(config);
+    this._callAudioSender = null;
+    this._callVideoSender = null;
     this.peerConnection.onconnectionstatechange = () => {
       const state = this.peerConnection.connectionState;
       console.info("[SecureBit ICE] connection state changed", {
@@ -12234,6 +12811,13 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         errorCode: event.errorCode,
         errorText: event.errorText
       });
+    };
+    this.peerConnection.ontrack = (event) => {
+      try {
+        this._refreshRemoteStream();
+      } catch (e) {
+        this._secureLog("warn", "\u26A0\uFE0F ontrack handling failed", { errorType: e?.constructor?.name });
+      }
     };
     this.peerConnection.ondatachannel = (event) => {
       if (event.channel.label === "securechat") {
@@ -12375,6 +12959,19 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
                   this.onMessageDelivered?.(messageId.slice(0, 64));
                 } catch (_) {
                 }
+              }
+              return;
+            }
+            if (parsed.type && [
+              _EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_OFFER,
+              _EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_ANSWER,
+              _EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_ICE,
+              _EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_DECLINE,
+              _EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_END
+            ].includes(parsed.type)) {
+              try {
+                await this._handleCallSignal(parsed.type, parsed.data || {});
+              } catch (_) {
               }
               return;
             }
@@ -15597,6 +16194,16 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   disconnect() {
     try {
       this._sessionAlive = false;
+      try {
+        this._stopAdaptation?.();
+      } catch (_) {
+      }
+      try {
+        this._stopLocalMediaPermanently?.();
+      } catch (_) {
+      }
+      this._callAudioSender = null;
+      this._callVideoSender = null;
       this.intentionalDisconnect = true;
       window.EnhancedSecureCryptoUtils.secureLog.log("info", "Starting intentional disconnect");
       this.sendDisconnectNotification();
@@ -16102,6 +16709,523 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       }
     }
     return true;
+  }
+  // ════════════════════════════════════════════════════════════════════════
+  //   ENCRYPTED VOICE / VIDEO CALLS
+  //
+  //   Media is carried by the existing RTCPeerConnection: audio/video tracks
+  //   are bundled onto the same DTLS-SRTP transport already used by the data
+  //   channel, so they are end-to-end encrypted with the very connection that
+  //   in-person SAS verification authenticated. Renegotiation SDP travels over
+  //   the verified data channel (never a server), so the media's DTLS
+  //   fingerprints are authenticated end-to-end too. Calls are therefore only
+  //   permitted once the session is connected AND SAS-verified.
+  // ════════════════════════════════════════════════════════════════════════
+  getCallState() {
+    return { ...this.callState };
+  }
+  getRemoteMediaStream() {
+    return this.remoteMediaStream;
+  }
+  getLocalMediaStream() {
+    return this.localMediaStream;
+  }
+  // Rebuild the remote MediaStream from the PC's current receivers. This is the
+  // reliable source of inbound tracks — ontrack does not re-fire for a reused
+  // transceiver on a later call, so relying on it dropped remote audio/video.
+  _refreshRemoteStream() {
+    const pc = this.peerConnection;
+    if (!pc || typeof pc.getReceivers !== "function") return;
+    const live = pc.getReceivers().map((r) => r.track).filter((t) => t && (t.kind === "audio" || t.kind === "video") && t.readyState === "live");
+    const prev = this.remoteMediaStream ? this.remoteMediaStream.getTracks() : [];
+    const unchanged = prev.length === live.length && prev.every((t) => live.includes(t));
+    if (!unchanged) {
+      this.remoteMediaStream = new MediaStream(live);
+    }
+    this._updateCallState({ remoteHasVideo: live.some((t) => t.kind === "video") });
+  }
+  // Remote tracks can take a beat to go 'live' after setRemoteDescription, and
+  // ontrack may not fire for reused transceivers — so refresh now and shortly
+  // after to reliably pick up the inbound audio/video.
+  _scheduleRemoteRefresh() {
+    this._refreshRemoteStream();
+    setTimeout(() => {
+      try {
+        this._refreshRemoteStream();
+      } catch (_) {
+      }
+    }, 300);
+    setTimeout(() => {
+      try {
+        this._refreshRemoteStream();
+      } catch (_) {
+      }
+    }, 1200);
+  }
+  _updateCallState(patch) {
+    this.callState = { ...this.callState, ...patch };
+    const snapshot = this.getCallState();
+    if (snapshot.phase === "active") this._startAdaptation();
+    else if (snapshot.phase === "idle") this._stopAdaptation();
+    try {
+      this.onCallStateChanged?.(snapshot);
+    } catch (_) {
+    }
+    if (typeof document !== "undefined") {
+      try {
+        document.dispatchEvent(new CustomEvent("securebit-call-state", {
+          detail: { managerId: this._managerId || null, state: snapshot }
+        }));
+      } catch (_) {
+      }
+    }
+  }
+  _callCanStart() {
+    const connected = typeof this.isConnected === "function" ? this.isConnected() : false;
+    const channelOpen = this.dataChannel && this.dataChannel.readyState === "open";
+    const ok = !!(connected && channelOpen && this.isVerified);
+    return ok;
+  }
+  async _sendCallSignal(type, data) {
+    const sent = await this.sendSystemMessage({ type, ...data });
+    return sent;
+  }
+  _audioConstraints() {
+    return { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+  }
+  _videoConstraints() {
+    return { facingMode: this._callFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } };
+  }
+  async _acquireLocalMedia(withVideo) {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: this._audioConstraints(),
+      video: withVideo ? this._videoConstraints() : false
+    });
+    this.localMediaStream = stream;
+    const pc = this.peerConnection;
+    const audioTrack = stream.getAudioTracks()[0] || null;
+    const videoTrack = stream.getVideoTracks()[0] || null;
+    if (audioTrack) {
+      if (this._callAudioSender) await this._callAudioSender.replaceTrack(audioTrack);
+      else this._callAudioSender = pc.addTrack(audioTrack, stream);
+    }
+    if (videoTrack) {
+      if (this._callVideoSender) await this._callVideoSender.replaceTrack(videoTrack);
+      else this._callVideoSender = pc.addTrack(videoTrack, stream);
+    }
+    this._applyCallCodecPrefs();
+    return stream;
+  }
+  // Fully release the mic/camera — only on session disconnect, not between calls.
+  _stopLocalMediaPermanently() {
+    try {
+      if (this.localMediaStream) {
+        for (const t of this.localMediaStream.getTracks()) {
+          try {
+            t.stop();
+          } catch (_) {
+          }
+        }
+      }
+    } catch (_) {
+    }
+    this.localMediaStream = null;
+  }
+  // Codec preferences on the audio (RED→Opus) and video (VP9→AV1→H264→VP8)
+  // transceivers created by addTrack. Called before offer/answer creation.
+  _applyCallCodecPrefs() {
+    try {
+      const trs = this.peerConnection?.getTransceivers?.() || [];
+      const audioTr = trs.find((t) => t.sender && t.sender === this._callAudioSender);
+      if (audioTr) applyAudioCodecPreferences(audioTr);
+      const videoTr = trs.find((t) => t.sender && t.sender === this._callVideoSender);
+      if (videoTr) applyVideoCodecPreferences(videoTr);
+    } catch (_) {
+    }
+  }
+  // Munge locally-created call SDP: Opus FEC/DTX/bitrate fmtp + transport
+  // feedback (TWCC/NACK/PLI/FIR/REMB) & the TWCC header extension. Both peers
+  // run this, so the negotiated result carries it.
+  _mungeCallSdp(sdp) {
+    try {
+      let out = applyOpusSettings(sdp, AUDIO_CONFIG.opusFmtp);
+      out = applyTransport(out, TRANSPORT_CONFIG);
+      return out;
+    } catch (e) {
+      return sdp;
+    }
+  }
+  // setLocalDescription with progressive fallback so munging can never break a
+  // call: try full munge → Opus-only munge → raw. (Some browsers reject added
+  // rtcp-fb/extmap lines in a local description; the raw path always works.)
+  async _setLocalMunged(desc) {
+    const pc = this.peerConnection;
+    try {
+      await pc.setLocalDescription({ type: desc.type, sdp: this._mungeCallSdp(desc.sdp) });
+      return;
+    } catch (e) {
+      try {
+        await pc.setLocalDescription({ type: desc.type, sdp: applyOpusSettings(desc.sdp, AUDIO_CONFIG.opusFmtp) });
+        return;
+      } catch (e2) {
+        await pc.setLocalDescription(desc);
+      }
+    }
+  }
+  // Apply sender-level params after setLocalDescription, when senders have live
+  // parameters: audio priority/bitrate, video SVC/bitrate/degradation.
+  async _applyCallSenderParams() {
+    try {
+      if (this._callAudioSender) await configureAudioSender(this._callAudioSender, {});
+      if (this._callVideoSender) await configureVideoSender(this._callVideoSender, {});
+    } catch (_) {
+    }
+  }
+  // Start the reactive bitrate controller for the active call. Idempotent. It
+  // also feeds the connection-quality indicator shown in the call UI.
+  _startAdaptation() {
+    if (this._adaptationController || !this.peerConnection) return;
+    try {
+      this._adaptationController = new NetworkAdaptationController(this.peerConnection, {
+        getVideoSender: () => this._callVideoSender,
+        ceilingBitrate: 15e5,
+        onQuality: (q) => {
+          if (q !== this.callState.quality) this._updateCallState({ quality: q });
+        }
+      });
+      this._adaptationController.start();
+    } catch (_) {
+    }
+  }
+  _stopAdaptation() {
+    if (this._adaptationController) {
+      try {
+        this._adaptationController.stop();
+      } catch (_) {
+      }
+      this._adaptationController = null;
+    }
+  }
+  // Turn a getUserMedia failure into a clear, user-visible reason (shown in the
+  // chat as a system message) + a machine-readable callState.error code. These
+  // are device/permission problems, NOT connection problems — surfacing them
+  // stops the call from looking like it "silently drops".
+  _notifyCallMediaError(error, wantVideo) {
+    const name = error?.name || "";
+    const dev = wantVideo ? "camera/microphone" : "microphone";
+    let msg, code;
+    if (name === "NotAllowedError") {
+      code = "permission_denied";
+      msg = `\u26A0\uFE0F Call not started \u2014 ${dev} access is blocked. Allow it for this site in the browser, and enable your browser under System Settings \u2192 Privacy & Security \u2192 ${wantVideo ? "Camera/Microphone" : "Microphone"}, then try again.`;
+    } else if (name === "NotFoundError" || name === "OverconstrainedError") {
+      code = "device_not_found";
+      msg = `\u26A0\uFE0F Call not started \u2014 no ${dev} found on this device.`;
+    } else if (name === "NotReadableError" || name === "AbortError") {
+      code = "device_busy";
+      msg = `\u26A0\uFE0F Call not started \u2014 your ${dev} is in use by another app. Close it and try again.`;
+    } else {
+      code = "media_failed";
+      msg = `\u26A0\uFE0F Call not started \u2014 could not access ${dev}${name ? " (" + name + ")" : ""}.`;
+    }
+    try {
+      this.deliverMessageToUI(msg, "system");
+    } catch (_) {
+    }
+    return code;
+  }
+  // Caller side: begin an outgoing call.
+  async startCall(withVideo = false) {
+    if (!this._callCanStart()) {
+      this._updateCallState({ error: "not_verified" });
+      throw new Error("Calls require a connected, SAS-verified session.");
+    }
+    if (this.callState.active) {
+      this._secureLog("warn", "\u26A0\uFE0F startCall ignored \u2014 a call is already active");
+      return;
+    }
+    const callId = crypto?.randomUUID?.() || String(Date.now()) + Math.random().toString(36).slice(2);
+    this._updateCallState({
+      active: true,
+      phase: "outgoing",
+      withVideo,
+      callId,
+      micEnabled: true,
+      cameraEnabled: withVideo,
+      remoteHasVideo: false,
+      error: null
+    });
+    try {
+      await this._acquireLocalMedia(withVideo);
+      this._callMakingOffer = true;
+      const offer = await this.peerConnection.createOffer();
+      await this._setLocalMunged(offer);
+      this._callMakingOffer = false;
+      await this._applyCallSenderParams();
+      await this._sendCallSignal(_EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_OFFER, {
+        callId,
+        withVideo,
+        sdp: this.peerConnection.localDescription.sdp
+      });
+    } catch (error) {
+      this._callMakingOffer = false;
+      this._secureLog("error", "\u274C startCall failed", { errorType: error?.constructor?.name });
+      const code = this._notifyCallMediaError(error, withVideo);
+      await this._teardownCallMedia();
+      this._updateCallState({ active: false, phase: "idle", error: code });
+      throw error;
+    }
+  }
+  // Callee side: an inbound call offer arrived → surface it to the UI.
+  async _onIncomingCallOffer(data) {
+    if (this.callState.active && (this.callState.phase === "active" || this.callState.phase === "connecting")) {
+      await this._answerCallOffer(
+        data,
+        /* renegotiation */
+        true
+      );
+      if (data.withVideo) this._updateCallState({ withVideo: true });
+      return;
+    }
+    this._pendingCallOffer = data;
+    this._updateCallState({
+      active: true,
+      phase: "incoming",
+      withVideo: !!data.withVideo,
+      callId: data.callId,
+      remoteHasVideo: !!data.withVideo,
+      error: null
+    });
+  }
+  async _answerCallOffer(data, renegotiation = false) {
+    await this.peerConnection.setRemoteDescription({ type: "offer", sdp: data.sdp });
+    if (!renegotiation) {
+      await this._acquireLocalMedia(!!data.withVideo);
+    }
+    const answer = await this.peerConnection.createAnswer();
+    await this._setLocalMunged(answer);
+    await this._applyCallSenderParams();
+    await this._sendCallSignal(_EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_ANSWER, {
+      callId: data.callId,
+      sdp: this.peerConnection.localDescription.sdp
+    });
+  }
+  // Callee accepts the ringing call.
+  async acceptCall() {
+    const data = this._pendingCallOffer;
+    if (!data) return;
+    this._pendingCallOffer = null;
+    this._updateCallState({ phase: "connecting", cameraEnabled: !!data.withVideo });
+    try {
+      await this._answerCallOffer(data, false);
+      this._updateCallState({ phase: "active" });
+      this._scheduleRemoteRefresh();
+    } catch (error) {
+      this._secureLog("error", "\u274C acceptCall failed", { errorType: error?.constructor?.name });
+      const code = this._notifyCallMediaError(error, !!data.withVideo);
+      try {
+        await this._sendCallSignal(_EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_END, { callId: data.callId });
+      } catch (_) {
+      }
+      await this._teardownCallMedia();
+      this._updateCallState({ active: false, phase: "idle", error: code });
+    }
+  }
+  // Callee rejects the ringing call.
+  async declineCall() {
+    const callId = this.callState.callId;
+    this._pendingCallOffer = null;
+    await this._sendCallSignal(_EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_DECLINE, { callId });
+    this._updateCallState({ active: false, phase: "idle", withVideo: false, remoteHasVideo: false });
+  }
+  // Either side hangs up.
+  async endCall(sendSignal = true) {
+    const callId = this.callState.callId;
+    if (sendSignal && callId) {
+      try {
+        await this._sendCallSignal(_EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_END, { callId });
+      } catch (_) {
+      }
+    }
+    await this._teardownCallMedia();
+    this._updateCallState({
+      active: false,
+      phase: "idle",
+      withVideo: false,
+      micEnabled: true,
+      cameraEnabled: false,
+      remoteHasVideo: false,
+      callId: null,
+      quality: null
+    });
+  }
+  async _teardownCallMedia() {
+    this._stopAdaptation();
+    const pc = this.peerConnection;
+    try {
+      if (this.localMediaStream) {
+        for (const track of this.localMediaStream.getTracks()) {
+          try {
+            track.stop();
+          } catch (_) {
+          }
+        }
+      }
+      if (pc) {
+        for (const sender of [this._callAudioSender, this._callVideoSender].filter(Boolean)) {
+          try {
+            await sender.replaceTrack(null);
+          } catch (_) {
+          }
+        }
+      }
+    } catch (_) {
+    }
+    this.localMediaStream = null;
+    this.remoteMediaStream = null;
+    this._callMakingOffer = false;
+    try {
+      if (this.peerConnection && (this.peerConnection.signalingState === "have-local-offer" || this.peerConnection.signalingState === "have-local-pranswer")) {
+        await this.peerConnection.setLocalDescription({ type: "rollback" });
+      }
+    } catch (_) {
+    }
+  }
+  // Mute / unmute the microphone (no renegotiation — just toggles the track).
+  setMicEnabled(enabled) {
+    if (this.localMediaStream) {
+      this.localMediaStream.getAudioTracks().forEach((t) => {
+        t.enabled = enabled;
+      });
+    }
+    this._updateCallState({ micEnabled: enabled });
+  }
+  toggleMic() {
+    this.setMicEnabled(!this.callState.micEnabled);
+  }
+  // Turn the camera on/off. Turning it on for an audio-only call adds a video
+  // track and renegotiates (an in-call "upgrade to video").
+  async setCameraEnabled(enabled) {
+    if (!enabled) {
+      if (this.localMediaStream) {
+        this.localMediaStream.getVideoTracks().forEach((t) => {
+          t.enabled = false;
+        });
+      }
+      this._updateCallState({ cameraEnabled: false });
+      return;
+    }
+    const existing = this.localMediaStream?.getVideoTracks?.() || [];
+    if (existing.length) {
+      existing.forEach((t) => {
+        t.enabled = true;
+      });
+      this._updateCallState({ cameraEnabled: true, withVideo: true });
+      return;
+    }
+    await this.upgradeToVideo();
+  }
+  async toggleCamera() {
+    await this.setCameraEnabled(!this.callState.cameraEnabled);
+  }
+  // Add a camera to an in-progress audio call and renegotiate.
+  async upgradeToVideo() {
+    if (!this.localMediaStream) return;
+    try {
+      const camStream = await navigator.mediaDevices.getUserMedia({ video: this._videoConstraints() });
+      const videoTrack = camStream.getVideoTracks()[0];
+      if (!videoTrack) return;
+      this.localMediaStream.addTrack(videoTrack);
+      if (this._callVideoSender) await this._callVideoSender.replaceTrack(videoTrack);
+      else this._callVideoSender = this.peerConnection.addTrack(videoTrack, this.localMediaStream);
+      this._applyCallCodecPrefs();
+      this._updateCallState({ cameraEnabled: true, withVideo: true });
+      await this._renegotiateCall();
+    } catch (error) {
+      this._secureLog("error", "\u274C upgradeToVideo failed", { errorType: error?.constructor?.name });
+      this._updateCallState({ cameraEnabled: false, error: "camera_failed" });
+    }
+  }
+  // Flip between front/back cameras without renegotiation (replaceTrack).
+  async switchCamera() {
+    if (!this._callVideoSender || !this.localMediaStream) return;
+    this._callFacingMode = this._callFacingMode === "user" ? "environment" : "user";
+    try {
+      const camStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: this._callFacingMode }
+      });
+      const newTrack = camStream.getVideoTracks()[0];
+      const old = this.localMediaStream.getVideoTracks()[0];
+      if (old) {
+        this.localMediaStream.removeTrack(old);
+        try {
+          old.stop();
+        } catch (_) {
+        }
+      }
+      this.localMediaStream.addTrack(newTrack);
+      await this._callVideoSender.replaceTrack(newTrack);
+    } catch (error) {
+      this._secureLog("warn", "\u26A0\uFE0F switchCamera failed", { errorType: error?.constructor?.name });
+    }
+  }
+  async _renegotiateCall() {
+    if (this._callMakingOffer) return;
+    try {
+      this._callMakingOffer = true;
+      const offer = await this.peerConnection.createOffer();
+      await this._setLocalMunged(offer);
+      await this._applyCallSenderParams();
+      await this._sendCallSignal(_EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_OFFER, {
+        callId: this.callState.callId,
+        withVideo: this.callState.withVideo,
+        sdp: this.peerConnection.localDescription.sdp
+      });
+    } finally {
+      this._callMakingOffer = false;
+    }
+  }
+  // Central inbound call-signal router (called from processMessage).
+  async _handleCallSignal(type, data) {
+    const T = _EnhancedSecureWebRTCManager.MESSAGE_TYPES;
+    switch (type) {
+      case T.CALL_OFFER: {
+        await this._onIncomingCallOffer(data);
+        return;
+      }
+      case T.CALL_ANSWER: {
+        try {
+          if (this.peerConnection.signalingState === "have-local-offer") {
+            await this.peerConnection.setRemoteDescription({ type: "answer", sdp: data.sdp });
+          }
+          if (this.callState.phase === "outgoing") this._updateCallState({ phase: "active" });
+          this._scheduleRemoteRefresh();
+        } catch (e) {
+          this._secureLog("warn", "\u26A0\uFE0F Failed to apply call answer", { errorType: e?.constructor?.name });
+        }
+        return;
+      }
+      case T.CALL_ICE: {
+        try {
+          if (data.candidate) await this.peerConnection.addIceCandidate(data.candidate);
+        } catch (_) {
+        }
+        return;
+      }
+      case T.CALL_DECLINE: {
+        await this._teardownCallMedia();
+        this._updateCallState({ active: false, phase: "idle", withVideo: false, remoteHasVideo: false, error: "declined" });
+        return;
+      }
+      case T.CALL_END: {
+        await this.endCall(
+          /* sendSignal */
+          false
+        );
+        return;
+      }
+      default:
+        return;
+    }
   }
 };
 var SecureKeyStorage = class {
@@ -17721,7 +18845,7 @@ Right-click or Ctrl+click to disconnect`,
           React.createElement("div", { key: "txt", style: { lineHeight: 1.2, minWidth: 0 } }, [
             React.createElement("div", { key: "r1", style: { display: "flex", alignItems: "baseline", gap: "7px" } }, [
               React.createElement("span", { key: "n", style: { fontSize: "16px", fontWeight: 800, letterSpacing: "-0.3px", color: "#e8e8eb" } }, "SecureBit"),
-              React.createElement("span", { key: "v", style: { fontFamily: MONO, fontSize: "10px", fontWeight: 500, color: "#56565e" } }, "v5.4.10")
+              React.createElement("span", { key: "v", style: { fontFamily: MONO, fontSize: "10px", fontWeight: 500, color: "#56565e" } }, "v5.5.0")
             ]),
             React.createElement("div", { key: "r2", className: "hidden sm:block", style: { fontSize: "11px", color: "#6b6b73", fontWeight: 500 } }, "End-to-end encrypted")
           ])
@@ -19492,6 +20616,264 @@ var IceServerSettings = ({ isOpen, onClose, initial, hasSaved, onApply, onForget
   ]);
 };
 window.IceServerSettings = IceServerSettings;
+
+// src/components/ui/CallUI.jsx
+var CallUIComponent = ({ webrtcManager, peerTitle }) => {
+  const h = React.createElement;
+  const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+  const ICON = {
+    lock: '<path d="M7 11V7a5 5 0 0 1 10 0v4"/><rect x="4.5" y="11" width="15" height="9" rx="2.2"/>',
+    minimize: '<path d="M9 4v4a1 1 0 0 1-1 1H4M15 4v4a1 1 0 0 0 1 1h4M9 20v-4a1 1 0 0 0-1-1H4M15 20v-4a1 1 0 0 1 1-1h4"/>',
+    expand: '<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>',
+    user: '<circle cx="12" cy="8" r="3.6"/><path d="M5 20c0-3.5 3-5.5 7-5.5s7 2 7 5.5"/>',
+    micOn: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/>',
+    micOff: '<path d="M9 9v-1a3 3 0 0 1 5.1-2.1M15 11v3a3 3 0 0 1-4.6 2.5"/><path d="M5 11a7 7 0 0 0 10.3 6.2M19 11a7 7 0 0 1-.4 2.3"/><path d="M12 18v3"/><path d="M3 3l18 18"/>',
+    camOn: '<path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2.5"/>',
+    camOff: '<path d="M16 16H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h2l2-2M11 6h2l7-3v14M2 2l20 20"/>',
+    flip: '<path d="M3 7h3l2-2h8l2 2h3v12H3z"/><path d="M9.5 13a2.5 2.5 0 0 1 5 0M14.5 13l-1.3-1.3M14.5 13l1.3-1.3"/>',
+    phone: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>',
+    phoneHangup: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" transform="rotate(135 12 12)"/>'
+  };
+  const svg2 = (inner, size, sw) => h("span", {
+    style: { display: "grid", placeItems: "center", width: size + "px", height: size + "px" },
+    dangerouslySetInnerHTML: { __html: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>` }
+  });
+  const [call, setCall] = React.useState(() => webrtcManager?.getCallState?.() || { phase: "idle", active: false });
+  const [minimized, setMinimized] = React.useState(false);
+  const [seconds, setSeconds] = React.useState(0);
+  const remoteVideoRef = React.useRef(null);
+  const remoteAudioRef = React.useRef(null);
+  const selfVideoRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!webrtcManager) return;
+    const onState = (state) => setCall(state);
+    const prev = webrtcManager.onCallStateChanged;
+    webrtcManager.onCallStateChanged = onState;
+    setCall(webrtcManager.getCallState ? webrtcManager.getCallState() : { phase: "idle", active: false });
+    return () => {
+      if (webrtcManager.onCallStateChanged === onState) webrtcManager.onCallStateChanged = prev || null;
+    };
+  }, [webrtcManager]);
+  const phase = call.phase || "idle";
+  const active = !!call.active;
+  const isVideo = !!call.withVideo || !!call.remoteHasVideo;
+  React.useEffect(() => {
+    const remoteStream = webrtcManager?.getRemoteMediaStream?.();
+    const localStream = webrtcManager?.getLocalMediaStream?.();
+    const attach = (el, stream, muted) => {
+      if (!el || !stream) return;
+      if (el.srcObject !== stream) {
+        el.muted = muted;
+        el.srcObject = stream;
+      }
+      const p = el.play && el.play();
+      if (p && p.catch) p.catch(() => {
+      });
+    };
+    attach(remoteAudioRef.current, remoteStream, false, "remoteAudio");
+    attach(remoteVideoRef.current, remoteStream, true, "remoteVideo");
+    attach(selfVideoRef.current, localStream, true, "selfVideo");
+  });
+  React.useEffect(() => {
+    if (phase !== "active") {
+      setSeconds(0);
+      return;
+    }
+    const started = Date.now();
+    const iv = setInterval(() => setSeconds(Math.floor((Date.now() - started) / 1e3)), 1e3);
+    return () => clearInterval(iv);
+  }, [phase]);
+  React.useEffect(() => {
+    if (phase === "idle") setMinimized(false);
+  }, [phase]);
+  if (!active || phase === "idle" || phase === "ended") return null;
+  const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  const ringing = phase === "outgoing" || phase === "connecting";
+  const callStatus = phase === "outgoing" ? "Ringing\u2026" : phase === "connecting" ? "Connecting\u2026" : phase === "active" ? fmt(seconds) : "Ringing\u2026";
+  const name = peerTitle || "Secure peer";
+  const ctrlBase = {
+    width: "56px",
+    height: "56px",
+    borderRadius: "50%",
+    display: "grid",
+    placeItems: "center",
+    border: "1px solid rgba(255,255,255,0.1)",
+    background: "rgba(255,255,255,0.05)",
+    color: "#cfcfd4",
+    cursor: "pointer",
+    transition: "all .15s"
+  };
+  const dangerCtrl = { ...ctrlBase, background: "#e5484d", color: "#fff", border: "1px solid transparent" };
+  const endBtn = {
+    width: "56px",
+    height: "56px",
+    borderRadius: "50%",
+    display: "grid",
+    placeItems: "center",
+    border: "none",
+    background: "#e5484d",
+    color: "#fff",
+    cursor: "pointer",
+    boxShadow: "0 8px 24px rgba(229,72,77,0.35)",
+    transition: "transform .15s"
+  };
+  const minimizeBtn = (light) => ({
+    width: "36px",
+    height: "36px",
+    borderRadius: "9px",
+    display: "grid",
+    placeItems: "center",
+    border: "1px solid rgba(255,255,255," + (light ? "0.15" : "0.1") + ")",
+    background: light ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.04)",
+    color: light ? "#fff" : "#cfcfd4",
+    cursor: "pointer",
+    transition: "all .15s"
+  });
+  const encBadge = h(
+    "span",
+    { key: "enc", style: { display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "11px", fontWeight: 600, color: "#3ecf8e" } },
+    [svg2(ICON.lock, 11, 2), "Encrypted"]
+  );
+  const QUALITY = {
+    excellent: { bars: 4, color: "#3ecf8e", label: "Excellent" },
+    good: { bars: 3, color: "#3ecf8e", label: "Good" },
+    fair: { bars: 2, color: "#e3c84e", label: "Fair" },
+    poor: { bars: 1, color: "#e5727a", label: "Weak" }
+  };
+  const qualityIndicator = (compact) => {
+    const q = QUALITY[call.quality];
+    if (!q) return null;
+    const bars = h(
+      "span",
+      { key: "bars", style: { display: "inline-flex", alignItems: "flex-end", gap: "2px", height: "14px" } },
+      [0, 1, 2, 3].map((i) => h("span", {
+        key: i,
+        style: { width: "3px", height: 5 + i * 3 + "px", borderRadius: "1px", background: i < q.bars ? q.color : "rgba(255,255,255,0.18)" }
+      }))
+    );
+    if (compact) return bars;
+    return h("span", { key: "q", title: "Connection quality", style: { display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "11.5px", fontWeight: 600, color: q.color } }, [bars, q.label]);
+  };
+  const doAccept = () => webrtcManager?.acceptCall?.();
+  const doDecline = () => webrtcManager?.declineCall?.();
+  const doEnd = () => {
+    setMinimized(false);
+    webrtcManager?.endCall?.();
+  };
+  const doMute = () => webrtcManager?.toggleMic?.();
+  const doCamera = () => webrtcManager?.toggleCamera?.();
+  const doFlip = () => webrtcManager?.switchCamera?.();
+  const doUpgrade = () => webrtcManager?.upgradeToVideo?.();
+  const hiddenAudio = h("audio", { key: "ra", ref: remoteAudioRef, autoPlay: true, playsInline: true, style: { display: "none" } });
+  const labeled = (key, btn, label) => h(
+    "div",
+    { key, style: { display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" } },
+    [btn, h("span", { key: "l", style: { fontFamily: MONO, fontSize: "10.5px", color: "#8a8a92" } }, label)]
+  );
+  const avatarDisc = (size, ring) => h("div", { key: "av", style: { position: "relative", width: "120px", height: "120px", marginBottom: "28px", display: "grid", placeItems: "center" } }, [
+    ring && h("span", { key: "p1", style: { position: "absolute", inset: 0, borderRadius: "50%", border: "1.5px solid rgba(240,137,42,0.5)", animation: "sbCallPulse 2s ease-out infinite" } }),
+    ring && h("span", { key: "p2", style: { position: "absolute", inset: 0, borderRadius: "50%", border: "1.5px solid rgba(240,137,42,0.4)", animation: "sbCallPulse 2s ease-out infinite", animationDelay: "1s" } }),
+    h("div", { key: "c", style: { width: "104px", height: "104px", borderRadius: "50%", display: "grid", placeItems: "center", background: "radial-gradient(circle at 35% 30%, #2a2a30, #161618)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 12px 30px rgba(0,0,0,0.4)", color: "#8a8a92" } }, svg2(ICON.user, size, 1.6))
+  ]);
+  if (phase === "incoming") {
+    return h("div", { style: { position: "absolute", inset: 0, zIndex: 40, display: "flex", flexDirection: "column", background: "radial-gradient(680px 460px at 50% 36%, rgba(240,137,42,0.08), transparent 70%), #0d0d0f", animation: "sbExpand .2s ease" } }, [
+      hiddenAudio,
+      h(
+        "div",
+        { key: "top", style: { flex: "none", display: "flex", alignItems: "center", justifyContent: "flex-start", padding: "16px 18px" } },
+        h("span", { style: { display: "inline-flex", alignItems: "center", gap: "7px", fontSize: "12px", fontWeight: 600, color: "#3ecf8e" } }, [svg2(ICON.lock, 13, 2), "Encrypted call"])
+      ),
+      h("div", { key: "mid", style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" } }, [
+        avatarDisc(46, true),
+        h("div", { key: "nm", style: { fontSize: "24px", fontWeight: 800, letterSpacing: "-0.5px", color: "#f4f4f6" } }, name),
+        h("div", { key: "st", style: { fontFamily: MONO, fontSize: "14px", fontWeight: 500, color: "#9a9aa2", marginTop: "8px" } }, call.withVideo ? "Incoming video call" : "Incoming call")
+      ]),
+      h("div", { key: "ctrls", style: { flex: "none", display: "flex", alignItems: "flex-start", justifyContent: "center", gap: "48px", padding: "28px 24px 40px" } }, [
+        labeled("dec", h("button", { onClick: doDecline, title: "Decline", style: { ...endBtn, width: "62px", height: "62px" } }, svg2(ICON.phoneHangup, 24, 1.9)), "Decline"),
+        labeled("acc", h("button", { onClick: doAccept, title: "Accept", style: { width: "62px", height: "62px", borderRadius: "50%", display: "grid", placeItems: "center", border: "none", background: "#3ecf8e", color: "#06231a", cursor: "pointer", boxShadow: "0 8px 24px rgba(62,207,142,0.35)" } }, svg2(ICON.phone, 24, 1.9)), "Accept")
+      ])
+    ]);
+  }
+  if (minimized) {
+    return h("div", { style: { position: "absolute", bottom: "18px", right: "18px", zIndex: 40, width: "236px", borderRadius: "14px", overflow: "hidden", background: "#161618", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 18px 44px rgba(0,0,0,0.55)", animation: "sbExpand .18s ease" } }, [
+      hiddenAudio,
+      isVideo && h("div", { key: "v", style: { position: "relative", height: "132px", background: "#111" } }, [
+        h("video", { key: "rv", ref: remoteVideoRef, autoPlay: true, muted: true, playsInline: true, style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }),
+        !call.remoteHasVideo && h("div", { key: "off", style: { position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "linear-gradient(120deg,#15151b,#1d1a24)", color: "#6b6b73" } }, svg2(ICON.camOff, 22, 1.8)),
+        h("span", { key: "s", style: { position: "absolute", top: "8px", left: "9px", fontFamily: MONO, fontSize: "11px", fontWeight: 600, color: "#fff", padding: "3px 7px", borderRadius: "6px", background: "rgba(0,0,0,0.5)" } }, callStatus)
+      ]),
+      h("div", { key: "bar", style: { display: "flex", alignItems: "center", gap: "11px", padding: "11px 12px" } }, [
+        h("span", { key: "ic", style: { position: "relative", flex: "none", width: "34px", height: "34px", borderRadius: "9px", display: "grid", placeItems: "center", background: "rgba(62,207,142,0.1)", border: "1px solid rgba(62,207,142,0.25)", color: "#3ecf8e" } }, svg2(ICON.user, 16, 1.9)),
+        h("div", { key: "tx", style: { flex: 1, minWidth: 0 } }, [
+          h("div", { key: "n", style: { fontSize: "13px", fontWeight: 700, color: "#f4f4f6", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, name),
+          h("div", { key: "s", style: { display: "flex", alignItems: "center", gap: "7px", fontFamily: MONO, fontSize: "11px", color: "#9a9aa2" } }, [
+            (isVideo ? "Video \xB7 " : "Voice \xB7 ") + callStatus,
+            phase === "active" && qualityIndicator(true)
+          ])
+        ]),
+        h("button", { key: "exp", onClick: () => setMinimized(false), title: "Expand", style: { flex: "none", width: "32px", height: "32px", borderRadius: "8px", display: "grid", placeItems: "center", border: "none", background: "rgba(255,255,255,0.05)", color: "#cfcfd4", cursor: "pointer", transition: "all .15s" } }, svg2(ICON.expand, 15, 2)),
+        h("button", { key: "end", onClick: doEnd, title: "End call", style: { flex: "none", width: "32px", height: "32px", borderRadius: "8px", display: "grid", placeItems: "center", border: "none", background: "#e5484d", color: "#fff", cursor: "pointer", transition: "transform .15s" } }, svg2(ICON.phoneHangup, 15, 2))
+      ])
+    ]);
+  }
+  if (isVideo) {
+    return h("div", { style: { position: "absolute", inset: 0, zIndex: 40, overflow: "hidden", background: "#0a0a0c", animation: "sbExpand .2s ease" } }, [
+      hiddenAudio,
+      call.remoteHasVideo ? h("video", { key: "rv", ref: remoteVideoRef, autoPlay: true, muted: true, playsInline: true, style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", background: "#0a0a0c" } }) : h("div", { key: "ph", style: { position: "absolute", inset: 0, background: "linear-gradient(120deg, #15151b, #1d1a24, #161620)", backgroundSize: "200% 200%", animation: "sbLiveBg 9s ease-in-out infinite", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "18px" } }, [
+        h("div", { key: "a", style: { width: "120px", height: "120px", borderRadius: "50%", display: "grid", placeItems: "center", background: "radial-gradient(circle at 35% 30%, #2a2a30, #161618)", border: "1px solid rgba(255,255,255,0.1)", color: "#9a9aa2" } }, svg2(ICON.user, 54, 1.5)),
+        h("div", { key: "t", style: { fontSize: "15px", fontWeight: 600, color: "#8a8a92" } }, "Peer's camera is off")
+      ]),
+      // Top bar
+      h("div", { key: "top", style: { position: "absolute", top: 0, left: 0, right: 0, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "14px", padding: "18px 20px", background: "linear-gradient(180deg, rgba(0,0,0,0.55), transparent)" } }, [
+        h("div", { key: "l" }, [
+          h("div", { key: "n", style: { fontSize: "18px", fontWeight: 800, letterSpacing: "-0.3px", color: "#fff" } }, name),
+          h("div", { key: "s", style: { display: "inline-flex", alignItems: "center", gap: "9px", marginTop: "4px" } }, [
+            h("span", { key: "st", style: { fontFamily: MONO, fontSize: "12.5px", fontWeight: 500, color: "#e8e8eb" } }, callStatus),
+            encBadge,
+            phase === "active" && qualityIndicator(false)
+          ])
+        ]),
+        h("button", { key: "min", onClick: () => setMinimized(true), title: "Minimize", style: { flex: "none", ...minimizeBtn(true) } }, svg2(ICON.minimize, 16, 2))
+      ]),
+      // Self-cam PiP
+      h("div", { key: "self", style: { position: "absolute", bottom: "108px", right: "18px", width: "132px", height: "176px", borderRadius: "14px", overflow: "hidden", border: "1px solid rgba(255,255,255,0.16)", boxShadow: "0 12px 30px rgba(0,0,0,0.5)", background: "#111" } }, [
+        h("video", { key: "sv", ref: selfVideoRef, autoPlay: true, muted: true, playsInline: true, style: { width: "100%", height: "100%", objectFit: "cover", transform: "scaleX(-1)", display: "block" } }),
+        !call.cameraEnabled && h("div", { key: "off", style: { position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "8px", background: "#161618", color: "#6b6b73" } }, [
+          svg2(ICON.camOff, 24, 1.8),
+          h("span", { key: "t", style: { fontSize: "10.5px", color: "#6b6b73", fontFamily: MONO } }, "Camera off")
+        ])
+      ]),
+      // Control bar
+      h("div", { key: "ctrls", style: { position: "absolute", bottom: 0, left: 0, right: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: "18px", padding: "22px 24px 28px", background: "linear-gradient(0deg, rgba(0,0,0,0.6), transparent)" } }, [
+        h("button", { key: "mute", onClick: doMute, title: "Mute", style: call.micEnabled ? ctrlBase : dangerCtrl }, svg2(call.micEnabled ? ICON.micOn : ICON.micOff, 21, 1.9)),
+        h("button", { key: "cam", onClick: doCamera, title: "Camera", style: call.cameraEnabled ? ctrlBase : dangerCtrl }, svg2(call.cameraEnabled ? ICON.camOn : ICON.camOff, 21, 1.8)),
+        h("button", { key: "flip", onClick: doFlip, title: "Flip camera", style: ctrlBase }, svg2(ICON.flip, 21, 1.8)),
+        h("button", { key: "end", onClick: doEnd, title: "End call", style: endBtn }, svg2(ICON.phoneHangup, 22, 1.9))
+      ])
+    ]);
+  }
+  return h("div", { style: { position: "absolute", inset: 0, zIndex: 40, display: "flex", flexDirection: "column", background: "radial-gradient(680px 460px at 50% 36%, rgba(240,137,42,0.08), transparent 70%), #0d0d0f", animation: "sbExpand .2s ease" } }, [
+    hiddenAudio,
+    h("div", { key: "top", style: { flex: "none", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 18px" } }, [
+      h("span", { key: "enc", style: { display: "inline-flex", alignItems: "center", gap: "7px", fontSize: "12px", fontWeight: 600, color: "#3ecf8e" } }, [svg2(ICON.lock, 13, 2), "Encrypted call"]),
+      h("button", { key: "min", onClick: () => setMinimized(true), title: "Minimize", style: minimizeBtn(false) }, svg2(ICON.minimize, 16, 2))
+    ]),
+    h("div", { key: "mid", style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" } }, [
+      avatarDisc(46, ringing),
+      h("div", { key: "nm", style: { fontSize: "24px", fontWeight: 800, letterSpacing: "-0.5px", color: "#f4f4f6" } }, name),
+      h("div", { key: "st", style: { fontFamily: MONO, fontSize: "14px", fontWeight: 500, color: "#9a9aa2", marginTop: "8px" } }, callStatus),
+      phase === "active" && h("div", { key: "q", style: { marginTop: "12px" } }, qualityIndicator(false))
+    ]),
+    h("div", { key: "ctrls", style: { flex: "none", display: "flex", alignItems: "flex-start", justifyContent: "center", gap: "26px", padding: "28px 24px 34px" } }, [
+      labeled("mute", h("button", { onClick: doMute, title: "Mute", style: call.micEnabled ? ctrlBase : dangerCtrl }, svg2(call.micEnabled ? ICON.micOn : ICON.micOff, 22, 1.9)), call.micEnabled ? "Mute" : "Muted"),
+      labeled("video", h("button", { onClick: doUpgrade, title: "Add video", style: ctrlBase }, svg2(ICON.camOn, 22, 1.8)), "Video"),
+      labeled("end", h("button", { onClick: doEnd, title: "End call", style: endBtn }, svg2(ICON.phoneHangup, 22, 1.9)), "End")
+    ])
+  ]);
+};
+if (typeof window !== "undefined") {
+  window.CallUIComponent = CallUIComponent;
+}
 
 // src/scripts/app-boot.js
 window.EnhancedSecureCryptoUtils = EnhancedSecureCryptoUtils;

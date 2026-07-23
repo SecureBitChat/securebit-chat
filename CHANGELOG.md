@@ -1,5 +1,22 @@
 # Changelog
 
+## v5.5.0 — Encrypted voice & video calls
+
+SecureBit now supports **end-to-end encrypted voice and video calls** — the "5.5 Secure Voice & Calls" roadmap milestone.
+
+### Added
+
+- **Voice & video calls.** Start a call from the chat header (phone / camera buttons). Audio and video tracks ride the **same RTCPeerConnection as the chat**, bundled onto one **DTLS-SRTP** transport — so media is end-to-end encrypted with the very connection that in-person **SAS verification** authenticated. Call setup (SDP offer/answer) is renegotiated **in-band over the verified data channel**, never through a signalling server, so the media's DTLS fingerprints are authenticated end-to-end too. There is no server that can see or MITM a call.
+- **Verification-gated.** Calls are only permitted once a session is **connected and SAS-verified**; the manager rejects call signalling otherwise. The header call buttons stay disabled until then.
+- **In-call controls.** Mute / unmute, camera on/off (turning the camera on during a voice call upgrades it to video in-band), front/back camera flip, minimize-to-widget (chat stays usable) and hang up. Incoming calls show an accept / decline prompt.
+- **Adaptive audio codec.** Opus tuned for real-world links — in-band FEC, DTX and RED redundancy (RED preferred first where the browser advertises it) keep speech intelligible under 15–20% packet loss. Audio is bandwidth-prioritised and is **never** throttled by the network controller.
+- **Adaptive video codec.** VP9 / AV1 single-encoding **SVC** (with H.264 / VP8 fallback), so video degrades gracefully by spatial/temporal layer on a weak link. A runtime `NetworkAdaptationController` reads `getStats()` every second and trims video bitrate on loss/RTT, recovering as the link clears — no renegotiation, no track restart.
+- **Live connection-quality indicator.** Excellent → Good → Fair → Weak, surfaced in the voice overlay, video top bar and minimized widget. Codec tunables and their rationale are documented in [`docs/webrtc-config.md`](docs/webrtc-config.md).
+
+### Security
+
+- Media inherits the session's DTLS-SRTP encryption; SDP is exchanged only over the ECDH + SAS-authenticated data channel. No new ICE or signalling server is introduced — calls reuse the existing verified transport.
+
 ## v5.4.5 — Encrypted voice messages
 
 SecureBit now supports **end-to-end encrypted voice messages**, sent over the same secure transfer channel as files.

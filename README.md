@@ -9,7 +9,7 @@
 No accounts. No servers storing your messages. No installation required.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-f0892a.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-5.4.5-3ecf8e.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.5.0-3ecf8e.svg)](CHANGELOG.md)
 [![PWA](https://img.shields.io/badge/PWA-installable-3ecf8e.svg)](#install-as-an-app)
 [![Encryption](https://img.shields.io/badge/crypto-ECDH%20P--384%20%C2%B7%20AES--256--GCM-blue.svg)](#security-model)
 
@@ -41,6 +41,12 @@ It is designed for people who need a small, auditable, zero-infrastructure way t
 - No accounts, no phone numbers, no message history on disk.
 - Optional **relay-only mode** routes traffic through your own TURN server so your IP is never exposed to the peer.
 - Local key metadata is stored encrypted in IndexedDB; disconnecting cleans up session state.
+
+** Encrypted calls**
+- **1:1 voice and video calls** over the same verified peer-to-peer connection — media rides the SAS-verified DTLS-SRTP transport, so calls inherit the session's end-to-end encryption and never traverse a SecureBit server.
+- **Adaptive audio**: Opus with in-band FEC, DTX and RED redundancy for intelligible speech under 15–20% packet loss; audio is prioritised and never throttled by the network controller.
+- **Adaptive video**: VP9/AV1 single-encoding SVC (H.264/VP8 fallback) that degrades by spatial/temporal layer, with a runtime controller that trims video bitrate on loss/RTT and recovers as the link clears.
+- **Live connection-quality indicator** (Excellent → Good → Fair → Weak) shown in the call UI, plus in-call mute and video-upgrade controls.
 
 ** Messaging**
 - **Encrypted voice messages** — record in the browser and send over the same end-to-end encrypted transfer channel as files. Audio is captured as PCM/WAV, integrity-protected by a signed hash, and played back inline on the recipient's device without ever touching disk.

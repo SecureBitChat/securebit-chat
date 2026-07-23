@@ -39,3 +39,15 @@
     0% { transform: scale(1); opacity: 0.5; }
     100% { transform: scale(2.1); opacity: 0; }
 }
+
+/* ── Encrypted call UI ─────────────────────────────────────────────── */
+/* Expanding ring pulse behind the caller avatar while ringing. */
+@keyframes sbCallPulse {
+    0% { transform: scale(1); opacity: 0.5; }
+    100% { transform: scale(1.85); opacity: 0; }
+}
+/* Slow animated gradient behind a camera-off video placeholder. */
+@keyframes sbLiveBg {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
