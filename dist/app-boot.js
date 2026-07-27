@@ -18910,7 +18910,7 @@ Right-click or Ctrl+click to disconnect`,
           React.createElement("div", { key: "txt", style: { lineHeight: 1.2, minWidth: 0 } }, [
             React.createElement("div", { key: "r1", style: { display: "flex", alignItems: "baseline", gap: "7px" } }, [
               React.createElement("span", { key: "n", style: { fontSize: "16px", fontWeight: 800, letterSpacing: "-0.3px", color: "#e8e8eb" } }, "SecureBit"),
-              React.createElement("span", { key: "v", style: { fontFamily: MONO, fontSize: "10px", fontWeight: 500, color: "#56565e" } }, "v5.5.2")
+              React.createElement("span", { key: "v", style: { fontFamily: MONO, fontSize: "10px", fontWeight: 500, color: "#56565e" } }, "v5.5.3")
             ]),
             React.createElement("div", { key: "r2", className: "hidden sm:block", style: { fontSize: "11px", color: "#6b6b73", fontWeight: 500 } }, "End-to-end encrypted")
           ])
@@ -18962,12 +18962,14 @@ Right-click or Ctrl+click to disconnect`,
 window.EnhancedMinimalHeader = EnhancedMinimalHeader;
 
 // src/components/ui/DownloadApps.jsx
+var DESKTOP_VERSION = "0.3.0";
+var DESKTOP_RELEASE = `https://github.com/SecureBitChat/securebit-desktop/releases/download/v${DESKTOP_VERSION}`;
 var DownloadApps = () => {
   const apps = [
     { id: "web", name: "Web App", subtitle: "Browser Version", icon: "fas fa-globe", platform: "Web", isActive: true, url: "https://securebit.chat/", color: "green" },
-    { id: "windows", name: "Windows", subtitle: "Desktop App", icon: "fab fa-windows", platform: "Desktop", isActive: true, url: "https://github.com/SecureBitChat/securebit-desktop/releases/latest/download/SecureBit.Chat_0.1.0_x64-setup.exe", color: "blue" },
-    { id: "macos", name: "macOS", subtitle: "Desktop App", icon: "fab fa-safari", platform: "Desktop", isActive: true, url: "https://github.com/SecureBitChat/securebit-desktop/releases/download/v0.1.0/SecureBit.Chat_0.1.0_x64.dmg", color: "gray" },
-    { id: "linux", name: "Linux", subtitle: "Desktop App", icon: "fab fa-linux", platform: "Desktop", isActive: true, url: "https://github.com/SecureBitChat/securebit-desktop/releases/latest/download/SecureBit.Chat_0.1.0_amd64.AppImage", color: "orange" },
+    { id: "windows", name: "Windows", subtitle: "Desktop App", icon: "fab fa-windows", platform: "Desktop", isActive: true, url: `${DESKTOP_RELEASE}/SecureBit.Chat_${DESKTOP_VERSION}_x64-setup.exe`, color: "blue" },
+    { id: "macos", name: "macOS", subtitle: "Desktop App", icon: "fab fa-safari", platform: "Desktop", isActive: true, url: `${DESKTOP_RELEASE}/SecureBit.Chat_${DESKTOP_VERSION}_x64.dmg`, color: "gray" },
+    { id: "linux", name: "Linux", subtitle: "Desktop App", icon: "fab fa-linux", platform: "Desktop", isActive: true, url: `${DESKTOP_RELEASE}/SecureBit.Chat_${DESKTOP_VERSION}_amd64.AppImage`, color: "orange" },
     { id: "ios", name: "iOS", subtitle: "iPhone & iPad", icon: "fab fa-apple", platform: "Mobile", isActive: false, url: "https://apps.apple.com/app/securebit-chat/", color: "white" },
     { id: "android", name: "Android", subtitle: "Google Play", icon: "fab fa-android", platform: "Mobile", isActive: false, url: "https://play.google.com/store/apps/details?id=com.securebit.chat", color: "green" },
     { id: "chrome", name: "Chrome", subtitle: "Browser Extension", icon: "fab fa-chrome", platform: "Browser", isActive: false, url: "#", color: "yellow" },

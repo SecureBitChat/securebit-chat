@@ -3533,7 +3533,7 @@ import {
                             }
                         }
 
-                        handleMessage(' SecureBit.chat Enhanced Security Edition v5.5.2 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.', 'system');
+                        handleMessage(' SecureBit.chat Enhanced Security Edition v5.5.3 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.', 'system');
 
                         // Setup file transfer callbacks (id-bound to THIS session's manager).
                         manager.setFileTransferCallbacks(

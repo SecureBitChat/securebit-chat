@@ -1,5 +1,12 @@
 # Changelog
 
+## v5.5.3 — Desktop downloads point at 0.3.0
+
+### Fixed
+
+- **The desktop download buttons still offered 0.1.0.** Windows, macOS and Linux now link to the current 0.3.0 release, which is the first with in-app updates, voice-note parity and the verification fixes.
+- The release version was repeated across three URLs in two different forms (two resolving through `/releases/latest/`, one pinned to a tag), which is how they drifted out of date. It is now a single constant, and the tag is pinned deliberately: filenames carry the version, so a `latest` link breaks as soon as a newer release exists, whereas a pinned tag keeps serving a working installer.
+
 ## v5.5.2 — Fix security level in the header
 
 ### Fixed

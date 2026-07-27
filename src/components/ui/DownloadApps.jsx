@@ -1,9 +1,19 @@
+// Desktop release these links point at. Bump this one constant when a new
+// desktop version ships — the version used to be repeated in three URLs in two
+// different forms, which is how they ended up stuck on 0.1.0.
+//
+// The tag is pinned rather than using /releases/latest/download/: the filenames
+// carry the version, so a `latest` link 404s the moment a newer release exists,
+// whereas a pinned tag keeps serving a working (if older) installer.
+const DESKTOP_VERSION = '0.3.0';
+const DESKTOP_RELEASE = `https://github.com/SecureBitChat/securebit-desktop/releases/download/v${DESKTOP_VERSION}`;
+
 const DownloadApps = () => {
     const apps = [
         { id: 'web', name: 'Web App', subtitle: 'Browser Version', icon: 'fas fa-globe', platform: 'Web', isActive: true, url: 'https://securebit.chat/', color: 'green' },
-        { id: 'windows', name: 'Windows', subtitle: 'Desktop App', icon: 'fab fa-windows', platform: 'Desktop', isActive: true, url: 'https://github.com/SecureBitChat/securebit-desktop/releases/latest/download/SecureBit.Chat_0.1.0_x64-setup.exe', color: 'blue' },
-        { id: 'macos', name: 'macOS', subtitle: 'Desktop App', icon: 'fab fa-safari', platform: 'Desktop', isActive: true, url: 'https://github.com/SecureBitChat/securebit-desktop/releases/download/v0.1.0/SecureBit.Chat_0.1.0_x64.dmg', color: 'gray' },
-        { id: 'linux', name: 'Linux', subtitle: 'Desktop App', icon: 'fab fa-linux', platform: 'Desktop', isActive: true, url: 'https://github.com/SecureBitChat/securebit-desktop/releases/latest/download/SecureBit.Chat_0.1.0_amd64.AppImage', color: 'orange' },
+        { id: 'windows', name: 'Windows', subtitle: 'Desktop App', icon: 'fab fa-windows', platform: 'Desktop', isActive: true, url: `${DESKTOP_RELEASE}/SecureBit.Chat_${DESKTOP_VERSION}_x64-setup.exe`, color: 'blue' },
+        { id: 'macos', name: 'macOS', subtitle: 'Desktop App', icon: 'fab fa-safari', platform: 'Desktop', isActive: true, url: `${DESKTOP_RELEASE}/SecureBit.Chat_${DESKTOP_VERSION}_x64.dmg`, color: 'gray' },
+        { id: 'linux', name: 'Linux', subtitle: 'Desktop App', icon: 'fab fa-linux', platform: 'Desktop', isActive: true, url: `${DESKTOP_RELEASE}/SecureBit.Chat_${DESKTOP_VERSION}_amd64.AppImage`, color: 'orange' },
         { id: 'ios', name: 'iOS', subtitle: 'iPhone & iPad', icon: 'fab fa-apple', platform: 'Mobile', isActive: false, url: 'https://apps.apple.com/app/securebit-chat/', color: 'white' },
         { id: 'android', name: 'Android', subtitle: 'Google Play', icon: 'fab fa-android', platform: 'Mobile', isActive: false, url: 'https://play.google.com/store/apps/details?id=com.securebit.chat', color: 'green' },
         { id: 'chrome', name: 'Chrome', subtitle: 'Browser Extension', icon: 'fab fa-chrome', platform: 'Browser', isActive: false, url: '#', color: 'yellow' },
