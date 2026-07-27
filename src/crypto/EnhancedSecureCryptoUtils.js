@@ -2368,16 +2368,21 @@ class EnhancedSecureCryptoUtils {
 
             const messageAge = Date.now() - metadata.timestamp;
             if (messageAge > 1800000) { // 30 minutes for better UX
-                throw new Error('Message expired (older than 5 minutes)');
+                throw new Error('Message expired (older than 30 minutes)');
             }
 
             if (expectedSequenceNumber !== null) {
+                // A sequence number below what we expect means the frame is a
+                // replay (or badly out of order on a channel that is ordered and
+                // reliable). Downgrading that to a warning and decrypting anyway
+                // defeats the purpose of tracking sequence numbers at all.
                 if (metadata.sequenceNumber < expectedSequenceNumber) {
-                    EnhancedSecureCryptoUtils.secureLog.log('warn', 'Received message with lower sequence number, possible queued message', {
+                    EnhancedSecureCryptoUtils.secureLog.log('error', 'Rejected message with stale sequence number - possible replay', {
                         expected: expectedSequenceNumber,
                         received: metadata.sequenceNumber,
                         messageId: metadata.id
                     });
+                    throw new Error(`Stale sequence number: expected at least ${expectedSequenceNumber}, got ${metadata.sequenceNumber}`);
                 } else if (metadata.sequenceNumber > expectedSequenceNumber + 10) {
                     throw new Error(`Sequence number gap too large: expected around ${expectedSequenceNumber}, got ${metadata.sequenceNumber}`);
                 }

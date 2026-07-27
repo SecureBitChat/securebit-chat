@@ -3991,15 +3991,16 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
       }
       const messageAge = Date.now() - metadata.timestamp;
       if (messageAge > 18e5) {
-        throw new Error("Message expired (older than 5 minutes)");
+        throw new Error("Message expired (older than 30 minutes)");
       }
       if (expectedSequenceNumber !== null) {
         if (metadata.sequenceNumber < expectedSequenceNumber) {
-          _EnhancedSecureCryptoUtils.secureLog.log("warn", "Received message with lower sequence number, possible queued message", {
+          _EnhancedSecureCryptoUtils.secureLog.log("error", "Rejected message with stale sequence number - possible replay", {
             expected: expectedSequenceNumber,
             received: metadata.sequenceNumber,
             messageId: metadata.id
           });
+          throw new Error(`Stale sequence number: expected at least ${expectedSequenceNumber}, got ${metadata.sequenceNumber}`);
         } else if (metadata.sequenceNumber > expectedSequenceNumber + 10) {
           throw new Error(`Sequence number gap too large: expected around ${expectedSequenceNumber}, got ${metadata.sequenceNumber}`);
         }
@@ -9676,6 +9677,14 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       if (!verificationMethod || verificationMethod === "unknown") {
         throw new Error("Cannot set verified=true without specifying verification method");
       }
+      if (verificationMethod.includes("SAS") && !this.localVerificationConfirmed) {
+        this._secureLog("error", "Blocked verified transition without local SAS confirmation", {
+          verificationMethod,
+          localConfirmed: this.localVerificationConfirmed,
+          remoteConfirmed: this.remoteVerificationConfirmed
+        });
+        throw new Error("Cannot set verified=true without local SAS confirmation");
+      }
       this._secureLog("info", "Connection verified through cryptographic verification", {
         verificationMethod,
         hasEncryptionKey: !!this.encryptionKey,
@@ -9730,6 +9739,208 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         aadLength: typeof aadString === "string" ? aadString.length : 0
       });
       throw new Error(`AAD validation failed: ${error.message}`);
+    }
+  }
+  // ============================================
+  // ANTI-REPLAY / SEQUENCE VALIDATION
+  // These belong to the connection, not to key storage: they read and mutate
+  // this.replayWindow / this.expectedSequenceNumber / this.currentSession.
+  // ============================================
+  // Method _generateNextSequenceNumber moved to constructor area for early availability
+  /**
+   *   Validate incoming message sequence number
+   * This prevents replay attacks and ensures message ordering
+   */
+  _validateIncomingSequenceNumber(receivedSeq, context = "unknown") {
+    try {
+      if (!this.replayProtectionEnabled) {
+        return true;
+      }
+      if (typeof receivedSeq !== "number" || !Number.isFinite(receivedSeq)) {
+        this._secureLog("warn", "Missing or non-numeric sequence number - rejecting", {
+          receivedType: typeof receivedSeq,
+          context,
+          timestamp: Date.now()
+        });
+        return false;
+      }
+      if (receivedSeq < this.expectedSequenceNumber - this.replayWindowSize) {
+        this._secureLog("warn", "Sequence number too old - possible replay attack", {
+          received: receivedSeq,
+          expected: this.expectedSequenceNumber,
+          context,
+          timestamp: Date.now()
+        });
+        return false;
+      }
+      if (receivedSeq > this.expectedSequenceNumber + this.maxSequenceGap) {
+        this._secureLog("warn", "Sequence number gap too large - possible DoS attack", {
+          received: receivedSeq,
+          expected: this.expectedSequenceNumber,
+          gap: receivedSeq - this.expectedSequenceNumber,
+          context,
+          timestamp: Date.now()
+        });
+        return false;
+      }
+      if (this.replayWindow.has(receivedSeq)) {
+        this._secureLog("warn", "Duplicate sequence number detected - replay attack", {
+          received: receivedSeq,
+          context,
+          timestamp: Date.now()
+        });
+        return false;
+      }
+      this.replayWindow.add(receivedSeq);
+      if (this.replayWindow.size > this.replayWindowSize) {
+        const oldestSeq = Math.min(...this.replayWindow);
+        this.replayWindow.delete(oldestSeq);
+      }
+      if (receivedSeq === this.expectedSequenceNumber) {
+        this.expectedSequenceNumber++;
+        while (this.replayWindow.has(this.expectedSequenceNumber - this.replayWindowSize - 1)) {
+          this.replayWindow.delete(this.expectedSequenceNumber - this.replayWindowSize - 1);
+        }
+      }
+      this._secureLog("debug", "Sequence number validation successful", {
+        received: receivedSeq,
+        expected: this.expectedSequenceNumber,
+        context,
+        timestamp: Date.now()
+      });
+      return true;
+    } catch (error) {
+      this._secureLog("error", "Sequence number validation failed", {
+        error: error.message,
+        context,
+        timestamp: Date.now()
+      });
+      return false;
+    }
+  }
+  // Method _createMessageAAD moved to constructor area for early availability
+  /**
+   *   Validate message AAD with sequence number
+   * This ensures message integrity and prevents replay attacks
+   */
+  _validateMessageAAD(aadString, expectedMessageType = null) {
+    try {
+      const aad = JSON.parse(aadString);
+      if (aad.sessionId !== (this.currentSession?.sessionId || "unknown")) {
+        throw new Error("AAD sessionId mismatch - possible replay attack");
+      }
+      if (aad.keyFingerprint !== (this.keyFingerprint || "unknown")) {
+        throw new Error("AAD keyFingerprint mismatch - possible key substitution attack");
+      }
+      if (!this._validateIncomingSequenceNumber(aad.sequenceNumber, aad.messageType)) {
+        throw new Error("Sequence number validation failed - possible replay or DoS attack");
+      }
+      if (expectedMessageType && aad.messageType !== expectedMessageType) {
+        throw new Error(`AAD messageType mismatch - expected ${expectedMessageType}, got ${aad.messageType}`);
+      }
+      return aad;
+    } catch (error) {
+      this._secureLog("error", "AAD validation failed", {
+        error: error.message,
+        aadLength: typeof aadString === "string" ? aadString.length : 0
+      });
+      throw new Error(`AAD validation failed: ${error.message}`);
+    }
+  }
+  /**
+   *   Get anti-replay protection status
+   * This shows the current state of replay protection
+   */
+  getAntiReplayStatus() {
+    const status = {
+      replayProtectionEnabled: this.replayProtectionEnabled,
+      replayWindowSize: this.replayWindowSize,
+      currentReplayWindowSize: this.replayWindow.size,
+      sequenceNumber: this.sequenceNumber,
+      expectedSequenceNumber: this.expectedSequenceNumber,
+      maxSequenceGap: this.maxSequenceGap,
+      replayWindowEntries: Array.from(this.replayWindow).sort((a, b) => a - b)
+    };
+    this._secureLog("info", "Anti-replay status retrieved", status);
+    return status;
+  }
+  /**
+   *   Configure anti-replay protection
+   * This allows fine-tuning of replay protection parameters
+   */
+  configureAntiReplayProtection(config) {
+    try {
+      if (config.windowSize !== void 0) {
+        if (config.windowSize < 16 || config.windowSize > 1024) {
+          throw new Error("Replay window size must be between 16 and 1024");
+        }
+        this.replayWindowSize = config.windowSize;
+      }
+      if (config.maxGap !== void 0) {
+        if (config.maxGap < 10 || config.maxGap > 1e3) {
+          throw new Error("Max sequence gap must be between 10 and 1000");
+        }
+        this.maxSequenceGap = config.maxGap;
+      }
+      if (config.enabled !== void 0) {
+        this.replayProtectionEnabled = config.enabled;
+      }
+      this._secureLog("info", "Anti-replay protection configured", config);
+      return true;
+    } catch (error) {
+      this._secureLog("error", "Failed to configure anti-replay protection", { error: error.message });
+      return false;
+    }
+  }
+  /**
+   * Get real security level with actual cryptographic tests
+   * This provides real-time verification of security features
+   *
+   * Returns the scored security level (level / score / passedChecks / …) with
+   * the per-feature flags merged in. The header renders `level` and `score`
+   * directly, so this MUST carry them — returning only the feature flags makes
+   * the header display "Secure undefined%".
+   */
+  async getRealSecurityLevel() {
+    try {
+      const featureFlags = {
+        // Basic security features
+        ecdhKeyExchange: !!this.ecdhKeyPair,
+        ecdsaSignatures: !!this.ecdsaKeyPair,
+        aesEncryption: !!this.encryptionKey,
+        messageIntegrity: !!this.hmacKey,
+        // Advanced security features - using the exact property names expected by EnhancedSecureCryptoUtils
+        replayProtection: this.replayProtectionEnabled,
+        dtlsFingerprint: !!this.expectedDTLSFingerprint,
+        sasCode: !!this.verificationCode,
+        metadataProtection: true,
+        // Always enabled
+        trafficObfuscation: true,
+        // Always enabled
+        perfectForwardSecrecy: true,
+        // Always enabled
+        // Rate limiting
+        rateLimiter: true,
+        // Always enabled
+        // Additional info
+        connectionId: this.connectionId,
+        keyFingerprint: this.keyFingerprint,
+        currentSecurityLevel: "maximum",
+        timestamp: Date.now()
+      };
+      const scored = await this.calculateAndReportSecurityLevel();
+      if (!scored) {
+        return {
+          ...featureFlags,
+          level: "INITIALIZING",
+          score: 0,
+          isRealData: false
+        };
+      }
+      return { ...scored, ...featureFlags };
+    } catch (error) {
+      this._secureLog("error", "Failed to calculate real security level", { error: error.message });
+      throw error;
     }
   }
   /**
@@ -12910,6 +13121,12 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
               "file_transfer_error"
             ];
             if (parsed.type && fileMessageTypes2.includes(parsed.type)) {
+              if (!this._enforceVerificationGate("file_message_receive", false)) {
+                this._secureLog("error", "Dropped file message received before verification", {
+                  messageType: parsed.type
+                });
+                return;
+              }
               if (!this.fileTransferSystem) {
                 try {
                   if (this.isVerified && this.dataChannel && this.dataChannel.readyState === "open") {
@@ -12979,26 +13196,18 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
               this.handleSystemMessage(parsed);
               return;
             }
-            if (parsed.type === "message" && parsed.data) {
-              if (!this._checkInboundRateLimit("dataChannel:message")) {
-                return;
-              }
-              if (this.onMessage) {
-                this.deliverMessageToUI(parsed.data, "received", parsed.meta);
-              }
-              return;
-            }
             if (parsed.type === "enhanced_message" && parsed.data) {
               await this._processEnhancedMessageWithoutMutex(parsed);
               return;
             }
+            this._secureLog("error", "Rejected unencrypted frame on the chat channel", {
+              messageType: typeof parsed.type === "string" ? parsed.type.slice(0, 32) : typeof parsed.type
+            });
+            return;
           } catch (jsonError) {
-            if (!this._checkInboundRateLimit("dataChannel:text")) {
-              return;
-            }
-            if (this.onMessage) {
-              this.deliverMessageToUI(event.data, "received");
-            }
+            this._secureLog("error", "Rejected malformed (non-JSON) frame on the chat channel", {
+              dataLength: typeof event.data === "string" ? event.data.length : 0
+            });
             return;
           }
         } else if (event.data instanceof ArrayBuffer) {
@@ -13047,9 +13256,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           }
         } catch (e) {
         }
-        if (this.onMessage) {
-          this.deliverMessageToUI(textData, "received");
-        }
+        this._secureLog("error", "Rejected unauthenticated binary frame on the chat channel", {
+          byteLength: data?.byteLength || 0
+        });
       }
     } catch (error) {
       this._secureLog("error", "Error processing binary data:", { errorType: error?.constructor?.name || "Unknown" });
@@ -13071,6 +13280,12 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         this.macKey,
         this.metadataKey
       );
+      if (!this._validateIncomingSequenceNumber(decryptedResult?.sequenceNumber, "enhanced_message")) {
+        this._secureLog("error", "Rejected chat message failing anti-replay validation", {
+          messageId: decryptedResult?.messageId ? "present" : "absent"
+        });
+        return;
+      }
       if (decryptedResult && decryptedResult.message) {
         try {
           const decryptedContent = JSON.parse(decryptedResult.message);
@@ -15666,12 +15881,20 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       }
       this.deliverMessageToUI("Both parties confirmed! Opening secure chat in 2 seconds...", "system");
       setTimeout(() => {
-        this._setVerifiedStatus(true, "MUTUAL_SAS_CONFIRMED", {
-          code: this.verificationCode,
-          timestamp: Date.now()
-        });
-        this._enforceVerificationGate("mutual_confirmed", false);
-        this.onStatusChange?.("verified");
+        try {
+          this._setVerifiedStatus(true, "MUTUAL_SAS_CONFIRMED", {
+            code: this.verificationCode,
+            timestamp: Date.now()
+          });
+          this._enforceVerificationGate("mutual_confirmed", false);
+          this.onStatusChange?.("verified");
+        } catch (error) {
+          this._secureLog("error", "Verified transition rejected - aborting session", {
+            errorType: error?.constructor?.name || "Unknown"
+          });
+          this.deliverMessageToUI("Verification could not be completed safely. Connection aborted.", "system");
+          this.disconnect();
+        }
       }, 2e3);
     }
   }
@@ -15691,6 +15914,17 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     if (this.bothVerificationsConfirmed) {
       return;
     }
+    if (!this.localVerificationConfirmed) {
+      this._secureLog("error", "Peer claimed mutual SAS confirmation before local confirmation - possible MITM attack", {
+        localConfirmed: this.localVerificationConfirmed,
+        remoteConfirmed: this.remoteVerificationConfirmed,
+        timestamp: Date.now()
+      });
+      this.deliverMessageToUI("Verification protocol violation: peer claimed confirmation before you verified the code. Connection aborted for safety.", "system");
+      this.disconnect();
+      return;
+    }
+    this.remoteVerificationConfirmed = true;
     this.bothVerificationsConfirmed = true;
     if (this.onVerificationStateChange) {
       this.onVerificationStateChange({
@@ -15710,7 +15944,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     }, 2e3);
   }
   handleVerificationRequest(data) {
-    if (data.code === this.verificationCode) {
+    if (this._validateSASCode(data?.code)) {
       const responsePayload = {
         type: "verification_response",
         data: {
@@ -15738,8 +15972,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       };
       this.dataChannel.send(JSON.stringify(responsePayload));
       this._secureLog("error", "SAS verification failed - possible MITM attack", {
-        receivedCode: data.code,
-        expectedCode: this.verificationCode,
+        // Never log the codes themselves — the SAS is the one secret the
+        // user is asked to compare out-of-band.
+        receivedCodeLength: typeof data?.code === "string" ? data.code.length : 0,
         timestamp: Date.now()
       });
       this.deliverMessageToUI("SAS verification failed! Possible MITM attack detected. Connection aborted for safety!", "system");
@@ -15751,16 +15986,22 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       this._secureLog("warn", "Invalid SAS announcement received from peer");
       return;
     }
-    if (this.verificationCode && !this._validateSASCode(data.code)) {
+    if (!this.verificationCode) {
+      this._secureLog("error", "Received peer SAS announcement before local SAS was derived - refusing to adopt it", {
+        timestamp: Date.now()
+      });
+      this.deliverMessageToUI("Verification failed: no locally derived code to compare against. Connection aborted for safety.", "system");
+      this.disconnect();
+      return;
+    }
+    if (!this._validateSASCode(data.code)) {
       this._secureLog("error", "Peer-announced SAS does not match locally computed SAS");
       this.deliverMessageToUI("Version or SAS mismatch detected. Connection aborted for safety.", "system");
       this.disconnect();
       return;
     }
-    this.verificationCode = data.code;
     this._notifyVerificationReadyIfPossible();
-    this._secureLog("info", "SAS code received from Offer side", {
-      sasCode: this.verificationCode,
+    this._secureLog("info", "Peer SAS announcement matched locally derived code", {
       timestamp: Date.now()
     });
   }
@@ -17479,182 +17720,6 @@ var SecureKeyStorage = class {
       return false;
     }
   }
-  // Method _generateNextSequenceNumber moved to constructor area for early availability
-  /**
-   *   Validate incoming message sequence number
-   * This prevents replay attacks and ensures message ordering
-   */
-  _validateIncomingSequenceNumber(receivedSeq, context = "unknown") {
-    try {
-      if (!this.replayProtectionEnabled) {
-        return true;
-      }
-      if (receivedSeq < this.expectedSequenceNumber - this.replayWindowSize) {
-        this._secureLog("warn", "Sequence number too old - possible replay attack", {
-          received: receivedSeq,
-          expected: this.expectedSequenceNumber,
-          context,
-          timestamp: Date.now()
-        });
-        return false;
-      }
-      if (receivedSeq > this.expectedSequenceNumber + this.maxSequenceGap) {
-        this._secureLog("warn", "Sequence number gap too large - possible DoS attack", {
-          received: receivedSeq,
-          expected: this.expectedSequenceNumber,
-          gap: receivedSeq - this.expectedSequenceNumber,
-          context,
-          timestamp: Date.now()
-        });
-        return false;
-      }
-      if (this.replayWindow.has(receivedSeq)) {
-        this._secureLog("warn", "Duplicate sequence number detected - replay attack", {
-          received: receivedSeq,
-          context,
-          timestamp: Date.now()
-        });
-        return false;
-      }
-      this.replayWindow.add(receivedSeq);
-      if (this.replayWindow.size > this.replayWindowSize) {
-        const oldestSeq = Math.min(...this.replayWindow);
-        this.replayWindow.delete(oldestSeq);
-      }
-      if (receivedSeq === this.expectedSequenceNumber) {
-        this.expectedSequenceNumber++;
-        while (this.replayWindow.has(this.expectedSequenceNumber - this.replayWindowSize - 1)) {
-          this.replayWindow.delete(this.expectedSequenceNumber - this.replayWindowSize - 1);
-        }
-      }
-      this._secureLog("debug", "Sequence number validation successful", {
-        received: receivedSeq,
-        expected: this.expectedSequenceNumber,
-        context,
-        timestamp: Date.now()
-      });
-      return true;
-    } catch (error) {
-      this._secureLog("error", "Sequence number validation failed", {
-        error: error.message,
-        context,
-        timestamp: Date.now()
-      });
-      return false;
-    }
-  }
-  // Method _createMessageAAD moved to constructor area for early availability
-  /**
-   *   Validate message AAD with sequence number
-   * This ensures message integrity and prevents replay attacks
-   */
-  _validateMessageAAD(aadString, expectedMessageType = null) {
-    try {
-      const aad = JSON.parse(aadString);
-      if (aad.sessionId !== (this.currentSession?.sessionId || "unknown")) {
-        throw new Error("AAD sessionId mismatch - possible replay attack");
-      }
-      if (aad.keyFingerprint !== (this.keyFingerprint || "unknown")) {
-        throw new Error("AAD keyFingerprint mismatch - possible key substitution attack");
-      }
-      if (!this._validateIncomingSequenceNumber(aad.sequenceNumber, aad.messageType)) {
-        throw new Error("Sequence number validation failed - possible replay or DoS attack");
-      }
-      if (expectedMessageType && aad.messageType !== expectedMessageType) {
-        throw new Error(`AAD messageType mismatch - expected ${expectedMessageType}, got ${aad.messageType}`);
-      }
-      return aad;
-    } catch (error) {
-      this._secureLog("error", "AAD validation failed", {
-        error: error.message,
-        aadLength: typeof aadString === "string" ? aadString.length : 0
-      });
-      throw new Error(`AAD validation failed: ${error.message}`);
-    }
-  }
-  /**
-   *   Get anti-replay protection status
-   * This shows the current state of replay protection
-   */
-  getAntiReplayStatus() {
-    const status = {
-      replayProtectionEnabled: this.replayProtectionEnabled,
-      replayWindowSize: this.replayWindowSize,
-      currentReplayWindowSize: this.replayWindow.size,
-      sequenceNumber: this.sequenceNumber,
-      expectedSequenceNumber: this.expectedSequenceNumber,
-      maxSequenceGap: this.maxSequenceGap,
-      replayWindowEntries: Array.from(this.replayWindow).sort((a, b) => a - b)
-    };
-    this._secureLog("info", "Anti-replay status retrieved", status);
-    return status;
-  }
-  /**
-   *   Configure anti-replay protection
-   * This allows fine-tuning of replay protection parameters
-   */
-  configureAntiReplayProtection(config) {
-    try {
-      if (config.windowSize !== void 0) {
-        if (config.windowSize < 16 || config.windowSize > 1024) {
-          throw new Error("Replay window size must be between 16 and 1024");
-        }
-        this.replayWindowSize = config.windowSize;
-      }
-      if (config.maxGap !== void 0) {
-        if (config.maxGap < 10 || config.maxGap > 1e3) {
-          throw new Error("Max sequence gap must be between 10 and 1000");
-        }
-        this.maxSequenceGap = config.maxGap;
-      }
-      if (config.enabled !== void 0) {
-        this.replayProtectionEnabled = config.enabled;
-      }
-      this._secureLog("info", "Anti-replay protection configured", config);
-      return true;
-    } catch (error) {
-      this._secureLog("error", "Failed to configure anti-replay protection", { error: error.message });
-      return false;
-    }
-  }
-  /**
-   * Get real security level with actual cryptographic tests
-   * This provides real-time verification of security features
-   */
-  async getRealSecurityLevel() {
-    try {
-      const securityData = {
-        // Basic security features
-        ecdhKeyExchange: !!this.ecdhKeyPair,
-        ecdsaSignatures: !!this.ecdsaKeyPair,
-        aesEncryption: !!this.encryptionKey,
-        messageIntegrity: !!this.hmacKey,
-        // Advanced security features - using the exact property names expected by EnhancedSecureCryptoUtils
-        replayProtection: this.replayProtectionEnabled,
-        dtlsFingerprint: !!this.expectedDTLSFingerprint,
-        sasCode: !!this.verificationCode,
-        metadataProtection: true,
-        // Always enabled
-        trafficObfuscation: true,
-        // Always enabled
-        perfectForwardSecrecy: true,
-        // Always enabled
-        // Rate limiting
-        rateLimiter: true,
-        // Always enabled
-        // Additional info
-        connectionId: this.connectionId,
-        keyFingerprint: this.keyFingerprint,
-        currentSecurityLevel: "maximum",
-        timestamp: Date.now()
-      };
-      this._secureLog("info", "Real security level calculated", securityData);
-      return securityData;
-    } catch (error) {
-      this._secureLog("error", "Failed to calculate real security level", { error: error.message });
-      throw error;
-    }
-  }
 };
 var SecureIndexedDBWrapper = class {
   constructor(dbName = "SecureKeyStorage", version = 1) {
@@ -18365,7 +18430,7 @@ var SecureMasterKeyManager = class {
    * Check if master key is unlocked
    */
   isUnlocked() {
-    return this._isUnlocked && this._masterKey !== null;
+    return this._isUnlocked && this._keyHandle !== null;
   }
   /**
    * Get session status
@@ -18845,7 +18910,7 @@ Right-click or Ctrl+click to disconnect`,
           React.createElement("div", { key: "txt", style: { lineHeight: 1.2, minWidth: 0 } }, [
             React.createElement("div", { key: "r1", style: { display: "flex", alignItems: "baseline", gap: "7px" } }, [
               React.createElement("span", { key: "n", style: { fontSize: "16px", fontWeight: 800, letterSpacing: "-0.3px", color: "#e8e8eb" } }, "SecureBit"),
-              React.createElement("span", { key: "v", style: { fontFamily: MONO, fontSize: "10px", fontWeight: 500, color: "#56565e" } }, "v5.5.0")
+              React.createElement("span", { key: "v", style: { fontFamily: MONO, fontSize: "10px", fontWeight: 500, color: "#56565e" } }, "v5.5.2")
             ]),
             React.createElement("div", { key: "r2", className: "hidden sm:block", style: { fontSize: "11px", color: "#6b6b73", fontWeight: 500 } }, "End-to-end encrypted")
           ])

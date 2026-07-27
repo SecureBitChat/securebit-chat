@@ -66,8 +66,10 @@ const T = EnhancedSecureWebRTCManager.MESSAGE_TYPES;
 // This is the path real chat uses (dataChannel.onmessage -> _processEnhancedMessageWithoutMutex).
 {
     const envelope = JSON.stringify({ type: 'message', data: 'hi there', meta: { mid: 'm7', once: true, ttl: 30 } });
+    // decryptMessage always returns the authenticated sequence number alongside
+    // the plaintext; the receive path uses it for anti-replay validation.
     globalThis.window.EnhancedSecureCryptoUtils = {
-        decryptMessage: async () => ({ message: envelope })
+        decryptMessage: async () => ({ message: envelope, messageId: 'msg_7', sequenceNumber: 0 })
     };
     const calls = [];
     const manager = {
@@ -76,6 +78,12 @@ const T = EnhancedSecureWebRTCManager.MESSAGE_TYPES;
         _checkInboundRateLimit: () => true,
         _sanitizeIncomingChatMessage: (m) => m,
         _sanitizeMessageMeta: P._sanitizeMessageMeta,
+        _validateIncomingSequenceNumber: P._validateIncomingSequenceNumber,
+        replayProtectionEnabled: true,
+        expectedSequenceNumber: 0,
+        replayWindow: new Set(),
+        replayWindowSize: 64,
+        maxSequenceGap: 100,
         onMessage: (message, type, meta) => calls.push({ message, type, meta }),
         deliverMessageToUI: P.deliverMessageToUI
     };

@@ -1,5 +1,32 @@
 # Changelog
 
+## v5.5.2 — Fix security level in the header
+
+### Fixed
+
+- **Header showed "Secure undefined%".** Moving `getRealSecurityLevel()` onto the connection manager in v5.5.1 made it reachable for the first time, so the header started calling it instead of falling through to `calculateAndReportSecurityLevel()`. It returned only per-feature booleans — no `level`, no `score` — and the header renders those two fields directly. It now runs the same verified scoring as every other consumer and merges the feature flags on top, so all callers see one consistent number. A regression test pins the shape for every branch of the header's fallback chain.
+
+## v5.5.1 — Security audit fixes
+
+A security review of the transport and verification layers. Every item below is a
+fix to how untrusted peer input is handled; no features changed.
+
+### Security
+
+- **SAS verification can no longer be bypassed.** `verification_both_confirmed` is an unauthenticated frame that arrives on a channel that is not yet trusted, but it was accepted as proof that both sides had compared their codes — so a peer who completed the signalling exchange could send it right after the data channel opened and drive the other side to a "verified" session while the user never looked at the code. It is now only an *acknowledgement*: it is refused unless this side has already confirmed locally, and `_setVerifiedStatus()` independently rejects any SAS-based transition without a local confirmation. Holding ECDH-derived keys was never sufficient proof of identity — a MITM has those too.
+- **Unauthenticated frames can no longer be injected into the chat.** A bare `{type:"message"}` JSON frame, a raw non-JSON text frame, and a binary frame were each decoded and rendered in the chat, bypassing decryption, the HMAC check and the verification gate — the injected text was visually indistinguishable from a genuine message. Chat content now reaches the UI only through the authenticated `enhanced_message` path; everything else is dropped and logged.
+- **A peer can no longer supply the verification code.** `sas_code` announcements were adopted verbatim when no local SAS had been derived yet, which would have shown the user a number chosen by the other end. The announcement may now only corroborate the locally derived code; a missing or mismatching code aborts the session.
+- **File transfers are gated on verification in both directions.** File control frames (`file_transfer_start`, `file_chunk`, …) are written straight to the data channel by the transfer system, so they never passed through the send path's verification gate on receipt. Sending was already gated; receiving now is too, so an unverified peer cannot open transfers, push chunks or drive transfer state before the SAS has been compared. User consent remains required on top of this.
+- **Anti-replay is actually enforced.** The sequence-number and AAD validators were defined on the wrong class (`SecureKeyStorage` instead of the connection manager), so every call site silently failed and the sliding replay window never ran. They now live on the manager, the live chat path validates the authenticated sequence number of each message, and a missing or non-numeric sequence number fails closed instead of sailing through the range checks.
+- **Stale sequence numbers are rejected** rather than logged and decrypted anyway.
+- **Tighter CSP.** `connect-src` and `img-src` no longer allow arbitrary `https:` hosts (nothing in the app talks to a third party), and `base-uri 'none'` is set. This removes the exfiltration channel an injection would otherwise have.
+- The SAS is no longer written to logs, and the peer-announced code is compared in constant time on every path.
+- Fixed `SecureMasterKeyManager.isUnlocked()` testing a field renamed long ago, so it never actually gated anything.
+
+### Added
+
+- Regression tests covering the verification gate and inbound frame authentication (`tests/verification-gate.test.mjs`, `tests/inbound-frame-authentication.test.mjs`).
+
 ## v5.5.0 — Encrypted voice & video calls
 
 SecureBit now supports **end-to-end encrypted voice and video calls** — the "5.5 Secure Voice & Calls" roadmap milestone.

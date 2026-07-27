@@ -3771,7 +3771,21 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             if (!verificationMethod || verificationMethod === 'unknown') {
                 throw new Error('Cannot set verified=true without specifying verification method');
             }
-            
+
+            // SECURITY: defence in depth. Having ECDH-derived keys proves only that
+            // *someone* completed the handshake — a MITM has them too. The SAS
+            // comparison is what proves that someone is the intended peer, so any
+            // SAS-based transition must be backed by a local confirmation that the
+            // user actually entered the matching code. No caller may shortcut this.
+            if (verificationMethod.includes('SAS') && !this.localVerificationConfirmed) {
+                this._secureLog('error', 'Blocked verified transition without local SAS confirmation', {
+                    verificationMethod: verificationMethod,
+                    localConfirmed: this.localVerificationConfirmed,
+                    remoteConfirmed: this.remoteVerificationConfirmed
+                });
+                throw new Error('Cannot set verified=true without local SAS confirmation');
+            }
+
             // Log the verification for audit trail
             this._secureLog('info', 'Connection verified through cryptographic verification', {
                 verificationMethod: verificationMethod,
@@ -3845,6 +3859,261 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
             throw new Error(`AAD validation failed: ${error.message}`);
         }
     }
+
+    // ============================================
+    // ANTI-REPLAY / SEQUENCE VALIDATION
+    // These belong to the connection, not to key storage: they read and mutate
+    // this.replayWindow / this.expectedSequenceNumber / this.currentSession.
+    // ============================================
+
+    // Method _generateNextSequenceNumber moved to constructor area for early availability
+
+    /**
+     *   Validate incoming message sequence number
+     * This prevents replay attacks and ensures message ordering
+     */
+    _validateIncomingSequenceNumber(receivedSeq, context = 'unknown') {
+        try {
+            if (!this.replayProtectionEnabled) {
+                return true; // Skip validation if disabled
+            }
+
+            // SECURITY: a missing or non-numeric sequence number must fail closed.
+            // Both range checks below compare with `<` / `>`, and any comparison
+            // against undefined/NaN is false — so without this guard an omitted
+            // sequence number would sail past every check and land in the replay
+            // window as a valid entry, silently disabling replay protection.
+            if (typeof receivedSeq !== 'number' || !Number.isFinite(receivedSeq)) {
+                this._secureLog('warn', 'Missing or non-numeric sequence number - rejecting', {
+                    receivedType: typeof receivedSeq,
+                    context: context,
+                    timestamp: Date.now()
+                });
+                return false;
+            }
+
+            // Check if sequence number is within acceptable range
+            if (receivedSeq < this.expectedSequenceNumber - this.replayWindowSize) {
+                this._secureLog('warn', 'Sequence number too old - possible replay attack', {
+                    received: receivedSeq,
+                    expected: this.expectedSequenceNumber,
+                    context: context,
+                    timestamp: Date.now()
+                });
+                return false;
+            }
+
+            // Check if sequence number is too far ahead (DoS protection)
+            if (receivedSeq > this.expectedSequenceNumber + this.maxSequenceGap) {
+                this._secureLog('warn', 'Sequence number gap too large - possible DoS attack', {
+                    received: receivedSeq,
+                    expected: this.expectedSequenceNumber,
+                    gap: receivedSeq - this.expectedSequenceNumber,
+                    context: context,
+                    timestamp: Date.now()
+                });
+                return false;
+            }
+
+            // Check if sequence number is already in replay window
+            if (this.replayWindow.has(receivedSeq)) {
+                this._secureLog('warn', 'Duplicate sequence number detected - replay attack', {
+                    received: receivedSeq,
+                    context: context,
+                    timestamp: Date.now()
+                });
+                return false;
+            }
+
+            // Add to replay window
+            this.replayWindow.add(receivedSeq);
+            
+            // Maintain sliding window size
+            if (this.replayWindow.size > this.replayWindowSize) {
+                const oldestSeq = Math.min(...this.replayWindow);
+                this.replayWindow.delete(oldestSeq);
+            }
+
+            // Update expected sequence number if this is the next expected
+            if (receivedSeq === this.expectedSequenceNumber) {
+                this.expectedSequenceNumber++;
+                
+                // Clean up replay window entries that are no longer needed
+                while (this.replayWindow.has(this.expectedSequenceNumber - this.replayWindowSize - 1)) {
+                    this.replayWindow.delete(this.expectedSequenceNumber - this.replayWindowSize - 1);
+                }
+            }
+
+            this._secureLog('debug', 'Sequence number validation successful', {
+                received: receivedSeq,
+                expected: this.expectedSequenceNumber,
+                context: context,
+                timestamp: Date.now()
+            });
+
+            return true;
+        } catch (error) {
+            this._secureLog('error', 'Sequence number validation failed', {
+                error: error.message,
+                context: context,
+                timestamp: Date.now()
+            });
+            return false;
+        }
+    }
+
+    // Method _createMessageAAD moved to constructor area for early availability
+
+    /**
+     *   Validate message AAD with sequence number
+     * This ensures message integrity and prevents replay attacks
+     */
+    _validateMessageAAD(aadString, expectedMessageType = null) {
+        try {
+            const aad = JSON.parse(aadString);
+            
+            // Validate session binding
+            if (aad.sessionId !== (this.currentSession?.sessionId || 'unknown')) {
+                throw new Error('AAD sessionId mismatch - possible replay attack');
+            }
+            
+            if (aad.keyFingerprint !== (this.keyFingerprint || 'unknown')) {
+                throw new Error('AAD keyFingerprint mismatch - possible key substitution attack');
+            }
+            
+            //   Validate sequence number
+            if (!this._validateIncomingSequenceNumber(aad.sequenceNumber, aad.messageType)) {
+                throw new Error('Sequence number validation failed - possible replay or DoS attack');
+            }
+            
+            // Validate message type if specified
+            if (expectedMessageType && aad.messageType !== expectedMessageType) {
+                throw new Error(`AAD messageType mismatch - expected ${expectedMessageType}, got ${aad.messageType}`);
+            }
+            
+            return aad;
+        } catch (error) {
+            // Never log the raw AAD: it carries sessionId and keyFingerprint.
+            // Length is enough to diagnose malformed input without leaking secrets.
+            this._secureLog('error', 'AAD validation failed', {
+                error: error.message,
+                aadLength: typeof aadString === 'string' ? aadString.length : 0
+            });
+            throw new Error(`AAD validation failed: ${error.message}`);
+        }
+    }
+
+    /**
+     *   Get anti-replay protection status
+     * This shows the current state of replay protection
+     */
+    getAntiReplayStatus() {
+        const status = {
+            replayProtectionEnabled: this.replayProtectionEnabled,
+            replayWindowSize: this.replayWindowSize,
+            currentReplayWindowSize: this.replayWindow.size,
+            sequenceNumber: this.sequenceNumber,
+            expectedSequenceNumber: this.expectedSequenceNumber,
+            maxSequenceGap: this.maxSequenceGap,
+            replayWindowEntries: Array.from(this.replayWindow).sort((a, b) => a - b)
+        };
+
+        this._secureLog('info', 'Anti-replay status retrieved', status);
+        return status;
+    }
+
+    /**
+     *   Configure anti-replay protection
+     * This allows fine-tuning of replay protection parameters
+     */
+    configureAntiReplayProtection(config) {
+        try {
+            if (config.windowSize !== undefined) {
+                if (config.windowSize < 16 || config.windowSize > 1024) {
+                    throw new Error('Replay window size must be between 16 and 1024');
+                }
+                this.replayWindowSize = config.windowSize;
+            }
+
+            if (config.maxGap !== undefined) {
+                if (config.maxGap < 10 || config.maxGap > 1000) {
+                    throw new Error('Max sequence gap must be between 10 and 1000');
+                }
+                this.maxSequenceGap = config.maxGap;
+            }
+
+            if (config.enabled !== undefined) {
+                this.replayProtectionEnabled = config.enabled;
+            }
+
+            this._secureLog('info', 'Anti-replay protection configured', config);
+            return true;
+        } catch (error) {
+            this._secureLog('error', 'Failed to configure anti-replay protection', { error: error.message });
+            return false;
+        }
+    }
+
+    /**
+     * Get real security level with actual cryptographic tests
+     * This provides real-time verification of security features
+     *
+     * Returns the scored security level (level / score / passedChecks / …) with
+     * the per-feature flags merged in. The header renders `level` and `score`
+     * directly, so this MUST carry them — returning only the feature flags makes
+     * the header display "Secure undefined%".
+     */
+    async getRealSecurityLevel() {
+        try {
+            const featureFlags = {
+                // Basic security features
+                ecdhKeyExchange: !!this.ecdhKeyPair,
+                ecdsaSignatures: !!this.ecdsaKeyPair,
+                aesEncryption: !!this.encryptionKey,
+                messageIntegrity: !!this.hmacKey,
+
+                // Advanced security features - using the exact property names expected by EnhancedSecureCryptoUtils
+                replayProtection: this.replayProtectionEnabled,
+                dtlsFingerprint: !!this.expectedDTLSFingerprint,
+                sasCode: !!this.verificationCode,
+                metadataProtection: true, // Always enabled
+                trafficObfuscation: true, // Always enabled
+                perfectForwardSecrecy: true, // Always enabled
+
+                // Rate limiting
+                rateLimiter: true, // Always enabled
+
+                // Additional info
+                connectionId: this.connectionId,
+                keyFingerprint: this.keyFingerprint,
+                currentSecurityLevel: 'maximum',
+                timestamp: Date.now()
+            };
+
+            // Run the same verified scoring the rest of the app uses, so every
+            // consumer sees one consistent number.
+            const scored = await this.calculateAndReportSecurityLevel();
+
+            if (!scored) {
+                // Not ready yet (not connected/verified, or keys still missing).
+                // isRealData:false tells the UI to keep its previous value rather
+                // than render a placeholder as if it were a measurement.
+                return {
+                    ...featureFlags,
+                    level: 'INITIALIZING',
+                    score: 0,
+                    isRealData: false
+                };
+            }
+
+            return { ...scored, ...featureFlags };
+        } catch (error) {
+            this._secureLog('error', 'Failed to calculate real security level', { error: error.message });
+            throw error;
+        }
+    }
+
+
 
     /**
      *   Extract DTLS fingerprint from SDP
@@ -7932,6 +8201,21 @@ async processMessage(data) {
                         
                         if (parsed.type && fileMessageTypes.includes(parsed.type)) {
 
+                            // SECURITY: file control frames are written straight to
+                            // the data channel by the transfer system, so they never
+                            // pass through sendMessage()'s gate. The send side is
+                            // already gated (see sendFile); gate the receive side too
+                            // so an unverified peer cannot open transfers, push
+                            // chunks or drive transfer state before the SAS has been
+                            // compared. Nothing legitimate arrives here earlier: the
+                            // chat UI only opens once the session is verified.
+                            if (!this._enforceVerificationGate('file_message_receive', false)) {
+                                this._secureLog('error', 'Dropped file message received before verification', {
+                                    messageType: parsed.type
+                                });
+                                return;
+                            }
+
                             if (!this.fileTransferSystem) {
                                 try {
                                     if (this.isVerified && this.dataChannel && this.dataChannel.readyState === 'open') {
@@ -8012,37 +8296,34 @@ async processMessage(data) {
                         }
                         
                         // ============================================
-                        // REGULAR USER MESSAGES (WITHOUT MUTEX)
-                        // ============================================
-                        
-                        if (parsed.type === 'message' && parsed.data) {
-                            if (!this._checkInboundRateLimit('dataChannel:message')) {
-                                return;
-                            }
-                            if (this.onMessage) {
-                                this.deliverMessageToUI(parsed.data, 'received', parsed.meta);
-                            }
-                            return;
-                        }
-                        
-                        // ============================================
                         // ENHANCED MESSAGES (WITHOUT MUTEX)
                         // ============================================
-                        
+
                         if (parsed.type === 'enhanced_message' && parsed.data) {
                             await this._processEnhancedMessageWithoutMutex(parsed);
                             return;
                         }
-                        
-                        
+
+                        // SECURITY: chat content reaches the UI through exactly one
+                        // door — `enhanced_message`, which is AES-GCM encrypted,
+                        // HMAC-authenticated and AAD/sequence-checked. A bare
+                        // `{type:'message'}` frame used to be rendered as-is, which
+                        // let anyone on the channel inject unauthenticated text that
+                        // looked identical to real messages and bypassed E2EE
+                        // entirely. sendMessage() has always encrypted, so nothing
+                        // legitimate produces such a frame: drop it loudly.
+                        this._secureLog('error', 'Rejected unencrypted frame on the chat channel', {
+                            messageType: typeof parsed.type === 'string' ? parsed.type.slice(0, 32) : typeof parsed.type
+                        });
+                        return;
+
                     } catch (jsonError) {
-                        // Not JSON — treat as regular text message
-                        if (!this._checkInboundRateLimit('dataChannel:text')) {
-                            return;
-                        }
-                        if (this.onMessage) {
-                            this.deliverMessageToUI(event.data, 'received');
-                        }
+                        // SECURITY: non-JSON payloads were previously rendered in the
+                        // chat as plain text — the same unauthenticated injection
+                        // vector as above. Every legitimate frame is JSON.
+                        this._secureLog('error', 'Rejected malformed (non-JSON) frame on the chat channel', {
+                            dataLength: typeof event.data === 'string' ? event.data.length : 0
+                        });
                         return;
                     }
                 } else if (event.data instanceof ArrayBuffer) {
@@ -8099,23 +8380,27 @@ async processMessage(data) {
             // Convert to text
             if (processedData instanceof ArrayBuffer) {
                 const textData = new TextDecoder().decode(processedData);
-                
-                // Check for fake messages
+
+                // SECURITY: the only thing legitimately sent as a binary frame is
+                // cover traffic (see sendFakeMessage), which exists purely to be
+                // discarded. Real chat content always arrives as an authenticated
+                // `enhanced_message`. Decoding a binary frame and handing it to the
+                // UI would therefore only ever surface unauthenticated peer input,
+                // so nothing on this path may reach the user.
                 try {
                     const content = JSON.parse(textData);
                     if (content.type === 'fake' || content.isFakeTraffic === true) {
                         return;
                     }
                 } catch (e) {
-                    // Not JSON — fine for plain text
+                    // Not JSON — still not deliverable.
                 }
-                
-                // Deliver message to user
-                if (this.onMessage) {
-                    this.deliverMessageToUI(textData, 'received');
-                }
+
+                this._secureLog('error', 'Rejected unauthenticated binary frame on the chat channel', {
+                    byteLength: data?.byteLength || 0
+                });
             }
-            
+
         } catch (error) {
             this._secureLog('error', 'Error processing binary data:', { errorType: error?.constructor?.name || 'Unknown' });
         }
@@ -8138,9 +8423,22 @@ async processMessage(data) {
                 this.macKey,
                 this.metadataKey
             );
-            
+
+            // SECURITY: enforce the anti-replay window. The sequence number lives
+            // inside the AES-GCM-encrypted, HMAC-covered metadata, so it cannot be
+            // forged or rewritten in transit — but until it is actually checked
+            // against the sliding window, a captured frame could simply be played
+            // back. The main data channel is ordered+reliable, so legitimate
+            // messages always arrive in sequence.
+            if (!this._validateIncomingSequenceNumber(decryptedResult?.sequenceNumber, 'enhanced_message')) {
+                this._secureLog('error', 'Rejected chat message failing anti-replay validation', {
+                    messageId: decryptedResult?.messageId ? 'present' : 'absent'
+                });
+                return;
+            }
+
             if (decryptedResult && decryptedResult.message) {
-                
+
                 // Try parsing JSON and showing nested text if it's a chat message
                 try {
                     const decryptedContent = JSON.parse(decryptedResult.message);
@@ -11630,12 +11928,23 @@ async processMessage(data) {
             this.deliverMessageToUI('Both parties confirmed! Opening secure chat in 2 seconds...', 'system');
             
             setTimeout(() => {
-                this._setVerifiedStatus(true, 'MUTUAL_SAS_CONFIRMED', { 
-                    code: this.verificationCode,
-                    timestamp: Date.now()
-                });
-                this._enforceVerificationGate('mutual_confirmed', false);
-                this.onStatusChange?.('verified');
+                try {
+                    this._setVerifiedStatus(true, 'MUTUAL_SAS_CONFIRMED', {
+                        code: this.verificationCode,
+                        timestamp: Date.now()
+                    });
+                    this._enforceVerificationGate('mutual_confirmed', false);
+                    this.onStatusChange?.('verified');
+                } catch (error) {
+                    // The verified transition is guarded (see _setVerifiedStatus).
+                    // If it refuses, the session is not trustworthy — tear it down
+                    // instead of leaving the UI in a half-verified state.
+                    this._secureLog('error', 'Verified transition rejected - aborting session', {
+                        errorType: error?.constructor?.name || 'Unknown'
+                    });
+                    this.deliverMessageToUI('Verification could not be completed safely. Connection aborted.', 'system');
+                    this.disconnect();
+                }
             }, 2000);
         }
     }
@@ -11668,6 +11977,28 @@ async processMessage(data) {
             return;
         }
 
+        // SECURITY: this frame is unauthenticated peer input on an as-yet
+        // unverified channel. It may only ACKNOWLEDGE a mutual confirmation, never
+        // create one. Without this check a MITM who completed the signalling
+        // exchange could send a single `verification_both_confirmed` right after
+        // the data channel opens and drive us to isVerified=true while the user
+        // never compared the SAS out-of-band — defeating the entire MITM defence.
+        if (!this.localVerificationConfirmed) {
+            this._secureLog('error', 'Peer claimed mutual SAS confirmation before local confirmation - possible MITM attack', {
+                localConfirmed: this.localVerificationConfirmed,
+                remoteConfirmed: this.remoteVerificationConfirmed,
+                timestamp: Date.now()
+            });
+            this.deliverMessageToUI('Verification protocol violation: peer claimed confirmation before you verified the code. Connection aborted for safety.', 'system');
+            this.disconnect();
+            return;
+        }
+
+        // The peer can only reach "both confirmed" after confirming on its side,
+        // so record that too — otherwise the state reported to the UI is
+        // inconsistent with the transition we are about to make.
+        this.remoteVerificationConfirmed = true;
+
         // Handle notification that both parties have confirmed
         this.bothVerificationsConfirmed = true;
         
@@ -11696,7 +12027,8 @@ async processMessage(data) {
     handleVerificationRequest(data) {
 
         
-        if (data.code === this.verificationCode) {
+        // Constant-time comparison, consistent with confirmVerification().
+        if (this._validateSASCode(data?.code)) {
             const responsePayload = {
                 type: 'verification_response',
                 data: {
@@ -11728,8 +12060,9 @@ async processMessage(data) {
             this.dataChannel.send(JSON.stringify(responsePayload));
             
             this._secureLog('error', 'SAS verification failed - possible MITM attack', {
-                receivedCode: data.code,
-                expectedCode: this.verificationCode,
+                // Never log the codes themselves — the SAS is the one secret the
+                // user is asked to compare out-of-band.
+                receivedCodeLength: typeof data?.code === 'string' ? data.code.length : 0,
                 timestamp: Date.now()
             });
             
@@ -11744,18 +12077,32 @@ async processMessage(data) {
             return;
         }
 
-        if (this.verificationCode && !this._validateSASCode(data.code)) {
+        // SECURITY: the peer's announcement may only CORROBORATE the SAS we
+        // derived ourselves from the shared ECDH secret and both DTLS
+        // fingerprints — never supply it. Adopting a peer-provided code would
+        // mean showing the user a number chosen by whoever is on the other end,
+        // so an attacker could simply announce the same value to both sides and
+        // the out-of-band comparison would always "succeed".
+        if (!this.verificationCode) {
+            this._secureLog('error', 'Received peer SAS announcement before local SAS was derived - refusing to adopt it', {
+                timestamp: Date.now()
+            });
+            this.deliverMessageToUI('Verification failed: no locally derived code to compare against. Connection aborted for safety.', 'system');
+            this.disconnect();
+            return;
+        }
+
+        if (!this._validateSASCode(data.code)) {
             this._secureLog('error', 'Peer-announced SAS does not match locally computed SAS');
             this.deliverMessageToUI('Version or SAS mismatch detected. Connection aborted for safety.', 'system');
             this.disconnect();
             return;
         }
 
-        this.verificationCode = data.code;
+        // Codes agree — keep our own locally derived value and continue.
         this._notifyVerificationReadyIfPossible();
-        
-        this._secureLog('info', 'SAS code received from Offer side', {
-            sasCode: this.verificationCode,
+
+        this._secureLog('info', 'Peer SAS announcement matched locally derived code', {
             timestamp: Date.now()
         });
     }
@@ -13774,221 +14121,6 @@ class SecureKeyStorage {
         }
     }
 
-    // Method _generateNextSequenceNumber moved to constructor area for early availability
-
-    /**
-     *   Validate incoming message sequence number
-     * This prevents replay attacks and ensures message ordering
-     */
-    _validateIncomingSequenceNumber(receivedSeq, context = 'unknown') {
-        try {
-            if (!this.replayProtectionEnabled) {
-                return true; // Skip validation if disabled
-            }
-
-            // Check if sequence number is within acceptable range
-            if (receivedSeq < this.expectedSequenceNumber - this.replayWindowSize) {
-                this._secureLog('warn', 'Sequence number too old - possible replay attack', {
-                    received: receivedSeq,
-                    expected: this.expectedSequenceNumber,
-                    context: context,
-                    timestamp: Date.now()
-                });
-                return false;
-            }
-
-            // Check if sequence number is too far ahead (DoS protection)
-            if (receivedSeq > this.expectedSequenceNumber + this.maxSequenceGap) {
-                this._secureLog('warn', 'Sequence number gap too large - possible DoS attack', {
-                    received: receivedSeq,
-                    expected: this.expectedSequenceNumber,
-                    gap: receivedSeq - this.expectedSequenceNumber,
-                    context: context,
-                    timestamp: Date.now()
-                });
-                return false;
-            }
-
-            // Check if sequence number is already in replay window
-            if (this.replayWindow.has(receivedSeq)) {
-                this._secureLog('warn', 'Duplicate sequence number detected - replay attack', {
-                    received: receivedSeq,
-                    context: context,
-                    timestamp: Date.now()
-                });
-                return false;
-            }
-
-            // Add to replay window
-            this.replayWindow.add(receivedSeq);
-            
-            // Maintain sliding window size
-            if (this.replayWindow.size > this.replayWindowSize) {
-                const oldestSeq = Math.min(...this.replayWindow);
-                this.replayWindow.delete(oldestSeq);
-            }
-
-            // Update expected sequence number if this is the next expected
-            if (receivedSeq === this.expectedSequenceNumber) {
-                this.expectedSequenceNumber++;
-                
-                // Clean up replay window entries that are no longer needed
-                while (this.replayWindow.has(this.expectedSequenceNumber - this.replayWindowSize - 1)) {
-                    this.replayWindow.delete(this.expectedSequenceNumber - this.replayWindowSize - 1);
-                }
-            }
-
-            this._secureLog('debug', 'Sequence number validation successful', {
-                received: receivedSeq,
-                expected: this.expectedSequenceNumber,
-                context: context,
-                timestamp: Date.now()
-            });
-
-            return true;
-        } catch (error) {
-            this._secureLog('error', 'Sequence number validation failed', {
-                error: error.message,
-                context: context,
-                timestamp: Date.now()
-            });
-            return false;
-        }
-    }
-
-    // Method _createMessageAAD moved to constructor area for early availability
-
-    /**
-     *   Validate message AAD with sequence number
-     * This ensures message integrity and prevents replay attacks
-     */
-    _validateMessageAAD(aadString, expectedMessageType = null) {
-        try {
-            const aad = JSON.parse(aadString);
-            
-            // Validate session binding
-            if (aad.sessionId !== (this.currentSession?.sessionId || 'unknown')) {
-                throw new Error('AAD sessionId mismatch - possible replay attack');
-            }
-            
-            if (aad.keyFingerprint !== (this.keyFingerprint || 'unknown')) {
-                throw new Error('AAD keyFingerprint mismatch - possible key substitution attack');
-            }
-            
-            //   Validate sequence number
-            if (!this._validateIncomingSequenceNumber(aad.sequenceNumber, aad.messageType)) {
-                throw new Error('Sequence number validation failed - possible replay or DoS attack');
-            }
-            
-            // Validate message type if specified
-            if (expectedMessageType && aad.messageType !== expectedMessageType) {
-                throw new Error(`AAD messageType mismatch - expected ${expectedMessageType}, got ${aad.messageType}`);
-            }
-            
-            return aad;
-        } catch (error) {
-            // Never log the raw AAD: it carries sessionId and keyFingerprint.
-            // Length is enough to diagnose malformed input without leaking secrets.
-            this._secureLog('error', 'AAD validation failed', {
-                error: error.message,
-                aadLength: typeof aadString === 'string' ? aadString.length : 0
-            });
-            throw new Error(`AAD validation failed: ${error.message}`);
-        }
-    }
-
-    /**
-     *   Get anti-replay protection status
-     * This shows the current state of replay protection
-     */
-    getAntiReplayStatus() {
-        const status = {
-            replayProtectionEnabled: this.replayProtectionEnabled,
-            replayWindowSize: this.replayWindowSize,
-            currentReplayWindowSize: this.replayWindow.size,
-            sequenceNumber: this.sequenceNumber,
-            expectedSequenceNumber: this.expectedSequenceNumber,
-            maxSequenceGap: this.maxSequenceGap,
-            replayWindowEntries: Array.from(this.replayWindow).sort((a, b) => a - b)
-        };
-
-        this._secureLog('info', 'Anti-replay status retrieved', status);
-        return status;
-    }
-
-    /**
-     *   Configure anti-replay protection
-     * This allows fine-tuning of replay protection parameters
-     */
-    configureAntiReplayProtection(config) {
-        try {
-            if (config.windowSize !== undefined) {
-                if (config.windowSize < 16 || config.windowSize > 1024) {
-                    throw new Error('Replay window size must be between 16 and 1024');
-                }
-                this.replayWindowSize = config.windowSize;
-            }
-
-            if (config.maxGap !== undefined) {
-                if (config.maxGap < 10 || config.maxGap > 1000) {
-                    throw new Error('Max sequence gap must be between 10 and 1000');
-                }
-                this.maxSequenceGap = config.maxGap;
-            }
-
-            if (config.enabled !== undefined) {
-                this.replayProtectionEnabled = config.enabled;
-            }
-
-            this._secureLog('info', 'Anti-replay protection configured', config);
-            return true;
-        } catch (error) {
-            this._secureLog('error', 'Failed to configure anti-replay protection', { error: error.message });
-            return false;
-        }
-    }
-
-    /**
-     * Get real security level with actual cryptographic tests
-     * This provides real-time verification of security features
-     */
-    async getRealSecurityLevel() {
-        try {
-            const securityData = {
-                // Basic security features
-                ecdhKeyExchange: !!this.ecdhKeyPair,
-                ecdsaSignatures: !!this.ecdsaKeyPair,
-                aesEncryption: !!this.encryptionKey,
-                messageIntegrity: !!this.hmacKey,
-                
-                // Advanced security features - using the exact property names expected by EnhancedSecureCryptoUtils
-                replayProtection: this.replayProtectionEnabled,
-                dtlsFingerprint: !!this.expectedDTLSFingerprint,
-                sasCode: !!this.verificationCode,
-                metadataProtection: true, // Always enabled
-                trafficObfuscation: true, // Always enabled
-                perfectForwardSecrecy: true, // Always enabled
-                
-                // Rate limiting
-                rateLimiter: true, // Always enabled
-                
-                // Additional info
-                connectionId: this.connectionId,
-                keyFingerprint: this.keyFingerprint,
-                currentSecurityLevel: 'maximum',
-                timestamp: Date.now()
-            };
-
-            
-            this._secureLog('info', 'Real security level calculated', securityData);
-            return securityData;
-        } catch (error) {
-            this._secureLog('error', 'Failed to calculate real security level', { error: error.message });
-            throw error;
-        }
-    }
-
-
 }
 
 /**
@@ -14898,7 +15030,10 @@ class SecureMasterKeyManager {
      * Check if master key is unlocked
      */
     isUnlocked() {
-        return this._isUnlocked && this._masterKey !== null;
+        // The derived key lives in _keyHandle (non-extractable CryptoKey). This
+        // used to test a long-renamed `_masterKey` field, which was always
+        // undefined and therefore never actually gated anything.
+        return this._isUnlocked && this._keyHandle !== null;
     }
     
     /**
