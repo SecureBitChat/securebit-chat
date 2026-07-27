@@ -1805,10 +1805,12 @@ var EnhancedConnectionSetup = ({
       }, disabled: !hasInvite || connectionStatus === "connecting", style: { width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "9px", padding: "14px", borderRadius: "13px", border: "none", background: hasInvite && connectionStatus !== "connecting" ? C_ORANGE : "rgba(255,255,255,0.05)", color: hasInvite && connectionStatus !== "connecting" ? "#1a0f04" : "#56565e", fontFamily: "inherit", fontSize: "15px", fontWeight: 700, cursor: hasInvite && connectionStatus !== "connecting" ? "pointer" : "not-allowed", boxShadow: hasInvite && connectionStatus !== "connecting" ? "0 8px 24px rgba(240,137,42,0.28)" : "none" } }, connectionStatus === "connecting" ? "Processing\u2026" : "Connect")
     ]);
   }
+  const SB_DESKTOP_VERSION = "0.3.0";
+  const SB_DESKTOP_RELEASE = `https://github.com/SecureBitChat/securebit-desktop/releases/download/v${SB_DESKTOP_VERSION}`;
   const DOWNLOADS = {
-    mac: { name: "macOS", format: ".dmg \xB7 Apple Silicon & Intel", icon: "fab fa-apple", url: "https://github.com/SecureBitChat/securebit-desktop/releases/download/v0.1.0/SecureBit.Chat_0.1.0_x64.dmg" },
-    win: { name: "Windows", format: ".exe \xB7 64-bit installer", icon: "fab fa-windows", url: "https://github.com/SecureBitChat/securebit-desktop/releases/latest/download/SecureBit.Chat_0.1.0_x64-setup.exe" },
-    linux: { name: "Linux", format: ".AppImage", icon: "fab fa-linux", url: "https://github.com/SecureBitChat/securebit-desktop/releases/latest/download/SecureBit.Chat_0.1.0_amd64.AppImage" }
+    mac: { name: "macOS", format: ".dmg \xB7 Apple Silicon & Intel", icon: "fab fa-apple", url: `${SB_DESKTOP_RELEASE}/SecureBit.Chat_${SB_DESKTOP_VERSION}_x64.dmg` },
+    win: { name: "Windows", format: ".exe \xB7 64-bit installer", icon: "fab fa-windows", url: `${SB_DESKTOP_RELEASE}/SecureBit.Chat_${SB_DESKTOP_VERSION}_x64-setup.exe` },
+    linux: { name: "Linux", format: ".AppImage", icon: "fab fa-linux", url: `${SB_DESKTOP_RELEASE}/SecureBit.Chat_${SB_DESKTOP_VERSION}_amd64.AppImage` }
   };
   const detectOS = () => {
     const ua = (navigator.userAgent || "") + " " + (navigator.platform || "");
@@ -3589,7 +3591,7 @@ var EnhancedSecureP2PChat = () => {
       } catch (error) {
       }
     }
-    handleMessage(" SecureBit.chat Enhanced Security Edition v5.5.3 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.", "system");
+    handleMessage(" SecureBit.chat Enhanced Security Edition v5.5.4 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.", "system");
     manager.setFileTransferCallbacks(
       // Progress callback — drives the voice-note upload/download ring.
       (progress) => {

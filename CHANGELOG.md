@@ -1,5 +1,16 @@
 # Changelog
 
+## v5.5.4 — Fix the desktop download buttons
+
+### Fixed
+
+- **The download buttons still led to a dead GitHub page.** 5.5.3 updated one of the two places these links live; the platforms menu on the connection screen has its own `DOWNLOADS` table, and it was missed. It still pointed at 0.1.0.
+- The stale links used `/releases/latest/download/<file>`. GitHub resolves `latest` by redirecting to the newest tag, so once 0.3.0 shipped, a link written for 0.1.0 became `/releases/download/v0.3.0/SecureBit.Chat_0.1.0_x64-setup.exe` — a file that never existed under that tag. The button navigated to GitHub and downloaded nothing, which is why it looked like a working link that simply did nothing.
+
+### Added
+
+- `tests/desktop-download-links.test.mjs`, which fails the build if any source drifts: it requires every file to derive its URLs from one `DESKTOP_VERSION` constant, forbids `/releases/latest/download/` and hardcoded versions in filenames, and fetches each generated URL to prove the release asset is really there. Set `SKIP_NETWORK=1` to skip the fetches offline.
+
 ## v5.5.3 — Desktop downloads point at 0.3.0
 
 ### Fixed

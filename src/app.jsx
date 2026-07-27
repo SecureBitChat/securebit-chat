@@ -1578,10 +1578,23 @@ import {
                     }
 
                     // Desktop downloads (real GitHub release assets) + OS detection.
+                    //
+                    // Keep SB_DESKTOP_VERSION in sync with the constant of the same name in
+                    // src/components/ui/DownloadApps.jsx — tests/desktop-download-links.test.mjs
+                    // fails the build if the two ever disagree.
+                    //
+                    // The tag is pinned rather than using /releases/latest/download/. Release
+                    // filenames carry the version, and GitHub resolves `latest` by redirecting
+                    // to the newest tag — so a stale `latest` link becomes
+                    // /download/v0.3.0/SecureBit.Chat_0.1.0_x64-setup.exe, a file that never
+                    // existed, and the download 404s. A pinned tag keeps serving a real
+                    // installer instead.
+                    const SB_DESKTOP_VERSION = '0.3.0';
+                    const SB_DESKTOP_RELEASE = `https://github.com/SecureBitChat/securebit-desktop/releases/download/v${SB_DESKTOP_VERSION}`;
                     const DOWNLOADS = {
-                        mac: { name: 'macOS', format: '.dmg · Apple Silicon & Intel', icon: 'fab fa-apple', url: 'https://github.com/SecureBitChat/securebit-desktop/releases/download/v0.1.0/SecureBit.Chat_0.1.0_x64.dmg' },
-                        win: { name: 'Windows', format: '.exe · 64-bit installer', icon: 'fab fa-windows', url: 'https://github.com/SecureBitChat/securebit-desktop/releases/latest/download/SecureBit.Chat_0.1.0_x64-setup.exe' },
-                        linux: { name: 'Linux', format: '.AppImage', icon: 'fab fa-linux', url: 'https://github.com/SecureBitChat/securebit-desktop/releases/latest/download/SecureBit.Chat_0.1.0_amd64.AppImage' }
+                        mac: { name: 'macOS', format: '.dmg · Apple Silicon & Intel', icon: 'fab fa-apple', url: `${SB_DESKTOP_RELEASE}/SecureBit.Chat_${SB_DESKTOP_VERSION}_x64.dmg` },
+                        win: { name: 'Windows', format: '.exe · 64-bit installer', icon: 'fab fa-windows', url: `${SB_DESKTOP_RELEASE}/SecureBit.Chat_${SB_DESKTOP_VERSION}_x64-setup.exe` },
+                        linux: { name: 'Linux', format: '.AppImage', icon: 'fab fa-linux', url: `${SB_DESKTOP_RELEASE}/SecureBit.Chat_${SB_DESKTOP_VERSION}_amd64.AppImage` }
                     };
                     const detectOS = () => {
                         const ua = (navigator.userAgent || '') + ' ' + (navigator.platform || '');
@@ -3533,7 +3546,7 @@ import {
                             }
                         }
 
-                        handleMessage(' SecureBit.chat Enhanced Security Edition v5.5.3 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.', 'system');
+                        handleMessage(' SecureBit.chat Enhanced Security Edition v5.5.4 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.', 'system');
 
                         // Setup file transfer callbacks (id-bound to THIS session's manager).
                         manager.setFileTransferCallbacks(
