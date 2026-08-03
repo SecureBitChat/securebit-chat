@@ -75,6 +75,23 @@ function withTwoSessions() {
     assert.equal(state.sessions.a.peerPresence, null, 'no stale presence after reconnect');
     state = sessionsReducer(state, { type: A.SET_PEER_PRESENCE, id: 'a', presence: 'available' });
     assert.equal(state.sessions.a.peerPresence, 'available', 'fresh presence applies after reconnect');
+
+    // A session repairing its network path is still a live session: blanking the
+    // peer's presence would make a two-second glitch look like a disconnect.
+    state = sessionsReducer(state, { type: A.SET_STATUS, id: 'a', status: 'reconnecting' });
+    assert.equal(state.sessions.a.peerPresence, 'available', 'presence survives a path repair');
+}
+
+// A reconnecting session reads as in-progress (amber), not as dropped (red).
+{
+    const entry = createSessionEntry({ id: 'a', peerLabel: 'phone' });
+    entry.status = 'reconnecting';
+    const d = decorateSession(entry, 'a');
+    assert.equal(d.headerSub, 'Reconnecting…');
+
+    const dropped = createSessionEntry({ id: 'b', peerLabel: 'phone' });
+    dropped.status = 'disconnected';
+    assert.notEqual(d.dot, decorateSession(dropped, 'b').dot, 'reconnecting must not look dropped');
 }
 
 // UPDATE_MESSAGE_STATUS and DELETE_MESSAGE only touch the named session/message.

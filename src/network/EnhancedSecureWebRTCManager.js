@@ -25,7 +25,9 @@ class EnhancedSecureWebRTCManager {
     static TIMEOUTS = {
         KEY_ROTATION_INTERVAL: 300000,      // 5 minutes
         CONNECTION_TIMEOUT: 10000,          // 10 seconds  
-        HEARTBEAT_INTERVAL: 30000,          // 30 seconds
+        // Kept below LIVENESS_PROBE_AFTER so a healthy peer's own heartbeats keep
+        // the liveness clock fresh and probing never happens on a working link.
+        HEARTBEAT_INTERVAL: 10000,          // 10 seconds
         SECURITY_CALC_DELAY: 1000,          // 1 second
         SECURITY_CALC_RETRY_DELAY: 3000,    // 3 seconds
         CLEANUP_INTERVAL: 300000,           // 5 minutes (periodic cleanup)
@@ -43,11 +45,67 @@ class EnhancedSecureWebRTCManager {
         DECOY_TRAFFIC_MIN: 10000,           // 10 seconds
         DECOY_TRAFFIC_MAX: 25000,           // 25 seconds
         REORDER_TIMEOUT: 3000,              // 3 seconds
-        RETRY_CONNECTION_DELAY: 2000        // 2 seconds
+        RETRY_CONNECTION_DELAY: 2000,       // 2 seconds
+
+        // --- Session recovery ---
+        // How long to let a 'disconnected' path heal itself before renegotiating.
+        //
+        // The browser enters 'disconnected' after only ~5 s without a consent
+        // binding response, which ordinary packet loss produces, and then holds
+        // that state for roughly 25 s before declaring 'failed'. That whole
+        // window exists precisely so the connection can come back on its own —
+        // and it very often does, especially against a phone whose screen went
+        // off, which generates these episodes constantly.
+        //
+        // So restart LATE in the window, not at the start: early enough to still
+        // beat 'failed', late enough that self-healing has had its chance. An
+        // earlier 3 s value meant every backgrounded phone was answered with a
+        // renegotiation — tearing down a connection that was about to recover.
+        // See https://blog.mozilla.org/webrtc/ice-disconnected-not/
+        ICE_DISCONNECT_GRACE: 8000,         // 8 seconds
+        // How long one restart round-trip (offer → gather → answer) may take. No
+        // new attempt is launched while one is in flight: the round-trip is far
+        // longer than the head of the backoff, so retrying blindly cancels the
+        // attempt already running and recovery never converges.
+        ICE_RESTART_TIMEOUT: 20000,         // 20 seconds
+        // Gathering budget inside a restart. Deliberately far below the initial
+        // handshake's 10 s: host and server-reflexive candidates arrive in well
+        // under a second, and waiting out the full budget for a relay candidate
+        // that may never come would blow the round-trip deadline above.
+        ICE_RESTART_GATHERING: 4000,        // 4 seconds
+        // Give up on automatic recovery after this long. There is no manual
+        // fallback: the session is ended and its data wiped.
+        RECONNECT_MAX_DURATION: 120000,     // 2 minutes
+        // In-band recovery needs the data channel to carry the renegotiation. If
+        // nothing at all arrives from the peer for this long once recovery has
+        // started, it cannot — and no number of further attempts will change
+        // that, so the session is ended promptly instead of after a two-minute
+        // wait that was never going to succeed.
+        RECOVERY_SILENCE_LIMIT: 15000,      // 15 seconds
+        // Liveness is established by an explicit probe/ack, not by silence alone.
+        // Silence on its own is not proof of death: a browser throttles timers in a
+        // backgrounded tab (Chrome down to roughly one per minute, iOS Safari
+        // freezes them outright), so a perfectly healthy peer can stop sending for
+        // a long time. Inbound message handling is NOT throttled that way, so a
+        // live peer — even a backgrounded one — answers a probe within milliseconds
+        // while a peer whose network is gone cannot answer at all.
+        LIVENESS_PROBE_AFTER: 12000,        // silence before probing the peer
+        LIVENESS_PROBE_TIMEOUT: 5000,       // how long the ack may take
+        LIVENESS_CHECK_INTERVAL: 2000,      // 2 seconds
+
     };
+
+
+    // Backoff between automatic ICE-restart attempts (ms). Deliberately short at
+    // the head: most real drops recover on the first or second try.
+    static RECONNECT_BACKOFF = Object.freeze([1000, 2000, 4000, 8000, 15000, 30000]);
 
     static LIMITS = {
         MAX_CONNECTION_ATTEMPTS: 3,
+        // Consecutive ICE failures that produced zero candidate pairs before
+        // concluding the PeerConnection itself is unusable, rather than the path
+        // merely being flaky.
+        MAX_BARREN_ICE_FAILURES: 2,
         MAX_OLD_KEYS: 3,
         MAX_PROCESSED_MESSAGE_IDS: 1000,
         MAX_OUT_OF_ORDER_PACKETS: 5,
@@ -111,6 +169,19 @@ class EnhancedSecureWebRTCManager {
         CALL_ICE: 'call_ice',
         CALL_DECLINE: 'call_decline',
         CALL_END: 'call_end',
+
+        // Session recovery. An ICE restart renegotiates ONLY the transport path
+        // (new candidates after a NAT rebind / IP change); the DTLS handshake and
+        // the SCTP association that carries this data channel survive it, so the
+        // session keys, the SAS verification and the message history all stay
+        // valid. The renegotiation SDP therefore rides the existing E2E channel —
+        // still no signalling server, and an attacker cannot inject a restart
+        // without already holding the session keys.
+        ICE_RESTART_OFFER: 'ice_restart_offer',
+        ICE_RESTART_ANSWER: 'ice_restart_answer',
+        // Sent by the answerer side, which must not create offers itself (glare):
+        // it asks the offerer to drive the restart.
+        ICE_RESTART_REQUEST: 'ice_restart_request',
 
         // Fake traffic
         FAKE: 'fake'
@@ -251,6 +322,23 @@ if (typeof window !== 'undefined') {
 this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and validated');
     this.heartbeatInterval = null;
     this.messageQueue = [];
+    //   Session recovery state (see _onPathDegraded / _attemptIceRestart).
+    this._reconnect = {
+        phase: 'idle',          // idle | grace | restarting | waiting | exhausted
+        attempts: 0,
+        startedAt: 0,
+        graceTimer: null,
+        retryTimer: null,
+        restartTimer: null,
+        inFlightAt: 0,          // when the current restart round-trip was launched
+        barrenFailures: 0,      // consecutive failures that produced no candidate pairs
+        pendingRole: null       // 'offerer' | 'answerer' during a restart round-trip
+    };
+    //   Liveness tracking: last time ANY authenticated frame arrived from the peer.
+    this._lastInboundAt = 0;
+    this._livenessProbeAt = 0;
+    this._livenessTimer = null;
+    this._heartbeatTimer = null;
     this.ecdhKeyPair = null;
     this.ecdsaKeyPair = null;
     if (this.fileTransferSystem) {
@@ -1274,11 +1362,10 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
                 this._monitorGlobalExposure();
             }
             
-            // 6. Heartbeat (if enabled and connected)
-            if (this._heartbeatConfig && this._heartbeatConfig.enabled && this.isConnected()) {
-                this._sendHeartbeat();
-            }
-            
+            // 6. Heartbeat now runs on its own HEARTBEAT_INTERVAL timer
+            //    (startHeartbeat) — this 5-minute cycle is far too coarse for
+            //    liveness detection and must not double-send.
+
             this._secureLog('info', '🔧 Maintenance cycle completed successfully');
             
         } catch (error) {
@@ -1520,22 +1607,40 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     /**
      *   Send heartbeat message (called by unified scheduler)
      */
-    _sendHeartbeat() {
+    /**
+     * @param {boolean} ack - true when replying to a peer's probe. An ack is never
+     *   itself acked, otherwise the two sides would ping-pong forever.
+     */
+    _sendHeartbeat(ack = false) {
         try {
-            if (this.isConnected() && this.dataChannel && this.dataChannel.readyState === 'open') {
-                this.dataChannel.send(JSON.stringify({ 
-                    type: EnhancedSecureWebRTCManager.MESSAGE_TYPES.HEARTBEAT, 
-                    timestamp: Date.now() 
+            // Gated on the CHANNEL only, deliberately not on isConnected(), which
+            // also requires isVerified. The two peers finish SAS verification at
+            // different moments — a human has to read and confirm a code — so for
+            // that whole window one side is verified and probing while the other
+            // cannot answer. Silence then reads as a dead path on a perfectly
+            // healthy, freshly established session, and the restarts that follow
+            // tear it down for real. A heartbeat carries nothing: it travels as
+            // plaintext on a channel its observer is already on, and liveness is
+            // not a security property — the verification gate still guards every
+            // operation that matters.
+            if (this.dataChannel && this.dataChannel.readyState === 'open') {
+                this.dataChannel.send(JSON.stringify({
+                    type: EnhancedSecureWebRTCManager.MESSAGE_TYPES.HEARTBEAT,
+                    ack,
+                    timestamp: Date.now()
                 }));
-                
+
                 this._heartbeatConfig.lastHeartbeat = Date.now();
-                this._secureLog('debug', '💓 Heartbeat sent');
+                this._secureLog('debug', ack ? '💓 Heartbeat ack sent' : '💓 Heartbeat sent');
+                return true;
             }
+            return false;
         } catch (error) {
-            this._secureLog('error', '❌ Heartbeat failed:', { 
+            this._secureLog('error', '❌ Heartbeat failed:', {
                 errorType: error?.constructor?.name || 'Unknown',
                 message: error?.message || 'Unknown error'
             });
+            return false;
         }
     }
 
@@ -6502,7 +6607,7 @@ async processOrderedPackets() {
                 }
                 
                 // System messages — do NOT return for re-processing
-                if (jsonData.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'key_rotation_signal', 'key_rotation_ready', 'security_upgrade'].includes(jsonData.type)) {
+                if (jsonData.type && ['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'key_rotation_signal', 'key_rotation_ready', 'security_upgrade', 'ice_restart_offer', 'ice_restart_answer', 'ice_restart_request'].includes(jsonData.type)) {
                     return 'SYSTEM_MESSAGE_FILTERED';
                 }
                 
@@ -6589,7 +6694,7 @@ async processOrderedPackets() {
                 }
                 
                 // If it's not a special type, return the original data for display
-                if (!jsonData.type || (jsonData.type !== 'fake' && !['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'key_rotation_signal', 'key_rotation_ready', 'enhanced_message', 'security_upgrade', 'file_transfer_start', 'file_transfer_response', 'file_chunk', 'chunk_confirmation', 'file_transfer_complete', 'file_transfer_error'].includes(jsonData.type))) {
+                if (!jsonData.type || (jsonData.type !== 'fake' && !['heartbeat', 'verification', 'verification_response', 'peer_disconnect', 'key_rotation_signal', 'key_rotation_ready', 'enhanced_message', 'security_upgrade', 'ice_restart_offer', 'ice_restart_answer', 'ice_restart_request', 'file_transfer_start', 'file_transfer_response', 'file_chunk', 'chunk_confirmation', 'file_transfer_complete', 'file_transfer_error'].includes(jsonData.type))) {
                     if (this._debugMode) {
                         this._secureLog('debug', '📝 Regular message detected, returning for display');
                     }
@@ -7025,6 +7130,9 @@ async processOrderedPackets() {
     // FIX 1: Simplified mutex system for message processing
 async processMessage(data) {
     try {
+        // Liveness: anything arriving from the peer proves the path is alive.
+        // Optional-call on purpose — see the note in dataChannel.onmessage.
+        this._noteInboundActivity?.();
         this._secureLog('debug', '�� Processing message', {
             dataType: typeof data,
             isArrayBuffer: data instanceof ArrayBuffer,
@@ -7177,6 +7285,18 @@ async processMessage(data) {
                     return;
                 }
 
+                // Session recovery signalling (ICE restart over the live channel).
+                if (parsed.type && [
+                    EnhancedSecureWebRTCManager.MESSAGE_TYPES.ICE_RESTART_OFFER,
+                    EnhancedSecureWebRTCManager.MESSAGE_TYPES.ICE_RESTART_ANSWER,
+                    EnhancedSecureWebRTCManager.MESSAGE_TYPES.ICE_RESTART_REQUEST
+                ].includes(parsed.type)) {
+                    try { await this._handleIceRestartSignal(parsed.type, parsed.data || {}); } catch (e) {
+                        this._secureLog('error', '❌ ICE restart signal handling failed', { errorType: e?.constructor?.name });
+                    }
+                    return;
+                }
+
                 // ============================================
                 // SYSTEM MESSAGES (WITHOUT MUTEX)
                 // ============================================
@@ -7283,8 +7403,9 @@ async processMessage(data) {
                 const blockedTypes = [
                     'file_transfer_start', 'file_transfer_response', 'file_chunk', 
                     'chunk_confirmation', 'file_transfer_complete', 'file_transfer_error',
-                    'heartbeat', 'verification', 'verification_response', 
-                    'peer_disconnect', 'key_rotation_signal', 'key_rotation_ready', 'security_upgrade'
+                    'heartbeat', 'verification', 'verification_response',
+                    'peer_disconnect', 'key_rotation_signal', 'key_rotation_ready', 'security_upgrade',
+                    'ice_restart_offer', 'ice_restart_answer', 'ice_restart_request'
                 ];
                 
                 if (finalCheck.type && blockedTypes.includes(finalCheck.type)) {
@@ -7384,7 +7505,7 @@ async processMessage(data) {
             
             switch (message.type) {
                 case 'heartbeat':
-                    this.handleHeartbeat();
+                    this.handleHeartbeat(message);
                     break;
                 case 'verification':
                     this.handleVerificationRequest(message.data);
@@ -8012,34 +8133,43 @@ async processMessage(data) {
             if (state === 'connected' && !this.isVerified) {
                 this._notifyVerificationReadyIfPossible();
             } else if (state === 'connected' && this.isVerified) {
-                this.onStatusChange('connected');
-            } else if (state === 'disconnected' || state === 'closed') {
-                // If this is an intentional disconnect, clear immediately.
+                // Covers both a first connect and the end of a successful ICE
+                // restart. When it was a recovery, _onPathRecovered emits
+                // 'connected' itself (after draining the queue), so don't repeat it.
+                if (!this._onPathRecovered()) this.onStatusChange('connected');
+            } else if (state === 'disconnected') {
                 if (this.intentionalDisconnect) {
                     this.onStatusChange('disconnected');
                     setTimeout(() => this.disconnect(), 100);
+                } else if (this.isVerified) {
+                    // 'disconnected' is usually a transient path glitch — do NOT
+                    // tear the session down. Recovery keeps the keys, the SAS
+                    // verification and the history intact; only the path changes.
+                    this._onPathDegraded('ice_disconnected');
                 } else {
-                    // Only emit disconnect if we were already verified (active session),
-                    // otherwise keep the UI alive so the user can copy the answer.
-                    if (this.isVerified || state === 'closed') {
-                        this.onStatusChange('disconnected');
-                        // Clear verification states on unexpected disconnect
-                        this._clearVerificationStates();
-                    } else {
-                        console.warn(`[SecureBit ICE] State is ${state} but not verified yet. Keeping session open for manual exchange.`);
-                    }
+                    console.warn(`[SecureBit ICE] State is ${state} but not verified yet. Keeping session open for manual exchange.`);
                 }
+            } else if (state === 'closed') {
+                // 'closed' is terminal: the peer connection is gone, nothing to restart.
+                this._resetReconnectState();
+                this.onStatusChange('disconnected');
+                this._clearVerificationStates();
+                if (this.intentionalDisconnect) setTimeout(() => this.disconnect(), 100);
             } else if (state === 'failed') {
                 this._collectIceFailureDiagnostics().then((diagnostics) => {
                     console.warn('[SecureBit ICE] failure diagnostics', diagnostics);
+                    this._noteIceFailureDiagnostics(diagnostics);
                 });
-                
+
                 // Do not auto-reconnect or close session during setup.
                 if (this.isVerified) {
-                    this.onStatusChange('disconnected');
+                    this._onPathLost('ice_failed');
                 } else {
                     console.warn('[SecureBit ICE] State is failed but not verified yet. Keeping session open for manual exchange.');
                 }
+            } else if (this.isReconnecting() && (state === 'connecting' || state === 'new')) {
+                // Mid-restart churn: keep the UI on "reconnecting" instead of
+                // flapping back to "connecting".
             } else {
                 this.onStatusChange(state);
             }
@@ -8091,8 +8221,13 @@ async processMessage(data) {
     setupDataChannel(channel) {
 
         this.dataChannel = channel;
+        // The open handler must run exactly once, whether it is reached through
+        // the 'open' event or through the already-open path below.
+        let openHandled = false;
 
-        this.dataChannel.onopen = async () => {
+        const handleChannelOpen = async () => {
+            if (openHandled) return;
+            openHandled = true;
             // Configure backpressure for large transfers
             try {
                 if (this.dataChannel && typeof this.dataChannel.bufferedAmountLowThreshold === 'number') {
@@ -8135,7 +8270,7 @@ async processMessage(data) {
             if (this.isVerified) {
                 this.onStatusChange('connected');
                 this.processMessageQueue();
-                
+
                 setTimeout(async () => {
                     await this.calculateAndReportSecurityLevel();
                     this.autoEnableSecurityFeatures();
@@ -8148,7 +8283,33 @@ async processMessage(data) {
             this.startHeartbeat();
         };
 
+        this.dataChannel.onopen = handleChannelOpen;
+
+        // CRITICAL: on the answering side the channel arrives through
+        // `ondatachannel`, and it can ALREADY be in the 'open' state by then —
+        // the 'open' event was dispatched before this handler existed, so
+        // assigning onopen above would never fire it. That silently left the
+        // answerer without heartbeats, without the liveness watchdog and without
+        // file-transfer init, which is why the peer whose network was fine kept
+        // showing "connected" long after the other side had vanished: nothing was
+        // running on that side to notice. Run it directly in that case.
+        if (this.dataChannel.readyState === 'open') {
+            Promise.resolve()
+                .then(() => handleChannelOpen())
+                .catch((error) => {
+                    this._secureLog('error', 'Deferred data channel open handling failed', {
+                        errorType: error?.constructor?.name || 'Unknown'
+                    });
+                });
+        }
+
         this.dataChannel.onclose = () => {
+            // The channel closing takes SCTP with it, so there is nothing left for
+            // an ICE restart to repair — stop any recovery cycle rather than
+            // letting its timers keep firing against a dead session.
+            this._resetReconnectState?.();
+            this._teardownRecoveryLifecycleListeners?.();
+
             if (!this.intentionalDisconnect) {
                 this.onStatusChange('disconnected');
                 // Clear verification states on data channel close
@@ -8179,6 +8340,11 @@ async processMessage(data) {
         // FIX 2: Remove mutex entirely from message processing path
         this.dataChannel.onmessage = async (event) => {
             try {
+                // Liveness: anything arriving from the peer proves the path is alive.
+                // Optional-call on purpose — liveness bookkeeping is auxiliary and must
+                // never be able to throw ahead of routing, where the surrounding catch
+                // would swallow it and silently drop every inbound message.
+                this._noteInboundActivity?.();
 
                 // IMPORTANT: Process ALL messages WITHOUT mutex
                 if (typeof event.data === 'string') {
@@ -8283,6 +8449,19 @@ async processMessage(data) {
                         ].includes(parsed.type)) {
                             try { await this._handleCallSignal(parsed.type, parsed.data || {}); }
                             catch (_) {}
+                            return;
+                        }
+
+                        // Session recovery signalling (ICE restart over the live channel).
+                        if (parsed.type && [
+                            EnhancedSecureWebRTCManager.MESSAGE_TYPES.ICE_RESTART_OFFER,
+                            EnhancedSecureWebRTCManager.MESSAGE_TYPES.ICE_RESTART_ANSWER,
+                            EnhancedSecureWebRTCManager.MESSAGE_TYPES.ICE_RESTART_REQUEST
+                        ].includes(parsed.type)) {
+                            try { await this._handleIceRestartSignal(parsed.type, parsed.data || {}); }
+                            catch (e) {
+                                this._secureLog('error', '❌ ICE restart signal handling failed', { errorType: e?.constructor?.name });
+                            }
                             return;
                         }
 
@@ -12439,23 +12618,659 @@ async processMessage(data) {
         }
     }
 
+    // Heartbeat runs on its own HEARTBEAT_INTERVAL timer. It used to be folded
+    // into the unified maintenance cycle, which ticks every 5 minutes — far too
+    // coarse to notice a dead path, and long enough that a drop looked like
+    // silence. The maintenance cycle no longer sends heartbeats.
     startHeartbeat() {
-        //   Heartbeat moved to unified scheduler with connection validation
-        this._secureLog('info', 'Heartbeat moved to unified scheduler');
-        
-        // Store heartbeat configuration for scheduler
         this._heartbeatConfig = {
             enabled: true,
             interval: EnhancedSecureWebRTCManager.TIMEOUTS.HEARTBEAT_INTERVAL,
             lastHeartbeat: 0
         };
+
+        this.stopHeartbeat(/* keepConfig */ true);
+
+        this._heartbeatTimer = setInterval(() => {
+            if (!this._heartbeatConfig?.enabled) return;
+            if (this.dataChannel?.readyState === 'open') {
+                this._sendHeartbeat();
+            }
+        }, EnhancedSecureWebRTCManager.TIMEOUTS.HEARTBEAT_INTERVAL);
+        this._trackActiveTimer(this._heartbeatTimer);
+
+        // Treat "connected now" as the liveness baseline, otherwise the watchdog
+        // fires immediately on a session that has simply been quiet so far.
+        this._lastInboundAt = Date.now();
+        this._livenessProbeAt = 0;
+        this._livenessArmed = false;
+        this._startLivenessWatchdog();
+        this._setupRecoveryLifecycleListeners();
+
+        this._secureLog('info', '🔄 Liveness watchdog started', {
+            heartbeatMs: EnhancedSecureWebRTCManager.TIMEOUTS.HEARTBEAT_INTERVAL,
+            probeAfterMs: EnhancedSecureWebRTCManager.TIMEOUTS.LIVENESS_PROBE_AFTER,
+            probeTimeoutMs: EnhancedSecureWebRTCManager.TIMEOUTS.LIVENESS_PROBE_TIMEOUT
+        });
     }
 
-    stopHeartbeat() {
-        //   Heartbeat stopped via unified scheduler
-        if (this._heartbeatConfig) {
+    stopHeartbeat(keepConfig = false) {
+        if (!keepConfig && this._heartbeatConfig) {
             this._heartbeatConfig.enabled = false;
         }
+        if (this._heartbeatTimer) {
+            clearInterval(this._heartbeatTimer);
+            this._activeTimers?.delete(this._heartbeatTimer);
+            this._heartbeatTimer = null;
+        }
+        if (!keepConfig) this._stopLivenessWatchdog();
+    }
+
+    /**
+     * Inbound heartbeat from the peer. This method used to be missing entirely
+     * while handleSystemMessage still dispatched to it, so every heartbeat threw
+     * a TypeError and liveness was never actually observed.
+     *
+     * A non-ack heartbeat is a probe and must be answered immediately: that reply
+     * is what proves this side is alive even when its tab is backgrounded and its
+     * own timers have been throttled to a standstill.
+     */
+    handleHeartbeat(message) {
+        this._lastInboundAt = Date.now();
+        this._livenessProbeAt = 0;
+
+        const isAck = message?.ack === true || message?.data?.ack === true;
+        if (!isAck) this._sendHeartbeat(true);
+
+        this._secureLog('debug', isAck ? '💓 Heartbeat ack received' : '💓 Heartbeat probe received');
+    }
+
+    /**
+     * Any authenticated inbound frame proves the path is alive, not just
+     * heartbeats — a busy conversation must never trip the watchdog.
+     */
+    _noteInboundActivity() {
+        this._lastInboundAt = Date.now();
+        // Any frame at all answers the question a probe was asking.
+        this._livenessProbeAt = 0;
+        // Liveness can only judge a peer it has actually heard from. Until the
+        // first frame arrives there is no baseline, and "not started yet" must
+        // never be mistaken for "died".
+        this._livenessArmed = true;
+    }
+
+    _startLivenessWatchdog() {
+        this._stopLivenessWatchdog();
+        this._livenessTimer = setInterval(() => {
+            try {
+                this._checkLiveness();
+            } catch (error) {
+                this._secureLog('error', '❌ Liveness check failed', {
+                    errorType: error?.constructor?.name || 'Unknown'
+                });
+            }
+        }, EnhancedSecureWebRTCManager.TIMEOUTS.LIVENESS_CHECK_INTERVAL);
+        this._trackActiveTimer(this._livenessTimer);
+    }
+
+    _stopLivenessWatchdog() {
+        if (this._livenessTimer) {
+            clearInterval(this._livenessTimer);
+            this._activeTimers?.delete(this._livenessTimer);
+            this._livenessTimer = null;
+        }
+    }
+
+    /**
+     * A data channel keeps reporting readyState === 'open' long after the
+     * underlying path has died (the classic Wi-Fi → LTE switch: nothing closes,
+     * nothing errors, packets simply stop). Nothing tells us — so we ask.
+     *
+     * Two steps, because silence alone is not evidence of death. A backgrounded
+     * tab has its timers throttled to roughly one tick per minute (frozen
+     * outright on iOS), so a healthy peer routinely goes quiet. What a healthy
+     * peer cannot do is fail to ANSWER: inbound message handling is not throttled
+     * the way timers are. So after a period of silence we send a probe, and only
+     * an unanswered probe is treated as a dead path.
+     */
+    _checkLiveness() {
+        if (!this.isVerified) return;
+        if (this._reconnect.phase !== 'idle') return;         // already recovering
+        if (this.dataChannel?.readyState !== 'open') return;   // handled by onclose
+        if (!this._lastInboundAt) return;
+        if (!this._livenessArmed) return;                      // peer never heard from yet
+
+        const T = EnhancedSecureWebRTCManager.TIMEOUTS;
+        const now = Date.now();
+
+        // The discriminator that makes silence interpretable.
+        //
+        // An unanswered probe does NOT mean the peer is gone. A browser fully
+        // freezes a backgrounded tab — iOS Safari almost immediately, Chrome after
+        // a few minutes — and a frozen tab runs no JavaScript at all, so it cannot
+        // answer anything. (An earlier version of this assumed inbound message
+        // handling always runs; that is only true for timer throttling, not for
+        // freezing, and the difference was tearing down healthy sessions whenever
+        // the peer's phone went to sleep.)
+        //
+        // ICE consent checks are the signal that survives, because the browser
+        // runs them in its network stack rather than on the page's thread. So a
+        // 'connected' ICE state means the peer's machine is still answering at the
+        // transport level, and the silence above it is a sleeping tab. Messages
+        // sent meanwhile are not lost — SCTP delivers them when it wakes.
+        const iceHealthy = this.peerConnection?.connectionState === 'connected';
+
+        // While ICE is connected the answer changes nothing — a silent peer is a
+        // sleeping tab and is left alone either way — so don't ask. Probing here
+        // was pure traffic and pure log noise, once per cycle for as long as the
+        // peer's phone stayed asleep. Liveness is therefore only an accelerator
+        // for an ICE state that already looks wrong.
+        if (iceHealthy) {
+            this._livenessProbeAt = 0;
+            return;
+        }
+
+        // A probe is outstanding — has it gone unanswered long enough?
+        if (this._livenessProbeAt) {
+            if (now - this._livenessProbeAt < T.LIVENESS_PROBE_TIMEOUT) return;
+            this._livenessProbeAt = 0;
+            this._secureLog('warn', '⚠️ liveness probe unanswered and ICE is not connected — path presumed dead');
+            this._onPathLost('liveness_probe_timeout');
+            return;
+        }
+
+        if (now - this._lastInboundAt < T.LIVENESS_PROBE_AFTER) return;
+
+        this._livenessProbeAt = now;
+        const delivered = this._sendHeartbeat(false);
+        this._secureLog('info', '🔄 peer silent and ICE degraded, probing', {
+            silentForMs: now - this._lastInboundAt,
+            connectionState: this.peerConnection?.connectionState,
+            probeSent: delivered
+        });
+    }
+
+    // ============================================
+    // SESSION RECOVERY (serverless, in-band)
+    // ============================================
+    //
+    // What survives an ICE restart and what does not:
+    //
+    //   ICE restart replaces the candidate pair — i.e. the network path. The
+    //   DTLS handshake, the negotiated keys and the SCTP association that the
+    //   data channel rides on are all layered ABOVE ICE and survive untouched.
+    //   That is why a restart can recover a Wi-Fi → LTE switch without a new
+    //   handshake, without a new SAS, and without losing message history.
+    //
+    //   The restart SDP travels over that same still-established data channel,
+    //   so it inherits the channel's authentication: an attacker who cannot
+    //   already decrypt the session cannot inject one. No signalling server is
+    //   involved at any point.
+    //
+    //   The one thing a restart must never do is change peer identity, so the
+    //   DTLS fingerprint in the incoming SDP is checked against the fingerprint
+    //   of the live session before anything is applied. A mismatch is treated
+    //   as an attack and aborts recovery rather than re-keying to a stranger.
+    //
+    // What it cannot recover: a closed data channel (SCTP gone) or a path so
+    // dead that the restart offer itself cannot be delivered. Those fall
+    // through to _giveUpAutoReconnect and require a fresh, manually exchanged
+    // handshake — the existing offer/answer flow.
+
+    isReconnecting() {
+        return this._reconnect.phase !== 'idle' && this._reconnect.phase !== 'exhausted';
+    }
+
+
+    /**
+     * Device-level signals that a path is worth re-checking right now, instead of
+     * waiting out a backoff: this device regained network, or a mobile browser
+     * brought the tab back to the foreground (where it may have frozen the
+     * connection while backgrounded).
+     */
+    _setupRecoveryLifecycleListeners() {
+        if (typeof window === 'undefined' || this._recoveryLifecycleBound) return;
+        this._recoveryLifecycleBound = true;
+
+        this._onDeviceOnline = () => {
+            if (!this.isVerified) return;
+            if (this.isReconnecting()) {
+                // Skip the remaining backoff — the reason for it just went away.
+                this._secureLog('info', '🔄 Device back online — retrying immediately');
+                this._attemptIceRestart();
+            } else {
+                // We may have missed the drop entirely while offline.
+                this._checkLiveness();
+            }
+        };
+        this._onVisibilityRestored = () => {
+            if (typeof document === 'undefined' || document.visibilityState !== 'visible') return;
+            if (!this.isVerified) return;
+
+            // A backgrounded tab gets its timers frozen, so on return the liveness
+            // clock reads as a long silence that never actually happened, and
+            // connectionState can still be catching up. Judging the connection on
+            // either of those declares a perfectly healthy session broken — which
+            // then blocks sending, while messages keep arriving, because the
+            // transport was fine all along.
+            //
+            // So re-baseline and ASK instead of concluding: a probe settles it
+            // within seconds, and a genuinely dead path still gets caught.
+            this._lastInboundAt = Date.now();
+            this._livenessProbeAt = 0;
+
+            if (this._reconnect.phase === 'idle' && this.dataChannel?.readyState === 'open') {
+                this._livenessProbeAt = Date.now();
+                this._sendHeartbeat(false);
+                this._secureLog('info', '🔄 returned to foreground, probing peer');
+            }
+        };
+
+        window.addEventListener('online', this._onDeviceOnline);
+        if (typeof document !== 'undefined') {
+            document.addEventListener('visibilitychange', this._onVisibilityRestored);
+        }
+    }
+
+    _teardownRecoveryLifecycleListeners() {
+        if (!this._recoveryLifecycleBound || typeof window === 'undefined') return;
+        this._recoveryLifecycleBound = false;
+        if (this._onDeviceOnline) window.removeEventListener('online', this._onDeviceOnline);
+        if (this._onVisibilityRestored && typeof document !== 'undefined') {
+            document.removeEventListener('visibilitychange', this._onVisibilityRestored);
+        }
+        this._onDeviceOnline = null;
+        this._onVisibilityRestored = null;
+    }
+
+    _resetReconnectState() {
+        const r = this._reconnect;
+        if (!r) return;   // teardown can run before the constructor finishes
+        if (r.graceTimer) { clearTimeout(r.graceTimer); this._activeTimers?.delete(r.graceTimer); }
+        if (r.retryTimer) { clearTimeout(r.retryTimer); this._activeTimers?.delete(r.retryTimer); }
+        if (r.restartTimer) { clearTimeout(r.restartTimer); this._activeTimers?.delete(r.restartTimer); }
+        r.graceTimer = null;
+        r.retryTimer = null;
+        r.restartTimer = null;
+        r.phase = 'idle';
+        r.attempts = 0;
+        r.startedAt = 0;
+        r.inFlightAt = 0;
+        r.barrenFailures = 0;
+        r.pendingRole = null;
+    }
+
+    /**
+     * ICE reported 'disconnected'. This is usually transient — the browser's own
+     * consent freshness checks recover it within a couple of seconds — so hold a
+     * grace window before spending a restart, but tell the UI right away so the
+     * user sees "reconnecting" rather than a silently stalled chat.
+     */
+    _onPathDegraded(reason = 'ice_disconnected') {
+        if (!this.isVerified) return;
+        if (this._reconnect.phase !== 'idle') return;
+
+        this._reconnect.phase = 'grace';
+        this._reconnect.startedAt = Date.now();
+        this._secureLog('info', '🔄 path degraded, holding grace window', { reason });
+        this.onStatusChange('reconnecting');
+
+        this._reconnect.graceTimer = setTimeout(() => {
+            this._reconnect.graceTimer = null;
+            if (this.peerConnection?.connectionState === 'connected') {
+                this._onPathRecovered();
+                return;
+            }
+            this._attemptIceRestart();
+        }, EnhancedSecureWebRTCManager.TIMEOUTS.ICE_DISCONNECT_GRACE);
+        this._trackActiveTimer(this._reconnect.graceTimer);
+    }
+
+    /** ICE failed outright, or the peer went silent — restart without waiting. */
+    _onPathLost(reason = 'ice_failed') {
+        if (!this.isVerified) return;
+        if (this._reconnect.phase === 'restarting' || this._reconnect.phase === 'exhausted') return;
+
+        if (this._reconnect.phase === 'idle') {
+            this._reconnect.startedAt = Date.now();
+            this.onStatusChange('reconnecting');
+        }
+        if (this._reconnect.graceTimer) {
+            clearTimeout(this._reconnect.graceTimer);
+            this._activeTimers?.delete(this._reconnect.graceTimer);
+            this._reconnect.graceTimer = null;
+        }
+        this._secureLog('info', '🔄 path lost, restarting ICE', { reason });
+        this._attemptIceRestart();
+    }
+
+    /**
+     * A restart is only worth trying while the ICE agent can still produce
+     * candidates. After the device changes network, a PeerConnection is often
+     * left bound to interfaces that no longer exist: every STUN binding and TURN
+     * allocation times out, gathering yields nothing, and each restart fails with
+     * zero candidate pairs. restartIce() does not rebind it — only a brand-new
+     * PeerConnection will, and building one needs a whole new handshake.
+     *
+     * Recognising that early matters: retrying it for the full two-minute
+     * deadline is two minutes of the user watching nothing happen, when the way
+     * out was available immediately.
+     */
+    _noteIceFailureDiagnostics(diagnostics) {
+        if (!this.isReconnecting()) return;
+        if (!diagnostics) return;
+
+        if (diagnostics.pairCount > 0) {
+            this._reconnect.barrenFailures = 0;
+            return;
+        }
+
+        this._reconnect.barrenFailures = (this._reconnect.barrenFailures || 0) + 1;
+        if (this._reconnect.barrenFailures < EnhancedSecureWebRTCManager.LIMITS.MAX_BARREN_ICE_FAILURES) return;
+
+        this._secureLog('warn', '⚠️ ICE cannot gather any usable candidate — this connection is bound to a network that is gone', {
+            consecutiveBarrenFailures: this._reconnect.barrenFailures
+        });
+        this._giveUpAutoReconnect('ice_agent_unusable');
+    }
+
+    /**
+     * Path is back. Same keys, same verification, same history — carry on.
+     * Returns true if it actually handled a recovery (and therefore already
+     * emitted 'connected'), so the caller does not emit it twice.
+     */
+    _onPathRecovered() {
+        const wasRecovering = this.isReconnecting();
+        this._resetReconnectState();
+        this._lastInboundAt = Date.now();
+        this._livenessProbeAt = 0;
+
+        if (!wasRecovering) return false;
+
+        this._secureLog('info', '🔄 connection recovered, session preserved');
+        this.onStatusChange('connected');
+        // Anything the user sent into the dead channel goes out now.
+        this.processMessageQueue();
+        try {
+            document.dispatchEvent(new CustomEvent('connection-recovered', {
+                detail: { timestamp: Date.now() }
+            }));
+        } catch (_) { /* non-DOM host */ }
+        return true;
+    }
+
+    /**
+     * Only the side that created the original offer drives restarts. Both sides
+     * offering at once produces glare, and with no signalling server there is no
+     * referee to break the tie — so the answerer asks instead of acting.
+     */
+    async _attemptIceRestart() {
+        if (!this.isVerified || !this.peerConnection) return;
+
+        // Never renegotiate a connection that is actually up. Recovery can be
+        // entered on a stale reading (a tab thawing out of the background is the
+        // common one), and restarting from here would break a working session and
+        // strand it in "reconnecting" — where sending is blocked even though
+        // messages keep arriving.
+        if (this.peerConnection.connectionState === 'connected') {
+            this._onPathRecovered();
+            return;
+        }
+
+        const r = this._reconnect;
+
+        // While THIS device has no network at all (tunnel, flight mode), a restart
+        // cannot possibly succeed and the give-up deadline must not burn down —
+        // otherwise a five-minute underground ride costs the user their session.
+        // Hold the deadline open and wait; the 'online' event retries immediately.
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+            r.phase = 'waiting';
+            r.startedAt = Date.now();
+            this._secureLog('debug', '🔄 Device offline — holding recovery open');
+            this._scheduleReconnectRetry();
+            return;
+        }
+
+        const elapsed = Date.now() - (r.startedAt || Date.now());
+        if (elapsed > EnhancedSecureWebRTCManager.TIMEOUTS.RECONNECT_MAX_DURATION) {
+            this._giveUpAutoReconnect('timeout');
+            return;
+        }
+
+        // A restart round-trip (offer → gather → answer → gather) takes seconds,
+        // far longer than the head of the backoff. Launching another one on top
+        // replaces the local description out from under the attempt already in
+        // flight, so each try cancels the last and recovery never converges. Wait
+        // the round-trip out before spending another attempt.
+        if (r.inFlightAt && Date.now() - r.inFlightAt < EnhancedSecureWebRTCManager.TIMEOUTS.ICE_RESTART_TIMEOUT) {
+            this._scheduleReconnectRetry();
+            return;
+        }
+
+        // The restart SDP rides the data channel: if that is gone, SCTP is gone
+        // and no restart can help.
+        if (this.dataChannel?.readyState !== 'open') {
+            this._giveUpAutoReconnect('data_channel_closed');
+            return;
+        }
+
+        // The decisive check, and it holds for BOTH roles.
+        //
+        // Every route out of a broken path runs over the data channel: the
+        // offerer's restart offer, the answerer's request for one, the answer
+        // coming back. So recovery is only possible while that channel still
+        // carries something. If the peer has been completely silent since
+        // recovery began — no heartbeat, no ack, no reply to any attempt — then
+        // it does not, in either direction.
+        //
+        // This is also what the answerer needs: it cannot renegotiate on its own
+        // (only the offerer may create the offer), so without a working channel
+        // it has no move at all and would otherwise sit out the full deadline
+        // sending requests nobody can receive.
+        const silentFor = Date.now() - Math.max(this._lastInboundAt || 0, r.startedAt);
+        if (r.attempts >= 2 && silentFor > EnhancedSecureWebRTCManager.TIMEOUTS.RECOVERY_SILENCE_LIMIT) {
+            this._secureLog('warn', '⚠️ nothing has reached us since the drop — the channel cannot carry a renegotiation', {
+                silentForMs: silentFor,
+                attempts: r.attempts
+            });
+            this._giveUpAutoReconnect('no_signalling_path');
+            return;
+        }
+
+        r.phase = 'restarting';
+        r.attempts += 1;
+        r.inFlightAt = Date.now();
+        this._secureLog('info', '🔄 ICE restart attempt', {
+            attempt: r.attempts,
+            role: this.isInitiator ? 'offerer' : 'answerer'
+        });
+
+        try {
+            if (this.isInitiator) {
+                await this._sendIceRestartOffer();
+            } else {
+                await this.sendSystemMessage({
+                    type: EnhancedSecureWebRTCManager.MESSAGE_TYPES.ICE_RESTART_REQUEST,
+                    timestamp: Date.now()
+                });
+            }
+        } catch (error) {
+            this._secureLog('warn', '⚠️ ICE restart attempt failed to send', {
+                errorType: error?.constructor?.name || 'Unknown'
+            });
+        }
+
+        // Arm the retry regardless: if the round-trip completes, the
+        // 'connected' transition clears it via _onPathRecovered.
+        this._scheduleReconnectRetry();
+    }
+
+    _scheduleReconnectRetry() {
+        const r = this._reconnect;
+        if (r.retryTimer) {
+            clearTimeout(r.retryTimer);
+            this._activeTimers?.delete(r.retryTimer);
+        }
+        const backoff = EnhancedSecureWebRTCManager.RECONNECT_BACKOFF;
+        // Clamp at both ends: a retry can be scheduled before any attempt has been
+        // counted (the device-offline hold), and a negative index would yield an
+        // undefined delay — i.e. a 0 ms timer spinning as fast as the event loop.
+        const delay = backoff[Math.min(Math.max(r.attempts - 1, 0), backoff.length - 1)];
+
+        r.retryTimer = setTimeout(() => {
+            r.retryTimer = null;
+            if (this.peerConnection?.connectionState === 'connected') {
+                this._onPathRecovered();
+                return;
+            }
+            this._attemptIceRestart();
+        }, delay);
+        this._trackActiveTimer(r.retryTimer);
+    }
+
+    async _sendIceRestartOffer() {
+        const pc = this.peerConnection;
+        if (!pc) return;
+
+        // Rolling back to 'stable' first: a previous restart round-trip may have
+        // left a local offer pending that was never answered.
+        if (pc.signalingState === 'have-local-offer') {
+            try { await pc.setLocalDescription({ type: 'rollback' }); } catch (_) { /* Safari */ }
+        }
+
+        const offer = await pc.createOffer({ iceRestart: true });
+        await pc.setLocalDescription(offer);
+        await this.waitForIceGathering(EnhancedSecureWebRTCManager.TIMEOUTS.ICE_RESTART_GATHERING);
+
+        await this.sendSystemMessage({
+            type: EnhancedSecureWebRTCManager.MESSAGE_TYPES.ICE_RESTART_OFFER,
+            sdp: pc.localDescription.sdp,
+            timestamp: Date.now()
+        });
+        this._secureLog('debug', '🔄 ICE restart offer sent');
+    }
+
+    /**
+     * The fingerprint of the live, already-SAS-verified session. Recovery must
+     * re-point the path at the SAME peer, never re-key to a new one.
+     */
+    _currentRemoteDtlsFingerprint() {
+        const sdp = this.peerConnection?.currentRemoteDescription?.sdp
+            || this.peerConnection?.remoteDescription?.sdp;
+        if (!sdp) return null;
+        try {
+            return this._extractDTLSFingerprintFromSDP(sdp);
+        } catch (_) {
+            return null;
+        }
+    }
+
+    async _assertSameRemoteIdentity(sdp, context) {
+        const expected = this._currentRemoteDtlsFingerprint();
+        if (!expected) {
+            // No baseline to compare against — refuse rather than accept blindly.
+            throw new Error(`Cannot verify peer identity for ${context}`);
+        }
+        const received = this._extractDTLSFingerprintFromSDP(sdp);
+        await this._validateDTLSFingerprint(received, expected, context);
+    }
+
+    /** Inbound recovery signalling, routed from processMessage. */
+    async _handleIceRestartSignal(type, data) {
+        const T = EnhancedSecureWebRTCManager.MESSAGE_TYPES;
+        const pc = this.peerConnection;
+        if (!pc) return;
+
+        this._noteInboundActivity();
+
+        switch (type) {
+            case T.ICE_RESTART_REQUEST: {
+                // Peer noticed the break first. Only the offerer may act on it.
+                if (!this.isInitiator) return;
+                if (this._reconnect.phase === 'idle') {
+                    this._reconnect.startedAt = Date.now();
+                    this._reconnect.phase = 'restarting';
+                    this.onStatusChange('reconnecting');
+                }
+                await this._sendIceRestartOffer();
+                return;
+            }
+
+            case T.ICE_RESTART_OFFER: {
+                if (!data.sdp) return;
+                // Identity check BEFORE touching the peer connection.
+                await this._assertSameRemoteIdentity(data.sdp, 'ice_restart_offer');
+
+                if (this._reconnect.phase === 'idle') {
+                    this._reconnect.startedAt = Date.now();
+                    this.onStatusChange('reconnecting');
+                }
+                this._reconnect.phase = 'restarting';
+
+                await pc.setRemoteDescription({ type: 'offer', sdp: data.sdp });
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                await this.waitForIceGathering(EnhancedSecureWebRTCManager.TIMEOUTS.ICE_RESTART_GATHERING);
+
+                await this.sendSystemMessage({
+                    type: T.ICE_RESTART_ANSWER,
+                    sdp: pc.localDescription.sdp,
+                    timestamp: Date.now()
+                });
+                this._secureLog('debug', '🔄 ICE restart answer sent');
+                return;
+            }
+
+            case T.ICE_RESTART_ANSWER: {
+                if (!data.sdp) return;
+                if (pc.signalingState !== 'have-local-offer') {
+                    this._secureLog('warn', '⚠️ Ignoring restart answer in unexpected state', {
+                        signalingState: pc.signalingState
+                    });
+                    return;
+                }
+                await this._assertSameRemoteIdentity(data.sdp, 'ice_restart_answer');
+                await pc.setRemoteDescription({ type: 'answer', sdp: data.sdp });
+                // Round-trip complete: the next attempt (if the pair still fails
+                // to connect) may start without waiting out the full budget.
+                this._reconnect.inFlightAt = 0;
+                this._secureLog('debug', '🔄 ICE restart answer applied');
+                return;
+            }
+
+            default:
+        }
+    }
+
+    /**
+     * Automatic recovery is out of road, and there is no fallback: with no
+     * signalling server, a path that cannot carry a renegotiation cannot be
+     * rebuilt without a fresh, manually exchanged handshake.
+     *
+     * So the session ends here rather than lingering half-alive. Everything goes
+     * with it — keys, queued messages, transcript — which is also the safer
+     * default: a conversation whose transport is gone should not leave its
+     * plaintext sitting in a tab the user has stopped watching.
+     */
+    _giveUpAutoReconnect(reason) {
+        this._resetReconnectState();
+        this._reconnect.phase = 'exhausted';
+        this._teardownRecoveryLifecycleListeners?.();
+        this._secureLog('warn', '⚠️ automatic reconnection exhausted — ending session', { reason });
+
+        if (!this.reconnectionFailedNotificationSent) {
+            this.reconnectionFailedNotificationSent = true;
+            this.deliverMessageToUI(
+                'Could not restore the connection. This chat is being closed and its data wiped — start a new one to continue.',
+                'system'
+            );
+        }
+
+        // 'recovery_failed' is distinct from a plain 'disconnected': the UI takes
+        // it as the instruction to tear the whole conversation down, not merely
+        // to show a dropped-connection state.
+        this.onStatusChange('recovery_failed');
+        this._clearVerificationStates();
     }
 
     /**
@@ -12470,11 +13285,12 @@ async processMessage(data) {
             this._maintenanceScheduler = null;
         }
         
-        // Stop heartbeat
-        if (this._heartbeatConfig) {
-            this._heartbeatConfig.enabled = false;
-        }
-        
+        // Stop heartbeat + liveness watchdog, and abandon any in-flight session
+        // recovery. Optional-called: a throw here would skip the bulk
+        // _activeTimers sweep below and leak every remaining timer.
+        this.stopHeartbeat?.();
+        this._resetReconnectState?.();
+
         // Clear all timer references
         if (this._activeTimers) {
             this._activeTimers.forEach(timer => {
@@ -12495,7 +13311,12 @@ async processMessage(data) {
     }
 
 
-    waitForIceGathering() {
+    /**
+     * @param {number} [timeoutMs] - gathering budget. Recovery uses a much shorter
+     *   one than the initial handshake: a restart round-trip must finish well
+     *   inside the retry backoff, or the next attempt cancels the one in flight.
+     */
+    waitForIceGathering(timeoutMs = EnhancedSecureWebRTCManager.TIMEOUTS.ICE_GATHERING_TIMEOUT) {
         return new Promise((resolve) => {
             if (this.peerConnection.iceGatheringState === 'complete') {
                 resolve(true);
@@ -12516,7 +13337,7 @@ async processMessage(data) {
                     this.peerConnection.removeEventListener('icegatheringstatechange', checkState);
                 }
                 resolve(this.peerConnection?.iceGatheringState === 'complete');
-            }, EnhancedSecureWebRTCManager.TIMEOUTS.ICE_GATHERING_TIMEOUT);
+            }, timeoutMs);
         });
     }
 
@@ -12607,13 +13428,26 @@ async processMessage(data) {
         }
     }
     
+    /**
+     * Manual "try again" from the UI. Restarts the automatic recovery cycle from
+     * scratch (fresh attempt counter and deadline) as long as the data channel is
+     * still there to carry the renegotiation.
+     */
     attemptReconnection() {
-        // Ensure reconnection-failed notification wasn't already sent
-        if (!this.reconnectionFailedNotificationSent) {
-            this.reconnectionFailedNotificationSent = true;
-            this.deliverMessageToUI('Unable to reconnect. A new connection is required.', 'system');
+        if (!this.isVerified || this.dataChannel?.readyState !== 'open') {
+            if (!this.reconnectionFailedNotificationSent) {
+                this.reconnectionFailedNotificationSent = true;
+                this.deliverMessageToUI('Unable to reconnect. A new connection is required.', 'system');
+            }
+            return false;
         }
 
+        this._resetReconnectState();
+        this.reconnectionFailedNotificationSent = false;
+        this._reconnect.startedAt = Date.now();
+        this.onStatusChange('reconnecting');
+        this._attemptIceRestart();
+        return true;
     }
     
     handlePeerDisconnectNotification(data) {
@@ -12677,6 +13511,7 @@ async processMessage(data) {
             this.sendDisconnectNotification();
 
             // Stop every timer-backed subsystem first.
+            this._teardownRecoveryLifecycleListeners?.();
             this._stopAllTimers();
             this._peerDisconnectCleanupTimer = null;
             this.stopHeartbeat();
@@ -13362,7 +14197,9 @@ checkFileTransferReadiness() {
         const channelOpen = this.dataChannel && this.dataChannel.readyState === 'open';
         // SAS verification is mandatory: it is what authenticates the DTLS
         // transport the media rides on, closing the MITM window.
-        const ok = !!(connected && channelOpen && this.isVerified);
+        // A call must also not be placed onto a path that is mid-repair — the
+        // media renegotiation would race the ICE restart on the same connection.
+        const ok = !!(connected && channelOpen && this.isVerified && !this.isReconnecting());
         return ok;
     }
 

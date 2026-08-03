@@ -1,5 +1,95 @@
 # Changelog
 
+## v5.6.0 — Survive a dropped connection
+
+A chat no longer dies when the network moves under it. Switching Wi-Fi → LTE,
+a NAT rebind, a lift, a tunnel: the session now repairs its own network path and
+the messages you typed meanwhile go out when it comes back.
+
+This is done without adding any server. An ICE restart renegotiates *only* the
+transport path; the DTLS handshake, the session keys and the SCTP association
+carrying the data channel all sit above ICE and survive it. So the renegotiation
+SDP travels over the existing end-to-end encrypted, SAS-verified channel — there
+is still no signalling service anywhere in the design, and an attacker who cannot
+already decrypt the session cannot inject a reconnection.
+
+### Added
+
+- **Automatic session recovery.** A broken path is repaired in place with an
+  in-band ICE restart, retried with a 1/2/4/8/15/30 s backoff for up to two
+  minutes. Keys, SAS verification and message history are all preserved — no
+  re-handshake, no comparing codes again.
+- **Liveness detection that understands sleeping devices.** A data channel keeps
+  reporting `readyState: 'open'` long after the path underneath it has died — the
+  classic Wi-Fi → LTE switch, where nothing closes and nothing errors, packets
+  just stop. Silence alone is deliberately not treated as death, because a
+  browser freezes a backgrounded tab outright and a healthy peer then answers
+  nothing at all. What survives that freeze is ICE consent, which the browser
+  runs in its network stack rather than on the page's thread — so a connected ICE
+  state means a silent peer is asleep, not gone, and the session is left alone.
+  Only when ICE itself is degraded does an unanswered probe end the session.
+- **Recovery is given up promptly when it cannot possibly work.** Every route out
+  of a broken path runs over the data channel, so if nothing at all has reached
+  us since the drop, no further attempt can succeed. Likewise an ICE agent left
+  bound to a network that is gone — every candidate times out, every restart ends
+  with zero candidate pairs — cannot be repaired by restarting it. Both are now
+  recognised in seconds instead of being retried for two minutes.
+- **A session that cannot be recovered is closed, not left half-alive.** When the
+  path is gone for good, the chat is ended and its data wiped — keys, queued
+  messages and transcript together. There is deliberately no manual fallback: a
+  conversation whose transport is gone should not leave its plaintext sitting in
+  a tab, and starting a fresh one is a single, honest step.
+- **Store-and-forward while reconnecting.** Messages typed during a repair are
+  queued and delivered when the path returns, in order. A send that races a
+  still-settling path is re-queued rather than marked failed.
+- **The conversation stays on screen** during a repair, with a "Restoring
+  connection…" state, instead of dropping you back to the connect screen.
+- **A device with no network holds the session open.** Five minutes underground
+  no longer costs a session: the give-up deadline does not run while this device
+  has no connectivity, and recovery retries the moment the radio returns or the
+  tab comes back to the foreground.
+- `tests/session-recovery.test.mjs` covers the state machine, the backoff, the
+  offline hold and the identity check below.
+
+### Security
+
+- **A reconnection cannot re-point a session at a different peer.** The DTLS
+  fingerprint in an incoming restart offer or answer is checked against the
+  fingerprint of the live, already-verified session *before* anything is applied
+  to the peer connection. A mismatch aborts recovery. If there is no live
+  fingerprint to compare against, the restart is refused rather than trusted.
+- Only the side that created the original offer may drive a restart; the other
+  side asks. With no signalling server there is no referee to resolve glare.
+- Calls cannot be placed onto a path that is mid-repair, where the media
+  renegotiation would race the ICE restart on the same connection.
+
+### Fixed
+
+- **Every inbound heartbeat threw a `TypeError`.** `handleHeartbeat()` was
+  dispatched to but never defined, so peer liveness was never actually observed.
+- **Heartbeats were sent every 5 minutes, not the intended interval** — the send
+  was folded into the general maintenance cycle, far too coarse to notice a dead
+  path. It now runs on its own timer, and answering one no longer requires the
+  peer to have finished verifying: the two sides confirm a SAS code at different
+  moments, and for that whole window one of them could not reply and was being
+  declared dead on a healthy connection.
+- **The answering side never started its watchdog.** `ondatachannel` can hand over
+  a channel that is already open, so the `open` event had been dispatched before
+  the handler was assigned and never fired — leaving that side with no heartbeat,
+  no liveness watchdog and no file-transfer init. The peer whose network was fine
+  kept showing "connected" indefinitely because nothing was running to notice.
+- **A failed send no longer fails silently.** Sending on a channel that was not
+  ready simply returned: the text stayed in the box, nothing was transmitted and
+  nothing said why.
+- **A transient `disconnected` no longer tears down the session.** ICE reports it
+  routinely and the browser usually recovers unaided; it is now given a grace
+  window before a restart is spent, and it never clears verification on its own.
+- A reconnected session no longer re-announces "secure connection established" —
+  it is the same session resuming, and no handshake took place.
+- Liveness bookkeeping can no longer throw ahead of message routing, where the
+  surrounding catch would have swallowed it and silently dropped every inbound
+  message.
+
 ## v5.5.4 — Fix the desktop download buttons
 
 ### Fixed

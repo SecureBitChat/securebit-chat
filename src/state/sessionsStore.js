@@ -84,6 +84,8 @@ export function statusSub(status) {
         case 'connecting':
         case 'new':
             return 'Connecting…';
+        case 'reconnecting':
+            return 'Reconnecting…';
         case 'peer_disconnected':
             return 'Peer disconnected';
         default:
@@ -184,7 +186,12 @@ export function sessionsReducer(state, action) {
             // Peer presence is only meaningful while connected. Clear it whenever the
             // session leaves the connected state, so a later reconnect doesn't briefly
             // re-show the peer's stale status before they re-broadcast their presence.
-            const connected = action.status === 'connected' || action.status === 'verified';
+            // 'reconnecting' keeps the peer's advertised presence: the session is
+            // still alive, only its network path is being repaired, and blanking
+            // the presence would make a 2-second glitch look like a disconnect.
+            const connected = action.status === 'connected'
+                || action.status === 'verified'
+                || action.status === 'reconnecting';
             const patch = (!connected && session.peerPresence !== null)
                 ? { status: action.status, peerPresence: null }
                 : { status: action.status };
@@ -327,7 +334,9 @@ export function decorateSession(session, activeSessionId) {
     const lastMessage = [...session.messages].reverse().find((m) => !m.expired && ((typeof m.message === 'string' && m.message.trim()) || m.voice));
     const s = session.status;
     const isUp = s === 'connected' || s === 'verified';
-    const isPending = s === 'connecting' || s === 'verifying' || s === 'new';
+    // 'reconnecting' is a live session whose path is being repaired — amber, not
+    // red: the keys, the SAS verification and the history are all still valid.
+    const isPending = s === 'connecting' || s === 'verifying' || s === 'new' || s === 'reconnecting';
     // Avatar dot + sub-text: while a session is up, reflect the PEER's advertised presence;
     // otherwise reflect the connection state (amber = connecting, red = dropped).
     let dot, headerSub;

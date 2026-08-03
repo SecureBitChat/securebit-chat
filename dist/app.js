@@ -201,6 +201,8 @@ function statusSub(status) {
     case "connecting":
     case "new":
       return "Connecting\u2026";
+    case "reconnecting":
+      return "Reconnecting\u2026";
     case "peer_disconnected":
       return "Peer disconnected";
     default:
@@ -290,7 +292,7 @@ function sessionsReducer(state, action) {
     case A.SET_STATUS: {
       const session = state.sessions[action.id];
       if (!session || session.status === action.status) return state;
-      const connected = action.status === "connected" || action.status === "verified";
+      const connected = action.status === "connected" || action.status === "verified" || action.status === "reconnecting";
       const patch = !connected && session.peerPresence !== null ? { status: action.status, peerPresence: null } : { status: action.status };
       return patchSession(state, action.id, patch);
     }
@@ -403,7 +405,7 @@ function decorateSession(session, activeSessionId) {
   const lastMessage = [...session.messages].reverse().find((m) => !m.expired && (typeof m.message === "string" && m.message.trim() || m.voice));
   const s = session.status;
   const isUp = s === "connected" || s === "verified";
-  const isPending = s === "connecting" || s === "verifying" || s === "new";
+  const isPending = s === "connecting" || s === "verifying" || s === "new" || s === "reconnecting";
   let dot, headerSub;
   if (isPending) {
     dot = "#e3b341";
@@ -2198,7 +2200,7 @@ var SecureBitChatHeader = ({ status, onDisconnect, webrtcManager, title, isOffli
           React.createElement("span", { key: "n", style: { fontSize: "15px", fontWeight: 800, letterSpacing: "-0.3px", color: "#f4f4f6", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, title || "Secure chat"),
           React.createElement("button", { key: "edit", className: "sb-rename-btn", onClick: startRename, title: "Rename chat (local only)", style: { flex: "none", width: "24px", height: "24px", borderRadius: "7px", display: "grid", placeItems: "center", border: "none", background: "transparent", color: "#56565e", cursor: "pointer" } }, React.createElement("i", { className: "fas fa-pen", style: { fontSize: "11px" } }))
         ]),
-        React.createElement("div", { key: "r2", className: "sb-hdr-sub", style: { fontSize: "11px", color: "#6b6b73", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, isOffline ? "No network \xB7 reconnecting" : peerPresenceWord || (onlineConnected ? "P2P \xB7 end-to-end encrypted" : status === "peer_disconnected" ? "Peer disconnected" : status === "disconnected" ? "Disconnected" : "Connecting\u2026"))
+        React.createElement("div", { key: "r2", className: "sb-hdr-sub", style: { fontSize: "11px", color: "#6b6b73", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, isOffline ? "No network \xB7 reconnecting" : status === "reconnecting" ? "Restoring connection\u2026" : peerPresenceWord || (onlineConnected ? "P2P \xB7 end-to-end encrypted" : status === "peer_disconnected" ? "Peer disconnected" : status === "disconnected" ? "Disconnected" : "Connecting\u2026"))
       ])
     ]),
     secBtn,
@@ -2915,6 +2917,7 @@ var EnhancedSecureP2PChat = () => {
   const managersRef = React.useRef(/* @__PURE__ */ new Map());
   const integrationsRef = React.useRef(/* @__PURE__ */ new Map());
   const queuesRef = React.useRef(/* @__PURE__ */ new Map());
+  const statusRef = React.useRef(/* @__PURE__ */ new Map());
   const dispatchActive = React.useCallback((build) => {
     const id = activeIdRef.current;
     if (!id) return;
@@ -3034,11 +3037,17 @@ var EnhancedSecureP2PChat = () => {
   React.useEffect(() => {
     const goOffline = () => setIsOffline(true);
     const goOnline = () => setIsOffline(false);
+    const resync = () => {
+      if (document.visibilityState !== "visible") return;
+      setIsOffline(navigator.onLine === false);
+    };
     window.addEventListener("offline", goOffline);
     window.addEventListener("online", goOnline);
+    document.addEventListener("visibilitychange", resync);
     return () => {
       window.removeEventListener("offline", goOffline);
       window.removeEventListener("online", goOnline);
+      document.removeEventListener("visibilitychange", resync);
     };
   }, []);
   React.useEffect(() => {
@@ -3217,43 +3226,68 @@ var EnhancedSecureP2PChat = () => {
     if (!fileId) return;
     setMessages((prev) => prev.map((m) => m.fileId && String(m.fileId) === String(fileId) ? { ...m, ...typeof patch === "function" ? patch(m) : patch } : m));
   }, []);
-  const flushOfflineQueues = React.useCallback(() => {
-    for (const [id, q] of queuesRef.current.entries()) {
-      const mgr = managersRef.current.get(id);
-      const out = q.outgoing;
-      q.outgoing = [];
-      for (const item of out) {
-        const send = mgr?.sendMessage?.(item.outText, item.meta);
+  const flushSessionQueue = React.useCallback((id) => {
+    const q = queuesRef.current.get(id);
+    if (!q) return;
+    const mgr = managersRef.current.get(id);
+    const out = q.outgoing;
+    q.outgoing = [];
+    const deferred = [];
+    for (const item of out) {
+      if (!mgr || mgr.isConnected?.() !== true) {
+        deferred.push(item);
+        continue;
+      }
+      try {
+        const send = mgr.sendMessage?.(item.outText, item.meta);
         if (send && typeof send.then === "function") {
           send.then(() => dispatch({ type: SESSION_ACTIONS.UPDATE_MESSAGE_STATUS, id, mid: item.mid, status: "delivered" })).catch(() => dispatch({ type: SESSION_ACTIONS.UPDATE_MESSAGE_STATUS, id, mid: item.mid, status: "failed" }));
         }
+      } catch (_) {
+        deferred.push(item);
       }
-      const inc = q.incoming;
-      q.incoming = [];
-      if (inc.length > 0) {
-        dispatch({ type: SESSION_ACTIONS.ADD_MESSAGE, id, message: buildSessionMessage(
-          `Connection restored \u2014 ${inc.length} message${inc.length === 1 ? "" : "s"} received while you were offline.`,
-          "notice"
-        ) });
-      }
-      const viewing = id === activeIdRef.current && (typeof document === "undefined" || document.visibilityState === "visible");
-      for (const item of inc) {
-        dispatch({ type: SESSION_ACTIONS.ADD_MESSAGE, id, message: buildSessionMessage(item.message, item.type, item.opts) });
-        if (item.opts && item.opts.mid && item.type === "received") {
-          if (viewing) {
-            try {
-              mgr?.sendDeliveryReceipt?.(item.opts.mid);
-            } catch (_) {
-            }
-          } else if (q.pendingReadAcks) q.pendingReadAcks.push(item.opts.mid);
-        }
+    }
+    if (deferred.length) q.outgoing = deferred.concat(q.outgoing);
+    const inc = q.incoming;
+    q.incoming = [];
+    if (inc.length > 0) {
+      dispatch({ type: SESSION_ACTIONS.ADD_MESSAGE, id, message: buildSessionMessage(
+        `Connection restored \u2014 ${inc.length} message${inc.length === 1 ? "" : "s"} received while you were offline.`,
+        "notice"
+      ) });
+    }
+    const viewing = id === activeIdRef.current && (typeof document === "undefined" || document.visibilityState === "visible");
+    for (const item of inc) {
+      dispatch({ type: SESSION_ACTIONS.ADD_MESSAGE, id, message: buildSessionMessage(item.message, item.type, item.opts) });
+      if (item.opts && item.opts.mid && item.type === "received") {
+        if (viewing) {
+          try {
+            mgr?.sendDeliveryReceipt?.(item.opts.mid);
+          } catch (_) {
+          }
+        } else if (q.pendingReadAcks) q.pendingReadAcks.push(item.opts.mid);
       }
     }
   }, []);
+  const flushOfflineQueues = React.useCallback(() => {
+    for (const id of queuesRef.current.keys()) flushSessionQueue(id);
+  }, [flushSessionQueue]);
   React.useEffect(() => {
     if (isOffline) return;
     flushOfflineQueues();
   }, [isOffline, flushOfflineQueues]);
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      for (const [id, q] of queuesRef.current.entries()) {
+        if (!q.outgoing.length && !q.incoming.length) continue;
+        const mgr = managersRef.current.get(id);
+        if (mgr?.isConnected?.() !== true) continue;
+        if (mgr?.isReconnecting?.() === true) continue;
+        flushSessionQueue(id);
+      }
+    }, 2e3);
+    return () => clearInterval(timer);
+  }, [flushSessionQueue]);
   const updateSecurityLevel = React.useCallback(async () => {
     if (window.isUpdatingSecurity) {
       return;
@@ -3458,7 +3492,22 @@ var EnhancedSecureP2PChat = () => {
       }
     };
     const handleStatusChange = (status) => {
+      const prevStatus = statusRef.current.get(id);
+      statusRef.current.set(id, status);
       setConnectionStatus2(status);
+      if (status === "reconnecting") return;
+      if (status === "connected" && prevStatus === "reconnecting") {
+        flushSessionQueue(id);
+      }
+      if (status === "recovery_failed") {
+        setConnectionStatus2("disconnected");
+        if (id === activeIdRef.current) {
+          document.dispatchEvent(new CustomEvent("peer-disconnect"));
+          document.dispatchEvent(new CustomEvent("disconnected"));
+        }
+        setTimeout(() => destroySession(id), 2500);
+        return;
+      }
       if (status === "connected") {
         document.dispatchEvent(new CustomEvent("new-connection"));
         if (!window.isUpdatingSecurity) {
@@ -3591,7 +3640,7 @@ var EnhancedSecureP2PChat = () => {
       } catch (error) {
       }
     }
-    handleMessage(" SecureBit.chat Enhanced Security Edition v5.5.4 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.", "system");
+    handleMessage(" SecureBit.chat Enhanced Security Edition v5.6.0 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.", "system");
     manager.setFileTransferCallbacks(
       // Progress callback — drives the voice-note upload/download ring.
       (progress) => {
@@ -3705,6 +3754,7 @@ var EnhancedSecureP2PChat = () => {
         integrationsRef.current.delete(id);
       }
       queuesRef.current.delete(id);
+      statusRef.current.delete(id);
       dispatch({ type: SESSION_ACTIONS.REMOVE_SESSION, id });
     } finally {
       destroyingRef.current.delete(id);
@@ -3830,6 +3880,7 @@ var EnhancedSecureP2PChat = () => {
       }
       integrationsRef.current.clear();
       queuesRef.current.clear();
+      statusRef.current.clear();
     };
   }, []);
   const compressOfferData = (offerData2) => {
@@ -4923,8 +4974,9 @@ var EnhancedSecureP2PChat = () => {
     }
     const baseTextEarly = messageInput.trim();
     const midEarly = `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-    const offlineNow = isOffline || typeof navigator !== "undefined" && navigator.onLine === false || window.pwaOfflineManager && window.pwaOfflineManager.isOnline === false;
-    if (offlineNow) {
+    const mgr = webrtcManagerRef.current;
+    const channelUsable = mgr?.isConnected?.() === true && mgr?.isReconnecting?.() !== true;
+    if (!channelUsable && mgr?.isConnected) {
       const outTextOff = codeMode ? "```\n" + baseTextEarly + "\n```" : baseTextEarly;
       const tsOff = Date.now();
       const metaOff = { mid: midEarly, ts: tsOff };
@@ -4943,7 +4995,8 @@ var EnhancedSecureP2PChat = () => {
       if (viewOnceMode) setViewOnceMode(false);
       return;
     }
-    if (!webrtcManagerRef.current.isConnected()) {
+    if (!channelUsable) {
+      addMessageWithAutoScroll("Not sent \u2014 the secure channel is not ready. Reconnect to continue.", "system");
       return;
     }
     try {
@@ -4990,8 +5043,8 @@ var EnhancedSecureP2PChat = () => {
       localUrl = URL.createObjectURL(blob);
     } catch (_) {
     }
-    const offlineNow = isOffline || typeof navigator !== "undefined" && navigator.onLine === false || window.pwaOfflineManager && window.pwaOfflineManager.isOnline === false;
-    const notReady = offlineNow || !webrtcManagerRef.current.isConnected || !webrtcManagerRef.current.isConnected();
+    const reconnecting = webrtcManagerRef.current?.isReconnecting?.() === true;
+    const notReady = reconnecting || webrtcManagerRef.current?.isConnected?.() !== true;
     if (notReady) {
       if (localUrl) {
         try {
@@ -4999,7 +5052,10 @@ var EnhancedSecureP2PChat = () => {
         } catch (_) {
         }
       }
-      addMessageWithAutoScroll("Voice message needs an active secure connection. Reconnect and try again.", "system");
+      addMessageWithAutoScroll(
+        reconnecting ? "Restoring the connection \u2014 try sending the voice message again in a moment." : "Voice message needs an active secure connection. Reconnect and try again.",
+        "system"
+      );
       return;
     }
     const voiceMeta = {
@@ -5101,12 +5157,15 @@ var EnhancedSecureP2PChat = () => {
     }
     addMessageWithAutoScroll(message, "system");
   };
+  const prevConnStatusRef = React.useRef(connectionStatus);
   React.useEffect(() => {
-    if (connectionStatus === "connected" && isVerified) {
+    const resumed = prevConnStatusRef.current === "reconnecting";
+    prevConnStatusRef.current = connectionStatus;
+    if (connectionStatus === "connected" && isVerified && !resumed) {
       addMessageWithAutoScroll(" Secure connection successfully established and verified! You can now communicate safely with full protection against MITM attacks and Perfect Forward Secrecy..", "system");
     }
   }, [connectionStatus, isVerified]);
-  const isConnectedAndVerified = (connectionStatus === "connected" || connectionStatus === "verified") && isVerified;
+  const isConnectedAndVerified = (connectionStatus === "connected" || connectionStatus === "verified" || connectionStatus === "reconnecting") && isVerified;
   React.useEffect(() => {
     document.body.classList.toggle("sb-in-chat", isConnectedAndVerified);
     return () => document.body.classList.remove("sb-in-chat");

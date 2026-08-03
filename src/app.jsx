@@ -2010,7 +2010,7 @@ import {
                                     React.createElement('span', { key: 'n', style: { fontSize: '15px', fontWeight: 800, letterSpacing: '-0.3px', color: '#f4f4f6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, title || 'Secure chat'),
                                     React.createElement('button', { key: 'edit', className: 'sb-rename-btn', onClick: startRename, title: 'Rename chat (local only)', style: { flex: 'none', width: '24px', height: '24px', borderRadius: '7px', display: 'grid', placeItems: 'center', border: 'none', background: 'transparent', color: '#56565e', cursor: 'pointer' } }, React.createElement('i', { className: 'fas fa-pen', style: { fontSize: '11px' } }))
                                 ]),
-                                React.createElement('div', { key: 'r2', className: 'sb-hdr-sub', style: { fontSize: '11px', color: '#6b6b73', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, isOffline ? 'No network · reconnecting' : (peerPresenceWord || (onlineConnected ? 'P2P · end-to-end encrypted' : (status === 'peer_disconnected' ? 'Peer disconnected' : (status === 'disconnected' ? 'Disconnected' : 'Connecting…')))))
+                                React.createElement('div', { key: 'r2', className: 'sb-hdr-sub', style: { fontSize: '11px', color: '#6b6b73', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, isOffline ? 'No network · reconnecting' : (status === 'reconnecting' ? 'Restoring connection…' : (peerPresenceWord || (onlineConnected ? 'P2P · end-to-end encrypted' : (status === 'peer_disconnected' ? 'Peer disconnected' : (status === 'disconnected' ? 'Disconnected' : 'Connecting…'))))))
                             ])
                     ]),
                     secBtn,
@@ -2716,6 +2716,10 @@ import {
                     const managersRef = React.useRef(new Map());      // id -> EnhancedSecureWebRTCManager
                     const integrationsRef = React.useRef(new Map());  // id -> NotificationIntegration
                     const queuesRef = React.useRef(new Map());        // id -> { incoming:[], outgoing:[] }
+                    // id -> last status seen from the manager. Used to spot the
+                    // reconnecting → connected edge (a repaired P2P path) without
+                    // going through React state, which manager callbacks can't read.
+                    const statusRef = React.useRef(new Map());
 
                     // Active-session VIEW. The rest of the component (and the child setup/chat
                     // components) read these names unchanged; the setters dispatch to the active
@@ -2851,9 +2855,22 @@ import {
                     React.useEffect(() => {
                         const goOffline = () => setIsOffline(true);
                         const goOnline = () => setIsOffline(false);
+                        // A frozen tab can miss the 'online' edge entirely and would then
+                        // read as offline for the rest of its life. Re-read the real value
+                        // whenever the tab comes back, so the header stops claiming there
+                        // is no network long after there is.
+                        const resync = () => {
+                            if (document.visibilityState !== 'visible') return;
+                            setIsOffline(navigator.onLine === false);
+                        };
                         window.addEventListener('offline', goOffline);
                         window.addEventListener('online', goOnline);
-                        return () => { window.removeEventListener('offline', goOffline); window.removeEventListener('online', goOnline); };
+                        document.addEventListener('visibilitychange', resync);
+                        return () => {
+                            window.removeEventListener('offline', goOffline);
+                            window.removeEventListener('online', goOnline);
+                            document.removeEventListener('visibilitychange', resync);
+                        };
                     }, []);
 
                     // Keyboard-aware viewport height. iOS Safari does not shrink the layout
@@ -3087,42 +3104,86 @@ import {
                             : m));
                     }, []);
 
-                    // When WE come back online: for EVERY session, transmit anything queued while
-                    // offline and surface (and acknowledge) anything that arrived meanwhile. Each
-                    // session flushes against its own manager and into its own slice.
-                    const flushOfflineQueues = React.useCallback(() => {
-                        for (const [id, q] of queuesRef.current.entries()) {
-                            const mgr = managersRef.current.get(id);
-                            const out = q.outgoing; q.outgoing = [];
-                            for (const item of out) {
-                                const send = mgr?.sendMessage?.(item.outText, item.meta);
+                    // Drain ONE session's store-and-forward queues: transmit anything queued
+                    // while the link was down, and surface (and acknowledge) anything that
+                    // arrived meanwhile. Called both when the
+                    // browser regains connectivity and when a single session's P2P path is
+                    // repaired by an ICE restart (the two are independent: one chat can be
+                    // reconnecting while the others are fine).
+                    //
+                    // A send is only attempted while the manager reports a usable channel;
+                    // anything that cannot go out right now is put BACK on the queue in its
+                    // original order rather than being marked failed, so a flush that races
+                    // a still-settling path costs nothing but a retry.
+                    const flushSessionQueue = React.useCallback((id) => {
+                        const q = queuesRef.current.get(id);
+                        if (!q) return;
+                        const mgr = managersRef.current.get(id);
+
+                        const out = q.outgoing; q.outgoing = [];
+                        const deferred = [];
+                        for (const item of out) {
+                            if (!mgr || mgr.isConnected?.() !== true) { deferred.push(item); continue; }
+                            try {
+                                const send = mgr.sendMessage?.(item.outText, item.meta);
                                 if (send && typeof send.then === 'function') {
                                     send.then(() => dispatch({ type: SA.UPDATE_MESSAGE_STATUS, id, mid: item.mid, status: 'delivered' }))
                                         .catch(() => dispatch({ type: SA.UPDATE_MESSAGE_STATUS, id, mid: item.mid, status: 'failed' }));
                                 }
+                            } catch (_) {
+                                deferred.push(item);
                             }
-                            const inc = q.incoming; q.incoming = [];
-                            if (inc.length > 0) {
-                                dispatch({ type: SA.ADD_MESSAGE, id, message: buildSessionMessage(
-                                    `Connection restored — ${inc.length} message${inc.length === 1 ? '' : 's'} received while you were offline.`,
-                                    'notice'
-                                ) });
-                            }
-                            const viewing = id === activeIdRef.current && (typeof document === 'undefined' || document.visibilityState === 'visible');
-                            for (const item of inc) {
-                                dispatch({ type: SA.ADD_MESSAGE, id, message: buildSessionMessage(item.message, item.type, item.opts) });
-                                if (item.opts && item.opts.mid && item.type === 'received') {
-                                    if (viewing) { try { mgr?.sendDeliveryReceipt?.(item.opts.mid); } catch (_) {} }
-                                    else if (q.pendingReadAcks) q.pendingReadAcks.push(item.opts.mid);
-                                }
+                        }
+                        // Preserve ordering: deferred items go back ahead of anything queued
+                        // while this flush was running.
+                        if (deferred.length) q.outgoing = deferred.concat(q.outgoing);
+
+                        const inc = q.incoming; q.incoming = [];
+                        if (inc.length > 0) {
+                            dispatch({ type: SA.ADD_MESSAGE, id, message: buildSessionMessage(
+                                `Connection restored — ${inc.length} message${inc.length === 1 ? '' : 's'} received while you were offline.`,
+                                'notice'
+                            ) });
+                        }
+                        const viewing = id === activeIdRef.current && (typeof document === 'undefined' || document.visibilityState === 'visible');
+                        for (const item of inc) {
+                            dispatch({ type: SA.ADD_MESSAGE, id, message: buildSessionMessage(item.message, item.type, item.opts) });
+                            if (item.opts && item.opts.mid && item.type === 'received') {
+                                if (viewing) { try { mgr?.sendDeliveryReceipt?.(item.opts.mid); } catch (_) {} }
+                                else if (q.pendingReadAcks) q.pendingReadAcks.push(item.opts.mid);
                             }
                         }
                     }, []);
 
+                    // When WE come back online: flush every session.
+                    const flushOfflineQueues = React.useCallback(() => {
+                        for (const id of queuesRef.current.keys()) flushSessionQueue(id);
+                    }, [flushSessionQueue]);
+
                     React.useEffect(() => {
-                        if (isOffline) return;        // only act on the offline → online edge
+                        if (isOffline) return;        // the offline → online edge, when it arrives
                         flushOfflineQueues();
                     }, [isOffline, flushOfflineQueues]);
+
+                    // …but never RELY on that edge. The browser's online event is not
+                    // guaranteed: a tab the OS froze can miss it entirely, and then a
+                    // queue drained only on edges stays full forever — the bug this
+                    // replaces, where a phone showed one tick on every message it sent
+                    // while happily receiving. Poll instead: whenever a session's channel
+                    // is usable and it has something waiting, drain it. Sessions with
+                    // nothing queued cost a map lookup.
+                    React.useEffect(() => {
+                        const timer = setInterval(() => {
+                            for (const [id, q] of queuesRef.current.entries()) {
+                                if (!q.outgoing.length && !q.incoming.length) continue;
+                                const mgr = managersRef.current.get(id);
+                                if (mgr?.isConnected?.() !== true) continue;
+                                if (mgr?.isReconnecting?.() === true) continue;
+                                flushSessionQueue(id);
+                            }
+                        }, 2000);
+                        return () => clearInterval(timer);
+                    }, [flushSessionQueue]);
 
                     // Update security level based on real verification
                     const updateSecurityLevel = React.useCallback(async () => {
@@ -3374,11 +3435,41 @@ import {
                         };
 
                         const handleStatusChange = (status) => {
+                            const prevStatus = statusRef.current.get(id);
+                            statusRef.current.set(id, status);
                             setConnectionStatus(status);
-                            
+
+                            // Path repair in progress (ICE restart). The session, its keys and
+                            // its SAS verification all survive, so nothing is reset here — the
+                            // send path just starts queueing (see `offlineNow` in sendMessage).
+                            if (status === 'reconnecting') return;
+
+                            // Coming back from a repaired path: transmit whatever the user
+                            // sent into the dead channel and surface what was held back.
+                            if (status === 'connected' && prevStatus === 'reconnecting') {
+                                flushSessionQueue(id);
+                            }
+
+                            // Recovery is out of road and there is no manual fallback, so the
+                            // conversation ends here rather than lingering half-alive on screen.
+                            // destroySession wipes the keys with the manager and removes the
+                            // chat and its transcript — a session whose transport is gone must
+                            // not leave its plaintext sitting in a tab.
+                            if (status === 'recovery_failed') {
+                                setConnectionStatus('disconnected');
+                                if (id === activeIdRef.current) {
+                                    document.dispatchEvent(new CustomEvent('peer-disconnect'));
+                                    document.dispatchEvent(new CustomEvent('disconnected'));
+                                }
+                                // Deferred so the closing notice this session just delivered
+                                // renders before its slice is torn out from under it.
+                                setTimeout(() => destroySession(id), 2500);
+                                return;
+                            }
+
                             if (status === 'connected') {
                                 document.dispatchEvent(new CustomEvent('new-connection'));
-                                
+
                                 // Не скрываем верификацию при 'connected' - только при 'verified'
                                 // setIsVerified(true);
                                 // setShowVerification(false);
@@ -3546,7 +3637,7 @@ import {
                             }
                         }
 
-                        handleMessage(' SecureBit.chat Enhanced Security Edition v5.5.4 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.', 'system');
+                        handleMessage(' SecureBit.chat Enhanced Security Edition v5.6.0 - ECDH + DTLS + SAS initialized. Ready to establish a secure connection with ECDH key exchange, DTLS fingerprint verification, and SAS authentication to prevent MITM attacks.', 'system');
 
                         // Setup file transfer callbacks (id-bound to THIS session's manager).
                         manager.setFileTransferCallbacks(
@@ -3669,6 +3760,7 @@ import {
                             const integ = integrationsRef.current.get(id);
                             if (integ) { try { integ.cleanup?.(); } catch (_) {} integrationsRef.current.delete(id); }
                             queuesRef.current.delete(id);
+                            statusRef.current.delete(id);
                             dispatch({ type: SA.REMOVE_SESSION, id });
                         } finally {
                             destroyingRef.current.delete(id);
@@ -3769,6 +3861,7 @@ import {
                             for (const integ of integrationsRef.current.values()) { try { integ.cleanup?.(); } catch (_) {} }
                             integrationsRef.current.clear();
                             queuesRef.current.clear();
+                            statusRef.current.clear();
                         };
                     }, []); // run once
         
@@ -4849,7 +4942,7 @@ import {
                                     if (!answerType || (answerType !== 'answer' && answerType !== 'enhanced_secure_answer')) {
                                         throw new Error('Invalid response type. Expected answer or enhanced_secure_answer');
                                     }
-        
+
                                     await webrtcManagerRef.current.handleSecureAnswer(answer);
                                     
                                     // All security features are enabled by default - no session activation needed
@@ -5043,14 +5136,23 @@ import {
                         const baseTextEarly = messageInput.trim();
                         const midEarly = `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 
-                        // Offline guard: a P2P data channel can stay "open" after the
-                        // browser loses connectivity, so isConnected() isn't enough — show
-                        // the bubble as "not sent" (✗) instead of silently transmitting.
-                        // Uses the live offline state (catches console-simulated offline too).
-                        const offlineNow = isOffline
-                            || (typeof navigator !== 'undefined' && navigator.onLine === false)
-                            || (window.pwaOfflineManager && window.pwaOfflineManager.isOnline === false);
-                        if (offlineNow) {
+                        // Store-and-forward guard.
+                        //
+                        // The decision is made from the CHANNEL, never from the browser's
+                        // idea of connectivity. `navigator.onLine` and the offline/online
+                        // events report whether a network interface exists, not whether
+                        // anything can be reached — and a phone that was frozen misses the
+                        // 'online' edge outright. When that happened this side went on
+                        // queueing forever: every message showed one tick and none was ever
+                        // transmitted, while incoming messages kept arriving normally,
+                        // because receiving does not pass through here.
+                        //
+                        // The data channel is the only authority on whether a P2P message
+                        // can go out: open, verified, and not mid-repair.
+                        const mgr = webrtcManagerRef.current;
+                        const channelUsable = mgr?.isConnected?.() === true
+                            && mgr?.isReconnecting?.() !== true;
+                        if (!channelUsable && mgr?.isConnected) {
                             // Store-and-forward: show one check (sent), keep it in the
                             // conversation at its original time, and transmit on reconnect.
                             const outTextOff = codeMode ? '```\n' + baseTextEarly + '\n```' : baseTextEarly;
@@ -5071,9 +5173,11 @@ import {
                             return;
                         }
 
-                        // Online but the channel isn't ready (e.g. dropped/not yet established) —
-                        // can't transmit. The setup screen is shown for re-establishment in that case.
-                        if (!webrtcManagerRef.current.isConnected()) {
+                        // No manager at all — there is no session to queue against. This
+                        // used to `return` in silence: the typed text stayed in the box,
+                        // nothing was sent, and nothing said why.
+                        if (!channelUsable) {
+                            addMessageWithAutoScroll('Not sent — the secure channel is not ready. Reconnect to continue.', 'system');
                             return;
                         }
 
@@ -5145,13 +5249,21 @@ import {
                         let localUrl = null;
                         try { localUrl = URL.createObjectURL(blob); } catch (_) {}
 
-                        const offlineNow = isOffline
-                            || (typeof navigator !== 'undefined' && navigator.onLine === false)
-                            || (window.pwaOfflineManager && window.pwaOfflineManager.isOnline === false);
-                        const notReady = offlineNow || !webrtcManagerRef.current.isConnected || !webrtcManagerRef.current.isConnected();
+                        const reconnecting = webrtcManagerRef.current?.isReconnecting?.() === true;
+                        // Voice notes ride the chunked file-transfer path, which has no
+                        // store-and-forward queue — a partial transfer cannot be resumed
+                        // across a path repair. So they are refused rather than queued,
+                        // but the reason is stated accurately. Judged from the channel, not
+                        // from navigator.onLine, for the same reason as the text path.
+                        const notReady = reconnecting || webrtcManagerRef.current?.isConnected?.() !== true;
                         if (notReady) {
                             if (localUrl) { try { URL.revokeObjectURL(localUrl); } catch (_) {} }
-                            addMessageWithAutoScroll('Voice message needs an active secure connection. Reconnect and try again.', 'system');
+                            addMessageWithAutoScroll(
+                                reconnecting
+                                    ? 'Restoring the connection — try sending the voice message again in a moment.'
+                                    : 'Voice message needs an active secure connection. Reconnect and try again.',
+                                'system'
+                            );
                             return;
                         }
 
@@ -5288,19 +5400,31 @@ import {
         
                     };
         
+                    // Announce a NEWLY established session only. Coming back from
+                    // 'reconnecting' is the same session resuming — re-announcing it would
+                    // claim a handshake that never happened and spam the transcript on every
+                    // flaky-network blip.
+                    const prevConnStatusRef = React.useRef(connectionStatus);
                     React.useEffect(() => {
-                        if (connectionStatus === 'connected' && isVerified) {
+                        const resumed = prevConnStatusRef.current === 'reconnecting';
+                        prevConnStatusRef.current = connectionStatus;
+                        if (connectionStatus === 'connected' && isVerified && !resumed) {
                             addMessageWithAutoScroll(' Secure connection successfully established and verified! You can now communicate safely with full protection against MITM attacks and Perfect Forward Secrecy..', 'system');
-        
                         }
                     }, [connectionStatus, isVerified]);
         
-                    // Chat view requires an ACTIVE verified connection. On a drop the manager
-                    // clears its verification state (it must be re-established — there is no
-                    // "keep chatting while disconnected" in this P2P design), so we fall back to
-                    // the setup screen, which is the re-establish path. Note: this means a dropped
-                    // chat shows the connect screen; the conversation history stays in the session.
-                    const isConnectedAndVerified = (connectionStatus === 'connected' || connectionStatus === 'verified') && isVerified;
+                    // Chat view requires an ACTIVE verified connection. On an UNRECOVERABLE drop
+                    // the manager clears its verification state (it must be re-established —
+                    // there is no "keep chatting while disconnected" in this P2P design), so we
+                    // fall back to the setup screen, which is the re-establish path. The
+                    // conversation history stays in the session either way.
+                    //
+                    // 'reconnecting' is deliberately included: an ICE restart repairs only the
+                    // network path, leaving the keys and the SAS verification intact, so the
+                    // conversation must stay on screen. Throwing the user back to the connect
+                    // screen for a two-second NAT rebind would defeat the recovery entirely —
+                    // the composer keeps working and queues (see the send path's offlineNow).
+                    const isConnectedAndVerified = (connectionStatus === 'connected' || connectionStatus === 'verified' || connectionStatus === 'reconnecting') && isVerified;
 
                     // The PWA "Install app" pill is a landing-page affordance — hide it once
                     // we're inside the chat (CSS: body.sb-in-chat #pwa-install-button).

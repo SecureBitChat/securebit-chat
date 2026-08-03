@@ -177,7 +177,19 @@ class PWAOfflineManager {
         window.addEventListener('offline', () => {
             this.isOnline = false;
             this.updateConnectionStatus(false);
-            this.handleConnectionLost();
+
+            // The `offline` event is fired liberally — an idle laptop parking its
+            // Wi-Fi radio, or a phone dozing, both produce one while the machine
+            // is perfectly reachable. Confirm before putting a modal in front of
+            // the user: if the check says otherwise, treat it as a false alarm.
+            // Without this, the offline guidance popped up on a working session
+            // where sending messages carried on fine.
+            this.checkOnlineStatus().then(() => {
+                if (this.isOnline) return;   // the probe found we are actually fine
+                this.handleConnectionLost();
+            }).catch(() => {
+                this.handleConnectionLost();
+            });
         });
 
         // App visibility changes
@@ -461,6 +473,7 @@ class PWAOfflineManager {
             
             if (response.ok && !this.isOnline) {
                 this.isOnline = true;
+                this.reconnectAttempts = 0;
                 this.handleConnectionRestored();
             }
         } catch (error) {
