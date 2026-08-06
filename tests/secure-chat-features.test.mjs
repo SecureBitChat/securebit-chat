@@ -48,18 +48,33 @@ const T = EnhancedSecureWebRTCManager.MESSAGE_TYPES;
     assert.equal(calls[0].meta, undefined);
 }
 
-// ── processMessage routes message_delete to onMessageDelete ──────────────────
+// ── message_delete routes to onMessageDelete, but only once verified ─────────
+// Unsend lets the peer remove a message from OUR transcript, so it is a control
+// frame: acting on it before the SAS has been compared would let anyone who
+// completed the handshake — a MITM included — edit what the user sees. It used
+// to be honoured unconditionally.
 {
-    const deleted = [];
-    const manager = {
-        _secureLog() {},
-        onMessageDelete: (id) => deleted.push(id)
+    const makeManager = (isVerified) => {
+        const deleted = [];
+        return {
+            deleted,
+            manager: {
+                isVerified,
+                _secureLog() {},
+                _enforceVerificationGate: P._enforceVerificationGate,
+                onMessageDelete: (id) => deleted.push(id)
+            }
+        };
     };
-    await P.processMessage.call(
-        manager,
-        JSON.stringify({ type: T.MESSAGE_DELETE, data: { messageId: 'm_42' } })
-    );
-    assert.deepEqual(deleted, ['m_42']);
+    const frame = JSON.stringify({ type: T.MESSAGE_DELETE, data: { messageId: 'm_42' } });
+
+    const before = makeManager(false);
+    await P.processMessage.call(before.manager, frame);
+    assert.deepEqual(before.deleted, [], 'an unverified peer must not delete our messages');
+
+    const after = makeManager(true);
+    await P.processMessage.call(after.manager, frame);
+    assert.deepEqual(after.deleted, ['m_42'], 'unsend still works on a verified session');
 }
 
 // ── live enhanced-message path delivers metadata to the UI ───────────────────

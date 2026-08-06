@@ -543,7 +543,7 @@ var require_NotificationIntegration = __commonJS({
           this.originalOnMessage = this.webrtcManager.onMessage;
           this.originalOnStatusChange = this.webrtcManager.onStatusChange;
           this.webrtcManager.onMessage = (message, type, ...rest) => {
-            this.handleIncomingMessage(message, type);
+            this.handleIncomingMessage(message, type, rest[0]);
             if (this.originalOnMessage) {
               this.originalOnMessage(message, type, ...rest);
             }
@@ -557,7 +557,7 @@ var require_NotificationIntegration = __commonJS({
           if (this.webrtcManager.deliverMessageToUI) {
             this.originalDeliverMessageToUI = this.webrtcManager.deliverMessageToUI.bind(this.webrtcManager);
             this.webrtcManager.deliverMessageToUI = (message, type, ...rest) => {
-              this.handleIncomingMessage(message, type);
+              this.handleIncomingMessage(message, type, rest[0]);
               this.originalDeliverMessageToUI(message, type, ...rest);
             };
           }
@@ -573,7 +573,7 @@ var require_NotificationIntegration = __commonJS({
        * @param {string} type - Message type
        * @private
        */
-      handleIncomingMessage(message, type) {
+      handleIncomingMessage(message, type, meta) {
         try {
           const messageKey = `${type}:${typeof message === "string" ? message : JSON.stringify(message)}`;
           if (this.processedMessages.has(messageKey)) {
@@ -592,9 +592,11 @@ var require_NotificationIntegration = __commonJS({
           if (!messageInfo) {
             return;
           }
+          const isEphemeral = !!meta && typeof meta === "object" && (meta.once === true || Number.isFinite(meta.ttl) && meta.ttl > 0);
+          const notificationText = isEphemeral ? "Sent you a private message" : messageInfo.text;
           const notificationResult = this.notificationManager.notify(
             messageInfo.senderName,
-            messageInfo.text,
+            notificationText,
             {
               icon: messageInfo.senderAvatar,
               senderId: messageInfo.senderId,
@@ -2243,6 +2245,31 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
       throw new Error(`Hex conversion error: ${error.message}`);
     }
   }
+  /**
+   * Overwrite a buffer holding key material once it is no longer needed.
+   *
+   * This is a genuine wipe, unlike the manager's _secureWipeString /
+   * _secureWipeCryptoKey, which cannot wipe anything (JS strings are immutable
+   * and a non-extractable CryptoKey has no JS-visible bytes) and only ever
+   * dropped a reference while reporting success. Here the bytes really are
+   * ours: overwrite them so the shared secret does not linger in the heap
+   * waiting for a garbage collector that may never run before a heap snapshot
+   * or a memory-reading extension gets there first.
+   *
+   * Random first, then zeros: on the off chance a copying GC has already moved
+   * the buffer, the random pass at least destroys the plaintext value at the
+   * old address as well as the new one.
+   */
+  static zeroizeBuffer(buffer) {
+    try {
+      if (!buffer) return;
+      const view = buffer instanceof Uint8Array ? buffer : buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : null;
+      if (!view || view.length === 0) return;
+      crypto.getRandomValues(view);
+      view.fill(0);
+    } catch (_) {
+    }
+  }
   static async encryptData(data, password) {
     try {
       const dataString = typeof data === "string" ? data : JSON.stringify(data);
@@ -2617,7 +2644,7 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
       for (const testData of testCases) {
         const encoder = new TextEncoder();
         const testBuffer = encoder.encode(testData);
-        const hmac = await crypto.subtle.sign(
+        const hmac2 = await crypto.subtle.sign(
           { name: "HMAC", hash: "SHA-256" },
           securityManager.macKey,
           testBuffer
@@ -2625,7 +2652,7 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
         const isValid = await crypto.subtle.verify(
           { name: "HMAC", hash: "SHA-256" },
           securityManager.macKey,
-          hmac,
+          hmac2,
           testBuffer
         );
         if (!isValid) {
@@ -2638,24 +2665,82 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
       return { passed: false, details: `Message integrity test failed: ${error.message}` };
     }
   }
-  // Additional verification functions
+  // Additional verification functions.
+  //
+  // These used to be three `return { passed: true }` stubs — a quarter of the
+  // reported score awarded for checks that never ran, under a UI that calls the
+  // result "Real cryptographic tests". A security indicator that cannot fail
+  // tells the user nothing; worse, it keeps reading green after the subsystem
+  // it claims to measure breaks. Each one below now exercises the thing it
+  // names and is expected to be able to fail.
   static async verifyRateLimiting(securityManager) {
     try {
-      return { passed: true, details: "Rate limiting is active and working" };
+      const limiter = _EnhancedSecureCryptoUtils.rateLimiter;
+      if (!limiter || typeof limiter.checkMessageRate !== "function") {
+        return { passed: false, details: "Rate limiter is not available" };
+      }
+      const probeId = `selftest_${crypto.getRandomValues(new Uint32Array(1))[0]}`;
+      const limit = 3;
+      for (let i = 0; i < limit; i++) {
+        const allowed = await limiter.checkMessageRate(probeId, limit, 6e4);
+        if (!allowed) {
+          return { passed: false, details: `Rate limiter refused message ${i + 1} of ${limit} while under the limit` };
+        }
+      }
+      const shouldBeBlocked = await limiter.checkMessageRate(probeId, limit, 6e4);
+      limiter.messages.delete(`msg_${probeId}`);
+      if (shouldBeBlocked) {
+        return { passed: false, details: "Rate limiter did not block a message over the limit" };
+      }
+      return { passed: true, details: `Rate limiting verified: ${limit} allowed, the next refused` };
     } catch (error) {
       return { passed: false, details: `Rate limiting test failed: ${error.message}` };
     }
   }
   static async verifyMetadataProtection(securityManager) {
     try {
-      return { passed: true, details: "Metadata protection is working correctly" };
+      const metadataKey = securityManager?.metadataKey;
+      if (!metadataKey || !(metadataKey instanceof CryptoKey)) {
+        return { passed: false, details: "Metadata encryption key not available" };
+      }
+      if (metadataKey.algorithm?.name !== "AES-GCM") {
+        return { passed: false, details: `Metadata key has the wrong algorithm: ${metadataKey.algorithm?.name}` };
+      }
+      if (metadataKey.extractable) {
+        return { passed: false, details: "Metadata key is extractable" };
+      }
+      if (securityManager.encryptionKey === metadataKey) {
+        return { passed: false, details: "Metadata key is not separated from the message key" };
+      }
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const probe = new TextEncoder().encode("metadata-protection-selftest");
+      const sealed = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, metadataKey, probe);
+      const opened = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, metadataKey, sealed);
+      if (new TextDecoder().decode(opened) !== "metadata-protection-selftest") {
+        return { passed: false, details: "Metadata encryption round-trip mismatch" };
+      }
+      return { passed: true, details: "Metadata is encrypted under a separate non-extractable key" };
     } catch (error) {
       return { passed: false, details: `Metadata protection test failed: ${error.message}` };
     }
   }
   static async verifyPerfectForwardSecrecy(securityManager) {
     try {
-      return { passed: true, details: "Perfect Forward Secrecy is configured and active" };
+      const hasEphemeralKeys = !!securityManager?.ecdhKeyPair?.privateKey && securityManager.ecdhKeyPair.privateKey.extractable === false;
+      if (!hasEphemeralKeys) {
+        return { passed: false, details: "No non-extractable ephemeral ECDH key pair for this session" };
+      }
+      if (securityManager?.isRatchetActive?.()) {
+        const state = securityManager._ratchet?.getState?.() || {};
+        return {
+          passed: true,
+          details: `Double Ratchet active: per-message keys destroyed after use, DH re-key on each reply (sent ${state.sendCount ?? 0}, received ${state.receiveCount ?? 0} on the current chain)`
+        };
+      }
+      return {
+        passed: false,
+        details: "Session-level PFS only: keys are ephemeral per session, but the Double Ratchet is not active for this connection (peer on an older version), so a compromised session key exposes the whole conversation"
+      };
     } catch (error) {
       return { passed: false, details: `PFS test failed: ${error.message}` };
     }
@@ -2756,13 +2841,21 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
     }
   }
   static async verifyNonExtractableKeys(securityManager) {
-    try {
-      if (!securityManager.encryptionKey) return false;
-      const keyData = await crypto.subtle.exportKey("raw", securityManager.encryptionKey);
-      return keyData && keyData.byteLength > 0;
-    } catch (error) {
-      return true;
+    const keys = [
+      ["encryptionKey", securityManager?.encryptionKey],
+      ["macKey", securityManager?.macKey],
+      ["metadataKey", securityManager?.metadataKey]
+    ];
+    for (const [name, key] of keys) {
+      if (!key || !(key instanceof CryptoKey)) {
+        return false;
+      }
+      if (key.extractable !== false) {
+        _EnhancedSecureCryptoUtils.secureLog.log("error", "Session key is extractable", { keyName: name });
+        return false;
+      }
     }
+    return true;
   }
   static async verifyEnhancedValidation(securityManager) {
     try {
@@ -3014,7 +3107,14 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
           },
           false,
           // Non-extractable for enhanced security
-          ["deriveKey"]
+          // 'deriveBits' is REQUIRED: deriveSharedKeys() uses deriveBits so
+          // the shared secret lands in a buffer we can overwrite, instead of
+          // being exported out of an extractable key and left in the heap.
+          // Without this usage WebCrypto rejects the derivation outright and
+          // no session can be established. Usages are local to the CryptoKey
+          // and are not part of the exported SPKI, so this does not change
+          // anything on the wire.
+          ["deriveKey", "deriveBits"]
         );
         return keyPair;
       } catch (p384Error) {
@@ -3026,7 +3126,7 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
           },
           false,
           // Non-extractable for enhanced security
-          ["deriveKey"]
+          ["deriveKey", "deriveBits"]
         );
         return keyPair;
       }
@@ -3593,37 +3693,38 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
       const saltBytes = new Uint8Array(salt);
       const encoder = new TextEncoder();
       let rawSharedSecret;
+      let sharedSecretBits = null;
       try {
-        const rawKeyMaterial = await crypto.subtle.deriveKey(
+        sharedSecretBits = await crypto.subtle.deriveBits(
           {
             name: "ECDH",
             public: publicKey
           },
           privateKey,
-          {
-            name: "AES-GCM",
-            length: 256
-          },
-          true,
-          // Extractable
-          ["encrypt", "decrypt"]
+          256
         );
-        const rawKeyData = await crypto.subtle.exportKey("raw", rawKeyMaterial);
         rawSharedSecret = await crypto.subtle.importKey(
           "raw",
-          rawKeyData,
+          sharedSecretBits,
           {
             name: "HKDF",
             hash: "SHA-256"
           },
           false,
-          ["deriveKey"]
+          // deriveBits is required for the fingerprint material below;
+          // without it that call fails with an InvalidAccessError.
+          ["deriveKey", "deriveBits"]
         );
       } catch (error) {
         _EnhancedSecureCryptoUtils.secureLog.log("error", "ECDH derivation failed", {
           error: error.message
         });
         throw error;
+      } finally {
+        if (sharedSecretBits) {
+          _EnhancedSecureCryptoUtils.zeroizeBuffer(sharedSecretBits);
+          sharedSecretBits = null;
+        }
       }
       let messageKey;
       messageKey = await crypto.subtle.deriveKey(
@@ -3693,25 +3794,39 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
         // Non-extractable
         ["encrypt", "decrypt"]
       );
-      let fingerprintKey;
-      fingerprintKey = await crypto.subtle.deriveKey(
+      const ratchetRootBits = await crypto.subtle.deriveBits(
         {
           name: "HKDF",
           hash: "SHA-256",
           salt: saltBytes,
-          info: encoder.encode("fingerprint-generation-v4")
+          info: encoder.encode("double-ratchet-root-v1")
         },
         rawSharedSecret,
-        {
-          name: "AES-GCM",
-          length: 256
-        },
-        true,
-        // Extractable only for fingerprint
-        ["encrypt", "decrypt"]
+        256
       );
-      const fingerprintKeyData = await crypto.subtle.exportKey("raw", fingerprintKey);
-      const fingerprint = await _EnhancedSecureCryptoUtils.generateKeyFingerprint(Array.from(new Uint8Array(fingerprintKeyData)));
+      const ratchetRoot = new Uint8Array(ratchetRootBits);
+      let fingerprintBits = null;
+      let fingerprint;
+      try {
+        fingerprintBits = await crypto.subtle.deriveBits(
+          {
+            name: "HKDF",
+            hash: "SHA-256",
+            salt: saltBytes,
+            info: encoder.encode("fingerprint-generation-v4")
+          },
+          rawSharedSecret,
+          256
+        );
+        fingerprint = await _EnhancedSecureCryptoUtils.generateKeyFingerprint(
+          new Uint8Array(fingerprintBits)
+        );
+      } finally {
+        if (fingerprintBits) {
+          _EnhancedSecureCryptoUtils.zeroizeBuffer(fingerprintBits);
+          fingerprintBits = null;
+        }
+      }
       if (!(messageKey instanceof CryptoKey)) {
         _EnhancedSecureCryptoUtils.secureLog.log("error", "Derived message key is not a CryptoKey", {
           messageKeyType: typeof messageKey,
@@ -3747,6 +3862,10 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
         pfsKey,
         // Added Perfect Forward Secrecy key
         metadataKey,
+        // Raw bytes on purpose: a ratchet has to chain KDFs itself, which
+        // WebCrypto cannot do behind a non-extractable handle. The caller
+        // must hand this to DoubleRatchet.init() and zeroize it.
+        ratchetRoot,
         fingerprint,
         timestamp: Date.now(),
         version: "4.0"
@@ -4524,6 +4643,9 @@ var EnhancedSecureFileTransfer = class {
     this.incomingTransferChunkLimiters = /* @__PURE__ */ new Map();
     this.MAX_INCOMING_CHUNKS_PER_TRANSFER_PER_MINUTE = 3e4;
     this.MAX_PENDING_INCOMING_TRANSFERS = 3;
+    this.MAX_AUTO_ACCEPT_VOICE_SIZE = 4 * 1024 * 1024;
+    this.MAX_AUTO_ACCEPT_VOICE_SESSION_BYTES = 64 * 1024 * 1024;
+    this.autoAcceptedVoiceBytes = 0;
     this.sessionKeys = /* @__PURE__ */ new Map();
     this.processedChunks = /* @__PURE__ */ new Set();
     this.transferNonces = /* @__PURE__ */ new Map();
@@ -4618,7 +4740,38 @@ var EnhancedSecureFileTransfer = class {
       });
       if (!validation.isValid) errors.push(...validation.errors);
     }
-    return { isValid: errors.length === 0, errors, displayName };
+    const claimsVoice = !!metadata?.isVoice;
+    const voiceRejection = claimsVoice ? this.rejectVoiceAutoAcceptReason(metadata) : null;
+    return {
+      isValid: errors.length === 0,
+      errors,
+      displayName,
+      isVoice: claimsVoice && !voiceRejection,
+      voiceRejection
+    };
+  }
+  /**
+   * Why a transfer claiming to be a voice note may not skip the consent card.
+   * Returns null when it may. The generic MIME types that validateFile accepts
+   * for ordinary uploads (application/octet-stream and friends) are explicitly
+   * NOT enough here: they are what lets an arbitrary blob wear a `.mp4` name.
+   */
+  rejectVoiceAutoAcceptReason(metadata) {
+    const mimeType = String(metadata?.fileType || "").toLowerCase();
+    const size = metadata?.fileSize;
+    if (!mimeType.startsWith("audio/")) {
+      return `not an audio MIME type (${mimeType || "absent"})`;
+    }
+    if (!this.FILE_TYPE_RESTRICTIONS.voice.mimeTypes.includes(mimeType)) {
+      return `unsupported audio MIME type (${mimeType})`;
+    }
+    if (!Number.isSafeInteger(size) || size <= 0 || size > this.MAX_AUTO_ACCEPT_VOICE_SIZE) {
+      return `too large to auto-accept (${this.formatFileSize(size || 0)} > ${this.formatFileSize(this.MAX_AUTO_ACCEPT_VOICE_SIZE)})`;
+    }
+    if (this.autoAcceptedVoiceBytes + size > this.MAX_AUTO_ACCEPT_VOICE_SESSION_BYTES) {
+      return "session auto-accept budget for voice notes is exhausted";
+    }
+    return null;
   }
   formatFileSize(bytes) {
     if (bytes === 0) return "0 B";
@@ -5261,12 +5414,20 @@ var EnhancedSecureFileTransfer = class {
       if (this.pendingIncomingTransfers.size >= this.MAX_PENDING_INCOMING_TRANSFERS) {
         throw new Error("Too many pending incoming file requests");
       }
+      if (validation.voiceRejection) {
+        console.warn(`Voice auto-accept declined, falling back to consent: ${validation.voiceRejection}`);
+      }
       const pendingMetadata = {
         ...metadata,
+        // Never carry the sender's claim forward — only our own verdict.
+        isVoice: validation.isVoice,
         fileName: validation.displayName,
         receivedAt: Date.now()
       };
       this.pendingIncomingTransfers.set(metadata.fileId, pendingMetadata);
+      if (validation.isVoice) {
+        this.autoAcceptedVoiceBytes += metadata.fileSize;
+      }
       if (typeof this.onIncomingFileRequest === "function") {
         this.onIncomingFileRequest({
           fileId: pendingMetadata.fileId,
@@ -5274,7 +5435,8 @@ var EnhancedSecureFileTransfer = class {
           fileSize: pendingMetadata.fileSize,
           mimeType: pendingMetadata.fileType || "application/octet-stream",
           // Voice notes auto-accept and render inline (no consent card).
-          isVoice: !!pendingMetadata.isVoice,
+          // This flag is the receiver's decision, not the sender's.
+          isVoice: validation.isVoice,
           voice: pendingMetadata.voice || null
         });
       } else {
@@ -6430,10 +6592,10 @@ async function configureAudioSender(sender, options = {}) {
     const cfg = { ...AUDIO_CONFIG.sender, ...options };
     const params = sender.getParameters();
     if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
-    for (const enc of params.encodings) {
-      enc.maxBitrate = cfg.maxBitrate;
-      enc.priority = cfg.priority;
-      enc.networkPriority = cfg.networkPriority;
+    for (const enc2 of params.encodings) {
+      enc2.maxBitrate = cfg.maxBitrate;
+      enc2.priority = cfg.priority;
+      enc2.networkPriority = cfg.networkPriority;
     }
     await sender.setParameters(params);
     return true;
@@ -6495,12 +6657,12 @@ async function configureVideoSender(sender, options = {}) {
     if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
     const simulcast = params.encodings.length > 1;
     if (simulcast) {
-      for (const enc of params.encodings) enc.networkPriority = VIDEO_CONFIG.networkPriority;
+      for (const enc2 of params.encodings) enc2.networkPriority = VIDEO_CONFIG.networkPriority;
     } else {
-      const enc = params.encodings[0];
-      enc.maxBitrate = plan.maxBitrate;
-      enc.networkPriority = VIDEO_CONFIG.networkPriority;
-      if (plan.scalabilityMode) enc.scalabilityMode = plan.scalabilityMode;
+      const enc2 = params.encodings[0];
+      enc2.maxBitrate = plan.maxBitrate;
+      enc2.networkPriority = VIDEO_CONFIG.networkPriority;
+      if (plan.scalabilityMode) enc2.scalabilityMode = plan.scalabilityMode;
     }
     if (plan.degradationPreference) params.degradationPreference = plan.degradationPreference;
     try {
@@ -6684,6 +6846,430 @@ var NetworkAdaptationController = class {
   }
 };
 
+// src/crypto/DoubleRatchet.js
+var ROOT_INFO = "SecureBit-DR-Root-v1";
+var MESSAGE_INFO = "SecureBit-DR-Message-v1";
+var INIT_INFO = "SecureBit-DR-Init-v1";
+var MK_SEED = Uint8Array.of(1);
+var CK_SEED = Uint8Array.of(2);
+var enc = new TextEncoder();
+var dec = new TextDecoder();
+var RATCHET_LIMITS = Object.freeze({
+  // How far ahead of the expected number a single message may jump.
+  MAX_SKIP_PER_CHAIN: 512,
+  // Total retained keys for messages that never arrived, across all chains.
+  MAX_SKIPPED_KEYS: 1024,
+  // Retained keys older than this are dropped: the data channel is reliable
+  // and ordered, so a gap that has not resolved in minutes never will.
+  SKIPPED_KEY_TTL_MS: 5 * 60 * 1e3
+});
+function b64(bytes) {
+  let binary = "";
+  const view = new Uint8Array(bytes);
+  for (let i = 0; i < view.length; i++) binary += String.fromCharCode(view[i]);
+  return btoa(binary);
+}
+function unb64(text2) {
+  const binary = atob(text2);
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+  return out;
+}
+function zeroize(bytes) {
+  try {
+    if (bytes && bytes.length) {
+      crypto.getRandomValues(bytes);
+      bytes.fill(0);
+    }
+  } catch (_) {
+  }
+}
+async function hkdf(ikm, salt, info, lengthBytes) {
+  const key = await crypto.subtle.importKey("raw", ikm, "HKDF", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits(
+    { name: "HKDF", hash: "SHA-256", salt, info: enc.encode(info) },
+    key,
+    lengthBytes * 8
+  );
+  return new Uint8Array(bits);
+}
+async function hmac(keyBytes, data) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    keyBytes,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  return new Uint8Array(await crypto.subtle.sign("HMAC", key, data));
+}
+async function advanceChain(chainKey) {
+  const messageKey = await hmac(chainKey, MK_SEED);
+  const nextChainKey = await hmac(chainKey, CK_SEED);
+  return { messageKey, nextChainKey };
+}
+async function advanceRoot(rootKey, dhOutput) {
+  const derived = await hkdf(dhOutput, rootKey, ROOT_INFO, 64);
+  const nextRoot = derived.slice(0, 32);
+  const chainKey = derived.slice(32, 64);
+  zeroize(derived);
+  return { nextRoot, chainKey };
+}
+var DoubleRatchet = class {
+  constructor() {
+    this._rootKey = null;
+    this._sendingChainKey = null;
+    this._receivingChainKey = null;
+    this._selfKeyPair = null;
+    this._remotePublicKey = null;
+    this._remotePublicKeyB64 = null;
+    this._sendCount = 0;
+    this._receiveCount = 0;
+    this._previousSendCount = 0;
+    this._skipped = /* @__PURE__ */ new Map();
+    this._namedCurve = "P-384";
+    this._initialised = false;
+  }
+  /**
+   * @param {object} options
+   * @param {Uint8Array} options.sharedSecret  ECDH output from the handshake.
+   * @param {Uint8Array} options.sessionSalt   The session's 64-byte salt.
+   * @param {CryptoKey}  options.selfPrivateKey    Our handshake ECDH private key.
+   * @param {CryptoKey}  options.remotePublicKey   Peer's handshake ECDH public key.
+   * @param {boolean}    options.isInitiator   True for the side that created the offer.
+   */
+  async init({ sharedSecret, sessionSalt, selfPrivateKey, remotePublicKey, isInitiator }) {
+    if (!(sharedSecret instanceof Uint8Array) || sharedSecret.length === 0) {
+      throw new Error("DoubleRatchet: a shared secret is required");
+    }
+    if (!(selfPrivateKey instanceof CryptoKey) || !(remotePublicKey instanceof CryptoKey)) {
+      throw new Error("DoubleRatchet: handshake ECDH keys are required");
+    }
+    this._namedCurve = selfPrivateKey.algorithm?.namedCurve || "P-384";
+    this._rootKey = await hkdf(sharedSecret, sessionSalt ?? new Uint8Array(0), INIT_INFO, 32);
+    if (isInitiator) {
+      this._selfKeyPair = await this._generateKeyPair();
+      this._remotePublicKey = remotePublicKey;
+      this._remotePublicKeyB64 = null;
+      const dh = await this._dh(this._selfKeyPair.privateKey, this._remotePublicKey);
+      const { nextRoot, chainKey } = await advanceRoot(this._rootKey, dh);
+      zeroize(dh);
+      zeroize(this._rootKey);
+      this._rootKey = nextRoot;
+      this._sendingChainKey = chainKey;
+    } else {
+      this._selfKeyPair = { privateKey: selfPrivateKey, publicKey: null };
+      this._remotePublicKey = null;
+      this._remotePublicKeyB64 = null;
+    }
+    this._initialised = true;
+  }
+  get isInitialised() {
+    return this._initialised;
+  }
+  /**
+   * False on the responder until the initiator's first message arrives.
+   *
+   * This is inherent to the Double Ratchet, not an implementation gap: the
+   * responder's sending chain is only defined once it has seen the initiator's
+   * ratchet key, because both sides must derive it from the same DH. Callers
+   * have to check this rather than assume, or the responder's first message —
+   * which the app sends automatically as a presence update the moment
+   * verification completes — throws instead of going out.
+   */
+  get canEncrypt() {
+    return this._initialised && this._sendingChainKey !== null;
+  }
+  /** Diagnostics only — deliberately exposes no key material. */
+  getState() {
+    return {
+      initialised: this._initialised,
+      sending: this._sendingChainKey !== null,
+      receiving: this._receivingChainKey !== null,
+      sendCount: this._sendCount,
+      receiveCount: this._receiveCount,
+      previousSendCount: this._previousSendCount,
+      skippedKeys: this._skipped.size
+    };
+  }
+  async _generateKeyPair() {
+    return crypto.subtle.generateKey(
+      { name: "ECDH", namedCurve: this._namedCurve },
+      false,
+      ["deriveKey", "deriveBits"]
+    );
+  }
+  async _dh(privateKey, publicKey) {
+    const bits = await crypto.subtle.deriveBits(
+      { name: "ECDH", public: publicKey },
+      privateKey,
+      256
+    );
+    return new Uint8Array(bits);
+  }
+  async _selfPublicKeyB64() {
+    if (!this._selfKeyPair?.publicKey) return null;
+    return b64(await crypto.subtle.exportKey("spki", this._selfKeyPair.publicKey));
+  }
+  async _importPublic(spkiB64) {
+    return crypto.subtle.importKey(
+      "spki",
+      unb64(spkiB64),
+      { name: "ECDH", namedCurve: this._namedCurve },
+      true,
+      []
+    );
+  }
+  /** Derive the AES-GCM key and IV for one message, then forget the message key. */
+  async _messageCipher(messageKey) {
+    const material = await hkdf(messageKey, new Uint8Array(32), MESSAGE_INFO, 44);
+    const key = await crypto.subtle.importKey(
+      "raw",
+      material.slice(0, 32),
+      { name: "AES-GCM" },
+      false,
+      ["encrypt", "decrypt"]
+    );
+    const iv = material.slice(32, 44);
+    zeroize(material);
+    return { key, iv };
+  }
+  /**
+   * @param {string} plaintext
+   * @returns {Promise<{header: string, ciphertext: string}>} header is the exact
+   *   string that must be transmitted and fed back to decrypt(): it doubles as
+   *   the AAD, so re-serialising it on the far side could change a byte and
+   *   fail authentication for no reason.
+   */
+  async encrypt(plaintext) {
+    if (!this._initialised) throw new Error("DoubleRatchet: not initialised");
+    if (!this._sendingChainKey) {
+      throw new Error("DoubleRatchet: no sending chain \u2014 awaiting the peer's first message");
+    }
+    const { messageKey, nextChainKey } = await advanceChain(this._sendingChainKey);
+    zeroize(this._sendingChainKey);
+    this._sendingChainKey = nextChainKey;
+    const header = JSON.stringify({
+      dh: await this._selfPublicKeyB64(),
+      pn: this._previousSendCount,
+      n: this._sendCount
+    });
+    this._sendCount += 1;
+    const { key, iv } = await this._messageCipher(messageKey);
+    zeroize(messageKey);
+    const ciphertext = await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv, additionalData: enc.encode(header) },
+      key,
+      enc.encode(plaintext)
+    );
+    return { header, ciphertext: b64(ciphertext) };
+  }
+  /**
+   * @param {string} header      Exactly the string produced by encrypt().
+   * @param {string} ciphertext  Base64 body.
+   * @returns {Promise<string>} plaintext
+   */
+  async decrypt(header, ciphertext) {
+    if (!this._initialised) throw new Error("DoubleRatchet: not initialised");
+    let parsed;
+    try {
+      parsed = JSON.parse(header);
+    } catch (_) {
+      throw new Error("DoubleRatchet: malformed header");
+    }
+    const { dh, pn, n } = parsed;
+    if (typeof dh !== "string" || !Number.isSafeInteger(n) || n < 0 || !Number.isSafeInteger(pn) || pn < 0) {
+      throw new Error("DoubleRatchet: invalid header fields");
+    }
+    this._pruneSkipped();
+    const skippedId = `${dh}|${n}`;
+    const retained = this._skipped.get(skippedId);
+    if (retained) {
+      const plaintext2 = await this._open(retained.key, header, ciphertext);
+      this._skipped.delete(skippedId);
+      zeroize(retained.key);
+      return plaintext2;
+    }
+    const staged = await this._stageReceive(dh, pn, n);
+    let plaintext;
+    try {
+      plaintext = await this._open(staged.messageKey, header, ciphertext);
+    } catch (error) {
+      staged.discard();
+      throw error;
+    }
+    staged.commit();
+    return plaintext;
+  }
+  /**
+   * Work out which key opens this message and what the resulting state would
+   * be, without touching `this`. Returns the candidate key plus commit/discard.
+   */
+  async _stageReceive(dh, pn, n) {
+    const isNewChain = dh !== this._remotePublicKeyB64;
+    const pending = [];
+    const toZeroOnCommit = [];
+    let ratchet = null;
+    let chainKey;
+    let receiveCount;
+    let remoteB64;
+    if (isNewChain) {
+      if (this._receivingChainKey) {
+        const carried = await this._collectSkipped(
+          this._receivingChainKey,
+          this._receiveCount,
+          pn,
+          this._remotePublicKeyB64
+        );
+        pending.push(...carried.keys);
+        toZeroOnCommit.push(carried.finalChainKey);
+      }
+      ratchet = await this._stageDhRatchet(dh);
+      chainKey = ratchet.receivingChainKey;
+      receiveCount = 0;
+      remoteB64 = dh;
+    } else {
+      chainKey = this._receivingChainKey;
+      receiveCount = this._receiveCount;
+      remoteB64 = this._remotePublicKeyB64;
+    }
+    if (!chainKey) {
+      throw new Error("DoubleRatchet: no receiving chain for this message");
+    }
+    const gap = await this._collectSkipped(chainKey, receiveCount, n, remoteB64);
+    pending.push(...gap.keys);
+    const { messageKey, nextChainKey } = await advanceChain(gap.finalChainKey);
+    if (gap.finalChainKey !== chainKey) toZeroOnCommit.push(gap.finalChainKey);
+    return {
+      messageKey,
+      commit: () => {
+        if (ratchet) ratchet.apply();
+        if (this._receivingChainKey && this._receivingChainKey !== nextChainKey) {
+          zeroize(this._receivingChainKey);
+        }
+        for (const key of toZeroOnCommit) zeroize(key);
+        this._receivingChainKey = nextChainKey;
+        this._receiveCount = n + 1;
+        this._remotePublicKeyB64 = remoteB64;
+        for (const { id, key } of pending) this._rememberSkipped(id, key);
+        zeroize(messageKey);
+      },
+      discard: () => {
+        if (ratchet) ratchet.discard();
+        for (const { key } of pending) zeroize(key);
+        for (const key of toZeroOnCommit) zeroize(key);
+        zeroize(nextChainKey);
+        zeroize(messageKey);
+      }
+    };
+  }
+  /**
+   * Derive the keys for messages `from`..`until-1` without mutating state.
+   * `until` comes off the wire, so the jump is bounded here rather than trusted.
+   */
+  async _collectSkipped(chainKey, from, until, remoteB64) {
+    if (until < from) {
+      throw new Error("DoubleRatchet: message number is behind the current chain");
+    }
+    if (until - from > RATCHET_LIMITS.MAX_SKIP_PER_CHAIN) {
+      throw new Error(
+        `DoubleRatchet: refusing to skip ${until - from} messages (limit ${RATCHET_LIMITS.MAX_SKIP_PER_CHAIN})`
+      );
+    }
+    const keys = [];
+    let current = chainKey;
+    for (let i = from; i < until; i++) {
+      const { messageKey, nextChainKey } = await advanceChain(current);
+      if (current !== chainKey) zeroize(current);
+      current = nextChainKey;
+      keys.push({ id: `${remoteB64}|${i}`, key: messageKey });
+    }
+    return { keys, finalChainKey: current };
+  }
+  async _open(messageKey, header, ciphertext) {
+    const { key, iv } = await this._messageCipher(messageKey);
+    let opened;
+    try {
+      opened = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv, additionalData: enc.encode(header) },
+        key,
+        unb64(ciphertext)
+      );
+    } catch (_) {
+      throw new Error("DoubleRatchet: authentication failed");
+    }
+    return dec.decode(opened);
+  }
+  _rememberSkipped(id, key) {
+    while (this._skipped.size >= RATCHET_LIMITS.MAX_SKIPPED_KEYS) {
+      const oldest = this._skipped.keys().next().value;
+      const evicted = this._skipped.get(oldest);
+      this._skipped.delete(oldest);
+      if (evicted) zeroize(evicted.key);
+    }
+    this._skipped.set(id, { key, storedAt: Date.now() });
+  }
+  _pruneSkipped() {
+    const cutoff = Date.now() - RATCHET_LIMITS.SKIPPED_KEY_TTL_MS;
+    for (const [id, entry] of this._skipped) {
+      if (entry.storedAt < cutoff) {
+        zeroize(entry.key);
+        this._skipped.delete(id);
+      }
+    }
+  }
+  /**
+   * Compute the DH-ratchet step without applying it. The caller applies it only
+   * after the triggering message has authenticated — see _stageReceive.
+   */
+  async _stageDhRatchet(remotePublicKeyB64) {
+    const remotePublicKey = await this._importPublic(remotePublicKeyB64);
+    const receiveDh = await this._dh(this._selfKeyPair.privateKey, remotePublicKey);
+    const received = await advanceRoot(this._rootKey, receiveDh);
+    zeroize(receiveDh);
+    const nextSelfKeyPair = await this._generateKeyPair();
+    const sendDh = await this._dh(nextSelfKeyPair.privateKey, remotePublicKey);
+    const sending = await advanceRoot(received.nextRoot, sendDh);
+    zeroize(sendDh);
+    return {
+      receivingChainKey: received.chainKey,
+      apply: () => {
+        zeroize(this._rootKey);
+        zeroize(received.nextRoot);
+        if (this._sendingChainKey) zeroize(this._sendingChainKey);
+        this._rootKey = sending.nextRoot;
+        this._sendingChainKey = sending.chainKey;
+        this._selfKeyPair = nextSelfKeyPair;
+        this._remotePublicKey = remotePublicKey;
+        this._remotePublicKeyB64 = remotePublicKeyB64;
+        this._previousSendCount = this._sendCount;
+        this._sendCount = 0;
+      },
+      discard: () => {
+        zeroize(received.nextRoot);
+        zeroize(received.chainKey);
+        zeroize(sending.nextRoot);
+        zeroize(sending.chainKey);
+      }
+    };
+  }
+  /** Destroy every piece of key material this object holds. */
+  destroy() {
+    zeroize(this._rootKey);
+    zeroize(this._sendingChainKey);
+    zeroize(this._receivingChainKey);
+    for (const entry of this._skipped.values()) zeroize(entry.key);
+    this._skipped.clear();
+    this._rootKey = null;
+    this._sendingChainKey = null;
+    this._receivingChainKey = null;
+    this._selfKeyPair = null;
+    this._remotePublicKey = null;
+    this._remotePublicKeyB64 = null;
+    this._initialised = false;
+  }
+};
+
 // src/network/EnhancedSecureWebRTCManager.js
 var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   // ============================================
@@ -6707,7 +7293,12 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     CLEANUP_CHECK_INTERVAL: 6e4,
     // 1 minute (cleanup check)
     ICE_GATHERING_TIMEOUT: 1e4,
-    // 10 seconds
+    // 10 seconds — soft: enough on a healthy network
+    // Hard ceiling used only when the soft deadline passes with NOTHING to
+    // export. Blocked STUN/TURN keeps gathering "in progress" indefinitely, so
+    // giving up at 10 s turned a slow network into a failed handshake.
+    ICE_GATHERING_HARD_TIMEOUT: 25e3,
+    // 25 seconds
     DISCONNECT_CLEANUP_DELAY: 500,
     // 500ms
     PEER_DISCONNECT_CLEANUP: 2e3,
@@ -6829,6 +7420,10 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     // Regular messages
     MESSAGE: "message",
     ENHANCED_MESSAGE: "enhanced_message",
+    // Chat content under the Double Ratchet: a per-message key that is
+    // destroyed after use. Carries its own plaintext header (ratchet public
+    // key, chain position) which AES-GCM authenticates as AAD.
+    RATCHET_MESSAGE: "ratchet_message",
     // Per-message control (unsend / disappearing sync)
     MESSAGE_DELETE: "message_delete",
     // Delivery receipt: recipient acks a chat message by id (WhatsApp ✓✓).
@@ -6864,8 +7459,10 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     // the SCTP association that carries this data channel survive it, so the
     // session keys, the SAS verification and the message history all stay
     // valid. The renegotiation SDP therefore rides the existing E2E channel —
-    // still no signalling server, and an attacker cannot inject a restart
-    // without already holding the session keys.
+    // still no signalling server. Note that holding the session keys is NOT
+    // itself proof of identity: a MITM who completed the handshake holds them
+    // too. These frames are accepted only after SAS verification (see
+    // POST_VERIFICATION_CONTROL_TYPES).
     ICE_RESTART_OFFER: "ice_restart_offer",
     ICE_RESTART_ANSWER: "ice_restart_answer",
     // Sent by the answerer side, which must not create offers itself (glare):
@@ -6879,7 +7476,27 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     FILE_MESSAGE: "FILE_MESSAGE_FILTERED",
     SYSTEM_MESSAGE: "SYSTEM_MESSAGE_FILTERED"
   };
+  // Control frames that may only be acted on once the session is SAS-verified.
+  // Deliberately an allowlist: an unknown type is not a control frame and is
+  // rejected by the chat channel's default-deny branch. The verification
+  // handshake itself (verification*, heartbeat) is excluded — it has to work
+  // before verification exists, which is what makes it worth reviewing closely.
+  static POST_VERIFICATION_CONTROL_TYPES = /* @__PURE__ */ new Set([
+    _EnhancedSecureWebRTCManager.MESSAGE_TYPES.MESSAGE_DELETE,
+    _EnhancedSecureWebRTCManager.MESSAGE_TYPES.MESSAGE_RECEIPT,
+    _EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_OFFER,
+    _EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_ANSWER,
+    _EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_ICE,
+    _EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_DECLINE,
+    _EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_END,
+    _EnhancedSecureWebRTCManager.MESSAGE_TYPES.ICE_RESTART_OFFER,
+    _EnhancedSecureWebRTCManager.MESSAGE_TYPES.ICE_RESTART_ANSWER,
+    _EnhancedSecureWebRTCManager.MESSAGE_TYPES.ICE_RESTART_REQUEST
+  ]);
   static PROTOCOL_VERSION = "4.1";
+  // Double Ratchet wire version. Bump only on an incompatible ratchet change;
+  // peers compare it and fall back to static keys when it is absent or unknown.
+  static RATCHET_VERSION = 1;
   static MAX_SAS_ATTEMPTS = 3;
   static DEFAULT_ICE_SERVERS = Object.freeze([
     // Keep multiple independent public STUN defaults so one provider-side
@@ -7018,6 +7635,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     this.remoteVerificationConfirmed = false;
     this.bothVerificationsConfirmed = false;
     this.expectedDTLSFingerprint = null;
+    this._peerDTLSFingerprint = null;
     this.strictDTLSValidation = true;
     this.ephemeralKeyPairs = /* @__PURE__ */ new Map();
     this.sessionStartTime = Date.now();
@@ -7033,6 +7651,8 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     this.sessionId = null;
     this.connectionId = Array.from(crypto.getRandomValues(new Uint8Array(8))).map((b) => b.toString(16).padStart(2, "0")).join("");
     this.peerPublicKey = null;
+    this._ratchet = null;
+    this._peerSupportsRatchet = false;
     this.rateLimiterId = null;
     this.intentionalDisconnect = false;
     this._sessionAlive = true;
@@ -9236,36 +9856,57 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   /**
    *   No string wiping - strings are immutable in JS
    */
+  /**
+   * NOT a wipe, and deliberately named in the log as what it is.
+   *
+   * JavaScript strings are immutable: there is no way to overwrite the
+   * characters of an existing string, so any secret that was ever held as a
+   * string stays in the heap until the GC collects it — and we cannot force
+   * that. The caller can only drop its reference.
+   *
+   * This used to report success at debug level, which made the emergency wipe
+   * path (see _emergencyWipeOnFingerprintMismatch) look like it had scrubbed
+   * key material when it had scrubbed nothing. The real fix is upstream: keep
+   * secrets in ArrayBuffers, which CAN be overwritten — see
+   * EnhancedSecureCryptoUtils.zeroizeBuffer.
+   */
   _secureWipeString(str, context) {
-    this._secureLog("debug", "\u{1F512} String reference removed (strings are immutable)", {
+    this._secureLog("debug", "String secret cannot be wiped in JS (immutable) \u2014 reference dropped only", {
       context,
       length: str ? str.length : 0
     });
+    return false;
   }
   /**
    *   CryptoKey cleanup - store in WeakMap for proper GC
    */
+  /**
+   * Also not a wipe. A non-extractable CryptoKey has no bytes visible to JS —
+   * the material lives in the browser's crypto implementation, and dropping the
+   * handle is the only lever we have. Whether the browser then zeroes its copy
+   * is up to the browser.
+   *
+   * The previous implementation was worse than a no-op: it ADDED the key to a
+   * WeakMap (i.e. took a new reference to the thing it was asked to destroy)
+   * and logged success. Callers that believed it — notably the emergency wipe
+   * on a fingerprint mismatch — were reporting a scrub that never happened.
+   *
+   * Non-extractability is what actually protects these keys; it is verified by
+   * EnhancedSecureCryptoUtils.verifyNonExtractableKeys.
+   */
   _secureWipeCryptoKey(key, context) {
-    if (!key || !(key instanceof CryptoKey)) return;
-    try {
-      if (!this._cryptoKeyStorage) {
-        this._cryptoKeyStorage = /* @__PURE__ */ new WeakMap();
-      }
-      this._cryptoKeyStorage.set(key, {
-        context,
-        timestamp: Date.now(),
-        type: key.type
-      });
-      this._secureLog("debug", "\u{1F512} CryptoKey stored in WeakMap for cleanup", {
-        context,
-        type: key.type
-      });
-    } catch (error) {
-      this._secureLog("error", "\u274C Failed to store CryptoKey for cleanup", {
-        context,
-        errorType: error.constructor.name
+    if (!key || !(key instanceof CryptoKey)) return false;
+    this._secureLog("debug", "CryptoKey cannot be wiped from JS \u2014 handle dropped, material is non-extractable", {
+      context,
+      type: key.type,
+      extractable: key.extractable
+    });
+    if (key.extractable) {
+      this._secureLog("error", "Extractable key reached the wipe path \u2014 material may persist in memory", {
+        context
       });
     }
+    return false;
   }
   /**
    *   Secure wipe for objects
@@ -9344,6 +9985,14 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         this.connectionId = null;
       }
       this._clearPendingOfferContext();
+      if (this._ratchet) {
+        try {
+          this._ratchet.destroy();
+        } catch (_) {
+        }
+        this._ratchet = null;
+      }
+      this._peerSupportsRatchet = false;
       this._secureLog("info", "\u{1F512} Cryptographic materials securely cleaned up");
     } catch (error) {
       this._secureLog("error", "\u274C Failed to cleanup cryptographic materials", {
@@ -10009,14 +10658,22 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         messageIntegrity: !!this.hmacKey,
         // Advanced security features - using the exact property names expected by EnhancedSecureCryptoUtils
         replayProtection: this.replayProtectionEnabled,
-        dtlsFingerprint: !!this.expectedDTLSFingerprint,
-        sasCode: !!this.verificationCode,
+        // Both fingerprints must be known for the SAS to bind this session
+        // to this pair of endpoints; having only our own proves nothing.
+        dtlsFingerprint: !!(this.expectedDTLSFingerprint && this._peerDTLSFingerprint),
+        // The SAS matters once the USER has compared it, not once we have
+        // computed it — an unconfirmed code is not authentication.
+        sasCode: !!this.verificationCode && this.localVerificationConfirmed === true,
         metadataProtection: true,
         // Always enabled
         trafficObfuscation: true,
         // Always enabled
-        perfectForwardSecrecy: true,
-        // Always enabled
+        // True only while the Double Ratchet is actually running. A peer on
+        // an older build negotiates it away, and the panel must show that
+        // rather than the capability we shipped.
+        // Optional-called on purpose: a status report must never throw and
+        // take down the panel it exists to populate. Unknown reads as off.
+        perfectForwardSecrecy: this.isRatchetActive?.() === true,
         // Rate limiting
         rateLimiter: true,
         // Always enabled
@@ -10107,14 +10764,6 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       }
       const normalizedReceived = receivedFingerprint.toLowerCase().replace(/:/g, "");
       const normalizedExpected = expectedFingerprint.toLowerCase().replace(/:/g, "");
-      if (this.sessionMode === "ratchet" && normalizedExpected === normalizedReceived) {
-        this._secureLog("info", "Same fingerprint detected \u2014 skip MITM warning (ratchet mode)", {
-          context,
-          timestamp: Date.now()
-        });
-        this.isVerified = true;
-        return true;
-      }
       if (normalizedReceived !== normalizedExpected) {
         this._secureLog("error", "DTLS fingerprint mismatch - possible MITM attack", {
           context,
@@ -10150,7 +10799,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         if (!keyMaterialRaw) missing.push("keyMaterialRaw");
         throw new Error(`Missing required parameters for SAS computation: ${missing.join(", ")}`);
       }
-      const enc = new TextEncoder();
+      const enc2 = new TextEncoder();
       const normalizeFingerprintForSAS = (fingerprint, label) => {
         if (typeof fingerprint !== "string" || fingerprint.trim().length === 0) {
           throw new Error(
@@ -10161,7 +10810,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       };
       const normalizedLocalFP = normalizeFingerprintForSAS(localFP, "localFP");
       const normalizedRemoteFP = normalizeFingerprintForSAS(remoteFP, "remoteFP");
-      const salt = enc.encode(
+      const salt = enc2.encode(
         "webrtc-sas|" + [normalizedLocalFP, normalizedRemoteFP].sort().join("|")
       );
       let keyBuffer;
@@ -10186,7 +10835,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         false,
         ["deriveBits"]
       );
-      const info = enc.encode("p2p-sas-v1");
+      const info = enc2.encode("p2p-sas-v1");
       const bits = await crypto.subtle.deriveBits(
         { name: "HKDF", hash: "SHA-256", salt, info },
         key,
@@ -10255,41 +10904,23 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       this.keyFingerprint = null;
       this.connectionId = null;
       this.expectedDTLSFingerprint = null;
+      this._peerDTLSFingerprint = null;
       this.disconnect();
       this.deliverMessageToUI("\u{1F6A8} SECURITY BREACH: Connection terminated due to fingerprint mismatch. Possible MITM attack detected!", "system");
     } catch (error) {
       this._secureLog("error", "Failed to perform emergency wipe", { error: error.message });
     }
   }
+  // REMOVED: setExpectedDTLSFingerprint(). It overwrote `expectedDTLSFingerprint`
+  // with a caller-supplied value, and that field is our OWN local fingerprint —
+  // the localFP that _computeSAS mixes into the safety code. Writing a peer's
+  // fingerprint into it would silently produce a SAS that no longer matches the
+  // session, i.e. break the very check it claimed to strengthen. It had no
+  // callers and was not part of any documented API. Out-of-band pinning, if it
+  // is ever wanted, belongs in its own field alongside _peerDTLSFingerprint.
   /**
-   *   Set expected DTLS fingerprint via out-of-band channel
-   * This should be called after receiving the fingerprint through a secure channel
-   * (e.g., QR code, voice call, in-person exchange, etc.)
-   */
-  setExpectedDTLSFingerprint(fingerprint, source = "out_of_band") {
-    try {
-      if (!fingerprint || typeof fingerprint !== "string") {
-        throw new Error("Invalid fingerprint provided");
-      }
-      const normalizedFingerprint = fingerprint.toLowerCase().replace(/:/g, "");
-      if (!/^[a-f0-9]{40,64}$/.test(normalizedFingerprint)) {
-        throw new Error("Invalid fingerprint format - must be hex string");
-      }
-      this.expectedDTLSFingerprint = normalizedFingerprint;
-      this._secureLog("info", "Expected DTLS fingerprint set via out-of-band channel", {
-        source,
-        fingerprint: normalizedFingerprint,
-        timestamp: Date.now()
-      });
-      this.deliverMessageToUI(`\u2705 DTLS fingerprint set via ${source}. MITM protection enabled.`, "system");
-    } catch (error) {
-      this._secureLog("error", "Failed to set expected DTLS fingerprint", { error: error.message });
-      throw error;
-    }
-  }
-  /**
-   *   Get current DTLS fingerprint for out-of-band verification
-   * This should be shared through a secure channel (QR code, voice, etc.)
+   * Our own DTLS fingerprint, for the user to share out of band if they want to
+   * compare it manually. This is the local endpoint's value, not the peer's.
    */
   getCurrentDTLSFingerprint() {
     try {
@@ -10327,6 +10958,63 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
    *   Generate ephemeral ECDH keys for Perfect Forward Secrecy
    * This ensures each session has unique, non-persistent keys
    */
+  /**
+   * Bring up the Double Ratchet once the handshake has produced a shared
+   * secret. Both peers must have advertised support (`dr` in the offer and the
+   * answer): a session where only one side ratchets cannot decrypt anything, so
+   * a missing flag means the peer is on an older build and both sides stay on
+   * the static-key path.
+   *
+   * Failure here is deliberately not fatal. Forward secrecy is a large
+   * improvement, but a session that falls back to the previous scheme is the
+   * behaviour of every release up to 5.6.x — refusing to connect at all would
+   * be a worse outcome than connecting with the security users already had.
+   * The status is surfaced so the difference is visible rather than silent.
+   */
+  async _initializeRatchet(derivedKeys, isInitiator) {
+    const ratchetRoot = derivedKeys?.ratchetRoot;
+    if (!ratchetRoot) return false;
+    if (!this._peerSupportsRatchet) {
+      this._secureLog("warn", "Peer did not advertise Double Ratchet \u2014 falling back to static session keys", {
+        localVersion: _EnhancedSecureWebRTCManager.RATCHET_VERSION
+      });
+      window.EnhancedSecureCryptoUtils.zeroizeBuffer(ratchetRoot);
+      return false;
+    }
+    try {
+      const peerPublicKey = this.peerPublicKey || this.peerECDHPublicKey;
+      if (!peerPublicKey || !this.ecdhKeyPair?.privateKey) {
+        throw new Error("handshake ECDH keys unavailable");
+      }
+      const ratchet = new DoubleRatchet();
+      await ratchet.init({
+        sharedSecret: ratchetRoot,
+        sessionSalt: new Uint8Array(this.sessionSalt || []),
+        selfPrivateKey: this.ecdhKeyPair.privateKey,
+        remotePublicKey: peerPublicKey,
+        isInitiator
+      });
+      this._ratchet = ratchet;
+      this.securityFeatures.hasPFS = true;
+      this._secureLog("info", "\u{1F510} Double Ratchet active \u2014 per-message forward secrecy enabled", {
+        role: isInitiator ? "initiator" : "responder"
+      });
+      return true;
+    } catch (error) {
+      this._ratchet = null;
+      this.securityFeatures.hasPFS = false;
+      this._secureLog("error", "Double Ratchet initialisation failed \u2014 continuing with static session keys", {
+        errorType: error?.constructor?.name || "Unknown"
+      });
+      return false;
+    } finally {
+      window.EnhancedSecureCryptoUtils.zeroizeBuffer(ratchetRoot);
+    }
+  }
+  /** True when messages are protected by the ratchet rather than static keys. */
+  isRatchetActive() {
+    return !!this._ratchet?.isInitialised;
+  }
   async _generateEphemeralECDHKeys() {
     try {
       this._secureLog("info", "\u{1F511} Generating ephemeral ECDH keys for PFS", {
@@ -12384,59 +13072,65 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
               return;
             }
           }
-          if (parsed.type === "message") {
-            this._secureLog("debug", "\u{1F4DD} Regular user message detected in processMessage");
-            if (!this._checkInboundRateLimit("processMessage:message")) {
+          if (parsed.type === _EnhancedSecureWebRTCManager.MESSAGE_TYPES.MESSAGE) {
+            this._secureLog("error", "Rejected unencrypted frame in processMessage", {
+              messageType: "message"
+            });
+            return;
+          }
+          if (parsed.type && _EnhancedSecureWebRTCManager.POST_VERIFICATION_CONTROL_TYPES.has(parsed.type)) {
+            if (!this._enforceVerificationGate("control_frame_receive", false)) {
+              this._secureLog("error", "Dropped control frame received before verification", {
+                messageType: parsed.type
+              });
               return;
             }
-            if (this.onMessage && parsed.data) {
-              this.deliverMessageToUI(parsed.data, "received", parsed.meta);
-            }
-            return;
-          }
-          if (parsed.type === _EnhancedSecureWebRTCManager.MESSAGE_TYPES.MESSAGE_DELETE) {
-            const messageId = parsed?.data?.messageId ?? parsed?.messageId;
-            if (typeof messageId === "string" && messageId) {
-              try {
-                this.onMessageDelete?.(messageId.slice(0, 64));
-              } catch (_) {
+            const T = _EnhancedSecureWebRTCManager.MESSAGE_TYPES;
+            if (parsed.type === T.MESSAGE_DELETE) {
+              const messageId = parsed?.data?.messageId ?? parsed?.messageId;
+              if (typeof messageId === "string" && messageId) {
+                try {
+                  this.onMessageDelete?.(messageId.slice(0, 64));
+                } catch (_) {
+                }
               }
+              return;
             }
-            return;
-          }
-          if (parsed.type === _EnhancedSecureWebRTCManager.MESSAGE_TYPES.MESSAGE_RECEIPT) {
-            const messageId = parsed?.data?.messageId ?? parsed?.messageId;
-            if (typeof messageId === "string" && messageId) {
-              try {
-                this.onMessageDelivered?.(messageId.slice(0, 64));
-              } catch (_) {
+            if (parsed.type === T.MESSAGE_RECEIPT) {
+              const messageId = parsed?.data?.messageId ?? parsed?.messageId;
+              if (typeof messageId === "string" && messageId) {
+                try {
+                  this.onMessageDelivered?.(messageId.slice(0, 64));
+                } catch (_) {
+                }
               }
+              return;
             }
-            return;
-          }
-          if (parsed.type && [
-            _EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_OFFER,
-            _EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_ANSWER,
-            _EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_ICE,
-            _EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_DECLINE,
-            _EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_END
-          ].includes(parsed.type)) {
-            try {
-              await this._handleCallSignal(parsed.type, parsed.data || {});
-            } catch (e) {
-              this._secureLog("error", "\u274C Call signal handling failed", { errorType: e?.constructor?.name });
+            if ([
+              T.CALL_OFFER,
+              T.CALL_ANSWER,
+              T.CALL_ICE,
+              T.CALL_DECLINE,
+              T.CALL_END
+            ].includes(parsed.type)) {
+              try {
+                await this._handleCallSignal(parsed.type, parsed.data || {});
+              } catch (e) {
+                this._secureLog("error", "\u274C Call signal handling failed", { errorType: e?.constructor?.name });
+              }
+              return;
             }
-            return;
-          }
-          if (parsed.type && [
-            _EnhancedSecureWebRTCManager.MESSAGE_TYPES.ICE_RESTART_OFFER,
-            _EnhancedSecureWebRTCManager.MESSAGE_TYPES.ICE_RESTART_ANSWER,
-            _EnhancedSecureWebRTCManager.MESSAGE_TYPES.ICE_RESTART_REQUEST
-          ].includes(parsed.type)) {
-            try {
-              await this._handleIceRestartSignal(parsed.type, parsed.data || {});
-            } catch (e) {
-              this._secureLog("error", "\u274C ICE restart signal handling failed", { errorType: e?.constructor?.name });
+            if ([
+              T.ICE_RESTART_OFFER,
+              T.ICE_RESTART_ANSWER,
+              T.ICE_RESTART_REQUEST
+            ].includes(parsed.type)) {
+              try {
+                await this._handleIceRestartSignal(parsed.type, parsed.data || {});
+              } catch (e) {
+                this._secureLog("error", "\u274C ICE restart signal handling failed", { errorType: e?.constructor?.name });
+              }
+              return;
             }
             return;
           }
@@ -12449,12 +13143,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
             return;
           }
         } catch (jsonError) {
-          if (!this._checkInboundRateLimit("processMessage:text")) {
-            return;
-          }
-          if (this.onMessage) {
-            this.deliverMessageToUI(data, "received");
-          }
+          this._secureLog("error", "Rejected malformed (non-JSON) frame in processMessage", {
+            dataLength: typeof data === "string" ? data.length : 0
+          });
           return;
         }
       }
@@ -12533,9 +13224,10 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         } catch (e) {
         }
       }
-      if (this.onMessage && messageText) {
-        this._secureLog("debug", "\u{1F4E4} Calling message handler with", { message: messageText.substring(0, 100) });
-        this.deliverMessageToUI(messageText, "received");
+      if (messageText) {
+        this._secureLog("error", "Rejected unauthenticated payload at the end of processMessage", {
+          messageLength: typeof messageText === "string" ? messageText.length : 0
+        });
       }
     } catch (error) {
       this._secureLog("error", "\u274C Failed to process message:", { errorType: error?.constructor?.name || "Unknown" });
@@ -12866,6 +13558,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       this._sasRemoteFingerprint = null;
       this.keyFingerprint = null;
       this.expectedDTLSFingerprint = null;
+      this._peerDTLSFingerprint = null;
       this.connectionId = null;
       this.processedMessageIds.clear();
       this.verificationNotificationSent = false;
@@ -13291,53 +13984,67 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
               this._secureLog("error", "No file transfer system available for:", { errorType: parsed.type?.constructor?.name || "Unknown" });
               return;
             }
-            if (parsed.type === _EnhancedSecureWebRTCManager.MESSAGE_TYPES.MESSAGE_DELETE) {
-              const messageId = parsed?.data?.messageId ?? parsed?.messageId;
-              if (typeof messageId === "string" && messageId) {
+            if (parsed.type && _EnhancedSecureWebRTCManager.POST_VERIFICATION_CONTROL_TYPES.has(parsed.type)) {
+              if (!this._enforceVerificationGate("control_frame_receive", false)) {
+                this._secureLog("error", "Dropped control frame received before verification", {
+                  messageType: parsed.type
+                });
+                return;
+              }
+              const T = _EnhancedSecureWebRTCManager.MESSAGE_TYPES;
+              if (parsed.type === T.MESSAGE_DELETE) {
+                const messageId = parsed?.data?.messageId ?? parsed?.messageId;
+                if (typeof messageId === "string" && messageId) {
+                  try {
+                    this.onMessageDelete?.(messageId.slice(0, 64));
+                  } catch (_) {
+                  }
+                }
+                return;
+              }
+              if (parsed.type === T.MESSAGE_RECEIPT) {
+                const messageId = parsed?.data?.messageId ?? parsed?.messageId;
+                if (typeof messageId === "string" && messageId) {
+                  try {
+                    this.onMessageDelivered?.(messageId.slice(0, 64));
+                  } catch (_) {
+                  }
+                }
+                return;
+              }
+              if ([
+                T.CALL_OFFER,
+                T.CALL_ANSWER,
+                T.CALL_ICE,
+                T.CALL_DECLINE,
+                T.CALL_END
+              ].includes(parsed.type)) {
                 try {
-                  this.onMessageDelete?.(messageId.slice(0, 64));
+                  await this._handleCallSignal(parsed.type, parsed.data || {});
                 } catch (_) {
                 }
+                return;
               }
-              return;
-            }
-            if (parsed.type === _EnhancedSecureWebRTCManager.MESSAGE_TYPES.MESSAGE_RECEIPT) {
-              const messageId = parsed?.data?.messageId ?? parsed?.messageId;
-              if (typeof messageId === "string" && messageId) {
+              if ([
+                T.ICE_RESTART_OFFER,
+                T.ICE_RESTART_ANSWER,
+                T.ICE_RESTART_REQUEST
+              ].includes(parsed.type)) {
                 try {
-                  this.onMessageDelivered?.(messageId.slice(0, 64));
-                } catch (_) {
+                  await this._handleIceRestartSignal(parsed.type, parsed.data || {});
+                } catch (e) {
+                  this._secureLog("error", "\u274C ICE restart signal handling failed", { errorType: e?.constructor?.name });
                 }
-              }
-              return;
-            }
-            if (parsed.type && [
-              _EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_OFFER,
-              _EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_ANSWER,
-              _EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_ICE,
-              _EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_DECLINE,
-              _EnhancedSecureWebRTCManager.MESSAGE_TYPES.CALL_END
-            ].includes(parsed.type)) {
-              try {
-                await this._handleCallSignal(parsed.type, parsed.data || {});
-              } catch (_) {
-              }
-              return;
-            }
-            if (parsed.type && [
-              _EnhancedSecureWebRTCManager.MESSAGE_TYPES.ICE_RESTART_OFFER,
-              _EnhancedSecureWebRTCManager.MESSAGE_TYPES.ICE_RESTART_ANSWER,
-              _EnhancedSecureWebRTCManager.MESSAGE_TYPES.ICE_RESTART_REQUEST
-            ].includes(parsed.type)) {
-              try {
-                await this._handleIceRestartSignal(parsed.type, parsed.data || {});
-              } catch (e) {
-                this._secureLog("error", "\u274C ICE restart signal handling failed", { errorType: e?.constructor?.name });
+                return;
               }
               return;
             }
             if (parsed.type && ["heartbeat", "verification", "verification_response", "verification_confirmed", "verification_both_confirmed", "sas_code", "peer_disconnect", "security_upgrade"].includes(parsed.type)) {
               this.handleSystemMessage(parsed);
+              return;
+            }
+            if (parsed.type === _EnhancedSecureWebRTCManager.MESSAGE_TYPES.RATCHET_MESSAGE) {
+              await this._processRatchetMessage(parsed);
               return;
             }
             if (parsed.type === "enhanced_message" && parsed.data) {
@@ -13406,6 +14113,45 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       }
     } catch (error) {
       this._secureLog("error", "Error processing binary data:", { errorType: error?.constructor?.name || "Unknown" });
+    }
+  }
+  /**
+   * Inbound chat under the Double Ratchet.
+   *
+   * No sequence-number check is needed or wanted here: replay protection is a
+   * property of the ratchet itself, since a message key is destroyed on use and
+   * a number behind the current chain has no key left to open it. Layering the
+   * old sliding window on top would reject legitimate out-of-order frames that
+   * the ratchet can still read.
+   */
+  async _processRatchetMessage(parsedMessage) {
+    try {
+      if (!this._checkInboundRateLimit("ratchet_message")) {
+        return;
+      }
+      if (!this.isRatchetActive()) {
+        this._secureLog("error", "Received a ratchet message but no ratchet is active");
+        return;
+      }
+      if (typeof parsedMessage?.h !== "string" || typeof parsedMessage?.c !== "string") {
+        this._secureLog("error", "Malformed ratchet message frame");
+        return;
+      }
+      const plaintext = await this._ratchet.decrypt(parsedMessage.h, parsedMessage.c);
+      try {
+        const content = JSON.parse(plaintext);
+        if (content.type === "fake" || content.isFakeTraffic === true) return;
+        if (content && content.type === "message" && typeof content.data === "string") {
+          this.deliverMessageToUI(content.data, "received", content.meta);
+          return;
+        }
+      } catch (_) {
+      }
+      this.deliverMessageToUI(plaintext, "received");
+    } catch (error) {
+      this._secureLog("error", "Failed to decrypt ratchet message", {
+        errorType: error?.constructor?.name || "Unknown"
+      });
     }
   }
   // FIX 3: New method for processing enhanced messages WITHOUT mutex
@@ -14841,7 +15587,11 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         const offerCandidateSummary = this._summarizeIceCandidatesInSDP(this.peerConnection.localDescription?.sdp);
         const offerCandidateCount = offerCandidateSummary.total;
         if (!offerIceGatheringCompleted && offerCandidateCount === 0) {
-          throw new Error("ICE gathering did not produce candidates before invitation export");
+          this.deliverMessageToUI(
+            "No network candidates could be gathered, so the invitation would not be usable. This usually means a VPN or firewall is blocking STUN/TURN. Try turning the VPN off, switching network, or adding your own TURN server in Advanced network settings.",
+            "system"
+          );
+          throw new Error("ICE gathering produced no candidates \u2014 check VPN/firewall or configure a TURN server");
         }
         this._secureLog(offerCandidateCount > 0 ? "info" : "warn", "ICE candidates captured for offer export", {
           candidateSummary: offerCandidateSummary,
@@ -14919,6 +15669,11 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           // Security metadata (simplified)
           slv: "MAX",
           // securityLevel
+          // Double Ratchet support. Advertised rather than assumed so a
+          // peer still on 5.6.x keeps working on the static-key path
+          // instead of failing to decrypt anything: with no server there
+          // is no way to roll both ends at once. Absent = not supported.
+          dr: _EnhancedSecureWebRTCManager.RATCHET_VERSION,
           // Key fingerprints (shortened)
           kf: {
             e: ecdhFingerprint.substring(0, 12),
@@ -15099,6 +15854,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           throw new Error(`Version mismatch: expected protocol ${_EnhancedSecureWebRTCManager.PROTOCOL_VERSION}, received ${protocolVersion}`);
         }
         this.sessionSalt = offerData.sl || offerData.salt;
+        this._peerSupportsRatchet = offerData.dr === _EnhancedSecureWebRTCManager.RATCHET_VERSION;
         if (!Array.isArray(this.sessionSalt)) {
           throw new Error("Invalid session salt format - must be array");
         }
@@ -15207,6 +15963,11 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           derivedKeys.metadataKey,
           derivedKeys.fingerprint
         );
+        await this._initializeRatchet(
+          derivedKeys,
+          /* isInitiator */
+          false
+        );
         if (!(this.encryptionKey instanceof CryptoKey) || !(this.macKey instanceof CryptoKey) || !(this.metadataKey instanceof CryptoKey)) {
           this._secureLog("error", "Invalid key types after derivation", {
             operationId,
@@ -15271,18 +16032,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         this.createPeerConnection();
         if (this.strictDTLSValidation) {
           try {
-            const receivedFingerprint = this._extractDTLSFingerprintFromSDP(offerData.sdp);
-            if (this.expectedDTLSFingerprint) {
-              await this._validateDTLSFingerprint(receivedFingerprint, this.expectedDTLSFingerprint, "offer_validation");
-            } else {
-              this.expectedDTLSFingerprint = receivedFingerprint;
-              this._secureLog("info", "Stored DTLS fingerprint for future validation", {
-                fingerprint: receivedFingerprint,
-                context: "first_connection"
-              });
-            }
+            this._peerDTLSFingerprint = this._extractDTLSFingerprintFromSDP(offerData.sdp);
           } catch (error) {
-            this._secureLog("warn", "DTLS fingerprint validation failed - continuing in fallback mode", {
+            this._secureLog("warn", "Could not extract peer DTLS fingerprint from offer", {
               error: error.message,
               context: "offer_validation"
             });
@@ -15361,7 +16113,11 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         const answerCandidateSummary = this._summarizeIceCandidatesInSDP(this.peerConnection.localDescription?.sdp);
         const answerCandidateCount = answerCandidateSummary.total;
         if (!answerIceGatheringCompleted && answerCandidateCount === 0) {
-          throw new Error("ICE gathering did not produce candidates before response export");
+          this.deliverMessageToUI(
+            "No network candidates could be gathered, so the response would not be usable. This usually means a VPN or firewall is blocking STUN/TURN. Try turning the VPN off, switching network, or adding your own TURN server in Advanced network settings.",
+            "system"
+          );
+          throw new Error("ICE gathering produced no candidates \u2014 check VPN/firewall or configure a TURN server");
         }
         this._secureLog(answerCandidateCount > 0 ? "info" : "warn", "ICE candidates captured for answer export", {
           candidateSummary: answerCandidateSummary,
@@ -15450,6 +16206,8 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           // Security metadata (simplified)
           slv: "MAX",
           // securityLevel
+          // Double Ratchet support (see the note on the offer package).
+          dr: _EnhancedSecureWebRTCManager.RATCHET_VERSION,
           // Session confirmation (simplified)
           sc: {
             sf: saltFingerprint.substring(0, 12),
@@ -15781,6 +16539,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         throw new Error("Peer ECDH public key is not a CryptoKey");
       }
       this.peerPublicKey = peerPublicKey;
+      this._peerSupportsRatchet = answerData.dr === _EnhancedSecureWebRTCManager.RATCHET_VERSION;
       if (!this.connectionId) {
         this.connectionId = Array.from(crypto.getRandomValues(new Uint8Array(8))).map((b) => b.toString(16).padStart(2, "0")).join("");
       }
@@ -15793,6 +16552,11 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       this.macKey = derivedKeys.macKey;
       this.metadataKey = derivedKeys.metadataKey;
       this.keyFingerprint = derivedKeys.fingerprint;
+      await this._initializeRatchet(
+        derivedKeys,
+        /* isInitiator */
+        true
+      );
       this.sequenceNumber = 0;
       this.expectedSequenceNumber = 0;
       this.messageCounter = 0;
@@ -15854,18 +16618,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       }
       if (this.strictDTLSValidation) {
         try {
-          const receivedFingerprint = this._extractDTLSFingerprintFromSDP(answerData.sdp || answerData.s);
-          if (this.expectedDTLSFingerprint) {
-            await this._validateDTLSFingerprint(receivedFingerprint, this.expectedDTLSFingerprint, "answer_validation");
-          } else {
-            this.expectedDTLSFingerprint = receivedFingerprint;
-            this._secureLog("info", "Stored DTLS fingerprint for future validation", {
-              fingerprint: receivedFingerprint,
-              context: "first_connection"
-            });
-          }
+          this._peerDTLSFingerprint = this._extractDTLSFingerprintFromSDP(answerData.sdp || answerData.s);
         } catch (error) {
-          this._secureLog("warn", "DTLS fingerprint validation failed - continuing in fallback mode", {
+          this._secureLog("warn", "Could not extract peer DTLS fingerprint from answer", {
             error: error.message,
             context: "answer_validation"
           });
@@ -16351,21 +17106,32 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           throw new Error("_createMessageAAD method is not available in sendSecureMessage. Manager may not be fully initialized.");
         }
         const aad = message.aad || this._createMessageAAD("enhanced_message", { content: sanitizedMessage });
-        const encryptedData = await window.EnhancedSecureCryptoUtils.encryptMessage(
-          sanitizedMessage,
-          this.encryptionKey,
-          this.macKey,
-          this.metadataKey,
-          messageId,
-          JSON.parse(aad).sequenceNumber
-          // Use sequence number from AAD
-        );
-        const payload = {
-          type: "enhanced_message",
-          data: encryptedData,
-          keyVersion: this.currentKeyVersion,
-          version: "4.0"
-        };
+        let payload;
+        if (this._ratchet?.canEncrypt) {
+          const { header, ciphertext } = await this._ratchet.encrypt(sanitizedMessage);
+          payload = {
+            type: _EnhancedSecureWebRTCManager.MESSAGE_TYPES.RATCHET_MESSAGE,
+            h: header,
+            c: ciphertext,
+            version: "5.0"
+          };
+        } else {
+          const encryptedData = await window.EnhancedSecureCryptoUtils.encryptMessage(
+            sanitizedMessage,
+            this.encryptionKey,
+            this.macKey,
+            this.metadataKey,
+            messageId,
+            JSON.parse(aad).sequenceNumber
+            // Use sequence number from AAD
+          );
+          payload = {
+            type: "enhanced_message",
+            data: encryptedData,
+            keyVersion: this.currentKeyVersion,
+            version: "4.0"
+          };
+        }
         this.dataChannel.send(JSON.stringify(payload));
         if (typeof validation.sanitizedData === "string") {
           this.deliverMessageToUI(validation.sanitizedData, "sent");
@@ -16807,7 +17573,13 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     }
     const offer = await pc.createOffer({ iceRestart: true });
     await pc.setLocalDescription(offer);
-    await this.waitForIceGathering(_EnhancedSecureWebRTCManager.TIMEOUTS.ICE_RESTART_GATHERING);
+    await this.waitForIceGathering(
+      _EnhancedSecureWebRTCManager.TIMEOUTS.ICE_RESTART_GATHERING,
+      // Recovery keeps a hard 4 s budget: a restart round-trip has to fit
+      // inside ICE_RESTART_TIMEOUT, so the extra patience the handshake
+      // gets would push the whole cycle past its own deadline.
+      _EnhancedSecureWebRTCManager.TIMEOUTS.ICE_RESTART_GATHERING
+    );
     await this.sendSystemMessage({
       type: _EnhancedSecureWebRTCManager.MESSAGE_TYPES.ICE_RESTART_OFFER,
       sdp: pc.localDescription.sdp,
@@ -16864,7 +17636,13 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         await pc.setRemoteDescription({ type: "offer", sdp: data.sdp });
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-        await this.waitForIceGathering(_EnhancedSecureWebRTCManager.TIMEOUTS.ICE_RESTART_GATHERING);
+        await this.waitForIceGathering(
+          _EnhancedSecureWebRTCManager.TIMEOUTS.ICE_RESTART_GATHERING,
+          // Recovery keeps a hard 4 s budget: a restart round-trip has to
+          // fit inside ICE_RESTART_TIMEOUT, so the extra patience the
+          // handshake gets would push the cycle past its own deadline.
+          _EnhancedSecureWebRTCManager.TIMEOUTS.ICE_RESTART_GATHERING
+        );
         await this.sendSystemMessage({
           type: T.ICE_RESTART_ANSWER,
           sdp: pc.localDescription.sdp,
@@ -16946,25 +17724,77 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
    *   one than the initial handshake: a restart round-trip must finish well
    *   inside the retry backoff, or the next attempt cancels the one in flight.
    */
-  waitForIceGathering(timeoutMs = _EnhancedSecureWebRTCManager.TIMEOUTS.ICE_GATHERING_TIMEOUT) {
+  /**
+   * Wait for ICE gathering, but do not confuse "finished" with "usable".
+   *
+   * Gathering only reaches 'complete' once EVERY configured STUN/TURN server has
+   * answered or timed out. On a network that blocks them — a VPN, a captive
+   * portal, an interface the browser cannot route from — that never happens
+   * inside the budget, even though host candidates are available immediately and
+   * are enough to connect on a LAN. The old code waited a flat 10 s and then
+   * hard-failed the whole handshake if the SDP happened to be empty at that
+   * instant, which made success a race: the same device would fail one attempt
+   * and connect on the next with gathering still in progress.
+   *
+   * So: return as soon as gathering completes, and otherwise keep waiting past
+   * the soft deadline only while there is still nothing to export. `hardMs`
+   * bounds that extra patience so a truly dead network still fails, just later
+   * and for a real reason.
+   */
+  waitForIceGathering(timeoutMs = _EnhancedSecureWebRTCManager.TIMEOUTS.ICE_GATHERING_TIMEOUT, hardMs = _EnhancedSecureWebRTCManager.TIMEOUTS.ICE_GATHERING_HARD_TIMEOUT) {
     return new Promise((resolve) => {
-      if (this.peerConnection.iceGatheringState === "complete") {
+      const pc = this.peerConnection;
+      if (!pc) {
+        resolve(false);
+        return;
+      }
+      if (pc.iceGatheringState === "complete") {
         resolve(true);
         return;
       }
-      const checkState = () => {
-        if (this.peerConnection && this.peerConnection.iceGatheringState === "complete") {
-          this.peerConnection.removeEventListener("icegatheringstatechange", checkState);
-          resolve(true);
+      let settled = false;
+      let softTimer = null;
+      let hardTimer = null;
+      const hasCandidates = () => {
+        try {
+          const sdp = this.peerConnection?.localDescription?.sdp;
+          if (!sdp) return false;
+          return this._summarizeIceCandidatesInSDP(sdp).total > 0;
+        } catch (_) {
+          return false;
         }
       };
-      this.peerConnection.addEventListener("icegatheringstatechange", checkState);
-      setTimeout(() => {
-        if (this.peerConnection) {
-          this.peerConnection.removeEventListener("icegatheringstatechange", checkState);
+      const finish = (completed) => {
+        if (settled) return;
+        settled = true;
+        if (softTimer) {
+          clearTimeout(softTimer);
+          this._untrackActiveTimer?.(softTimer);
         }
-        resolve(this.peerConnection?.iceGatheringState === "complete");
+        if (hardTimer) {
+          clearTimeout(hardTimer);
+          this._untrackActiveTimer?.(hardTimer);
+        }
+        try {
+          pc.removeEventListener("icegatheringstatechange", onStateChange);
+        } catch (_) {
+        }
+        resolve(completed);
+      };
+      const onStateChange = () => {
+        if (this.peerConnection?.iceGatheringState === "complete") {
+          finish(true);
+        }
+      };
+      pc.addEventListener("icegatheringstatechange", onStateChange);
+      softTimer = setTimeout(() => {
+        if (hasCandidates()) {
+          finish(false);
+        }
       }, timeoutMs);
+      this._trackActiveTimer?.(softTimer);
+      hardTimer = setTimeout(() => finish(false), Math.max(hardMs, timeoutMs));
+      this._trackActiveTimer?.(hardTimer);
     });
   }
   retryConnection() {
@@ -18149,14 +18979,33 @@ var SecureKeyStorage = class {
     }, 100);
   }
   /**
+   * SecureKeyStorage calls this._secureLog() in a dozen places but never
+   * defined it, so every one of those calls threw a TypeError instead of
+   * logging — including the integrity-violation and key-storage-failure paths,
+   * i.e. exactly the reports worth having. Delegate to the shared sanitising
+   * logger, which redacts key-shaped values before anything reaches the console.
+   */
+  _secureLog(level, message, context = {}) {
+    try {
+      const logger = typeof window !== "undefined" && window.EnhancedSecureCryptoUtils?.secureLog || null;
+      if (logger && typeof logger.log === "function") {
+        logger.log(level, `[KeyStorage] ${message}`, context);
+        return;
+      }
+    } catch (_) {
+    }
+    if (level === "error") console.error(`[KeyStorage] ${message}`);
+    else if (level === "warn") console.warn(`[KeyStorage] ${message}`);
+  }
+  /**
    * Setup callbacks for master key manager
    */
   _setupMasterKeyCallbacks() {
     this._masterKeyManager.setPasswordRequiredCallback((isRetry, callback) => {
-      const password = prompt(
-        isRetry ? "Incorrect password. Please enter your master password:" : "Please enter your master password to unlock secure storage:"
-      );
-      callback(password);
+      this._secureLog("error", "Master key password requested but no password UI is installed", {
+        isRetry: !!isRetry
+      });
+      callback(null);
     });
     this._masterKeyManager.setSessionExpiredCallback((reason) => {
       console.warn(`Master key session expired: ${reason}`);
@@ -21612,7 +22461,24 @@ window.EnhancedSecureCryptoUtils = EnhancedSecureCryptoUtils;
 window.EnhancedSecureWebRTCManager = EnhancedSecureWebRTCManager;
 window.EnhancedSecureFileTransfer = EnhancedSecureFileTransfer;
 window.NotificationIntegration = import_NotificationIntegration.NotificationIntegration;
+var purgeLegacyOfferRecords = () => {
+  try {
+    const stale = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith("qr_offer_")) stale.push(key);
+    }
+    for (const key of stale) {
+      try {
+        localStorage.removeItem(key);
+      } catch (_) {
+      }
+    }
+  } catch (_) {
+  }
+};
 var start = () => {
+  purgeLegacyOfferRecords();
   if (typeof window.initializeApp === "function") {
     window.initializeApp();
   } else if (window.DEBUG_MODE) {

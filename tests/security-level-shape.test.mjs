@@ -31,8 +31,13 @@ function createManager(overrides = {}) {
         encryptionKey: {},
         hmacKey: {},
         replayProtectionEnabled: true,
+        // Our own fingerprint and the peer's are tracked separately; the SAS binds
+        // both, so the dtlsFingerprint flag requires both to be present.
         expectedDTLSFingerprint: 'aa:bb',
+        _peerDTLSFingerprint: 'cc:dd',
         verificationCode: '1234567',
+        localVerificationConfirmed: true,
+        isRatchetActive: () => true,
         connectionId: 'conn-1',
         keyFingerprint: 'ff:ee',
         _secureLog() {},
@@ -61,6 +66,34 @@ function createManager(overrides = {}) {
     // What the header would actually paint.
     assert.equal(String(data.level || 'Secure'), 'HIGH');
     assert.equal(data.score + '%', '90%');
+}
+
+// ── the flags report what was verified, not what was merely computed ─────────
+// A SAS code exists the moment the handshake completes — including for a MITM's
+// session. It only means anything once the USER has compared it out of band, so
+// the flag has to track the confirmation and not the code's existence. Likewise,
+// holding our own DTLS fingerprint proves nothing without the peer's: the SAS
+// binds the pair.
+{
+    const unconfirmed = await createManager({ localVerificationConfirmed: false }).getRealSecurityLevel();
+    assert.equal(unconfirmed.sasCode, false, 'an uncompared SAS code is not authentication');
+
+    const halfFingerprint = await createManager({ _peerDTLSFingerprint: null }).getRealSecurityLevel();
+    assert.equal(halfFingerprint.dtlsFingerprint, false, 'our own fingerprint alone proves nothing');
+
+    // PFS tracks whether the Double Ratchet is actually running on THIS
+    // connection. A peer on an older build negotiates it away, and the panel has
+    // to show that rather than the capability we happen to ship.
+    const withRatchet = await createManager().getRealSecurityLevel();
+    assert.equal(withRatchet.perfectForwardSecrecy, true, 'an active ratchet must be reported');
+
+    const withoutRatchet = await createManager({ isRatchetActive: () => false }).getRealSecurityLevel();
+    assert.equal(withoutRatchet.perfectForwardSecrecy, false,
+        'a session that fell back to static keys must not claim forward secrecy');
+
+    // A status report must never throw, even on a partially built manager.
+    const partial = await createManager({ isRatchetActive: undefined }).getRealSecurityLevel();
+    assert.equal(partial.perfectForwardSecrecy, false, 'unknown must read as off, not crash');
 }
 
 // ── not-ready path is flagged, not rendered as a real measurement ────────────

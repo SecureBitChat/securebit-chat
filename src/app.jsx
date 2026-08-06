@@ -3895,28 +3895,12 @@ import {
                         }
                     };
 
-                    const createQRReference = (offerData) => {
-                        try {
-                            // Create a unique reference ID for this offer
-                            const referenceId = `offer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-                            
-                            // Store the full offer data in localStorage with the reference ID
-                            localStorage.setItem(`qr_offer_${referenceId}`, JSON.stringify(offerData));
-                            
-                            // Create a minimal QR code with just the reference
-                            const qrReference = {
-                                type: 'secure_offer_reference',
-                                referenceId: referenceId,
-                                timestamp: Date.now(),
-                                message: 'Scan this QR code and use the reference ID to get full offer data'
-                            };
-                            
-                            return JSON.stringify(qrReference);
-                        } catch (error) {
-                            console.error('Error creating QR reference:', error);
-                            return null;
-                        }
-                    };
+                    // NOTE: createQRReference() used to live here. It kept the invitation
+                    // payload in localStorage and put only a reference id in the QR — which
+                    // could not work across devices, since the payload stayed on the
+                    // sender's machine, and left records behind that nothing cleaned up.
+                    // Removed rather than repaired; QR invitations travel as
+                    // self-contained COSE payloads (see packSecurePayload).
 
                     const createTemplateOffer = (offer) => {
                         // Minimal template to keep QR within single image capacity
@@ -4550,33 +4534,18 @@ import {
                                 setShowQRScannerModal(false); // Close QR scanner modal
                                 return true;
                             }
-                            // Check if this is a reference-based QR code
-                            else if (parsedData.type === 'secure_offer_reference' && parsedData.referenceId) {
-                                // Try to get the full offer data from localStorage
-                                const fullOfferData = localStorage.getItem(`qr_offer_${parsedData.referenceId}`);
-                                if (fullOfferData) {
-                                    const fullOffer = JSON.parse(fullOfferData);
-                                    // Determine which input to populate based on current mode
-                                    if (showOfferStep) {
-                                        // In "Waiting for peer's response" mode - populate answerInput
-                                        setAnswerInput(JSON.stringify(fullOffer, null, 2));
-                                    } else {
-                                        // In "Paste secure invitation" mode - populate offerInput
-                                        setOfferInput(JSON.stringify(fullOffer, null, 2));
-                                    }
-                                    setMessages(prev => [...prev, {
-                                        message: '📱 QR code scanned successfully! Full offer data retrieved.',
-                                        type: 'success'
-                                    }]);
-                                    setShowQRScannerModal(false); // Close QR scanner modal
-                                    return true;
-                                } else {
-                                    setMessages(prev => [...prev, {
-                                        message: 'QR code reference found but full data not available. Please use copy/paste.',
-                                        type: 'error'
-                                    }]);
-                                    return false;
-                                }
+                            // Reference-based QR codes are no longer produced or read:
+                            // the payload they pointed at lived in the *sender's*
+                            // localStorage, so a scan on the peer's device never had
+                            // anything to resolve, and the records leaked the session's
+                            // SDP, keys and SAS code onto disk forever. See the note
+                            // where createQRReference used to be.
+                            else if (parsedData.type === 'secure_offer_reference') {
+                                setMessages(prev => [...prev, {
+                                    message: 'This QR code uses a retired format that could not transfer the invitation. Ask your peer to generate a new one, or use copy/paste.',
+                                    type: 'error'
+                                }]);
+                                return false;
                             } else {
                                 // If payload was compressed, it's already decompressed above; keep legacy warning only when clearly incomplete
                                 if (!parsedData.sdp && parsedData.type === 'enhanced_secure_offer') {

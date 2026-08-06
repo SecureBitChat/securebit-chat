@@ -19,6 +19,62 @@ function fromBase64Url(str) {
     return base64.toByteArray(str);
 }
 
+// A scanned QR is fully attacker-controlled input, and DEFLATE compresses
+// repetitive data by roughly 1000:1 — so a QR small enough to print on a sticker
+// can expand to hundreds of megabytes and take the tab (or a phone) down with an
+// out-of-memory kill, taking the session and its keys with it.
+//
+// Real offers are single-digit kilobytes; 256 KB leaves generous headroom for a
+// multi-chunk payload while making the bomb harmless.
+const MAX_INFLATED_QR_BYTES = 256 * 1024;
+// pako emits output in chunks of this size, which is also the granularity at
+// which we can notice we have gone too far. Small enough to abort promptly.
+const INFLATE_CHUNK_SIZE = 16 * 1024;
+
+/**
+ * Decompress with a hard ceiling on the OUTPUT size.
+ *
+ * NOTE: pako's documented `maxOutputLength` option is silently ignored by
+ * pako 2.1.0 — passing it still inflates the full stream (verified in
+ * tests/qr-zip-bomb.test.mjs, which fails if a future pako starts honouring it
+ * or if someone reverts to the one-shot helper). The streaming API is what
+ * actually works: throwing from onData aborts mid-stream, so a bomb costs one
+ * chunk past the limit instead of the whole payload.
+ */
+function inflateBounded(compressed, label) {
+    const inflator = new pako.Inflate({ chunkSize: INFLATE_CHUNK_SIZE });
+    const chunks = [];
+    let total = 0;
+
+    inflator.onData = (chunk) => {
+        total += chunk.length;
+        if (total > MAX_INFLATED_QR_BYTES) {
+            throw new Error(
+                `QR payload expands beyond the ${MAX_INFLATED_QR_BYTES / 1024} KB limit (${label})`
+            );
+        }
+        chunks.push(chunk);
+    };
+    // onEnd is deliberately NOT overridden: pako's default is what assigns
+    // `this.err` / `this.msg`, so replacing it with a no-op silently swallows
+    // every decompression error and makes malformed input look like success.
+    // It only flattens the (now empty) internal chunk list, which costs nothing.
+
+    inflator.push(compressed, true);
+
+    if (inflator.err) {
+        throw new Error(`QR payload could not be decompressed (${label}): ${inflator.msg || inflator.err}`);
+    }
+
+    const out = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+        out.set(chunk, offset);
+        offset += chunk.length;
+    }
+    return out;
+}
+
 // Generate UUID for chunking
 function generateUUID() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -205,7 +261,7 @@ export async function receiveAndProcess(qrStrings, recipientEcdhPrivKey = null, 
                 
                 // 2. Decode: base64url -> decompress -> CBOR decode
                 const compressed = fromBase64Url(encoded.body || encoded);
-                const cborBytes = pako.inflate(compressed);
+                const cborBytes = inflateBounded(compressed, 'primary');
                 console.log('🔓 Decompressed CBOR bytes length:', cborBytes.length);
                 console.log('🔓 CBOR bytes type:', typeof cborBytes, cborBytes.constructor.name);
                 
@@ -326,7 +382,7 @@ export async function receiveAndProcess(qrStrings, recipientEcdhPrivKey = null, 
                         
                         // Decode base64url -> decompress -> CBOR decode -> extract JSON
                         const compressed = fromBase64Url(originalBody);
-                        const decompressed = pako.inflate(compressed);
+                        const decompressed = inflateBounded(compressed, 'fallback');
                         console.log('🔓 Decompressed length:', decompressed.length);
                         
                         // Convert to ArrayBuffer for CBOR decoding

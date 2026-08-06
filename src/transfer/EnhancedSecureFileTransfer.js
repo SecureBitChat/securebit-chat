@@ -403,6 +403,19 @@ class EnhancedSecureFileTransfer {
         this.incomingTransferChunkLimiters = new Map();
         this.MAX_INCOMING_CHUNKS_PER_TRANSFER_PER_MINUTE = 30000; // per transfer (~8 MB/s)
         this.MAX_PENDING_INCOMING_TRANSFERS = 3;
+
+        // Voice notes are the one transfer accepted without a consent prompt, and
+        // `isVoice` is set by the SENDER (deliberately outside the signed
+        // fileHash, since it is presentation metadata). Anything that skips the
+        // prompt therefore has to qualify on its own properties rather than on
+        // the sender's assertion — see rejectVoiceAutoAcceptReason().
+        // 4 MB is ~5 minutes of Opus at 96 kbps — well past any real voice note,
+        // and a twentieth of what the `voice` type's 20 MB ceiling used to allow.
+        this.MAX_AUTO_ACCEPT_VOICE_SIZE = 4 * 1024 * 1024;
+        // A whole session's worth of auto-accepted audio. Past this the peer can
+        // still send voice notes, they just need the ordinary consent card.
+        this.MAX_AUTO_ACCEPT_VOICE_SESSION_BYTES = 64 * 1024 * 1024;
+        this.autoAcceptedVoiceBytes = 0;
         
         // Session key derivation
         this.sessionKeys = new Map(); // fileId -> derived session key
@@ -538,7 +551,44 @@ class EnhancedSecureFileTransfer {
             if (!validation.isValid) errors.push(...validation.errors);
         }
 
-        return { isValid: errors.length === 0, errors, displayName };
+        // A transfer only keeps its consent-free voice status if it actually looks
+        // like a voice note. Otherwise it stays a normal file and goes through the
+        // consent card — the transfer is not rejected, it just loses the shortcut.
+        const claimsVoice = !!metadata?.isVoice;
+        const voiceRejection = claimsVoice ? this.rejectVoiceAutoAcceptReason(metadata) : null;
+
+        return {
+            isValid: errors.length === 0,
+            errors,
+            displayName,
+            isVoice: claimsVoice && !voiceRejection,
+            voiceRejection
+        };
+    }
+
+    /**
+     * Why a transfer claiming to be a voice note may not skip the consent card.
+     * Returns null when it may. The generic MIME types that validateFile accepts
+     * for ordinary uploads (application/octet-stream and friends) are explicitly
+     * NOT enough here: they are what lets an arbitrary blob wear a `.mp4` name.
+     */
+    rejectVoiceAutoAcceptReason(metadata) {
+        const mimeType = String(metadata?.fileType || '').toLowerCase();
+        const size = metadata?.fileSize;
+
+        if (!mimeType.startsWith('audio/')) {
+            return `not an audio MIME type (${mimeType || 'absent'})`;
+        }
+        if (!this.FILE_TYPE_RESTRICTIONS.voice.mimeTypes.includes(mimeType)) {
+            return `unsupported audio MIME type (${mimeType})`;
+        }
+        if (!Number.isSafeInteger(size) || size <= 0 || size > this.MAX_AUTO_ACCEPT_VOICE_SIZE) {
+            return `too large to auto-accept (${this.formatFileSize(size || 0)} > ${this.formatFileSize(this.MAX_AUTO_ACCEPT_VOICE_SIZE)})`;
+        }
+        if (this.autoAcceptedVoiceBytes + size > this.MAX_AUTO_ACCEPT_VOICE_SESSION_BYTES) {
+            return 'session auto-accept budget for voice notes is exhausted';
+        }
+        return null;
     }
 
     formatFileSize(bytes) {
@@ -1331,12 +1381,24 @@ class EnhancedSecureFileTransfer {
                 throw new Error('Too many pending incoming file requests');
             }
 
+            if (validation.voiceRejection) {
+                // Downgraded, not dropped: the peer may well be sending something
+                // legitimate that simply does not qualify for the consent-free path.
+                console.warn(`Voice auto-accept declined, falling back to consent: ${validation.voiceRejection}`);
+            }
+
             const pendingMetadata = {
                 ...metadata,
+                // Never carry the sender's claim forward — only our own verdict.
+                isVoice: validation.isVoice,
                 fileName: validation.displayName,
                 receivedAt: Date.now()
             };
             this.pendingIncomingTransfers.set(metadata.fileId, pendingMetadata);
+
+            if (validation.isVoice) {
+                this.autoAcceptedVoiceBytes += metadata.fileSize;
+            }
 
             if (typeof this.onIncomingFileRequest === 'function') {
                 this.onIncomingFileRequest({
@@ -1345,7 +1407,8 @@ class EnhancedSecureFileTransfer {
                     fileSize: pendingMetadata.fileSize,
                     mimeType: pendingMetadata.fileType || 'application/octet-stream',
                     // Voice notes auto-accept and render inline (no consent card).
-                    isVoice: !!pendingMetadata.isVoice,
+                    // This flag is the receiver's decision, not the sender's.
+                    isVoice: validation.isVoice,
                     voice: pendingMetadata.voice || null
                 });
             } else {

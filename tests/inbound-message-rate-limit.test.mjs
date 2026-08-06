@@ -1,9 +1,16 @@
 import assert from 'node:assert/strict';
 
+// Each call returns the next queued plaintext, so a flood can be distinguished
+// message by message rather than all looking alike.
+let nextPlaintext = 'hello';
 globalThis.window = {
     EnhancedSecureCryptoUtils: {
         async decryptMessage() {
-            return { message: JSON.stringify({ type: 'message', data: 'enhanced hello' }) };
+            return {
+                message: JSON.stringify({ type: 'message', data: nextPlaintext }),
+                messageId: 'msg_1',
+                sequenceNumber: 0
+            };
         }
     }
 };
@@ -18,6 +25,12 @@ function fakeManager({ perMinute = 60, burst = 10 } = {}) {
             rateLimitMessagesPerMinute: perMinute,
             rateLimitBurstSize: burst
         },
+        encryptionKey: {},
+        macKey: {},
+        metadataKey: {},
+        // Anti-replay is a separate mechanism with its own test; keep this one
+        // focused on rate limiting.
+        _validateIncomingSequenceNumber: () => true,
         _checkInboundRateLimit: EnhancedSecureWebRTCManager.prototype._checkInboundRateLimit,
         _secureLog(level, message, context) {
             this.logs.push({ level, message, context });
@@ -29,21 +42,30 @@ function fakeManager({ perMinute = 60, burst = 10 } = {}) {
     };
 }
 
+// The rate limiter is exercised through `enhanced_message`, the only frame type
+// that carries chat content. It used to be driven here through a bare
+// `{type:'message'}` frame, but those are rejected now: they were
+// unauthenticated peer input rendered as a real message.
+const deliver = (manager, text) => {
+    nextPlaintext = text;
+    return EnhancedSecureWebRTCManager.prototype._processEnhancedMessageWithoutMutex.call(
+        manager,
+        { type: 'enhanced_message', data: 'ciphertext' }
+    );
+};
+
 // Normal inbound messages are delivered.
 {
     const manager = fakeManager();
-    await EnhancedSecureWebRTCManager.prototype.processMessage.call(
-        manager,
-        JSON.stringify({ type: 'message', data: 'hello' })
-    );
+    await deliver(manager, 'hello');
     assert.deepEqual(manager.delivered, [{ message: 'hello', type: 'received' }]);
 }
 
 // Burst floods are dropped safely and logged.
 {
     const manager = fakeManager({ burst: 1 });
-    await EnhancedSecureWebRTCManager.prototype.processMessage.call(manager, JSON.stringify({ type: 'message', data: 'first' }));
-    await EnhancedSecureWebRTCManager.prototype.processMessage.call(manager, JSON.stringify({ type: 'message', data: 'second' }));
+    await deliver(manager, 'first');
+    await deliver(manager, 'second');
     assert.deepEqual(manager.delivered, [{ message: 'first', type: 'received' }]);
     assert.match(manager.logs.at(-1).message, /Inbound message burst limit exceeded/);
 }
@@ -51,11 +73,22 @@ function fakeManager({ perMinute = 60, burst = 10 } = {}) {
 // Sustained-window floods are rejected independently of burst accounting.
 {
     const manager = fakeManager({ perMinute: 1, burst: 10 });
-    await EnhancedSecureWebRTCManager.prototype.processMessage.call(manager, JSON.stringify({ type: 'message', data: 'first' }));
+    await deliver(manager, 'first');
     manager._inboundRateLimiter.lastBurstReset = Date.now() - 1001;
-    await EnhancedSecureWebRTCManager.prototype.processMessage.call(manager, JSON.stringify({ type: 'message', data: 'second' }));
+    await deliver(manager, 'second');
     assert.deepEqual(manager.delivered, [{ message: 'first', type: 'received' }]);
     assert.match(manager.logs.at(-1).message, /Inbound message rate limit exceeded/);
+}
+
+// And an unauthenticated frame is refused outright, limiter or no limiter —
+// rate limiting is not what keeps injected chat text out.
+{
+    const manager = fakeManager();
+    await EnhancedSecureWebRTCManager.prototype.processMessage.call(
+        manager,
+        JSON.stringify({ type: 'message', data: 'injected' })
+    );
+    assert.deepEqual(manager.delivered, [], 'a bare message frame must never be delivered');
 }
 
 // Binary and enhanced helpers are guarded before expensive processing.

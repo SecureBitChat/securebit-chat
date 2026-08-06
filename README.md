@@ -9,9 +9,10 @@
 No accounts. No servers storing your messages. No installation required.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-f0892a.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-5.6.0-3ecf8e.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.7.1-3ecf8e.svg)](CHANGELOG.md)
 [![PWA](https://img.shields.io/badge/PWA-installable-3ecf8e.svg)](#install-as-an-app)
 [![Encryption](https://img.shields.io/badge/crypto-ECDH%20P--384%20%C2%B7%20AES--256--GCM-blue.svg)](#security-model)
+[![Forward secrecy](https://img.shields.io/badge/forward%20secrecy-Double%20Ratchet-3ecf8e.svg)](#forward-secrecy)
 
 [Features](#features) · [How it works](#how-it-works) · [Security](#security-model) · [Quick start](#quick-start) · [Documentation](#documentation)
 
@@ -33,6 +34,7 @@ It is designed for people who need a small, auditable, zero-infrastructure way t
 
 ** Encryption & verification**
 - ECDH P-384 key agreement with derived per-session keys, AES-256-GCM payloads, and DTLS-protected transport.
+- **Double Ratchet forward secrecy** — every message is encrypted with its own key, and the session re-keys itself each time the conversation changes direction. See [Forward secrecy](#forward-secrecy).
 - Interactive **Short Authentication String (SAS)** verification — you confirm a code out-of-band before the session is trusted, defeating man-in-the-middle attacks.
 - Replay protection, message integrity (HMAC), and a live security report you can open at any time during a call.
 
@@ -95,6 +97,7 @@ SecureBit never sees your conversation. A session is built directly between the 
 | Layer | Mechanism |
 | --- | --- |
 | Key agreement | ECDH (P-384), per-session derived keys |
+| Forward secrecy | Double Ratchet — per-message keys, DH re-key on each reply |
 | Transport | WebRTC data channel over DTLS |
 | Message encryption | AES-256-GCM, end-to-end |
 | Authentication | Interactive SAS bound to both peers' DTLS fingerprints |
@@ -102,7 +105,17 @@ SecureBit never sees your conversation. A session is built directly between the 
 | Sanitization | DOMPurify text-only rendering boundary |
 | Local storage | Encrypted key metadata in IndexedDB |
 
-A session is **not** treated as verified until both peers complete the SAS flow. This is the step that protects you against a man-in-the-middle: the code must be compared through a channel an attacker cannot impersonate.
+A session is **not** treated as verified until both peers complete the SAS flow. This is the step that protects you against a man-in-the-middle: the code must be compared through a channel an attacker cannot impersonate. Until it is completed, the session will not act on control messages from the peer.
+
+### Forward secrecy
+
+Message protection does not rest on the keys agreed during the handshake. On top of them SecureBit runs the **Double Ratchet** — the design used by Signal:
+
+- **Every message gets its own key.** It is derived from a chain key through a one-way function and discarded as soon as the message is encrypted or read, so keys held now cannot reconstruct earlier ones. Recovering the live state of a session does not expose what was said before.
+- **Each change of direction re-keys the session.** Every reply introduces a fresh ECDH key pair and mixes a new shared secret into the root key, so the conversation continuously moves away from any state an attacker may have captured.
+- **Out-of-order messages are handled within fixed bounds.** Keys are held for messages that have not arrived yet, capped at 512 per chain and 1024 in total and expiring after five minutes, with a limit on how far ahead a message may claim to be.
+
+The ratchet is negotiated during the handshake and used when both peers support it. If one side is on an older release, the session falls back to per-session keys and the security panel reports which of the two is actually in use — it shows the state of your connection, not the capabilities of your client.
 
 > [!WARNING]
 > SecureBit.chat is privacy software, not a guarantee. View-once and disappearing messages are cooperative (not screenshot-proof), and a TURN relay can observe both peers' IPs and traffic timing — though never message contents. See [`SECURITY_DISCLAIMER.md`](SECURITY_DISCLAIMER.md).
@@ -162,9 +175,10 @@ npm run dev       # build and serve locally
 ```text
 src/network/      WebRTC connection and session lifecycle
 src/transfer/     secure file-transfer implementation
-src/crypto/       cryptographic utilities
+src/crypto/       cryptographic utilities and the Double Ratchet
 src/components/   React UI components
 src/styles/       component styles
+tests/            node:assert suites, run by `npm test`
 doc/              technical documentation
 dist/             built bundles served in production
 ```

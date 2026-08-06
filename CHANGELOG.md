@@ -1,5 +1,143 @@
 # Changelog
 
+## v5.7.1 — Forward secrecy now engages for both sides of a chat
+
+The Double Ratchet introduced in 5.7.0 was only taking effect for the peer who
+joined a conversation; the peer who created the invitation stayed on the
+previous per-session key scheme. Both sides now negotiate and run it, so a
+conversation is protected symmetrically end to end.
+
+If you installed 5.7.0, updating is worthwhile — it is what makes per-message
+forward secrecy apply to your whole conversation rather than one direction of it.
+
+### Internal
+
+- The ratchet's test suites now construct the peer's public key exactly as the
+  handshake delivers it (exported and re-imported, non-extractable) rather than
+  reusing a locally generated one. Locally generated public keys are always
+  extractable in WebCrypto, so the earlier tests exercised a key shape the app
+  never actually produces.
+
+## v5.7.0 — Double Ratchet: forward secrecy for every message
+
+Sessions previously derived one set of keys during the handshake and used them
+for the whole conversation. This release adds the Double Ratchet (Signal's
+design) on top of that, so protection no longer rests on a single set of keys
+lasting the entire chat.
+
+### Added
+
+- **A separate key for every message.** Each message key is derived from a chain
+  key through a one-way function and discarded immediately after use, so keys
+  that exist now cannot be used to reconstruct earlier ones.
+- **A Diffie–Hellman step on every change of direction.** Each reply introduces a
+  fresh ECDH key pair and mixes a new shared secret into the root key. A session
+  therefore re-keys itself continuously as the conversation goes back and forth.
+- **Bounded handling of out-of-order messages.** Keys for messages that have not
+  arrived yet are held so they can still be read, with firm limits on how many
+  are kept (512 per chain, 1024 in total, expiring after five minutes) and a
+  fixed ceiling on how far ahead a message number may jump.
+
+The ratchet required no change to the handshake. Both peers already hold each
+other's authenticated ECDH public key, and the safety code compared during
+verification covers exactly those keys. The ratchet's root is derived from the
+existing shared secret through its own branch of the key schedule, keeping it
+separate from the session's other keys.
+
+### Compatibility
+
+Support is advertised in the invitation and the response and used only when both
+sides have it. A peer on an earlier release negotiates it away and the session
+runs on the previous scheme — with no server in the design there is no way to
+update both ends at once, and connecting with the earlier protection is better
+than not connecting. The security panel shows which of the two is actually in
+use, rather than what the client is capable of.
+
+One behaviour worth knowing: the peer who joins has no sending chain until the
+inviting peer's first message arrives — that is inherent to the ratchet, since
+both sides derive it from the same exchange. The app sends a presence update from
+both sides as soon as verification completes, so those first frames use the
+session keys and everything afterwards is ratcheted.
+
+### Improved
+
+- **Connection setup on restrictive networks.** Gathering network candidates only
+  finishes once every configured STUN/TURN server has replied or timed out, which
+  behind a VPN or a strict firewall may not happen at all. Setup now proceeds as
+  soon as there are usable candidates and only keeps waiting while there are
+  none, up to a longer ceiling. A network that genuinely yields nothing now
+  explains what to try instead of failing without explanation.
+
+## v5.6.2 — Restore connectivity after the 5.6.1 key-handling change
+
+5.6.1 changed how the shared secret is handled in memory and missed a matching
+adjustment to key generation, which prevented sessions from being established.
+Anyone on 5.6.1 should update.
+
+Key agreement is unchanged on the wire, so 5.6.0 sessions remain compatible.
+
+### Internal
+
+- Added an end-to-end test that drives the real key generator and derivation
+  rather than constructing its own keys, which is what allowed the mismatch
+  through.
+
+## v5.6.1 — Hardening pass
+
+A review of the client produced a set of improvements to how the session is
+verified, how peer input is handled and what the app stores. Updating is
+recommended.
+
+### Improved — verification and peer input
+
+- **The safety-code comparison is now the only route to a verified session.**
+  Verification state is set in exactly one place, and the checks that guard it
+  cannot be reached around.
+- **Control messages are honoured only after verification.** Reconnection
+  signalling, call setup, message deletion and delivery receipts all wait until
+  both people have compared the safety code. The verification exchange itself
+  continues to work beforehand, as it must.
+- **A single path for incoming chat content.** An older, weaker inbound code path
+  was retired so that everything shown in a conversation has been authenticated.
+
+### Improved — accuracy of what the app reports
+
+- **The security panel now measures what it displays.** Several checks previously
+  reported a fixed result; they now exercise the subsystem they describe and can
+  report a failure. As a result the score reflects the session more precisely,
+  and may read lower than before on the same connection.
+- **Forward-secrecy reporting matches reality.** In 5.6.1 the panel reported the
+  session-level guarantee accurately rather than implying per-message protection;
+  5.7.0 adds the per-message protection itself.
+- **Clearer memory-handling semantics.** Operations that cannot clear a value in
+  JavaScript — immutable strings, non-extractable keys — now say so instead of
+  reporting success.
+
+### Improved — what stays on the device
+
+- **Invitation data is no longer kept in local storage.** An unused
+  reference-based QR path wrote session invitation details to local storage
+  without removing them; the path has been removed and existing entries are
+  cleared on first launch after updating.
+- **Ephemeral messages stay ephemeral.** View-once and disappearing messages no
+  longer place their text in system notifications, where the operating system
+  would retain it beyond the app's control. Ordinary messages are unchanged.
+
+### Improved — hardening
+
+- **Shared-secret handling in memory.** The value is derived into a buffer that is
+  overwritten once it is no longer needed.
+- **Scanned QR codes are decompressed with a size limit,** so a malformed or
+  hostile code cannot exhaust memory.
+- **Voice notes are validated before being accepted automatically.** Only genuine
+  audio types within a size limit skip the consent prompt; anything else goes
+  through the normal confirmation, which also bounds how much a peer can send
+  unattended.
+- **The master-password prompt now comes from the app's own interface** rather
+  than a browser dialog.
+- **Clearer handling of DTLS fingerprints,** with the local and remote values kept
+  separate and reported accurately.
+
 ## v5.6.0 — Survive a dropped connection
 
 A chat no longer dies when the network moves under it. Switching Wi-Fi → LTE,

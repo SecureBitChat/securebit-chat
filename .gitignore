@@ -10,3 +10,11 @@ npm-debug.log*
 # Operator ICE override holds TURN credentials — never commit it.
 # Use config/ice-servers.example.js as the template.
 config/ice-servers.js
+
+# Internal security review notes. These describe attack paths against specific
+# releases in enough detail to reproduce them, which is useful in private and
+# harmful in a public repository — users who have not updated yet would be the
+# ones exposed. Keep them out of the tree.
+SECURITY_AUDIT.md
+SECURITY_AUDIT*.md
+audit/

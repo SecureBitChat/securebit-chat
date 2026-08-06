@@ -36078,6 +36078,7 @@ var { Deflate, deflate, deflateRaw, gzip } = deflate_1$1;
 var { Inflate, inflate, inflateRaw, ungzip } = inflate_1$1;
 var deflate_1 = deflate;
 var gzip_1 = gzip;
+var Inflate_1 = Inflate;
 var inflate_1 = inflate;
 var ungzip_1 = ungzip;
 
@@ -36095,6 +36096,33 @@ function fromBase64Url(str) {
   str = str.replace(/-/g, "+").replace(/_/g, "/");
   while (str.length % 4) str += "=";
   return base64.toByteArray(str);
+}
+var MAX_INFLATED_QR_BYTES = 256 * 1024;
+var INFLATE_CHUNK_SIZE = 16 * 1024;
+function inflateBounded(compressed, label) {
+  const inflator = new Inflate_1({ chunkSize: INFLATE_CHUNK_SIZE });
+  const chunks = [];
+  let total = 0;
+  inflator.onData = (chunk) => {
+    total += chunk.length;
+    if (total > MAX_INFLATED_QR_BYTES) {
+      throw new Error(
+        `QR payload expands beyond the ${MAX_INFLATED_QR_BYTES / 1024} KB limit (${label})`
+      );
+    }
+    chunks.push(chunk);
+  };
+  inflator.push(compressed, true);
+  if (inflator.err) {
+    throw new Error(`QR payload could not be decompressed (${label}): ${inflator.msg || inflator.err}`);
+  }
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return out;
 }
 function generateUUID() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -36221,7 +36249,7 @@ async function receiveAndProcess(qrStrings, recipientEcdhPrivKey = null, trusted
       try {
         const encoded = pack.jsonObj;
         const compressed = fromBase64Url(encoded.body || encoded);
-        const cborBytes = inflate_1(compressed);
+        const cborBytes = inflateBounded(compressed, "primary");
         console.log("\u{1F513} Decompressed CBOR bytes length:", cborBytes.length);
         console.log("\u{1F513} CBOR bytes type:", typeof cborBytes, cborBytes.constructor.name);
         const cborArrayBuffer = cborBytes.buffer.slice(cborBytes.byteOffset, cborBytes.byteOffset + cborBytes.byteLength);
@@ -36308,7 +36336,7 @@ async function receiveAndProcess(qrStrings, recipientEcdhPrivKey = null, trusted
             const originalBody = encoded.body || encoded;
             console.log("\u{1F513} Trying to decode original body:", originalBody.substring(0, 50) + "...");
             const compressed2 = fromBase64Url(originalBody);
-            const decompressed = inflate_1(compressed2);
+            const decompressed = inflateBounded(compressed2, "fallback");
             console.log("\u{1F513} Decompressed length:", decompressed.length);
             const decompressedArrayBuffer = decompressed.buffer.slice(decompressed.byteOffset, decompressed.byteOffset + decompressed.byteLength);
             const cborDecoded = cbor.decode(decompressedArrayBuffer);

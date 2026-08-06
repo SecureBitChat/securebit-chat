@@ -20,8 +20,29 @@ window.EnhancedSecureWebRTCManager = EnhancedSecureWebRTCManager;
 window.EnhancedSecureFileTransfer = EnhancedSecureFileTransfer;
 window.NotificationIntegration = NotificationIntegration;
 
+// Earlier releases had an unused QR flow that persisted session invitation data
+// under `qr_offer_<id>` and never removed it. The writer is gone, but records it
+// already left on disk are not, and they outlive a disconnect and the in-app
+// "clear data". Purge them once on startup, so updating actually clears what was
+// stored rather than only stopping new entries.
+const purgeLegacyOfferRecords = () => {
+    try {
+        const stale = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('qr_offer_')) stale.push(key);
+        }
+        for (const key of stale) {
+            try { localStorage.removeItem(key); } catch (_) {}
+        }
+    } catch (_) {
+        // Private mode / disabled storage: nothing to purge.
+    }
+};
+
 // Mount application once DOM and modules are ready
 const start = () => {
+    purgeLegacyOfferRecords();
   if (typeof window.initializeApp === 'function') {
     window.initializeApp();
   } else if (window.DEBUG_MODE) {

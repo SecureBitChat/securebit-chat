@@ -3906,22 +3906,6 @@ var EnhancedSecureP2PChat = () => {
       return offerData2;
     }
   };
-  const createQRReference = (offerData2) => {
-    try {
-      const referenceId = `offer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      localStorage.setItem(`qr_offer_${referenceId}`, JSON.stringify(offerData2));
-      const qrReference = {
-        type: "secure_offer_reference",
-        referenceId,
-        timestamp: Date.now(),
-        message: "Scan this QR code and use the reference ID to get full offer data"
-      };
-      return JSON.stringify(qrReference);
-    } catch (error) {
-      console.error("Error creating QR reference:", error);
-      return null;
-    }
-  };
   const createTemplateOffer = (offer) => {
     const templateOffer = {
       type: "enhanced_secure_offer_template",
@@ -4494,28 +4478,12 @@ var EnhancedSecureP2PChat = () => {
         }]);
         setShowQRScannerModal(false);
         return true;
-      } else if (parsedData.type === "secure_offer_reference" && parsedData.referenceId) {
-        const fullOfferData = localStorage.getItem(`qr_offer_${parsedData.referenceId}`);
-        if (fullOfferData) {
-          const fullOffer = JSON.parse(fullOfferData);
-          if (showOfferStep) {
-            setAnswerInput(JSON.stringify(fullOffer, null, 2));
-          } else {
-            setOfferInput(JSON.stringify(fullOffer, null, 2));
-          }
-          setMessages((prev) => [...prev, {
-            message: "\u{1F4F1} QR code scanned successfully! Full offer data retrieved.",
-            type: "success"
-          }]);
-          setShowQRScannerModal(false);
-          return true;
-        } else {
-          setMessages((prev) => [...prev, {
-            message: "QR code reference found but full data not available. Please use copy/paste.",
-            type: "error"
-          }]);
-          return false;
-        }
+      } else if (parsedData.type === "secure_offer_reference") {
+        setMessages((prev) => [...prev, {
+          message: "This QR code uses a retired format that could not transfer the invitation. Ask your peer to generate a new one, or use copy/paste.",
+          type: "error"
+        }]);
+        return false;
       } else {
         if (!parsedData.sdp && parsedData.type === "enhanced_secure_offer") {
           setMessages((prev) => [...prev, {

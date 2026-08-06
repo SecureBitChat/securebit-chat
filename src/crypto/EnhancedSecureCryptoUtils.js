@@ -112,6 +112,35 @@ class EnhancedSecureCryptoUtils {
         }
     }
 
+    /**
+     * Overwrite a buffer holding key material once it is no longer needed.
+     *
+     * This is a genuine wipe, unlike the manager's _secureWipeString /
+     * _secureWipeCryptoKey, which cannot wipe anything (JS strings are immutable
+     * and a non-extractable CryptoKey has no JS-visible bytes) and only ever
+     * dropped a reference while reporting success. Here the bytes really are
+     * ours: overwrite them so the shared secret does not linger in the heap
+     * waiting for a garbage collector that may never run before a heap snapshot
+     * or a memory-reading extension gets there first.
+     *
+     * Random first, then zeros: on the off chance a copying GC has already moved
+     * the buffer, the random pass at least destroys the plaintext value at the
+     * old address as well as the new one.
+     */
+    static zeroizeBuffer(buffer) {
+        try {
+            if (!buffer) return;
+            const view = buffer instanceof Uint8Array
+                ? buffer
+                : (buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : null);
+            if (!view || view.length === 0) return;
+            crypto.getRandomValues(view);
+            view.fill(0);
+        } catch (_) {
+            // A detached buffer is already unreadable; nothing left to do.
+        }
+    }
+
     static async encryptData(data, password) {
         try {
             const dataString = typeof data === 'string' ? data : JSON.stringify(data);
@@ -593,34 +622,113 @@ class EnhancedSecureCryptoUtils {
         }
     }
     
-    // Additional verification functions
+    // Additional verification functions.
+    //
+    // These used to be three `return { passed: true }` stubs — a quarter of the
+    // reported score awarded for checks that never ran, under a UI that calls the
+    // result "Real cryptographic tests". A security indicator that cannot fail
+    // tells the user nothing; worse, it keeps reading green after the subsystem
+    // it claims to measure breaks. Each one below now exercises the thing it
+    // names and is expected to be able to fail.
+
     static async verifyRateLimiting(securityManager) {
         try {
-            // Rate limiting is always available in this implementation
-            return { passed: true, details: 'Rate limiting is active and working' };
+            const limiter = EnhancedSecureCryptoUtils.rateLimiter;
+            if (!limiter || typeof limiter.checkMessageRate !== 'function') {
+                return { passed: false, details: 'Rate limiter is not available' };
+            }
+
+            // Drive a throwaway bucket past its limit and confirm it actually
+            // refuses. A separate identifier per run keeps the live counters
+            // untouched, so running the report never costs the user quota.
+            const probeId = `selftest_${crypto.getRandomValues(new Uint32Array(1))[0]}`;
+            const limit = 3;
+            for (let i = 0; i < limit; i++) {
+                const allowed = await limiter.checkMessageRate(probeId, limit, 60000);
+                if (!allowed) {
+                    return { passed: false, details: `Rate limiter refused message ${i + 1} of ${limit} while under the limit` };
+                }
+            }
+
+            const shouldBeBlocked = await limiter.checkMessageRate(probeId, limit, 60000);
+            limiter.messages.delete(`msg_${probeId}`);
+
+            if (shouldBeBlocked) {
+                return { passed: false, details: 'Rate limiter did not block a message over the limit' };
+            }
+
+            return { passed: true, details: `Rate limiting verified: ${limit} allowed, the next refused` };
         } catch (error) {
             return { passed: false, details: `Rate limiting test failed: ${error.message}` };
         }
     }
-    
+
     static async verifyMetadataProtection(securityManager) {
         try {
-            // Metadata protection is always enabled in this implementation
-            return { passed: true, details: 'Metadata protection is working correctly' };
+            const metadataKey = securityManager?.metadataKey;
+            if (!metadataKey || !(metadataKey instanceof CryptoKey)) {
+                return { passed: false, details: 'Metadata encryption key not available' };
+            }
+            if (metadataKey.algorithm?.name !== 'AES-GCM') {
+                return { passed: false, details: `Metadata key has the wrong algorithm: ${metadataKey.algorithm?.name}` };
+            }
+            if (metadataKey.extractable) {
+                return { passed: false, details: 'Metadata key is extractable' };
+            }
+
+            // Key separation is the whole point: message metadata (ids, sequence
+            // numbers, real lengths) must not be readable with the message key.
+            if (securityManager.encryptionKey === metadataKey) {
+                return { passed: false, details: 'Metadata key is not separated from the message key' };
+            }
+
+            // Round-trip a probe so a key that exists but cannot be used is caught.
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+            const probe = new TextEncoder().encode('metadata-protection-selftest');
+            const sealed = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, metadataKey, probe);
+            const opened = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, metadataKey, sealed);
+            if (new TextDecoder().decode(opened) !== 'metadata-protection-selftest') {
+                return { passed: false, details: 'Metadata encryption round-trip mismatch' };
+            }
+
+            return { passed: true, details: 'Metadata is encrypted under a separate non-extractable key' };
         } catch (error) {
             return { passed: false, details: `Metadata protection test failed: ${error.message}` };
         }
     }
-    
+
     static async verifyPerfectForwardSecrecy(securityManager) {
         try {
-            // Perfect Forward Secrecy is always enabled in this implementation
-            return { passed: true, details: 'Perfect Forward Secrecy is configured and active' };
+            // Session-level PFS is real: every session runs a fresh ephemeral ECDH
+            // and the derived keys are non-extractable and wiped when it ends.
+            const hasEphemeralKeys = !!securityManager?.ecdhKeyPair?.privateKey &&
+                securityManager.ecdhKeyPair.privateKey.extractable === false;
+            if (!hasEphemeralKeys) {
+                return { passed: false, details: 'No non-extractable ephemeral ECDH key pair for this session' };
+            }
+
+            // In-session forward secrecy comes from the Double Ratchet: a per-
+            // message key derived by a one-way KDF and destroyed after use, plus a
+            // DH step whenever the conversation changes direction. Without it a
+            // single compromised session key opens the entire transcript, which is
+            // the state this check used to report as "configured and active".
+            if (securityManager?.isRatchetActive?.()) {
+                const state = securityManager._ratchet?.getState?.() || {};
+                return {
+                    passed: true,
+                    details: `Double Ratchet active: per-message keys destroyed after use, DH re-key on each reply (sent ${state.sendCount ?? 0}, received ${state.receiveCount ?? 0} on the current chain)`
+                };
+            }
+
+            return {
+                passed: false,
+                details: 'Session-level PFS only: keys are ephemeral per session, but the Double Ratchet is not active for this connection (peer on an older version), so a compromised session key exposes the whole conversation'
+            };
         } catch (error) {
             return { passed: false, details: `PFS test failed: ${error.message}` };
         }
     }
-    
+
     static async verifyReplayProtection(securityManager) {
         try {
             // Debug logs removed to prevent leaking runtime state
@@ -757,16 +865,29 @@ class EnhancedSecureCryptoUtils {
     
     
     static async verifyNonExtractableKeys(securityManager) {
-        try {
-            if (!securityManager.encryptionKey) return false;
-            
-            // Test if keys are non-extractable
-            const keyData = await crypto.subtle.exportKey('raw', securityManager.encryptionKey);
-            return keyData && keyData.byteLength > 0;
-        } catch (error) {
-            // If export fails, keys are non-extractable (which is good)
-            return true;
+        // This check was inverted: it returned true when exportKey SUCCEEDED —
+        // i.e. when the key was extractable, the failure case — and also true in
+        // the catch. It could not return false, so it confirmed nothing.
+        const keys = [
+            ['encryptionKey', securityManager?.encryptionKey],
+            ['macKey', securityManager?.macKey],
+            ['metadataKey', securityManager?.metadataKey]
+        ];
+
+        for (const [name, key] of keys) {
+            if (!key || !(key instanceof CryptoKey)) {
+                return false;
+            }
+            // `extractable` is the authoritative answer and needs no export
+            // attempt; exporting a key just to prove it cannot be exported would
+            // copy it into the JS heap on every implementation that allows it.
+            if (key.extractable !== false) {
+                EnhancedSecureCryptoUtils.secureLog.log('error', 'Session key is extractable', { keyName: name });
+                return false;
+            }
         }
+
+        return true;
     }
     
     static async verifyEnhancedValidation(securityManager) {
@@ -1085,15 +1206,22 @@ class EnhancedSecureCryptoUtils {
                         namedCurve: 'P-384'
                     },
                     false, // Non-extractable for enhanced security
-                    ['deriveKey']
+                    // 'deriveBits' is REQUIRED: deriveSharedKeys() uses deriveBits so
+                    // the shared secret lands in a buffer we can overwrite, instead of
+                    // being exported out of an extractable key and left in the heap.
+                    // Without this usage WebCrypto rejects the derivation outright and
+                    // no session can be established. Usages are local to the CryptoKey
+                    // and are not part of the exported SPKI, so this does not change
+                    // anything on the wire.
+                    ['deriveKey', 'deriveBits']
                 );
-                
+
                 // Removed key generation info logging to avoid exposing key-related metadata
-                
+
                 return keyPair;
             } catch (p384Error) {
                 EnhancedSecureCryptoUtils.secureLog.log('warn', 'Elliptic curve P-384 generation failed, switching curve', { error: p384Error.message });
-                
+
                 // Fallback to P-256
                 const keyPair = await crypto.subtle.generateKey(
                     {
@@ -1101,7 +1229,7 @@ class EnhancedSecureCryptoUtils {
                         namedCurve: 'P-256'
                     },
                     false, // Non-extractable for enhanced security
-                    ['deriveKey']
+                    ['deriveKey', 'deriveBits']
                 );
                 
                 // Removed key generation info logging to avoid exposing key-related metadata
@@ -1879,49 +2007,62 @@ class EnhancedSecureCryptoUtils {
             const saltBytes = new Uint8Array(salt);
             const encoder = new TextEncoder();
             
-            // Step 1: Derive raw ECDH shared secret using pure ECDH
+            // Step 1: Derive the raw ECDH shared secret as HKDF input material.
+            //
+            // This used to derive an EXTRACTABLE AES-GCM key and then exportKey()
+            // it, which put the shared secret into an ArrayBuffer that was never
+            // cleared — it simply fell out of scope and sat in the JS heap until
+            // GC, readable by anything with access to the page (a compromised
+            // extension, a heap snapshot in a crash report). Every session key is
+            // derived from those 32 bytes with public salt and hard-coded info
+            // strings, so recovering them recovers the whole session.
+            //
+            // deriveBits gives the same bytes without the detour through an
+            // extractable CryptoKey, and hands back a buffer we own and can wipe.
+            // WIRE COMPATIBILITY: for ECDH, deriveBits(n) returns the leftmost n
+            // bits of the shared X coordinate, which is exactly what deriveKey to
+            // AES-GCM-256 used — so 256 here reproduces the previous bytes exactly
+            // and a 5.6.1 client still interoperates with 5.6.0. Do not "improve"
+            // this to 384 without a protocol version bump.
             let rawSharedSecret;
+            let sharedSecretBits = null;
             try {
-                // Removed detailed key derivation logging
-                
-                // Use pure ECDH to derive raw key material
-                const rawKeyMaterial = await crypto.subtle.deriveKey(
+                sharedSecretBits = await crypto.subtle.deriveBits(
                     {
                         name: 'ECDH',
                         public: publicKey
                     },
                     privateKey,
-                    {
-                        name: 'AES-GCM',
-                        length: 256
-                    },
-                    true, // Extractable
-                    ['encrypt', 'decrypt']
+                    256
                 );
-                
-                // Export the raw key material
-                const rawKeyData = await crypto.subtle.exportKey('raw', rawKeyMaterial);
-                
-                // Import as HKDF key material for further derivation
+
                 rawSharedSecret = await crypto.subtle.importKey(
                     'raw',
-                    rawKeyData,
+                    sharedSecretBits,
                     {
                         name: 'HKDF',
                         hash: 'SHA-256'
                     },
                     false,
-                    ['deriveKey']
+                    // deriveBits is required for the fingerprint material below;
+                    // without it that call fails with an InvalidAccessError.
+                    ['deriveKey', 'deriveBits']
                 );
-                
-                // Removed detailed key derivation logging
             } catch (error) {
-                EnhancedSecureCryptoUtils.secureLog.log('error', 'ECDH derivation failed', { 
+                EnhancedSecureCryptoUtils.secureLog.log('error', 'ECDH derivation failed', {
                     error: error.message
                 });
                 throw error;
+            } finally {
+                // importKey copies the material, so the source buffer is dead
+                // weight from here on — overwrite it rather than leaving the
+                // shared secret lying in the heap.
+                if (sharedSecretBits) {
+                    EnhancedSecureCryptoUtils.zeroizeBuffer(sharedSecretBits);
+                    sharedSecretBits = null;
+                }
             }
-            
+
             // Step 2: Use HKDF to derive specific keys directly
             // Removed detailed key derivation logging
 
@@ -2000,27 +2141,53 @@ class EnhancedSecureCryptoUtils {
                 ['encrypt', 'decrypt']
             );
 
-            // Generate temporary extractable key for fingerprint calculation
-            let fingerprintKey;
-            fingerprintKey = await crypto.subtle.deriveKey(
+            // Root key for the Double Ratchet, derived here rather than handing the
+            // raw ECDH secret to the caller: the secret is wiped before this
+            // function returns (see the finally above), and only this 32-byte
+            // branch of the KDF tree ever leaves. Its own info string keeps it
+            // domain-separated from the message, MAC and metadata keys, so
+            // learning a session key tells an attacker nothing about the ratchet.
+            const ratchetRootBits = await crypto.subtle.deriveBits(
                 {
                     name: 'HKDF',
                     hash: 'SHA-256',
                     salt: saltBytes,
-                    info: encoder.encode('fingerprint-generation-v4')
+                    info: encoder.encode('double-ratchet-root-v1')
                 },
                 rawSharedSecret,
-                {
-                    name: 'AES-GCM',
-                    length: 256
-                },
-                true, // Extractable only for fingerprint
-                ['encrypt', 'decrypt']
+                256
             );
+            const ratchetRoot = new Uint8Array(ratchetRootBits);
 
-            // Generate key fingerprint for verification
-            const fingerprintKeyData = await crypto.subtle.exportKey('raw', fingerprintKey);
-            const fingerprint = await EnhancedSecureCryptoUtils.generateKeyFingerprint(Array.from(new Uint8Array(fingerprintKeyData)));
+            // Fingerprint material. Previously this derived a second EXTRACTABLE
+            // AES key purely so it could be exported — leaving another copy of
+            // key-derived material in the heap with nothing wiping it. HKDF can
+            // hand back raw bits directly; same salt, same info, same 256 bits, so
+            // the fingerprint (and therefore the SAS built on it) is unchanged.
+            let fingerprintBits = null;
+            let fingerprint;
+            try {
+                fingerprintBits = await crypto.subtle.deriveBits(
+                    {
+                        name: 'HKDF',
+                        hash: 'SHA-256',
+                        salt: saltBytes,
+                        info: encoder.encode('fingerprint-generation-v4')
+                    },
+                    rawSharedSecret,
+                    256
+                );
+                // A Uint8Array view, not Array.from(): the array copy was a third
+                // copy of key-derived bytes in the heap that nothing cleared.
+                fingerprint = await EnhancedSecureCryptoUtils.generateKeyFingerprint(
+                    new Uint8Array(fingerprintBits)
+                );
+            } finally {
+                if (fingerprintBits) {
+                    EnhancedSecureCryptoUtils.zeroizeBuffer(fingerprintBits);
+                    fingerprintBits = null;
+                }
+            }
 
             // Validate that all derived keys are CryptoKey instances
             if (!(messageKey instanceof CryptoKey)) {
@@ -2062,6 +2229,10 @@ class EnhancedSecureCryptoUtils {
                 macKey,
                 pfsKey,         // Added Perfect Forward Secrecy key
                 metadataKey,
+                // Raw bytes on purpose: a ratchet has to chain KDFs itself, which
+                // WebCrypto cannot do behind a non-extractable handle. The caller
+                // must hand this to DoubleRatchet.init() and zeroize it.
+                ratchetRoot,
                 fingerprint,
                 timestamp: Date.now(),
                 version: '4.0'

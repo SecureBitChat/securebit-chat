@@ -46,7 +46,7 @@ class NotificationIntegration {
       // IMPORTANT: forward ALL arguments (incl. per-message `meta`) so the app
       // still receives view-once / disappearing / unsend metadata.
       this.webrtcManager.onMessage = (message, type, ...rest) => {
-        this.handleIncomingMessage(message, type);
+        this.handleIncomingMessage(message, type, rest[0]);
 
         // Call original callback if it exists
         if (this.originalOnMessage) {
@@ -70,7 +70,7 @@ class NotificationIntegration {
       if (this.webrtcManager.deliverMessageToUI) {
         this.originalDeliverMessageToUI = this.webrtcManager.deliverMessageToUI.bind(this.webrtcManager);
         this.webrtcManager.deliverMessageToUI = (message, type, ...rest) => {
-          this.handleIncomingMessage(message, type);
+          this.handleIncomingMessage(message, type, rest[0]);
           this.originalDeliverMessageToUI(message, type, ...rest);
         };
       }
@@ -89,7 +89,7 @@ class NotificationIntegration {
    * @param {string} type - Message type
    * @private
    */
-  handleIncomingMessage(message, type) {
+  handleIncomingMessage(message, type, meta) {
     try {
       // Create a unique key for this message to avoid duplicates
       const messageKey = `${type}:${typeof message === 'string' ? message : JSON.stringify(message)}`;
@@ -121,10 +121,21 @@ class NotificationIntegration {
         return;
       }
 
+      // PRIVACY: a view-once or disappearing message must not be copied into the
+      // OS notification. Notifications are shown only while the tab is in the
+      // background — i.e. typically on a lock screen — and once the OS has the
+      // text it lands in the notification centre, in backups and on the user's
+      // other synced devices. From there the app can no longer delete it, so the
+      // message the UI destroys after 30 seconds outlives itself indefinitely.
+      // Show that something arrived; never what it said.
+      const isEphemeral = !!meta && typeof meta === 'object' &&
+        (meta.once === true || (Number.isFinite(meta.ttl) && meta.ttl > 0));
+      const notificationText = isEphemeral ? 'Sent you a private message' : messageInfo.text;
+
       // Send notification
       const notificationResult = this.notificationManager.notify(
         messageInfo.senderName,
-        messageInfo.text,
+        notificationText,
         {
           icon: messageInfo.senderAvatar,
           senderId: messageInfo.senderId,

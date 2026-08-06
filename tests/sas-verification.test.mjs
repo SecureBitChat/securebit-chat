@@ -231,16 +231,15 @@ function createVerificationReadinessManager({
         }
     };
 
-    const originalTimeout = EnhancedSecureWebRTCManager.TIMEOUTS.ICE_GATHERING_TIMEOUT;
-    EnhancedSecureWebRTCManager.TIMEOUTS.ICE_GATHERING_TIMEOUT = 0;
-    try {
-        assert.equal(
-            await EnhancedSecureWebRTCManager.prototype.waitForIceGathering.call(manager),
-            false
-        );
-    } finally {
-        EnhancedSecureWebRTCManager.TIMEOUTS.ICE_GATHERING_TIMEOUT = originalTimeout;
-    }
+    // Both budgets are passed explicitly: gathering now waits past the soft
+    // deadline while there is nothing at all to export (see
+    // ice-gathering-patience.test.mjs), so relying on the default hard ceiling
+    // here would stall this assertion for 25 s. The property under test is
+    // unchanged — a timeout must report false, never "complete".
+    assert.equal(
+        await EnhancedSecureWebRTCManager.prototype.waitForIceGathering.call(manager, 0, 0),
+        false
+    );
 }
 
 // A timed-out ICE gathering can still yield usable candidates for manual export.
