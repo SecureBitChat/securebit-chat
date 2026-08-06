@@ -15,27 +15,46 @@ comparison is what closes that gap.
 ## Session lifecycle
 
 ```text
-1. Invitation      Peer A generates an ECDH key pair, an SDP offer and a session
-                   salt, and exports them as a single invitation.
+1. Invitation      Peer A generates its key pairs and an SDP offer, and exports a
+                   compact descriptor: ICE candidates, the DTLS certificate
+                   fingerprint, an expiry, and a 16-byte commitment to its key
+                   material. 110-150 bytes; one QR code. No keys travel in it.
 
-2. Response        Peer B validates the invitation, derives the shared secret,
-                   and returns its own keys and SDP as a response.
+2. Response        Peer B validates the descriptor strictly, answers the SDP, and
+                   returns a descriptor of the same shape, tagged so that it can
+                   only be an answer to this particular invitation.
 
-3. Transport up    DTLS completes and the data channel opens. At this point both
-                   sides hold session keys, but neither knows who the other is.
+3. Transport up    DTLS completes and the data channel opens. Only the peer
+                   holding the private key behind the fingerprint in the
+                   invitation can reach this point.
 
-4. Verification    Both sides display the same safety code. The users compare it
-                   over a channel an attacker cannot impersonate and enter it.
+4. Key exchange    Each side sends its public keys over the open channel as the
+                   first frame. Each verifies the other's blob against the
+                   commitment from the invitation BEFORE parsing it, then derives
+                   the session from a transcript of both descriptors and both
+                   blobs, and signs that transcript to prove it owns its identity
+                   key. Any failure closes the connection.
 
-5. Verified        Only now does the session accept traffic that changes state,
+5. Verification    Both sides display the same safety code, derived from that
+                   transcript. The users compare it over a channel an attacker
+                   cannot impersonate and enter it.
+
+6. Verified        Only now does the session accept traffic that changes state,
                    and only now does the chat open.
 ```
 
-Step 3 is the one worth dwelling on. Completing the handshake proves that someone
-performed a key exchange. It does not prove who. Anyone positioned on the
-out-of-band channel can substitute their own keys and complete step 3 with both
-people at once. Step 4 is the only step that distinguishes the intended peer, so
-everything that could be useful to an impostor waits for it.
+Steps 3 and 4 are the ones worth dwelling on. The fingerprint in the invitation
+authenticates the transport to whoever showed you the code, and the commitment
+means substituted key material is refused automatically rather than noticed by a
+human. But neither proves *who* showed you the code. Anyone positioned on the
+out-of-band channel can rewrite the whole invitation, commitment included, and
+complete steps 3 and 4 with both people at once. Step 5 is the only step that
+distinguishes the intended peer, so everything that could be useful to an
+impostor waits for it — and because the safety code is computed over the full
+transcript, a rewritten handshake cannot produce matching digits.
+
+The invitation format and its decoder rules are in
+[DESCRIPTOR-SBQ2.md](DESCRIPTOR-SBQ2.md).
 
 ## What verification gates
 

@@ -11,7 +11,7 @@ let DYNAMIC_CACHE = 'securebit-pwa-dynamic-v4.7.56';
 // Build stamp — rewritten by scripts/post-build.js on every release so this file's
 // bytes change each deploy. That is what makes the browser detect a new Service Worker,
 // reinstall it, drop stale caches and (via controllerchange) prompt the page to update.
-const SW_BUILD_VERSION = '1786054741114';
+const SW_BUILD_VERSION = '1786056807121';
 
 // Load version from meta.json on install
 async function getAppVersion() {

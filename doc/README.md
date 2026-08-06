@@ -7,6 +7,7 @@ if you are looking for an overview or a quick start.
 | --- | --- |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | How a session is established, verified and torn down, and where each guarantee comes from |
 | [CRYPTOGRAPHY.md](CRYPTOGRAPHY.md) | Key schedule, the Double Ratchet, SAS verification, memory handling |
+| [DESCRIPTOR-SBQ2.md](DESCRIPTOR-SBQ2.md) | The invitation format: wire layout, why it is small, the in-band key exchange, decoder rules |
 | [CONFIGURATION.md](CONFIGURATION.md) | Deployment, ICE and TURN setup, privacy modes, file transfer policy |
 | [CALLS.md](CALLS.md) | Voice and video: codec choices, adaptation, and why each value was picked |
 | [API.md](API.md) | Internal interfaces of the WebRTC manager and file transfer system |

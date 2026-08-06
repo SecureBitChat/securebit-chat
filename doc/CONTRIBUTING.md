@@ -57,6 +57,7 @@ When behaviour changes, update the documentation in the same commit:
 | --- | --- |
 | Anything user-visible | `README.md`, `CHANGELOG.md` |
 | Verification, keys, the ratchet | `doc/CRYPTOGRAPHY.md`, `doc/ARCHITECTURE.md` |
+| The invitation format or the in-band key exchange | `doc/DESCRIPTOR-SBQ2.md`, `doc/CRYPTOGRAPHY.md`, `doc/ARCHITECTURE.md` |
 | Deployment, ICE, file policy | `doc/CONFIGURATION.md` |
 | Calls, codecs, adaptation | `doc/CALLS.md` |
 | Internal interfaces | `doc/API.md` |

@@ -36,6 +36,7 @@ It is designed for people who need a small, auditable, zero-infrastructure way t
 - ECDH P-384 key agreement with derived per-session keys, AES-256-GCM payloads, and DTLS-protected transport.
 - **Double Ratchet forward secrecy.** Every message is encrypted with its own key, and the session re-keys itself each time the conversation changes direction. See [Forward secrecy](#forward-secrecy).
 - Interactive **safety code** verification. You confirm a short code out of band before the session is trusted, which is what defeats a man in the middle.
+- **A minimal invitation.** The code you hand over carries only what is needed to open the connection — roughly 110 to 150 bytes, one QR code. Keys and signatures no longer travel with it; they move over the connection itself, pinned by a commitment inside the invitation. See [The invitation](#the-invitation).
 - Replay protection, message integrity (HMAC), and a live security report you can open at any time during a call.
 
 **Privacy by design**
@@ -76,26 +77,30 @@ SecureBit never sees your conversation. A session is built directly between the 
 ```
    Peer A                              Peer B
      |                                   |
-     |  1. invitation                    |
+     |  1. invitation (one QR, ~110-150 B)
      |.................................> |   carried by QR, link or paste
      |                                   |
      |                    2. response    |
      | <.................................|
      |                                   |
-     |  3. both read the same safety code
+     |  3. keys exchanged over the open   |
+     |<===== connection, checked =======>|   against the invitation's commitment
+     |                                   |
+     |  4. both read the same safety code
      |     and compare it out loud       |
      |                                   |
-     |  4. both confirm, session verified
+     |  5. both confirm, session verified
      |                                   |
      |===== end-to-end encrypted ========|
 ```
 
-1. **Peer A** creates an invitation, shareable as a QR code, a link or plain text.
+1. **Peer A** creates an invitation, shareable as a QR code, a link or plain text. It is small enough to be a single QR code — point a camera at it and it is read in one go.
 2. **Peer B** opens it and returns a response the same way.
-3. Both sides now show the same **safety code**. Compare it over something an attacker cannot impersonate: in person, or a voice you recognise.
-4. The chat unlocks only after both people confirm the matching code. Three incorrect attempts end the session.
+3. The two browsers finish the key exchange **over the connection they just opened**, not inside the invitation. Each side checks the other's keys against a fingerprint-sized commitment that was in the invitation before accepting them.
+4. Both sides now show the same **safety code**. Compare it over something an attacker cannot impersonate: in person, or a voice you recognise.
+5. The chat unlocks only after both people confirm the matching code. Three incorrect attempts end the session.
 
-Step 3 is not a formality. Completing the key exchange proves that someone completed it, not who. Anyone able to intercept and rewrite the invitation can do that with both of you at once, and comparing the code is what catches it.
+Step 4 is not a formality. Completing the key exchange proves that someone completed it, not who. Anyone able to intercept and rewrite the invitation can do that with both of you at once, and comparing the code is what catches it.
 
 ## Security model
 
@@ -105,12 +110,57 @@ Step 3 is not a formality. Completing the key exchange proves that someone compl
 | Forward secrecy | Double Ratchet: per-message keys, re-keyed on each reply |
 | Transport | WebRTC data channel over DTLS |
 | Message encryption | AES-256-GCM, end-to-end |
-| Authentication | Interactive safety code bound to both peers' DTLS fingerprints |
+| Authentication | Interactive safety code bound to a transcript of the entire handshake |
+| Invitation | ~110-150 bytes; carries a DTLS fingerprint and a commitment, never key material |
 | Integrity | HMAC + replay protection |
 | Sanitization | DOMPurify text-only rendering boundary |
 | Local storage | Encrypted key metadata in IndexedDB |
 
 A session is **not** treated as verified until both peers complete the safety code comparison. This is the step that protects you against a man-in-the-middle: the code must be compared through a channel an attacker cannot impersonate. Until it is completed, the session will not act on control messages from the peer.
+
+### The invitation
+
+The invitation is the only thing that travels outside the encrypted connection,
+so the less it carries, the less there is to get wrong.
+
+It used to carry everything: both public keys, their signatures, a session salt,
+a challenge and the full SDP — around **2,300 characters**, which does not fit in
+a QR code. The app split it into **four frames and animated them**, and you
+scanned the same code four times over, or gave up and pasted the text through
+whatever messenger was to hand.
+
+It now carries only what is needed to open the connection — ICE candidates, a
+DTLS certificate fingerprint, an expiry, and a 16-byte commitment to the key
+material — in **110 to 150 bytes: one QR code, read in a single glance.**
+
+This is a security change as much as a usability one:
+
+- **Less is exposed before anyone is authenticated.** Key material no longer sits
+  in a blob that gets pasted into other apps, photographed, or left in a
+  clipboard. It moves over the connection instead, and is rejected unless it
+  matches the commitment that was in the invitation.
+- **The DTLS fingerprint is the anchor.** It travels in the invitation you
+  handed over in person, and the connection completes only with the holder of the
+  matching private key — so the channel is authenticated to whoever showed you
+  the code before any key material moves at all.
+- **Substituted keys fail closed, automatically.** The commitment is checked
+  before the key material is even parsed. Previously a substitution was caught
+  only when two humans compared digits; now the connection drops on its own, and
+  the safety code is the second line rather than the only one.
+- **The safety code now covers everything.** It is computed over a transcript of
+  both invitations byte for byte plus both sets of keys, so nothing exchanged
+  anywhere in the handshake can be altered without changing the digits you read
+  to each other. It used to cover only the two fingerprints.
+- **One QR means fewer bad habits.** A four-frame animated code pushes people
+  toward copy-pasting the invitation through a chat app. A single frame is
+  scanned in person, which is the channel the whole security model assumes.
+
+The session salt is no longer sent at all — both sides derive it from that same
+transcript, which binds every session key to both fingerprints and every
+candidate.
+
+Full wire format, decoder rules and the measurements behind these numbers:
+[`doc/DESCRIPTOR-SBQ2.md`](doc/DESCRIPTOR-SBQ2.md).
 
 ### Forward secrecy
 
