@@ -1,5 +1,37 @@
 # Changelog
 
+## v5.7.2 — Documentation, and a version that keeps itself honest
+
+No changes to the protocol or to how messages are protected.
+
+### Fixed
+
+- The version shown in the application header was written as a literal and had
+  fallen behind, displaying v5.6.0 while running 5.7.1. It now comes from
+  `package.json`, so it cannot drift again, and a test fails the build if anyone
+  reintroduces a hard-coded one. The same test checks that `meta.json`, the README
+  badge and the changelog agree with each other before a release goes out.
+
+### Changed
+
+- Documentation reorganised. Everything technical now lives in `doc/`, with an
+  index at `doc/README.md`. The root keeps only what belongs there by convention:
+  `README.md`, `SECURITY.md`, `CHANGELOG.md` and `LICENSE`.
+- `SECURITY.md` rewritten. It described a release line three major versions old
+  and made claims the software does not make. It now states what is guaranteed,
+  what is not, and how to report a problem.
+- `SECURITY_DISCLAIMER.md` and `RESPONSIBLE_USE.md` merged into
+  `doc/USE-POLICY.md`, which says plainly what the software cannot protect
+  against instead of listing generic advice.
+- `doc/CRYPTOGRAPHY.md` and `doc/ARCHITECTURE.md` rewritten to describe the
+  current design, including the Double Ratchet, and to quote real values taken
+  from the source rather than restated approximations.
+- WebRTC call tuning notes moved to `doc/CALLS.md` and rewritten. The obsolete
+  `docs/` directory, which held a working document full of stale line numbers,
+  has been removed.
+- `doc/CONTRIBUTING.md` now records what recent bugs taught us about writing
+  tests that can actually fail.
+
 ## v5.7.1 — Forward secrecy now engages for both sides of a chat
 
 The Double Ratchet introduced in 5.7.0 was only taking effect for the peer who
@@ -284,7 +316,7 @@ SecureBit now supports **end-to-end encrypted voice and video calls** — the "5
 - **In-call controls.** Mute / unmute, camera on/off (turning the camera on during a voice call upgrades it to video in-band), front/back camera flip, minimize-to-widget (chat stays usable) and hang up. Incoming calls show an accept / decline prompt.
 - **Adaptive audio codec.** Opus tuned for real-world links — in-band FEC, DTX and RED redundancy (RED preferred first where the browser advertises it) keep speech intelligible under 15–20% packet loss. Audio is bandwidth-prioritised and is **never** throttled by the network controller.
 - **Adaptive video codec.** VP9 / AV1 single-encoding **SVC** (with H.264 / VP8 fallback), so video degrades gracefully by spatial/temporal layer on a weak link. A runtime `NetworkAdaptationController` reads `getStats()` every second and trims video bitrate on loss/RTT, recovering as the link clears — no renegotiation, no track restart.
-- **Live connection-quality indicator.** Excellent → Good → Fair → Weak, surfaced in the voice overlay, video top bar and minimized widget. Codec tunables and their rationale are documented in [`docs/webrtc-config.md`](docs/webrtc-config.md).
+- **Live connection-quality indicator.** Excellent → Good → Fair → Weak, surfaced in the voice overlay, video top bar and minimized widget. Codec tunables and their rationale are documented in [`doc/CALLS.md`](doc/CALLS.md).
 
 ### Security
 

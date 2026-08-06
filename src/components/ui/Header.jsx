@@ -1,11 +1,19 @@
-const EnhancedMinimalHeader = ({ 
-    status, 
-    fingerprint, 
-    verificationCode, 
-    onDisconnect, 
-    isConnected, 
-    securityLevel, 
-    webrtcManager 
+// The version shown in the header comes from package.json rather than a literal,
+// so a release cannot ship a header advertising the previous one. It was
+// hard-coded and drifted. A named import lets the bundler inline just this field
+// instead of embedding the whole manifest.
+import { version as packageVersion } from '../../../package.json';
+
+const APP_VERSION = `v${packageVersion}`;
+
+const EnhancedMinimalHeader = ({
+    status,
+    fingerprint,
+    verificationCode,
+    onDisconnect,
+    isConnected,
+    securityLevel,
+    webrtcManager
 }) => {
     const [realSecurityLevel, setRealSecurityLevel] = React.useState(null);
     const [lastSecurityUpdate, setLastSecurityUpdate] = React.useState(0);
@@ -559,7 +567,7 @@ const EnhancedMinimalHeader = ({
                     React.createElement('div', { key: 'txt', style: { lineHeight: 1.2, minWidth: 0 } }, [
                         React.createElement('div', { key: 'r1', style: { display: 'flex', alignItems: 'baseline', gap: '7px' } }, [
                             React.createElement('span', { key: 'n', style: { fontSize: '16px', fontWeight: 800, letterSpacing: '-0.3px', color: '#e8e8eb' } }, 'SecureBit'),
-                            React.createElement('span', { key: 'v', style: { fontFamily: MONO, fontSize: '10px', fontWeight: 500, color: '#56565e' } }, 'v5.6.0')
+                            React.createElement('span', { key: 'v', style: { fontFamily: MONO, fontSize: '10px', fontWeight: 500, color: '#56565e' } }, APP_VERSION)
                         ]),
                         React.createElement('div', { key: 'r2', className: 'hidden sm:block', style: { fontSize: '11px', color: '#6b6b73', fontWeight: 500 } }, 'End-to-end encrypted')
                     ])

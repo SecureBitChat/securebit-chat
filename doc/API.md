@@ -20,7 +20,7 @@
   connection. It is negotiated: both peers advertise `RATCHET_VERSION` in the
   offer and answer, and a peer that does not falls back to per-session keys.
 - `_ratchet.canEncrypt` is false on the joining peer until the inviting peer's
-  first message arrives — the sending chain does not exist until then. Callers
+  first message arrives, because the sending chain does not exist until then. Callers
   must check it rather than assume; the send path falls back to session keys for
   those first frames.
 - `_ratchet.getState()` returns counters and the number of retained keys for
@@ -52,7 +52,7 @@
 - The `isVoice` a callback receives is the **receiver's** verdict, not the
   sender's claim: `validateIncomingMetadata` clears it unless the transfer
   declares a recognised audio MIME type and fits the per-note and per-session
-  size budgets. A transfer that fails those checks is not rejected — it simply
+  size budgets. A transfer that fails those checks is not rejected; it simply
   loses the consent-free shortcut and is offered as a normal file.
 
 ## EnhancedSecureFileTransfer

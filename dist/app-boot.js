@@ -3469,7 +3469,7 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
       if (!signedPackage || typeof signedPackage !== "object") {
         throw new Error("Invalid signed package format");
       }
-      const { keyType, keyData, timestamp, version, signature } = signedPackage;
+      const { keyType, keyData, timestamp, version: version2, signature } = signedPackage;
       if (!keyType || !keyData || !timestamp || !signature) {
         throw new Error("Missing required fields in signed package");
       }
@@ -3481,7 +3481,7 @@ var EnhancedSecureCryptoUtils = class _EnhancedSecureCryptoUtils {
         throw new Error("Signed key package is too old");
       }
       await _EnhancedSecureCryptoUtils.validateKeyStructure(keyData, keyType);
-      const packageCopy = { keyType, keyData, timestamp, version };
+      const packageCopy = { keyType, keyData, timestamp, version: version2 };
       const packageString = JSON.stringify(packageCopy);
       const isValidSignature = await _EnhancedSecureCryptoUtils.verifySignature(verifyingKey, signature, packageString);
       if (!isValidSignature) {
@@ -11050,7 +11050,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         oldKeysCount: this.oldKeys.size,
         timestamp: Date.now()
       });
-      for (const [version, keySet] of this.oldKeys.entries()) {
+      for (const [version2, keySet] of this.oldKeys.entries()) {
         if (keySet.encryptionKey) {
           this._secureWipeMemory(keySet.encryptionKey, "pfs_key_wipe");
         }
@@ -13651,7 +13651,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     const now = Date.now();
     const maxKeyAge = _EnhancedSecureWebRTCManager.LIMITS.MAX_KEY_AGE;
     let wipedKeysCount = 0;
-    for (const [version, keySet] of this.oldKeys.entries()) {
+    for (const [version2, keySet] of this.oldKeys.entries()) {
       if (now - keySet.timestamp > maxKeyAge) {
         if (keySet.encryptionKey) {
           this._secureWipeMemory(keySet.encryptionKey, "pfs_cleanup_wipe");
@@ -13666,10 +13666,10 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         keySet.macKey = null;
         keySet.metadataKey = null;
         keySet.keyFingerprint = null;
-        this.oldKeys.delete(version);
+        this.oldKeys.delete(version2);
         wipedKeysCount++;
         this._secureLog("info", "\u{1F9F9} Old PFS keys hard wiped and cleaned up", {
-          version,
+          version: version2,
           age: Math.round((now - keySet.timestamp) / 1e3) + "s",
           timestamp: Date.now()
         });
@@ -13682,8 +13682,8 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     }
   }
   // PFS: Get keys for specific version (for decryption)
-  getKeysForVersion(version) {
-    const oldKeySet = this.oldKeys.get(version);
+  getKeysForVersion(version2) {
+    const oldKeySet = this.oldKeys.get(version2);
     if (oldKeySet && oldKeySet.encryptionKey && oldKeySet.macKey && oldKeySet.metadataKey) {
       return {
         encryptionKey: oldKeySet.encryptionKey,
@@ -13691,7 +13691,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         metadataKey: oldKeySet.metadataKey
       };
     }
-    if (version === this.currentKeyVersion) {
+    if (version2 === this.currentKeyVersion) {
       if (this.encryptionKey && this.macKey && this.metadataKey) {
         return {
           encryptionKey: this.encryptionKey,
@@ -13701,7 +13701,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       }
     }
     window.EnhancedSecureCryptoUtils.secureLog.log("error", "No valid keys found for version", {
-      requestedVersion: version,
+      requestedVersion: version2,
       currentVersion: this.currentKeyVersion,
       availableVersions: Array.from(this.oldKeys.keys())
     });
@@ -15826,8 +15826,8 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           throw new Error("Connection rate limit exceeded. Please wait before trying again.");
         }
         const timestamp = offerData.ts || offerData.timestamp;
-        const version = offerData.v || offerData.version;
-        if (!timestamp || !version) {
+        const version2 = offerData.v || offerData.version;
+        if (!timestamp || !version2) {
           throw new Error("Missing required security fields in offer data \u2013 possible MITM attack");
         }
         const offerAge = Date.now() - timestamp;
@@ -15844,7 +15844,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           }
           throw new Error("Offer data is too old \u2013 possible replay attack");
         }
-        const protocolVersion = version;
+        const protocolVersion = version2;
         if (protocolVersion !== _EnhancedSecureWebRTCManager.PROTOCOL_VERSION) {
           this._secureLog("warn", "Protocol version mismatch detected", {
             operationId,
@@ -16473,8 +16473,8 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         throw new Error("CRITICAL SECURITY FAILURE: ECDSA key missing keyData or signature");
       }
       const timestamp = answerData.ts || answerData.timestamp;
-      const version = answerData.v || answerData.version;
-      if (!timestamp || !version) {
+      const version2 = answerData.v || answerData.version;
+      if (!timestamp || !version2) {
         throw new Error("Missing required fields in response data \u2013 possible MITM attack");
       }
       if (answerData.sessionId && this.sessionId && answerData.sessionId !== this.sessionId) {
@@ -19236,9 +19236,9 @@ var SecureKeyStorage = class {
   }
 };
 var SecureIndexedDBWrapper = class {
-  constructor(dbName = "SecureKeyStorage", version = 1) {
+  constructor(dbName = "SecureKeyStorage", version2 = 1) {
     this.dbName = dbName;
-    this.version = version;
+    this.version = version2;
     this.db = null;
     this.KEYS_STORE = "encrypted_keys";
     this.METADATA_STORE = "key_metadata";
@@ -19983,7 +19983,11 @@ var SecureMasterKeyManager = class {
 // src/scripts/app-boot.js
 var import_NotificationIntegration = __toESM(require_NotificationIntegration());
 
+// package.json
+var version = "5.7.2";
+
 // src/components/ui/Header.jsx
+var APP_VERSION = `v${version}`;
 var EnhancedMinimalHeader = ({
   status,
   fingerprint,
@@ -20424,7 +20428,7 @@ Right-click or Ctrl+click to disconnect`,
           React.createElement("div", { key: "txt", style: { lineHeight: 1.2, minWidth: 0 } }, [
             React.createElement("div", { key: "r1", style: { display: "flex", alignItems: "baseline", gap: "7px" } }, [
               React.createElement("span", { key: "n", style: { fontSize: "16px", fontWeight: 800, letterSpacing: "-0.3px", color: "#e8e8eb" } }, "SecureBit"),
-              React.createElement("span", { key: "v", style: { fontFamily: MONO, fontSize: "10px", fontWeight: 500, color: "#56565e" } }, "v5.6.0")
+              React.createElement("span", { key: "v", style: { fontFamily: MONO, fontSize: "10px", fontWeight: 500, color: "#56565e" } }, APP_VERSION)
             ]),
             React.createElement("div", { key: "r2", className: "hidden sm:block", style: { fontSize: "11px", color: "#6b6b73", fontWeight: 500 } }, "End-to-end encrypted")
           ])

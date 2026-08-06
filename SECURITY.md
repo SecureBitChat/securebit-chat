@@ -1,71 +1,95 @@
 # Security Policy
 
-## Supported release line
-
-| Release | Status | Protocol |
-| --- | --- | --- |
-| v4.8.x | Supported | 4.1 |
-| v4.1.x – v4.7.x | Unsupported | 4.1 |
-| earlier releases | Unsupported | legacy |
-
-Users should run the current supported release line to receive the latest verification, storage, and file-transfer protections.
-
 ## Reporting a vulnerability
 
-Please report security issues privately before public disclosure.
+Report privately, before public disclosure.
 
 - Email: `SecureBitChat@proton.me`
-- Include: affected version, reproduction steps, impact, and any proof-of-concept material
-- Avoid publishing exploit details before a coordinated fix is available
+- Include the affected version, steps to reproduce, the impact you see, and any
+  proof-of-concept material
+- Please allow time for a fix to reach users before publishing details
 
-## Current security behavior
+There is no server to patch centrally. Every user has to load a new build, so
+early publication exposes exactly the people who have not updated yet. That is
+the only reason for the delay, and it is not indefinite: if you do not get a
+response within a reasonable time, say so and set your own timeline.
 
-### Peer verification
+Reports about a specific deployment (someone else's hosted instance, a TURN
+server) should go to whoever operates it.
 
-- SAS verification is mandatory and interactive.
-- SAS values are derived deterministically from shared session material.
-- Users must compare the code out of band and enter the matching code manually.
-- A session becomes verified only after both local and remote confirmations succeed.
-- Three failed local SAS entries terminate the session.
-- Protocol version `4.1` rejects incompatible peers instead of silently falling back to older verification behavior.
+## Supported versions
 
-### Message handling
+| Release | Status |
+| --- | --- |
+| 5.7.x | Supported |
+| 5.6.x | Superseded, update recommended |
+| 5.5.x and earlier | Unsupported |
 
-- Chat payloads remain encrypted in transit.
-- Decrypted incoming chat text is sanitized before it reaches React state or the UI.
-- Encrypted payload validation remains separate from display sanitization.
+Because the application is served fresh from the network on each load, most users
+are on the current release automatically. Installed progressive web app instances
+update on the next launch after a new build is deployed.
 
-### File transfer
+Forward secrecy applies only when both peers are on 5.7.0 or later. The feature
+is negotiated, and a session with an older peer falls back to the previous scheme.
+The security panel in the application shows which is in force for the current
+connection.
 
-- Incoming transfer metadata is validated before presentation to the user.
-- Every incoming file requires explicit Accept or Reject consent.
-- Receive buffers are not allocated before consent.
-- File names are normalized for display and dangerous names are rejected.
-- Allowed file types are explicit and validated using both MIME type and extension.
-- High-risk executable or scriptable types are blocked.
-- Repeated incoming transfer offers are rate-limited and bounded.
+## What the software guarantees
 
-### Local storage
+Message content between two peers who have compared their safety code, against an
+attacker on the network between them.
 
-- Sensitive IndexedDB metadata is encrypted, including timestamps and session-related fields where feasible.
-- Only minimum lookup keys remain in plaintext when required.
-- Legacy plaintext metadata is migrated lazily on read.
-- Corrupted encrypted metadata fails closed.
+That guarantee has a precondition, and it is not optional. Completing the key
+exchange proves that someone completed it, not who. The safety code comparison is
+what identifies the peer, and it has to happen over a channel an attacker cannot
+impersonate.
 
-### Network privacy
+## What it does not guarantee
 
-- Default mode preserves standard WebRTC connectivity.
-- Relay-only privacy mode uses TURN by setting `iceTransportPolicy: "relay"`.
-- STUN-only configurations do not provide IP protection.
-- If TURN is absent, the UI warns that direct WebRTC may expose IP addresses.
+- A compromised endpoint. Malware, a hostile extension or physical access to an
+  unlocked device sees the plaintext.
+- Behaviour of the person you are talking to. View-once and disappearing messages
+  are cooperative, not enforced against a determined recipient.
+- Network privacy by default. A direct connection reveals your IP address to the
+  peer. Relay-only mode with your own TURN server prevents that, at the cost of
+  the relay operator seeing both addresses and traffic timing.
+- The fact that you are using the software. That is visible to anyone watching
+  your network.
 
-### Lifecycle cleanup
+[doc/USE-POLICY.md](doc/USE-POLICY.md) goes into more detail.
 
-- Disconnect cleanup closes data channels and peer connections, clears verification state, and wipes session crypto state.
-- Timers, deferred retries, decoy traffic, pending transfers, and React file-transfer callbacks are cleaned up on shutdown.
-- Received file buffers are retained only within a bounded window and expired handles fail gracefully.
+## Current behaviour
 
-## Security verification commands
+**Verification.** The safety code is derived deterministically from shared
+session material and both DTLS fingerprints, and is compared manually out of
+band. A session becomes verified only after both peers confirm. Three incorrect
+entries end it. Until verification completes, the session refuses control
+messages from the peer: reconnection signalling, call setup, message deletion and
+delivery receipts.
+
+**Message protection.** Chat content is encrypted with a per-message key from the
+Double Ratchet when both peers support it, and with per-session keys otherwise.
+Ratchet message keys are destroyed after a single use, and each change of
+direction re-keys the session root. Content reaches the interface through one
+authenticated path; unauthenticated frames are dropped rather than displayed.
+Decrypted text is sanitized before rendering.
+
+**File transfer.** Metadata is validated before the user is prompted, every
+transfer requires explicit consent, and no receive buffer is allocated before
+consent. Accepted types are an explicit allowlist checked by extension, with MIME
+type as a secondary signal. Executable and scriptable formats are blocked. Voice
+notes are the one exception to the prompt, and qualify only if the receiver
+confirms they are genuine audio within size and per-session budgets.
+
+**Local storage.** Sensitive IndexedDB metadata is stored encrypted. Legacy
+plaintext records migrate on read. Corrupted encrypted metadata fails closed. No
+message history is written to disk.
+
+**Cleanup.** Disconnecting closes the channels, clears verification state, and
+overwrites the key material that can be overwritten. Timers, retries, cover
+traffic, pending transfers and interface callbacks are all torn down.
+
+## Verifying a build
 
 ```bash
 npm audit
@@ -73,9 +97,12 @@ npm test
 npm run build
 ```
 
-## Limitations
+The bundles in `dist/` are committed and served directly. They are not currently
+verified against the sources by automation, so if you are reviewing this project
+seriously, build from source and compare rather than reading `src/` alone.
 
-- A compromised endpoint can still expose plaintext.
-- WebRTC privacy depends on deployment configuration; TURN must be supplied by the operator.
-- Users must perform the out-of-band SAS comparison correctly.
-- Browser security and operating-system security remain part of the threat model.
+## Limitations of this policy
+
+This is a small project. There has been no independent cryptographic audit. The
+documentation in [`doc/`](doc/) describes the design in enough detail to review
+it, and that is the intended substitute until an audit happens.
