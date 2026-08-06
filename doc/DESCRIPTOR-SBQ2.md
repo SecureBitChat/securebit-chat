@@ -83,9 +83,35 @@ Foundation and priority are **not** transmitted. Priority only orders
 connectivity checks, and each peer computes its own local priorities anyway; the
 serializer re-derives RFC 8445 §5.1.2.1 values with `localPref = 65535 - index`,
 so the sender's ordering intent survives at zero cost. Foundations are grouped by
-kind and transport, satisfying both halves of §5.1.1.3. `raddr`/`rport` are
-diagnostics that ICE does not consume, and `generation`/`network-cost` are Chrome
-extensions.
+kind and transport, satisfying both halves of §5.1.1.3. `generation` and
+`network-cost` are Chrome extensions and are dropped.
+
+### What the serializer must emit anyway
+
+Three things are not in the descriptor but must appear in the rebuilt SDP. All
+three are constants or derived from data already present, so none costs a byte —
+and each was found by a live cross-browser test rather than by reading the spec.
+
+- **`raddr` / `rport` on every srflx, prflx and relay candidate.** RFC 8839 §5.1
+  makes rel-addr and rel-port mandatory for non-host candidates even though ICE's
+  own algorithm never reads them. An earlier draft left them out as
+  "diagnostics". Chrome accepts such a line; **Firefox drops the candidate.**
+  Measured: relay-only connections to Firefox went 0/8 while the browser's own
+  SDP went 8/8, and the fault was invisible in the STUN and TURN profiles because
+  a host pair connected instead. `0.0.0.0`/`0` (or `::`/`0`) is emitted — the
+  same placeholder Chrome uses when it has no base address to disclose.
+
+- **No `a=ice-options:trickle`, and an explicit `a=end-of-candidates`.** A
+  descriptor is a complete one-shot candidate set; there is no channel to trickle
+  over. Advertising trickle promises candidates that can never arrive and leaves
+  the peer waiting for them.
+
+- **A real default candidate on the `m=` port and `c=` line.** `m=application 9`
+  with `c=IN IP4 0.0.0.0` is the trickle convention for "nothing gathered yet"
+  (RFC 8840 §4.1) and is simply false here. The serializer advertises the most
+  publicly reachable candidate — relay, then srflx, then host, which is the order
+  Chrome uses and the reverse of ICE priority — falling back to the null form
+  only when every candidate is mDNS, which is also what Chrome does.
 
 ### TLV extension area
 

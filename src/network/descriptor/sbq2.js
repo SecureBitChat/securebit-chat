@@ -659,6 +659,37 @@ function renderAddr(kind, addr) {
  */
 export function serializeSdp(desc, { sessionId = '1' } = {}) {
     const isOffer = desc.type === TYPE.OFFER;
+
+    // The m-line port and c-line carry the DEFAULT CANDIDATE, and they must be
+    // real whenever we have one.
+    //
+    // `m=application 9` with `c=IN IP4 0.0.0.0` is the trickle-ICE convention
+    // for "no candidate yet" (RFC 8840 §4.1). A descriptor is never trickle —
+    // the candidate set is complete by construction — so a null default
+    // candidate here is simply a lie, and Firefox acts on it: with a relay-only
+    // Chrome offer, rebuilding with 9/0.0.0.0 connected 0/4 while the browser's
+    // own SDP connected 4/4. Advertising the highest-priority routable candidate
+    // instead, exactly as Chrome and Firefox do, costs zero descriptor bytes
+    // because that candidate is already in the list.
+    //
+    // An mDNS candidate cannot appear here (c= needs a literal address), so if
+    // that is all we have we fall back to the null form — which is also what
+    // Chrome emits in that case.
+    // Preference order is relay > srflx > host — the most publicly reachable
+    // address, which is what the default candidate is for, and the order Chrome
+    // itself uses (its STUN-profile SDP names the srflx address and its TURN
+    // profile names the relay). That is the reverse of ICE priority, which
+    // ranks host first.
+    const DEFAULT_RANK = { relay: 0, srflx: 1, host: 2 };
+    const def = desc.candidates
+        .filter((c) => c.kind !== KIND.HOST_MDNS && c.tcptype === 0)
+        .sort((x, y) => DEFAULT_RANK[KIND_TYPE[x.kind]] - DEFAULT_RANK[KIND_TYPE[y.kind]])[0];
+    const defIsV6 = def && KIND_FAMILY[def.kind] === 'v6';
+    const mPort = def ? def.port : 9;
+    const cLine = def
+        ? `c=IN IP${defIsV6 ? '6' : '4'} ${renderAddr(def.kind, def.addr)}`
+        : 'c=IN IP4 0.0.0.0';
+
     const lines = [
         'v=0',
         `o=- ${sessionId} 2 IN IP4 127.0.0.1`,
@@ -666,8 +697,8 @@ export function serializeSdp(desc, { sessionId = '1' } = {}) {
         't=0 0',
         'a=group:BUNDLE 0',
         'a=msid-semantic: WMS',
-        'm=application 9 UDP/DTLS/SCTP webrtc-datachannel',
-        'c=IN IP4 0.0.0.0',
+        `m=application ${mPort} UDP/DTLS/SCTP webrtc-datachannel`,
+        cLine,
         'a=ice-ufrag:' + desc.ufrag,
         'a=ice-pwd:' + desc.pwd,
         // Deliberately NOT `a=ice-options:trickle`. A descriptor is a complete,
@@ -696,6 +727,18 @@ export function serializeSdp(desc, { sessionId = '1' } = {}) {
         // transport satisfies both halves of that.
         const foundation = String(c.kind * 4 + c.tcptype + 1);
         let line = `a=candidate:${foundation} 1 ${transport} ${priority} ${renderAddr(c.kind, c.addr)} ${c.port} typ ${ctype}`;
+        // rel-addr/rel-port are MANDATORY for srflx, prflx and relay candidates
+        // (RFC 8839 §5.1), even though ICE's own algorithm never reads them.
+        // Omitting them is not a harmless economy: Chrome accepts such a line,
+        // Firefox drops the candidate outright. That cost 0/8 relay-only
+        // connections to Firefox while the browser's own SDP made 8/8, and it
+        // stayed invisible in the STUN and TURN profiles because a host pair
+        // connected instead. The value is not transmitted — 0.0.0.0/0 is what
+        // Chrome itself emits when it has no base address to disclose, and it
+        // satisfies the grammar at zero descriptor bytes.
+        if (ctype !== 'host') {
+            line += KIND_FAMILY[c.kind] === 'v6' ? ' raddr :: rport 0' : ' raddr 0.0.0.0 rport 0';
+        }
         if (transport === 'tcp') line += ` tcptype ${TCPTYPE[c.tcptype]}`;
         return line;
     });
@@ -703,7 +746,7 @@ export function serializeSdp(desc, { sessionId = '1' } = {}) {
     // (RFC 8838 §14), so the peer stops waiting for more and can start failing
     // pairs promptly instead of sitting in checking until a timeout.
     candLines.push('a=end-of-candidates');
-    const at = lines.indexOf('c=IN IP4 0.0.0.0') + 1;
+    const at = lines.indexOf(cLine) + 1;
     lines.splice(at, 0, ...candLines);
 
     return { type: isOffer ? 'offer' : 'answer', sdp: lines.join('\r\n') + '\r\n' };

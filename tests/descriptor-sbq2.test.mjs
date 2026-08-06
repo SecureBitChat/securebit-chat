@@ -192,6 +192,70 @@ for (const [browser, fixtures] of [['chrome', chrome], ['firefox', firefox]]) {
 }
 
 // ---------------------------------------------------------------------------
+// SDP grammar conformance of the rebuilt candidate lines
+//
+// Regression guard. rel-addr/rel-port are mandatory for srflx/prflx/relay
+// (RFC 8839 §5.1). Leaving them out is silently fine in Chrome and fatal in
+// Firefox, which drops the candidate: measured 0/8 relay-only connections to
+// Firefox versus 8/8 for the browser's own SDP, and invisible in the STUN and
+// TURN profiles because a host pair connected instead.
+// ---------------------------------------------------------------------------
+{
+    const sdp = [
+        'v=0', 'm=application 9 UDP/DTLS/SCTP webrtc-datachannel',
+        'a=candidate:1 1 udp 2113937151 192.168.1.9 40000 typ host',
+        'a=candidate:2 1 udp 1677729535 203.0.113.4 40001 typ srflx raddr 192.168.1.9 rport 40000',
+        'a=candidate:3 1 udp 50340351 144.172.96.126 40002 typ relay raddr 203.0.113.4 rport 40001',
+        'a=candidate:4 1 udp 50341375 2001:db8::5 40003 typ relay',
+        'a=ice-ufrag:abcd', 'a=ice-pwd:0123456789abcdef01234567',
+        'a=fingerprint:sha-256 ' + new Array(32).fill('EE').join(':'), 'a=setup:actpass',
+    ].join('\r\n') + '\r\n';
+
+    const out = serializeSdp(decodeDescriptor(await build(sdp, TYPE.OFFER))).sdp;
+    for (const line of out.split('\r\n').filter((l) => l.startsWith('a=candidate:'))) {
+        const type = line.split(' typ ')[1].split(' ')[0];
+        if (type === 'host') {
+            assert.ok(!line.includes('raddr'), `host candidates must not carry raddr: ${line}`);
+        } else {
+            assert.match(line, / raddr (0\.0\.0\.0|::) rport 0/, `${type} candidate needs rel-addr/rel-port: ${line}`);
+        }
+    }
+
+    // The default candidate must be a real, routable address whenever one
+    // exists — `m=... 9` with `c=IN IP4 0.0.0.0` is the trickle "none yet"
+    // form, and a descriptor is never trickle.
+    assert.ok(!out.includes('a=ice-options:trickle'), 'a complete candidate set must not advertise trickle');
+    assert.match(out, /^a=end-of-candidates$/m, 'the candidate set is explicitly closed');
+
+    // relay beats srflx beats host: the default candidate is the most publicly
+    // reachable one, matching what Chrome emits. Asserted on a v4-only set so
+    // the expected winner is unambiguous.
+    const v4only = [
+        'v=0', 'm=application 9 UDP/DTLS/SCTP webrtc-datachannel',
+        'a=candidate:1 1 udp 2113937151 192.168.1.9 40000 typ host',
+        'a=candidate:2 1 udp 1677729535 203.0.113.4 40001 typ srflx raddr 192.168.1.9 rport 40000',
+        'a=candidate:3 1 udp 50340351 144.172.96.126 40002 typ relay raddr 203.0.113.4 rport 40001',
+        'a=ice-ufrag:abcd', 'a=ice-pwd:0123456789abcdef01234567',
+        'a=fingerprint:sha-256 ' + new Array(32).fill('EE').join(':'), 'a=setup:actpass',
+    ].join('\r\n') + '\r\n';
+    const vOut = serializeSdp(decodeDescriptor(await build(v4only, TYPE.OFFER))).sdp;
+    assert.match(vOut, /^m=application 40002 /m, 'm-line carries the relay port as default');
+    assert.match(vOut, /^c=IN IP4 144\.172\.96\.126$/m, 'c-line carries the relay address as default');
+
+    // With only an mDNS candidate there is no literal address to advertise, so
+    // the null form is correct — and it is what Chrome emits in that case too.
+    const mdnsOnly = [
+        'v=0', 'm=application 9 UDP/DTLS/SCTP webrtc-datachannel',
+        'a=candidate:1 1 udp 2113937151 7d9c00c2-bcef-48b6-9166-428899e0582e.local 40000 typ host',
+        'a=ice-ufrag:abcd', 'a=ice-pwd:0123456789abcdef01234567',
+        'a=fingerprint:sha-256 ' + new Array(32).fill('EE').join(':'), 'a=setup:actpass',
+    ].join('\r\n') + '\r\n';
+    const mOut = serializeSdp(decodeDescriptor(await build(mdnsOnly, TYPE.OFFER))).sdp;
+    assert.match(mOut, /^m=application 9 /m);
+    assert.match(mOut, /^c=IN IP4 0\.0\.0\.0$/m);
+}
+
+// ---------------------------------------------------------------------------
 // TCP candidates
 // ---------------------------------------------------------------------------
 {

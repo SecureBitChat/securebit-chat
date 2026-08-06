@@ -1,5 +1,37 @@
 # Changelog
 
+## v5.8.1 — SBQ2 rebuilds SDP that Firefox accepts
+
+Still nothing in the application calls the SBQ2 descriptor; this fixes defects in
+it found by running live connections between real browsers.
+
+### Fixed
+
+- The rebuilt SDP omitted `raddr`/`rport` on srflx and relay candidates. RFC 8839
+  §5.1 makes them mandatory for non-host candidates, and while Chrome tolerates
+  the omission, **Firefox drops the candidate entirely**. Relay-only connections
+  to Firefox failed 0/8 where the browser's own SDP succeeded 8/8. The STUN and
+  TURN profiles hid it, because a host candidate pair connected instead.
+
+- The template advertised `a=ice-options:trickle` and never closed the candidate
+  set. A descriptor is a complete one-shot set with no channel to trickle over,
+  so this promised candidates that could never arrive. Trickle is gone and
+  `a=end-of-candidates` is emitted.
+
+- The `m=` port and `c=` line were hard-coded to the `9` / `0.0.0.0` null default
+  candidate, which is the trickle-ICE "nothing gathered yet" convention and false
+  here. The most publicly reachable candidate is advertised instead — relay, then
+  srflx, then host — falling back to the null form only when every candidate is
+  mDNS, as Chrome does.
+
+None of these change the descriptor: all three are serializer-side and cost zero
+bytes. Sizes are unchanged at 98–149 bytes, QR version 6–8.
+
+Verified across all 16 combinations of {Chrome, Firefox} x {Chrome, Firefox} and
+four network profiles: **48/48 connections**, with every relay-only pair now
+connecting over the relay.
+
+
 ## v5.8.0 — A connection descriptor that fits in a small QR code
 
 No change to how messages are protected, and no change to how a connection is
