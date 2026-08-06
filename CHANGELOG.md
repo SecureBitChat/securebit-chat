@@ -1,5 +1,42 @@
 # Changelog
 
+## v5.8.0 — A connection descriptor that fits in a small QR code
+
+No change to how messages are protected, and no change to how a connection is
+established. This release adds the wire format for a much smaller invitation and
+the code that reads and writes it; nothing in the application calls it yet.
+
+### Added
+
+- `src/network/descriptor/sbq2.js` — version 2 of the connection descriptor. The
+  current `SB1:` payload runs 2000–2400 characters and needs QR version 38–40, at
+  which point the app has to fall back to an animated multi-frame code. Measured
+  on real Chrome and Firefox SDP across four network profiles, SBQ2 is **98–149
+  bytes**, which is **QR version 6–8** — a single, instantly scannable image.
+
+  The saving comes from sending only what is needed to bring up DTLS (ICE
+  credentials, certificate fingerprint, candidates) and templating the SDP rather
+  than shipping it verbatim. Key material is intended to move to the DataChannel,
+  bound to the descriptor by a commitment; **that half is not implemented**, which
+  is why the format is not yet in the connection path. See
+  `doc/DESCRIPTOR-SBQ2.md` for the layout, the security argument and the migration
+  gate.
+
+  The decoder is written as a parser of hostile input: fixed offsets, explicit
+  lengths, deny-by-default on every reserved value and on unknown extension types,
+  trailing bytes rejected, and ICE credentials alphabet-checked so a CRLF cannot
+  reach the SDP serializer. Compression is deliberately absent — on this payload
+  DEFLATE adds bytes, and removing it removes the decompression-bomb surface too.
+
+- `doc/DESCRIPTOR-SBQ2.md`, and `tests/descriptor-sbq2.test.mjs` covering
+  round-trip against real Chrome and Firefox SDP, IPv6 and NAT64 addresses,
+  ICE-TCP candidates, candidate-coverage pruning, the TLV extension area, clock
+  skew, one-shot binding and the SAS transcript.
+
+- `tests/fixtures/sdp-chrome.json` and `tests/fixtures/sdp-firefox.json` —
+  SDP captured from real browsers rather than written by hand.
+
+
 ## v5.7.2 — Documentation, and a version that keeps itself honest
 
 No changes to the protocol or to how messages are protected.
