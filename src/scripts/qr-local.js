@@ -10,6 +10,13 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { gzip, ungzip, deflate, inflate } from 'pako';
 import * as cbor from 'cbor-js';
 import { packSecurePayload, receiveAndProcess } from '../crypto/cose-qr.js';
+import {
+  decodeDescriptor as sbq2Decode,
+  decodeText as sbq2DecodeText,
+  encodeText as sbq2EncodeText,
+  TYPE as SBQ2_TYPE,
+  TEXT_PREFIX as SBQ2_TEXT_PREFIX,
+} from '../network/descriptor/sbq2.js';
 
 // Compact payload prefix to signal gzip+base64 content
 const COMPRESSION_PREFIX = 'SB1:gz:';
@@ -162,6 +169,10 @@ window.compressToPrefixedGzip = function (text) {
 window.encodeBinaryToPrefixed = function (objOrJson) {
   try {
     const obj = typeof objOrJson === 'string' ? JSON.parse(objOrJson) : objOrJson;
+    // An SBQ2 descriptor is already its own compact wire form. Re-encoding it as
+    // CBOR+deflate+base64 would wrap 124 bytes back up into ~200 characters of
+    // SB1 envelope and undo the entire point.
+    if (obj && typeof obj.sbq2 === 'string') return obj.sbq2;
     const b64url = encodeObjectToBinaryBase64Url(obj);
     return BINARY_PREFIX + b64url;
   } catch (e) {
@@ -173,6 +184,37 @@ window.encodeBinaryToPrefixed = function (objOrJson) {
 window.decodeAnyPayload = function (scannedText) {
   try {
     if (typeof scannedText === 'string') {
+      // SBQ2 first. The two families are distinguishable without guessing: an
+      // SBQ2 payload is `SB2:` + base64url, an SB1 one is `SB1:bin:`/`SB1:gz:`,
+      // and a raw-byte SBQ2 descriptor starts with 0x02 where any SB1 text
+      // starts with ASCII 'S' (0x53).
+      if (scannedText.startsWith(SBQ2_TEXT_PREFIX)) {
+        const bytes = sbq2DecodeText(scannedText);
+        const desc = sbq2Decode(bytes);
+        // Hand back the shape the app already routes on, with the compact form
+        // attached for the manager to re-parse. The manager decodes it again
+        // from the text rather than trusting anything decided here — this layer
+        // only classifies.
+        return { t: desc.type === SBQ2_TYPE.OFFER ? 'offer' : 'answer', sbq2: scannedText };
+      }
+      if (scannedText.charCodeAt(0) === 0x02) {
+        const bytes = Uint8Array.from(scannedText, (c) => c.charCodeAt(0) & 0xff);
+        const desc = sbq2Decode(bytes);
+        return { t: desc.type === SBQ2_TYPE.OFFER ? 'offer' : 'answer', sbq2: sbq2EncodeText(bytes) };
+      }
+      // A payload from a FUTURE format generation. Recognising the family
+      // without being able to read it is the one case where we can say
+      // something useful instead of letting JSON.parse produce
+      // "Unexpected token 'S'". Every descriptor family is `SB<n>:`, so this
+      // stays true for SB3 and beyond without another release.
+      const family = /^SB(\d+):/.exec(scannedText);
+      if (family && family[1] !== '1' && family[1] !== '2') {
+        throw new Error(
+          'This invitation was created by a newer version of SecureBit. ' +
+          'Please update the app to connect.'
+        );
+      }
+
       if (scannedText.startsWith(BINARY_PREFIX)) {
         const b64url = scannedText.slice(BINARY_PREFIX.length);
         return decodeBinaryBase64UrlToObject(b64url); // returns object
@@ -185,6 +227,16 @@ window.decodeAnyPayload = function (scannedText) {
       return scannedText;
     }
   } catch (e) {
+    // A payload that announced itself as SBQ2 and then failed to decode must not
+    // fall through to the SB1 parser, which would report a generic "invalid
+    // format" for what is really a strict-decoder rejection (bad version,
+    // unknown extension, trailing bytes, expired). Surface it.
+    if (typeof scannedText === 'string' &&
+        (scannedText.startsWith(SBQ2_TEXT_PREFIX) ||
+         scannedText.charCodeAt(0) === 0x02 ||
+         /^SB(\d+):/.test(scannedText))) {
+      throw e;
+    }
     console.warn('decodeAnyPayload failed:', e?.message || e);
   }
   return scannedText;

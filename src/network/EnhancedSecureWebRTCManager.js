@@ -12,6 +12,32 @@ import { NetworkAdaptationController } from './webrtc/adaptation/controller.js';
 // session's static keys were not enough on their own.
 import { DoubleRatchet } from '../crypto/DoubleRatchet.js';
 
+// SBQ2: the compact out-of-band descriptor and the in-band key exchange that
+// makes it possible. See doc/DESCRIPTOR-SBQ2.md.
+import {
+    parseSdp as sbq2ParseSdp,
+    pruneCandidates as sbq2PruneCandidates,
+    encodeDescriptor as sbq2Encode,
+    decodeDescriptor as sbq2Decode,
+    serializeSdp as sbq2SerializeSdp,
+    bindingTag as sbq2BindingTag,
+    commitBlob as sbq2CommitBlob,
+    encodeText as sbq2EncodeText,
+    decodeText as sbq2DecodeText,
+    TYPE as SBQ2_TYPE,
+    TEXT_PREFIX as SBQ2_TEXT_PREFIX,
+} from './descriptor/sbq2.js';
+import {
+    ROLE as KX_ROLE,
+    encodeKeyBlob,
+    decodeKeyBlob,
+    buildTranscript,
+    deriveTranscriptSalt,
+    proofPayload,
+    computeTranscriptSas,
+    verifyBlobCommitment,
+} from './descriptor/keyexchange.js';
+
 // MUTEX SYSTEM FIXES - RESOLVING MESSAGE DELIVERY ISSUES
 // ============================================
 // Issue: After introducing the Mutex system, messages stopped being delivered between users
@@ -197,6 +223,13 @@ class EnhancedSecureWebRTCManager {
         // it asks the offerer to drive the restart.
         ICE_RESTART_REQUEST: 'ice_restart_request',
 
+        // SBQ2 in-band key exchange. These are the only two frames that legitimately
+        // arrive before any key exists, which is exactly why they are handled in one
+        // place and nowhere else: KEY_BLOB carries the key material the descriptor's
+        // commitment covers, KEY_PROOF the signature over the transcript.
+        KEY_BLOB: 'key_blob',
+        KEY_PROOF: 'key_proof',
+
         // Fake traffic
         FAKE: 'fake'
     };
@@ -224,6 +257,23 @@ class EnhancedSecureWebRTCManager {
         EnhancedSecureWebRTCManager.MESSAGE_TYPES.ICE_RESTART_ANSWER,
         EnhancedSecureWebRTCManager.MESSAGE_TYPES.ICE_RESTART_REQUEST
     ]);
+
+    // ── SBQ2 ROLLBACK SWITCH ────────────────────────────────────────────────
+    // Flip this ONE value to false and redeploy to put every new invitation back
+    // on the SB1 format. Nothing else needs touching: reception of both formats
+    // is unconditional, so a client built with this off still reads SBQ2
+    // invitations from a client built with it on.
+    //
+    // It only governs what we EMIT. It is deliberately not consulted anywhere in
+    // the receive path, and never inside an established session — see
+    // _handshakeMode, which is latched per connection so a session cannot be
+    // pushed back onto the weaker format halfway through.
+    static SBQ2_SEND_ENABLED = true;
+
+    // How long the in-band key exchange may take from channel open to verified
+    // proof. Generous next to the ~1 s a handshake actually needs, tight enough
+    // that a peer that never sends its blob does not hang the UI indefinitely.
+    static SBQ2_KEY_EXCHANGE_TIMEOUT_MS = 15000;
 
     static PROTOCOL_VERSION = '4.1';
     // Double Ratchet wire version. Bump only on an incompatible ratchet change;
@@ -416,6 +466,14 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     this.maxSequenceGap = 100; // Maximum allowed sequence gap
     this.replayProtectionEnabled = true; // Enable/disable replay protection
     this.sessionId = null; // MITM protection: Session identifier
+
+    // Handshake format latched for THIS connection: 'sb1' or 'sbq2'. Set when the
+    // first descriptor of the session is produced or parsed, and never changed
+    // afterwards. That latch is what makes downgrade impossible inside a session:
+    // an SBQ2 session that hits any trouble fails, it does not retry as SB1.
+    this._handshakeMode = null;
+    // Per-connection SBQ2 state. Null on the SB1 path.
+    this._sbq2 = null;
     this.connectionId = Array.from(crypto.getRandomValues(new Uint8Array(8)))
         .map(b => b.toString(16).padStart(2, '0')).join(''); // Connection identifier for AAD
     this.peerPublicKey = null; // Store peer's public key for PFS
@@ -4519,6 +4577,369 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         }
     }
 
+    // ========================================================================
+    // SBQ2 — compact descriptor + in-band key exchange
+    // ========================================================================
+
+    /** True once this connection has latched onto the SBQ2 handshake. */
+    _isSbq2() { return this._handshakeMode === 'sbq2'; }
+
+    /**
+     * Latch the handshake format for this connection.
+     *
+     * Called with the format of the first descriptor of the session. Calling it
+     * again with a different value is a bug or an attack, and is refused: this
+     * is the single point that makes "no downgrade inside a session" true rather
+     * than merely intended.
+     */
+    _latchHandshakeMode(mode) {
+        if (this._handshakeMode && this._handshakeMode !== mode) {
+            throw new Error(
+                `handshake format cannot change mid-session (${this._handshakeMode} -> ${mode})`
+            );
+        }
+        this._handshakeMode = mode;
+    }
+
+    _sbq2State() {
+        if (!this._sbq2) {
+            this._sbq2 = {
+                role: null,              // KX_ROLE.OFFER | KX_ROLE.ANSWER
+                localDescriptor: null,   // Uint8Array, our descriptor verbatim
+                remoteDescriptor: null,  // Uint8Array, peer's descriptor verbatim
+                localBlob: null,
+                remoteBlob: null,
+                remoteCommitment: null,  // from the peer's descriptor
+                transcript: null,
+                peerEcdhKey: null,
+                peerEcdsaKey: null,
+                blobSent: false,
+                proofSent: false,
+                proofVerified: false,
+                keysDerived: false,
+                pendingProof: null,      // proof that arrived before the transcript existed
+                completed: false,
+                timer: null,
+                startedAt: 0,
+            };
+        }
+        return this._sbq2;
+    }
+
+    /**
+     * Fail closed.
+     *
+     * Every SBQ2 failure lands here: there is no path that logs a warning and
+     * carries on with a weaker session, and no path that retries as SB1. The
+     * connection is torn down and the user is told, because a handshake that
+     * went wrong is exactly the case where continuing is worst.
+     */
+    _sbq2Abort(code, userMessage) {
+        const st = this._sbq2;
+        if (st?.timer) { clearTimeout(st.timer); st.timer = null; }
+        this._secureLog('error', 'SBQ2 handshake aborted', { code });
+        try { this.deliverMessageToUI(userMessage, 'system'); } catch (_) {}
+        try { this.onStatusChange?.('failed'); } catch (_) {}
+        try { this.disconnect(); } catch (_) {}
+    }
+
+    /** SPKI bytes for a public CryptoKey. */
+    async _exportSpki(key) {
+        return new Uint8Array(await crypto.subtle.exportKey('spki', key));
+    }
+
+    /**
+     * Build the key blob for this side and the commitment that goes in the
+     * descriptor. Called while creating our descriptor, so the commitment is
+     * fixed before anything is shown to the user.
+     */
+    async _sbq2BuildLocalBlob(role) {
+        if (!this.ecdhKeyPair?.publicKey || !this.ecdsaKeyPair?.publicKey) {
+            throw new Error('SBQ2: key pairs are not ready');
+        }
+        const blob = encodeKeyBlob({
+            role,
+            ecdhSpki: await this._exportSpki(this.ecdhKeyPair.publicKey),
+            ecdsaSpki: await this._exportSpki(this.ecdsaKeyPair.publicKey),
+        });
+        const digest = async (b) => new Uint8Array(await crypto.subtle.digest('SHA-256', b));
+        const commitment = await sbq2CommitBlob(digest, blob);
+        const st = this._sbq2State();
+        st.role = role;
+        st.localBlob = blob;
+        return { blob, commitment };
+    }
+
+    /**
+     * Turn our gathered localDescription into a compact descriptor.
+     * @returns {{bytes: Uint8Array, text: string}}
+     */
+    async _sbq2BuildDescriptor(type, { bindingTag = null, lifetimeMs = 10 * 60 * 1000 } = {}) {
+        const sdp = this.peerConnection?.localDescription?.sdp;
+        if (!sdp) throw new Error('SBQ2: no local description to encode');
+
+        const role = type === SBQ2_TYPE.OFFER ? KX_ROLE.OFFER : KX_ROLE.ANSWER;
+        const { commitment } = await this._sbq2BuildLocalBlob(role);
+
+        const raw = sbq2ParseSdp(sdp);
+        const bytes = sbq2Encode({
+            type,
+            expiresAtMs: Date.now() + lifetimeMs,
+            sdpFields: { ...raw, candidates: sbq2PruneCandidates(raw.candidates) },
+            commitment,
+            ...(type === SBQ2_TYPE.ANSWER ? { bindingTag } : {}),
+        });
+
+        const st = this._sbq2State();
+        st.localDescriptor = bytes;
+
+        this._secureLog('info', 'SBQ2 descriptor built', {
+            type: type === SBQ2_TYPE.OFFER ? 'offer' : 'answer',
+            bytes: bytes.length,
+            candidates: sbq2PruneCandidates(raw.candidates).length,
+        });
+
+        return { bytes, text: sbq2EncodeText(bytes) };
+    }
+
+    /**
+     * Parse and adopt a peer descriptor. Throws on anything the strict decoder
+     * refuses — version, reserved values, unknown TLV, trailing bytes, expiry.
+     */
+    _sbq2AdoptRemoteDescriptor(bytes, expectedType) {
+        const desc = sbq2Decode(bytes);
+        if (desc.type !== expectedType) {
+            throw new Error(
+                `expected an ${expectedType === SBQ2_TYPE.OFFER ? 'invitation' : 'answer'}, got the other kind`
+            );
+        }
+        if (!desc.commitment) {
+            // Without a commitment there is nothing binding the in-band key
+            // material to the code the user scanned, which is the entire basis
+            // for moving that material in band. Refuse rather than proceed on
+            // the DTLS fingerprint alone.
+            throw new Error('the invitation carries no key commitment');
+        }
+        const st = this._sbq2State();
+        st.remoteDescriptor = bytes;
+        st.remoteCommitment = desc.commitment;
+        return desc;
+    }
+
+    /**
+     * Run the in-band key exchange. Called once, as soon as the DataChannel
+     * opens, before anything else is allowed to use the channel.
+     */
+    async _runSbq2KeyExchange() {
+        const st = this._sbq2State();
+        if (st.completed || st.blobSent) return;
+        st.startedAt = Date.now();
+
+        if (!st.localBlob || !st.localDescriptor || !st.remoteDescriptor || !st.remoteCommitment) {
+            this._sbq2Abort('incomplete_state',
+                'The secure handshake could not start because the connection setup is incomplete. Please start a new invitation.');
+            return;
+        }
+
+        st.timer = setTimeout(() => {
+            if (!st.completed) {
+                this._sbq2Abort('timeout',
+                    'The other side did not complete the secure handshake in time. Please try connecting again.');
+            }
+        }, EnhancedSecureWebRTCManager.SBQ2_KEY_EXCHANGE_TIMEOUT_MS);
+
+        try {
+            this.dataChannel.send(JSON.stringify({
+                type: EnhancedSecureWebRTCManager.MESSAGE_TYPES.KEY_BLOB,
+                v: 2,
+                blob: window.EnhancedSecureCryptoUtils.arrayBufferToBase64(st.localBlob.buffer.slice(
+                    st.localBlob.byteOffset, st.localBlob.byteOffset + st.localBlob.byteLength)),
+            }));
+            st.blobSent = true;
+            this._secureLog('info', 'SBQ2 key blob sent', { bytes: st.localBlob.length });
+        } catch (error) {
+            this._sbq2Abort('blob_send_failed',
+                'The secure handshake could not be sent. Please try connecting again.');
+        }
+    }
+
+    /**
+     * Handle the two in-band handshake frames. These are the only frames
+     * accepted before keys exist, so everything they touch is validated here and
+     * nothing is acted on before the commitment check passes.
+     */
+    async _sbq2HandleHandshakeFrame(parsed) {
+        const T = EnhancedSecureWebRTCManager.MESSAGE_TYPES;
+        const st = this._sbq2State();
+
+        if (!this._isSbq2()) {
+            // An SB1 session must never accept these: it has no commitment to
+            // check them against, which would make them unauthenticated key
+            // material.
+            this._secureLog('error', 'Rejected SBQ2 handshake frame on a non-SBQ2 session', {
+                messageType: parsed?.type,
+            });
+            return;
+        }
+
+        try {
+            if (parsed.type === T.KEY_BLOB) {
+                if (st.remoteBlob) {
+                    // A second blob would mean either a confused peer or an
+                    // attempt to replace key material after it was accepted.
+                    this._sbq2Abort('duplicate_blob',
+                        'The secure handshake was sent twice. The connection has been closed for safety.');
+                    return;
+                }
+                const bytes = new Uint8Array(window.EnhancedSecureCryptoUtils.base64ToArrayBuffer(String(parsed.blob || '')));
+
+                // COMMITMENT FIRST. Nothing below this line may run against
+                // unverified bytes: not decodeKeyBlob, not importKey.
+                await verifyBlobCommitment(crypto.subtle, bytes, st.remoteCommitment);
+
+                const blob = decodeKeyBlob(bytes);
+                const expectedRole = st.role === KX_ROLE.OFFER ? KX_ROLE.ANSWER : KX_ROLE.OFFER;
+                if (blob.role !== expectedRole) {
+                    this._sbq2Abort('role_mismatch',
+                        'The other side sent the wrong kind of handshake. The connection has been closed for safety.');
+                    return;
+                }
+
+                st.remoteBlob = bytes;
+                st.peerEcdhKey = await crypto.subtle.importKey(
+                    'spki', blob.ecdhSpki, { name: 'ECDH', namedCurve: 'P-384' }, false, []);
+                st.peerEcdsaKey = await crypto.subtle.importKey(
+                    'spki', blob.ecdsaSpki, { name: 'ECDSA', namedCurve: 'P-384' }, false, ['verify']);
+
+                await this._sbq2CompleteExchange();
+                return;
+            }
+
+            if (parsed.type === T.KEY_PROOF) {
+                const sig = new Uint8Array(window.EnhancedSecureCryptoUtils.base64ToArrayBuffer(String(parsed.sig || '')));
+                if (!st.transcript || !st.peerEcdsaKey) {
+                    // The proof can legitimately overtake our own processing;
+                    // hold it until the transcript exists, then verify.
+                    st.pendingProof = sig;
+                    return;
+                }
+                await this._sbq2VerifyProof(sig);
+                return;
+            }
+        } catch (error) {
+            const code = error?.code || 'handshake_failed';
+            const message = code === 'commitment_mismatch'
+                ? 'The key material does not match the invitation you scanned. This can mean someone tampered with the connection, so it has been closed.'
+                : 'The secure handshake failed. The connection has been closed for safety.';
+            this._sbq2Abort(code, message);
+        }
+    }
+
+    /**
+     * Both blobs are in hand and verified: define the transcript, derive
+     * everything from it, and prove possession of the identity key.
+     */
+    async _sbq2CompleteExchange() {
+        const st = this._sbq2State();
+        if (st.keysDerived || !st.remoteBlob || !st.localBlob) return;
+
+        // Ratchet capability is IMPLIED by the format, not advertised in it.
+        //
+        // The SB1 descriptor carries `dr` because a 5.6.x peer might not know
+        // about the ratchet, and there is no server to roll both ends at once.
+        // SBQ2 has no such ambiguity: it postdates RATCHET_VERSION 1 entirely, so
+        // anything that can produce this handshake can ratchet. Saying so here
+        // costs zero descriptor bytes and — more importantly — stops
+        // _initializeRatchet from taking its silent "peer is old, fall back to
+        // static keys" path, which is a downgrade nothing in an SBQ2 session
+        // should ever reach.
+        this._peerSupportsRatchet = true;
+
+        const isOffer = st.role === KX_ROLE.OFFER;
+        st.transcript = buildTranscript({
+            offerDescriptor: isOffer ? st.localDescriptor : st.remoteDescriptor,
+            answerDescriptor: isOffer ? st.remoteDescriptor : st.localDescriptor,
+            offerBlob: isOffer ? st.localBlob : st.remoteBlob,
+            answerBlob: isOffer ? st.remoteBlob : st.localBlob,
+        });
+
+        // The salt is derived, never sent. That binds every session key to both
+        // DTLS fingerprints and every candidate in both descriptors.
+        this.sessionSalt = await deriveTranscriptSalt(crypto.subtle, st.transcript);
+
+        this.peerPublicKey = st.peerEcdhKey;
+        this.peerECDHPublicKey = st.peerEcdhKey;
+
+        const derivedKeys = await window.EnhancedSecureCryptoUtils.deriveSharedKeys(
+            this.ecdhKeyPair.privateKey, st.peerEcdhKey, this.sessionSalt);
+
+        await this._setEncryptionKeys(
+            derivedKeys.messageKey, derivedKeys.macKey, derivedKeys.metadataKey, derivedKeys.fingerprint);
+
+        await this._initializeRatchet(derivedKeys, /* isInitiator */ isOffer);
+        st.keysDerived = true;
+
+        // Identity proof: one signature over the whole transcript, replacing the
+        // old challenge/response. Sent after our keys exist so a failure here
+        // cannot leave us half-configured.
+        const sig = new Uint8Array(await crypto.subtle.sign(
+            { name: 'ECDSA', hash: 'SHA-384' }, this.ecdsaKeyPair.privateKey, proofPayload(st.transcript)));
+        this.dataChannel.send(JSON.stringify({
+            type: EnhancedSecureWebRTCManager.MESSAGE_TYPES.KEY_PROOF,
+            sig: window.EnhancedSecureCryptoUtils.arrayBufferToBase64(sig.buffer),
+        }));
+        st.proofSent = true;
+
+        if (st.pendingProof) {
+            const held = st.pendingProof;
+            st.pendingProof = null;
+            await this._sbq2VerifyProof(held);
+        }
+    }
+
+    /** Verify the peer's transcript signature, then release the session. */
+    async _sbq2VerifyProof(sig) {
+        const st = this._sbq2State();
+        if (st.proofVerified) return;
+
+        const ok = await crypto.subtle.verify(
+            { name: 'ECDSA', hash: 'SHA-384' }, st.peerEcdsaKey, sig, proofPayload(st.transcript));
+        if (!ok) {
+            this._sbq2Abort('bad_proof',
+                'The other side could not prove it owns its identity key. The connection has been closed for safety.');
+            return;
+        }
+        st.proofVerified = true;
+
+        // SAS over the transcript. Everything that travelled out of band, in
+        // both directions, plus both blobs, is inside these digits.
+        this.verificationCode = await computeTranscriptSas(crypto.subtle, {
+            ecdhPrivateKey: this.ecdhKeyPair.privateKey,
+            peerEcdhPublicKey: st.peerEcdhKey,
+            transcript: st.transcript,
+        });
+
+        const localFP = this.expectedDTLSFingerprint;
+        const remoteFP = this._peerDTLSFingerprint;
+        if (localFP && remoteFP) this._setSASMaterialReady(localFP, remoteFP);
+
+        st.completed = true;
+        if (st.timer) { clearTimeout(st.timer); st.timer = null; }
+
+        this.securityFeatures.hasMutualAuth = true;
+        this.securityFeatures.hasMetadataProtection = true;
+        this.securityFeatures.hasEnhancedReplayProtection = true;
+
+        this._secureLog('info', 'SBQ2 in-band key exchange complete', {
+            elapsedMs: Date.now() - st.startedAt,
+            ratchetActive: this.isRatchetActive?.() === true,
+        });
+
+        try { this.onKeyExchange?.(this.keyFingerprint); } catch (_) {}
+        this._notifyVerificationReadyIfPossible();
+        this.initiateVerification();
+    }
+
     /**
      * UTILITY: Decode hex keyFingerprint to Uint8Array for SAS computation
      * @param {string} hexString - Hex encoded keyFingerprint (e.g., "aa:bb:cc:dd")
@@ -8376,11 +8797,33 @@ async processMessage(data) {
                 // ignore
             }
             
+            // SBQ2: the key material has not moved yet. Run the in-band exchange
+            // before anything else touches the channel — establishConnection and
+            // the file-transfer subsystem both assume keys exist, and the SAS
+            // cannot be computed until the transcript is closed.
+            //
+            // Read the latched field rather than calling _isSbq2(): this handler
+            // is shared by both handshake paths and by the recovery tests, and a
+            // helper call here would make an unrelated path depend on a method
+            // that has nothing to do with opening a channel.
+            if (this._handshakeMode === 'sbq2') {
+                try {
+                    await this._runSbq2KeyExchange();
+                } catch (error) {
+                    this._secureLog('error', 'SBQ2 key exchange failed to start', {
+                        errorType: error?.constructor?.name || 'Unknown'
+                    });
+                    this._sbq2Abort('start_failed',
+                        'The secure handshake could not be started. Please try connecting again.');
+                    return;
+                }
+            }
+
             try {
                 await this.establishConnection();
 
         this.initializeFileTransfer();
-                
+
             } catch (error) {
                 this._secureLog('error', 'Error in establishConnection:', { errorType: error?.constructor?.name || 'Unknown' });
                 // Continue despite errors
@@ -8619,6 +9062,20 @@ async processMessage(data) {
                         // ============================================
                         // SYSTEM MESSAGES (WITHOUT MUTEX)
                         // ============================================
+
+                        // ============================================
+                        // SBQ2 IN-BAND KEY EXCHANGE
+                        // ============================================
+                        // The only frames that legitimately precede any key. They
+                        // are dispatched before the system-message branch so they
+                        // can never be confused with post-handshake traffic, and
+                        // _sbq2HandleHandshakeFrame refuses them outright on a
+                        // session that is not SBQ2.
+                        if (parsed.type === EnhancedSecureWebRTCManager.MESSAGE_TYPES.KEY_BLOB ||
+                            parsed.type === EnhancedSecureWebRTCManager.MESSAGE_TYPES.KEY_PROOF) {
+                            await this._sbq2HandleHandshakeFrame(parsed);
+                            return;
+                        }
 
                         if (parsed.type && ['heartbeat', 'verification', 'verification_response', 'verification_confirmed', 'verification_both_confirmed', 'sas_code', 'peer_disconnect', 'security_upgrade'].includes(parsed.type)) {
                             this.handleSystemMessage(parsed);
@@ -10868,8 +11325,23 @@ async processMessage(data) {
                     }
                 }));
 
+                // ============================================
+                // PHASE 15: SBQ2 — EMIT THE COMPACT DESCRIPTOR INSTEAD
+                // ============================================
+                // Everything above still runs: the key pairs it generates are the
+                // ones the in-band exchange will publish, and the DTLS
+                // fingerprint it extracted is the anchor the descriptor carries.
+                // What changes is what leaves the device — a descriptor with a
+                // commitment, not the key material itself.
+                if (EnhancedSecureWebRTCManager.SBQ2_SEND_ENABLED) {
+                    this._latchHandshakeMode('sbq2');
+                    const { text } = await this._sbq2BuildDescriptor(SBQ2_TYPE.OFFER);
+                    return { t: 'offer', sbq2: text };
+                }
+
+                this._latchHandshakeMode('sb1');
                 return offerPackage;
-                
+
             } catch (error) {
                 // ============================================
                 // ERROR HANDLING
@@ -10996,7 +11468,89 @@ async processMessage(data) {
      * FULLY FIXED METHOD createSecureAnswer()
      * With race-condition protection and enhanced security
      */
+    /**
+     * SBQ2 answer path.
+     *
+     * Deliberately separate from createSecureAnswer rather than folded into it:
+     * that method's job is to import the peer's keys and derive the session from
+     * the offer, and here there are no peer keys yet — only a fingerprint and a
+     * commitment. Sharing the body would mean threading "do we have keys yet?"
+     * through fifteen phases, and the whole point of the format is that the
+     * answer is produced before any key material has been seen.
+     */
+    async _createSbq2Answer(offerData) {
+        return this._withMutex('connectionOperation', async (operationId) => {
+            try {
+                this._resetNotificationFlags();
+                if (!this._checkRateLimit()) {
+                    throw new Error('Connection rate limit exceeded. Please wait before trying again.');
+                }
+                this._latchHandshakeMode('sbq2');
+
+                // Strict decode of untrusted input, before anything is used.
+                const offerBytes = sbq2DecodeText(String(offerData.sbq2));
+                const desc = this._sbq2AdoptRemoteDescriptor(offerBytes, SBQ2_TYPE.OFFER);
+                const { sdp: remoteSdp } = sbq2SerializeSdp(desc);
+
+                this.isInitiator = false;
+                this.onStatusChange('connecting');
+
+                const keyPairs = await this._generateEncryptionKeys();
+                this.ecdhKeyPair = keyPairs.ecdhKeyPair;
+                this.ecdsaKeyPair = keyPairs.ecdsaKeyPair;
+                if (!this.ecdhKeyPair?.privateKey || !this.ecdsaKeyPair?.privateKey) {
+                    throw new Error('Failed to generate valid key pairs');
+                }
+
+                this.createPeerConnection();
+
+                // The peer's DTLS fingerprint comes straight from the descriptor,
+                // which is the value the user carried by hand. This is the anchor
+                // the whole in-band exchange hangs from.
+                this._peerDTLSFingerprint = Array.from(desc.fingerprint,
+                    (b) => b.toString(16).padStart(2, '0').toUpperCase()).join(':');
+
+                await this.peerConnection.setRemoteDescription({ type: 'offer', sdp: remoteSdp });
+                await this.peerConnection.setLocalDescription(await this.peerConnection.createAnswer({
+                    offerToReceiveAudio: false,
+                    offerToReceiveVideo: false
+                }));
+
+                this.expectedDTLSFingerprint =
+                    this._extractDTLSFingerprintFromSDP(this.peerConnection.localDescription.sdp);
+
+                // Manual exchange has no trickle channel, so the descriptor must
+                // carry a complete candidate set.
+                await this.waitForIceGathering();
+
+                const digest = async (b) => new Uint8Array(await crypto.subtle.digest('SHA-256', b));
+                const { text } = await this._sbq2BuildDescriptor(SBQ2_TYPE.ANSWER, {
+                    bindingTag: await sbq2BindingTag(digest, offerBytes),
+                });
+
+                document.dispatchEvent(new CustomEvent('new-connection', {
+                    detail: { type: 'answer', timestamp: Date.now(), operationId }
+                }));
+
+                return { t: 'answer', sbq2: text };
+            } catch (error) {
+                this._secureLog('error', 'SBQ2 answer creation failed', {
+                    operationId,
+                    errorType: error?.constructor?.name || 'Unknown'
+                });
+                this.onStatusChange('disconnected');
+                throw error;
+            }
+        }, 60000);
+    }
+
     async createSecureAnswer(offerData) {
+        // Format detection happens before the mutex and before any validation
+        // written for the old shape: an SBQ2 invitation has none of the fields
+        // the SB1 validator requires, so it must never reach it.
+        if (offerData && typeof offerData.sbq2 === 'string') {
+            return this._createSbq2Answer(offerData);
+        }
         return this._withMutex('connectionOperation', async (operationId) => {
             this._secureLog('info', 'Creating secure answer with mutex', {
                 operationId: operationId,
@@ -11864,9 +12418,56 @@ async processMessage(data) {
         });
     }
 
+    /**
+     * SBQ2 answer handling on the offerer side.
+     *
+     * Sets the remote description and nothing else. No key is imported and no
+     * secret derived here, because none has been sent yet — that happens in
+     * _runSbq2KeyExchange once the channel is open and the commitment has been
+     * checked.
+     */
+    async _handleSbq2Answer(answerData) {
+        if (!this._isSbq2()) {
+            // We advertised SB1 and got SBQ2 back. Refuse rather than switch:
+            // an established session's format is latched, and this is precisely
+            // the shape a downgrade/upgrade confusion attack would take.
+            throw new Error('Received a new-format response to an old-format invitation. Please start a new invitation.');
+        }
+        const st = this._sbq2State();
+        const answerBytes = sbq2DecodeText(String(answerData.sbq2));
+        const desc = sbq2Decode(answerBytes);
+        if (desc.type !== SBQ2_TYPE.ANSWER) throw new Error('That code is an invitation, not a response to one.');
+        if (!desc.commitment) throw new Error('The response carries no key commitment');
+
+        // One-shot binding: this must be the answer to the invitation we are
+        // currently showing, not to any other one.
+        const digest = async (b) => new Uint8Array(await crypto.subtle.digest('SHA-256', b));
+        const expected = await sbq2BindingTag(digest, st.localDescriptor);
+        let diff = 0;
+        for (let i = 0; i < expected.length; i++) diff |= expected[i] ^ desc.bindingTag[i];
+        if (diff !== 0) {
+            throw new Error('This response belongs to a different invitation. Ask for a response to the code you are showing now.');
+        }
+
+        st.remoteDescriptor = answerBytes;
+        st.remoteCommitment = desc.commitment;
+        this._peerDTLSFingerprint = Array.from(desc.fingerprint,
+            (b) => b.toString(16).padStart(2, '0').toUpperCase()).join(':');
+
+        const { sdp } = sbq2SerializeSdp(desc);
+        await this.peerConnection.setRemoteDescription({ type: 'answer', sdp });
+
+        this._secureLog('info', 'SBQ2 answer accepted; awaiting in-band key exchange', {
+            bytes: answerBytes.length
+        });
+    }
+
     async handleSecureAnswer(answerData) {
+        if (answerData && typeof answerData.sbq2 === 'string') {
+            return this._handleSbq2Answer(answerData);
+        }
         try {
-            
+
             if (!answerData || typeof answerData !== 'object' || Array.isArray(answerData)) {
                 this._secureLog('error', 'CRITICAL: Invalid answer data structure', { 
                     hasAnswerData: !!answerData,

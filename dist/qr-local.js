@@ -36165,7 +36165,7 @@ async function packSecurePayload(payloadObj, senderEcdsaPrivKey = null, recipien
         ["encrypt", "decrypt"]
       );
       const iv = crypto.getRandomValues(new Uint8Array(12));
-      const enc = await crypto.subtle.encrypt(
+      const enc2 = await crypto.subtle.encrypt(
         { name: "AES-GCM", iv },
         cek,
         new TextEncoder().encode(payloadJson)
@@ -36173,7 +36173,7 @@ async function packSecurePayload(payloadObj, senderEcdsaPrivKey = null, recipien
       ciphertextCose = {
         protected: { alg: "A256GCM" },
         unprotected: { epk: ephemeralRaw },
-        ciphertext: new Uint8Array(enc),
+        ciphertext: new Uint8Array(enc2),
         iv
       };
     } else {
@@ -36455,6 +36455,279 @@ async function assembleFromQrStrings(qrStrings) {
 window.packSecurePayload = packSecurePayload;
 window.receiveAndProcess = receiveAndProcess;
 
+// src/network/descriptor/sbq2.js
+var SBQ2_VERSION = 2;
+var LIMITS = Object.freeze({
+  MAX_PAYLOAD_BYTES: 512,
+  // ~3.5x the largest descriptor we have ever measured
+  MAX_CANDIDATES: 8,
+  MIN_UFRAG: 4,
+  // RFC 8839: ice-ufrag is 4..256 chars
+  MAX_UFRAG: 64,
+  MIN_PWD: 22,
+  // RFC 8839: ice-pwd is 22..256 chars, >=128 bits of randomness
+  MAX_PWD: 64,
+  FINGERPRINT_BYTES: 32,
+  // SHA-256
+  COMMITMENT_BYTES: 16,
+  // 128-bit second-preimage resistance
+  BINDING_BYTES: 8,
+  MAX_LIFETIME_MINUTES: 60,
+  MAX_EXT_BYTES: 255,
+  // Byte budget for candidates admitted BEYOND the coverage set (coverage
+  // itself is never cut — see pruneCandidates). Derived from the acceptance
+  // target rather than picked: the largest answer head we have measured is
+  // Firefox's, at 104 bytes (version+flags+expiry+tag+fingerprint+8-char
+  // ufrag+32-char pwd+count+commitment), and QR version 8 at level M holds
+  // 152 bytes in byte mode. 152 - 104 = 48.
+  SURPLUS_CANDIDATE_BYTES: 48,
+  // Clock-skew allowance, applied in both directions on the expiry check.
+  //
+  // Two minutes is chosen against the failure it exists for: a receiver whose
+  // clock is off. An NTP-synced device is within milliseconds, and an
+  // unsynced modern device drifts on the order of seconds per day, so two
+  // minutes swallows every ordinary case. It does NOT swallow a grossly wrong
+  // clock (manually set, or reset to the epoch by a dead battery) — that is
+  // deliberate, because such a device cannot be given a meaningful freshness
+  // guarantee and should be told so. The cost is that the replay window grows
+  // from the nominal 10 minutes to 12; keeping the tolerance well under the
+  // lifetime is what bounds that.
+  CLOCK_SKEW_MS: 12e4
+});
+var EPOCH_MS = Date.UTC(2024, 0, 1);
+var TYPE2 = Object.freeze({ OFFER: 0, ANSWER: 1 });
+var SETUP = Object.freeze(["actpass", "active", "passive"]);
+var MMS_ENUM = Object.freeze([262144, 1073741823, 65536, null]);
+var MMS_EXPLICIT = 3;
+var EXT = Object.freeze({ MAX_MESSAGE_SIZE: 1 });
+var KIND = Object.freeze({
+  HOST_V4: 0,
+  HOST_MDNS: 1,
+  SRFLX_V4: 2,
+  RELAY_V4: 3,
+  HOST_V6: 4,
+  SRFLX_V6: 5,
+  RELAY_V6: 6
+});
+var KIND_ADDR_LEN = Object.freeze({ 0: 4, 1: 16, 2: 4, 3: 4, 4: 16, 5: 16, 6: 16 });
+var KIND_TYPE = Object.freeze({ 0: "host", 1: "host", 2: "srflx", 3: "relay", 4: "host", 5: "srflx", 6: "relay" });
+var KIND_FAMILY = Object.freeze({ 0: "v4", 1: "mdns", 2: "v4", 3: "v4", 4: "v6", 5: "v6", 6: "v6" });
+var TCPTYPE = Object.freeze([null, "passive", "active", "so"]);
+var TYPE_PREF = Object.freeze({ host: 126, srflx: 100, relay: 0 });
+var ICE_CHAR = /^[A-Za-z0-9+/]+$/;
+var DescriptorError = class extends Error {
+  constructor(message, code = "malformed") {
+    super(message);
+    this.name = "DescriptorError";
+    this.code = code;
+  }
+};
+var fail = (msg, code) => {
+  throw new DescriptorError(msg, code);
+};
+var Reader = class {
+  constructor(buf) {
+    this.buf = buf;
+    this.i = 0;
+  }
+  need(n) {
+    if (this.i + n > this.buf.length) fail("descriptor is truncated");
+  }
+  u8() {
+    this.need(1);
+    return this.buf[this.i++];
+  }
+  u16() {
+    this.need(2);
+    const v = this.buf[this.i] << 8 | this.buf[this.i + 1];
+    this.i += 2;
+    return v;
+  }
+  u24() {
+    this.need(3);
+    const v = this.buf[this.i] << 16 | this.buf[this.i + 1] << 8 | this.buf[this.i + 2];
+    this.i += 3;
+    return v;
+  }
+  u32() {
+    this.need(4);
+    const v = (this.buf[this.i] << 24 >>> 0) + (this.buf[this.i + 1] << 16) + (this.buf[this.i + 2] << 8) + this.buf[this.i + 3];
+    this.i += 4;
+    return v >>> 0;
+  }
+  bytes(n) {
+    this.need(n);
+    return this.buf.slice(this.i, this.i += n);
+  }
+  ascii(n) {
+    this.need(n);
+    let s = "";
+    for (let k = 0; k < n; k++) {
+      const c = this.buf[this.i + k];
+      if (c < 32 || c > 126) fail("non-printable byte in a text field");
+      s += String.fromCharCode(c);
+    }
+    this.i += n;
+    return s;
+  }
+  get rest() {
+    return this.buf.length - this.i;
+  }
+};
+function decodeExt(buf) {
+  const r = new Reader(buf);
+  const out = /* @__PURE__ */ new Map();
+  let lastType = -1;
+  while (r.rest > 0) {
+    const type = r.u8();
+    const len = r.u8();
+    const value = r.bytes(len);
+    if (type <= lastType) fail("extension records must be in ascending type order without duplicates");
+    lastType = type;
+    switch (type) {
+      case EXT.MAX_MESSAGE_SIZE: {
+        if (len !== 4) fail("extension 0x01 must be 4 bytes");
+        const v = new Reader(value).u32();
+        if (v < 1024 || v > 2147483647) fail("extension 0x01 value is out of range");
+        if (MMS_ENUM.includes(v)) fail("extension 0x01 duplicates a value the flags already encode");
+        out.set(type, v);
+        break;
+      }
+      default:
+        fail(`unknown extension type 0x${type.toString(16).padStart(2, "0")}`, "unknown_extension");
+    }
+  }
+  return out;
+}
+function decodeDescriptor(buf, { nowMs = Date.now() } = {}) {
+  if (!(buf instanceof Uint8Array)) fail("descriptor must be a Uint8Array");
+  if (buf.length === 0) fail("descriptor is empty");
+  if (buf.length > LIMITS.MAX_PAYLOAD_BYTES) fail("descriptor exceeds the payload limit");
+  const r = new Reader(buf);
+  const version = r.u8();
+  if (version !== SBQ2_VERSION) fail(`unsupported descriptor version 0x${version.toString(16)}`, "version");
+  const flags = r.u8();
+  const type = flags & 3;
+  if (type !== TYPE2.OFFER && type !== TYPE2.ANSWER) fail("reserved descriptor type");
+  const setup = flags >> 2 & 3;
+  if (setup > 2) fail("reserved DTLS setup role");
+  const mmsIndex = flags >> 4 & 3;
+  const hasCommitment = (flags & 64) !== 0;
+  const hasExt = (flags & 128) !== 0;
+  const minutes = r.u24();
+  const expiresAtMs = EPOCH_MS + minutes * 6e4;
+  if (nowMs - LIMITS.CLOCK_SKEW_MS > expiresAtMs) {
+    const lateMin = Math.round((nowMs - expiresAtMs) / 6e4);
+    fail(
+      `this code expired ${lateMin} minute(s) ago. If it was just created, this device's clock or time zone is probably wrong \u2014 check the date and time settings.`,
+      "expired"
+    );
+  }
+  if (expiresAtMs - nowMs > LIMITS.MAX_LIFETIME_MINUTES * 6e4 + LIMITS.CLOCK_SKEW_MS) {
+    fail("descriptor lifetime is implausibly long", "lifetime");
+  }
+  const bindingTag = type === TYPE2.ANSWER ? r.bytes(LIMITS.BINDING_BYTES) : null;
+  const fingerprint = r.bytes(LIMITS.FINGERPRINT_BYTES);
+  const ufragLen = r.u8();
+  if (ufragLen < LIMITS.MIN_UFRAG || ufragLen > LIMITS.MAX_UFRAG) fail("ice-ufrag length out of range");
+  const ufrag = r.ascii(ufragLen);
+  if (!ICE_CHAR.test(ufrag)) fail("ice-ufrag contains characters outside the ICE alphabet");
+  const pwdLen = r.u8();
+  if (pwdLen < LIMITS.MIN_PWD || pwdLen > LIMITS.MAX_PWD) fail("ice-pwd length out of range");
+  const pwd = r.ascii(pwdLen);
+  if (!ICE_CHAR.test(pwd)) fail("ice-pwd contains characters outside the ICE alphabet");
+  const count = r.u8();
+  if (count > LIMITS.MAX_CANDIDATES) fail("too many candidates");
+  const candidates = [];
+  for (let i = 0; i < count; i++) {
+    const tagByte = r.u8();
+    const kind = tagByte >> 4 & 15;
+    const tcptype = tagByte & 15;
+    const addrLen = KIND_ADDR_LEN[kind];
+    if (addrLen === void 0) fail(`reserved candidate kind ${kind}`);
+    if (tcptype >= TCPTYPE.length) fail("reserved TCP candidate type");
+    const addr = r.bytes(addrLen);
+    const port = r.u16();
+    if (port < 1) fail("candidate port must be non-zero");
+    candidates.push({ kind, tcptype, addr, port });
+  }
+  let commitment = null;
+  if (hasCommitment) commitment = r.bytes(LIMITS.COMMITMENT_BYTES);
+  let extensions = /* @__PURE__ */ new Map();
+  if (hasExt) {
+    const extLen = r.u8();
+    if (extLen === 0) fail("extension area is flagged but empty");
+    extensions = decodeExt(r.bytes(extLen));
+  }
+  if (r.rest !== 0) fail(`${r.rest} trailing byte(s) after the descriptor`);
+  let maxMessageSize;
+  if (mmsIndex === MMS_EXPLICIT) {
+    if (!extensions.has(EXT.MAX_MESSAGE_SIZE)) fail("flags promise an explicit max-message-size but no extension carries it");
+    maxMessageSize = extensions.get(EXT.MAX_MESSAGE_SIZE);
+  } else {
+    if (extensions.has(EXT.MAX_MESSAGE_SIZE)) fail("extension 0x01 present but the flags do not select it");
+    maxMessageSize = MMS_ENUM[mmsIndex];
+  }
+  return {
+    version,
+    type,
+    setup,
+    maxMessageSize,
+    expiresAtMs,
+    bindingTag,
+    fingerprint,
+    ufrag,
+    pwd,
+    candidates,
+    commitment,
+    extensions
+  };
+}
+var enc = new TextEncoder();
+var B64URL = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+function toBase64Url2(bytes) {
+  let out = "";
+  for (let i = 0; i < bytes.length; i += 3) {
+    const a = bytes[i], b = bytes[i + 1], c = bytes[i + 2];
+    out += B64URL[a >> 2];
+    out += B64URL[(a & 3) << 4 | (b ?? 0) >> 4];
+    if (b === void 0) break;
+    out += B64URL[(b & 15) << 2 | (c ?? 0) >> 6];
+    if (c === void 0) break;
+    out += B64URL[c & 63];
+  }
+  return out;
+}
+function fromBase64Url2(text) {
+  if (typeof text !== "string") fail("payload must be a string");
+  const s = text.replace(/\s+/g, "");
+  if (s.length > Math.ceil(LIMITS.MAX_PAYLOAD_BYTES * 4 / 3) + 4) fail("payload is too long");
+  if (!/^[A-Za-z0-9_-]*$/.test(s)) fail("payload contains characters outside base64url");
+  if (s.length % 4 === 1) fail("payload has an impossible length");
+  const out = new Uint8Array(Math.floor(s.length * 3 / 4));
+  let o = 0, acc = 0, bits = 0;
+  for (const ch of s) {
+    acc = acc << 6 | B64URL.indexOf(ch);
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      out[o++] = acc >> bits & 255;
+    }
+  }
+  if (acc & (1 << bits) - 1) fail("payload has non-zero padding bits");
+  return out.subarray(0, o);
+}
+var TEXT_PREFIX = "SB2:";
+function encodeText(bytes) {
+  return TEXT_PREFIX + toBase64Url2(bytes);
+}
+function decodeText(text) {
+  if (typeof text !== "string") fail("payload must be a string");
+  const t = text.trim();
+  if (!t.startsWith(TEXT_PREFIX)) fail("not an SB2 descriptor");
+  return fromBase64Url2(t.slice(TEXT_PREFIX.length));
+}
+
 // src/scripts/qr-local.js
 var COMPRESSION_PREFIX = "SB1:gz:";
 var BINARY_PREFIX = "SB1:bin:";
@@ -36579,6 +36852,7 @@ window.compressToPrefixedGzip = function(text) {
 window.encodeBinaryToPrefixed = function(objOrJson) {
   try {
     const obj = typeof objOrJson === "string" ? JSON.parse(objOrJson) : objOrJson;
+    if (obj && typeof obj.sbq2 === "string") return obj.sbq2;
     const b64url = encodeObjectToBinaryBase64Url(obj);
     return BINARY_PREFIX + b64url;
   } catch (e) {
@@ -36589,6 +36863,22 @@ window.encodeBinaryToPrefixed = function(objOrJson) {
 window.decodeAnyPayload = function(scannedText) {
   try {
     if (typeof scannedText === "string") {
+      if (scannedText.startsWith(TEXT_PREFIX)) {
+        const bytes = decodeText(scannedText);
+        const desc = decodeDescriptor(bytes);
+        return { t: desc.type === TYPE2.OFFER ? "offer" : "answer", sbq2: scannedText };
+      }
+      if (scannedText.charCodeAt(0) === 2) {
+        const bytes = Uint8Array.from(scannedText, (c) => c.charCodeAt(0) & 255);
+        const desc = decodeDescriptor(bytes);
+        return { t: desc.type === TYPE2.OFFER ? "offer" : "answer", sbq2: encodeText(bytes) };
+      }
+      const family = /^SB(\d+):/.exec(scannedText);
+      if (family && family[1] !== "1" && family[1] !== "2") {
+        throw new Error(
+          "This invitation was created by a newer version of SecureBit. Please update the app to connect."
+        );
+      }
       if (scannedText.startsWith(BINARY_PREFIX)) {
         const b64url = scannedText.slice(BINARY_PREFIX.length);
         return decodeBinaryBase64UrlToObject(b64url);
@@ -36600,6 +36890,9 @@ window.decodeAnyPayload = function(scannedText) {
       return scannedText;
     }
   } catch (e) {
+    if (typeof scannedText === "string" && (scannedText.startsWith(TEXT_PREFIX) || scannedText.charCodeAt(0) === 2 || /^SB(\d+):/.test(scannedText))) {
+      throw e;
+    }
     console.warn("decodeAnyPayload failed:", e?.message || e);
   }
   return scannedText;

@@ -1878,8 +1878,8 @@ function createDOMPurify() {
     let l = attributes.length;
     const lcTag = transformCaseFunc(currentNode.nodeName);
     while (l--) {
-      const attr = attributes[l];
-      const name = attr.name, namespaceURI = attr.namespaceURI, attrValue = attr.value;
+      const attr2 = attributes[l];
+      const name = attr2.name, namespaceURI = attr2.namespaceURI, attrValue = attr2.value;
       const lcName = transformCaseFunc(name);
       const initValue = attrValue;
       let value = name === "value" ? initValue : stringTrim(initValue);
@@ -2125,12 +2125,12 @@ function createDOMPurify() {
     trustedTypesPolicy = defaultTrustedTypesPolicy;
     emptyHTML = "";
   };
-  DOMPurify.isValidAttribute = function(tag, attr, value) {
+  DOMPurify.isValidAttribute = function(tag, attr2, value) {
     if (!CONFIG) {
       _parseConfig({});
     }
     const lcTag = transformCaseFunc(tag);
-    const lcName = transformCaseFunc(attr);
+    const lcName = transformCaseFunc(attr2);
     return _isValidAttribute(lcTag, lcName, value);
   };
   DOMPurify.addHook = function(entryPoint, hookFunction) {
@@ -6592,10 +6592,10 @@ async function configureAudioSender(sender, options = {}) {
     const cfg = { ...AUDIO_CONFIG.sender, ...options };
     const params = sender.getParameters();
     if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
-    for (const enc2 of params.encodings) {
-      enc2.maxBitrate = cfg.maxBitrate;
-      enc2.priority = cfg.priority;
-      enc2.networkPriority = cfg.networkPriority;
+    for (const enc4 of params.encodings) {
+      enc4.maxBitrate = cfg.maxBitrate;
+      enc4.priority = cfg.priority;
+      enc4.networkPriority = cfg.networkPriority;
     }
     await sender.setParameters(params);
     return true;
@@ -6657,12 +6657,12 @@ async function configureVideoSender(sender, options = {}) {
     if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
     const simulcast = params.encodings.length > 1;
     if (simulcast) {
-      for (const enc2 of params.encodings) enc2.networkPriority = VIDEO_CONFIG.networkPriority;
+      for (const enc4 of params.encodings) enc4.networkPriority = VIDEO_CONFIG.networkPriority;
     } else {
-      const enc2 = params.encodings[0];
-      enc2.maxBitrate = plan.maxBitrate;
-      enc2.networkPriority = VIDEO_CONFIG.networkPriority;
-      if (plan.scalabilityMode) enc2.scalabilityMode = plan.scalabilityMode;
+      const enc4 = params.encodings[0];
+      enc4.maxBitrate = plan.maxBitrate;
+      enc4.networkPriority = VIDEO_CONFIG.networkPriority;
+      if (plan.scalabilityMode) enc4.scalabilityMode = plan.scalabilityMode;
     }
     if (plan.degradationPreference) params.degradationPreference = plan.degradationPreference;
     try {
@@ -7270,6 +7270,786 @@ var DoubleRatchet = class {
   }
 };
 
+// src/network/descriptor/sbq2.js
+var SBQ2_VERSION = 2;
+var LIMITS = Object.freeze({
+  MAX_PAYLOAD_BYTES: 512,
+  // ~3.5x the largest descriptor we have ever measured
+  MAX_CANDIDATES: 8,
+  MIN_UFRAG: 4,
+  // RFC 8839: ice-ufrag is 4..256 chars
+  MAX_UFRAG: 64,
+  MIN_PWD: 22,
+  // RFC 8839: ice-pwd is 22..256 chars, >=128 bits of randomness
+  MAX_PWD: 64,
+  FINGERPRINT_BYTES: 32,
+  // SHA-256
+  COMMITMENT_BYTES: 16,
+  // 128-bit second-preimage resistance
+  BINDING_BYTES: 8,
+  MAX_LIFETIME_MINUTES: 60,
+  MAX_EXT_BYTES: 255,
+  // Byte budget for candidates admitted BEYOND the coverage set (coverage
+  // itself is never cut — see pruneCandidates). Derived from the acceptance
+  // target rather than picked: the largest answer head we have measured is
+  // Firefox's, at 104 bytes (version+flags+expiry+tag+fingerprint+8-char
+  // ufrag+32-char pwd+count+commitment), and QR version 8 at level M holds
+  // 152 bytes in byte mode. 152 - 104 = 48.
+  SURPLUS_CANDIDATE_BYTES: 48,
+  // Clock-skew allowance, applied in both directions on the expiry check.
+  //
+  // Two minutes is chosen against the failure it exists for: a receiver whose
+  // clock is off. An NTP-synced device is within milliseconds, and an
+  // unsynced modern device drifts on the order of seconds per day, so two
+  // minutes swallows every ordinary case. It does NOT swallow a grossly wrong
+  // clock (manually set, or reset to the epoch by a dead battery) — that is
+  // deliberate, because such a device cannot be given a meaningful freshness
+  // guarantee and should be told so. The cost is that the replay window grows
+  // from the nominal 10 minutes to 12; keeping the tolerance well under the
+  // lifetime is what bounds that.
+  CLOCK_SKEW_MS: 12e4
+});
+var EPOCH_MS = Date.UTC(2024, 0, 1);
+var MAX_EXPIRY_UNITS = 16777215;
+var TYPE = Object.freeze({ OFFER: 0, ANSWER: 1 });
+var SETUP = Object.freeze(["actpass", "active", "passive"]);
+var MMS_ENUM = Object.freeze([262144, 1073741823, 65536, null]);
+var MMS_EXPLICIT = 3;
+var EXT = Object.freeze({ MAX_MESSAGE_SIZE: 1 });
+var KIND = Object.freeze({
+  HOST_V4: 0,
+  HOST_MDNS: 1,
+  SRFLX_V4: 2,
+  RELAY_V4: 3,
+  HOST_V6: 4,
+  SRFLX_V6: 5,
+  RELAY_V6: 6
+});
+var KIND_ADDR_LEN = Object.freeze({ 0: 4, 1: 16, 2: 4, 3: 4, 4: 16, 5: 16, 6: 16 });
+var KIND_TYPE = Object.freeze({ 0: "host", 1: "host", 2: "srflx", 3: "relay", 4: "host", 5: "srflx", 6: "relay" });
+var KIND_FAMILY = Object.freeze({ 0: "v4", 1: "mdns", 2: "v4", 3: "v4", 4: "v6", 5: "v6", 6: "v6" });
+var TCPTYPE = Object.freeze([null, "passive", "active", "so"]);
+var TYPE_PREF = Object.freeze({ host: 126, srflx: 100, relay: 0 });
+var ICE_CHAR = /^[A-Za-z0-9+/]+$/;
+var DescriptorError = class extends Error {
+  constructor(message, code = "malformed") {
+    super(message);
+    this.name = "DescriptorError";
+    this.code = code;
+  }
+};
+var fail = (msg, code) => {
+  throw new DescriptorError(msg, code);
+};
+var UUID_RE = /^([0-9a-f]{8})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{12})\.local$/i;
+var IPV4_RE = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+function parseIpv4(s) {
+  const m = IPV4_RE.exec(s);
+  if (!m) return null;
+  const out = new Uint8Array(4);
+  for (let i = 0; i < 4; i++) {
+    const v = Number(m[i + 1]);
+    if (!Number.isInteger(v) || v < 0 || v > 255) return null;
+    out[i] = v;
+  }
+  return out;
+}
+function parseIpv6(s) {
+  if (!/^[0-9a-fA-F:.]+$/.test(s) || s.length > 45) return null;
+  let text2 = s;
+  let tail4 = null;
+  const lastColon = text2.lastIndexOf(":");
+  if (text2.includes(".")) {
+    tail4 = parseIpv4(text2.slice(lastColon + 1));
+    if (!tail4) return null;
+    text2 = text2.slice(0, lastColon + 1) + "0:0";
+  }
+  const halves = text2.split("::");
+  if (halves.length > 2) return null;
+  const toWords = (part) => part === "" ? [] : part.split(":").map((h) => h.length === 0 || h.length > 4 ? NaN : parseInt(h, 16));
+  const head = toWords(halves[0]);
+  const tail = halves.length === 2 ? toWords(halves[1]) : [];
+  if ([...head, ...tail].some((w) => !Number.isInteger(w) || w < 0 || w > 65535)) return null;
+  let words;
+  if (halves.length === 2) {
+    const gap = 8 - head.length - tail.length;
+    if (gap < 1) return null;
+    words = [...head, ...new Array(gap).fill(0), ...tail];
+  } else {
+    words = head;
+  }
+  if (words.length !== 8) return null;
+  const out = new Uint8Array(16);
+  words.forEach((w, i) => {
+    out[i * 2] = w >> 8;
+    out[i * 2 + 1] = w & 255;
+  });
+  if (tail4) out.set(tail4, 12);
+  return out;
+}
+function parseMdns(s) {
+  const m = UUID_RE.exec(s);
+  if (!m) return null;
+  const hex = (m[1] + m[2] + m[3] + m[4] + m[5]).toLowerCase();
+  const out = new Uint8Array(16);
+  for (let i = 0; i < 16; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
+  return out;
+}
+function sdpLines(sdp) {
+  if (typeof sdp !== "string") fail("SDP must be a string");
+  if (sdp.length > 64 * 1024) fail("SDP is too large");
+  return sdp.split(/\r\n|\n/).filter((l) => l.length > 0);
+}
+function attr(lines, name) {
+  const prefix = `a=${name}:`;
+  for (const l of lines) if (l.startsWith(prefix)) return l.slice(prefix.length).trim();
+  return null;
+}
+function parseSdp(sdp) {
+  const lines = sdpLines(sdp);
+  const ufrag = attr(lines, "ice-ufrag");
+  const pwd = attr(lines, "ice-pwd");
+  if (!ufrag || !pwd) fail("SDP is missing ICE credentials");
+  const fpLine = attr(lines, "fingerprint");
+  if (!fpLine) fail("SDP is missing a DTLS fingerprint");
+  const [hashAlg, fpHex] = fpLine.split(/\s+/);
+  if (!hashAlg || hashAlg.toLowerCase() !== "sha-256") {
+    fail(`unsupported DTLS fingerprint algorithm: ${String(hashAlg).slice(0, 16)}`);
+  }
+  const fpBytes = String(fpHex).split(":");
+  if (fpBytes.length !== LIMITS.FINGERPRINT_BYTES) fail("DTLS fingerprint has the wrong length");
+  const fingerprint = new Uint8Array(LIMITS.FINGERPRINT_BYTES);
+  fpBytes.forEach((b, i) => {
+    if (!/^[0-9a-fA-F]{2}$/.test(b)) fail("DTLS fingerprint is not hex");
+    fingerprint[i] = parseInt(b, 16);
+  });
+  const setupStr = attr(lines, "setup") || "actpass";
+  const setup = SETUP.indexOf(setupStr);
+  if (setup < 0) fail(`unsupported DTLS setup role: ${setupStr.slice(0, 16)}`);
+  const mmsStr = attr(lines, "max-message-size");
+  const maxMessageSize = mmsStr === null ? 65536 : Number(mmsStr);
+  if (!Number.isInteger(maxMessageSize) || maxMessageSize < 0) fail("invalid a=max-message-size");
+  const candidates = [];
+  for (const line of lines) {
+    if (!line.startsWith("a=candidate:")) continue;
+    const p = line.slice("a=candidate:".length).split(/\s+/);
+    if (p.length < 8 || p[6] !== "typ") continue;
+    if (p[1] !== "1") continue;
+    const transport = p[2].toLowerCase();
+    const priority = Number(p[3]);
+    const addr = p[4];
+    const port = Number(p[5]);
+    const ctype = p[7];
+    if (!Number.isInteger(port) || port < 1 || port > 65535) continue;
+    let tcptype = 0;
+    if (transport === "tcp") {
+      const idx = p.indexOf("tcptype");
+      const t = idx >= 0 ? TCPTYPE.indexOf(p[idx + 1]) : -1;
+      if (t <= 0) continue;
+      tcptype = t;
+    } else if (transport !== "udp") {
+      continue;
+    }
+    let kind = null;
+    let bytes = null;
+    const mdns = parseMdns(addr);
+    if (mdns && ctype === "host") {
+      kind = KIND.HOST_MDNS;
+      bytes = mdns;
+    } else {
+      const v4 = parseIpv4(addr);
+      const v6 = v4 ? null : parseIpv6(addr);
+      const raw = v4 || v6;
+      if (!raw) continue;
+      if (ctype === "host") kind = v4 ? KIND.HOST_V4 : KIND.HOST_V6;
+      else if (ctype === "srflx" || ctype === "prflx") kind = v4 ? KIND.SRFLX_V4 : KIND.SRFLX_V6;
+      else if (ctype === "relay") kind = v4 ? KIND.RELAY_V4 : KIND.RELAY_V6;
+      else continue;
+      bytes = raw;
+    }
+    candidates.push({
+      kind,
+      tcptype,
+      addr: bytes,
+      port,
+      priority: Number.isFinite(priority) ? priority : 0
+    });
+  }
+  return { ufrag, pwd, fingerprint, setup, maxMessageSize, candidates };
+}
+function candidateSize(c) {
+  return 1 + KIND_ADDR_LEN[c.kind] + 2;
+}
+var isConnectable = (c) => c.tcptype !== 2 && c.tcptype !== 3;
+function pruneCandidates(candidates, {
+  maxCandidates = LIMITS.MAX_CANDIDATES,
+  maxBytes = LIMITS.SURPLUS_CANDIDATE_BYTES,
+  keepMdns = true,
+  maxRelays = 2
+} = {}) {
+  const pool = candidates.filter((c) => keepMdns || c.kind !== KIND.HOST_MDNS);
+  const uniq = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const c of pool) {
+    const key = `${c.kind}:${c.tcptype}:${Array.from(c.addr).join(".")}:${c.port}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    uniq.push(c);
+  }
+  const byPriority = (a, b) => (b.priority || 0) - (a.priority || 0);
+  const groupKey = (c) => `${KIND_FAMILY[c.kind]}/${KIND_TYPE[c.kind]}/${c.tcptype === 0 ? "udp" : "tcp"}`;
+  const groups = /* @__PURE__ */ new Map();
+  for (const c of [...uniq].sort(byPriority)) {
+    if (!isConnectable(c)) continue;
+    const g = groupKey(c);
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g).push(c);
+  }
+  const chosen = [];
+  const taken = /* @__PURE__ */ new Set();
+  let bytes = 0;
+  let relays = 0;
+  const admit = (c) => {
+    chosen.push(c);
+    taken.add(c);
+    bytes += candidateSize(c);
+    if (KIND_TYPE[c.kind] === "relay") relays++;
+  };
+  for (const list of groups.values()) admit(list[0]);
+  for (const c of [...uniq].sort(byPriority)) {
+    if (taken.has(c)) continue;
+    if (chosen.length >= maxCandidates) break;
+    if (bytes + candidateSize(c) > maxBytes) continue;
+    if (KIND_TYPE[c.kind] === "relay" && relays >= maxRelays) continue;
+    admit(c);
+  }
+  return chosen.sort(byPriority);
+}
+var Writer = class {
+  constructor() {
+    this.b = [];
+  }
+  u8(v) {
+    this.b.push(v & 255);
+  }
+  u16(v) {
+    this.b.push(v >> 8 & 255, v & 255);
+  }
+  u24(v) {
+    this.b.push(v >> 16 & 255, v >> 8 & 255, v & 255);
+  }
+  u32(v) {
+    this.b.push(v >>> 24 & 255, v >>> 16 & 255, v >>> 8 & 255, v & 255);
+  }
+  bytes(a) {
+    for (const x of a) this.b.push(x & 255);
+  }
+  ascii(s) {
+    for (let i = 0; i < s.length; i++) this.b.push(s.charCodeAt(i) & 255);
+  }
+  done() {
+    return Uint8Array.from(this.b);
+  }
+};
+function buildExtensions(maxMessageSize) {
+  if (!Number.isInteger(maxMessageSize) || maxMessageSize < 1024 || maxMessageSize > 2147483647) {
+    fail("max-message-size must be an integer between 1024 and 2^31-1");
+  }
+  const records = [];
+  let mmsIndex = MMS_ENUM.indexOf(maxMessageSize);
+  if (mmsIndex < 0) {
+    mmsIndex = MMS_EXPLICIT;
+    const w = new Writer();
+    w.u32(maxMessageSize);
+    records.push({ type: EXT.MAX_MESSAGE_SIZE, value: w.done() });
+  }
+  return { mmsIndex, records };
+}
+function encodeDescriptor(d) {
+  const { type, bindingTag: tag = null, expiresAtMs, sdpFields, commitment = null } = d;
+  if (type !== TYPE.OFFER && type !== TYPE.ANSWER) fail("invalid descriptor type");
+  if (type === TYPE.ANSWER) {
+    if (!(tag instanceof Uint8Array) || tag.length !== LIMITS.BINDING_BYTES) fail("answer needs an 8-byte binding tag");
+  } else if (tag !== null) {
+    fail("offers do not carry a binding tag");
+  }
+  if (commitment !== null && (!(commitment instanceof Uint8Array) || commitment.length !== LIMITS.COMMITMENT_BYTES)) {
+    fail("commitment must be 16 bytes");
+  }
+  const { ufrag, pwd, fingerprint, setup, maxMessageSize, candidates } = sdpFields;
+  if (ufrag.length < LIMITS.MIN_UFRAG || ufrag.length > LIMITS.MAX_UFRAG || !ICE_CHAR.test(ufrag)) fail("invalid ice-ufrag");
+  if (pwd.length < LIMITS.MIN_PWD || pwd.length > LIMITS.MAX_PWD || !ICE_CHAR.test(pwd)) fail("invalid ice-pwd");
+  if (candidates.length > LIMITS.MAX_CANDIDATES) fail("too many candidates");
+  const minutes = Math.ceil((expiresAtMs - EPOCH_MS) / 6e4);
+  if (!Number.isInteger(minutes) || minutes < 0 || minutes > MAX_EXPIRY_UNITS) fail("expiry out of range");
+  const { mmsIndex, records } = buildExtensions(maxMessageSize);
+  const ext = new Writer();
+  for (const r of records) {
+    if (r.value.length > 255) fail("extension value is too long");
+    ext.u8(r.type);
+    ext.u8(r.value.length);
+    ext.bytes(r.value);
+  }
+  const extBytes = ext.done();
+  if (extBytes.length > LIMITS.MAX_EXT_BYTES) fail("extension area is too long");
+  const flags = type & 3 | (setup & 3) << 2 | (mmsIndex & 3) << 4 | (commitment ? 64 : 0) | (extBytes.length ? 128 : 0);
+  const w = new Writer();
+  w.u8(SBQ2_VERSION);
+  w.u8(flags);
+  w.u24(minutes);
+  if (type === TYPE.ANSWER) w.bytes(tag);
+  w.bytes(fingerprint);
+  w.u8(ufrag.length);
+  w.ascii(ufrag);
+  w.u8(pwd.length);
+  w.ascii(pwd);
+  w.u8(candidates.length);
+  for (const c of candidates) {
+    w.u8((c.kind & 15) << 4 | c.tcptype & 15);
+    w.bytes(c.addr);
+    w.u16(c.port);
+  }
+  if (commitment) w.bytes(commitment);
+  if (extBytes.length) {
+    w.u8(extBytes.length);
+    w.bytes(extBytes);
+  }
+  const out = w.done();
+  if (out.length > LIMITS.MAX_PAYLOAD_BYTES) fail("descriptor exceeds the payload limit");
+  return out;
+}
+var Reader = class {
+  constructor(buf) {
+    this.buf = buf;
+    this.i = 0;
+  }
+  need(n) {
+    if (this.i + n > this.buf.length) fail("descriptor is truncated");
+  }
+  u8() {
+    this.need(1);
+    return this.buf[this.i++];
+  }
+  u16() {
+    this.need(2);
+    const v = this.buf[this.i] << 8 | this.buf[this.i + 1];
+    this.i += 2;
+    return v;
+  }
+  u24() {
+    this.need(3);
+    const v = this.buf[this.i] << 16 | this.buf[this.i + 1] << 8 | this.buf[this.i + 2];
+    this.i += 3;
+    return v;
+  }
+  u32() {
+    this.need(4);
+    const v = (this.buf[this.i] << 24 >>> 0) + (this.buf[this.i + 1] << 16) + (this.buf[this.i + 2] << 8) + this.buf[this.i + 3];
+    this.i += 4;
+    return v >>> 0;
+  }
+  bytes(n) {
+    this.need(n);
+    return this.buf.slice(this.i, this.i += n);
+  }
+  ascii(n) {
+    this.need(n);
+    let s = "";
+    for (let k = 0; k < n; k++) {
+      const c = this.buf[this.i + k];
+      if (c < 32 || c > 126) fail("non-printable byte in a text field");
+      s += String.fromCharCode(c);
+    }
+    this.i += n;
+    return s;
+  }
+  get rest() {
+    return this.buf.length - this.i;
+  }
+};
+function decodeExt(buf) {
+  const r = new Reader(buf);
+  const out = /* @__PURE__ */ new Map();
+  let lastType = -1;
+  while (r.rest > 0) {
+    const type = r.u8();
+    const len = r.u8();
+    const value = r.bytes(len);
+    if (type <= lastType) fail("extension records must be in ascending type order without duplicates");
+    lastType = type;
+    switch (type) {
+      case EXT.MAX_MESSAGE_SIZE: {
+        if (len !== 4) fail("extension 0x01 must be 4 bytes");
+        const v = new Reader(value).u32();
+        if (v < 1024 || v > 2147483647) fail("extension 0x01 value is out of range");
+        if (MMS_ENUM.includes(v)) fail("extension 0x01 duplicates a value the flags already encode");
+        out.set(type, v);
+        break;
+      }
+      default:
+        fail(`unknown extension type 0x${type.toString(16).padStart(2, "0")}`, "unknown_extension");
+    }
+  }
+  return out;
+}
+function decodeDescriptor(buf, { nowMs = Date.now() } = {}) {
+  if (!(buf instanceof Uint8Array)) fail("descriptor must be a Uint8Array");
+  if (buf.length === 0) fail("descriptor is empty");
+  if (buf.length > LIMITS.MAX_PAYLOAD_BYTES) fail("descriptor exceeds the payload limit");
+  const r = new Reader(buf);
+  const version2 = r.u8();
+  if (version2 !== SBQ2_VERSION) fail(`unsupported descriptor version 0x${version2.toString(16)}`, "version");
+  const flags = r.u8();
+  const type = flags & 3;
+  if (type !== TYPE.OFFER && type !== TYPE.ANSWER) fail("reserved descriptor type");
+  const setup = flags >> 2 & 3;
+  if (setup > 2) fail("reserved DTLS setup role");
+  const mmsIndex = flags >> 4 & 3;
+  const hasCommitment = (flags & 64) !== 0;
+  const hasExt = (flags & 128) !== 0;
+  const minutes = r.u24();
+  const expiresAtMs = EPOCH_MS + minutes * 6e4;
+  if (nowMs - LIMITS.CLOCK_SKEW_MS > expiresAtMs) {
+    const lateMin = Math.round((nowMs - expiresAtMs) / 6e4);
+    fail(
+      `this code expired ${lateMin} minute(s) ago. If it was just created, this device's clock or time zone is probably wrong \u2014 check the date and time settings.`,
+      "expired"
+    );
+  }
+  if (expiresAtMs - nowMs > LIMITS.MAX_LIFETIME_MINUTES * 6e4 + LIMITS.CLOCK_SKEW_MS) {
+    fail("descriptor lifetime is implausibly long", "lifetime");
+  }
+  const bindingTag2 = type === TYPE.ANSWER ? r.bytes(LIMITS.BINDING_BYTES) : null;
+  const fingerprint = r.bytes(LIMITS.FINGERPRINT_BYTES);
+  const ufragLen = r.u8();
+  if (ufragLen < LIMITS.MIN_UFRAG || ufragLen > LIMITS.MAX_UFRAG) fail("ice-ufrag length out of range");
+  const ufrag = r.ascii(ufragLen);
+  if (!ICE_CHAR.test(ufrag)) fail("ice-ufrag contains characters outside the ICE alphabet");
+  const pwdLen = r.u8();
+  if (pwdLen < LIMITS.MIN_PWD || pwdLen > LIMITS.MAX_PWD) fail("ice-pwd length out of range");
+  const pwd = r.ascii(pwdLen);
+  if (!ICE_CHAR.test(pwd)) fail("ice-pwd contains characters outside the ICE alphabet");
+  const count = r.u8();
+  if (count > LIMITS.MAX_CANDIDATES) fail("too many candidates");
+  const candidates = [];
+  for (let i = 0; i < count; i++) {
+    const tagByte = r.u8();
+    const kind = tagByte >> 4 & 15;
+    const tcptype = tagByte & 15;
+    const addrLen = KIND_ADDR_LEN[kind];
+    if (addrLen === void 0) fail(`reserved candidate kind ${kind}`);
+    if (tcptype >= TCPTYPE.length) fail("reserved TCP candidate type");
+    const addr = r.bytes(addrLen);
+    const port = r.u16();
+    if (port < 1) fail("candidate port must be non-zero");
+    candidates.push({ kind, tcptype, addr, port });
+  }
+  let commitment = null;
+  if (hasCommitment) commitment = r.bytes(LIMITS.COMMITMENT_BYTES);
+  let extensions = /* @__PURE__ */ new Map();
+  if (hasExt) {
+    const extLen = r.u8();
+    if (extLen === 0) fail("extension area is flagged but empty");
+    extensions = decodeExt(r.bytes(extLen));
+  }
+  if (r.rest !== 0) fail(`${r.rest} trailing byte(s) after the descriptor`);
+  let maxMessageSize;
+  if (mmsIndex === MMS_EXPLICIT) {
+    if (!extensions.has(EXT.MAX_MESSAGE_SIZE)) fail("flags promise an explicit max-message-size but no extension carries it");
+    maxMessageSize = extensions.get(EXT.MAX_MESSAGE_SIZE);
+  } else {
+    if (extensions.has(EXT.MAX_MESSAGE_SIZE)) fail("extension 0x01 present but the flags do not select it");
+    maxMessageSize = MMS_ENUM[mmsIndex];
+  }
+  return {
+    version: version2,
+    type,
+    setup,
+    maxMessageSize,
+    expiresAtMs,
+    bindingTag: bindingTag2,
+    fingerprint,
+    ufrag,
+    pwd,
+    candidates,
+    commitment,
+    extensions
+  };
+}
+var hex2 = (b) => b.toString(16).padStart(2, "0");
+function renderAddr(kind, addr) {
+  switch (kind) {
+    case KIND.HOST_MDNS: {
+      const h = Array.from(addr, hex2).join("");
+      return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}.local`;
+    }
+    case KIND.HOST_V4:
+    case KIND.SRFLX_V4:
+    case KIND.RELAY_V4:
+      return `${addr[0]}.${addr[1]}.${addr[2]}.${addr[3]}`;
+    default: {
+      const words = [];
+      for (let i = 0; i < 16; i += 2) words.push((addr[i] << 8 | addr[i + 1]).toString(16));
+      return words.join(":");
+    }
+  }
+}
+function serializeSdp(desc, { sessionId = "1" } = {}) {
+  const isOffer = desc.type === TYPE.OFFER;
+  const DEFAULT_RANK = { relay: 0, srflx: 1, host: 2 };
+  const def = desc.candidates.filter((c) => c.kind !== KIND.HOST_MDNS && c.tcptype === 0).sort((x, y) => DEFAULT_RANK[KIND_TYPE[x.kind]] - DEFAULT_RANK[KIND_TYPE[y.kind]])[0];
+  const defIsV6 = def && KIND_FAMILY[def.kind] === "v6";
+  const mPort = def ? def.port : 9;
+  const cLine = def ? `c=IN IP${defIsV6 ? "6" : "4"} ${renderAddr(def.kind, def.addr)}` : "c=IN IP4 0.0.0.0";
+  const lines = [
+    "v=0",
+    `o=- ${sessionId} 2 IN IP4 127.0.0.1`,
+    "s=-",
+    "t=0 0",
+    "a=group:BUNDLE 0",
+    "a=msid-semantic: WMS",
+    `m=application ${mPort} UDP/DTLS/SCTP webrtc-datachannel`,
+    cLine,
+    "a=ice-ufrag:" + desc.ufrag,
+    "a=ice-pwd:" + desc.pwd,
+    // Deliberately NOT `a=ice-options:trickle`. A descriptor is a complete,
+    // one-shot candidate set — there is no signalling channel to trickle
+    // over, so advertising trickle promises candidates that can never
+    // arrive and leaves the peer's ICE agent waiting for them.
+    "a=fingerprint:sha-256 " + Array.from(desc.fingerprint, (b) => hex2(b).toUpperCase()).join(":"),
+    "a=setup:" + SETUP[desc.setup],
+    "a=mid:0",
+    "a=sctp-port:5000",
+    "a=max-message-size:" + desc.maxMessageSize
+  ];
+  const candLines = desc.candidates.map((c, i) => {
+    const ctype = KIND_TYPE[c.kind];
+    const transport = c.tcptype === 0 ? "udp" : "tcp";
+    const localPref = Math.max(0, 65535 - i);
+    const priority = TYPE_PREF[ctype] * 16777216 + localPref * 256 + 255;
+    const foundation = String(c.kind * 4 + c.tcptype + 1);
+    let line = `a=candidate:${foundation} 1 ${transport} ${priority} ${renderAddr(c.kind, c.addr)} ${c.port} typ ${ctype}`;
+    if (ctype !== "host") {
+      line += KIND_FAMILY[c.kind] === "v6" ? " raddr :: rport 0" : " raddr 0.0.0.0 rport 0";
+    }
+    if (transport === "tcp") line += ` tcptype ${TCPTYPE[c.tcptype]}`;
+    return line;
+  });
+  candLines.push("a=end-of-candidates");
+  const at = lines.indexOf(cLine) + 1;
+  lines.splice(at, 0, ...candLines);
+  return { type: isOffer ? "offer" : "answer", sdp: lines.join("\r\n") + "\r\n" };
+}
+var enc2 = new TextEncoder();
+function concat(...parts) {
+  const total = parts.reduce((n, p) => n + p.length, 0);
+  const out = new Uint8Array(total);
+  let o = 0;
+  for (const p of parts) {
+    out.set(p, o);
+    o += p.length;
+  }
+  return out;
+}
+async function bindingTag(digest, offerBytes) {
+  const h = await digest(concat(enc2.encode("sbq2/bind\0"), offerBytes));
+  return h.slice(0, LIMITS.BINDING_BYTES);
+}
+async function commitBlob(digest, blobBytes) {
+  const h = await digest(concat(enc2.encode("sbq2/blob\0"), blobBytes));
+  return h.slice(0, LIMITS.COMMITMENT_BYTES);
+}
+function sasTranscript(offerBytes, answerBytes, offerBlob, answerBlob) {
+  const lp = (b) => {
+    const n = new Uint8Array(4);
+    new DataView(n.buffer).setUint32(0, b.length);
+    return concat(n, b);
+  };
+  return concat(
+    enc2.encode("sbq2/sas/v1\0"),
+    lp(offerBytes),
+    lp(answerBytes),
+    lp(offerBlob),
+    lp(answerBlob)
+  );
+}
+var B64URL = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+function toBase64Url(bytes) {
+  let out = "";
+  for (let i = 0; i < bytes.length; i += 3) {
+    const a = bytes[i], b = bytes[i + 1], c = bytes[i + 2];
+    out += B64URL[a >> 2];
+    out += B64URL[(a & 3) << 4 | (b ?? 0) >> 4];
+    if (b === void 0) break;
+    out += B64URL[(b & 15) << 2 | (c ?? 0) >> 6];
+    if (c === void 0) break;
+    out += B64URL[c & 63];
+  }
+  return out;
+}
+function fromBase64Url(text2) {
+  if (typeof text2 !== "string") fail("payload must be a string");
+  const s = text2.replace(/\s+/g, "");
+  if (s.length > Math.ceil(LIMITS.MAX_PAYLOAD_BYTES * 4 / 3) + 4) fail("payload is too long");
+  if (!/^[A-Za-z0-9_-]*$/.test(s)) fail("payload contains characters outside base64url");
+  if (s.length % 4 === 1) fail("payload has an impossible length");
+  const out = new Uint8Array(Math.floor(s.length * 3 / 4));
+  let o = 0, acc = 0, bits = 0;
+  for (const ch of s) {
+    acc = acc << 6 | B64URL.indexOf(ch);
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      out[o++] = acc >> bits & 255;
+    }
+  }
+  if (acc & (1 << bits) - 1) fail("payload has non-zero padding bits");
+  return out.subarray(0, o);
+}
+var TEXT_PREFIX = "SB2:";
+function encodeText(bytes) {
+  return TEXT_PREFIX + toBase64Url(bytes);
+}
+function decodeText(text2) {
+  if (typeof text2 !== "string") fail("payload must be a string");
+  const t = text2.trim();
+  if (!t.startsWith(TEXT_PREFIX)) fail("not an SB2 descriptor");
+  return fromBase64Url(t.slice(TEXT_PREFIX.length));
+}
+
+// src/network/descriptor/keyexchange.js
+var KEY_BLOB_VERSION = 2;
+var ROLE = Object.freeze({ OFFER: 0, ANSWER: 1 });
+var BLOB_LIMITS = Object.freeze({
+  // A P-384 SPKI is 120 bytes; P-521 would be 158. The ceiling is generous
+  // enough for a future curve and far below anything that could be used to
+  // wedge the parser.
+  MAX_SPKI: 256,
+  MIN_SPKI: 40,
+  // ECDSA P-384 signatures are 96 bytes raw; P-521 is 132.
+  MAX_SIG: 160,
+  MIN_SIG: 48,
+  MAX_BLOB_BYTES: 1024
+});
+var KeyExchangeError = class extends Error {
+  constructor(message, code = "key_exchange") {
+    super(message);
+    this.name = "KeyExchangeError";
+    this.code = code;
+  }
+};
+var fail2 = (msg, code) => {
+  throw new KeyExchangeError(msg, code);
+};
+function encodeKeyBlob({ role, ecdhSpki, ecdsaSpki }) {
+  if (role !== ROLE.OFFER && role !== ROLE.ANSWER) fail2("invalid role");
+  for (const [name, v] of [["ecdh", ecdhSpki], ["ecdsa", ecdsaSpki]]) {
+    if (!(v instanceof Uint8Array)) fail2(`${name} SPKI must be a Uint8Array`);
+    if (v.length < BLOB_LIMITS.MIN_SPKI || v.length > BLOB_LIMITS.MAX_SPKI) {
+      fail2(`${name} SPKI length out of range`);
+    }
+  }
+  const out = new Uint8Array(1 + 1 + 2 + ecdhSpki.length + 2 + ecdsaSpki.length);
+  const dv = new DataView(out.buffer);
+  let o = 0;
+  out[o++] = KEY_BLOB_VERSION;
+  out[o++] = role;
+  dv.setUint16(o, ecdhSpki.length);
+  o += 2;
+  out.set(ecdhSpki, o);
+  o += ecdhSpki.length;
+  dv.setUint16(o, ecdsaSpki.length);
+  o += 2;
+  out.set(ecdsaSpki, o);
+  return out;
+}
+function decodeKeyBlob(buf) {
+  if (!(buf instanceof Uint8Array)) fail2("key blob must be a Uint8Array");
+  if (buf.length === 0) fail2("key blob is empty");
+  if (buf.length > BLOB_LIMITS.MAX_BLOB_BYTES) fail2("key blob exceeds the size limit");
+  const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  let o = 0;
+  const need = (n) => {
+    if (o + n > buf.length) fail2("key blob is truncated");
+  };
+  need(1);
+  const version2 = buf[o++];
+  if (version2 !== KEY_BLOB_VERSION) fail2(`unsupported key blob version 0x${version2.toString(16)}`, "version");
+  need(1);
+  const role = buf[o++];
+  if (role !== ROLE.OFFER && role !== ROLE.ANSWER) fail2("reserved key blob role");
+  need(2);
+  const ecdhLen = dv.getUint16(o);
+  o += 2;
+  if (ecdhLen < BLOB_LIMITS.MIN_SPKI || ecdhLen > BLOB_LIMITS.MAX_SPKI) fail2("ECDH SPKI length out of range");
+  need(ecdhLen);
+  const ecdhSpki = buf.slice(o, o + ecdhLen);
+  o += ecdhLen;
+  need(2);
+  const ecdsaLen = dv.getUint16(o);
+  o += 2;
+  if (ecdsaLen < BLOB_LIMITS.MIN_SPKI || ecdsaLen > BLOB_LIMITS.MAX_SPKI) fail2("ECDSA SPKI length out of range");
+  need(ecdsaLen);
+  const ecdsaSpki = buf.slice(o, o + ecdsaLen);
+  o += ecdsaLen;
+  if (o !== buf.length) fail2(`${buf.length - o} trailing byte(s) after the key blob`);
+  return { version: version2, role, ecdhSpki, ecdsaSpki };
+}
+function buildTranscript({ offerDescriptor, answerDescriptor, offerBlob, answerBlob }) {
+  for (const [name, v] of Object.entries({ offerDescriptor, answerDescriptor, offerBlob, answerBlob })) {
+    if (!(v instanceof Uint8Array) || v.length === 0) fail2(`transcript component ${name} is missing`);
+  }
+  return sasTranscript(offerDescriptor, answerDescriptor, offerBlob, answerBlob);
+}
+async function deriveTranscriptSalt(subtle, transcript) {
+  const h = await subtle.digest("SHA-512", transcript);
+  return Array.from(new Uint8Array(h));
+}
+var enc3 = new TextEncoder();
+function proofPayload(transcript) {
+  const label = enc3.encode("sbq2/proof/v1\0");
+  const out = new Uint8Array(label.length + transcript.length);
+  out.set(label, 0);
+  out.set(transcript, label.length);
+  return out;
+}
+async function computeTranscriptSas(subtle, { ecdhPrivateKey, peerEcdhPublicKey, transcript, digits = 7 }) {
+  const shared = await subtle.deriveBits({ name: "ECDH", public: peerEcdhPublicKey }, ecdhPrivateKey, 256);
+  let ikm = null;
+  try {
+    ikm = await subtle.importKey("raw", shared, "HKDF", false, ["deriveBits"]);
+    const salt = new Uint8Array(await subtle.digest("SHA-256", transcript));
+    const bits = await subtle.deriveBits(
+      { name: "HKDF", hash: "SHA-256", salt, info: enc3.encode("sbq2-sas-v1") },
+      ikm,
+      64
+    );
+    const dv = new DataView(bits);
+    const n = (dv.getUint32(0) ^ dv.getUint32(4)) >>> 0;
+    const mod = 10 ** digits;
+    return String(n % mod).padStart(digits, "0");
+  } finally {
+    try {
+      new Uint8Array(shared).fill(0);
+    } catch (_) {
+    }
+  }
+}
+async function verifyBlobCommitment(subtle, blobBytes, expectedCommitment) {
+  if (!(expectedCommitment instanceof Uint8Array) || expectedCommitment.length !== LIMITS.COMMITMENT_BYTES) {
+    fail2("descriptor carried no usable commitment", "commitment_missing");
+  }
+  const digest = async (b) => new Uint8Array(await subtle.digest("SHA-256", b));
+  const actual = await commitBlob(digest, blobBytes);
+  if (actual.length !== expectedCommitment.length) fail2("commitment length mismatch", "commitment_mismatch");
+  let diff = 0;
+  for (let i = 0; i < actual.length; i++) diff |= actual[i] ^ expectedCommitment[i];
+  if (diff !== 0) {
+    fail2("the key material does not match the commitment in the invitation", "commitment_mismatch");
+  }
+  return true;
+}
+
 // src/network/EnhancedSecureWebRTCManager.js
 var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   // ============================================
@@ -7468,6 +8248,12 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     // Sent by the answerer side, which must not create offers itself (glare):
     // it asks the offerer to drive the restart.
     ICE_RESTART_REQUEST: "ice_restart_request",
+    // SBQ2 in-band key exchange. These are the only two frames that legitimately
+    // arrive before any key exists, which is exactly why they are handled in one
+    // place and nowhere else: KEY_BLOB carries the key material the descriptor's
+    // commitment covers, KEY_PROOF the signature over the transcript.
+    KEY_BLOB: "key_blob",
+    KEY_PROOF: "key_proof",
     // Fake traffic
     FAKE: "fake"
   };
@@ -7493,6 +8279,21 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     _EnhancedSecureWebRTCManager.MESSAGE_TYPES.ICE_RESTART_ANSWER,
     _EnhancedSecureWebRTCManager.MESSAGE_TYPES.ICE_RESTART_REQUEST
   ]);
+  // ── SBQ2 ROLLBACK SWITCH ────────────────────────────────────────────────
+  // Flip this ONE value to false and redeploy to put every new invitation back
+  // on the SB1 format. Nothing else needs touching: reception of both formats
+  // is unconditional, so a client built with this off still reads SBQ2
+  // invitations from a client built with it on.
+  //
+  // It only governs what we EMIT. It is deliberately not consulted anywhere in
+  // the receive path, and never inside an established session — see
+  // _handshakeMode, which is latched per connection so a session cannot be
+  // pushed back onto the weaker format halfway through.
+  static SBQ2_SEND_ENABLED = true;
+  // How long the in-band key exchange may take from channel open to verified
+  // proof. Generous next to the ~1 s a handshake actually needs, tight enough
+  // that a peer that never sends its blob does not hang the UI indefinitely.
+  static SBQ2_KEY_EXCHANGE_TIMEOUT_MS = 15e3;
   static PROTOCOL_VERSION = "4.1";
   // Double Ratchet wire version. Bump only on an incompatible ratchet change;
   // peers compare it and fall back to static keys when it is absent or unknown.
@@ -7649,6 +8450,8 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     this.maxSequenceGap = 100;
     this.replayProtectionEnabled = true;
     this.sessionId = null;
+    this._handshakeMode = null;
+    this._sbq2 = null;
     this.connectionId = Array.from(crypto.getRandomValues(new Uint8Array(8))).map((b) => b.toString(16).padStart(2, "0")).join("");
     this.peerPublicKey = null;
     this._ratchet = null;
@@ -10799,7 +11602,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         if (!keyMaterialRaw) missing.push("keyMaterialRaw");
         throw new Error(`Missing required parameters for SAS computation: ${missing.join(", ")}`);
       }
-      const enc2 = new TextEncoder();
+      const enc4 = new TextEncoder();
       const normalizeFingerprintForSAS = (fingerprint, label) => {
         if (typeof fingerprint !== "string" || fingerprint.trim().length === 0) {
           throw new Error(
@@ -10810,7 +11613,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       };
       const normalizedLocalFP = normalizeFingerprintForSAS(localFP, "localFP");
       const normalizedRemoteFP = normalizeFingerprintForSAS(remoteFP, "remoteFP");
-      const salt = enc2.encode(
+      const salt = enc4.encode(
         "webrtc-sas|" + [normalizedLocalFP, normalizedRemoteFP].sort().join("|")
       );
       let keyBuffer;
@@ -10835,7 +11638,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         false,
         ["deriveBits"]
       );
-      const info = enc2.encode("p2p-sas-v1");
+      const info = enc4.encode("p2p-sas-v1");
       const bits = await crypto.subtle.deriveBits(
         { name: "HKDF", hash: "SHA-256", salt, info },
         key,
@@ -10862,6 +11665,360 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       });
       throw new Error(`SAS computation failed: ${error.message}`);
     }
+  }
+  // ========================================================================
+  // SBQ2 — compact descriptor + in-band key exchange
+  // ========================================================================
+  /** True once this connection has latched onto the SBQ2 handshake. */
+  _isSbq2() {
+    return this._handshakeMode === "sbq2";
+  }
+  /**
+   * Latch the handshake format for this connection.
+   *
+   * Called with the format of the first descriptor of the session. Calling it
+   * again with a different value is a bug or an attack, and is refused: this
+   * is the single point that makes "no downgrade inside a session" true rather
+   * than merely intended.
+   */
+  _latchHandshakeMode(mode) {
+    if (this._handshakeMode && this._handshakeMode !== mode) {
+      throw new Error(
+        `handshake format cannot change mid-session (${this._handshakeMode} -> ${mode})`
+      );
+    }
+    this._handshakeMode = mode;
+  }
+  _sbq2State() {
+    if (!this._sbq2) {
+      this._sbq2 = {
+        role: null,
+        // KX_ROLE.OFFER | KX_ROLE.ANSWER
+        localDescriptor: null,
+        // Uint8Array, our descriptor verbatim
+        remoteDescriptor: null,
+        // Uint8Array, peer's descriptor verbatim
+        localBlob: null,
+        remoteBlob: null,
+        remoteCommitment: null,
+        // from the peer's descriptor
+        transcript: null,
+        peerEcdhKey: null,
+        peerEcdsaKey: null,
+        blobSent: false,
+        proofSent: false,
+        proofVerified: false,
+        keysDerived: false,
+        pendingProof: null,
+        // proof that arrived before the transcript existed
+        completed: false,
+        timer: null,
+        startedAt: 0
+      };
+    }
+    return this._sbq2;
+  }
+  /**
+   * Fail closed.
+   *
+   * Every SBQ2 failure lands here: there is no path that logs a warning and
+   * carries on with a weaker session, and no path that retries as SB1. The
+   * connection is torn down and the user is told, because a handshake that
+   * went wrong is exactly the case where continuing is worst.
+   */
+  _sbq2Abort(code, userMessage) {
+    const st = this._sbq2;
+    if (st?.timer) {
+      clearTimeout(st.timer);
+      st.timer = null;
+    }
+    this._secureLog("error", "SBQ2 handshake aborted", { code });
+    try {
+      this.deliverMessageToUI(userMessage, "system");
+    } catch (_) {
+    }
+    try {
+      this.onStatusChange?.("failed");
+    } catch (_) {
+    }
+    try {
+      this.disconnect();
+    } catch (_) {
+    }
+  }
+  /** SPKI bytes for a public CryptoKey. */
+  async _exportSpki(key) {
+    return new Uint8Array(await crypto.subtle.exportKey("spki", key));
+  }
+  /**
+   * Build the key blob for this side and the commitment that goes in the
+   * descriptor. Called while creating our descriptor, so the commitment is
+   * fixed before anything is shown to the user.
+   */
+  async _sbq2BuildLocalBlob(role) {
+    if (!this.ecdhKeyPair?.publicKey || !this.ecdsaKeyPair?.publicKey) {
+      throw new Error("SBQ2: key pairs are not ready");
+    }
+    const blob = encodeKeyBlob({
+      role,
+      ecdhSpki: await this._exportSpki(this.ecdhKeyPair.publicKey),
+      ecdsaSpki: await this._exportSpki(this.ecdsaKeyPair.publicKey)
+    });
+    const digest = async (b) => new Uint8Array(await crypto.subtle.digest("SHA-256", b));
+    const commitment = await commitBlob(digest, blob);
+    const st = this._sbq2State();
+    st.role = role;
+    st.localBlob = blob;
+    return { blob, commitment };
+  }
+  /**
+   * Turn our gathered localDescription into a compact descriptor.
+   * @returns {{bytes: Uint8Array, text: string}}
+   */
+  async _sbq2BuildDescriptor(type, { bindingTag: bindingTag2 = null, lifetimeMs = 10 * 60 * 1e3 } = {}) {
+    const sdp = this.peerConnection?.localDescription?.sdp;
+    if (!sdp) throw new Error("SBQ2: no local description to encode");
+    const role = type === TYPE.OFFER ? ROLE.OFFER : ROLE.ANSWER;
+    const { commitment } = await this._sbq2BuildLocalBlob(role);
+    const raw = parseSdp(sdp);
+    const bytes = encodeDescriptor({
+      type,
+      expiresAtMs: Date.now() + lifetimeMs,
+      sdpFields: { ...raw, candidates: pruneCandidates(raw.candidates) },
+      commitment,
+      ...type === TYPE.ANSWER ? { bindingTag: bindingTag2 } : {}
+    });
+    const st = this._sbq2State();
+    st.localDescriptor = bytes;
+    this._secureLog("info", "SBQ2 descriptor built", {
+      type: type === TYPE.OFFER ? "offer" : "answer",
+      bytes: bytes.length,
+      candidates: pruneCandidates(raw.candidates).length
+    });
+    return { bytes, text: encodeText(bytes) };
+  }
+  /**
+   * Parse and adopt a peer descriptor. Throws on anything the strict decoder
+   * refuses — version, reserved values, unknown TLV, trailing bytes, expiry.
+   */
+  _sbq2AdoptRemoteDescriptor(bytes, expectedType) {
+    const desc = decodeDescriptor(bytes);
+    if (desc.type !== expectedType) {
+      throw new Error(
+        `expected an ${expectedType === TYPE.OFFER ? "invitation" : "answer"}, got the other kind`
+      );
+    }
+    if (!desc.commitment) {
+      throw new Error("the invitation carries no key commitment");
+    }
+    const st = this._sbq2State();
+    st.remoteDescriptor = bytes;
+    st.remoteCommitment = desc.commitment;
+    return desc;
+  }
+  /**
+   * Run the in-band key exchange. Called once, as soon as the DataChannel
+   * opens, before anything else is allowed to use the channel.
+   */
+  async _runSbq2KeyExchange() {
+    const st = this._sbq2State();
+    if (st.completed || st.blobSent) return;
+    st.startedAt = Date.now();
+    if (!st.localBlob || !st.localDescriptor || !st.remoteDescriptor || !st.remoteCommitment) {
+      this._sbq2Abort(
+        "incomplete_state",
+        "The secure handshake could not start because the connection setup is incomplete. Please start a new invitation."
+      );
+      return;
+    }
+    st.timer = setTimeout(() => {
+      if (!st.completed) {
+        this._sbq2Abort(
+          "timeout",
+          "The other side did not complete the secure handshake in time. Please try connecting again."
+        );
+      }
+    }, _EnhancedSecureWebRTCManager.SBQ2_KEY_EXCHANGE_TIMEOUT_MS);
+    try {
+      this.dataChannel.send(JSON.stringify({
+        type: _EnhancedSecureWebRTCManager.MESSAGE_TYPES.KEY_BLOB,
+        v: 2,
+        blob: window.EnhancedSecureCryptoUtils.arrayBufferToBase64(st.localBlob.buffer.slice(
+          st.localBlob.byteOffset,
+          st.localBlob.byteOffset + st.localBlob.byteLength
+        ))
+      }));
+      st.blobSent = true;
+      this._secureLog("info", "SBQ2 key blob sent", { bytes: st.localBlob.length });
+    } catch (error) {
+      this._sbq2Abort(
+        "blob_send_failed",
+        "The secure handshake could not be sent. Please try connecting again."
+      );
+    }
+  }
+  /**
+   * Handle the two in-band handshake frames. These are the only frames
+   * accepted before keys exist, so everything they touch is validated here and
+   * nothing is acted on before the commitment check passes.
+   */
+  async _sbq2HandleHandshakeFrame(parsed) {
+    const T = _EnhancedSecureWebRTCManager.MESSAGE_TYPES;
+    const st = this._sbq2State();
+    if (!this._isSbq2()) {
+      this._secureLog("error", "Rejected SBQ2 handshake frame on a non-SBQ2 session", {
+        messageType: parsed?.type
+      });
+      return;
+    }
+    try {
+      if (parsed.type === T.KEY_BLOB) {
+        if (st.remoteBlob) {
+          this._sbq2Abort(
+            "duplicate_blob",
+            "The secure handshake was sent twice. The connection has been closed for safety."
+          );
+          return;
+        }
+        const bytes = new Uint8Array(window.EnhancedSecureCryptoUtils.base64ToArrayBuffer(String(parsed.blob || "")));
+        await verifyBlobCommitment(crypto.subtle, bytes, st.remoteCommitment);
+        const blob = decodeKeyBlob(bytes);
+        const expectedRole = st.role === ROLE.OFFER ? ROLE.ANSWER : ROLE.OFFER;
+        if (blob.role !== expectedRole) {
+          this._sbq2Abort(
+            "role_mismatch",
+            "The other side sent the wrong kind of handshake. The connection has been closed for safety."
+          );
+          return;
+        }
+        st.remoteBlob = bytes;
+        st.peerEcdhKey = await crypto.subtle.importKey(
+          "spki",
+          blob.ecdhSpki,
+          { name: "ECDH", namedCurve: "P-384" },
+          false,
+          []
+        );
+        st.peerEcdsaKey = await crypto.subtle.importKey(
+          "spki",
+          blob.ecdsaSpki,
+          { name: "ECDSA", namedCurve: "P-384" },
+          false,
+          ["verify"]
+        );
+        await this._sbq2CompleteExchange();
+        return;
+      }
+      if (parsed.type === T.KEY_PROOF) {
+        const sig = new Uint8Array(window.EnhancedSecureCryptoUtils.base64ToArrayBuffer(String(parsed.sig || "")));
+        if (!st.transcript || !st.peerEcdsaKey) {
+          st.pendingProof = sig;
+          return;
+        }
+        await this._sbq2VerifyProof(sig);
+        return;
+      }
+    } catch (error) {
+      const code = error?.code || "handshake_failed";
+      const message = code === "commitment_mismatch" ? "The key material does not match the invitation you scanned. This can mean someone tampered with the connection, so it has been closed." : "The secure handshake failed. The connection has been closed for safety.";
+      this._sbq2Abort(code, message);
+    }
+  }
+  /**
+   * Both blobs are in hand and verified: define the transcript, derive
+   * everything from it, and prove possession of the identity key.
+   */
+  async _sbq2CompleteExchange() {
+    const st = this._sbq2State();
+    if (st.keysDerived || !st.remoteBlob || !st.localBlob) return;
+    this._peerSupportsRatchet = true;
+    const isOffer = st.role === ROLE.OFFER;
+    st.transcript = buildTranscript({
+      offerDescriptor: isOffer ? st.localDescriptor : st.remoteDescriptor,
+      answerDescriptor: isOffer ? st.remoteDescriptor : st.localDescriptor,
+      offerBlob: isOffer ? st.localBlob : st.remoteBlob,
+      answerBlob: isOffer ? st.remoteBlob : st.localBlob
+    });
+    this.sessionSalt = await deriveTranscriptSalt(crypto.subtle, st.transcript);
+    this.peerPublicKey = st.peerEcdhKey;
+    this.peerECDHPublicKey = st.peerEcdhKey;
+    const derivedKeys = await window.EnhancedSecureCryptoUtils.deriveSharedKeys(
+      this.ecdhKeyPair.privateKey,
+      st.peerEcdhKey,
+      this.sessionSalt
+    );
+    await this._setEncryptionKeys(
+      derivedKeys.messageKey,
+      derivedKeys.macKey,
+      derivedKeys.metadataKey,
+      derivedKeys.fingerprint
+    );
+    await this._initializeRatchet(
+      derivedKeys,
+      /* isInitiator */
+      isOffer
+    );
+    st.keysDerived = true;
+    const sig = new Uint8Array(await crypto.subtle.sign(
+      { name: "ECDSA", hash: "SHA-384" },
+      this.ecdsaKeyPair.privateKey,
+      proofPayload(st.transcript)
+    ));
+    this.dataChannel.send(JSON.stringify({
+      type: _EnhancedSecureWebRTCManager.MESSAGE_TYPES.KEY_PROOF,
+      sig: window.EnhancedSecureCryptoUtils.arrayBufferToBase64(sig.buffer)
+    }));
+    st.proofSent = true;
+    if (st.pendingProof) {
+      const held = st.pendingProof;
+      st.pendingProof = null;
+      await this._sbq2VerifyProof(held);
+    }
+  }
+  /** Verify the peer's transcript signature, then release the session. */
+  async _sbq2VerifyProof(sig) {
+    const st = this._sbq2State();
+    if (st.proofVerified) return;
+    const ok = await crypto.subtle.verify(
+      { name: "ECDSA", hash: "SHA-384" },
+      st.peerEcdsaKey,
+      sig,
+      proofPayload(st.transcript)
+    );
+    if (!ok) {
+      this._sbq2Abort(
+        "bad_proof",
+        "The other side could not prove it owns its identity key. The connection has been closed for safety."
+      );
+      return;
+    }
+    st.proofVerified = true;
+    this.verificationCode = await computeTranscriptSas(crypto.subtle, {
+      ecdhPrivateKey: this.ecdhKeyPair.privateKey,
+      peerEcdhPublicKey: st.peerEcdhKey,
+      transcript: st.transcript
+    });
+    const localFP = this.expectedDTLSFingerprint;
+    const remoteFP = this._peerDTLSFingerprint;
+    if (localFP && remoteFP) this._setSASMaterialReady(localFP, remoteFP);
+    st.completed = true;
+    if (st.timer) {
+      clearTimeout(st.timer);
+      st.timer = null;
+    }
+    this.securityFeatures.hasMutualAuth = true;
+    this.securityFeatures.hasMetadataProtection = true;
+    this.securityFeatures.hasEnhancedReplayProtection = true;
+    this._secureLog("info", "SBQ2 in-band key exchange complete", {
+      elapsedMs: Date.now() - st.startedAt,
+      ratchetActive: this.isRatchetActive?.() === true
+    });
+    try {
+      this.onKeyExchange?.(this.keyFingerprint);
+    } catch (_) {
+    }
+    this._notifyVerificationReadyIfPossible();
+    this.initiateVerification();
   }
   /**
    * UTILITY: Decode hex keyFingerprint to Uint8Array for SAS computation
@@ -13864,6 +15021,20 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         }
       } catch (e) {
       }
+      if (this._handshakeMode === "sbq2") {
+        try {
+          await this._runSbq2KeyExchange();
+        } catch (error) {
+          this._secureLog("error", "SBQ2 key exchange failed to start", {
+            errorType: error?.constructor?.name || "Unknown"
+          });
+          this._sbq2Abort(
+            "start_failed",
+            "The secure handshake could not be started. Please try connecting again."
+          );
+          return;
+        }
+      }
       try {
         await this.establishConnection();
         this.initializeFileTransfer();
@@ -14037,6 +15208,10 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
                 }
                 return;
               }
+              return;
+            }
+            if (parsed.type === _EnhancedSecureWebRTCManager.MESSAGE_TYPES.KEY_BLOB || parsed.type === _EnhancedSecureWebRTCManager.MESSAGE_TYPES.KEY_PROOF) {
+              await this._sbq2HandleHandshakeFrame(parsed);
               return;
             }
             if (parsed.type && ["heartbeat", "verification", "verification_response", "verification_confirmed", "verification_both_confirmed", "sas_code", "peer_disconnect", "security_upgrade"].includes(parsed.type)) {
@@ -15706,6 +16881,12 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
             operationId
           }
         }));
+        if (_EnhancedSecureWebRTCManager.SBQ2_SEND_ENABLED) {
+          this._latchHandshakeMode("sbq2");
+          const { text: text2 } = await this._sbq2BuildDescriptor(TYPE.OFFER);
+          return { t: "offer", sbq2: text2 };
+        }
+        this._latchHandshakeMode("sb1");
         return offerPackage;
       } catch (error) {
         this._secureLog("error", "Enhanced secure offer creation failed in critical section", {
@@ -15800,7 +16981,69 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
    * FULLY FIXED METHOD createSecureAnswer()
    * With race-condition protection and enhanced security
    */
+  /**
+   * SBQ2 answer path.
+   *
+   * Deliberately separate from createSecureAnswer rather than folded into it:
+   * that method's job is to import the peer's keys and derive the session from
+   * the offer, and here there are no peer keys yet — only a fingerprint and a
+   * commitment. Sharing the body would mean threading "do we have keys yet?"
+   * through fifteen phases, and the whole point of the format is that the
+   * answer is produced before any key material has been seen.
+   */
+  async _createSbq2Answer(offerData) {
+    return this._withMutex("connectionOperation", async (operationId) => {
+      try {
+        this._resetNotificationFlags();
+        if (!this._checkRateLimit()) {
+          throw new Error("Connection rate limit exceeded. Please wait before trying again.");
+        }
+        this._latchHandshakeMode("sbq2");
+        const offerBytes = decodeText(String(offerData.sbq2));
+        const desc = this._sbq2AdoptRemoteDescriptor(offerBytes, TYPE.OFFER);
+        const { sdp: remoteSdp } = serializeSdp(desc);
+        this.isInitiator = false;
+        this.onStatusChange("connecting");
+        const keyPairs = await this._generateEncryptionKeys();
+        this.ecdhKeyPair = keyPairs.ecdhKeyPair;
+        this.ecdsaKeyPair = keyPairs.ecdsaKeyPair;
+        if (!this.ecdhKeyPair?.privateKey || !this.ecdsaKeyPair?.privateKey) {
+          throw new Error("Failed to generate valid key pairs");
+        }
+        this.createPeerConnection();
+        this._peerDTLSFingerprint = Array.from(
+          desc.fingerprint,
+          (b) => b.toString(16).padStart(2, "0").toUpperCase()
+        ).join(":");
+        await this.peerConnection.setRemoteDescription({ type: "offer", sdp: remoteSdp });
+        await this.peerConnection.setLocalDescription(await this.peerConnection.createAnswer({
+          offerToReceiveAudio: false,
+          offerToReceiveVideo: false
+        }));
+        this.expectedDTLSFingerprint = this._extractDTLSFingerprintFromSDP(this.peerConnection.localDescription.sdp);
+        await this.waitForIceGathering();
+        const digest = async (b) => new Uint8Array(await crypto.subtle.digest("SHA-256", b));
+        const { text: text2 } = await this._sbq2BuildDescriptor(TYPE.ANSWER, {
+          bindingTag: await bindingTag(digest, offerBytes)
+        });
+        document.dispatchEvent(new CustomEvent("new-connection", {
+          detail: { type: "answer", timestamp: Date.now(), operationId }
+        }));
+        return { t: "answer", sbq2: text2 };
+      } catch (error) {
+        this._secureLog("error", "SBQ2 answer creation failed", {
+          operationId,
+          errorType: error?.constructor?.name || "Unknown"
+        });
+        this.onStatusChange("disconnected");
+        throw error;
+      }
+    }, 6e4);
+  }
   async createSecureAnswer(offerData) {
+    if (offerData && typeof offerData.sbq2 === "string") {
+      return this._createSbq2Answer(offerData);
+    }
     return this._withMutex("connectionOperation", async (operationId) => {
       this._secureLog("info", "Creating secure answer with mutex", {
         operationId,
@@ -16416,7 +17659,46 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       }
     });
   }
+  /**
+   * SBQ2 answer handling on the offerer side.
+   *
+   * Sets the remote description and nothing else. No key is imported and no
+   * secret derived here, because none has been sent yet — that happens in
+   * _runSbq2KeyExchange once the channel is open and the commitment has been
+   * checked.
+   */
+  async _handleSbq2Answer(answerData) {
+    if (!this._isSbq2()) {
+      throw new Error("Received a new-format response to an old-format invitation. Please start a new invitation.");
+    }
+    const st = this._sbq2State();
+    const answerBytes = decodeText(String(answerData.sbq2));
+    const desc = decodeDescriptor(answerBytes);
+    if (desc.type !== TYPE.ANSWER) throw new Error("That code is an invitation, not a response to one.");
+    if (!desc.commitment) throw new Error("The response carries no key commitment");
+    const digest = async (b) => new Uint8Array(await crypto.subtle.digest("SHA-256", b));
+    const expected = await bindingTag(digest, st.localDescriptor);
+    let diff = 0;
+    for (let i = 0; i < expected.length; i++) diff |= expected[i] ^ desc.bindingTag[i];
+    if (diff !== 0) {
+      throw new Error("This response belongs to a different invitation. Ask for a response to the code you are showing now.");
+    }
+    st.remoteDescriptor = answerBytes;
+    st.remoteCommitment = desc.commitment;
+    this._peerDTLSFingerprint = Array.from(
+      desc.fingerprint,
+      (b) => b.toString(16).padStart(2, "0").toUpperCase()
+    ).join(":");
+    const { sdp } = serializeSdp(desc);
+    await this.peerConnection.setRemoteDescription({ type: "answer", sdp });
+    this._secureLog("info", "SBQ2 answer accepted; awaiting in-band key exchange", {
+      bytes: answerBytes.length
+    });
+  }
   async handleSecureAnswer(answerData) {
+    if (answerData && typeof answerData.sbq2 === "string") {
+      return this._handleSbq2Answer(answerData);
+    }
     try {
       if (!answerData || typeof answerData !== "object" || Array.isArray(answerData)) {
         this._secureLog("error", "CRITICAL: Invalid answer data structure", {
@@ -19984,7 +21266,7 @@ var SecureMasterKeyManager = class {
 var import_NotificationIntegration = __toESM(require_NotificationIntegration());
 
 // package.json
-var version = "5.8.1";
+var version = "5.9.0";
 
 // src/components/ui/Header.jsx
 var APP_VERSION = `v${version}`;

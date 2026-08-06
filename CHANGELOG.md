@@ -1,5 +1,55 @@
 # Changelog
 
+## v5.9.0 — The invitation is now one small QR code
+
+The connection descriptor moves to SBQ2 and the key material moves onto the
+DataChannel. Measured on the live site: the invitation payload went from **2274
+characters across 4 animated QR frames to 151 characters in a single frame**.
+
+### Changed
+
+- **Invitations use the SBQ2 format.** The out-of-band code now carries only what
+  brings up DTLS — ICE credentials, the certificate fingerprint, candidates, an
+  expiry — plus a 16-byte commitment to the key material.
+
+- **Key material is exchanged in band.** The ECDH and ECDSA public keys travel as
+  the first frame on the DataChannel, and are checked against the commitment from
+  the invitation *before* they are parsed or imported. A mismatch closes the
+  connection; it is not a warning.
+
+- **The SAS is computed over a transcript** covering both descriptors verbatim and
+  both key blobs, with length prefixes. Anything an attacker can alter anywhere in
+  the handshake, in either direction, changes the digits the two people compare.
+
+- **The HKDF salt is derived from that transcript instead of transmitted**, so
+  every session key is bound to both DTLS fingerprints and every candidate, and
+  neither side can steer it.
+
+- **`authProof` is replaced by one signature over the transcript.** The old
+  challenge/response echoed a nonce back across seven fields; the signature proves
+  the same possession and binds the whole handshake at once.
+
+- The Double Ratchet starts from the transcript-derived material. SBQ2 postdates
+  the ratchet entirely, so support is implied by the format rather than advertised
+  in it — which also removes the silent "peer is old, use static keys" fallback
+  from this path.
+
+### Rollback
+
+`EnhancedSecureWebRTCManager.SBQ2_SEND_ENABLED = false` and redeploy puts every
+new invitation back on SB1. Reception of both formats is unconditional and is not
+governed by the flag, so a client built with it off still reads SBQ2 invitations.
+
+### Compatibility
+
+SB1 invitations are still read, and the animated multi-frame QR path stays for
+them. A client older than 5.9.0 cannot read an SBQ2 invitation: from 5.9.0 on, an
+unrecognised `SB<n>:` family reports "This invitation was created by a newer
+version of SecureBit. Please update the app to connect." Versions 5.8.1 and
+earlier predate that check and show a JSON parse error instead — the two ends must
+both be on 5.9.0+.
+
+
 ## v5.8.1 — SBQ2 rebuilds SDP that Firefox accepts
 
 Still nothing in the application calls the SBQ2 descriptor; this fixes defects in
