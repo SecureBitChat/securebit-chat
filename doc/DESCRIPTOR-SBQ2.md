@@ -9,8 +9,8 @@ package). Measured on real Chrome and Firefox SDP, a descriptor went from
 2000–2400 characters to **98–149 bytes**, and the QR from version 38–40 down to
 **version 6–8** at error-correction level M.
 
-**Status: specified and implemented, not wired into the connection path.** See
-[Migration](#migration) for the gate on phase 3.
+**Status: live.** Shipped in v5.9.0 with the in-band key exchange; new invitations
+use SBQ2 and SB1 is still read. See [Migration](#7-migration).
 
 ---
 
@@ -248,35 +248,46 @@ The two formats separate without heuristics: an SBQ2 QR starts with byte `0x02`,
 an SB1 payload starts with ASCII `S` (`0x53`); in text, the prefixes are `SB2:`
 and `SB1:bin:` / `SB1:gz:`.
 
-| phase | change |
+| phase | state |
 |---|---|
-| 1 (done) | Codec and tests in the tree. Nothing in the connection path changes. |
-| 2 | Receiver accepts both. Try SBQ2 first, fall back to the SB1 parser. Sender still emits `SB1:`. |
-| 3 | Sender switches to SBQ2 behind a flag. **Gated — see below.** |
-| 4 | `SB1:` emission removed; SB1 parsing kept one more release, then deleted along with `cose-qr.js`, `inflateBounded`, and the animated multi-frame QR path in `app.jsx`. |
+| 1 | Codec and tests in the tree. **Done, v5.8.0/v5.8.1.** |
+| 2 | Receiver accepts both formats. **Done, v5.9.0** — reception is unconditional and not governed by the send flag. |
+| 3 | Sender emits SBQ2. **Done, v5.9.0**, together with the in-band key exchange that made it safe. |
+| 4 | Remove SB1 emission (already gone) and, after a deprecation window, SB1 parsing along with `cose-qr.js`, `inflateBounded` and the animated multi-frame QR path. **Not yet** — the animated path is still required while SB1 invitations are accepted. |
 
-### Phase 3 is blocked on the in-band key exchange
+### Rollback
 
-**The security argument in §1 describes a protocol that does not exist in the
-code yet.** Today `EnhancedSecureWebRTCManager` still ships the key material
-inside the descriptor, still computes the SAS in `_computeSAS` from the DTLS
-fingerprints alone, and still sends `authProof`. Shrinking the descriptor without
-that delivery would remove the key material from the QR with nothing carrying it
-instead.
+`EnhancedSecureWebRTCManager.SBQ2_SEND_ENABLED = false` and redeploy. That single
+value governs only what is emitted; a client built with it off still reads SBQ2
+invitations, so the two ends never have to be rolled back together.
 
-Phase 3 must not be enabled until a separate delivery lands:
+The switch is deliberately not consulted in the receive path and never inside an
+established session. `_handshakeMode` latches per connection, so a session that
+began as SBQ2 cannot be pushed back onto SB1 partway through — every SBQ2 failure
+tears the connection down instead.
 
-- a key-exchange phase after the DataChannel opens,
-- verification of the commitment **before** any use of the blob,
-- `_computeSAS` replaced by the transcript SAS above,
-- the session salt derived from the transcript instead of transmitted,
-- `authProof` replaced by a signature over the transcript,
-- interlock with the Double Ratchet start,
+### What phase 3 depended on, and what landed
 
-each with its own tests. Phases 1 and 2 are safe to ship without it, because
-neither changes what is sent.
+Phase 3 was blocked on the in-band key exchange, because shrinking the descriptor
+without it would have removed key material from the invitation with nothing
+carrying it instead. v5.9.0 delivered that: a key-exchange phase after the
+DataChannel opens, the commitment verified before the blob is parsed, the
+transcript SAS in place of `_computeSAS`, the salt derived instead of
+transmitted, `authProof` replaced by a signature over the transcript, and the
+Double Ratchet started from the transcript-derived material.
 
----
+### Compatibility
+
+A client older than v5.9.0 cannot read an SBQ2 invitation.
+
+From v5.9.0 onward an unrecognised `SB<n>:` family is reported as *"This
+invitation was created by a newer version of SecureBit. Please update the app to
+connect."* — so the next format change explains itself.
+
+Versions **5.8.1 and earlier predate that check**: they fall through to
+`JSON.parse` and show `Invalid invitation format: Unexpected token 'S', "SB2:Ak…"
+is not valid JSON`. That is accurate but unhelpful, and it cannot be fixed
+retroactively in builds already shipped. Both ends must be on 5.9.0+.
 
 ## 8. Decoder rules
 
