@@ -1,5 +1,18 @@
 # Changelog
 
+## v5.9.1 — Scanning a one-frame invitation
+
+### Fixed
+
+- The QR scanner waited for four frames when shown a single one. Its chunk
+  assembler was written for SB1, which the generator always cuts into exactly
+  four frames, and its fallback branch claimed any non-JSON string longer than
+  100 characters — which a 151-character SBQ2 invitation is. A complete
+  invitation was filed as chunk 1 of 4 and the scan never finished. SBQ2 payloads
+  are now recognised as complete before any assembly runs, in both the text and
+  raw-byte forms.
+
+
 ## v5.9.0 — The invitation is now one small QR code
 
 The connection descriptor moves to SBQ2 and the key material moves onto the

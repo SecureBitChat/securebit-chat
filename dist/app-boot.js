@@ -21266,7 +21266,7 @@ var SecureMasterKeyManager = class {
 var import_NotificationIntegration = __toESM(require_NotificationIntegration());
 
 // package.json
-var version = "5.9.0";
+var version = "5.9.1";
 
 // src/components/ui/Header.jsx
 var APP_VERSION = `v${version}`;

@@ -7,7 +7,7 @@ this document describes.
 
 | | |
 | --- | --- |
-| Release | v5.9.0 |
+| Release | v5.9.1 |
 | Protocol version | 4.1 |
 | Ratchet wire version | 1 |
 
@@ -238,5 +238,5 @@ worse than one that reports nothing.
 
 ## Scope
 
-This describes the browser implementation as it stands in v5.9.0. It is not a
+This describes the browser implementation as it stands in v5.9.1. It is not a
 substitute for independent cryptographic review.

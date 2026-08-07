@@ -4231,14 +4231,31 @@ var EnhancedSecureP2PChat = () => {
     try {
       console.log("QR Code scanned:", scannedData.substring(0, 100) + "...");
       console.log("Current buffer state:", qrChunksBufferRef.current);
+      if (scannedData.startsWith("SB2:") || scannedData.charCodeAt(0) === 2) {
+        qrChunksBufferRef.current = { id: null, total: 0, seen: /* @__PURE__ */ new Set(), items: [] };
+        if (showOfferStep) {
+          setAnswerInput(scannedData);
+        } else {
+          setOfferInput(scannedData);
+        }
+        setMessages((prev) => [...prev, {
+          message: "Invitation captured.",
+          type: "success"
+        }]);
+        setShowQRScannerModal(false);
+        return Promise.resolve(true);
+      }
       if (scannedData.startsWith("SB1:bin:") || qrChunksBufferRef.current && qrChunksBufferRef.current.id) {
         console.log("Binary chunk detected:", scannedData.substring(0, 50) + "...");
         if (!qrChunksBufferRef.current.id) {
           console.log("Initializing buffer for binary chunks");
           qrChunksBufferRef.current = {
             id: `bin_${Date.now()}`,
+            // SB1 payloads are split into exactly four
+            // frames by the generator above. SBQ2 never
+            // reaches here — it is one frame and is
+            // handled at the top of this function.
             total: 4,
-            // We expect 4 chunks
             seen: /* @__PURE__ */ new Set(),
             items: [],
             lastUpdateMs: Date.now()
@@ -4296,8 +4313,11 @@ var EnhancedSecureP2PChat = () => {
           console.log("Initializing buffer for potential binary chunks");
           qrChunksBufferRef.current = {
             id: `bin_${Date.now()}`,
+            // SB1 payloads are split into exactly four
+            // frames by the generator above. SBQ2 never
+            // reaches here — it is one frame and is
+            // handled at the top of this function.
             total: 4,
-            // We expect 4 chunks
             seen: /* @__PURE__ */ new Set(),
             items: [],
             lastUpdateMs: Date.now()
