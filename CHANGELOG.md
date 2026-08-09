@@ -1,5 +1,61 @@
 # Changelog
 
+## v5.9.2 — Responsive layout fixed for phones
+
+The chat was not laying out correctly on phones, iPhone worst of all: the header
+would not stay at the top, and the layout shifted around as you scrolled or opened
+the keyboard. The responsive behaviour is fixed.
+
+### Fixed
+
+- **The header stops scrolling away on iPhone.** The shell and the app column both
+  carry `.minimal-bg`, which sets `min-height: 100vh` — and `min-height` always
+  beats `height`. On iOS `100vh` is the URL-bar-retracted *large* viewport, so with
+  the bar showing the shell was held some 60–100px taller than the area you can
+  actually see. That surplus is what made the document scrollable, and a document
+  that scrolls is how the header rode off the top. Removing the floor is also what
+  makes everything below work at all: measured with `--sb-vh` forced to 700px, the
+  shell stayed 844px before the fix and follows to 700px after.
+- **The online/offline toast no longer covers the peer name.** It is `fixed top-4`,
+  which inside the chat landed on the 64px header; it now sits below it.
+- **The chat shell is sized from the visual viewport instead of guessing.** Its
+  height follows `visualViewport`, with `100dvh` as the fallback — which is
+  already correct on Android, where `interactive-widget=resizes-content` makes the
+  layout viewport shrink for the keyboard. WebKit has not implemented
+  `interactive-widget` at all, which is why the JS fallback exists.
+- **The layout no longer resizes while you scroll.** Height was recomputed on
+  every `visualViewport` scroll event, which on iOS fires while the URL bar
+  collapses and during rubber-banding, so the whole chat twitched under the
+  finger. It now tracks resize only.
+- **Safe-area padding actually applies, and gets out of the way.** The composer
+  already padded for the home indicator with `env(safe-area-inset-bottom)`, but
+  the viewport meta lacked `viewport-fit=cover`, so the value was always 0 on
+  notched iPhones. It now also collapses while the keyboard is up, where it would
+  otherwise be dead space between the composer and the keyboard.
+- **The message list can shrink.** It is `flex: 1` in a column, which defaults to
+  `min-height: auto`: it refused to shrink below its content and pushed the
+  composer off the bottom of the screen in a long conversation. It is also the
+  only scroller now, and no longer chains its scroll to the document.
+- **The chat header stays at the top**, via `position: sticky` on the header and
+  nothing else. If an ancestor scrolls — which is what iOS does to lift a focused
+  input above the keyboard — the header holds against the top instead of riding
+  away with the page.
+- Nested containers no longer each claim a full viewport height, which counted
+  the header twice.
+
+### Added
+
+- `?preview=chat` renders the chat layout with canned content and no connection,
+  so it can be looked at without standing up a handshake first. Presentational
+  only: no peer manager, no keys, no network, and the send handlers are no-ops.
+
+The shell is sized, not pinned. An intermediate version of this fix used
+`position: fixed` with a JS-chased viewport offset and a body scroll lock; that
+makes the layout feel nailed down rather than laid out, and a fixed box is laid
+out against the layout viewport — the one iOS never shrinks for the keyboard — so
+it has to be chased forever. Driving height and leaving positioning alone is what
+the established iOS chat implementations do.
+
 ## v5.9.1 — Scanning a one-frame invitation
 
 ### Fixed

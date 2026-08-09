@@ -2660,7 +2660,7 @@ var EnhancedChatInterface = ({
   );
   const composer = React.createElement(
     "footer",
-    { key: "composer", style: { flex: "none", padding: "12px 20px calc(18px + env(safe-area-inset-bottom, 0px))", background: "#0f0f11", borderTop: "1px solid rgba(255,255,255,0.05)" } },
+    { key: "composer", style: { flex: "none", padding: "12px 20px calc(18px + var(--sb-safe-bottom, env(safe-area-inset-bottom, 0px)))", background: "#0f0f11", borderTop: "1px solid rgba(255,255,255,0.05)" } },
     React.createElement(
       "div",
       { style: { maxWidth: "1000px", margin: "0 auto" } },
@@ -2889,7 +2889,7 @@ var SessionsSidebar = ({ chats, collapsed, drawerOpen, onToggleCollapse, onSelec
   const inner = collapsed ? collapsedInner : expandedInner;
   return h(React.Fragment, null, [
     // Responsive behaviour (inline styles can't express media queries).
-    h("style", { key: "css", dangerouslySetInnerHTML: { __html: "@media (max-width:1023px){.sb-rail{display:none !important;}.sb-burger{display:grid !important;}}@media (min-width:1024px){.sb-drawer-overlay{display:none !important;}}.sb-mobile-drawer .sb-collapse-btn{display:none !important;}html,body{background:#0f0f11 !important;overscroll-behavior:none;}.sb-app-shell{height:var(--sb-vh,100dvh) !important;}.sb-app-col{height:var(--sb-vh,100dvh) !important;}.chat-container{height:var(--sb-vh,100dvh) !important;}@media (max-width:768px){textarea,input,select{font-size:16px !important;}}@media (max-width:768px){.sb-rename-btn{display:none !important;}}" } }),
+    h("style", { key: "css", dangerouslySetInnerHTML: { __html: "@media (max-width:1023px){.sb-rail{display:none !important;}.sb-burger{display:grid !important;}}@media (min-width:1024px){.sb-drawer-overlay{display:none !important;}}.sb-mobile-drawer .sb-collapse-btn{display:none !important;}html,body{background:#0f0f11 !important;overscroll-behavior:none;}.sb-app-shell{height:var(--sb-vh,100dvh) !important;min-height:0 !important;overflow:hidden;}.sb-chat-header{position:sticky;top:0;z-index:20;}.sb-app-col{height:100% !important;min-height:0 !important;}.chat-container{height:100% !important;min-height:0 !important;}.sb-scroll{min-height:0 !important;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}@media (max-width:768px){textarea,input,select{font-size:16px !important;}}@media (max-width:768px){.sb-rename-btn{display:none !important;}}" } }),
     // Desktop rail
     h("aside", { key: "rail", className: "sb-rail", style: railStyle }, inner),
     // Mobile drawer overlay
@@ -3052,22 +3052,33 @@ var EnhancedSecureP2PChat = () => {
   }, []);
   React.useEffect(() => {
     const vv = typeof window !== "undefined" ? window.visualViewport : null;
+    const root = document.documentElement;
+    let lastH = -1, lastInset = "";
+    const applyHeight = () => {
+      const h = Math.round(vv ? vv.height : window.innerHeight || 0);
+      if (h && h !== lastH) {
+        lastH = h;
+        root.style.setProperty("--sb-vh", h + "px");
+      }
+    };
+    const applyInset = () => {
+      const covered = !!vv && window.innerHeight - vv.height > 120;
+      const v = covered ? "0px" : "env(safe-area-inset-bottom, 0px)";
+      if (v !== lastInset) {
+        lastInset = v;
+        root.style.setProperty("--sb-safe-bottom", v);
+      }
+    };
     const apply = () => {
-      const h = vv ? vv.height : window.innerHeight || 0;
-      if (h) document.documentElement.style.setProperty("--sb-vh", h + "px");
+      applyHeight();
+      applyInset();
     };
     apply();
-    if (vv) {
-      vv.addEventListener("resize", apply);
-      vv.addEventListener("scroll", apply);
-    }
+    if (vv) vv.addEventListener("resize", apply);
     window.addEventListener("resize", apply);
     window.addEventListener("orientationchange", apply);
     return () => {
-      if (vv) {
-        vv.removeEventListener("resize", apply);
-        vv.removeEventListener("scroll", apply);
-      }
+      if (vv) vv.removeEventListener("resize", apply);
       window.removeEventListener("resize", apply);
       window.removeEventListener("orientationchange", apply);
     };
@@ -5153,11 +5164,18 @@ var EnhancedSecureP2PChat = () => {
       addMessageWithAutoScroll(" Secure connection successfully established and verified! You can now communicate safely with full protection against MITM attacks and Perfect Forward Secrecy..", "system");
     }
   }, [connectionStatus, isVerified]);
+  const previewMode = React.useMemo(() => {
+    try {
+      return new URLSearchParams(window.location.search).get("preview") === "chat";
+    } catch {
+      return false;
+    }
+  }, []);
   const isConnectedAndVerified = (connectionStatus === "connected" || connectionStatus === "verified" || connectionStatus === "reconnecting") && isVerified;
   React.useEffect(() => {
-    document.body.classList.toggle("sb-in-chat", isConnectedAndVerified);
+    document.body.classList.toggle("sb-in-chat", isConnectedAndVerified || previewMode);
     return () => document.body.classList.remove("sb-in-chat");
-  }, [isConnectedAndVerified]);
+  }, [isConnectedAndVerified, previewMode]);
   React.useEffect(() => {
     if (isConnectedAndVerified && pendingSession && connectionStatus !== "failed") {
       setPendingSession(null);
@@ -5253,6 +5271,85 @@ var EnhancedSecureP2PChat = () => {
     const s = sessionsState.sessions[id];
     return s && s.sas && s.sas.isVerified;
   });
+  if (previewMode) {
+    const previewMessages = [
+      { message: "Preview mode \u2014 no connection is open.", type: "system", id: 1, timestamp: Date.now() - 3e5 },
+      { message: "This renders the real chat components so the layout can be checked without a handshake.", type: "received", id: 2, timestamp: Date.now() - 24e4 },
+      { message: "Header pinned, list scrolls, composer sits above the keyboard.", type: "sent", id: 3, timestamp: Date.now() - 18e4 },
+      ...Array.from({ length: 30 }, (_, i) => ({
+        message: "Filler message " + (i + 1) + " \u2014 enough content to make the list scroll.",
+        type: i % 2 ? "sent" : "received",
+        id: 10 + i,
+        timestamp: Date.now() - (30 - i) * 5e3
+      }))
+    ];
+    const noop = () => {
+    };
+    return React.createElement("div", {
+      className: "minimal-bg sb-app-shell",
+      style: { display: "flex", flexDirection: "row", height: "100vh", width: "100%", overflow: "hidden" }
+    }, [
+      React.createElement(SessionsSidebar, {
+        key: "sidebar",
+        chats: [{ id: "preview", label: "Preview peer", unread: 0, active: true, verified: true }],
+        collapsed: sidebarCollapsed,
+        drawerOpen: sidebarDrawerOpen,
+        onToggleCollapse: () => setSidebarCollapsed((v) => !v),
+        onSelect: noop,
+        onNewChat: noop,
+        onRename: noop,
+        onCloseDrawer: () => setSidebarDrawerOpen(false),
+        myStatus,
+        onSetStatus: setMyStatus
+      }),
+      React.createElement("button", {
+        key: "burger",
+        className: "sb-burger",
+        onClick: () => setSidebarDrawerOpen(true),
+        style: { display: "none", position: "fixed", top: "13px", left: "13px", zIndex: 55, width: "38px", height: "38px", borderRadius: "10px", placeItems: "center", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(18,18,20,0.9)", color: "#cfcfd4", cursor: "pointer" },
+        dangerouslySetInnerHTML: { __html: SB_SVG.burger }
+      }),
+      React.createElement("div", {
+        key: "col",
+        className: "minimal-bg sb-app-col",
+        style: { flex: 1, minWidth: 0, height: "100vh", overflow: "hidden", display: "flex", flexDirection: "column" }
+      }, React.createElement(
+        "main",
+        { key: "main" },
+        React.createElement(EnhancedChatInterface, {
+          title: "Preview peer",
+          isOffline: false,
+          peerPresence: "available",
+          onRenameTitle: noop,
+          messages: previewMessages,
+          messageInput,
+          setMessageInput,
+          onSendMessage: noop,
+          onSendVoice: noop,
+          onDisconnect: noop,
+          keyFingerprint: "preview",
+          isVerified: true,
+          chatMessagesRef,
+          scrollToBottom: noop,
+          webrtcManager: null,
+          status: "connected",
+          pendingIncomingFiles: [],
+          onIncomingDecision: noop,
+          codeMode,
+          setCodeMode,
+          viewOnceMode,
+          setViewOnceMode,
+          viewOnceTtl,
+          setViewOnceTtl,
+          disappearTtl,
+          setDisappearTtl,
+          nowTick,
+          onUnsendMessage: noop,
+          onMessageExpire: noop
+        })
+      ))
+    ]);
+  }
   return React.createElement("div", {
     className: showSidebar ? "minimal-bg sb-app-shell" : "minimal-bg",
     // With the rail visible the app is a fixed-height shell (rail + column

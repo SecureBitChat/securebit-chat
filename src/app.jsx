@@ -2432,7 +2432,7 @@ import {
                 })
             );
 
-            const composer = React.createElement('footer', { key: 'composer', style: { flex: 'none', padding: '12px 20px calc(18px + env(safe-area-inset-bottom, 0px))', background: '#0f0f11', borderTop: '1px solid rgba(255,255,255,0.05)' } },
+            const composer = React.createElement('footer', { key: 'composer', style: { flex: 'none', padding: '12px 20px calc(18px + var(--sb-safe-bottom, env(safe-area-inset-bottom, 0px)))', background: '#0f0f11', borderTop: '1px solid rgba(255,255,255,0.05)' } },
                 React.createElement('div', { style: { maxWidth: '1000px', margin: '0 auto' } },
                     isRecording
                         ? [recordingBar]
@@ -2671,7 +2671,56 @@ import {
                             // App-shell height tracks the *visual* viewport (--sb-vh, set from the
                             // VisualViewport API) so the layout shrinks when the on-screen keyboard
                             // opens — no grey gap under the composer. Falls back to 100dvh, then 100vh.
-                            '.sb-app-shell{height:var(--sb-vh,100dvh) !important;}.sb-app-col{height:var(--sb-vh,100dvh) !important;}.chat-container{height:var(--sb-vh,100dvh) !important;}' +
+                            // The shell is sized by HEIGHT, not pinned by position.
+                            //
+                            // An earlier attempt used position:fixed with a JS-driven top
+                            // offset. That is the wrong instrument: a fixed element is laid
+                            // out against the layout viewport, which iOS does not shrink for
+                            // the keyboard, so it has to be chased with JS — and the result
+                            // feels nailed down rather than laid out. The reference iOS chat
+                            // implementations all drive HEIGHT from visualViewport and leave
+                            // positioning alone.
+                            //
+                            // --sb-vh is the visual viewport height; 100dvh is the fallback,
+                            // which is correct on its own everywhere the layout viewport does
+                            // resize for the keyboard (Chrome/Firefox on Android, via
+                            // interactive-widget=resizes-content). WebKit has not implemented
+                            // interactive-widget at all, which is exactly why the JS fallback
+                            // still exists.
+                            //
+                            // min-height:0 is what makes the height above mean anything.
+                            // The shell also carries .minimal-bg, which sets
+                            // min-height:100vh — and min-height always beats height. On iOS
+                            // `100vh` is the URL-bar-retracted *large* viewport, so with the
+                            // bar showing the shell was pinned ~60-100px taller than the area
+                            // you can actually see. That surplus is precisely what made the
+                            // document scrollable, and a document that scrolls is how the
+                            // header rode away off the top. Everything below — the visual
+                            // viewport tracking, the dvh fallback — was inert until this
+                            // floor was removed: --sb-vh could shrink all it liked and the
+                            // shell would not follow it below 100vh.
+                            '.sb-app-shell{height:var(--sb-vh,100dvh) !important;min-height:0 !important;overflow:hidden;}' +
+                            // Pin the header, and nothing else.
+                            //
+                            // Sticky is the whole fix: if an ancestor scrolls — which is what
+                            // iOS does to lift a focused input above the keyboard — the header
+                            // holds against the top instead of riding away with the page. An
+                            // earlier version answered this by taking the document's scroll
+                            // away altogether; that broke the connection screen and was a far
+                            // broader change than the problem called for.
+                            '.sb-chat-header{position:sticky;top:0;z-index:20;}' +
+                            // Children fill the shell rather than restating a viewport height,
+                            // which would count the header twice.
+                            // The column carries .minimal-bg too, so it needs the same floor
+                            // removed — !important rather than relying on this block winning
+                            // on source order, because it is load-bearing.
+                            '.sb-app-col{height:100% !important;min-height:0 !important;}' +
+                            '.chat-container{height:100% !important;min-height:0 !important;}' +
+                            // The message list is the only scroller. min-height:0 is not
+                            // cosmetic: a flex:1 item in a column defaults to min-height:auto,
+                            // refuses to shrink below its content, and pushes the composer off
+                            // the bottom once the conversation is long enough.
+                            '.sb-scroll{min-height:0 !important;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}' +
                             // iOS Safari zooms the page when a focused field has font-size < 16px.
                             // Force 16px on mobile inputs to stop the zoom-and-reflow on tap.
                             '@media (max-width:768px){textarea,input,select{font-size:16px !important;}}' +
@@ -2879,16 +2928,35 @@ import {
                     // var (--sb-vh) that the app shell uses, so the layout tracks the keyboard.
                     React.useEffect(() => {
                         const vv = (typeof window !== 'undefined') ? window.visualViewport : null;
-                        const apply = () => {
-                            const h = vv ? vv.height : (window.innerHeight || 0);
-                            if (h) document.documentElement.style.setProperty('--sb-vh', h + 'px');
+                        const root = document.documentElement;
+                        let lastH = -1, lastInset = '';
+
+                        // HEIGHT changes only on resize. It deliberately does NOT follow
+                        // `scroll`: on iOS the visual viewport also moves while the URL bar
+                        // collapses and during rubber-banding, so resizing the shell on every
+                        // scroll event made the whole layout twitch under the finger — which
+                        // is most of what "the chat layout jumps" was.
+                        const applyHeight = () => {
+                            const h = Math.round(vv ? vv.height : (window.innerHeight || 0));
+                            if (h && h !== lastH) { lastH = h; root.style.setProperty('--sb-vh', h + 'px'); }
                         };
+                        // The home-indicator inset must collapse while the keyboard is up.
+                        // Once the shell has shrunk to the visible area, that padding is no
+                        // longer clearing the indicator — it is just dead space between the
+                        // composer and the keyboard.
+                        const applyInset = () => {
+                            const covered = !!vv && (window.innerHeight - vv.height) > 120;
+                            const v = covered ? '0px' : 'env(safe-area-inset-bottom, 0px)';
+                            if (v !== lastInset) { lastInset = v; root.style.setProperty('--sb-safe-bottom', v); }
+                        };
+                        const apply = () => { applyHeight(); applyInset(); };
+
                         apply();
-                        if (vv) { vv.addEventListener('resize', apply); vv.addEventListener('scroll', apply); }
+                        if (vv) vv.addEventListener('resize', apply);
                         window.addEventListener('resize', apply);
                         window.addEventListener('orientationchange', apply);
                         return () => {
-                            if (vv) { vv.removeEventListener('resize', apply); vv.removeEventListener('scroll', apply); }
+                            if (vv) vv.removeEventListener('resize', apply);
                             window.removeEventListener('resize', apply);
                             window.removeEventListener('orientationchange', apply);
                         };
@@ -5425,14 +5493,21 @@ import {
                     // conversation must stay on screen. Throwing the user back to the connect
                     // screen for a two-second NAT rebind would defeat the recovery entirely —
                     // the composer keeps working and queues (see the send path's offlineNow).
+                    // `?preview=chat` renders the chat layout with no connection behind it.
+                    // Declared here because the in-chat body class below depends on it.
+                    const previewMode = React.useMemo(() => {
+                        try { return new URLSearchParams(window.location.search).get('preview') === 'chat'; }
+                        catch { return false; }
+                    }, []);
+
                     const isConnectedAndVerified = (connectionStatus === 'connected' || connectionStatus === 'verified' || connectionStatus === 'reconnecting') && isVerified;
 
                     // The PWA "Install app" pill is a landing-page affordance — hide it once
                     // we're inside the chat (CSS: body.sb-in-chat #pwa-install-button).
                     React.useEffect(() => {
-                        document.body.classList.toggle('sb-in-chat', isConnectedAndVerified);
+                        document.body.classList.toggle('sb-in-chat', isConnectedAndVerified || previewMode);
                         return () => document.body.classList.remove('sb-in-chat');
-                    }, [isConnectedAndVerified]);
+                    }, [isConnectedAndVerified, previewMode]);
         
                     React.useEffect(() => {
                         // All security features are enabled by default - no session activation needed
@@ -5553,6 +5628,76 @@ import {
                         const s = sessionsState.sessions[id];
                         return s && s.sas && s.sas.isVerified;
                     });
+
+                    // Stop the document scrolling while the app shell is up, so the header
+                    // cannot ride off the top. Applied from JS rather than a :has() selector
+                    // because this is load-bearing, and removed again on the landing page,
+                    // which must keep scrolling normally.
+
+
+                    // ── LAYOUT PREVIEW ────────────────────────────────────────────
+                    // `?preview=chat` renders the real chat components inside the real
+                    // shell with canned content and no WebRTC, so the layout can be
+                    // looked at and iterated on without standing up a connection each
+                    // time. It is presentational only: no peer manager, no keys, no
+                    // network, nothing sendable — the send handlers are no-ops. It
+                    // cannot be reached by accident, and it is not a way around
+                    // verification, because there is no session behind it to reach.
+                    if (previewMode) {
+                        const previewMessages = [
+                            { message: 'Preview mode — no connection is open.', type: 'system', id: 1, timestamp: Date.now() - 300000 },
+                            { message: 'This renders the real chat components so the layout can be checked without a handshake.', type: 'received', id: 2, timestamp: Date.now() - 240000 },
+                            { message: 'Header pinned, list scrolls, composer sits above the keyboard.', type: 'sent', id: 3, timestamp: Date.now() - 180000 },
+                            ...Array.from({ length: 30 }, (_, i) => ({
+                                message: 'Filler message ' + (i + 1) + ' — enough content to make the list scroll.',
+                                type: i % 2 ? 'sent' : 'received',
+                                id: 10 + i,
+                                timestamp: Date.now() - (30 - i) * 5000
+                            }))
+                        ];
+                        const noop = () => {};
+                        return React.createElement('div', {
+                            className: 'minimal-bg sb-app-shell',
+                            style: { display: 'flex', flexDirection: 'row', height: '100vh', width: '100%', overflow: 'hidden' }
+                        }, [
+                            React.createElement(SessionsSidebar, {
+                                key: 'sidebar',
+                                chats: [{ id: 'preview', label: 'Preview peer', unread: 0, active: true, verified: true }],
+                                collapsed: sidebarCollapsed, drawerOpen: sidebarDrawerOpen,
+                                onToggleCollapse: () => setSidebarCollapsed(v => !v),
+                                onSelect: noop, onNewChat: noop, onRename: noop,
+                                onCloseDrawer: () => setSidebarDrawerOpen(false),
+                                myStatus: myStatus, onSetStatus: setMyStatus
+                            }),
+                            React.createElement('button', {
+                                key: 'burger', className: 'sb-burger',
+                                onClick: () => setSidebarDrawerOpen(true),
+                                style: { display: 'none', position: 'fixed', top: '13px', left: '13px', zIndex: 55, width: '38px', height: '38px', borderRadius: '10px', placeItems: 'center', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(18,18,20,0.9)', color: '#cfcfd4', cursor: 'pointer' },
+                                dangerouslySetInnerHTML: { __html: SB_SVG.burger }
+                            }),
+                            React.createElement('div', {
+                                key: 'col', className: 'minimal-bg sb-app-col',
+                                style: { flex: 1, minWidth: 0, height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }
+                            }, React.createElement('main', { key: 'main' },
+                                React.createElement(EnhancedChatInterface, {
+                                    title: 'Preview peer', isOffline: false, peerPresence: 'available',
+                                    onRenameTitle: noop,
+                                    messages: previewMessages,
+                                    messageInput: messageInput, setMessageInput: setMessageInput,
+                                    onSendMessage: noop, onSendVoice: noop, onDisconnect: noop,
+                                    keyFingerprint: 'preview', isVerified: true,
+                                    chatMessagesRef: chatMessagesRef, scrollToBottom: noop,
+                                    webrtcManager: null, status: 'connected',
+                                    pendingIncomingFiles: [], onIncomingDecision: noop,
+                                    codeMode: codeMode, setCodeMode: setCodeMode,
+                                    viewOnceMode: viewOnceMode, setViewOnceMode: setViewOnceMode,
+                                    viewOnceTtl: viewOnceTtl, setViewOnceTtl: setViewOnceTtl,
+                                    disappearTtl: disappearTtl, setDisappearTtl: setDisappearTtl,
+                                    nowTick: nowTick, onUnsendMessage: noop, onMessageExpire: noop
+                                })
+                            ))
+                        ]);
+                    }
 
                     return React.createElement('div', {
                         className: showSidebar ? "minimal-bg sb-app-shell" : "minimal-bg",
