@@ -8354,6 +8354,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         iceServers: config.webrtc?.iceServers ?? _EnhancedSecureWebRTCManager.DEFAULT_ICE_SERVERS.map((server) => ({ ...server }))
       }
     };
+    this._emitGlobalEvents = config.emitGlobalEvents !== false;
     this._ipLeakWarningShown = false;
     this._initializeSecureLogging();
     this._setupOwnLogger();
@@ -11252,6 +11253,59 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     }
   }
   /**
+   * Release a link that a GROUP authenticated, with no human in the loop.
+   *
+   * WHY THIS IS NOT A BYPASS
+   * ------------------------
+   * The SAS comparison exists to answer one question: is the peer who
+   * completed this handshake the person we meant to talk to? For a 1:1 chat
+   * only a human can answer it, which is why _setVerifiedStatus refuses every
+   * SAS-shaped transition that no human confirmed.
+   *
+   * A mesh link inside a group has already answered it, earlier and by a
+   * different route. The descriptor that opened this connection was signed
+   * with a group identity key; that key's fingerprint is named in a roster
+   * signed by the admin; and the group's safety code — which every member
+   * compared out of band before any of this was allowed to start — covers
+   * that exact set of fingerprints. Asking the two people to also read seven
+   * digits at each other for every one of up to twenty-eight pairs would not
+   * add a check, it would repeat one they already did, badly.
+   *
+   * So the guarantee is not weakened here, it is moved: the caller must have
+   * verified the group signature over the peer's descriptor BEFORE the
+   * transport was created. Everything this method can check for itself, it
+   * does — the session must be SBQ2, its in-band exchange must have completed,
+   * and the peer must have proved possession of the identity key that the
+   * commitment in that descriptor bound it to. A session that has not got that
+   * far is refused outright rather than released on the caller's word.
+   *
+   * @param {string} reason short audit label for why the group vouched
+   */
+  markGroupLinkVerified(reason = "group_roster_signature") {
+    const st = this._sbq2;
+    if (!this._isSbq2() || !st || !st.completed || !st.proofVerified || !st.keysDerived) {
+      throw new Error("Group link cannot be released: the in-band handshake has not completed");
+    }
+    if (!this.encryptionKey || !this.macKey) {
+      throw new Error("Group link cannot be released: session keys are missing");
+    }
+    if (this.isVerified) return true;
+    this.localVerificationConfirmed = true;
+    this.remoteVerificationConfirmed = true;
+    this.bothVerificationsConfirmed = true;
+    this._setVerifiedStatus(true, "GROUP_ROSTER_SIGNATURE", {
+      reason,
+      timestamp: Date.now()
+    });
+    this._enforceVerificationGate("group_link_release", false);
+    this.onStatusChange?.("verified");
+    try {
+      this.processMessageQueue();
+    } catch (_) {
+    }
+    return true;
+  }
+  /**
    *   Create AAD (Additional Authenticated Data) for file messages
    * This binds file messages to the current session and prevents replay attacks
    */
@@ -11669,6 +11723,18 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   // ========================================================================
   // SBQ2 — compact descriptor + in-band key exchange
   // ========================================================================
+  /**
+   * Announce a lifecycle change to the application, unless this connection is
+   * muted. See `_emitGlobalEvents` in the constructor for why one would be.
+   */
+  _dispatchAppEvent(event) {
+    if (!this._emitGlobalEvents) return false;
+    try {
+      return document.dispatchEvent(event);
+    } catch (_) {
+      return false;
+    }
+  }
   /** True once this connection has latched onto the SBQ2 handshake. */
   _isSbq2() {
     return this._handshakeMode === "sbq2";
@@ -14417,7 +14483,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         hasKeys: !!(this.encryptionKey && this.macKey && this.metadataKey),
         hasLastCalculation: !!this.lastSecurityCalculation
       });
-      document.dispatchEvent(new CustomEvent("security-level-updated", {
+      this._dispatchAppEvent?.(new CustomEvent("security-level-updated", {
         detail: {
           timestamp: Date.now(),
           manager: "webrtc",
@@ -14431,7 +14497,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       setTimeout(() => {
       }, 100);
       if (this.lastSecurityCalculation) {
-        document.dispatchEvent(new CustomEvent("real-security-calculated", {
+        this._dispatchAppEvent?.(new CustomEvent("real-security-calculated", {
           detail: {
             securityData: this.lastSecurityCalculation,
             webrtcManager: this,
@@ -14624,7 +14690,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         isRealCalculation: securityData.isRealData
       });
       this.lastSecurityCalculation = securityData;
-      document.dispatchEvent(new CustomEvent("real-security-calculated", {
+      this._dispatchAppEvent?.(new CustomEvent("real-security-calculated", {
         detail: {
           securityData,
           webrtcManager: this,
@@ -16873,7 +16939,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           capabilitiesCount: 10
           // All capabilities enabled by default
         });
-        document.dispatchEvent(new CustomEvent("new-connection", {
+        this._dispatchAppEvent?.(new CustomEvent("new-connection", {
           detail: {
             type: "offer",
             timestamp: currentTimestamp,
@@ -17026,7 +17092,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
         const { text: text2 } = await this._sbq2BuildDescriptor(TYPE.ANSWER, {
           bindingTag: await bindingTag(digest, offerBytes)
         });
-        document.dispatchEvent(new CustomEvent("new-connection", {
+        this._dispatchAppEvent?.(new CustomEvent("new-connection", {
           detail: { type: "answer", timestamp: Date.now(), operationId }
         }));
         return { t: "answer", sbq2: text2 };
@@ -17477,7 +17543,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           timestamp: currentTimestamp,
           processingTime: currentTimestamp - offerData.timestamp
         });
-        document.dispatchEvent(new CustomEvent("new-connection", {
+        this._dispatchAppEvent?.(new CustomEvent("new-connection", {
           detail: {
             type: "answer",
             timestamp: currentTimestamp,
@@ -18755,7 +18821,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     this.onStatusChange("connected");
     this.processMessageQueue();
     try {
-      document.dispatchEvent(new CustomEvent("connection-recovered", {
+      this._dispatchAppEvent?.(new CustomEvent("connection-recovered", {
         detail: { timestamp: Date.now() }
       }));
     } catch (_) {
@@ -19115,7 +19181,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       this.fileTransferSystem.cleanup();
       this.fileTransferSystem = null;
     }
-    document.dispatchEvent(new CustomEvent("peer-disconnect", {
+    this._dispatchAppEvent?.(new CustomEvent("peer-disconnect", {
       detail: {
         reason: "connection_lost",
         timestamp: Date.now()
@@ -19186,7 +19252,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     this.stopHeartbeat();
     this.onKeyExchange("");
     this.onVerificationRequired("");
-    document.dispatchEvent(new CustomEvent("peer-disconnect", {
+    this._dispatchAppEvent?.(new CustomEvent("peer-disconnect", {
       detail: {
         reason,
         timestamp: Date.now()
@@ -19298,13 +19364,13 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
           errorType: error?.constructor?.name || "Unknown"
         });
       });
-      document.dispatchEvent(new CustomEvent("peer-disconnect", {
+      this._dispatchAppEvent?.(new CustomEvent("peer-disconnect", {
         detail: {
           reason: "user_disconnect",
           timestamp: Date.now()
         }
       }));
-      document.dispatchEvent(new CustomEvent("connection-cleaned", {
+      this._dispatchAppEvent?.(new CustomEvent("connection-cleaned", {
         detail: {
           timestamp: Date.now(),
           reason: "user_cleanup"
@@ -19791,7 +19857,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     }
     if (typeof document !== "undefined") {
       try {
-        document.dispatchEvent(new CustomEvent("securebit-call-state", {
+        this._dispatchAppEvent?.(new CustomEvent("securebit-call-state", {
           detail: { managerId: this._managerId || null, state: snapshot }
         }));
       } catch (_) {
@@ -21266,7 +21332,7 @@ var SecureMasterKeyManager = class {
 var import_NotificationIntegration = __toESM(require_NotificationIntegration());
 
 // package.json
-var version = "5.9.2";
+var version = "6.1.1";
 
 // src/components/ui/Header.jsx
 var APP_VERSION = `v${version}`;
@@ -22382,33 +22448,33 @@ function Roadmap() {
       v: "v5.5",
       title: "Secure Voice & Calls",
       sub: "Encrypted voice messages, audio calls, and video calls",
-      status: "current",
-      date: "Now",
+      status: "released",
+      date: "Early 2026",
       features: ["End-to-end encrypted voice messages", "1:1 encrypted audio calls (WebRTC)", "1:1 encrypted video calls (WebRTC)", "Perfect Forward Secrecy for live media", "SRTP/DTLS-protected media streams", "In-call SAS verification", "Call notifications and auto-reconnection", "Low-latency P2P media"]
     },
     {
       v: "v6.0",
-      title: "Mobile Edition",
-      sub: "Native mobile apps for iOS and Android",
-      status: "dev",
-      date: "Q4 2026",
-      features: ["iOS native app (Swift/SwiftUI)", "Android native app (Kotlin/Jetpack Compose)", "PWA support for mobile browsers", "Real-time push notifications", "Battery optimization", "Mobile-optimized UX/UI", "Offline message queuing", "Biometric authentication"]
+      title: "Group Communications",
+      sub: "Group chats with preserved privacy",
+      status: "current",
+      date: "Now",
+      features: ["P2P group chats up to 8 participants", "Mesh delivery with signed relay fallback", "One group safety code, compared by everyone", "Commit-then-reveal ceremony against code grinding", "Per-group identity keys, ephemeral by design", "Signed membership with epoch ordering", "Signed messages, so a split transcript is provable", "No server, no shared group key, no history"]
     },
     {
       v: "v6.5",
-      title: "Quantum-Resistant Edition",
-      sub: "Protection against quantum computers",
-      status: "planned",
+      title: "Mobile Edition",
+      sub: "Native mobile apps for iOS and Android",
+      status: "dev",
       date: "Q2 2027",
-      features: ["Post-quantum cryptography CRYSTALS-Kyber", "SPHINCS+ digital signatures", "Hybrid scheme: classic + PQ", "Quantum-safe key exchange", "Updated hashing algorithms", "Migration of existing sessions", "Compatibility with v5.x", "Quantum-resistant protocols"]
+      features: ["iOS native app (Swift/SwiftUI)", "Android native app (Kotlin/Jetpack Compose)", "PWA support for mobile browsers", "Real-time push notifications", "Battery optimization", "Mobile-optimized UX/UI", "Offline message queuing", "Biometric authentication"]
     },
     {
       v: "v7.0",
-      title: "Group Communications",
-      sub: "Group chats with preserved privacy",
+      title: "Quantum-Resistant Edition",
+      sub: "Protection against quantum computers",
       status: "planned",
       date: "Q4 2027",
-      features: ["P2P group connections up to 8 participants", "Mesh networking for groups", "Signal Double Ratchet for groups", "Anonymous groups without metadata", "Ephemeral groups (disappear after session)", "Cryptographic group administration", "Group member auditing"]
+      features: ["Post-quantum cryptography CRYSTALS-Kyber", "SPHINCS+ digital signatures", "Hybrid scheme: classic + PQ", "Quantum-safe key exchange", "Updated hashing algorithms", "Migration of existing sessions", "Compatibility with v5.x", "Quantum-resistant protocols"]
     },
     {
       v: "v7.5",

@@ -176,4 +176,33 @@ function withTwoSessions() {
     assert.equal(d.inactive, true);
 }
 
+// The rail preview shows conversation, not system notices.
+{
+    let state = createInitialState();
+    state = sessionsReducer(state, { type: A.CREATE_SESSION, entry: createSessionEntry({ id: 'a', peerLabel: 'work laptop' }) });
+    state = sessionsReducer(state, { type: A.SET_STATUS, id: 'a', status: 'connected' });
+    state = sessionsReducer(state, { type: A.ADD_MESSAGE, id: 'a', message: { id: 1, message: 'see you at six', type: 'received' } });
+
+    assert.equal(decorateSession(state.sessions.a, 'a').preview, 'see you at six');
+
+    // A closing notice arriving after it must not take the preview over: the
+    // status line next to it already says the connection is gone, and the last
+    // thing the peer actually said is what belongs there.
+    state = sessionsReducer(state, {
+        type: A.ADD_MESSAGE, id: 'a',
+        message: { id: 2, message: '🔌 Enhanced secure connection closed. Check connection status.', type: 'system' },
+    });
+    assert.equal(
+        decorateSession(state.sessions.a, 'a').preview, 'see you at six',
+        'a system notice must not become the chat preview',
+    );
+
+    // With nothing but system messages the preview falls back to the status text.
+    let bare = createInitialState();
+    bare = sessionsReducer(bare, { type: A.CREATE_SESSION, entry: createSessionEntry({ id: 'b', peerLabel: 'x' }) });
+    bare = sessionsReducer(bare, { type: A.SET_STATUS, id: 'b', status: 'disconnected' });
+    bare = sessionsReducer(bare, { type: A.ADD_MESSAGE, id: 'b', message: { id: 1, message: 'Peer manually disconnected.', type: 'system' } });
+    assert.equal(decorateSession(bare.sessions.b, 'b').preview, 'Disconnected');
+}
+
 console.log('sessions-reducer.test.mjs: all assertions passed');

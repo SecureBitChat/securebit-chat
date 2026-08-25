@@ -55,6 +55,11 @@ function makeManager(overrides = {}) {
     const sent = [];
     const ui = [];
     const mgr = {
+        // Lifecycle announcements go through _dispatchAppEvent rather than
+        // straight to `document`, so a connection with no window of its own — a
+        // group's mesh link — can be muted. An ordinary session is not.
+        _emitGlobalEvents: true,
+        _dispatchAppEvent: EnhancedSecureWebRTCManager.prototype._dispatchAppEvent,
         isVerified: true,
         isInitiator: true,
         intentionalDisconnect: false,

@@ -7,7 +7,7 @@ this document describes.
 
 | | |
 | --- | --- |
-| Release | v5.9.2 |
+| Release | v6.1.1 |
 | Protocol version | 4.1 |
 | Ratchet wire version | 1 |
 
@@ -236,7 +236,77 @@ what protects it. Functions that cannot wipe say so in their logs instead of
 reporting success, because a cleanup path that reports work it did not do is
 worse than one that reports nothing.
 
+## Groups
+
+A group owns no transport and no key of its own. Every byte it sends leaves over
+one of the pairwise sessions described above, already ratcheted and already
+authenticated by that session. There is no shared group key, so there is nothing
+to rotate when a member leaves: a removed member simply stops being sent
+anything.
+
+Each member holds a per-group ECDSA P-384 identity key, generated in the browser,
+non-extractable, and discarded with the group. A member is identified by the
+SHA-256 fingerprint of that key's SPKI encoding — never by a session, never by a
+name a peer supplied.
+
+### Membership
+
+The admin signs the full member set for an epoch: group id, epoch, operation,
+name, and the member fingerprints in canonical order. Members verify that
+signature against the key whose fingerprint they recorded when they were invited,
+not against whatever key the frame carries, and accept only an epoch that has not
+gone backwards. Identity keys travel in separate frames because eight SPKIs would
+overrun the transport's frame budget; each is checked against the fingerprint the
+signed roster commits to, so a substituted key is refused whichever frame carried
+it.
+
+### Group safety code
+
+Every member commits to a random 32-byte nonce, and nonces are published only
+once every commitment has arrived. The code is derived with HKDF-SHA-256 over the
+full set of fingerprints and nonces for that epoch, and rendered as seven digits.
+The commit-then-reveal ordering is what makes seven digits safe: a member who
+learnt the others' nonces first could otherwise grind its own until the digits
+came out however it liked. Membership changes open a new epoch, so the code
+changes with the member set and the old one no longer says anything about who is
+in the room.
+
+### Messages
+
+Group messages are signed with the sender's identity key over group id, epoch,
+sequence number, sender fingerprint and the SHA-256 of the body. Signing is not
+about confidentiality — each copy already travels inside a pairwise session — but
+about consistency: a member could otherwise send different text to different
+people under one sequence number and no recipient could tell. Two valid
+signatures on one sequence number are non-repudiable evidence of that, which is
+what a group without a shared transcript can honestly offer. It makes the split
+detectable, not impossible.
+
+### The mesh
+
+A group starts as a star and dials itself into a mesh: once the code is
+confirmed, each pair with no link between them opens one, with the compact
+descriptors travelling over the relay path that already exists. The member with
+the smaller fingerprint dials, which is the whole glare protocol.
+
+A relayed descriptor is signed with the sender's group identity key, over the
+direction, both fingerprints, a per-attempt nonce and the descriptor bytes. The
+relaying member can drop a dial or delay it; it cannot substitute one, so it
+cannot place itself inside the link built to route around it. On the new
+connection the ordinary in-band key exchange runs unchanged, and the link is then
+released on the group's authority rather than by a human comparing digits — the
+descriptor was signed by a key the roster names and the group code already
+covers. The release path refuses any session whose in-band handshake has not
+completed and whose peer has not proved possession of that key.
+
+An existing 1:1 chat between two members is claimed instead of re-dialled, using
+a probe signed over the group id, epoch, member fingerprint and that session's
+own key fingerprint. Both endpoints of a session derive the same key fingerprint
+from the shared secret and nobody else can, so a probe replayed onto a different
+chat does not verify — which is what stops a member claiming to be someone else
+and receiving their group traffic.
+
 ## Scope
 
-This describes the browser implementation as it stands in v5.9.2. It is not a
+This describes the browser implementation as it stands in v6.1.1. It is not a
 substitute for independent cryptographic review.

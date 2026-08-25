@@ -185,8 +185,8 @@ function shortLabelFromId(id) {
   const hex = String(id || "").replace(/[^a-z0-9]/gi, "");
   return "Chat " + (hex.slice(0, 4) || "0000").toUpperCase();
 }
-function monoInitials(label) {
-  const words = String(label || "").trim().split(/\s+/).filter(Boolean);
+function monoInitials(label2) {
+  const words = String(label2 || "").trim().split(/\s+/).filter(Boolean);
   const a = words[0]?.[0] || "";
   const b = words[1]?.[0] || words[0]?.[1] || "";
   return (a + b).toUpperCase() || "\xB7\xB7";
@@ -389,8 +389,8 @@ function sessionsReducer(state, action) {
     case A.RENAME: {
       const session = state.sessions[action.id];
       if (!session) return state;
-      const label = String(action.label || "").trim() || session.peerLabel;
-      return patchSession(state, action.id, { peerLabel: label, labelIsCustom: true });
+      const label2 = String(action.label || "").trim() || session.peerLabel;
+      return patchSession(state, action.id, { peerLabel: label2, labelIsCustom: true });
     }
     case A.SET_PEER_PRESENCE: {
       const session = state.sessions[action.id];
@@ -402,7 +402,9 @@ function sessionsReducer(state, action) {
   }
 }
 function decorateSession(session, activeSessionId) {
-  const lastMessage = [...session.messages].reverse().find((m) => !m.expired && (typeof m.message === "string" && m.message.trim() || m.voice));
+  const lastMessage = [...session.messages].reverse().find(
+    (m) => !m.expired && m.type !== "system" && (typeof m.message === "string" && m.message.trim() || m.voice)
+  );
   const s = session.status;
   const isUp = s === "connected" || s === "verified";
   const isPending = s === "connecting" || s === "verifying" || s === "new" || s === "reconnecting";
@@ -435,6 +437,3042 @@ function decorateSession(session, activeSessionId) {
 }
 function decorateSessions(state) {
   return state.order.map((id) => state.sessions[id]).filter(Boolean).map((s) => decorateSession(s, state.activeSessionId));
+}
+
+// src/group/groupCrypto.js
+var GROUP_LIMITS = Object.freeze({
+  // Eight is a mesh limit, not a crypto limit: it is where N(N-1)/2 pairwise
+  // connections and N-1 fan-out copies stop being comfortable in a browser.
+  MAX_MEMBERS: 8,
+  MIN_MEMBERS: 2,
+  GROUP_ID_BYTES: 16,
+  NONCE_BYTES: 32,
+  COMMIT_BYTES: 32,
+  FINGERPRINT_BYTES: 32,
+  // Matches the pairwise SAS. Safe at this length only because of the
+  // commit-reveal ordering above — see the header.
+  SAS_DIGITS: 7,
+  // Bytes, not characters — and the gap between the two is a real trap. The
+  // create dialog used to cap input at 64 CHARACTERS, so a 36-character
+  // Cyrillic name ("Наша секретная группа для обсуждений") is 68 bytes and was
+  // accepted by the UI and then rejected here, inside the admin's roster
+  // signing, killing group formation with no visible cause. The dialog now
+  // clamps by bytes, and the budget is generous enough that a normal name in
+  // any script fits.
+  MAX_NAME_BYTES: 128,
+  // Epoch is a uint32 on the wire; a group that changes membership four
+  // billion times has other problems.
+  MAX_EPOCH: 4294967295,
+  MAX_SPKI_BYTES: 256,
+  MIN_SPKI_BYTES: 40,
+  MAX_SIG_BYTES: 160,
+  MIN_SIG_BYTES: 48,
+  /**
+   * Group frames travel as chat content on a pairwise session, and that path
+   * ends in EnhancedSecureCryptoUtils.sanitizeMessage, which runs DOMPurify and
+   * then truncates to 2000 characters. Truncation would corrupt a frame
+   * silently, so every frame has to fit underneath it after base64 — see
+   * FRAME_BUDGET_CHARS and the envelope in GroupSession.
+   *
+   * A frame's fixed overhead (group id, epoch, sequence, sender fingerprint,
+   * timestamp, signature, envelope) is roughly 300 bytes, and base64 costs
+   * another third. 1024 bytes of body leaves comfortable headroom, and it is
+   * bytes rather than characters so a message in a non-Latin script is bounded
+   * by the same real budget.
+   */
+  MAX_BODY_BYTES: 1024,
+  FRAME_BUDGET_CHARS: 1800,
+  /**
+   * A mesh descriptor as it travels inside a group frame.
+   *
+   * SBQ2 caps a descriptor payload at 512 bytes (LIMITS.MAX_PAYLOAD_BYTES),
+   * which is "SB2:" plus 683 base64url characters at the absolute worst. 768
+   * bounds the allocation with room to spare and still leaves the whole frame
+   * — descriptor, two fingerprints, a nonce and a signature, wrapped in a
+   * relay envelope and base64'd — under FRAME_BUDGET_CHARS. A descriptor that
+   * somehow does not fit is refused rather than truncated; the pair simply
+   * stays on the relay path, which is the same thing that happens when the
+   * mesh dial fails for any other reason.
+   */
+  MAX_DESCRIPTOR_CHARS: 768,
+  /** Binds an answer to the one dial attempt that asked for it. */
+  MESH_NONCE_BYTES: 16
+});
+var MESH_KINDS = Object.freeze({ OFFER: "moffer", ANSWER: "manswer" });
+var MEMBER_OPS = Object.freeze({
+  CREATE: "create",
+  ADD: "add",
+  REMOVE: "remove",
+  RENAME: "rename"
+});
+var ENC = new TextEncoder();
+var GroupCryptoError = class extends Error {
+  constructor(message, code = "group_crypto") {
+    super(message);
+    this.name = "GroupCryptoError";
+    this.code = code;
+  }
+};
+var fail = (msg, code) => {
+  throw new GroupCryptoError(msg, code);
+};
+function toHex(bytes) {
+  const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  let out = "";
+  for (let i = 0; i < view.length; i++) out += view[i].toString(16).padStart(2, "0");
+  return out;
+}
+function fromHex(hex) {
+  if (typeof hex !== "string" || hex.length % 2 !== 0 || !/^[0-9a-f]*$/i.test(hex)) {
+    fail("not a hex string", "bad_hex");
+  }
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
+  return out;
+}
+function toB64(bytes) {
+  const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  let binary = "";
+  for (let i = 0; i < view.length; i++) binary += String.fromCharCode(view[i]);
+  return btoa(binary);
+}
+function fromB64(b64, { max = GROUP_LIMITS.MAX_SPKI_BYTES } = {}) {
+  if (typeof b64 !== "string") fail("not a base64 string", "bad_b64");
+  if (b64.length > Math.ceil(max * 4 / 3) + 4) fail("base64 payload exceeds its limit", "bad_b64");
+  let binary;
+  try {
+    binary = atob(b64);
+  } catch (_) {
+    fail("malformed base64", "bad_b64");
+  }
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+  return out;
+}
+function randomBytes(n) {
+  return crypto.getRandomValues(new Uint8Array(n));
+}
+function newGroupId() {
+  return toHex(randomBytes(GROUP_LIMITS.GROUP_ID_BYTES));
+}
+function lp(label2, ...parts) {
+  const chunks = [ENC.encode(label2 + "\0")];
+  let total = chunks[0].length;
+  for (const part of parts) {
+    const bytes = part instanceof Uint8Array ? part : typeof part === "string" ? ENC.encode(part) : fail("unsupported payload component", "bad_payload");
+    const header = new Uint8Array(4);
+    new DataView(header.buffer).setUint32(0, bytes.length);
+    chunks.push(header, bytes);
+    total += 4 + bytes.length;
+  }
+  const out = new Uint8Array(total);
+  let o = 0;
+  for (const c of chunks) {
+    out.set(c, o);
+    o += c.length;
+  }
+  return out;
+}
+function u32(n) {
+  if (!Number.isInteger(n) || n < 0 || n > GROUP_LIMITS.MAX_EPOCH) fail("value out of uint32 range", "bad_u32");
+  const b = new Uint8Array(4);
+  new DataView(b.buffer).setUint32(0, n);
+  return b;
+}
+function equalBytes(a, b) {
+  if (!(a instanceof Uint8Array) || !(b instanceof Uint8Array) || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+  return diff === 0;
+}
+function assertGroupId(groupId) {
+  if (typeof groupId !== "string" || groupId.length !== GROUP_LIMITS.GROUP_ID_BYTES * 2 || !/^[0-9a-f]+$/.test(groupId)) {
+    fail("malformed group id", "bad_group_id");
+  }
+  return groupId;
+}
+function assertFingerprint(fp) {
+  if (typeof fp !== "string" || fp.length !== GROUP_LIMITS.FINGERPRINT_BYTES * 2 || !/^[0-9a-f]+$/.test(fp)) {
+    fail("malformed member fingerprint", "bad_fingerprint");
+  }
+  return fp;
+}
+function assertEpoch(epoch) {
+  if (!Number.isInteger(epoch) || epoch < 0 || epoch > GROUP_LIMITS.MAX_EPOCH) {
+    fail("epoch out of range", "bad_epoch");
+  }
+  return epoch;
+}
+function assertName(name) {
+  const value = typeof name === "string" ? name : "";
+  if (ENC.encode(value).length > GROUP_LIMITS.MAX_NAME_BYTES) fail("group name too long", "bad_name");
+  return value;
+}
+function canonicalFingerprints(fps) {
+  if (!Array.isArray(fps)) fail("member list is not an array", "bad_members");
+  if (fps.length < GROUP_LIMITS.MIN_MEMBERS) fail("a group needs at least two members", "bad_members");
+  if (fps.length > GROUP_LIMITS.MAX_MEMBERS) fail(`a group is limited to ${GROUP_LIMITS.MAX_MEMBERS} members`, "too_many_members");
+  const seen = /* @__PURE__ */ new Set();
+  for (const fp of fps) {
+    assertFingerprint(fp);
+    if (seen.has(fp)) fail("duplicate member fingerprint", "duplicate_member");
+    seen.add(fp);
+  }
+  return [...fps].sort();
+}
+async function generateGroupIdentity(subtle) {
+  const keyPair = await subtle.generateKey(
+    { name: "ECDSA", namedCurve: "P-384" },
+    false,
+    ["sign", "verify"]
+  );
+  const spki = new Uint8Array(await subtle.exportKey("spki", keyPair.publicKey));
+  const fingerprint = await fingerprintSpki(subtle, spki);
+  return { keyPair, spki, fingerprint };
+}
+async function fingerprintSpki(subtle, spki) {
+  if (!(spki instanceof Uint8Array) || spki.length < GROUP_LIMITS.MIN_SPKI_BYTES || spki.length > GROUP_LIMITS.MAX_SPKI_BYTES) {
+    fail("SPKI length out of range", "bad_spki");
+  }
+  return toHex(new Uint8Array(await subtle.digest("SHA-256", spki)));
+}
+async function importMemberIdentity(subtle, spki) {
+  const fingerprint = await fingerprintSpki(subtle, spki);
+  let publicKey;
+  try {
+    publicKey = await subtle.importKey("spki", spki, { name: "ECDSA", namedCurve: "P-384" }, false, ["verify"]);
+  } catch (_) {
+    fail("member identity key is not a valid P-384 public key", "bad_spki");
+  }
+  return { publicKey, fingerprint };
+}
+async function buildCommitment(subtle, { groupId, epoch, fingerprint, nonce }) {
+  assertGroupId(groupId);
+  assertEpoch(epoch);
+  assertFingerprint(fingerprint);
+  if (!(nonce instanceof Uint8Array) || nonce.length !== GROUP_LIMITS.NONCE_BYTES) {
+    fail("nonce must be 32 bytes", "bad_nonce");
+  }
+  const payload = lp("securebit/group/commit/v1", fromHex(groupId), u32(epoch), fromHex(fingerprint), nonce);
+  return new Uint8Array(await subtle.digest("SHA-256", payload));
+}
+async function verifyCommitment(subtle, commitment, fields) {
+  if (!(commitment instanceof Uint8Array) || commitment.length !== GROUP_LIMITS.COMMIT_BYTES) return false;
+  let expected;
+  try {
+    expected = await buildCommitment(subtle, fields);
+  } catch (_) {
+    return false;
+  }
+  return equalBytes(commitment, expected);
+}
+async function computeGroupSas(subtle, { groupId, epoch, contributions, digits = GROUP_LIMITS.SAS_DIGITS }) {
+  assertGroupId(groupId);
+  assertEpoch(epoch);
+  if (!Array.isArray(contributions)) fail("contributions must be an array", "bad_contributions");
+  if (!Number.isInteger(digits) || digits < 4 || digits > 12) fail("digit count out of range", "bad_digits");
+  canonicalFingerprints(contributions.map((c) => c && c.fingerprint));
+  const ordered = [...contributions].sort((a, b) => a.fingerprint < b.fingerprint ? -1 : 1);
+  const parts = [];
+  for (const c of ordered) {
+    if (!(c.nonce instanceof Uint8Array) || c.nonce.length !== GROUP_LIMITS.NONCE_BYTES) {
+      fail("every member must contribute a 32-byte nonce", "bad_nonce");
+    }
+    parts.push(fromHex(c.fingerprint), c.nonce);
+  }
+  const ikm = lp("securebit/group/sas/v1", fromHex(groupId), u32(epoch), ...parts);
+  const salt = new Uint8Array(await subtle.digest("SHA-256", lp("securebit/group/sas-salt/v1", fromHex(groupId), u32(epoch))));
+  let key = null;
+  try {
+    key = await subtle.importKey("raw", ikm, "HKDF", false, ["deriveBits"]);
+    const bits = await subtle.deriveBits(
+      { name: "HKDF", hash: "SHA-256", salt, info: ENC.encode("securebit-group-sas-v1") },
+      key,
+      64
+    );
+    const dv = new DataView(bits);
+    const n = dv.getUint32(0) * 2 ** 20 + (dv.getUint32(4) >>> 12);
+    return String(n % 10 ** digits).padStart(digits, "0");
+  } finally {
+    try {
+      ikm.fill(0);
+    } catch (_) {
+    }
+  }
+}
+var GroupSasCeremony = class {
+  constructor({ groupId, epoch, selfFingerprint, memberFingerprints }) {
+    this.groupId = assertGroupId(groupId);
+    this.epoch = assertEpoch(epoch);
+    this.selfFingerprint = assertFingerprint(selfFingerprint);
+    this.members = canonicalFingerprints(memberFingerprints);
+    if (!this.members.includes(this.selfFingerprint)) {
+      fail("the local member is not in the member set", "not_a_member");
+    }
+    this.nonce = randomBytes(GROUP_LIMITS.NONCE_BYTES);
+    this.commitments = /* @__PURE__ */ new Map();
+    this.nonces = /* @__PURE__ */ new Map();
+    this.revealed = false;
+    this.code = null;
+  }
+  /** Our own commitment, to be broadcast first. */
+  async ownCommitment(subtle) {
+    const commitment = await buildCommitment(subtle, {
+      groupId: this.groupId,
+      epoch: this.epoch,
+      fingerprint: this.selfFingerprint,
+      nonce: this.nonce
+    });
+    this.commitments.set(this.selfFingerprint, commitment);
+    return commitment;
+  }
+  /**
+   * Record a peer commitment. Rejects anyone outside the member set, and
+   * refuses to overwrite one already recorded — a second, different commitment
+   * from the same member is an attempt to move after seeing more of the round.
+   */
+  acceptCommitment(fingerprint, commitment) {
+    assertFingerprint(fingerprint);
+    if (!this.members.includes(fingerprint)) fail("commitment from a non-member", "not_a_member");
+    if (!(commitment instanceof Uint8Array) || commitment.length !== GROUP_LIMITS.COMMIT_BYTES) {
+      fail("malformed commitment", "bad_commitment");
+    }
+    const existing = this.commitments.get(fingerprint);
+    if (existing) {
+      if (!equalBytes(existing, commitment)) fail("member changed their commitment", "commitment_changed");
+      return false;
+    }
+    this.commitments.set(fingerprint, commitment);
+    return true;
+  }
+  get commitmentsComplete() {
+    return this.members.every((fp) => this.commitments.has(fp));
+  }
+  /**
+   * Our nonce — available ONLY once every commitment is in.
+   *
+   * This is the gate the whole construction rests on. Do not add a caller that
+   * bypasses it, and do not "helpfully" relax it when a member is slow: a
+   * timeout must fail the ceremony, never proceed without a commitment.
+   */
+  reveal() {
+    if (!this.commitmentsComplete) {
+      fail("cannot reveal before every member has committed", "premature_reveal");
+    }
+    this.revealed = true;
+    this.nonces.set(this.selfFingerprint, this.nonce);
+    return this.nonce;
+  }
+  /** Record a peer nonce, checking it against the commitment they are bound to. */
+  async acceptReveal(subtle, fingerprint, nonce) {
+    assertFingerprint(fingerprint);
+    if (!this.members.includes(fingerprint)) fail("reveal from a non-member", "not_a_member");
+    const commitment = this.commitments.get(fingerprint);
+    if (!commitment) fail("reveal arrived before the commitment", "reveal_without_commitment");
+    const ok = await verifyCommitment(subtle, commitment, {
+      groupId: this.groupId,
+      epoch: this.epoch,
+      fingerprint,
+      nonce
+    });
+    if (!ok) fail("revealed nonce does not match the commitment", "commitment_mismatch");
+    this.nonces.set(fingerprint, nonce);
+    return true;
+  }
+  get revealsComplete() {
+    return this.members.every((fp) => this.nonces.has(fp));
+  }
+  /** The digits, once every nonce is in and verified. */
+  async finish(subtle) {
+    if (!this.revealsComplete) fail("not every member has revealed", "incomplete_reveal");
+    this.code = await computeGroupSas(subtle, {
+      groupId: this.groupId,
+      epoch: this.epoch,
+      contributions: this.members.map((fp) => ({ fingerprint: fp, nonce: this.nonces.get(fp) }))
+    });
+    return this.code;
+  }
+  /** Wipe the nonce material once the code exists or the ceremony is abandoned. */
+  destroy() {
+    try {
+      this.nonce.fill(0);
+    } catch (_) {
+    }
+    for (const n of this.nonces.values()) {
+      try {
+        n.fill(0);
+      } catch (_) {
+      }
+    }
+    this.nonces.clear();
+    this.commitments.clear();
+  }
+};
+function memberOpPayload({ groupId, epoch, op, memberFps, name = "" }) {
+  assertGroupId(groupId);
+  assertEpoch(epoch);
+  if (!Object.values(MEMBER_OPS).includes(op)) fail("unknown membership operation", "bad_op");
+  const ordered = canonicalFingerprints(memberFps);
+  return lp(
+    "securebit/group/member-op/v1",
+    fromHex(groupId),
+    u32(epoch),
+    op,
+    assertName(name),
+    ...ordered.map((fp) => fromHex(fp))
+  );
+}
+async function signMemberOp(subtle, privateKey, fields) {
+  const sig = await subtle.sign({ name: "ECDSA", hash: "SHA-384" }, privateKey, memberOpPayload(fields));
+  return new Uint8Array(sig);
+}
+async function verifyMemberOp(subtle, publicKey, fields, signature) {
+  if (!(signature instanceof Uint8Array) || signature.length < GROUP_LIMITS.MIN_SIG_BYTES || signature.length > GROUP_LIMITS.MAX_SIG_BYTES) {
+    return false;
+  }
+  let payload;
+  try {
+    payload = memberOpPayload(fields);
+  } catch (_) {
+    return false;
+  }
+  try {
+    return await subtle.verify({ name: "ECDSA", hash: "SHA-384" }, publicKey, signature, payload);
+  } catch (_) {
+    return false;
+  }
+}
+async function hashBody(subtle, body) {
+  const bytes = typeof body === "string" ? ENC.encode(body) : body;
+  if (!(bytes instanceof Uint8Array)) fail("message body must be a string or bytes", "bad_body");
+  if (bytes.length > GROUP_LIMITS.MAX_BODY_BYTES) fail("message body exceeds the group limit", "body_too_large");
+  return new Uint8Array(await subtle.digest("SHA-256", bytes));
+}
+function groupMessagePayload({ groupId, epoch, seq, senderFp, bodyHash }) {
+  assertGroupId(groupId);
+  assertEpoch(epoch);
+  assertEpoch(seq);
+  assertFingerprint(senderFp);
+  if (!(bodyHash instanceof Uint8Array) || bodyHash.length !== 32) fail("body hash must be 32 bytes", "bad_body_hash");
+  return lp("securebit/group/message/v1", fromHex(groupId), u32(epoch), u32(seq), fromHex(senderFp), bodyHash);
+}
+async function signGroupMessage(subtle, privateKey, fields) {
+  const sig = await subtle.sign({ name: "ECDSA", hash: "SHA-384" }, privateKey, groupMessagePayload(fields));
+  return new Uint8Array(sig);
+}
+async function verifyGroupMessage(subtle, publicKey, fields, signature) {
+  if (!(signature instanceof Uint8Array) || signature.length < GROUP_LIMITS.MIN_SIG_BYTES || signature.length > GROUP_LIMITS.MAX_SIG_BYTES) {
+    return false;
+  }
+  let payload;
+  try {
+    payload = groupMessagePayload(fields);
+  } catch (_) {
+    return false;
+  }
+  try {
+    return await subtle.verify({ name: "ECDSA", hash: "SHA-384" }, publicKey, signature, payload);
+  } catch (_) {
+    return false;
+  }
+}
+function meshDescriptorPayload({ groupId, epoch, kind, fromFp, toFp, descriptor, nonce }) {
+  assertGroupId(groupId);
+  assertEpoch(epoch);
+  if (kind !== MESH_KINDS.OFFER && kind !== MESH_KINDS.ANSWER) {
+    fail("unknown mesh descriptor kind", "bad_mesh_kind");
+  }
+  assertFingerprint(fromFp);
+  assertFingerprint(toFp);
+  if (fromFp === toFp) fail("a member cannot dial itself", "bad_mesh_peer");
+  if (typeof descriptor !== "string" || descriptor.length === 0 || descriptor.length > GROUP_LIMITS.MAX_DESCRIPTOR_CHARS) {
+    fail("mesh descriptor is missing or oversized", "bad_descriptor");
+  }
+  if (!(nonce instanceof Uint8Array) || nonce.length !== GROUP_LIMITS.MESH_NONCE_BYTES) {
+    fail("mesh nonce must be 16 bytes", "bad_mesh_nonce");
+  }
+  return lp(
+    "securebit/group/mesh-descriptor/v1",
+    fromHex(groupId),
+    u32(epoch),
+    kind,
+    fromHex(fromFp),
+    fromHex(toFp),
+    descriptor,
+    nonce
+  );
+}
+async function signMeshDescriptor(subtle, privateKey, fields) {
+  const sig = await subtle.sign({ name: "ECDSA", hash: "SHA-384" }, privateKey, meshDescriptorPayload(fields));
+  return new Uint8Array(sig);
+}
+async function verifyMeshDescriptor(subtle, publicKey, fields, signature) {
+  if (!(signature instanceof Uint8Array) || signature.length < GROUP_LIMITS.MIN_SIG_BYTES || signature.length > GROUP_LIMITS.MAX_SIG_BYTES) {
+    return false;
+  }
+  let payload;
+  try {
+    payload = meshDescriptorPayload(fields);
+  } catch (_) {
+    return false;
+  }
+  try {
+    return await subtle.verify({ name: "ECDSA", hash: "SHA-384" }, publicKey, signature, payload);
+  } catch (_) {
+    return false;
+  }
+}
+function linkProbePayload({ groupId, epoch, fp, linkFp }) {
+  assertGroupId(groupId);
+  assertEpoch(epoch);
+  assertFingerprint(fp);
+  if (typeof linkFp !== "string" || linkFp.length === 0 || linkFp.length > 256) {
+    fail("link fingerprint is missing or oversized", "bad_link_fp");
+  }
+  return lp("securebit/group/link-probe/v1", fromHex(groupId), u32(epoch), fromHex(fp), linkFp);
+}
+async function signLinkProbe(subtle, privateKey, fields) {
+  const sig = await subtle.sign({ name: "ECDSA", hash: "SHA-384" }, privateKey, linkProbePayload(fields));
+  return new Uint8Array(sig);
+}
+async function verifyLinkProbe(subtle, publicKey, fields, signature) {
+  if (!(signature instanceof Uint8Array) || signature.length < GROUP_LIMITS.MIN_SIG_BYTES || signature.length > GROUP_LIMITS.MAX_SIG_BYTES) {
+    return false;
+  }
+  let payload;
+  try {
+    payload = linkProbePayload(fields);
+  } catch (_) {
+    return false;
+  }
+  try {
+    return await subtle.verify({ name: "ECDSA", hash: "SHA-384" }, publicKey, signature, payload);
+  } catch (_) {
+    return false;
+  }
+}
+
+// src/state/groupsStore.js
+var GROUP_ACTIONS = Object.freeze({
+  CREATE_GROUP: "CREATE_GROUP",
+  REMOVE_GROUP: "REMOVE_GROUP",
+  SET_ACTIVE_GROUP: "SET_ACTIVE_GROUP",
+  SET_PHASE: "SET_PHASE",
+  SET_MEMBERS: "SET_MEMBERS",
+  PATCH_MEMBER: "PATCH_MEMBER",
+  SET_SAS: "SET_SAS",
+  CONFIRM_SAS: "CONFIRM_SAS",
+  ADD_MESSAGE: "ADD_MESSAGE",
+  SET_MESSAGES: "SET_MESSAGES",
+  UPDATE_MESSAGE_STATUS: "UPDATE_MESSAGE_STATUS",
+  INCREMENT_UNREAD: "INCREMENT_UNREAD",
+  CLEAR_UNREAD: "CLEAR_UNREAD",
+  RENAME: "RENAME",
+  SET_ERROR: "SET_ERROR"
+});
+var GROUP_PHASE = Object.freeze({
+  FORMING: "forming",
+  // members chosen, identity keys being exchanged
+  COMMITTING: "committing",
+  // commitments in flight
+  REVEALING: "revealing",
+  // every commitment in, nonces in flight
+  AWAITING_SAS: "awaiting_sas",
+  // code computed, waiting for the humans
+  READY: "ready",
+  // confirmed; group traffic flows
+  FAILED: "failed"
+  // ceremony aborted; nothing flows
+});
+var MEMBER_STATE = Object.freeze({
+  SELF: "self",
+  LINKED: "linked",
+  // pairwise session up and SAS-verified
+  PENDING: "pending",
+  // session exists but is not verified/connected yet
+  LOST: "lost"
+  // was linked, connection dropped
+});
+var GROUP_PHASE_WORD = {
+  [GROUP_PHASE.FORMING]: "Forming\u2026",
+  [GROUP_PHASE.COMMITTING]: "Exchanging commitments\u2026",
+  [GROUP_PHASE.REVEALING]: "Revealing\u2026",
+  [GROUP_PHASE.AWAITING_SAS]: "Compare the group code",
+  [GROUP_PHASE.READY]: "Group ready",
+  [GROUP_PHASE.FAILED]: "Group failed"
+};
+function groupInitials(name) {
+  const words = String(name || "").trim().split(/\s+/).filter(Boolean);
+  const a = words[0]?.[0] || "";
+  const b = words[1]?.[0] || words[0]?.[1] || "";
+  return (a + b).toUpperCase() || "##";
+}
+function createGroupEntry(opts = {}) {
+  return {
+    id: opts.id,
+    name: opts.name || "Group",
+    createdAt: opts.createdAt || Date.now(),
+    adminFp: opts.adminFp || "",
+    selfFp: opts.selfFp || "",
+    isAdmin: !!opts.isAdmin,
+    epoch: Number.isInteger(opts.epoch) ? opts.epoch : 1,
+    phase: opts.phase || GROUP_PHASE.FORMING,
+    // members: [{ fp, name, sessionId, state }]. Always stored in canonical
+    // fingerprint order so every device renders the same list.
+    members: Array.isArray(opts.members) ? [...opts.members].sort(byFingerprint) : [],
+    sasCode: "",
+    sasConfirmed: false,
+    messages: [],
+    unreadCount: 0,
+    error: null
+  };
+}
+var NAME_ENCODER = new TextEncoder();
+function clampNameBytes(value) {
+  let out = String(value);
+  while (NAME_ENCODER.encode(out).length > GROUP_LIMITS.MAX_NAME_BYTES) out = out.slice(0, -1);
+  return out;
+}
+function byFingerprint(a, b) {
+  return a.fp < b.fp ? -1 : a.fp > b.fp ? 1 : 0;
+}
+function createInitialGroupState() {
+  return { groups: {}, order: [], activeGroupId: null };
+}
+function patchGroup(state, id, patch) {
+  const group = state.groups[id];
+  if (!group) return state;
+  return { ...state, groups: { ...state.groups, [id]: { ...group, ...patch } } };
+}
+function groupsReducer(state, action) {
+  const A = GROUP_ACTIONS;
+  switch (action.type) {
+    case A.CREATE_GROUP: {
+      const entry = action.entry || createGroupEntry(action);
+      if (!entry.id || state.groups[entry.id]) return state;
+      return {
+        groups: { ...state.groups, [entry.id]: entry },
+        order: [...state.order, entry.id],
+        activeGroupId: action.activate === false ? state.activeGroupId : entry.id
+      };
+    }
+    case A.REMOVE_GROUP: {
+      const { id } = action;
+      if (!state.groups[id]) return state;
+      const groups = { ...state.groups };
+      delete groups[id];
+      const order = state.order.filter((x) => x !== id);
+      let activeGroupId = state.activeGroupId;
+      if (activeGroupId === id) {
+        const removedIdx = state.order.indexOf(id);
+        activeGroupId = order[Math.max(0, removedIdx - 1)] || order[0] || null;
+      }
+      return { groups, order, activeGroupId };
+    }
+    case A.SET_ACTIVE_GROUP: {
+      if (action.id === null) {
+        return state.activeGroupId === null ? state : { ...state, activeGroupId: null };
+      }
+      if (!state.groups[action.id] || state.activeGroupId === action.id) return state;
+      return { ...state, activeGroupId: action.id };
+    }
+    case A.SET_PHASE: {
+      const group = state.groups[action.id];
+      if (!group || group.phase === action.phase) return state;
+      const patch = { phase: action.phase };
+      if (action.phase !== GROUP_PHASE.READY && group.sasConfirmed) {
+        patch.sasConfirmed = false;
+      }
+      if (action.phase !== GROUP_PHASE.READY && action.phase !== GROUP_PHASE.AWAITING_SAS) {
+        patch.sasCode = "";
+      }
+      if (action.phase !== GROUP_PHASE.FAILED) patch.error = null;
+      return patchGroup(state, action.id, patch);
+    }
+    case A.SET_MEMBERS: {
+      const group = state.groups[action.id];
+      if (!group) return state;
+      const members = Array.isArray(action.members) ? [...action.members].sort(byFingerprint) : group.members;
+      const patch = { members };
+      if (Number.isInteger(action.epoch)) patch.epoch = action.epoch;
+      return patchGroup(state, action.id, patch);
+    }
+    case A.PATCH_MEMBER: {
+      const group = state.groups[action.id];
+      if (!group) return state;
+      let changed = false;
+      const members = group.members.map((m) => {
+        if (m.fp !== action.fp) return m;
+        const next = { ...m, ...action.patch };
+        if (Object.keys(action.patch).every((k) => m[k] === next[k])) return m;
+        changed = true;
+        return next;
+      });
+      return changed ? patchGroup(state, action.id, { members }) : state;
+    }
+    case A.SET_SAS: {
+      const group = state.groups[action.id];
+      if (!group || group.sasCode === action.code) return state;
+      return patchGroup(state, action.id, { sasCode: action.code || "", sasConfirmed: false });
+    }
+    case A.CONFIRM_SAS: {
+      const group = state.groups[action.id];
+      if (!group) return state;
+      if (!group.sasCode) return state;
+      if (group.phase !== GROUP_PHASE.AWAITING_SAS) return state;
+      if (group.sasConfirmed && group.phase === GROUP_PHASE.READY) return state;
+      return patchGroup(state, action.id, { sasConfirmed: true, phase: GROUP_PHASE.READY, error: null });
+    }
+    case A.ADD_MESSAGE: {
+      const group = state.groups[action.id];
+      if (!group) return state;
+      return patchGroup(state, action.id, { messages: [...group.messages, action.message] });
+    }
+    case A.SET_MESSAGES: {
+      const group = state.groups[action.id];
+      if (!group) return state;
+      const next = typeof action.updater === "function" ? action.updater(group.messages) : action.messages;
+      return patchGroup(state, action.id, { messages: Array.isArray(next) ? next : [] });
+    }
+    case A.UPDATE_MESSAGE_STATUS: {
+      const group = state.groups[action.id];
+      if (!group) return state;
+      let changed = false;
+      const messages = group.messages.map((m) => {
+        if (String(m.mid) === String(action.mid) && m.status !== action.status) {
+          changed = true;
+          return { ...m, status: action.status };
+        }
+        return m;
+      });
+      return changed ? patchGroup(state, action.id, { messages }) : state;
+    }
+    case A.INCREMENT_UNREAD: {
+      const group = state.groups[action.id];
+      if (!group) return state;
+      return patchGroup(state, action.id, { unreadCount: group.unreadCount + 1 });
+    }
+    case A.CLEAR_UNREAD: {
+      const group = state.groups[action.id];
+      if (!group || group.unreadCount === 0) return state;
+      return patchGroup(state, action.id, { unreadCount: 0 });
+    }
+    case A.RENAME: {
+      const group = state.groups[action.id];
+      if (!group) return state;
+      const name = clampNameBytes(String(action.name || "").trim()) || group.name;
+      return patchGroup(state, action.id, { name });
+    }
+    case A.SET_ERROR: {
+      const group = state.groups[action.id];
+      if (!group) return state;
+      const patch = { error: action.error || null };
+      if (action.error) patch.phase = GROUP_PHASE.FAILED;
+      return patchGroup(state, action.id, patch);
+    }
+    default:
+      return state;
+  }
+}
+function linkedCount(group) {
+  return group.members.filter((m) => m.state === MEMBER_STATE.SELF || m.state === MEMBER_STATE.LINKED).length;
+}
+function groupSub(group) {
+  if (group.phase !== GROUP_PHASE.READY) return GROUP_PHASE_WORD[group.phase] || "Group";
+  const total = group.members.length;
+  const linked = linkedCount(group);
+  if (linked < total) return `${linked} of ${total} connected`;
+  return `${total} members \xB7 P2P mesh`;
+}
+function groupDot(group) {
+  switch (group.phase) {
+    case GROUP_PHASE.READY:
+      return linkedCount(group) < group.members.length ? "#e3b341" : "#3ecf8e";
+    case GROUP_PHASE.FAILED:
+      return "#e5727a";
+    default:
+      return "#e3b341";
+  }
+}
+function decorateGroup(group, activeGroupId) {
+  const lastMessage = [...group.messages].reverse().find(
+    (m) => !m.expired && typeof m.message === "string" && m.message.trim()
+  );
+  const sub = groupSub(group);
+  return {
+    id: group.id,
+    kind: "group",
+    name: group.name,
+    mono: groupInitials(group.name),
+    dot: groupDot(group),
+    headerSub: sub,
+    phase: group.phase,
+    memberCount: group.members.length,
+    linkedCount: linkedCount(group),
+    preview: lastMessage ? lastMessage.message : sub,
+    unread: group.unreadCount > 0 ? group.unreadCount > 99 ? "99+" : String(group.unreadCount) : null,
+    verified: group.phase === GROUP_PHASE.READY && group.sasConfirmed,
+    active: group.id === activeGroupId,
+    inactive: group.id !== activeGroupId
+  };
+}
+function decorateGroups(state) {
+  return state.order.map((id) => state.groups[id]).filter(Boolean).map((g) => decorateGroup(g, state.activeGroupId));
+}
+
+// src/group/GroupSession.js
+var GROUP_FRAMES = Object.freeze({
+  INVITE: "g_invite",
+  HELLO: "g_hello",
+  MEMBER: "g_member",
+  ROSTER: "g_roster",
+  COMMIT: "g_commit",
+  REVEAL: "g_reveal",
+  MESSAGE: "g_msg",
+  RELAY: "g_relay",
+  LEAVE: "g_leave",
+  // Mesh link establishment. These carry SBQ2 descriptors between two members
+  // who have no link yet, over the relay path of a member who can reach both.
+  MESH_OFFER: "g_moffer",
+  MESH_ANSWER: "g_manswer",
+  MESH_ABORT: "g_mabort",
+  // "The pairwise chat this arrived on is me, member <fp>."
+  PROBE: "g_probe"
+});
+var GROUP_ENVELOPE = "g_env";
+var GROUP_FRAME_TYPES = Object.freeze(new Set(Object.values(GROUP_FRAMES)));
+function isGroupFrame(parsed) {
+  if (!parsed || typeof parsed !== "object") return false;
+  return parsed.type === GROUP_ENVELOPE || GROUP_FRAME_TYPES.has(parsed.type);
+}
+function groupFrameType(parsed) {
+  if (!parsed || typeof parsed !== "object") return null;
+  if (parsed.type === GROUP_ENVELOPE) return typeof parsed.t === "string" ? parsed.t : null;
+  return GROUP_FRAME_TYPES.has(parsed.type) ? parsed.type : null;
+}
+function encodeEnvelope(frame) {
+  const json = JSON.stringify(frame);
+  const encoded = toB64(new TextEncoder().encode(json));
+  if (encoded.length > GROUP_LIMITS.FRAME_BUDGET_CHARS) {
+    throw new GroupSessionError("group frame exceeds the transport budget", "frame_too_large");
+  }
+  return { type: GROUP_ENVELOPE, gid: frame.gid, t: frame.type, d: encoded };
+}
+function decodeEnvelope(envelope) {
+  if (!envelope || envelope.type !== GROUP_ENVELOPE) return envelope;
+  const raw = String(envelope.d || "");
+  if (raw.length > GROUP_LIMITS.FRAME_BUDGET_CHARS) {
+    throw new GroupSessionError("group frame exceeds the transport budget", "frame_too_large");
+  }
+  const bytes = fromB64(raw, { max: GROUP_LIMITS.FRAME_BUDGET_CHARS });
+  const frame = JSON.parse(new TextDecoder().decode(bytes));
+  if (!frame || typeof frame !== "object" || !GROUP_FRAME_TYPES.has(frame.type)) {
+    throw new GroupSessionError("envelope carried no recognisable frame", "bad_envelope");
+  }
+  if (envelope.gid && frame.gid !== envelope.gid) {
+    throw new GroupSessionError("envelope group id does not match its frame", "bad_envelope");
+  }
+  if (envelope.t && frame.type !== envelope.t) {
+    throw new GroupSessionError("envelope type does not match its frame", "bad_envelope");
+  }
+  return frame;
+}
+var TIMEOUTS = Object.freeze({
+  // A member that has not committed by now is treated as absent and the
+  // ceremony fails. It must FAIL rather than proceed: proceeding without a
+  // commitment is exactly the grinding freedom the commit round removes.
+  CEREMONY_MS: 6e4,
+  // How long the admin waits for invitees to publish their identity keys.
+  HELLO_MS: 45e3,
+  // How long one mesh dial may stay in flight. It covers a descriptor going
+  // out over a relay hop, an answer coming back, and the whole SBQ2 in-band
+  // exchange completing on the new channel. Generous, because failing early
+  // costs a direct link and gains nothing: the pair keeps working over the
+  // relay the entire time the dial is running.
+  MESH_DIAL_MS: 45e3,
+  // Gap before a failed pair is dialled again, doubling per failure. A pair
+  // that cannot connect is usually a network that will not allow it, and
+  // retrying hard turns one unreachable member into a permanent load.
+  MESH_RETRY_MS: 2e4
+});
+var MESH_MAX_CONCURRENT_DIALS = 2;
+var MESH_MAX_ATTEMPTS = 3;
+var GroupSessionError = class extends Error {
+  constructor(message, code = "group_session") {
+    super(message);
+    this.name = "GroupSessionError";
+    this.code = code;
+  }
+};
+var GroupSession = class {
+  /**
+   * @param {object} opts
+   * @param {string} opts.groupId
+   * @param {string} opts.name
+   * @param {boolean} opts.isAdmin
+   * @param {SubtleCrypto} opts.subtle
+   * @param {(sessionId: string, frame: object) => Promise<void>} opts.send
+   * @param {(event: string, payload: object) => void} opts.emit
+   */
+  constructor({ groupId, name, isAdmin, subtle, send, emit, mesh = null, log = () => {
+  } }) {
+    this.groupId = assertGroupId(groupId);
+    this.name = assertName(name);
+    this.isAdmin = !!isAdmin;
+    this.subtle = subtle;
+    this._send = send;
+    this._emit = emit;
+    this._log = log;
+    this._mesh = mesh;
+    this.identity = null;
+    this.epoch = 1;
+    this.adminFp = "";
+    this.phase = GROUP_PHASE.FORMING;
+    this.members = /* @__PURE__ */ new Map();
+    this.sessionToFp = /* @__PURE__ */ new Map();
+    this.ceremony = null;
+    this.sasCode = "";
+    this.sasConfirmed = false;
+    this.seq = 0;
+    this.transcript = /* @__PURE__ */ new Map();
+    this._timers = /* @__PURE__ */ new Set();
+    this._destroyed = false;
+    this._awaitingHello = /* @__PURE__ */ new Map();
+    this._pendingCeremony = [];
+    this._draining = false;
+    this._pendingKeys = /* @__PURE__ */ new Map();
+    this._pendingAdd = null;
+    this._meshDials = /* @__PURE__ */ new Map();
+    this._meshFailures = /* @__PURE__ */ new Map();
+    this._meshSessions = /* @__PURE__ */ new Set();
+    this._probed = /* @__PURE__ */ new Set();
+    this._meshPass = null;
+  }
+  // -----------------------------------------------------------------------
+  // lifecycle
+  // -----------------------------------------------------------------------
+  static newId() {
+    return newGroupId();
+  }
+  async init() {
+    if (this.identity) return this.identity;
+    this.identity = await generateGroupIdentity(this.subtle);
+    this.members.set(this.identity.fingerprint, {
+      fp: this.identity.fingerprint,
+      name: "You",
+      spki: this.identity.spki,
+      publicKey: null,
+      // our own key verifies nothing inbound
+      sessionId: null,
+      state: MEMBER_STATE.SELF
+    });
+    if (this.isAdmin) this.adminFp = this.identity.fingerprint;
+    return this.identity;
+  }
+  get selfFp() {
+    return this.identity?.fingerprint || "";
+  }
+  destroy() {
+    this._destroyed = true;
+    for (const t of this._timers) clearTimeout(t);
+    this._timers.clear();
+    try {
+      this.ceremony?.destroy();
+    } catch (_) {
+    }
+    this.ceremony = null;
+    for (const sessionId of this._meshSessions) {
+      try {
+        this._mesh?.close(sessionId);
+      } catch (_) {
+      }
+    }
+    this._meshSessions.clear();
+    this._meshDials.clear();
+    this._meshFailures.clear();
+    this._probed.clear();
+    this.members.clear();
+    this.sessionToFp.clear();
+    this.transcript.clear();
+    this._pendingCeremony = [];
+    this._pendingKeys.clear();
+    this._pendingAdd = null;
+    this.identity = null;
+  }
+  _timer(fn, ms) {
+    const t = setTimeout(() => {
+      this._timers.delete(t);
+      if (!this._destroyed) fn();
+    }, ms);
+    this._timers.add(t);
+    return t;
+  }
+  _fail(code) {
+    if (this._destroyed) return;
+    this._log("warn", "group ceremony failed", { code });
+    this.phase = GROUP_PHASE.FAILED;
+    try {
+      this.ceremony?.destroy();
+    } catch (_) {
+    }
+    this.ceremony = null;
+    this._emit("error", { error: code });
+  }
+  _setPhase(phase) {
+    if (this.phase === phase) return;
+    this.phase = phase;
+    if (phase !== GROUP_PHASE.READY) this.sasConfirmed = false;
+    if (phase !== GROUP_PHASE.READY && phase !== GROUP_PHASE.AWAITING_SAS) {
+      this.sasCode = "";
+    }
+    this._emit("phase", { phase });
+  }
+  /** The member list in the shape the reducer stores. */
+  _memberSnapshot() {
+    return [...this.members.values()].map((m) => ({
+      fp: m.fp,
+      name: m.name,
+      sessionId: m.sessionId,
+      state: m.state
+    }));
+  }
+  _emitMembers() {
+    this._emit("members", { members: this._memberSnapshot(), epoch: this.epoch });
+  }
+  // -----------------------------------------------------------------------
+  // routing
+  // -----------------------------------------------------------------------
+  /** Members we can reach over their own pairwise link right now. */
+  _directPeers() {
+    return [...this.members.values()].filter(
+      (m) => m.state === MEMBER_STATE.LINKED && m.sessionId
+    );
+  }
+  /**
+   * Whoever can carry a frame to a member we cannot reach ourselves.
+   *
+   * The admin is preferred because by construction it holds a link to every
+   * member; any other directly-linked member is a fallback for when the admin
+   * is the one that has gone away.
+   */
+  _relayFor(toFp) {
+    const admin = this.members.get(this.adminFp);
+    if (admin && admin.state === MEMBER_STATE.LINKED && admin.sessionId && admin.fp !== toFp) {
+      return admin;
+    }
+    return this._directPeers().find((m) => m.fp !== toFp) || null;
+  }
+  /**
+   * Put a frame on the wire, wrapped.
+   *
+   * Every outbound frame goes through here so the envelope is applied in
+   * exactly one place — a frame sent raw would be silently mangled by the
+   * chat path's sanitiser rather than rejected, which is the worst way for
+   * this to fail.
+   */
+  async _wire(sessionId, frame) {
+    return this._send(sessionId, encodeEnvelope(frame));
+  }
+  /** Send one frame to one member, directly if we can and relayed if we cannot. */
+  async _sendTo(toFp, frame) {
+    const member = this.members.get(toFp);
+    if (!member || member.fp === this.selfFp) return false;
+    if (member.state === MEMBER_STATE.LINKED && member.sessionId) {
+      await this._wire(member.sessionId, frame);
+      return true;
+    }
+    const relay = this._relayFor(toFp);
+    if (!relay) return false;
+    await this._wire(relay.sessionId, {
+      type: GROUP_FRAMES.RELAY,
+      gid: this.groupId,
+      to: toFp,
+      hopped: false,
+      inner: frame
+    });
+    return member.state !== MEMBER_STATE.LOST;
+  }
+  /**
+   * Fan a frame out to every other member. Failures are per-recipient.
+   *
+   * Returns WHO could not be reached as well as how many could, because a
+   * count on its own cannot tell "Alice is offline" from "Bob is offline" —
+   * and the sender is the only person in a position to know the difference.
+   */
+  async _broadcast(frame, { exclude = [] } = {}) {
+    const targets = [...this.members.keys()].filter(
+      (fp) => fp !== this.selfFp && !exclude.includes(fp)
+    );
+    const results = await Promise.allSettled(targets.map((fp) => this._sendTo(fp, frame)));
+    const unreachable = [];
+    let delivered = 0;
+    results.forEach((result, i) => {
+      if (result.status === "fulfilled" && result.value === true) {
+        delivered += 1;
+        return;
+      }
+      const member = this.members.get(targets[i]);
+      unreachable.push({ fp: targets[i], name: member?.name || "A member" });
+    });
+    return { delivered, unreachable };
+  }
+  // -----------------------------------------------------------------------
+  // link bookkeeping (driven by the app as pairwise sessions come and go)
+  // -----------------------------------------------------------------------
+  /**
+   * Bind a pairwise session to a member. Called for the admin's own invites and
+   * whenever a member is reached over a session for the first time.
+   */
+  bindSession(fp, sessionId, state = MEMBER_STATE.LINKED) {
+    const member = this.members.get(fp);
+    if (!member) return false;
+    if (member.sessionId && member.sessionId !== sessionId) {
+      this.sessionToFp.delete(member.sessionId);
+      this._closeMeshSession(member.sessionId);
+    }
+    member.sessionId = sessionId;
+    member.state = state;
+    if (sessionId) this.sessionToFp.set(sessionId, fp);
+    this._emitMembers();
+    return true;
+  }
+  /**
+   * Detach a member from whatever link it was on, back to the relay path.
+   *
+   * Used when a mesh dial fails: the half-built session is closed and the
+   * member returns to being reachable only through someone else, which is
+   * where they were before the dial started. Deliberately does NOT change the
+   * member's state to LOST — they are not offline, we just have no direct
+   * route to them.
+   */
+  unbindSession(fp) {
+    const member = this.members.get(fp);
+    if (!member || !member.sessionId) return false;
+    const sessionId = member.sessionId;
+    this.sessionToFp.delete(sessionId);
+    member.sessionId = null;
+    if (member.state === MEMBER_STATE.LINKED || member.state === MEMBER_STATE.LOST) {
+      member.state = MEMBER_STATE.PENDING;
+    }
+    this._closeMeshSession(sessionId);
+    this._emitMembers();
+    this._scheduleMeshMaintain();
+    return true;
+  }
+  /** A pairwise session changed state; reflect it on whichever member owns it. */
+  setSessionState(sessionId, connected) {
+    const fp = this.sessionToFp.get(sessionId);
+    if (!fp) return;
+    const member = this.members.get(fp);
+    if (!member || member.state === MEMBER_STATE.SELF) return;
+    const next = connected ? MEMBER_STATE.LINKED : MEMBER_STATE.LOST;
+    if (member.state === next) return;
+    member.state = next;
+    this._emitMembers();
+    if (connected) this._settleDial(fp);
+    this._scheduleMeshMaintain();
+  }
+  // -----------------------------------------------------------------------
+  // the mesh
+  // -----------------------------------------------------------------------
+  //
+  // Every pair that has no link between it dials one, so that the relay path
+  // becomes the exception it was always described as rather than the way the
+  // whole group runs.
+  //
+  // WHO DIALS
+  // ---------
+  // The member with the smaller fingerprint. That is the entire glare
+  // protocol: both sides compute it from the roster they already agree on, so
+  // exactly one side opens each pair and there is no simultaneous-offer case
+  // to resolve. A member that receives an offer from someone it should have
+  // been dialling ITSELF refuses it — either the peer is confused or somebody
+  // is trying to get two half-open dials fighting over one pair.
+  //
+  // WHEN
+  // ----
+  // Only once the group is READY and the safety code is confirmed. Before
+  // that, the roster's identity keys are keys nobody has vouched for yet, and
+  // a link authenticated by an unconfirmed key is a link authenticated by
+  // nothing. Waiting costs a few seconds of relayed traffic.
+  //
+  // HOW IT IS AUTHENTICATED
+  // -----------------------
+  // The descriptors travel through a relay, so they are signed with the
+  // sender's group identity key and checked against the roster — see
+  // meshDescriptorPayload in groupCrypto.js for why that is enough and what
+  // it deliberately does not defend against. Once the transport is up, the
+  // SBQ2 in-band exchange runs on it exactly as it does for a 1:1 chat, with
+  // one difference: nobody is asked to compare digits, because the group code
+  // already authenticated the key that signed the descriptor. The app closes
+  // that loop by marking the link verified on the group's authority.
+  /**
+   * Is this dial still worth finishing?
+   *
+   * Re-checked after EVERY await inside a dial, and that is not defensive
+   * padding — both awaits are long. Building a descriptor means gathering ICE,
+   * and verifying a signature is a trip through WebCrypto; either is ample time
+   * for the answer to change.
+   *
+   * The case that made this necessary: a link probe adopts a chat the two
+   * members already had while a dial for the same pair is mid-flight. The
+   * probe binds a link that works. The dial then came back and bound its own
+   * half-built session over the top, downgrading a live link to a pending one
+   * and leaving the pair relaying to each other over a connection that was
+   * never needed. Checking the member's session — not just our own dial
+   * bookkeeping — is what catches that.
+   */
+  _dialStillWanted(fp, dial) {
+    if (this._destroyed) return false;
+    if (this._meshDials.get(fp) !== dial) return false;
+    if (this.epoch !== dial.epoch) return false;
+    const member = this.members.get(fp);
+    if (!member) return false;
+    if (member.sessionId && member.sessionId !== dial.sessionId) return false;
+    return true;
+  }
+  /** Drop a dial that is no longer wanted, without recording it as a failure. */
+  _abandonDial(fp, dial, sessionId) {
+    if (this._meshDials.get(fp) === dial) {
+      if (dial.timer) {
+        clearTimeout(dial.timer);
+        this._timers.delete(dial.timer);
+      }
+      this._meshDials.delete(fp);
+    }
+    this._meshSessions.delete(sessionId);
+    try {
+      this._mesh?.close(sessionId);
+    } catch (_) {
+    }
+  }
+  /** Close and forget a connection this group opened. Never touches a chat. */
+  _closeMeshSession(sessionId) {
+    if (!sessionId || !this._meshSessions.has(sessionId)) return;
+    this._meshSessions.delete(sessionId);
+    try {
+      this._mesh?.close(sessionId);
+    } catch (_) {
+    }
+  }
+  /** A dial is over, one way or another. Stops its timer and frees the slot. */
+  _settleDial(fp) {
+    const dial = this._meshDials.get(fp);
+    if (!dial) return;
+    if (dial.timer) {
+      clearTimeout(dial.timer);
+      this._timers.delete(dial.timer);
+    }
+    this._meshDials.delete(fp);
+    this._meshFailures.delete(fp);
+  }
+  /**
+   * Give up on one pair, for now.
+   *
+   * The half-built connection is closed and the member goes back to being
+   * reached through somebody else — which is where they were before the dial
+   * started, so nothing the user can see gets worse. The backoff doubles per
+   * attempt because a pair that cannot connect is usually a network that will
+   * not allow it, and hammering at that produces load rather than links.
+   */
+  _meshFail(fp, code, { tellPeer = true } = {}) {
+    const dial = this._meshDials.get(fp);
+    if (dial) {
+      if (dial.timer) {
+        clearTimeout(dial.timer);
+        this._timers.delete(dial.timer);
+      }
+      this._meshDials.delete(fp);
+      const member = this.members.get(fp);
+      if (dial.sessionId && member && member.sessionId === dial.sessionId) {
+        this.unbindSession(fp);
+      } else {
+        this._closeMeshSession(dial.sessionId);
+      }
+    }
+    const failure = this._meshFailures.get(fp) || { attempts: 0, nextAt: 0 };
+    failure.attempts += 1;
+    failure.nextAt = Date.now() + TIMEOUTS.MESH_RETRY_MS * 2 ** (failure.attempts - 1);
+    this._meshFailures.set(fp, failure);
+    this._log("warn", "mesh dial failed", { code, attempts: failure.attempts });
+    if (tellPeer && this.members.has(fp)) {
+      this._sendTo(fp, {
+        type: GROUP_FRAMES.MESH_ABORT,
+        gid: this.groupId,
+        epoch: this.epoch,
+        from: this.selfFp,
+        to: fp
+      }).catch(() => {
+      });
+    }
+    this._scheduleMeshMaintain();
+  }
+  /**
+   * Cancel every dial in flight and forget every backoff.
+   *
+   * Called when the epoch moves. A dial signed against the old epoch will not
+   * verify against the new one, and a pair that could not connect under the
+   * old membership deserves a fresh chance under the new one. Links that are
+   * already up are untouched — _onRoster carries them across.
+   */
+  _meshReset() {
+    for (const fp of [...this._meshDials.keys()]) {
+      const dial = this._meshDials.get(fp);
+      if (dial?.timer) {
+        clearTimeout(dial.timer);
+        this._timers.delete(dial.timer);
+      }
+      this._meshDials.delete(fp);
+      const member = this.members.get(fp);
+      if (dial?.sessionId && member && member.sessionId === dial.sessionId) {
+        this.unbindSession(fp);
+      } else {
+        this._closeMeshSession(dial?.sessionId);
+      }
+    }
+    this._meshFailures.clear();
+    this._probed.clear();
+  }
+  /**
+   * Ask for a maintenance pass soon rather than now.
+   *
+   * Every edge that could change the answer calls this — a link coming up, a
+   * dial failing, the code being confirmed — and several of them fire in a
+   * burst. Coalescing them means one pass sees the settled picture instead of
+   * several passes each acting on a half-updated one.
+   */
+  _scheduleMeshMaintain() {
+    if (this._destroyed || !this._mesh || this._meshPass) return;
+    this._meshPass = this._timer(() => {
+      this._meshPass = null;
+      this._meshMaintain();
+    }, 0);
+  }
+  /** Open dials for whoever still has no link, within the concurrency limit. */
+  _meshMaintain() {
+    if (this._destroyed || !this._mesh) return;
+    if (this.phase !== GROUP_PHASE.READY || !this.sasConfirmed) return;
+    const now = Date.now();
+    let inFlight = this._meshDials.size;
+    let soonest = Infinity;
+    for (const fp of canonicalFingerprints([...this.members.keys()])) {
+      if (inFlight >= MESH_MAX_CONCURRENT_DIALS) break;
+      const member = this.members.get(fp);
+      if (!member || member.state === MEMBER_STATE.SELF) continue;
+      if (member.sessionId) continue;
+      if (this._meshDials.has(fp)) continue;
+      if (!(this.selfFp < fp)) continue;
+      const failure = this._meshFailures.get(fp);
+      if (failure) {
+        if (failure.attempts >= MESH_MAX_ATTEMPTS) continue;
+        if (now < failure.nextAt) {
+          soonest = Math.min(soonest, failure.nextAt);
+          continue;
+        }
+      }
+      if (!this._relayFor(fp)) continue;
+      inFlight += 1;
+      this._meshDial(fp).catch(() => {
+      });
+    }
+    if (soonest !== Infinity && !this._meshPass) {
+      this._meshPass = this._timer(() => {
+        this._meshPass = null;
+        this._meshMaintain();
+      }, Math.max(0, soonest - now) + 50);
+    }
+  }
+  /** Build a descriptor for one peer, sign it, and put it on the relay path. */
+  async _meshDial(fp) {
+    const member = this.members.get(fp);
+    if (!member || member.sessionId || this._meshDials.has(fp)) return;
+    const epoch = this.epoch;
+    const nonce = randomBytes(GROUP_LIMITS.MESH_NONCE_BYTES);
+    const dial = { role: "offer", sessionId: null, nonce, epoch, timer: null };
+    this._meshDials.set(fp, dial);
+    try {
+      const link = await this._mesh.createOffer(fp);
+      const sessionId = link && link.sessionId;
+      const descriptor = String(link && link.descriptor || "");
+      if (!sessionId || !descriptor) throw new GroupSessionError("mesh transport produced no descriptor", "no_descriptor");
+      if (!this._dialStillWanted(fp, dial)) return this._abandonDial(fp, dial, sessionId);
+      dial.sessionId = sessionId;
+      this._meshSessions.add(sessionId);
+      this.bindSession(fp, sessionId, MEMBER_STATE.PENDING);
+      const sig = await signMeshDescriptor(this.subtle, this.identity.keyPair.privateKey, {
+        groupId: this.groupId,
+        epoch,
+        kind: MESH_KINDS.OFFER,
+        fromFp: this.selfFp,
+        toFp: fp,
+        descriptor,
+        nonce
+      });
+      const sent = await this._sendTo(fp, {
+        type: GROUP_FRAMES.MESH_OFFER,
+        gid: this.groupId,
+        epoch,
+        from: this.selfFp,
+        to: fp,
+        d: descriptor,
+        n: toB64(nonce),
+        sig: toB64(sig)
+      });
+      if (!sent) throw new GroupSessionError("no route to carry the dial", "unreachable");
+      dial.timer = this._timer(() => this._meshFail(fp, "dial_timeout"), TIMEOUTS.MESH_DIAL_MS);
+    } catch (error) {
+      this._meshFail(fp, error?.code || "dial_failed");
+    }
+  }
+  async _onMeshOffer(frame) {
+    if (!this._mesh || this._destroyed) return;
+    const from = assertFingerprint(String(frame.from || ""));
+    if (assertFingerprint(String(frame.to || "")) !== this.selfFp) return;
+    if (assertEpoch(frame.epoch) !== this.epoch) return;
+    if (this.phase !== GROUP_PHASE.READY || !this.sasConfirmed) return;
+    const member = this.members.get(from);
+    if (!member || !member.publicKey) {
+      throw new GroupSessionError("mesh dial from a non-member", "not_a_member");
+    }
+    if (member.sessionId) return;
+    if (this._meshDials.has(from)) return;
+    if (this.selfFp < from) return;
+    const descriptor = String(frame.d || "");
+    if (!descriptor || descriptor.length > GROUP_LIMITS.MAX_DESCRIPTOR_CHARS) {
+      throw new GroupSessionError("mesh descriptor is missing or oversized", "bad_descriptor");
+    }
+    const nonce = fromB64(String(frame.n || ""), { max: GROUP_LIMITS.MESH_NONCE_BYTES });
+    const ok = await verifyMeshDescriptor(this.subtle, member.publicKey, {
+      groupId: this.groupId,
+      epoch: this.epoch,
+      kind: MESH_KINDS.OFFER,
+      fromFp: from,
+      toFp: this.selfFp,
+      descriptor,
+      nonce
+    }, fromB64(String(frame.sig || ""), { max: GROUP_LIMITS.MAX_SIG_BYTES }));
+    if (!ok) throw new GroupSessionError("mesh dial signature did not verify", "bad_signature");
+    if (this._destroyed || member.sessionId || this._meshDials.has(from)) return;
+    if (assertEpoch(frame.epoch) !== this.epoch) return;
+    const epoch = this.epoch;
+    const dial = { role: "answer", sessionId: null, nonce, epoch, timer: null };
+    this._meshDials.set(from, dial);
+    try {
+      const link = await this._mesh.createAnswer(from, descriptor);
+      const sessionId = link && link.sessionId;
+      const answer = String(link && link.descriptor || "");
+      if (!sessionId || !answer) throw new GroupSessionError("mesh transport produced no answer", "no_descriptor");
+      if (!this._dialStillWanted(from, dial)) return this._abandonDial(from, dial, sessionId);
+      dial.sessionId = sessionId;
+      this._meshSessions.add(sessionId);
+      this.bindSession(from, sessionId, MEMBER_STATE.PENDING);
+      const sig = await signMeshDescriptor(this.subtle, this.identity.keyPair.privateKey, {
+        groupId: this.groupId,
+        epoch,
+        kind: MESH_KINDS.ANSWER,
+        fromFp: this.selfFp,
+        toFp: from,
+        descriptor: answer,
+        nonce
+      });
+      const sent = await this._sendTo(from, {
+        type: GROUP_FRAMES.MESH_ANSWER,
+        gid: this.groupId,
+        epoch,
+        from: this.selfFp,
+        to: from,
+        d: answer,
+        n: toB64(nonce),
+        sig: toB64(sig)
+      });
+      if (!sent) throw new GroupSessionError("no route to carry the answer", "unreachable");
+      dial.timer = this._timer(() => this._meshFail(from, "answer_timeout"), TIMEOUTS.MESH_DIAL_MS);
+    } catch (error) {
+      this._meshFail(from, error?.code || "answer_failed");
+    }
+  }
+  async _onMeshAnswer(frame) {
+    if (!this._mesh || this._destroyed) return;
+    const from = assertFingerprint(String(frame.from || ""));
+    if (assertFingerprint(String(frame.to || "")) !== this.selfFp) return;
+    if (assertEpoch(frame.epoch) !== this.epoch) return;
+    const dial = this._meshDials.get(from);
+    if (!dial || dial.role !== "offer" || !dial.sessionId || dial.epoch !== this.epoch) return;
+    const member = this.members.get(from);
+    if (!member || !member.publicKey) {
+      throw new GroupSessionError("mesh answer from a non-member", "not_a_member");
+    }
+    const descriptor = String(frame.d || "");
+    if (!descriptor || descriptor.length > GROUP_LIMITS.MAX_DESCRIPTOR_CHARS) {
+      throw new GroupSessionError("mesh descriptor is missing or oversized", "bad_descriptor");
+    }
+    const nonce = fromB64(String(frame.n || ""), { max: GROUP_LIMITS.MESH_NONCE_BYTES });
+    if (nonce.length !== dial.nonce.length || !nonce.every((b, i) => b === dial.nonce[i])) {
+      throw new GroupSessionError("mesh answer does not match the dial it claims", "bad_mesh_nonce");
+    }
+    const ok = await verifyMeshDescriptor(this.subtle, member.publicKey, {
+      groupId: this.groupId,
+      epoch: this.epoch,
+      kind: MESH_KINDS.ANSWER,
+      fromFp: from,
+      toFp: this.selfFp,
+      descriptor,
+      nonce
+    }, fromB64(String(frame.sig || ""), { max: GROUP_LIMITS.MAX_SIG_BYTES }));
+    if (!ok) throw new GroupSessionError("mesh answer signature did not verify", "bad_signature");
+    try {
+      await this._mesh.acceptAnswer(dial.sessionId, descriptor);
+    } catch (error) {
+      this._meshFail(from, error?.code || "answer_rejected");
+    }
+  }
+  _onMeshAbort(frame) {
+    const from = assertFingerprint(String(frame.from || ""));
+    if (assertFingerprint(String(frame.to || "")) !== this.selfFp) return;
+    if (!this._meshDials.has(from)) return;
+    this._meshFail(from, "peer_aborted", { tellPeer: false });
+  }
+  // -----------------------------------------------------------------------
+  // link probes
+  // -----------------------------------------------------------------------
+  /**
+   * Claim a pairwise chat we already hold as this group's link to a member.
+   *
+   * Two people who were already talking do not need a second connection built
+   * between them, and dialling one anyway would spend a WebRTC negotiation to
+   * arrive back where we started. The app calls this for every verified chat
+   * that is not already carrying a member; whoever is on the other end and is
+   * in this group binds it, and the pair is meshed without dialling anything.
+   *
+   * Sent once per session per epoch. It is a claim about identity, not a
+   * request, so there is nothing to retry.
+   */
+  async probeSession(sessionId) {
+    if (this._destroyed || !this._mesh || !sessionId) return false;
+    if (this.phase !== GROUP_PHASE.READY || !this.sasConfirmed) return false;
+    if (this.sessionToFp.has(sessionId)) return false;
+    return this._sendProbe(sessionId);
+  }
+  /**
+   * Sign and send one probe. Once per session per epoch, whatever asked for it.
+   *
+   * Split from probeSession because the two callers disagree about one check:
+   * the app only offers sessions that carry nobody, while an ANSWERING probe
+   * goes out on a session that has just been bound — by the very probe it is
+   * answering.
+   */
+  async _sendProbe(sessionId) {
+    if (this._destroyed || this._probed.has(sessionId)) return false;
+    const linkFp = this._linkFingerprint(sessionId);
+    if (!linkFp) return false;
+    this._probed.add(sessionId);
+    const sig = await signLinkProbe(this.subtle, this.identity.keyPair.privateKey, {
+      groupId: this.groupId,
+      epoch: this.epoch,
+      fp: this.selfFp,
+      linkFp
+    });
+    await this._wire(sessionId, {
+      type: GROUP_FRAMES.PROBE,
+      gid: this.groupId,
+      epoch: this.epoch,
+      fp: this.selfFp,
+      sig: toB64(sig)
+    });
+    return true;
+  }
+  _linkFingerprint(sessionId) {
+    try {
+      const fp = this._mesh?.linkFingerprint?.(sessionId);
+      return typeof fp === "string" && fp.length > 0 ? fp : "";
+    } catch (_) {
+      return "";
+    }
+  }
+  async _onProbe(sessionId, frame) {
+    if (this._destroyed) return;
+    if (this.phase !== GROUP_PHASE.READY || !this.sasConfirmed) return;
+    if (assertEpoch(frame.epoch) !== this.epoch) return;
+    const fp = assertFingerprint(String(frame.fp || ""));
+    if (fp === this.selfFp) return;
+    const member = this.members.get(fp);
+    if (!member || !member.publicKey) return;
+    if (this.sessionToFp.has(sessionId)) return;
+    if (member.sessionId) {
+      if (member.state === MEMBER_STATE.LINKED) return;
+      if (!this._meshDials.has(fp)) return;
+    }
+    const linkFp = this._linkFingerprint(sessionId);
+    if (!linkFp) return;
+    const ok = await verifyLinkProbe(this.subtle, member.publicKey, {
+      groupId: this.groupId,
+      epoch: this.epoch,
+      fp,
+      linkFp
+    }, fromB64(String(frame.sig || ""), { max: GROUP_LIMITS.MAX_SIG_BYTES }));
+    if (!ok) throw new GroupSessionError("link probe signature did not verify", "bad_signature");
+    this._settleDial(fp);
+    this.bindSession(fp, sessionId, MEMBER_STATE.LINKED);
+    this._sendProbe(sessionId).catch(() => {
+    });
+    this._scheduleMeshMaintain();
+  }
+  // -----------------------------------------------------------------------
+  // step 1-2: invite / hello
+  // -----------------------------------------------------------------------
+  /**
+   * Admin: invite peers we already hold verified 1:1 sessions with.
+   * @param {{sessionId: string, name: string}[]} peers
+   */
+  async invite(peers) {
+    if (!this.isAdmin) throw new GroupSessionError("only the admin invites", "not_admin");
+    await this.init();
+    if (peers.length + 1 > GROUP_LIMITS.MAX_MEMBERS) {
+      throw new GroupSessionError(`a group is limited to ${GROUP_LIMITS.MAX_MEMBERS} members`, "too_many_members");
+    }
+    this._setPhase(GROUP_PHASE.FORMING);
+    for (const peer of peers) this._awaitingHello.set(peer.sessionId, peer.name || "Member");
+    const frame = {
+      type: GROUP_FRAMES.INVITE,
+      gid: this.groupId,
+      epoch: this.epoch,
+      name: this.name,
+      adminSpki: toB64(this.identity.spki)
+    };
+    const results = await Promise.allSettled(peers.map((p) => this._wire(p.sessionId, frame)));
+    const failed = results.filter((r) => r.status === "rejected");
+    if (failed.length === peers.length) {
+      this._fail("invitations_could_not_be_sent");
+      throw new GroupSessionError(
+        "the invitation could not be sent \u2014 the chat with that peer is not connected",
+        "invitations_could_not_be_sent"
+      );
+    }
+    if (failed.length > 0) {
+      const reachable = peers.filter((_, i) => results[i].status === "fulfilled");
+      for (const p of peers) {
+        if (!reachable.includes(p)) this._awaitingHello.delete(p.sessionId);
+      }
+      this._emit("partial_invite", { sent: reachable.length, total: peers.length });
+    }
+    this._timer(() => {
+      if (this.phase === GROUP_PHASE.FORMING) this._fail("invitees_did_not_respond");
+    }, TIMEOUTS.HELLO_MS);
+  }
+  /** Invitee: adopt an invitation and publish our own identity key back. */
+  async acceptInvite(sessionId, envelope) {
+    const frame = decodeEnvelope(envelope);
+    await this.init();
+    const adminSpki = fromB64(String(frame.adminSpki || ""));
+    const { publicKey, fingerprint } = await importMemberIdentity(this.subtle, adminSpki);
+    this.adminFp = fingerprint;
+    this.epoch = assertEpoch(frame.epoch);
+    this.name = assertName(frame.name);
+    this.members.set(fingerprint, {
+      fp: fingerprint,
+      name: "Admin",
+      spki: adminSpki,
+      publicKey,
+      sessionId,
+      state: MEMBER_STATE.LINKED
+    });
+    this.sessionToFp.set(sessionId, fingerprint);
+    this._setPhase(GROUP_PHASE.FORMING);
+    this._emitMembers();
+    await this._wire(sessionId, {
+      type: GROUP_FRAMES.HELLO,
+      gid: this.groupId,
+      epoch: this.epoch,
+      spki: toB64(this.identity.spki)
+    });
+    this._timer(() => {
+      if (this.phase === GROUP_PHASE.FORMING) this._fail("roster_never_arrived");
+    }, TIMEOUTS.HELLO_MS);
+  }
+  async _onHello(sessionId, frame) {
+    if (!this.isAdmin) return;
+    if (!this._awaitingHello.has(sessionId)) {
+      this._log("warn", "dropped an unsolicited group hello", { groupId: this.groupId });
+      return;
+    }
+    const spki = fromB64(String(frame.spki || ""));
+    const { publicKey, fingerprint } = await importMemberIdentity(this.subtle, spki);
+    if (this.members.has(fingerprint) && fingerprint !== this.selfFp) return;
+    if (this.members.size >= GROUP_LIMITS.MAX_MEMBERS) throw new GroupSessionError("group is full", "too_many_members");
+    this.members.set(fingerprint, {
+      fp: fingerprint,
+      name: this._awaitingHello.get(sessionId) || "Member",
+      spki,
+      publicKey,
+      sessionId,
+      state: MEMBER_STATE.LINKED
+    });
+    this.sessionToFp.set(sessionId, fingerprint);
+    this._awaitingHello.delete(sessionId);
+    this._emitMembers();
+    if (this._awaitingHello.size === 0) {
+      if (this._pendingAdd) return this._finishAdd();
+      await this.publishRoster(MEMBER_OPS.CREATE);
+    }
+  }
+  // -----------------------------------------------------------------------
+  // step 3: the signed roster
+  // -----------------------------------------------------------------------
+  /** Admin: sign the current member set for this epoch and broadcast it. */
+  async publishRoster(op = MEMBER_OPS.ADD) {
+    if (!this.isAdmin) throw new GroupSessionError("only the admin publishes the roster", "not_admin");
+    const memberFps = canonicalFingerprints([...this.members.keys()]);
+    const fields = { groupId: this.groupId, epoch: this.epoch, op, memberFps, name: this.name };
+    const sig = await signMemberOp(this.subtle, this.identity.keyPair.privateKey, fields);
+    for (const fp of memberFps) {
+      const m = this.members.get(fp);
+      await this._broadcast({
+        type: GROUP_FRAMES.MEMBER,
+        gid: this.groupId,
+        epoch: this.epoch,
+        fp,
+        name: m.name === "You" ? "Admin" : m.name,
+        spki: toB64(m.spki)
+      });
+    }
+    await this._broadcast({
+      type: GROUP_FRAMES.ROSTER,
+      gid: this.groupId,
+      epoch: this.epoch,
+      op,
+      name: this.name,
+      adminSpki: toB64(this.identity.spki),
+      members: memberFps,
+      sig: toB64(sig)
+    });
+    await this._startCeremony();
+  }
+  /**
+   * A member's identity key, published ahead of the roster that names them.
+   *
+   * Held in a staging area rather than applied: until the admin's signed roster
+   * arrives, a key frame is an unverified claim about who is in the group. The
+   * fingerprint is derived from the bytes, never taken from the frame, so a
+   * member cannot register a key under someone else's name.
+   */
+  async _onMemberKey(frame) {
+    const epoch = assertEpoch(frame.epoch);
+    if (epoch < this.epoch) return;
+    if (this._pendingKeys.size > GROUP_LIMITS.MAX_MEMBERS * 2) return;
+    const spki = fromB64(String(frame.spki || ""));
+    const { publicKey, fingerprint } = await importMemberIdentity(this.subtle, spki);
+    if (assertFingerprint(String(frame.fp || "")) !== fingerprint) {
+      throw new GroupSessionError("member key does not match its fingerprint", "fingerprint_mismatch");
+    }
+    this._pendingKeys.set(fingerprint, { spki, publicKey, name: assertName(frame.name) });
+  }
+  /**
+   * Member: adopt a roster.
+   *
+   * The admin's signature is checked against the key whose fingerprint IS the
+   * admin fingerprint we recorded at invite time — not against whatever key the
+   * frame happens to carry — so a member cannot promote itself by attaching its
+   * own key to a roster. The epoch must move forward, which refuses both a
+   * replay and a rollback to a membership that used to be valid.
+   */
+  async _onRoster(sessionId, frame) {
+    const epoch = assertEpoch(frame.epoch);
+    if (this.isAdmin) return;
+    if (epoch < this.epoch) throw new GroupSessionError("roster epoch went backwards", "stale_epoch");
+    const adminSpki = fromB64(String(frame.adminSpki || ""));
+    const { publicKey: adminKey, fingerprint: adminFp } = await importMemberIdentity(this.subtle, adminSpki);
+    if (this.adminFp && adminFp !== this.adminFp) {
+      throw new GroupSessionError("roster was signed by someone other than the admin", "wrong_admin");
+    }
+    if (!Array.isArray(frame.members)) throw new GroupSessionError("roster carries no member list", "bad_roster");
+    if (frame.members.length > GROUP_LIMITS.MAX_MEMBERS) throw new GroupSessionError("roster exceeds the member limit", "too_many_members");
+    const memberFps = canonicalFingerprints(frame.members.map((fp) => String(fp || "")));
+    if (!memberFps.includes(this.selfFp)) throw new GroupSessionError("roster does not include us", "not_a_member");
+    if (!memberFps.includes(adminFp)) throw new GroupSessionError("roster does not include its author", "bad_roster");
+    const imported = [];
+    for (const fp of memberFps) {
+      if (fp === this.selfFp) {
+        imported.push({ fp, name: "You", spki: this.identity.spki, publicKey: null });
+        continue;
+      }
+      const staged = this._pendingKeys.get(fp) || (fp === adminFp ? { spki: adminSpki, publicKey: adminKey, name: "Admin" } : null);
+      if (!staged) throw new GroupSessionError("roster names a member whose key never arrived", "missing_member_key");
+      imported.push({ fp, name: staged.name, spki: staged.spki, publicKey: staged.publicKey });
+    }
+    const ok = await verifyMemberOp(this.subtle, adminKey, {
+      groupId: this.groupId,
+      epoch,
+      op: String(frame.op || ""),
+      memberFps,
+      name: assertName(frame.name)
+    }, fromB64(String(frame.sig || ""), { max: GROUP_LIMITS.MAX_SIG_BYTES }));
+    if (!ok) throw new GroupSessionError("roster signature did not verify", "bad_signature");
+    this.epoch = epoch;
+    this.name = assertName(frame.name);
+    this.adminFp = adminFp;
+    const previous = this.members;
+    this.members = /* @__PURE__ */ new Map();
+    for (const m of imported) {
+      const old = previous.get(m.fp);
+      this.members.set(m.fp, {
+        fp: m.fp,
+        name: m.fp === this.selfFp ? "You" : m.name,
+        spki: m.spki,
+        publicKey: m.fp === this.selfFp ? null : m.publicKey,
+        sessionId: old?.sessionId || null,
+        state: m.fp === this.selfFp ? MEMBER_STATE.SELF : old?.state === MEMBER_STATE.LINKED ? MEMBER_STATE.LINKED : MEMBER_STATE.PENDING
+      });
+    }
+    for (const [sid, fp] of [...this.sessionToFp]) {
+      if (!this.members.has(fp)) this.sessionToFp.delete(sid);
+    }
+    this._emit("roster", { name: this.name, epoch: this.epoch, adminFp });
+    this._emitMembers();
+    await this._startCeremony();
+  }
+  // -----------------------------------------------------------------------
+  // steps 4-6: the safety code ceremony
+  // -----------------------------------------------------------------------
+  async _startCeremony() {
+    try {
+      this.ceremony?.destroy();
+    } catch (_) {
+    }
+    this._meshReset();
+    this.ceremony = new GroupSasCeremony({
+      groupId: this.groupId,
+      epoch: this.epoch,
+      selfFingerprint: this.selfFp,
+      memberFingerprints: [...this.members.keys()]
+    });
+    this._setPhase(GROUP_PHASE.COMMITTING);
+    const commitment = await this.ceremony.ownCommitment(this.subtle);
+    await this._broadcast({
+      type: GROUP_FRAMES.COMMIT,
+      gid: this.groupId,
+      epoch: this.epoch,
+      fp: this.selfFp,
+      commit: toB64(commitment)
+    });
+    const epochAtStart = this.epoch;
+    this._timer(() => {
+      if (this.epoch !== epochAtStart) return;
+      if (this.phase === GROUP_PHASE.COMMITTING || this.phase === GROUP_PHASE.REVEALING) {
+        this._fail("ceremony_timed_out");
+      }
+    }, TIMEOUTS.CEREMONY_MS);
+    await this._drainPendingCeremony();
+    await this._maybeReveal();
+  }
+  /** Hold a ceremony frame that outran our own roster. See _pendingCeremony. */
+  _holdCeremonyFrame(frame) {
+    if (this._pendingCeremony.length >= GROUP_LIMITS.MAX_MEMBERS * 2) return;
+    this._pendingCeremony.push(frame);
+  }
+  async _drainPendingCeremony() {
+    if (this._draining) return;
+    this._draining = true;
+    try {
+      const held = this._pendingCeremony;
+      this._pendingCeremony = [];
+      for (const frame of held) {
+        try {
+          if (frame.type === GROUP_FRAMES.COMMIT) await this._onCommit(frame);
+          else if (frame.type === GROUP_FRAMES.REVEAL) await this._onReveal(frame);
+        } catch (error) {
+          this._log("warn", "held ceremony frame discarded", { code: error?.code });
+        }
+      }
+    } finally {
+      this._draining = false;
+    }
+  }
+  async _onCommit(frame) {
+    if (!this.ceremony) return this._holdCeremonyFrame(frame);
+    if (assertEpoch(frame.epoch) !== this.epoch) return;
+    this.ceremony.acceptCommitment(
+      assertFingerprint(String(frame.fp || "")),
+      fromB64(String(frame.commit || ""), { max: GROUP_LIMITS.COMMIT_BYTES })
+    );
+    await this._drainPendingCeremony();
+    await this._maybeReveal();
+  }
+  /**
+   * Publish our nonce, but only once every commitment is in.
+   *
+   * The check lives in GroupSasCeremony.reveal(), which throws otherwise. This
+   * method only asks whether the round is complete — it must never be changed
+   * to reveal on a timer or on a partial round.
+   */
+  async _maybeReveal() {
+    if (!this.ceremony || this.ceremony.revealed) return;
+    if (!this.ceremony.commitmentsComplete) return;
+    this._setPhase(GROUP_PHASE.REVEALING);
+    const nonce = this.ceremony.reveal();
+    await this._broadcast({
+      type: GROUP_FRAMES.REVEAL,
+      gid: this.groupId,
+      epoch: this.epoch,
+      fp: this.selfFp,
+      nonce: toB64(nonce)
+    });
+    await this._maybeFinish();
+  }
+  async _onReveal(frame) {
+    if (!this.ceremony) return this._holdCeremonyFrame(frame);
+    if (assertEpoch(frame.epoch) !== this.epoch) return;
+    if (!this.ceremony.commitments.has(assertFingerprint(String(frame.fp || "")))) {
+      return this._holdCeremonyFrame(frame);
+    }
+    await this.ceremony.acceptReveal(
+      this.subtle,
+      assertFingerprint(String(frame.fp || "")),
+      fromB64(String(frame.nonce || ""), { max: GROUP_LIMITS.NONCE_BYTES })
+    );
+    await this._maybeFinish();
+  }
+  async _maybeFinish() {
+    if (!this.ceremony || !this.ceremony.revealsComplete) return;
+    if (this.sasCode) return;
+    const code = await this.ceremony.finish(this.subtle);
+    this._setPhase(GROUP_PHASE.AWAITING_SAS);
+    this.sasCode = code;
+    this._emit("sas", { code });
+  }
+  /**
+   * The humans compared the digits and they matched.
+   *
+   * This is the only path to READY, and it is driven by a user action — never
+   * by a frame arriving. It mirrors the 1:1 rule: completing a handshake proves
+   * somebody completed it, and only the out-of-band comparison proves who.
+   */
+  confirmSas() {
+    if (this.phase !== GROUP_PHASE.AWAITING_SAS || !this.sasCode) {
+      throw new GroupSessionError("there is no group code to confirm", "no_code");
+    }
+    this.sasConfirmed = true;
+    this.phase = GROUP_PHASE.READY;
+    try {
+      this.ceremony?.destroy();
+    } catch (_) {
+    }
+    this.ceremony = null;
+    this._emit("confirmed", { members: this._memberSnapshot() });
+    this._scheduleMeshMaintain();
+  }
+  /** Recompute the code for the current epoch — used only by tests and diagnostics. */
+  async _recomputeSas(contributions) {
+    return computeGroupSas(this.subtle, {
+      groupId: this.groupId,
+      epoch: this.epoch,
+      contributions
+    });
+  }
+  // -----------------------------------------------------------------------
+  // step 7: messages
+  // -----------------------------------------------------------------------
+  async sendText(text) {
+    if (this.phase !== GROUP_PHASE.READY || !this.sasConfirmed) {
+      throw new GroupSessionError("the group code has not been confirmed", "not_ready");
+    }
+    const body = String(text ?? "");
+    if (!body.trim()) throw new GroupSessionError("empty message", "empty");
+    const seq = ++this.seq;
+    const bodyHash = await hashBody(this.subtle, body);
+    const sig = await signGroupMessage(this.subtle, this.identity.keyPair.privateKey, {
+      groupId: this.groupId,
+      epoch: this.epoch,
+      seq,
+      senderFp: this.selfFp,
+      bodyHash
+    });
+    const frame = {
+      type: GROUP_FRAMES.MESSAGE,
+      gid: this.groupId,
+      epoch: this.epoch,
+      seq,
+      fp: this.selfFp,
+      ts: Date.now(),
+      body,
+      sig: toB64(sig)
+    };
+    const { delivered, unreachable } = await this._broadcast(frame);
+    return { seq, delivered, total: this.members.size - 1, unreachable };
+  }
+  async _onMessage(frame, { relayed = false } = {}) {
+    const epoch = assertEpoch(frame.epoch);
+    const seq = assertEpoch(frame.seq);
+    const senderFp = assertFingerprint(String(frame.fp || ""));
+    if (senderFp === this.selfFp) return;
+    const member = this.members.get(senderFp);
+    if (!member || !member.publicKey) throw new GroupSessionError("message from a non-member", "not_a_member");
+    if (epoch !== this.epoch) throw new GroupSessionError("message from another epoch", "stale_epoch");
+    const body = String(frame.body ?? "");
+    const bodyHash = await hashBody(this.subtle, body);
+    const ok = await verifyGroupMessage(this.subtle, member.publicKey, {
+      groupId: this.groupId,
+      epoch,
+      seq,
+      senderFp,
+      bodyHash
+    }, fromB64(String(frame.sig || ""), { max: GROUP_LIMITS.MAX_SIG_BYTES }));
+    if (!ok) throw new GroupSessionError("message signature did not verify", "bad_signature");
+    const byMember = this.transcript.get(senderFp) || /* @__PURE__ */ new Map();
+    const hashHex = toB64(bodyHash);
+    const previous = byMember.get(seq);
+    if (previous !== void 0) {
+      if (previous === hashHex) return;
+      this._emit("inconsistency", { fp: senderFp, seq, name: member.name });
+      throw new GroupSessionError("member sent conflicting messages under one sequence number", "transcript_split");
+    }
+    byMember.set(seq, hashHex);
+    if (byMember.size > 512) byMember.delete(byMember.keys().next().value);
+    this.transcript.set(senderFp, byMember);
+    this._emit("message", {
+      fp: senderFp,
+      name: member.name,
+      body,
+      seq,
+      ts: Number.isFinite(frame.ts) ? frame.ts : Date.now(),
+      // Whether this particular copy came straight from its author or was
+      // carried by another member. Worth showing: a relayed message is one
+      // a third member knew the timing of, and the reader is the only one
+      // in a position to notice that is still happening.
+      relayed
+    });
+  }
+  // -----------------------------------------------------------------------
+  // inbound dispatch
+  // -----------------------------------------------------------------------
+  /**
+   * Handle one frame that arrived on a pairwise session.
+   *
+   * Everything here is attacker-supplied in the sense that matters: it comes
+   * from a verified peer, but a group member is only as trustworthy as the
+   * group makes them. Types are matched against an explicit list and anything
+   * unrecognised is dropped rather than passed on.
+   */
+  async handleFrame(sessionId, envelope, { relayed = false } = {}) {
+    if (this._destroyed) return;
+    if (!isGroupFrame(envelope)) return;
+    const frame = decodeEnvelope(envelope);
+    if (!frame || !GROUP_FRAME_TYPES.has(frame.type)) return;
+    if (assertGroupId(String(frame.gid || "")) !== this.groupId) return;
+    switch (frame.type) {
+      case GROUP_FRAMES.RELAY:
+        return this._onRelay(sessionId, frame);
+      case GROUP_FRAMES.HELLO:
+        return this._onHello(sessionId, frame);
+      case GROUP_FRAMES.MEMBER:
+        return this._onMemberKey(frame);
+      case GROUP_FRAMES.ROSTER:
+        return this._onRoster(sessionId, frame);
+      case GROUP_FRAMES.COMMIT:
+        return this._onCommit(frame);
+      case GROUP_FRAMES.REVEAL:
+        return this._onReveal(frame);
+      case GROUP_FRAMES.MESSAGE:
+        return this._onMessage(frame, { relayed });
+      case GROUP_FRAMES.LEAVE:
+        return this._onLeave(frame);
+      case GROUP_FRAMES.MESH_OFFER:
+        return this._onMeshOffer(frame);
+      case GROUP_FRAMES.MESH_ANSWER:
+        return this._onMeshAnswer(frame);
+      case GROUP_FRAMES.MESH_ABORT:
+        return this._onMeshAbort(frame);
+      case GROUP_FRAMES.PROBE:
+        return relayed ? void 0 : this._onProbe(sessionId, frame);
+      case GROUP_FRAMES.INVITE:
+        return;
+      // handled by the app, which decides whether to join at all
+      default:
+        return;
+    }
+  }
+  /**
+   * Single-hop relay.
+   *
+   * A frame addressed to us is unwrapped and handled. A frame addressed to
+   * someone else is forwarded exactly once — `hopped` makes a second forward
+   * impossible, so there is no loop to form and no path to lengthen.
+   */
+  async _onRelay(sessionId, frame) {
+    const to = assertFingerprint(String(frame.to || ""));
+    const inner = frame.inner;
+    if (!isGroupFrame(inner)) return;
+    if (inner.type === GROUP_FRAMES.RELAY) return;
+    if (to === this.selfFp) return this.handleFrame(sessionId, inner, { relayed: true });
+    if (frame.hopped === true) return;
+    const member = this.members.get(to);
+    if (!member || member.state !== MEMBER_STATE.LINKED || !member.sessionId) return;
+    await this._wire(member.sessionId, { ...frame, hopped: true });
+  }
+  async _onLeave(frame) {
+    const fp = assertFingerprint(String(frame.fp || ""));
+    const member = this.members.get(fp);
+    if (!member || fp === this.selfFp) return;
+    this._emit("left", { fp, name: member.name });
+    if (!this.isAdmin && fp === this.adminFp) {
+      this.members.delete(fp);
+      for (const [sid, f] of [...this.sessionToFp]) if (f === fp) this.sessionToFp.delete(sid);
+      this._emit("ended", { reason: "admin_left" });
+      return;
+    }
+    if (!this.isAdmin) return;
+    this.members.delete(fp);
+    for (const [sid, f] of [...this.sessionToFp]) if (f === fp) this.sessionToFp.delete(sid);
+    this._emitMembers();
+    if (this.members.size < GROUP_LIMITS.MIN_MEMBERS) {
+      this._emit("ended", { reason: "last_member_left" });
+      return;
+    }
+    this.epoch += 1;
+    await this.publishRoster(MEMBER_OPS.REMOVE);
+  }
+  /**
+   * Tell the group we are leaving, best effort.
+   *
+   * Await this before destroy(): teardown clears the member map this walks to
+   * find recipients, so a leave that is merely started can end up addressed to
+   * nobody — and a peer that never hears it keeps a group nobody is in.
+   */
+  async leave() {
+    try {
+      await this._broadcast({ type: GROUP_FRAMES.LEAVE, gid: this.groupId, fp: this.selfFp });
+    } catch (_) {
+    }
+  }
+  /**
+   * Admin: invite more people into a group that is already running.
+   *
+   * The group stays usable throughout. Nothing about the membership changes
+   * until the new members have published their identity keys and a roster for
+   * the next epoch actually goes out — at which point every member, old and
+   * new, runs a fresh commit/reveal round and compares a new code. That is not
+   * ceremony for its own sake: the safety code covers the member set, so a set
+   * that has changed has a different code, and the old one no longer says
+   * anything about who is in the room.
+   *
+   * If nobody answers, the round is abandoned and the group is left exactly as
+   * it was — which is why the epoch is not touched until the roster is sent.
+   *
+   * @param {{sessionId: string, name: string}[]} peers
+   */
+  async addMembers(peers) {
+    if (!this.isAdmin) throw new GroupSessionError("only the admin invites", "not_admin");
+    if (!Array.isArray(peers) || peers.length === 0) return 0;
+    if (this._pendingAdd) throw new GroupSessionError("an invitation round is already running", "add_in_flight");
+    if (this.members.size + peers.length > GROUP_LIMITS.MAX_MEMBERS) {
+      throw new GroupSessionError(`a group is limited to ${GROUP_LIMITS.MAX_MEMBERS} members`, "too_many_members");
+    }
+    for (const peer of peers) {
+      if (this.sessionToFp.has(peer.sessionId)) {
+        throw new GroupSessionError("that chat is already a member of this group", "already_a_member");
+      }
+    }
+    this._pendingAdd = {
+      op: MEMBER_OPS.ADD,
+      epoch: this.epoch + 1,
+      before: new Set(this.members.keys())
+    };
+    for (const peer of peers) this._awaitingHello.set(peer.sessionId, peer.name || "Member");
+    const frame = {
+      type: GROUP_FRAMES.INVITE,
+      gid: this.groupId,
+      epoch: this._pendingAdd.epoch,
+      name: this.name,
+      adminSpki: toB64(this.identity.spki)
+    };
+    const round = this._pendingAdd;
+    const results = await Promise.allSettled(peers.map((p) => this._wire(p.sessionId, frame)));
+    const sent = results.filter((r) => r.status === "fulfilled").length;
+    if (sent === 0) {
+      for (const peer of peers) this._awaitingHello.delete(peer.sessionId);
+      if (this._pendingAdd === round) this._pendingAdd = null;
+      throw new GroupSessionError(
+        "the invitation could not be sent \u2014 that chat is not connected",
+        "invitations_could_not_be_sent"
+      );
+    }
+    peers.forEach((peer, i) => {
+      if (results[i].status === "rejected") this._awaitingHello.delete(peer.sessionId);
+    });
+    if (this._pendingAdd === round) {
+      this._timer(() => {
+        if (this._pendingAdd === round) this._finishAdd();
+      }, TIMEOUTS.HELLO_MS);
+    }
+    return sent;
+  }
+  /**
+   * Close an add round: publish the new roster, or abandon it.
+   *
+   * Reached either when every invitee has answered or when the wait runs out.
+   * A partial answer is still worth publishing — the people who did join are
+   * in — but if nobody joined, the group is left untouched rather than pushed
+   * through a re-keying that would achieve nothing except making everyone
+   * compare a new code.
+   */
+  async _finishAdd() {
+    const round = this._pendingAdd;
+    if (!round) return false;
+    this._pendingAdd = null;
+    this._awaitingHello.clear();
+    const joined = [...this.members.keys()].filter((fp) => !round.before.has(fp));
+    if (joined.length === 0) {
+      this._emit("add_failed", { reason: "nobody_joined" });
+      return false;
+    }
+    this.epoch = round.epoch;
+    this._emitMembers();
+    await this.publishRoster(round.op);
+    return true;
+  }
+  /**
+   * Admin: remove a member and re-key the group.
+   *
+   * The new epoch is what makes the removal effective — a new safety code every
+   * remaining member must compare again, and a member set the removed member is
+   * not in. There is no shared group key to rotate because there never was one:
+   * every message travels over pairwise ratchets, so a removed member simply
+   * stops being sent anything.
+   */
+  async removeMember(fp) {
+    if (!this.isAdmin) throw new GroupSessionError("only the admin removes members", "not_admin");
+    if (fp === this.selfFp) throw new GroupSessionError("the admin cannot remove themselves", "bad_target");
+    if (!this.members.has(fp)) return false;
+    if (this.members.size - 1 < GROUP_LIMITS.MIN_MEMBERS) {
+      throw new GroupSessionError("a group cannot drop below two members \u2014 leave it instead", "would_empty_group");
+    }
+    this.members.delete(fp);
+    for (const [sid, f] of [...this.sessionToFp]) if (f === fp) this.sessionToFp.delete(sid);
+    this.epoch += 1;
+    this._emitMembers();
+    await this.publishRoster(MEMBER_OPS.REMOVE);
+    return true;
+  }
+};
+
+// src/group/groupSender.js
+var GROUP_SEND_GAP_MS = 260;
+var GROUP_SEND_ATTEMPTS = 4;
+var isRateLimit = (error) => /rate limit/i.test(error?.message || "");
+function createGroupSender({
+  getManager,
+  gapMs = GROUP_SEND_GAP_MS,
+  attempts = GROUP_SEND_ATTEMPTS,
+  now = () => Date.now(),
+  sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+} = {}) {
+  const queues = /* @__PURE__ */ new Map();
+  return async function sendGroupFrame(sessionId, frame) {
+    const manager = getManager(sessionId);
+    if (!manager || typeof manager.sendMessage !== "function") throw new Error("no such link");
+    if (typeof manager.isConnected === "function" && !manager.isConnected()) {
+      throw new Error("link is down");
+    }
+    const queue = queues.get(sessionId) || { chain: Promise.resolve(), lastAt: 0 };
+    const payload = JSON.stringify(frame);
+    const run = queue.chain.then(async () => {
+      const wait = gapMs - (now() - queue.lastAt);
+      if (wait > 0) await sleep(wait);
+      let lastError = null;
+      for (let attempt = 0; attempt < attempts; attempt++) {
+        try {
+          await manager.sendMessage(payload);
+          queue.lastAt = now();
+          return true;
+        } catch (error) {
+          lastError = error;
+          if (!isRateLimit(error)) throw error;
+          await sleep(gapMs * (attempt + 1));
+        }
+      }
+      throw lastError;
+    });
+    queue.chain = run.catch(() => {
+    });
+    queues.set(sessionId, queue);
+    return run;
+  };
+}
+
+// src/components/ui/GroupChat.jsx
+var h = (...args) => React.createElement(...args);
+var C = {
+  bg: "#0c0c0e",
+  panel: "#141417",
+  panel2: "#1b1b1f",
+  line: "rgba(255,255,255,0.07)",
+  line2: "rgba(255,255,255,0.13)",
+  ink: "#f4f4f6",
+  ink2: "#a7a7b0",
+  ink3: "#6b6b73",
+  accent: "#f0892a",
+  good: "#3ecf8e",
+  warn: "#e3b341",
+  bad: "#e5727a",
+  mono: "'JetBrains Mono', ui-monospace, monospace"
+};
+var ICON = {
+  users: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19"/><circle cx="10" cy="8" r="3.2"/><path d="M20 19v-1.5a3.5 3.5 0 0 0-2.6-3.4"/><path d="M15.5 5.3a3.2 3.2 0 0 1 0 5.4"/></svg>',
+  send: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4 20-7z"/></svg>',
+  shield: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>',
+  x: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  plus: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  relay: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h4l3-7 4 14 3-7h2"/></svg>'
+};
+var svg = (markup, extra = {}) => h("span", {
+  style: { display: "grid", placeItems: "center", ...extra },
+  dangerouslySetInnerHTML: { __html: markup }
+});
+var btn = (accent = false) => ({
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "8px",
+  padding: "11px 18px",
+  borderRadius: "10px",
+  cursor: "pointer",
+  fontFamily: "inherit",
+  fontSize: "14px",
+  fontWeight: 700,
+  border: accent ? "none" : `1px solid ${C.line2}`,
+  background: accent ? C.accent : "transparent",
+  color: accent ? "#1a0f04" : C.ink2
+});
+var overlay = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 90,
+  display: "grid",
+  placeItems: "center",
+  background: "rgba(5,5,7,0.72)",
+  backdropFilter: "blur(6px)",
+  padding: "20px"
+};
+var card = {
+  width: "100%",
+  maxWidth: "440px",
+  background: C.panel,
+  border: `1px solid ${C.line}`,
+  borderRadius: "16px",
+  padding: "24px",
+  display: "flex",
+  flexDirection: "column",
+  gap: "18px",
+  boxShadow: "0 24px 60px rgba(0,0,0,0.5)"
+};
+function clampToBytes(value, max) {
+  const enc = new TextEncoder();
+  let out = String(value);
+  while (enc.encode(out).length > max) out = out.slice(0, -1);
+  return out;
+}
+var label = {
+  fontFamily: C.mono,
+  fontSize: "10px",
+  fontWeight: 700,
+  letterSpacing: "1.3px",
+  textTransform: "uppercase",
+  color: C.ink3
+};
+function waitingWord(group) {
+  switch (group.phase) {
+    case GROUP_PHASE.FORMING:
+      return "Waiting for the other members to join\u2026";
+    case GROUP_PHASE.COMMITTING:
+      return "Waiting for every member to commit\u2026";
+    case GROUP_PHASE.REVEALING:
+      return "Exchanging nonces\u2026";
+    case GROUP_PHASE.FAILED:
+      return GROUP_ERROR_WORD[group.error] || "This group could not be formed.";
+    default:
+      return "Working\u2026";
+  }
+}
+var GROUP_ERROR_WORD = {
+  invitations_could_not_be_sent: "The invitation could not be sent \u2014 that chat is not connected.",
+  invitees_did_not_respond: "Nobody accepted the invitation in time.",
+  roster_never_arrived: "The group owner never sent the member list.",
+  ceremony_timed_out: "A member stopped responding before the code was ready.",
+  bad_signature: "The member list was not signed by the group owner. Do not retry \u2014 tell them.",
+  wrong_admin: "Someone other than the group owner tried to change the members.",
+  fingerprint_mismatch: "A member\u2019s key did not match the identity claimed for it.",
+  commitment_mismatch: "A member\u2019s revealed value did not match what they committed to.",
+  commitment_changed: "A member changed their commitment part-way through.",
+  missing_member_key: "A member was listed whose key never arrived.",
+  not_a_member: "A frame arrived from someone outside the group.",
+  bad_name: "The group name is too long.",
+  too_many_members: "A group is limited to eight members.",
+  frame_too_large: "A message was too large to send to the group."
+};
+function GroupSasModal({ group, onConfirm, onCancel }) {
+  if (!group) return null;
+  const failed = group.phase === GROUP_PHASE.FAILED;
+  const waiting = group.phase !== GROUP_PHASE.AWAITING_SAS || !group.sasCode;
+  return h(
+    "div",
+    { style: overlay, role: "dialog", "aria-modal": "true" },
+    h("div", { style: card }, [
+      h("div", { key: "h", style: { display: "flex", flexDirection: "column", gap: "6px" } }, [
+        h("span", { key: "l", style: label }, "Group safety code"),
+        h("h3", { key: "t", style: { margin: 0, fontSize: "19px", fontWeight: 700, color: C.ink } }, group.name)
+      ]),
+      waiting ? h("div", {
+        key: "wait",
+        style: {
+          padding: "28px 16px",
+          textAlign: "center",
+          borderRadius: "12px",
+          background: C.panel2,
+          border: `1px solid ${C.line}`,
+          color: C.ink2,
+          fontSize: "14px"
+        }
+      }, [
+        h("div", {
+          key: "d",
+          style: {
+            fontFamily: C.mono,
+            fontSize: "26px",
+            letterSpacing: "6px",
+            color: failed ? C.bad : C.ink3
+          }
+        }, "\xB7\xB7\xB7\xB7\xB7\xB7\xB7"),
+        h("div", { key: "s", style: { marginTop: "10px", color: failed ? C.bad : C.ink2 } }, waitingWord(group)),
+        failed && h("div", {
+          key: "why",
+          style: { marginTop: "6px", fontFamily: C.mono, fontSize: "11px", color: C.ink3 }
+        }, group.error || "unknown")
+      ]) : h("div", {
+        key: "code",
+        style: {
+          padding: "22px 16px",
+          textAlign: "center",
+          borderRadius: "12px",
+          background: "rgba(240,137,42,0.09)",
+          border: "1px solid rgba(240,137,42,0.3)"
+        }
+      }, h("span", {
+        style: {
+          fontFamily: C.mono,
+          fontSize: "clamp(30px, 9vw, 42px)",
+          fontWeight: 700,
+          letterSpacing: "9px",
+          color: C.accent
+        }
+      }, group.sasCode)),
+      h("p", {
+        key: "why",
+        style: { margin: 0, fontSize: "13.5px", lineHeight: 1.62, color: C.ink2 }
+      }, [
+        "Read these digits aloud to ",
+        h("b", { key: "b", style: { color: C.ink } }, `all ${group.members.length - 1} other members`),
+        " \u2014 in person, or on a call where you recognise every voice. Everyone must see the same code."
+      ]),
+      h("p", {
+        key: "warn",
+        style: {
+          margin: 0,
+          padding: "11px 13px",
+          borderRadius: "9px",
+          fontSize: "12.5px",
+          lineHeight: 1.55,
+          background: "rgba(229,114,122,0.09)",
+          border: "1px solid rgba(229,114,122,0.26)",
+          color: "#f0a6ab"
+        }
+      }, failed ? "Nothing was sent and nothing was verified. Close this and try again once everyone is connected." : "If even one member reads a different code, someone is sitting between you. Cancel the group \u2014 do not confirm."),
+      h("div", { key: "actions", style: { display: "flex", gap: "10px" } }, [
+        h(
+          "button",
+          { key: "c", onClick: onCancel, style: { ...btn(failed), flex: failed ? 2 : 1 } },
+          failed ? "Close" : "Cancel group"
+        ),
+        !failed && h("button", {
+          key: "ok",
+          onClick: onConfirm,
+          disabled: waiting,
+          style: { ...btn(true), flex: 2, opacity: waiting ? 0.4 : 1, cursor: waiting ? "not-allowed" : "pointer" }
+        }, [svg(ICON.shield, { key: "i" }), "Everyone sees this code"])
+      ])
+    ])
+  );
+}
+function CreateGroupModal({ candidates, relayOnly, onCreate, onCancel }) {
+  const [name, setName] = React.useState("");
+  const [picked, setPicked] = React.useState([]);
+  const max = GROUP_LIMITS.MAX_MEMBERS - 1;
+  const toggle = (id) => setPicked((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : prev.length >= max ? prev : [...prev, id]);
+  const ready = name.trim().length > 0 && picked.length >= 1;
+  return h(
+    "div",
+    { style: overlay, role: "dialog", "aria-modal": "true" },
+    h("div", { style: { ...card, maxWidth: "470px" } }, [
+      h("div", { key: "h", style: { display: "flex", flexDirection: "column", gap: "6px" } }, [
+        h("span", { key: "l", style: label }, "New group"),
+        h("p", {
+          key: "p",
+          style: { margin: 0, fontSize: "13.5px", lineHeight: 1.6, color: C.ink2 }
+        }, `Up to ${GROUP_LIMITS.MAX_MEMBERS} people, peer to peer. Everyone will compare one safety code before the group opens.`)
+      ]),
+      h("input", {
+        key: "name",
+        value: name,
+        // Clamped by BYTES, because that is the limit the protocol
+        // enforces. Counting characters here let a Cyrillic name through
+        // the dialog that the admin's roster signing then rejected.
+        onChange: (e) => setName(clampToBytes(e.target.value, GROUP_LIMITS.MAX_NAME_BYTES)),
+        placeholder: "Group name",
+        style: {
+          width: "100%",
+          padding: "12px 14px",
+          borderRadius: "10px",
+          outline: "none",
+          background: C.panel2,
+          border: `1px solid ${C.line2}`,
+          color: C.ink,
+          fontFamily: "inherit",
+          fontSize: "14.5px"
+        }
+      }),
+      h("div", { key: "pick", style: { display: "flex", flexDirection: "column", gap: "9px" } }, [
+        h("div", { key: "l", style: { display: "flex", justifyContent: "space-between", alignItems: "baseline" } }, [
+          h("span", { key: "a", style: label }, "Members"),
+          h(
+            "span",
+            { key: "b", style: { ...label, color: picked.length >= max ? C.warn : C.ink3 } },
+            `${picked.length} / ${max}`
+          )
+        ]),
+        candidates.length === 0 ? h("div", {
+          key: "empty",
+          style: {
+            padding: "18px 14px",
+            borderRadius: "10px",
+            textAlign: "center",
+            background: C.panel2,
+            border: `1px dashed ${C.line2}`,
+            color: C.ink3,
+            fontSize: "13px",
+            lineHeight: 1.55
+          }
+        }, "No verified chats yet. Open a 1:1 chat and compare its safety code first \u2014 a group is built out of connections you have already checked.") : h("div", {
+          key: "list",
+          className: "msc-scroll",
+          style: { display: "flex", flexDirection: "column", gap: "6px", maxHeight: "240px", overflowY: "auto" }
+        }, candidates.map((c) => {
+          const on = picked.includes(c.id);
+          const full = !on && picked.length >= max;
+          return h("button", {
+            key: c.id,
+            onClick: () => toggle(c.id),
+            disabled: full,
+            style: {
+              display: "flex",
+              alignItems: "center",
+              gap: "11px",
+              padding: "10px 12px",
+              borderRadius: "10px",
+              cursor: full ? "not-allowed" : "pointer",
+              textAlign: "left",
+              background: on ? "rgba(240,137,42,0.1)" : "transparent",
+              border: `1px solid ${on ? "rgba(240,137,42,0.32)" : C.line}`,
+              opacity: full ? 0.4 : 1,
+              fontFamily: "inherit"
+            }
+          }, [
+            h("span", {
+              key: "av",
+              style: {
+                flex: "none",
+                width: "32px",
+                height: "32px",
+                borderRadius: "9px",
+                display: "grid",
+                placeItems: "center",
+                background: C.panel2,
+                border: `1px solid ${C.line}`,
+                fontFamily: C.mono,
+                fontSize: "11px",
+                fontWeight: 700,
+                color: C.ink2
+              }
+            }, c.mono),
+            h("span", { key: "n", style: { flex: 1, minWidth: 0, fontSize: "14px", color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name),
+            h("span", {
+              key: "tick",
+              style: {
+                flex: "none",
+                width: "18px",
+                height: "18px",
+                borderRadius: "5px",
+                background: on ? C.accent : "transparent",
+                border: `1px solid ${on ? C.accent : C.line2}`
+              }
+            })
+          ]);
+        }))
+      ]),
+      // A group is a bigger exposure than a 1:1 chat: without a relay, every
+      // member's address is visible to every other member, including people
+      // the user did not personally invite. Say it before they commit, not
+      // after.
+      !relayOnly && h("p", {
+        key: "ip",
+        style: {
+          margin: 0,
+          padding: "11px 13px",
+          borderRadius: "9px",
+          fontSize: "12.5px",
+          lineHeight: 1.55,
+          background: "rgba(227,179,65,0.08)",
+          border: "1px solid rgba(227,179,65,0.26)",
+          color: "#e3b341"
+        }
+      }, "Relay-only mode is off, so each member connects to you directly and learns your IP address \u2014 including members somebody else invited. Turn it on in network settings if that matters here."),
+      h("div", { key: "actions", style: { display: "flex", gap: "10px" } }, [
+        h("button", { key: "c", onClick: onCancel, style: { ...btn(false), flex: 1 } }, "Cancel"),
+        h("button", {
+          key: "ok",
+          onClick: () => ready && onCreate({ name: name.trim(), sessionIds: picked }),
+          disabled: !ready,
+          style: { ...btn(true), flex: 2, opacity: ready ? 1 : 0.4, cursor: ready ? "pointer" : "not-allowed" }
+        }, "Create group")
+      ])
+    ])
+  );
+}
+function GroupErrorModal({ message, onDismiss }) {
+  if (!message) return null;
+  return h(
+    "div",
+    { style: overlay, role: "alertdialog", "aria-modal": "true" },
+    h("div", { style: { ...card, maxWidth: "400px" } }, [
+      h("span", { key: "l", style: label }, "Group not created"),
+      h("p", {
+        key: "m",
+        style: { margin: 0, fontSize: "14px", lineHeight: 1.6, color: C.ink2 }
+      }, message),
+      h("button", { key: "ok", onClick: onDismiss, style: btn(true) }, "Close")
+    ])
+  );
+}
+function AddMembersModal({ candidates, remaining, onAdd, onCancel }) {
+  const [picked, setPicked] = React.useState([]);
+  const toggle = (id) => setPicked((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : prev.length >= remaining ? prev : [...prev, id]);
+  return h(
+    "div",
+    { style: overlay, role: "dialog", "aria-modal": "true" },
+    h("div", { style: { ...card, maxWidth: "440px" } }, [
+      h("div", { key: "h", style: { display: "flex", flexDirection: "column", gap: "6px" } }, [
+        h("span", { key: "l", style: label }, "Add members"),
+        h("p", {
+          key: "p",
+          style: { margin: 0, fontSize: "13.5px", lineHeight: 1.6, color: C.ink2 }
+        }, remaining > 0 ? `Room for ${remaining} more. Everyone will compare a new group code once they join.` : "This group is full.")
+      ]),
+      candidates.length === 0 ? h("div", {
+        key: "empty",
+        style: {
+          padding: "18px 14px",
+          borderRadius: "10px",
+          textAlign: "center",
+          background: C.panel2,
+          border: `1px dashed ${C.line2}`,
+          color: C.ink3,
+          fontSize: "13px",
+          lineHeight: 1.55
+        }
+      }, "No other verified chats to add. Open a 1:1 chat and compare its safety code first.") : h("div", {
+        key: "list",
+        className: "msc-scroll",
+        style: { display: "flex", flexDirection: "column", gap: "6px", maxHeight: "260px", overflowY: "auto" }
+      }, candidates.map((c) => {
+        const on = picked.includes(c.id);
+        const full = !on && picked.length >= remaining;
+        return h("button", {
+          key: c.id,
+          onClick: () => toggle(c.id),
+          disabled: full,
+          style: {
+            display: "flex",
+            alignItems: "center",
+            gap: "11px",
+            padding: "10px 12px",
+            borderRadius: "10px",
+            cursor: full ? "not-allowed" : "pointer",
+            textAlign: "left",
+            background: on ? "rgba(240,137,42,0.1)" : "transparent",
+            border: `1px solid ${on ? "rgba(240,137,42,0.32)" : C.line}`,
+            opacity: full ? 0.4 : 1,
+            fontFamily: "inherit"
+          }
+        }, [
+          h("span", {
+            key: "av",
+            style: {
+              flex: "none",
+              width: "32px",
+              height: "32px",
+              borderRadius: "9px",
+              display: "grid",
+              placeItems: "center",
+              background: C.panel2,
+              border: `1px solid ${C.line}`,
+              fontFamily: C.mono,
+              fontSize: "11px",
+              fontWeight: 700,
+              color: C.ink2
+            }
+          }, c.mono),
+          h("span", { key: "n", style: { flex: 1, minWidth: 0, fontSize: "14px", color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name),
+          h("span", {
+            key: "tick",
+            style: {
+              flex: "none",
+              width: "18px",
+              height: "18px",
+              borderRadius: "5px",
+              background: on ? C.accent : "transparent",
+              border: `1px solid ${on ? C.accent : C.line2}`
+            }
+          })
+        ]);
+      })),
+      h("p", {
+        key: "note",
+        style: {
+          margin: 0,
+          padding: "11px 13px",
+          borderRadius: "9px",
+          fontSize: "12.5px",
+          lineHeight: 1.55,
+          background: C.panel2,
+          border: `1px solid ${C.line}`,
+          color: C.ink3
+        }
+      }, "The group keeps working until they accept. There is no history for them to catch up on \u2014 they will only see what is sent from now on."),
+      h("div", { key: "actions", style: { display: "flex", gap: "10px" } }, [
+        h("button", { key: "c", onClick: onCancel, style: { ...btn(false), flex: 1 } }, "Cancel"),
+        h("button", {
+          key: "ok",
+          onClick: () => picked.length && onAdd(picked),
+          disabled: picked.length === 0,
+          style: { ...btn(true), flex: 2, opacity: picked.length ? 1 : 0.4, cursor: picked.length ? "pointer" : "not-allowed" }
+        }, picked.length > 1 ? `Invite ${picked.length} people` : "Invite")
+      ])
+    ])
+  );
+}
+function GroupInviteModal({ invite, onAccept, onDecline }) {
+  if (!invite) return null;
+  return h(
+    "div",
+    { style: overlay, role: "dialog", "aria-modal": "true" },
+    h("div", { style: card }, [
+      h("div", { key: "h", style: { display: "flex", flexDirection: "column", gap: "6px" } }, [
+        h("span", { key: "l", style: label }, "Group invitation"),
+        h("h3", { key: "t", style: { margin: 0, fontSize: "19px", fontWeight: 700, color: C.ink } }, invite.name)
+      ]),
+      h("p", {
+        key: "p",
+        style: { margin: 0, fontSize: "13.5px", lineHeight: 1.62, color: C.ink2 }
+      }, [
+        h("b", { key: "b", style: { color: C.ink } }, invite.fromLabel),
+        " invited you to a peer-to-peer group. You will compare one safety code with every member before anything is sent."
+      ]),
+      h("p", {
+        key: "note",
+        style: {
+          margin: 0,
+          padding: "11px 13px",
+          borderRadius: "9px",
+          fontSize: "12.5px",
+          lineHeight: 1.55,
+          background: C.panel2,
+          border: `1px solid ${C.line}`,
+          color: C.ink3
+        }
+      }, "Other members will learn your presence in this group. There is no message history to catch up on \u2014 a group starts empty."),
+      h("div", { key: "actions", style: { display: "flex", gap: "10px" } }, [
+        h("button", { key: "d", onClick: onDecline, style: { ...btn(false), flex: 1 } }, "Decline"),
+        h("button", { key: "a", onClick: onAccept, style: { ...btn(true), flex: 2 } }, "Join group")
+      ])
+    ])
+  );
+}
+function MemberStrip({ group, onRemove, isAdmin }) {
+  return h("div", {
+    className: "msc-scroll",
+    style: {
+      display: "flex",
+      gap: "7px",
+      padding: "9px 16px",
+      overflowX: "auto",
+      borderBottom: `1px solid ${C.line}`,
+      flex: "none"
+    }
+  }, group.members.map((m) => {
+    const self = m.state === MEMBER_STATE.SELF;
+    const lost = m.state === MEMBER_STATE.LOST;
+    const dot = self || m.state === MEMBER_STATE.LINKED ? C.good : m.state === MEMBER_STATE.PENDING ? C.warn : C.bad;
+    const via = m.state === MEMBER_STATE.PENDING;
+    return h("span", {
+      key: m.fp,
+      title: self ? "You" : m.state === MEMBER_STATE.LINKED ? "Direct peer-to-peer link" : m.state === MEMBER_STATE.PENDING ? "No direct link yet \u2014 messages are relayed by another member while one is being built" : `${m.name} is offline and will not receive messages. They are still a member \u2014 removing them re-keys the group.`,
+      style: {
+        flex: "none",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "6px",
+        padding: "5px 10px",
+        borderRadius: "20px",
+        // A member who is offline should not read as one who is present.
+        // They stay listed because membership is a signed, epoch-ordered
+        // fact that a dropped connection does not change — but the chip
+        // says plainly that nothing sent now reaches them.
+        background: lost ? "transparent" : C.panel2,
+        border: `1px solid ${lost ? "rgba(229,114,122,0.3)" : C.line}`,
+        fontSize: "12.5px",
+        color: self ? C.ink : lost ? C.ink3 : C.ink2,
+        opacity: lost ? 0.75 : 1
+      }
+    }, [
+      h("span", { key: "d", style: { width: "7px", height: "7px", borderRadius: "50%", background: dot } }),
+      h("span", { key: "n", style: lost ? { textDecoration: "line-through" } : void 0 }, self ? "You" : m.name),
+      lost && h("span", {
+        key: "off",
+        style: { fontFamily: C.mono, fontSize: "10px", color: C.bad, letterSpacing: "0.04em" }
+      }, "offline"),
+      via && svg(ICON.relay, { key: "r", color: C.warn }),
+      isAdmin && !self && onRemove && h("button", {
+        key: "x",
+        onClick: () => onRemove(m.fp),
+        title: `Remove ${m.name}`,
+        style: { border: "none", background: "transparent", color: C.ink3, cursor: "pointer", display: "grid", padding: 0 },
+        dangerouslySetInnerHTML: { __html: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>' }
+      })
+    ]);
+  }));
+}
+function Bubble({ msg }) {
+  const mine = msg.type === "sent";
+  const system = msg.type === "system";
+  if (system) {
+    return h("div", {
+      style: {
+        alignSelf: "center",
+        maxWidth: "80%",
+        textAlign: "center",
+        padding: "6px 12px",
+        borderRadius: "9px",
+        background: C.panel2,
+        border: `1px solid ${C.line}`,
+        fontSize: "12px",
+        color: C.ink3,
+        lineHeight: 1.5
+      }
+    }, msg.message);
+  }
+  return h("div", {
+    style: {
+      alignSelf: mine ? "flex-end" : "flex-start",
+      maxWidth: "min(74%, 560px)",
+      display: "flex",
+      flexDirection: "column",
+      gap: "3px"
+    }
+  }, [
+    !mine && h("span", {
+      key: "who",
+      style: { fontSize: "11.5px", fontWeight: 600, color: C.accent, paddingLeft: "3px" }
+    }, msg.senderName || "Member"),
+    h("div", {
+      key: "b",
+      style: {
+        padding: "9px 13px",
+        borderRadius: mine ? "13px 13px 4px 13px" : "13px 13px 13px 4px",
+        background: mine ? "rgba(240,137,42,0.14)" : C.panel2,
+        border: `1px solid ${mine ? "rgba(240,137,42,0.26)" : C.line}`,
+        color: C.ink,
+        fontSize: "14.5px",
+        lineHeight: 1.5,
+        wordBreak: "break-word",
+        whiteSpace: "pre-wrap"
+      }
+    }, msg.message),
+    h("span", {
+      key: "t",
+      style: { fontFamily: C.mono, fontSize: "10px", color: C.ink3, alignSelf: mine ? "flex-end" : "flex-start", padding: "0 3px" }
+    }, [
+      new Date(msg.timestamp || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      msg.relayed ? " \xB7 relayed" : ""
+    ].join(""))
+  ]);
+}
+function GroupChatView({
+  group,
+  input,
+  setInput,
+  onSend,
+  onLeave,
+  onRemoveMember,
+  onAddMembers,
+  isAdmin,
+  scrollRef
+}) {
+  const ready = group.phase === GROUP_PHASE.READY && group.sasConfirmed;
+  const degraded = group.members.some((m) => m.state === MEMBER_STATE.PENDING);
+  const submit = (e) => {
+    e.preventDefault();
+    if (!ready || !input.trim()) return;
+    onSend(input);
+  };
+  return h("div", {
+    style: { display: "flex", flexDirection: "column", height: "100%", minHeight: 0, background: C.bg }
+  }, [
+    // header
+    h("div", {
+      key: "head",
+      style: {
+        flex: "none",
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+        padding: "0 16px",
+        height: "64px",
+        borderBottom: `1px solid ${C.line}`
+      }
+    }, [
+      h("span", {
+        key: "av",
+        style: {
+          flex: "none",
+          width: "38px",
+          height: "38px",
+          borderRadius: "11px",
+          display: "grid",
+          placeItems: "center",
+          background: "rgba(240,137,42,0.12)",
+          border: "1px solid rgba(240,137,42,0.24)",
+          color: C.accent,
+          fontFamily: C.mono,
+          fontSize: "12px",
+          fontWeight: 700
+        }
+      }, groupInitials(group.name)),
+      h("div", { key: "meta", style: { flex: 1, minWidth: 0 } }, [
+        h("div", {
+          key: "n",
+          style: { fontSize: "15px", fontWeight: 700, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
+        }, group.name),
+        h("div", {
+          key: "s",
+          style: { fontSize: "11.5px", color: degraded ? C.warn : C.ink3, display: "flex", alignItems: "center", gap: "5px" }
+        }, [
+          svg(ICON.users, { key: "i", width: "13px", height: "13px" }),
+          `${group.members.length} members`,
+          ready && group.sasCode ? ` \xB7 code ${group.sasCode}` : ""
+        ])
+      ]),
+      isAdmin && onAddMembers && group.members.length < GROUP_LIMITS.MAX_MEMBERS && h("button", {
+        key: "add",
+        onClick: onAddMembers,
+        title: "Invite more members",
+        style: { ...btn(false), padding: "8px 12px", fontSize: "12.5px" }
+      }, [svg(ICON.plus, { key: "i" }), "Add"]),
+      h("button", {
+        key: "leave",
+        onClick: onLeave,
+        title: "Leave this group",
+        style: { ...btn(false), padding: "8px 12px", fontSize: "12.5px", color: C.bad, borderColor: "rgba(229,114,122,0.3)" }
+      }, "Leave")
+    ]),
+    h(MemberStrip, { key: "strip", group, onRemove: onRemoveMember, isAdmin }),
+    degraded && ready && h("div", {
+      key: "relay-note",
+      style: {
+        flex: "none",
+        padding: "8px 16px",
+        fontSize: "12px",
+        lineHeight: 1.5,
+        color: C.warn,
+        background: "rgba(227,179,65,0.08)",
+        borderBottom: `1px solid ${C.line}`
+      }
+    }, "Some members have no direct link to you yet. Their messages travel through another member, who can see that you are talking but cannot read past the signature or change what you said. The group keeps trying to connect them directly."),
+    // transcript
+    h("div", {
+      key: "msgs",
+      ref: scrollRef,
+      className: "msc-scroll",
+      style: {
+        flex: 1,
+        minHeight: 0,
+        overflowY: "auto",
+        padding: "18px 16px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "11px"
+      }
+    }, group.messages.length === 0 ? [h("div", {
+      key: "empty",
+      style: { margin: "auto", textAlign: "center", color: C.ink3, fontSize: "13.5px", lineHeight: 1.6, maxWidth: "320px" }
+    }, ready ? "Nothing here yet. Messages are signed by their sender and travel over each member\u2019s own encrypted link." : "Compare the group code with every member to open this group.")] : group.messages.map((m) => h(Bubble, { key: m.id, msg: m }))),
+    // composer
+    h("form", {
+      key: "composer",
+      onSubmit: submit,
+      style: {
+        flex: "none",
+        display: "flex",
+        gap: "9px",
+        padding: "12px 16px",
+        borderTop: `1px solid ${C.line}`,
+        alignItems: "flex-end"
+      }
+    }, [
+      h("input", {
+        key: "in",
+        value: input,
+        onChange: (e) => setInput(e.target.value),
+        placeholder: ready ? `Message ${group.name}` : "Confirm the group code first",
+        disabled: !ready,
+        maxLength: GROUP_LIMITS.MAX_BODY_BYTES,
+        style: {
+          flex: 1,
+          minWidth: 0,
+          padding: "12px 14px",
+          borderRadius: "11px",
+          outline: "none",
+          background: C.panel2,
+          border: `1px solid ${C.line2}`,
+          color: C.ink,
+          fontFamily: "inherit",
+          fontSize: "14.5px",
+          opacity: ready ? 1 : 0.5
+        }
+      }),
+      h("button", {
+        key: "send",
+        type: "submit",
+        disabled: !ready || !input.trim(),
+        title: "Send",
+        style: {
+          ...btn(true),
+          flex: "none",
+          width: "44px",
+          height: "44px",
+          padding: 0,
+          borderRadius: "11px",
+          opacity: !ready || !input.trim() ? 0.4 : 1
+        }
+      }, svg(ICON.send))
+    ])
+  ]);
 }
 
 // src/app.jsx
@@ -746,7 +3784,7 @@ var sbFmtClock = (sec) => {
   return m + ":" + String(s).padStart(2, "0");
 };
 var VoicePlayer = ({ voice, isMe }) => {
-  const h = React.createElement;
+  const h2 = React.createElement;
   const [playing, setPlaying] = React.useState(false);
   const [progress, setProgress] = React.useState(0);
   const [playErr, setPlayErr] = React.useState(false);
@@ -845,36 +3883,36 @@ var VoicePlayer = ({ voice, isMe }) => {
     let col;
     if (transferring) col = isMe ? "rgba(255,255,255,0.13)" : "rgba(255,255,255,0.1)";
     else col = played ? "#f0892a" : isMe ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.16)";
-    return h("span", { key: i, style: { flex: "1 1 0", minWidth: 0, width: "3px", height: Math.round(6 + hgt * 22) + "px", borderRadius: "2px", background: col, transition: "background .12s" } });
+    return h2("span", { key: i, style: { flex: "1 1 0", minWidth: 0, width: "3px", height: Math.round(6 + hgt * 22) + "px", borderRadius: "2px", background: col, transition: "background .12s" } });
   });
-  const ring = transferring && h("svg", { key: "ring", width: 50, height: 50, viewBox: "0 0 50 50", style: { position: "absolute", inset: 0, transform: "rotate(-90deg)" } }, [
-    h("circle", { key: "bg", cx: 25, cy: 25, r: 23, fill: "none", stroke: "rgba(240,137,42,0.2)", strokeWidth: 2.5 }),
-    h("circle", { key: "fg", cx: 25, cy: 25, r: 23, fill: "none", stroke: "#f0892a", strokeWidth: 2.5, strokeLinecap: "round", strokeDasharray: circ.toFixed(1), strokeDashoffset: (circ * (1 - pct / 100)).toFixed(1), style: { transition: "stroke-dashoffset .12s linear" } })
+  const ring = transferring && h2("svg", { key: "ring", width: 50, height: 50, viewBox: "0 0 50 50", style: { position: "absolute", inset: 0, transform: "rotate(-90deg)" } }, [
+    h2("circle", { key: "bg", cx: 25, cy: 25, r: 23, fill: "none", stroke: "rgba(240,137,42,0.2)", strokeWidth: 2.5 }),
+    h2("circle", { key: "fg", cx: 25, cy: 25, r: 23, fill: "none", stroke: "#f0892a", strokeWidth: 2.5, strokeLinecap: "round", strokeDasharray: circ.toFixed(1), strokeDashoffset: (circ * (1 - pct / 100)).toFixed(1), style: { transition: "stroke-dashoffset .12s linear" } })
   ]);
-  const icon = failed ? h("i", { className: "fas fa-triangle-exclamation", style: { fontSize: "14px" } }) : transferring ? h("svg", { width: 15, height: 15, viewBox: "0 0 24 24", fill: "currentColor", style: { opacity: 0.5 } }, h("path", { d: "M8 5.2v13.6l11-6.8z" })) : playing ? h("svg", { width: 16, height: 16, viewBox: "0 0 24 24", fill: "currentColor" }, [h("rect", { key: "a", x: 6, y: 5, width: 4, height: 14, rx: 1.2 }), h("rect", { key: "b", x: 14, y: 5, width: 4, height: 14, rx: 1.2 })]) : h("svg", { width: 16, height: 16, viewBox: "0 0 24 24", fill: "currentColor" }, h("path", { d: "M8 5.2v13.6l11-6.8z" }));
-  const label = failed ? "Failed" : transferring ? dir === "up" ? "Uploading" : "Downloading" : "Voice";
+  const icon = failed ? h2("i", { className: "fas fa-triangle-exclamation", style: { fontSize: "14px" } }) : transferring ? h2("svg", { width: 15, height: 15, viewBox: "0 0 24 24", fill: "currentColor", style: { opacity: 0.5 } }, h2("path", { d: "M8 5.2v13.6l11-6.8z" })) : playing ? h2("svg", { width: 16, height: 16, viewBox: "0 0 24 24", fill: "currentColor" }, [h2("rect", { key: "a", x: 6, y: 5, width: 4, height: 14, rx: 1.2 }), h2("rect", { key: "b", x: 14, y: 5, width: 4, height: 14, rx: 1.2 })]) : h2("svg", { width: 16, height: 16, viewBox: "0 0 24 24", fill: "currentColor" }, h2("path", { d: "M8 5.2v13.6l11-6.8z" }));
+  const label2 = failed ? "Failed" : transferring ? dir === "up" ? "Uploading" : "Downloading" : "Voice";
   const timeText = transferring ? pct + "%" : sbFmtClock(playing || progress > 0 ? elapsed : dur);
-  return h("div", { style: { display: "flex", alignItems: "center", gap: "13px", padding: "13px 15px 12px" } }, [
-    h("div", { key: "pw", style: { position: "relative", flex: "none", width: "50px", height: "50px", display: "grid", placeItems: "center" } }, [
+  return h2("div", { style: { display: "flex", alignItems: "center", gap: "13px", padding: "13px 15px 12px" } }, [
+    h2("div", { key: "pw", style: { position: "relative", flex: "none", width: "50px", height: "50px", display: "grid", placeItems: "center" } }, [
       ring,
-      h("button", {
+      h2("button", {
         key: "pb",
         onClick: toggle,
         title: transferring ? "Transferring\u2026" : playing ? "Pause" : "Play",
         style: { width: "42px", height: "42px", borderRadius: "50%", display: "grid", placeItems: "center", border: "none", background: failed ? "rgba(229,114,122,0.15)" : playBg, color: failed ? "#e5727a" : playColor, cursor: transferring || failed || !src ? "default" : "pointer", transition: "transform .15s cubic-bezier(.2,.7,.3,1)" }
       }, icon)
     ]),
-    h("div", { key: "body", style: { flex: 1, minWidth: 0 } }, [
-      h("div", { key: "wave", onClick: seek, style: { display: "flex", alignItems: "center", gap: "2px", height: "30px", cursor: transferring || failed || !src ? "default" : "pointer" } }, barEls),
-      h("div", { key: "meta", style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "6px" } }, [
-        h("span", { key: "t", style: { fontFamily: SB_MONO, fontSize: "10.5px", fontWeight: 500, color: transferring ? "#f0b072" : "#9a9aa2" } }, timeText),
-        h("span", { key: "l", style: { fontFamily: SB_MONO, fontSize: "9.5px", fontWeight: 600, color: failed ? "#e5727a" : transferring ? "#f0892a" : "#56565e", textTransform: "uppercase", letterSpacing: "0.8px" } }, label)
+    h2("div", { key: "body", style: { flex: 1, minWidth: 0 } }, [
+      h2("div", { key: "wave", onClick: seek, style: { display: "flex", alignItems: "center", gap: "2px", height: "30px", cursor: transferring || failed || !src ? "default" : "pointer" } }, barEls),
+      h2("div", { key: "meta", style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "6px" } }, [
+        h2("span", { key: "t", style: { fontFamily: SB_MONO, fontSize: "10.5px", fontWeight: 500, color: transferring ? "#f0b072" : "#9a9aa2" } }, timeText),
+        h2("span", { key: "l", style: { fontFamily: SB_MONO, fontSize: "9.5px", fontWeight: 600, color: failed ? "#e5727a" : transferring ? "#f0892a" : "#56565e", textTransform: "uppercase", letterSpacing: "0.8px" } }, label2)
       ])
     ])
   ]);
 };
 var VoiceRecorder = ({ onSend, onCancel }) => {
-  const h = React.createElement;
+  const h2 = React.createElement;
   const MAX_SECONDS = 300;
   const NBARS = 40;
   const [elapsed, setElapsed] = React.useState(0);
@@ -1124,41 +4162,41 @@ var VoiceRecorder = ({ onSend, onCancel }) => {
     };
   }, []);
   if (micError) {
-    return h("div", { style: { display: "flex", alignItems: "center", gap: "12px" } }, [
-      h("div", { key: "msg", style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "9px", height: "46px", padding: "0 16px", borderRadius: "13px", background: "rgba(229,72,72,0.06)", border: "1px solid rgba(229,72,72,0.22)", color: "#e5727a", fontSize: "13.5px" } }, [
-        h("i", { key: "i", className: "fas fa-microphone-slash", style: { fontSize: "14px" } }),
+    return h2("div", { style: { display: "flex", alignItems: "center", gap: "12px" } }, [
+      h2("div", { key: "msg", style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "9px", height: "46px", padding: "0 16px", borderRadius: "13px", background: "rgba(229,72,72,0.06)", border: "1px solid rgba(229,72,72,0.22)", color: "#e5727a", fontSize: "13.5px" } }, [
+        h2("i", { key: "i", className: "fas fa-microphone-slash", style: { fontSize: "14px" } }),
         "No audio captured \u2014 check microphone permission and try again."
       ]),
-      h(
+      h2(
         "button",
         { key: "x", onClick: onCancel, title: "Close", style: { flex: "none", width: "46px", height: "46px", borderRadius: "50%", display: "grid", placeItems: "center", border: "none", background: "rgba(255,255,255,0.05)", color: "#9a9aa2", cursor: "pointer" } },
-        h("i", { className: "fas fa-xmark", style: { fontSize: "16px" } })
+        h2("i", { className: "fas fa-xmark", style: { fontSize: "16px" } })
       )
     ]);
   }
-  const barEls = liveBars.map((hgt, i) => h("span", { key: i, style: { flex: "none", width: "3px", height: Math.round(4 + hgt * 24) + "px", borderRadius: "2px", background: "#e5727a", opacity: 0.45 + hgt * 0.55 } }));
-  return h("div", { style: { display: "flex", alignItems: "center", gap: "12px" } }, [
-    h("button", {
+  const barEls = liveBars.map((hgt, i) => h2("span", { key: i, style: { flex: "none", width: "3px", height: Math.round(4 + hgt * 24) + "px", borderRadius: "2px", background: "#e5727a", opacity: 0.45 + hgt * 0.55 } }));
+  return h2("div", { style: { display: "flex", alignItems: "center", gap: "12px" } }, [
+    h2("button", {
       key: "cancel",
       onClick: () => finish(false),
       title: "Discard",
       style: { flex: "none", width: "42px", height: "42px", borderRadius: "12px", display: "grid", placeItems: "center", border: "none", background: "rgba(255,255,255,0.04)", color: "#9a9aa2", cursor: "pointer" }
-    }, h("i", { className: "fas fa-trash-can", style: { fontSize: "15px" } })),
-    h("div", { key: "bar", style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "11px", height: "46px", padding: "0 16px", borderRadius: "13px", background: "rgba(229,72,72,0.06)", border: "1px solid rgba(229,72,72,0.22)" } }, [
-      h(
+    }, h2("i", { className: "fas fa-trash-can", style: { fontSize: "15px" } })),
+    h2("div", { key: "bar", style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "11px", height: "46px", padding: "0 16px", borderRadius: "13px", background: "rgba(229,72,72,0.06)", border: "1px solid rgba(229,72,72,0.22)" } }, [
+      h2(
         "span",
         { key: "dot", style: { position: "relative", flex: "none", width: "9px", height: "9px" } },
-        h("span", { style: { position: "absolute", inset: 0, borderRadius: "50%", background: "#e5727a", animation: "vmRec 1.3s ease-in-out infinite" } })
+        h2("span", { style: { position: "absolute", inset: 0, borderRadius: "50%", background: "#e5727a", animation: "vmRec 1.3s ease-in-out infinite" } })
       ),
-      h("span", { key: "time", style: { flex: "none", fontFamily: SB_MONO, fontSize: "13px", fontWeight: 600, color: "#f4f4f6", minWidth: "42px" } }, sbFmtClock(elapsed)),
-      h("div", { key: "wave", style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "2px", height: "30px", overflow: "hidden" } }, barEls)
+      h2("span", { key: "time", style: { flex: "none", fontFamily: SB_MONO, fontSize: "13px", fontWeight: 600, color: "#f4f4f6", minWidth: "42px" } }, sbFmtClock(elapsed)),
+      h2("div", { key: "wave", style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "2px", height: "30px", overflow: "hidden" } }, barEls)
     ]),
-    h("button", {
+    h2("button", {
       key: "send",
       onClick: () => finish(true),
       title: "Send voice message",
       style: { flex: "none", width: "46px", height: "46px", borderRadius: "50%", display: "grid", placeItems: "center", border: "none", background: "#f0892a", color: "#1a0f04", cursor: "pointer", boxShadow: "0 8px 22px rgba(240,137,42,0.3)", transition: "transform .15s cubic-bezier(.2,.7,.3,1)" }
-    }, h("svg", { width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, [h("path", { key: "a", d: "M22 2L11 13" }), h("path", { key: "b", d: "M22 2l-7 20-4-9-9-4 20-7z" })]))
+    }, h2("svg", { width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, [h2("path", { key: "a", d: "M22 2L11 13" }), h2("path", { key: "b", d: "M22 2l-7 20-4-9-9-4 20-7z" })]))
   ]);
 };
 var EnhancedChatMessage = ({ message, type, timestamp, mid, status, viewOnce, viewOnceTtl, expiresAt, expired, nowTick, canUnsend, onUnsend, onExpire, voice }) => {
@@ -1184,9 +4222,9 @@ var EnhancedChatMessage = ({ message, type, timestamp, mid, status, viewOnce, vi
   const remaining = typeof expiresAt === "number" ? Math.max(0, Math.ceil((expiresAt - (nowTick || Date.now())) / 1e3)) : null;
   const fmtRemaining = (sec) => {
     if (sec == null) return "";
-    const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+    const h2 = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
     const pad = (n) => String(n).padStart(2, "0");
-    return h > 0 ? h + ":" + pad(m) + ":" + pad(s) : m + ":" + pad(s);
+    return h2 > 0 ? h2 + ":" + pad(m) + ":" + pad(s) : m + ":" + pad(s);
   };
   const handleReveal = () => {
     if (revealed) return;
@@ -1475,7 +4513,7 @@ var EnhancedConnectionSetup = ({
     } catch (error) {
     }
   };
-  const h = React.createElement;
+  const h2 = React.createElement;
   const C_ORANGE = "#f0892a";
   const C_GREEN = "#3ecf8e";
   const MONO = SB_MONO;
@@ -1550,7 +4588,7 @@ var EnhancedConnectionSetup = ({
       if (opts.fontSize) st.fontSize = opts.fontSize;
       if (opts.animation) st.animation = opts.animation;
       if (opts.style) Object.assign(st, opts.style);
-      return h("i", { key: opts.key, className: `fas ${name}`, style: st });
+      return h2("i", { key: opts.key, className: `fas ${name}`, style: st });
     }
     const size = opts.fontSize ? parseFloat(opts.fontSize) : 16;
     const svgStyle = {};
@@ -1560,7 +4598,7 @@ var EnhancedConnectionSetup = ({
       svgStyle.transformBox = "fill-box";
     }
     if (opts.style) Object.assign(svgStyle, opts.style);
-    return h("svg", {
+    return h2("svg", {
       key: opts.key,
       width: size,
       height: size,
@@ -1571,9 +4609,9 @@ var EnhancedConnectionSetup = ({
       strokeLinecap: "round",
       strokeLinejoin: "round",
       style: svgStyle
-    }, def.e.map((el, i) => h(el[0], Object.assign({ key: i }, el[1]))));
+    }, def.e.map((el, i) => h2(el[0], Object.assign({ key: i }, el[1]))));
   };
-  const leftPanel = h("div", {
+  const leftPanel = h2("div", {
     key: "left",
     className: "sb-start-left",
     style: {
@@ -1593,215 +4631,249 @@ var EnhancedConnectionSetup = ({
       background: "radial-gradient(900px 600px at 25% 18%, rgba(240,137,42,0.07), transparent 62%), radial-gradient(800px 700px at 80% 92%, rgba(62,207,142,0.06), transparent 60%), #0c0c0e"
     }
   }, [
-    h(
+    h2(
       "div",
       { key: "herowrap", style: { flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", position: "relative", zIndex: 2 } },
-      h("div", { key: "hero", style: { maxWidth: "470px" } }, [
-        h("h1", { key: "h1", style: { margin: "0 0 14px", fontSize: "34px", fontWeight: 800, letterSpacing: "-1.1px", lineHeight: 1.1, color: "#f4f4f6" } }, [
+      h2("div", { key: "hero", style: { maxWidth: "560px" } }, [
+        h2("h1", { key: "h1", style: { margin: "0 0 14px", fontSize: "34px", fontWeight: 800, letterSpacing: "-1.1px", lineHeight: 1.1, color: "#f4f4f6" } }, [
           "A direct line",
-          h("br", { key: "br" }),
+          h2("br", { key: "br" }),
           "only you two can read."
         ]),
-        h(
+        h2(
           "p",
           { key: "p", style: { margin: "0 0 38px", fontSize: "14.5px", lineHeight: 1.6, color: "#8a8a92", maxWidth: "390px" } },
           "Keys are generated on your device and exchanged peer-to-peer. No accounts, no servers storing your messages."
         ),
-        // animated channel
-        h("div", { key: "channel", style: { display: "flex", alignItems: "center", height: "74px" } }, [
-          h("div", { key: "you", style: { flex: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", width: "74px" } }, [
-            h("div", { key: "n", style: { width: "50px", height: "50px", borderRadius: "15px", display: "grid", placeItems: "center", background: "rgba(240,137,42,0.13)", border: "1px solid rgba(240,137,42,0.3)", animation: "sbNode 3s ease-in-out infinite" } }, fa("fa-user", { color: C_ORANGE, fontSize: "20px" })),
-            h("span", { key: "l", style: { fontSize: "11px", fontWeight: 600, color: "#9a9aa2" } }, "You")
+        // P2P / mesh animation.
+        //
+        // The loop tells the product's story in one shot: a direct line to
+        // one peer, then two more joining it over 14 seconds — which is what
+        // v6.0 actually added. Motion is pure CSS (offset-path along the
+        // same geometry the lines are drawn from), so there is no rAF loop
+        // burning battery on a landing page and nothing to tear down.
+        h2("div", { key: "channel", style: { display: "flex", alignItems: "center", gap: "32px", flexWrap: "wrap" } }, [
+          h2("svg", {
+            key: "svg",
+            viewBox: "0 0 380 200",
+            role: "img",
+            "aria-label": "A direct encrypted line to one peer, with two more peers joining the mesh",
+            // Scales down on narrow screens; the labels sit just outside
+            // the viewBox, so the box must not clip them.
+            style: { display: "block", width: "100%", maxWidth: "380px", height: "auto", overflow: "visible" }
+          }, [
+            // the established 1:1 line
+            h2("line", { key: "l0", x1: 30, y1: 100, x2: 330, y2: 100, stroke: C_ORANGE, strokeWidth: 1.5, strokeOpacity: 0.75 }),
+            h2("circle", { key: "p0", r: 3.6, fill: "#f0a455", style: { offsetPath: "path('M30,100 L330,100')", animation: "sbTrav 2.8s linear infinite" } }),
+            // first peer joins
+            h2("g", { key: "g1", style: { animation: "sbIn1 14s linear infinite" } }, [
+              h2("line", { key: "a", x1: 30, y1: 100, x2: 250, y2: 26, stroke: C_ORANGE, strokeWidth: 1.4, strokeOpacity: 0.7 }),
+              h2("line", { key: "b", x1: 250, y1: 26, x2: 330, y2: 100, stroke: C_GREEN, strokeWidth: 1.2, strokeOpacity: 0.3 }),
+              h2("circle", { key: "p", r: 3.2, fill: "#f0a455", style: { offsetPath: "path('M30,100 L250,26')", animation: "sbTrav 3s linear .6s infinite" } }),
+              h2("circle", { key: "n", cx: 250, cy: 26, r: 5, fill: "#0c0c0e", stroke: "#6b6760", strokeWidth: 1.2 }),
+              h2("text", { key: "t", x: 250, y: 8, textAnchor: "middle", fontFamily: MONO, fontSize: 12, fill: "#8f8b84" }, "mara")
+            ]),
+            h2("circle", { key: "r1", cx: 250, cy: 26, r: 5, fill: "none", stroke: C_ORANGE, strokeOpacity: 0.6, style: { animation: "sbRing1 14s linear infinite" } }),
+            // second peer joins, and the mesh closes
+            h2("g", { key: "g2", style: { animation: "sbIn2 14s linear infinite" } }, [
+              h2("line", { key: "a", x1: 30, y1: 100, x2: 250, y2: 174, stroke: C_ORANGE, strokeWidth: 1.4, strokeOpacity: 0.7 }),
+              h2("line", { key: "b", x1: 250, y1: 174, x2: 330, y2: 100, stroke: C_GREEN, strokeWidth: 1.2, strokeOpacity: 0.3 }),
+              h2("line", { key: "c", x1: 250, y1: 26, x2: 250, y2: 174, stroke: C_GREEN, strokeWidth: 1.2, strokeOpacity: 0.3 }),
+              h2("circle", { key: "p", r: 3.2, fill: "#f0a455", style: { offsetPath: "path('M30,100 L250,174')", animation: "sbTrav 3s linear .3s infinite" } }),
+              h2("circle", { key: "q", r: 2.8, fill: C_GREEN, style: { offsetPath: "path('M250,26 L250,174')", animation: "sbTrav 3.4s linear 1.2s infinite" } }),
+              h2("circle", { key: "n", cx: 250, cy: 174, r: 5, fill: "#0c0c0e", stroke: "#6b6760", strokeWidth: 1.2 }),
+              h2("text", { key: "t", x: 250, y: 194, textAnchor: "middle", fontFamily: MONO, fontSize: 12, fill: "#8f8b84" }, "tobi")
+            ]),
+            h2("circle", { key: "r2", cx: 250, cy: 174, r: 5, fill: "none", stroke: C_ORANGE, strokeOpacity: 0.6, style: { animation: "sbRing2 14s linear infinite" } }),
+            // the two endpoints of the original line
+            h2("circle", { key: "pe", cx: 330, cy: 100, r: 5, fill: "#0c0c0e", stroke: "#6b6760", strokeWidth: 1.2 }),
+            h2("text", { key: "pt", x: 346, y: 104, fontFamily: MONO, fontSize: 12, fill: "#8f8b84" }, "peer"),
+            h2("circle", { key: "yh", cx: 30, cy: 100, r: 15, fill: C_ORANGE, fillOpacity: 0.09 }),
+            h2("circle", { key: "yc", cx: 30, cy: 100, r: 6, fill: C_ORANGE }),
+            h2("text", { key: "yt", x: 30, y: 126, textAnchor: "middle", fontFamily: MONO, fontSize: 12, fill: "#d8cfc1" }, "you")
           ]),
-          h("div", { key: "wire", style: { flex: 1, position: "relative", height: "52px", margin: "0 -6px" } }, [
-            h("div", { key: "line", style: { position: "absolute", top: "50%", left: 0, right: 0, height: "2px", transform: "translateY(-50%)", background: "linear-gradient(90deg, rgba(240,137,42,0.45), rgba(62,207,142,0.45))" } }),
-            h("span", { key: "d1", style: { position: "absolute", top: "50%", transform: "translateY(-50%)", width: "6px", height: "6px", borderRadius: "50%", background: C_ORANGE, boxShadow: `0 0 8px ${C_ORANGE}`, animation: "sbFlowR 2.6s linear infinite" } }),
-            h("span", { key: "d2", style: { position: "absolute", top: "50%", transform: "translateY(-50%)", width: "6px", height: "6px", borderRadius: "50%", background: C_GREEN, boxShadow: `0 0 8px ${C_GREEN}`, animation: "sbFlowL 2.6s linear infinite", animationDelay: "0.6s" } }),
-            h("div", { key: "hub", style: { position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "38px", height: "38px" } }, [
-              h("span", { key: "pulse", style: { position: "absolute", top: "50%", left: "50%", width: "38px", height: "38px", borderRadius: "50%", border: "1.5px solid rgba(62,207,142,0.5)", animation: "sbPulse 2.4s ease-out infinite" } }),
-              h("div", { key: "core", style: { position: "relative", width: "38px", height: "38px", borderRadius: "50%", display: "grid", placeItems: "center", background: "#121214", border: "1px solid rgba(62,207,142,0.45)", boxShadow: "0 0 18px rgba(62,207,142,0.25)" } }, fa("fa-lock", { color: C_GREEN, fontSize: "14px" }))
-            ])
-          ]),
-          h("div", { key: "peer", style: { flex: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", width: "74px" } }, [
-            h("div", { key: "n", style: { width: "50px", height: "50px", borderRadius: "15px", display: "grid", placeItems: "center", background: "rgba(62,207,142,0.1)", border: "1px solid rgba(62,207,142,0.3)", animation: "sbNode 3s ease-in-out infinite", animationDelay: "1.5s" } }, fa("fa-user", { color: C_GREEN, fontSize: "20px" })),
-            h("span", { key: "l", style: { fontSize: "11px", fontWeight: 600, color: "#9a9aa2" } }, "Peer")
+          // the log, timed to the same 14s loop as the nodes appearing
+          h2("div", { key: "log", style: { display: "flex", flexDirection: "column", gap: "12px", fontFamily: MONO, fontSize: "12px", color: "#85817b" } }, [
+            h2("div", { key: "r0", style: { animation: "sbRow0 14s linear infinite" } }, "peer \xB7 session 1"),
+            h2("div", { key: "r1", style: { animation: "sbRow1 14s linear infinite" } }, "mara joined \xB7 +2"),
+            h2("div", { key: "r2", style: { animation: "sbRow2 14s linear infinite" } }, "tobi joined \xB7 +3")
           ])
         ])
       ])
     ),
-    h(
+    h2(
       "div",
       { key: "badges", style: { position: "relative", zIndex: 2, display: "flex", flexWrap: "wrap", gap: "8px" } },
       ["ECDH P-384", "AES-256-GCM", "Perfect Forward Secrecy"].map(
-        (label) => h("span", { key: label, style: { display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 11px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.025)", fontFamily: MONO, fontSize: "11px", fontWeight: 500, color: "#9a9aa2" } }, [
-          h("span", { key: "dot", style: { width: "5px", height: "5px", borderRadius: "50%", background: C_GREEN } }),
-          label
+        (label2) => h2("span", { key: label2, style: { display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 11px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.025)", fontFamily: MONO, fontSize: "11px", fontWeight: 500, color: "#9a9aa2" } }, [
+          h2("span", { key: "dot", style: { width: "5px", height: "5px", borderRadius: "50%", background: C_GREEN } }),
+          label2
         ])
       )
     )
   ]);
-  const segToggle = atIntro && h("div", { key: "seg", style: { position: "relative", display: "flex", padding: "4px", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.07)", background: "#141416", marginBottom: "26px" } }, [
-    h("div", { key: "ind", style: { position: "absolute", top: "4px", bottom: "4px", left: "4px", width: "calc(50% - 4px)", borderRadius: "9px", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.08)", transform: isCreate ? "translateX(0%)" : "translateX(100%)", transition: "transform .26s cubic-bezier(.3,.8,.3,1)" } }),
-    h("button", { key: "c", className: "sb-seg-btn", onClick: () => setMode("create"), style: { position: "relative", zIndex: 1, flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "11px", border: "none", background: "transparent", color: isCreate ? "#f4f4f6" : "#7b7b83", fontFamily: "inherit", fontSize: "14px", fontWeight: 700, cursor: "pointer" } }, [fa("fa-plus", { key: "i" }), "Create"]),
-    h("button", { key: "j", className: "sb-seg-btn", onClick: () => setMode("join"), style: { position: "relative", zIndex: 1, flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "11px", border: "none", background: "transparent", color: !isCreate ? "#f4f4f6" : "#7b7b83", fontFamily: "inherit", fontSize: "14px", fontWeight: 700, cursor: "pointer" } }, [fa("fa-link", { key: "i" }), "Join"])
+  const segToggle = atIntro && h2("div", { key: "seg", style: { position: "relative", display: "flex", padding: "4px", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.07)", background: "#141416", marginBottom: "26px" } }, [
+    h2("div", { key: "ind", style: { position: "absolute", top: "4px", bottom: "4px", left: "4px", width: "calc(50% - 4px)", borderRadius: "9px", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.08)", transform: isCreate ? "translateX(0%)" : "translateX(100%)", transition: "transform .26s cubic-bezier(.3,.8,.3,1)" } }),
+    h2("button", { key: "c", className: "sb-seg-btn", onClick: () => setMode("create"), style: { position: "relative", zIndex: 1, flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "11px", border: "none", background: "transparent", color: isCreate ? "#f4f4f6" : "#7b7b83", fontFamily: "inherit", fontSize: "14px", fontWeight: 700, cursor: "pointer" } }, [fa("fa-plus", { key: "i" }), "Create"]),
+    h2("button", { key: "j", className: "sb-seg-btn", onClick: () => setMode("join"), style: { position: "relative", zIndex: 1, flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "11px", border: "none", background: "transparent", color: !isCreate ? "#f4f4f6" : "#7b7b83", fontFamily: "inherit", fontSize: "14px", fontWeight: 700, cursor: "pointer" } }, [fa("fa-link", { key: "i" }), "Join"])
   ]);
-  const backButton = (key) => h("button", { key: key || "back", className: "sb-soft-btn", onClick: resetToSelect, style: { display: "inline-flex", alignItems: "center", gap: "6px", marginBottom: "14px", padding: "6px 11px 6px 8px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "#9a9aa2", fontFamily: "inherit", fontSize: "12.5px", fontWeight: 600, cursor: "pointer" } }, [fa("fa-chevron-left", { key: "i" }), "Back"]);
-  const credBlock = h("div", { key: "codeblock", style: { borderRadius: "13px", border: "1px solid rgba(255,255,255,0.08)", background: "#141416", overflow: "hidden", marginBottom: "16px" } }, [
-    h("div", { key: "bar", style: { display: "flex", alignItems: "center", gap: "8px", padding: "9px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.2)" } }, [
-      h("span", { key: "dot", style: { width: "7px", height: "7px", borderRadius: "50%", background: accent } }),
-      h("span", { key: "tag", style: { fontFamily: MONO, fontSize: "10.5px", fontWeight: 600, color: "#8a8a92" } }, `${isCreate ? "offer" : "answer"} \xB7 or copy text`),
-      h("button", { key: "copy", onClick: copyCred, style: { marginLeft: "auto", padding: "4px 9px", borderRadius: "6px", border: `1px solid ${copied ? "rgba(62,207,142,0.4)" : "rgba(255,255,255,0.1)"}`, background: copied ? "rgba(62,207,142,0.1)" : "rgba(255,255,255,0.04)", color: copied ? C_GREEN : "#b3b3ba", fontFamily: "inherit", fontSize: "11px", fontWeight: 600, cursor: "pointer", transition: "all .14s" } }, copied ? "Copied" : "Copy")
+  const backButton = (key) => h2("button", { key: key || "back", className: "sb-soft-btn", onClick: resetToSelect, style: { display: "inline-flex", alignItems: "center", gap: "6px", marginBottom: "14px", padding: "6px 11px 6px 8px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "#9a9aa2", fontFamily: "inherit", fontSize: "12.5px", fontWeight: 600, cursor: "pointer" } }, [fa("fa-chevron-left", { key: "i" }), "Back"]);
+  const credBlock = h2("div", { key: "codeblock", style: { borderRadius: "13px", border: "1px solid rgba(255,255,255,0.08)", background: "#141416", overflow: "hidden", marginBottom: "16px" } }, [
+    h2("div", { key: "bar", style: { display: "flex", alignItems: "center", gap: "8px", padding: "9px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.2)" } }, [
+      h2("span", { key: "dot", style: { width: "7px", height: "7px", borderRadius: "50%", background: accent } }),
+      h2("span", { key: "tag", style: { fontFamily: MONO, fontSize: "10.5px", fontWeight: 600, color: "#8a8a92" } }, `${isCreate ? "offer" : "answer"} \xB7 or copy text`),
+      h2("button", { key: "copy", onClick: copyCred, style: { marginLeft: "auto", padding: "4px 9px", borderRadius: "6px", border: `1px solid ${copied ? "rgba(62,207,142,0.4)" : "rgba(255,255,255,0.1)"}`, background: copied ? "rgba(62,207,142,0.1)" : "rgba(255,255,255,0.04)", color: copied ? C_GREEN : "#b3b3ba", fontFamily: "inherit", fontSize: "11px", fontWeight: 600, cursor: "pointer", transition: "all .14s" } }, copied ? "Copied" : "Copy")
     ]),
     // The handshake code is sensitive — keep it blurred until the
     // user deliberately reveals it, underscoring that it must be
     // shared only over a channel they trust.
-    h("div", { key: "codewrap", style: { position: "relative" } }, [
-      h("div", { key: "code", className: "sb-sc", style: { fontFamily: MONO, fontSize: "11px", lineHeight: 1.55, color: "#c9ccd8", wordBreak: "break-all", padding: "11px 12px", maxHeight: "72px", overflowY: "auto", filter: codeRevealed ? "none" : "blur(6px)", userSelect: codeRevealed ? "text" : "none", transition: "filter .2s" } }, credCode),
-      !codeRevealed && h("button", { key: "reveal", onClick: () => setCodeRevealed(true), style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", border: "none", background: "rgba(20,20,22,0.25)", color: "#cfcfd4", fontFamily: "inherit", fontSize: "12px", fontWeight: 600, cursor: "pointer" } }, [
+    h2("div", { key: "codewrap", style: { position: "relative" } }, [
+      h2("div", { key: "code", className: "sb-sc", style: { fontFamily: MONO, fontSize: "11px", lineHeight: 1.55, color: "#c9ccd8", wordBreak: "break-all", padding: "11px 12px", maxHeight: "72px", overflowY: "auto", filter: codeRevealed ? "none" : "blur(6px)", userSelect: codeRevealed ? "text" : "none", transition: "filter .2s" } }, credCode),
+      !codeRevealed && h2("button", { key: "reveal", onClick: () => setCodeRevealed(true), style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", border: "none", background: "rgba(20,20,22,0.25)", color: "#cfcfd4", fontFamily: "inherit", fontSize: "12px", fontWeight: 600, cursor: "pointer" } }, [
         fa("fa-eye", { key: "i", fontSize: "15px" }),
         "Click to reveal \u2014 keep this code private"
       ])
     ])
   ]);
-  const showQrButton = qrCodeUrl && h("button", { key: "showqr", onClick: () => setQrModalOpen(true), style: { width: "100%", display: "flex", alignItems: "center", gap: "13px", padding: "15px 16px", borderRadius: "14px", border: `1px solid ${isCreate ? "rgba(240,137,42,0.3)" : "rgba(62,207,142,0.3)"}`, background: isCreate ? "rgba(240,137,42,0.06)" : "rgba(62,207,142,0.06)", color: "inherit", fontFamily: "inherit", cursor: "pointer", textAlign: "left", marginBottom: "14px" } }, [
-    h("span", { key: "ic", style: { flex: "none", width: "42px", height: "42px", borderRadius: "12px", display: "grid", placeItems: "center", background: isCreate ? "rgba(240,137,42,0.12)" : "rgba(62,207,142,0.12)", border: `1px solid ${isCreate ? "rgba(240,137,42,0.28)" : "rgba(62,207,142,0.28)"}` } }, fa("fa-qrcode", { color: accent, fontSize: "18px" })),
-    h("span", { key: "tx", style: { flex: 1 } }, [
-      h("span", { key: "t", style: { display: "block", fontSize: "14.5px", fontWeight: 700, color: "#f4f4f6" } }, "Show QR code"),
-      h("span", { key: "s", style: { display: "block", fontSize: "12.5px", color: "#8a8a92", marginTop: "1px" } }, `Full-screen \xB7 let your peer scan${(qrFramesTotal || 0) > 1 ? ` all ${qrFramesTotal} frames` : ""}`)
+  const showQrButton = qrCodeUrl && h2("button", { key: "showqr", onClick: () => setQrModalOpen(true), style: { width: "100%", display: "flex", alignItems: "center", gap: "13px", padding: "15px 16px", borderRadius: "14px", border: `1px solid ${isCreate ? "rgba(240,137,42,0.3)" : "rgba(62,207,142,0.3)"}`, background: isCreate ? "rgba(240,137,42,0.06)" : "rgba(62,207,142,0.06)", color: "inherit", fontFamily: "inherit", cursor: "pointer", textAlign: "left", marginBottom: "14px" } }, [
+    h2("span", { key: "ic", style: { flex: "none", width: "42px", height: "42px", borderRadius: "12px", display: "grid", placeItems: "center", background: isCreate ? "rgba(240,137,42,0.12)" : "rgba(62,207,142,0.12)", border: `1px solid ${isCreate ? "rgba(240,137,42,0.28)" : "rgba(62,207,142,0.28)"}` } }, fa("fa-qrcode", { color: accent, fontSize: "18px" })),
+    h2("span", { key: "tx", style: { flex: 1 } }, [
+      h2("span", { key: "t", style: { display: "block", fontSize: "14.5px", fontWeight: 700, color: "#f4f4f6" } }, "Show QR code"),
+      h2("span", { key: "s", style: { display: "block", fontSize: "12.5px", color: "#8a8a92", marginTop: "1px" } }, `Full-screen \xB7 let your peer scan${(qrFramesTotal || 0) > 1 ? ` all ${qrFramesTotal} frames` : ""}`)
     ]),
     fa("fa-chevron-right", { color: "#6b6b73" })
   ]);
   let inner;
   if (showVerification) {
     const verified = bothVerificationsConfirmed;
-    const cells = (verificationCode || "").split("").map((ch, i) => h("div", { key: i, style: { flex: 1, maxWidth: "46px", aspectRatio: "0.82", display: "grid", placeItems: "center", borderRadius: "10px", border: "1px solid rgba(62,207,142,0.25)", background: "rgba(62,207,142,0.05)", fontFamily: MONO, fontSize: "22px", fontWeight: 700, color: C_GREEN } }, ch));
-    inner = h("div", { key: "verify", style: { animation: "sbUp .3s ease" } }, [
+    const cells = (verificationCode || "").split("").map((ch, i) => h2("div", { key: i, style: { flex: 1, maxWidth: "46px", aspectRatio: "0.82", display: "grid", placeItems: "center", borderRadius: "10px", border: "1px solid rgba(62,207,142,0.25)", background: "rgba(62,207,142,0.05)", fontFamily: MONO, fontSize: "22px", fontWeight: 700, color: C_GREEN } }, ch));
+    inner = h2("div", { key: "verify", style: { animation: "sbUp .3s ease" } }, [
       !verified && backButton("vback"),
-      h("div", { key: "head", style: { display: "flex", alignItems: "center", gap: "11px", marginBottom: "8px" } }, [
-        h("div", { key: "i", style: { width: "34px", height: "34px", flex: "none", borderRadius: "10px", display: "grid", placeItems: "center", background: "rgba(62,207,142,0.1)", border: "1px solid rgba(62,207,142,0.25)" } }, fa("fa-shield-alt", { color: C_GREEN })),
-        h("h2", { key: "t", style: { margin: 0, fontSize: "21px", fontWeight: 800, letterSpacing: "-0.4px", color: "#f4f4f6" } }, "Security verification")
+      h2("div", { key: "head", style: { display: "flex", alignItems: "center", gap: "11px", marginBottom: "8px" } }, [
+        h2("div", { key: "i", style: { width: "34px", height: "34px", flex: "none", borderRadius: "10px", display: "grid", placeItems: "center", background: "rgba(62,207,142,0.1)", border: "1px solid rgba(62,207,142,0.25)" } }, fa("fa-shield-alt", { color: C_GREEN })),
+        h2("h2", { key: "t", style: { margin: 0, fontSize: "21px", fontWeight: 800, letterSpacing: "-0.4px", color: "#f4f4f6" } }, "Security verification")
       ]),
-      h("p", { key: "sub", style: { margin: "0 0 18px", fontSize: "13.5px", lineHeight: 1.55, color: "#8a8a92" } }, "Compare this safety code with your peer over a separate channel (voice / in person), then type it to unlock the chat."),
-      h("div", { key: "cells", style: { display: "flex", gap: "6px", justifyContent: "center", marginBottom: "20px", flexWrap: "wrap" } }, cells),
-      verified ? h("div", { key: "ok", style: { display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "24px 16px", borderRadius: "16px", border: "1px solid rgba(62,207,142,0.25)", background: "rgba(62,207,142,0.06)", animation: "sbUp .3s ease" } }, [
-        h("div", { key: "i", style: { width: "54px", height: "54px", borderRadius: "16px", display: "grid", placeItems: "center", background: "rgba(62,207,142,0.14)", border: "1px solid rgba(62,207,142,0.35)", marginBottom: "14px" } }, fa("fa-check", { color: C_GREEN, fontSize: "24px" })),
-        h("div", { key: "t", style: { fontSize: "18px", fontWeight: 800, color: "#f4f4f6" } }, "Channel verified"),
-        h("div", { key: "s", style: { fontSize: "13.5px", color: "#8a8a92", marginTop: "5px" } }, "Both parties confirmed. Opening the secure chat\u2026")
-      ]) : h("div", { key: "form" }, [
-        h("div", { key: "lbl", style: { fontSize: "12.5px", fontWeight: 600, color: "#9a9aa2", marginBottom: "8px" } }, "Enter the verified code"),
-        h("input", { key: "in", value: sasInput, onChange: (e) => {
+      h2("p", { key: "sub", style: { margin: "0 0 18px", fontSize: "13.5px", lineHeight: 1.55, color: "#8a8a92" } }, "Compare this safety code with your peer over a separate channel (voice / in person), then type it to unlock the chat."),
+      h2("div", { key: "cells", style: { display: "flex", gap: "6px", justifyContent: "center", marginBottom: "20px", flexWrap: "wrap" } }, cells),
+      verified ? h2("div", { key: "ok", style: { display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "24px 16px", borderRadius: "16px", border: "1px solid rgba(62,207,142,0.25)", background: "rgba(62,207,142,0.06)", animation: "sbUp .3s ease" } }, [
+        h2("div", { key: "i", style: { width: "54px", height: "54px", borderRadius: "16px", display: "grid", placeItems: "center", background: "rgba(62,207,142,0.14)", border: "1px solid rgba(62,207,142,0.35)", marginBottom: "14px" } }, fa("fa-check", { color: C_GREEN, fontSize: "24px" })),
+        h2("div", { key: "t", style: { fontSize: "18px", fontWeight: 800, color: "#f4f4f6" } }, "Channel verified"),
+        h2("div", { key: "s", style: { fontSize: "13.5px", color: "#8a8a92", marginTop: "5px" } }, "Both parties confirmed. Opening the secure chat\u2026")
+      ]) : h2("div", { key: "form" }, [
+        h2("div", { key: "lbl", style: { fontSize: "12.5px", fontWeight: 600, color: "#9a9aa2", marginBottom: "8px" } }, "Enter the verified code"),
+        h2("input", { key: "in", value: sasInput, onChange: (e) => {
           setSasInput(e.target.value.toUpperCase());
           if (sasError) setSasError("");
         }, disabled: localVerificationConfirmed, autoFocus: true, autoComplete: "off", spellCheck: false, placeholder: verificationCode ? "Type code here" : "Waiting for code\u2026", style: { width: "100%", textAlign: "center", letterSpacing: "6px", borderRadius: "12px", border: `1px solid ${sasInput.length ? canConfirm || localVerificationConfirmed ? "rgba(62,207,142,0.5)" : "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.08)"}`, background: "#141416", color: "#f4f4f6", fontFamily: MONO, fontSize: "20px", fontWeight: 700, padding: "14px", outline: "none", textTransform: "uppercase", marginBottom: sasError ? "8px" : "16px" } }),
-        sasError && h("p", { key: "err", style: { color: "#e5727a", fontSize: "12.5px", margin: "0 0 16px" } }, sasError),
-        h("div", { key: "status", style: { display: "flex", flexDirection: "column", gap: "8px", marginBottom: "16px" } }, [
-          h("div", { key: "you", style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 14px", borderRadius: "11px", border: "1px solid rgba(255,255,255,0.06)", background: "#141416" } }, [
-            h("span", { key: "l", style: { fontSize: "13px", color: "#cfcfd4", fontWeight: 600 } }, "Your confirmation"),
-            h("span", { key: "v", style: { display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12.5px", fontWeight: 600, color: localVerificationConfirmed ? C_GREEN : "#7b7b83" } }, [fa(localVerificationConfirmed ? "fa-check-circle" : "fa-clock", { key: "i" }), localVerificationConfirmed ? "Confirmed" : "Pending"])
+        sasError && h2("p", { key: "err", style: { color: "#e5727a", fontSize: "12.5px", margin: "0 0 16px" } }, sasError),
+        h2("div", { key: "status", style: { display: "flex", flexDirection: "column", gap: "8px", marginBottom: "16px" } }, [
+          h2("div", { key: "you", style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 14px", borderRadius: "11px", border: "1px solid rgba(255,255,255,0.06)", background: "#141416" } }, [
+            h2("span", { key: "l", style: { fontSize: "13px", color: "#cfcfd4", fontWeight: 600 } }, "Your confirmation"),
+            h2("span", { key: "v", style: { display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12.5px", fontWeight: 600, color: localVerificationConfirmed ? C_GREEN : "#7b7b83" } }, [fa(localVerificationConfirmed ? "fa-check-circle" : "fa-clock", { key: "i" }), localVerificationConfirmed ? "Confirmed" : "Pending"])
           ]),
-          h("div", { key: "peer", style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 14px", borderRadius: "11px", border: "1px solid rgba(255,255,255,0.06)", background: "#141416" } }, [
-            h("span", { key: "l", style: { fontSize: "13px", color: "#cfcfd4", fontWeight: 600 } }, "Peer confirmation"),
-            h("span", { key: "v", style: { display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12.5px", fontWeight: 600, color: remoteVerificationConfirmed ? C_GREEN : "#7b7b83" } }, [fa(remoteVerificationConfirmed ? "fa-check-circle" : "fa-clock", { key: "i" }), remoteVerificationConfirmed ? "Confirmed" : "Pending"])
+          h2("div", { key: "peer", style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 14px", borderRadius: "11px", border: "1px solid rgba(255,255,255,0.06)", background: "#141416" } }, [
+            h2("span", { key: "l", style: { fontSize: "13px", color: "#cfcfd4", fontWeight: 600 } }, "Peer confirmation"),
+            h2("span", { key: "v", style: { display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12.5px", fontWeight: 600, color: remoteVerificationConfirmed ? C_GREEN : "#7b7b83" } }, [fa(remoteVerificationConfirmed ? "fa-check-circle" : "fa-clock", { key: "i" }), remoteVerificationConfirmed ? "Confirmed" : "Pending"])
           ])
         ]),
-        h("div", { key: "btns", style: { display: "flex", gap: "10px" } }, [
-          h("button", { key: "ok", onClick: handleSasConfirm, disabled: !canConfirm, style: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "14px", borderRadius: "13px", border: "none", background: canConfirm ? C_GREEN : "rgba(255,255,255,0.05)", color: canConfirm ? "#08160e" : "#56565e", fontFamily: "inherit", fontSize: "14.5px", fontWeight: 700, cursor: canConfirm ? "pointer" : "not-allowed", boxShadow: canConfirm ? "0 8px 24px rgba(62,207,142,0.25)" : "none" } }, [fa(localVerificationConfirmed ? "fa-check-circle" : "fa-check", { key: "i" }), localVerificationConfirmed ? "Confirmed" : "Confirm code"]),
-          h("button", { key: "no", onClick: handleVerificationReject, style: { flex: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: "7px", padding: "14px 16px", borderRadius: "13px", border: "1px solid rgba(229,114,122,0.3)", background: "transparent", color: "#e5727a", fontFamily: "inherit", fontSize: "13.5px", fontWeight: 600, cursor: "pointer" } }, [fa("fa-times", { key: "i" }), "Don't match"])
+        h2("div", { key: "btns", style: { display: "flex", gap: "10px" } }, [
+          h2("button", { key: "ok", onClick: handleSasConfirm, disabled: !canConfirm, style: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "14px", borderRadius: "13px", border: "none", background: canConfirm ? C_GREEN : "rgba(255,255,255,0.05)", color: canConfirm ? "#08160e" : "#56565e", fontFamily: "inherit", fontSize: "14.5px", fontWeight: 700, cursor: canConfirm ? "pointer" : "not-allowed", boxShadow: canConfirm ? "0 8px 24px rgba(62,207,142,0.25)" : "none" } }, [fa(localVerificationConfirmed ? "fa-check-circle" : "fa-check", { key: "i" }), localVerificationConfirmed ? "Confirmed" : "Confirm code"]),
+          h2("button", { key: "no", onClick: handleVerificationReject, style: { flex: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: "7px", padding: "14px 16px", borderRadius: "13px", border: "1px solid rgba(229,114,122,0.3)", background: "transparent", color: "#e5727a", fontFamily: "inherit", fontSize: "13.5px", fontWeight: 600, cursor: "pointer" } }, [fa("fa-times", { key: "i" }), "Don't match"])
         ])
       ])
     ]);
   } else if (isGenerating) {
     const genSteps = ["Generating ECDH P-384 key pair", "Deriving verification code", "Pinning Perfect Forward Secrecy"];
-    inner = h("div", { key: "gen", style: { animation: "sbUp .28s ease" } }, [
-      h("div", { key: "head", style: { display: "flex", alignItems: "center", gap: "13px", marginBottom: "22px" } }, [
-        h("div", { key: "sp", style: { width: "44px", height: "44px", flex: "none", display: "grid", placeItems: "center" } }, fa("fa-circle-notch", { color: C_ORANGE, fontSize: "32px", animation: "sbSpin 1s linear infinite" })),
-        h("div", { key: "tx" }, [
-          h("h2", { key: "t", style: { margin: 0, fontSize: "20px", fontWeight: 800, letterSpacing: "-0.4px", color: "#f4f4f6" } }, isCreate ? "Securing your channel" : "Building your answer"),
-          h("p", { key: "s", style: { margin: "3px 0 0", fontSize: "13px", color: "#8a8a92" } }, "Forging keys strong enough to resist tampering.")
+    inner = h2("div", { key: "gen", style: { animation: "sbUp .28s ease" } }, [
+      h2("div", { key: "head", style: { display: "flex", alignItems: "center", gap: "13px", marginBottom: "22px" } }, [
+        h2("div", { key: "sp", style: { width: "44px", height: "44px", flex: "none", display: "grid", placeItems: "center" } }, fa("fa-circle-notch", { color: C_ORANGE, fontSize: "32px", animation: "sbSpin 1s linear infinite" })),
+        h2("div", { key: "tx" }, [
+          h2("h2", { key: "t", style: { margin: 0, fontSize: "20px", fontWeight: 800, letterSpacing: "-0.4px", color: "#f4f4f6" } }, isCreate ? "Securing your channel" : "Building your answer"),
+          h2("p", { key: "s", style: { margin: "3px 0 0", fontSize: "13px", color: "#8a8a92" } }, "Forging keys strong enough to resist tampering.")
         ])
       ]),
-      h(
+      h2(
         "div",
         { key: "steps", style: { display: "flex", flexDirection: "column", borderRadius: "13px", border: "1px solid rgba(255,255,255,0.07)", background: "#141416", overflow: "hidden" } },
-        genSteps.map((label, i) => {
+        genSteps.map((label2, i) => {
           const done = genProgress > i;
           const active = genProgress === i;
-          return h("div", { key: i, style: { display: "flex", alignItems: "center", gap: "12px", padding: "13px 15px", borderTop: i ? "1px solid rgba(255,255,255,0.05)" : "none", transition: "background .3s", background: done ? "rgba(62,207,142,0.04)" : "transparent" } }, [
-            h(
+          return h2("div", { key: i, style: { display: "flex", alignItems: "center", gap: "12px", padding: "13px 15px", borderTop: i ? "1px solid rgba(255,255,255,0.05)" : "none", transition: "background .3s", background: done ? "rgba(62,207,142,0.04)" : "transparent" } }, [
+            h2(
               "div",
               { key: "d", style: { flex: "none", width: "20px", height: "20px", borderRadius: "50%", display: "grid", placeItems: "center", background: done ? "rgba(62,207,142,0.12)" : active ? "rgba(240,137,42,0.12)" : "rgba(255,255,255,0.04)", border: `1px solid ${done ? "rgba(62,207,142,0.3)" : active ? "rgba(240,137,42,0.3)" : "rgba(255,255,255,0.1)"}`, transition: "all .3s" } },
-              done ? fa("fa-check", { color: C_GREEN, fontSize: "11px" }) : h("span", { style: { width: "6px", height: "6px", borderRadius: "50%", background: active ? C_ORANGE : "#56565e", animation: active ? "sbBlink 1s ease-in-out infinite" : "none" } })
+              done ? fa("fa-check", { color: C_GREEN, fontSize: "11px" }) : h2("span", { style: { width: "6px", height: "6px", borderRadius: "50%", background: active ? C_ORANGE : "#56565e", animation: active ? "sbBlink 1s ease-in-out infinite" : "none" } })
             ),
-            h("span", { key: "l", style: { fontSize: "13.5px", color: done ? "#cfcfd4" : active ? "#e8e8eb" : "#6b6b73", transition: "color .3s" } }, label)
+            h2("span", { key: "l", style: { fontSize: "13.5px", color: done ? "#cfcfd4" : active ? "#e8e8eb" : "#6b6b73", transition: "color .3s" } }, label2)
           ]);
         })
       )
     ]);
   } else if (isOfferCred || isAnswerCred) {
-    inner = h("div", { key: "cred", style: { animation: "sbUp .3s ease" } }, [
+    inner = h2("div", { key: "cred", style: { animation: "sbUp .3s ease" } }, [
       backButton("cback"),
-      h("h2", { key: "h", style: { margin: "0 0 6px", fontSize: "23px", fontWeight: 800, letterSpacing: "-0.5px", color: "#f4f4f6" } }, isCreate ? "Share your invitation" : "Send back your answer"),
-      h("p", { key: "p", style: { margin: "0 0 18px", fontSize: "14px", lineHeight: 1.55, color: "#8a8a92" } }, isCreate ? "Show the QR or send the code to your peer. It is one-time and expires shortly." : "Give this answer to the channel creator so they can finish the handshake."),
+      h2("h2", { key: "h", style: { margin: "0 0 6px", fontSize: "23px", fontWeight: 800, letterSpacing: "-0.5px", color: "#f4f4f6" } }, isCreate ? "Share your invitation" : "Send back your answer"),
+      h2("p", { key: "p", style: { margin: "0 0 18px", fontSize: "14px", lineHeight: 1.55, color: "#8a8a92" } }, isCreate ? "Show the QR or send the code to your peer. It is one-time and expires shortly." : "Give this answer to the channel creator so they can finish the handshake."),
       showQrButton,
       credBlock,
-      isOfferCred && h("div", { key: "offerextra", style: { marginTop: "4px" } }, [
-        h("div", { key: "lbl", style: { fontSize: "12.5px", fontWeight: 600, color: "#9a9aa2", marginBottom: "8px" } }, "Then receive the answer your peer sends back"),
-        h(
+      isOfferCred && h2("div", { key: "offerextra", style: { marginTop: "4px" } }, [
+        h2("div", { key: "lbl", style: { fontSize: "12.5px", fontWeight: 600, color: "#9a9aa2", marginBottom: "8px" } }, "Then receive the answer your peer sends back"),
+        h2(
           "div",
           { key: "ta", style: { borderRadius: "12px", border: `1px solid ${hasAnswer ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.07)"}`, background: "#141416", padding: "11px 14px", marginBottom: "10px" } },
-          h("textarea", { value: answerInput, onChange: (e) => {
+          h2("textarea", { value: answerInput, onChange: (e) => {
             setAnswerInput(e.target.value);
             if (e.target.value.trim().length > 0 && typeof markAnswerCreated === "function") markAnswerCreated();
           }, rows: 2, placeholder: "Paste peer's answer code\u2026", style: { width: "100%", resize: "none", border: "none", outline: "none", background: "transparent", color: "#d7d7db", fontFamily: MONO, fontSize: "12px", lineHeight: 1.55, minHeight: "44px" } })
         ),
-        h("div", { key: "btns", style: { display: "flex", gap: "10px" } }, [
-          h("button", { key: "scan", className: "sb-scan-btn", onClick: () => setShowQRScannerModal(true), style: { flex: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "14px 16px", borderRadius: "13px", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "#cfcfd4", fontFamily: "inherit", fontSize: "14px", fontWeight: 700, cursor: "pointer" } }, [fa("fa-camera", { key: "i" }), "Scan"]),
-          h("button", { key: "est", onClick: onConnect, disabled: !hasAnswer, style: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "9px", padding: "14px", borderRadius: "13px", border: "none", background: hasAnswer ? C_ORANGE : "rgba(255,255,255,0.05)", color: hasAnswer ? "#1a0f04" : "#56565e", fontFamily: "inherit", fontSize: "14.5px", fontWeight: 700, cursor: hasAnswer ? "pointer" : "not-allowed", boxShadow: hasAnswer ? "0 8px 24px rgba(240,137,42,0.28)" : "none" } }, "Establish connection")
+        h2("div", { key: "btns", style: { display: "flex", gap: "10px" } }, [
+          h2("button", { key: "scan", className: "sb-scan-btn", onClick: () => setShowQRScannerModal(true), style: { flex: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "14px 16px", borderRadius: "13px", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "#cfcfd4", fontFamily: "inherit", fontSize: "14px", fontWeight: 700, cursor: "pointer" } }, [fa("fa-camera", { key: "i" }), "Scan"]),
+          h2("button", { key: "est", onClick: onConnect, disabled: !hasAnswer, style: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "9px", padding: "14px", borderRadius: "13px", border: "none", background: hasAnswer ? C_ORANGE : "rgba(255,255,255,0.05)", color: hasAnswer ? "#1a0f04" : "#56565e", fontFamily: "inherit", fontSize: "14.5px", fontWeight: 700, cursor: hasAnswer ? "pointer" : "not-allowed", boxShadow: hasAnswer ? "0 8px 24px rgba(240,137,42,0.28)" : "none" } }, "Establish connection")
         ])
       ]),
-      isAnswerCred && h("div", { key: "answerextra", style: { marginTop: "4px", display: "flex", alignItems: "center", gap: "10px", padding: "12px 14px", borderRadius: "12px", border: "1px solid rgba(62,207,142,0.18)", background: "rgba(62,207,142,0.05)" } }, [
+      isAnswerCred && h2("div", { key: "answerextra", style: { marginTop: "4px", display: "flex", alignItems: "center", gap: "10px", padding: "12px 14px", borderRadius: "12px", border: "1px solid rgba(62,207,142,0.18)", background: "rgba(62,207,142,0.05)" } }, [
         fa("fa-circle-notch", { key: "i", color: C_GREEN, animation: "sbSpin 1.4s linear infinite" }),
-        h("span", { key: "t", style: { fontSize: "13px", color: "#cfcfd4", fontWeight: 500 } }, "Send this answer to the creator, then wait \u2014 the chat opens once they connect.")
+        h2("span", { key: "t", style: { fontSize: "13px", color: "#cfcfd4", fontWeight: 500 } }, "Send this answer to the creator, then wait \u2014 the chat opens once they connect.")
       ])
     ]);
   } else if (isCreate) {
-    inner = h("div", { key: "introC", style: { animation: "sbUp .28s ease" } }, [
-      h("h2", { key: "h", style: { margin: "0 0 6px", fontSize: "23px", fontWeight: 800, letterSpacing: "-0.5px", color: "#f4f4f6" } }, "Create a new channel"),
-      h("p", { key: "p", style: { margin: "0 0 22px", fontSize: "14px", lineHeight: 1.55, color: "#8a8a92" } }, "Your device generates the keys and a one-time invitation. Nothing touches a server."),
-      h("button", { key: "gen", className: "sb-gen-btn", onClick: () => {
+    inner = h2("div", { key: "introC", style: { animation: "sbUp .28s ease" } }, [
+      h2("h2", { key: "h", style: { margin: "0 0 6px", fontSize: "23px", fontWeight: 800, letterSpacing: "-0.5px", color: "#f4f4f6" } }, "Create a new channel"),
+      h2("p", { key: "p", style: { margin: "0 0 22px", fontSize: "14px", lineHeight: 1.55, color: "#8a8a92" } }, "Your device generates the keys and a one-time invitation. Nothing touches a server."),
+      h2("button", { key: "gen", className: "sb-gen-btn", onClick: () => {
         requestNotificationPermissionOnInteraction();
         if (webrtcManagerRef.current) handleCreateOffer();
       }, style: { width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "9px", padding: "15px", borderRadius: "13px", border: "none", background: C_ORANGE, color: "#1a0f04", fontFamily: "inherit", fontSize: "15px", fontWeight: 700, cursor: "pointer", boxShadow: "0 8px 24px rgba(240,137,42,0.28)" } }, [fa("fa-bolt", { key: "i" }), "Generate keys & invitation"])
     ]);
   } else {
-    inner = h("div", { key: "introJ", style: { animation: "sbUp .28s ease" } }, [
-      h("h2", { key: "h", style: { margin: "0 0 6px", fontSize: "23px", fontWeight: 800, letterSpacing: "-0.5px", color: "#f4f4f6" } }, "Join a channel"),
-      h("p", { key: "p", style: { margin: "0 0 16px", fontSize: "14px", lineHeight: 1.55, color: "#8a8a92" } }, "Scan your peer's QR with your camera, or paste their invitation code."),
-      h("button", { key: "scan", className: "sb-scan-btn", onClick: () => {
+    inner = h2("div", { key: "introJ", style: { animation: "sbUp .28s ease" } }, [
+      h2("h2", { key: "h", style: { margin: "0 0 6px", fontSize: "23px", fontWeight: 800, letterSpacing: "-0.5px", color: "#f4f4f6" } }, "Join a channel"),
+      h2("p", { key: "p", style: { margin: "0 0 16px", fontSize: "14px", lineHeight: 1.55, color: "#8a8a92" } }, "Scan your peer's QR with your camera, or paste their invitation code."),
+      h2("button", { key: "scan", className: "sb-scan-btn", onClick: () => {
         requestNotificationPermissionOnInteraction();
         setShowQRScannerModal(true);
       }, style: { width: "100%", display: "flex", alignItems: "center", gap: "13px", padding: "15px 16px", borderRadius: "14px", border: "1px solid rgba(62,207,142,0.3)", background: "rgba(62,207,142,0.06)", color: "inherit", fontFamily: "inherit", cursor: "pointer", textAlign: "left", marginBottom: "14px" } }, [
-        h("span", { key: "ic", style: { flex: "none", width: "42px", height: "42px", borderRadius: "12px", display: "grid", placeItems: "center", background: "rgba(62,207,142,0.12)", border: "1px solid rgba(62,207,142,0.28)" } }, fa("fa-camera", { color: C_GREEN, fontSize: "18px" })),
-        h("span", { key: "tx", style: { flex: 1 } }, [
-          h("span", { key: "t", style: { display: "block", fontSize: "14.5px", fontWeight: 700, color: "#f4f4f6" } }, "Scan QR with camera"),
-          h("span", { key: "s", style: { display: "block", fontSize: "12.5px", color: "#8a8a92", marginTop: "1px" } }, "Fastest \u2014 point at your peer's screen")
+        h2("span", { key: "ic", style: { flex: "none", width: "42px", height: "42px", borderRadius: "12px", display: "grid", placeItems: "center", background: "rgba(62,207,142,0.12)", border: "1px solid rgba(62,207,142,0.28)" } }, fa("fa-camera", { color: C_GREEN, fontSize: "18px" })),
+        h2("span", { key: "tx", style: { flex: 1 } }, [
+          h2("span", { key: "t", style: { display: "block", fontSize: "14.5px", fontWeight: 700, color: "#f4f4f6" } }, "Scan QR with camera"),
+          h2("span", { key: "s", style: { display: "block", fontSize: "12.5px", color: "#8a8a92", marginTop: "1px" } }, "Fastest \u2014 point at your peer's screen")
         ]),
         fa("fa-chevron-right", { color: "#6b6b73" })
       ]),
-      h("div", { key: "or", style: { display: "flex", alignItems: "center", gap: "12px", marginBottom: "14px" } }, [
-        h("span", { key: "a", style: { flex: 1, height: "1px", background: "rgba(255,255,255,0.07)" } }),
-        h("span", { key: "m", style: { fontSize: "11px", fontWeight: 600, color: "#56565e", textTransform: "uppercase", letterSpacing: "0.7px" } }, "or paste code"),
-        h("span", { key: "b", style: { flex: 1, height: "1px", background: "rgba(255,255,255,0.07)" } })
+      h2("div", { key: "or", style: { display: "flex", alignItems: "center", gap: "12px", marginBottom: "14px" } }, [
+        h2("span", { key: "a", style: { flex: 1, height: "1px", background: "rgba(255,255,255,0.07)" } }),
+        h2("span", { key: "m", style: { fontSize: "11px", fontWeight: 600, color: "#56565e", textTransform: "uppercase", letterSpacing: "0.7px" } }, "or paste code"),
+        h2("span", { key: "b", style: { flex: 1, height: "1px", background: "rgba(255,255,255,0.07)" } })
       ]),
-      h(
+      h2(
         "div",
         { key: "ta", style: { borderRadius: "13px", border: `1px solid ${hasInvite ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.07)"}`, background: "#141416", padding: "13px 15px", marginBottom: "12px" } },
-        h("textarea", { value: offerInput, onChange: (e) => {
+        h2("textarea", { value: offerInput, onChange: (e) => {
           setOfferInput(e.target.value);
           if (e.target.value.trim().length > 0 && typeof markAnswerCreated === "function") markAnswerCreated();
         }, rows: 3, placeholder: "Paste invitation code here\u2026", style: { width: "100%", resize: "none", border: "none", outline: "none", background: "transparent", color: "#d7d7db", fontFamily: MONO, fontSize: "12.5px", lineHeight: 1.6, minHeight: "66px" } })
       ),
-      h("button", { key: "connect", onClick: () => {
+      h2("button", { key: "connect", onClick: () => {
         requestNotificationPermissionOnInteraction();
         onCreateAnswer();
       }, disabled: !hasInvite || connectionStatus === "connecting", style: { width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "9px", padding: "14px", borderRadius: "13px", border: "none", background: hasInvite && connectionStatus !== "connecting" ? C_ORANGE : "rgba(255,255,255,0.05)", color: hasInvite && connectionStatus !== "connecting" ? "#1a0f04" : "#56565e", fontFamily: "inherit", fontSize: "15px", fontWeight: 700, cursor: hasInvite && connectionStatus !== "connecting" ? "pointer" : "not-allowed", boxShadow: hasInvite && connectionStatus !== "connecting" ? "0 8px 24px rgba(240,137,42,0.28)" : "none" } }, connectionStatus === "connecting" ? "Processing\u2026" : "Connect")
@@ -1829,53 +4901,53 @@ var EnhancedConnectionSetup = ({
     } catch (e) {
     }
   };
-  const platformsMenu = platformsOpen && h("div", { key: "platmenu", className: "sb-platforms-menu", style: { position: "absolute", left: 0, bottom: "calc(100% + 10px)", width: "344px", maxWidth: "100%", borderRadius: "16px", border: "1px solid rgba(255,255,255,0.1)", background: "#161618", boxShadow: "0 24px 60px rgba(0,0,0,0.55)", overflow: "hidden", zIndex: 25, animation: "sbUp .2s ease" } }, [
-    h("div", { key: "mh", style: { display: "flex", alignItems: "center", gap: "10px", padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" } }, [
-      h("div", { key: "t", style: { flex: 1, lineHeight: 1.2 } }, [
-        h("div", { key: "a", style: { fontSize: "14px", fontWeight: 800, color: "#f4f4f6" } }, "Download SecureBit"),
-        h("div", { key: "b", style: { fontSize: "11.5px", color: "#7b7b83" } }, "Free \xB7 open source")
+  const platformsMenu = platformsOpen && h2("div", { key: "platmenu", className: "sb-platforms-menu", style: { position: "absolute", left: 0, bottom: "calc(100% + 10px)", width: "344px", maxWidth: "100%", borderRadius: "16px", border: "1px solid rgba(255,255,255,0.1)", background: "#161618", boxShadow: "0 24px 60px rgba(0,0,0,0.55)", overflow: "hidden", zIndex: 25, animation: "sbUp .2s ease" } }, [
+    h2("div", { key: "mh", style: { display: "flex", alignItems: "center", gap: "10px", padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" } }, [
+      h2("div", { key: "t", style: { flex: 1, lineHeight: 1.2 } }, [
+        h2("div", { key: "a", style: { fontSize: "14px", fontWeight: 800, color: "#f4f4f6" } }, "Download SecureBit"),
+        h2("div", { key: "b", style: { fontSize: "11.5px", color: "#7b7b83" } }, "Free \xB7 open source")
       ]),
-      h("span", { key: "pill", style: { fontFamily: MONO, fontSize: "10px", fontWeight: 600, color: C_GREEN, padding: "3px 8px", borderRadius: "6px", background: "rgba(62,207,142,0.1)", border: "1px solid rgba(62,207,142,0.22)" } }, "You're on Web")
+      h2("span", { key: "pill", style: { fontFamily: MONO, fontSize: "10px", fontWeight: 600, color: C_GREEN, padding: "3px 8px", borderRadius: "6px", background: "rgba(62,207,142,0.1)", border: "1px solid rgba(62,207,142,0.22)" } }, "You're on Web")
     ]),
-    h(
+    h2(
       "div",
       { key: "rec", style: { padding: "12px 12px 6px" } },
-      h("button", { key: "b", onClick: () => dlLink(DOWNLOADS[detectedOS].url), style: { width: "100%", display: "flex", alignItems: "center", gap: "12px", padding: "13px 14px", borderRadius: "12px", border: "1px solid rgba(240,137,42,0.4)", background: "rgba(240,137,42,0.08)", color: "inherit", fontFamily: "inherit", cursor: "pointer", textAlign: "left" } }, [
-        h("span", { key: "ic", style: { flex: "none", display: "grid", placeItems: "center", width: "38px", height: "38px", borderRadius: "11px", background: "rgba(240,137,42,0.14)", border: "1px solid rgba(240,137,42,0.3)", color: C_ORANGE } }, h("i", { className: DOWNLOADS[detectedOS].icon, style: { fontSize: "17px" } })),
-        h("span", { key: "tx", style: { flex: 1, minWidth: 0 } }, [
-          h("span", { key: "n", style: { display: "block", fontSize: "13.5px", fontWeight: 700, color: "#f4f4f6" } }, DOWNLOADS[detectedOS].name),
-          h("span", { key: "f", style: { display: "block", fontSize: "11px", color: "#f0b072", marginTop: "1px" } }, `Recommended for this device \xB7 ${DOWNLOADS[detectedOS].format}`)
+      h2("button", { key: "b", onClick: () => dlLink(DOWNLOADS[detectedOS].url), style: { width: "100%", display: "flex", alignItems: "center", gap: "12px", padding: "13px 14px", borderRadius: "12px", border: "1px solid rgba(240,137,42,0.4)", background: "rgba(240,137,42,0.08)", color: "inherit", fontFamily: "inherit", cursor: "pointer", textAlign: "left" } }, [
+        h2("span", { key: "ic", style: { flex: "none", display: "grid", placeItems: "center", width: "38px", height: "38px", borderRadius: "11px", background: "rgba(240,137,42,0.14)", border: "1px solid rgba(240,137,42,0.3)", color: C_ORANGE } }, h2("i", { className: DOWNLOADS[detectedOS].icon, style: { fontSize: "17px" } })),
+        h2("span", { key: "tx", style: { flex: 1, minWidth: 0 } }, [
+          h2("span", { key: "n", style: { display: "block", fontSize: "13.5px", fontWeight: 700, color: "#f4f4f6" } }, DOWNLOADS[detectedOS].name),
+          h2("span", { key: "f", style: { display: "block", fontSize: "11px", color: "#f0b072", marginTop: "1px" } }, `Recommended for this device \xB7 ${DOWNLOADS[detectedOS].format}`)
         ]),
         fa("fa-download", { color: C_ORANGE })
       ])
     ),
-    h(
+    h2(
       "div",
       { key: "others", style: { padding: "0 12px 8px", display: "flex", flexDirection: "column", gap: "2px" } },
-      otherOS.map((k) => h("button", { key: k, onClick: () => dlLink(DOWNLOADS[k].url), style: { width: "100%", display: "flex", alignItems: "center", gap: "12px", padding: "11px 14px", borderRadius: "11px", border: "none", background: "transparent", color: "inherit", fontFamily: "inherit", cursor: "pointer", textAlign: "left" } }, [
-        h("span", { key: "ic", style: { flex: "none", display: "grid", placeItems: "center", width: "34px", height: "34px", borderRadius: "10px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#cfcfd4" } }, h("i", { className: DOWNLOADS[k].icon, style: { fontSize: "15px" } })),
-        h("span", { key: "tx", style: { flex: 1, minWidth: 0 } }, [
-          h("span", { key: "n", style: { display: "block", fontSize: "13px", fontWeight: 600, color: "#e8e8eb" } }, DOWNLOADS[k].name),
-          h("span", { key: "f", style: { display: "block", fontSize: "11px", color: "#7b7b83", marginTop: "1px" } }, DOWNLOADS[k].format)
+      otherOS.map((k) => h2("button", { key: k, onClick: () => dlLink(DOWNLOADS[k].url), style: { width: "100%", display: "flex", alignItems: "center", gap: "12px", padding: "11px 14px", borderRadius: "11px", border: "none", background: "transparent", color: "inherit", fontFamily: "inherit", cursor: "pointer", textAlign: "left" } }, [
+        h2("span", { key: "ic", style: { flex: "none", display: "grid", placeItems: "center", width: "34px", height: "34px", borderRadius: "10px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#cfcfd4" } }, h2("i", { className: DOWNLOADS[k].icon, style: { fontSize: "15px" } })),
+        h2("span", { key: "tx", style: { flex: 1, minWidth: 0 } }, [
+          h2("span", { key: "n", style: { display: "block", fontSize: "13px", fontWeight: 600, color: "#e8e8eb" } }, DOWNLOADS[k].name),
+          h2("span", { key: "f", style: { display: "block", fontSize: "11px", color: "#7b7b83", marginTop: "1px" } }, DOWNLOADS[k].format)
         ]),
         fa("fa-download", { color: "#8a8a92" })
       ]))
     ),
-    h("div", { key: "soon", style: { display: "flex", alignItems: "center", gap: "9px", padding: "12px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.015)" } }, [
+    h2("div", { key: "soon", style: { display: "flex", alignItems: "center", gap: "9px", padding: "12px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.015)" } }, [
       fa("fa-clock", { key: "i", color: "#6b6b73" }),
-      h("span", { key: "t", style: { fontSize: "11.5px", lineHeight: 1.45, color: "#7b7b83" } }, "Mobile (iOS, Android) and browser extensions (Chrome, Firefox, Opera) are coming soon.")
+      h2("span", { key: "t", style: { fontSize: "11.5px", lineHeight: 1.45, color: "#7b7b83" } }, "Mobile (iOS, Android) and browser extensions (Chrome, Firefox, Opera) are coming soon.")
     ])
   ]);
-  const footer = h("div", { key: "footer", className: "sb-conn-footer", style: { position: "relative", marginTop: "30px", paddingTop: "18px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" } }, [
-    h("button", { key: "dl", onClick: () => setPlatformsOpen((v) => !v), style: { display: "inline-flex", alignItems: "center", gap: "9px", padding: "8px 13px 8px 9px", borderRadius: "10px", border: `1px solid ${platformsOpen ? "rgba(240,137,42,0.4)" : "rgba(255,255,255,0.08)"}`, background: platformsOpen ? "rgba(240,137,42,0.06)" : "rgba(255,255,255,0.02)", color: "inherit", fontFamily: "inherit", cursor: "pointer", transition: "all .15s" } }, [
+  const footer = h2("div", { key: "footer", className: "sb-conn-footer", style: { position: "relative", marginTop: "30px", paddingTop: "18px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" } }, [
+    h2("button", { key: "dl", onClick: () => setPlatformsOpen((v) => !v), style: { display: "inline-flex", alignItems: "center", gap: "9px", padding: "8px 13px 8px 9px", borderRadius: "10px", border: `1px solid ${platformsOpen ? "rgba(240,137,42,0.4)" : "rgba(255,255,255,0.08)"}`, background: platformsOpen ? "rgba(240,137,42,0.06)" : "rgba(255,255,255,0.02)", color: "inherit", fontFamily: "inherit", cursor: "pointer", transition: "all .15s" } }, [
       fa("fa-download", { key: "i", color: C_ORANGE }),
-      h("span", { key: "t", style: { fontSize: "12.5px", fontWeight: 700, color: "#e8e8eb" } }, "Download desktop app"),
+      h2("span", { key: "t", style: { fontSize: "12.5px", fontWeight: 700, color: "#e8e8eb" } }, "Download desktop app"),
       fa("fa-chevron-down", { key: "c", color: "#6b6b73", style: { fontSize: "11px", transform: platformsOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform .2s" } })
     ]),
-    h("button", { key: "settings", className: "sb-link", onClick: () => setShowIceSettings && setShowIceSettings(true), style: { display: "inline-flex", alignItems: "center", gap: "7px", background: "none", border: "none", color: "#8a8a92", fontFamily: "inherit", fontSize: "12.5px", fontWeight: 600, cursor: "pointer" } }, [fa("fa-sliders-h", { key: "i" }), "Advanced settings"]),
+    h2("button", { key: "settings", className: "sb-link", onClick: () => setShowIceSettings && setShowIceSettings(true), style: { display: "inline-flex", alignItems: "center", gap: "7px", background: "none", border: "none", color: "#8a8a92", fontFamily: "inherit", fontSize: "12.5px", fontWeight: 600, cursor: "pointer" } }, [fa("fa-sliders-h", { key: "i" }), "Advanced settings"]),
     platformsMenu
   ]);
-  const settingsOverlay = showIceSettings && typeof window !== "undefined" && window.IceServerSettings ? h(window.IceServerSettings, {
+  const settingsOverlay = showIceSettings && typeof window !== "undefined" && window.IceServerSettings ? h2(window.IceServerSettings, {
     key: "ice-settings",
     isOpen: true,
     embedded: true,
@@ -1890,12 +4962,12 @@ var EnhancedConnectionSetup = ({
     onApply: handleApplyIceSettings,
     onForget: handleForgetIceSettings
   }) : null;
-  const rightPanel = h("div", { key: "right", style: compact ? { flex: 1, minWidth: 0, width: "100%", position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", height: "100%" } : { flex: "0.95 1 460px", minWidth: "min(100%, 320px)", position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", height: "100vh" } }, [
-    h(
+  const rightPanel = h2("div", { key: "right", style: compact ? { flex: 1, minWidth: 0, width: "100%", position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", height: "100%" } : { flex: "0.95 1 460px", minWidth: "min(100%, 320px)", position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", height: "100vh" } }, [
+    h2(
       "div",
       { key: "scroll", className: "custom-scrollbar", style: { flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", padding: "42px 44px" } },
-      h("div", { style: { maxWidth: "430px", width: "100%", margin: "auto" } }, [
-        h("div", { key: "kicker", style: { fontFamily: MONO, fontSize: "11px", fontWeight: 600, color: "#6b6b73", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "10px" } }, kicker),
+      h2("div", { style: { maxWidth: "430px", width: "100%", margin: "auto" } }, [
+        h2("div", { key: "kicker", style: { fontFamily: MONO, fontSize: "11px", fontWeight: 600, color: "#6b6b73", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "10px" } }, kicker),
         segToggle,
         inner,
         footer
@@ -1903,51 +4975,51 @@ var EnhancedConnectionSetup = ({
     ),
     settingsOverlay
   ]);
-  const qrModal = qrModalOpen && qrCodeUrl && h(
+  const qrModal = qrModalOpen && qrCodeUrl && h2(
     "div",
     { key: "qrmodal", onClick: () => setQrModalOpen(false), style: { position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: "32px", background: "rgba(6,6,8,0.82)", backdropFilter: "blur(10px)", animation: "sbUp .2s ease" } },
-    h("div", { onClick: (e) => e.stopPropagation(), style: { width: "100%", maxWidth: "460px", borderRadius: "22px", border: "1px solid rgba(255,255,255,0.1)", background: "#111113", boxShadow: "0 30px 90px rgba(0,0,0,0.6)", overflow: "hidden" } }, [
-      h("div", { key: "head", style: { display: "flex", alignItems: "center", gap: "11px", padding: "18px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" } }, [
-        h("span", { key: "d", style: { width: "9px", height: "9px", borderRadius: "50%", background: accent } }),
-        h("div", { key: "tx", style: { flex: 1, lineHeight: 1.2 } }, [
-          h("div", { key: "t", style: { fontSize: "15.5px", fontWeight: 800, color: "#f4f4f6" } }, isCreate ? "Share your invitation" : "Send back your answer"),
-          h("div", { key: "s", style: { fontSize: "12px", color: "#7b7b83" } }, `${isCreate ? "offer" : "answer"} \xB7 one-time`)
+    h2("div", { onClick: (e) => e.stopPropagation(), style: { width: "100%", maxWidth: "460px", borderRadius: "22px", border: "1px solid rgba(255,255,255,0.1)", background: "#111113", boxShadow: "0 30px 90px rgba(0,0,0,0.6)", overflow: "hidden" } }, [
+      h2("div", { key: "head", style: { display: "flex", alignItems: "center", gap: "11px", padding: "18px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" } }, [
+        h2("span", { key: "d", style: { width: "9px", height: "9px", borderRadius: "50%", background: accent } }),
+        h2("div", { key: "tx", style: { flex: 1, lineHeight: 1.2 } }, [
+          h2("div", { key: "t", style: { fontSize: "15.5px", fontWeight: 800, color: "#f4f4f6" } }, isCreate ? "Share your invitation" : "Send back your answer"),
+          h2("div", { key: "s", style: { fontSize: "12px", color: "#7b7b83" } }, `${isCreate ? "offer" : "answer"} \xB7 one-time`)
         ]),
-        h("button", { key: "x", onClick: () => setQrModalOpen(false), style: { width: "32px", height: "32px", display: "grid", placeItems: "center", borderRadius: "9px", border: "none", background: "rgba(255,255,255,0.05)", color: "#9a9aa2", cursor: "pointer" } }, fa("fa-times"))
+        h2("button", { key: "x", onClick: () => setQrModalOpen(false), style: { width: "32px", height: "32px", display: "grid", placeItems: "center", borderRadius: "9px", border: "none", background: "rgba(255,255,255,0.05)", color: "#9a9aa2", cursor: "pointer" } }, fa("fa-times"))
       ]),
-      h("div", { key: "body", style: { padding: "22px 24px 24px" } }, [
-        h(
+      h2("div", { key: "body", style: { padding: "22px 24px 24px" } }, [
+        h2(
           "div",
           { key: "qr", style: { position: "relative", width: "100%", aspectRatio: "1", borderRadius: "18px", overflow: "hidden", background: "#fff", padding: "18px", display: "grid", placeItems: "center" } },
-          h("img", { src: qrCodeUrl, alt: "QR code", style: { width: "100%", height: "100%", objectFit: "contain", display: "block" } })
+          h2("img", { src: qrCodeUrl, alt: "QR code", style: { width: "100%", height: "100%", objectFit: "contain", display: "block" } })
         ),
-        h("div", { key: "ctrls", style: { display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", marginTop: "18px" } }, [
-          (qrFramesTotal || 0) >= 1 && h("div", { key: "frame", style: { display: "flex", alignItems: "center", gap: "9px" } }, [
-            h("span", { key: "l", style: { fontFamily: MONO, fontSize: "12px", fontWeight: 600, color: "#9a9aa2" } }, `Frame ${Math.max(1, qrFrameIndex || 1)} / ${qrFramesTotal || 1}`),
-            h("div", { key: "dots", style: { display: "flex", gap: "5px" } }, Array.from({ length: qrFramesTotal || 1 }, (_, i) => h("span", { key: i, style: { width: "7px", height: "7px", borderRadius: "50%", background: i + 1 === (qrFrameIndex || 1) ? accent : "rgba(255,255,255,0.14)", transition: "background .25s" } })))
+        h2("div", { key: "ctrls", style: { display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", marginTop: "18px" } }, [
+          (qrFramesTotal || 0) >= 1 && h2("div", { key: "frame", style: { display: "flex", alignItems: "center", gap: "9px" } }, [
+            h2("span", { key: "l", style: { fontFamily: MONO, fontSize: "12px", fontWeight: 600, color: "#9a9aa2" } }, `Frame ${Math.max(1, qrFrameIndex || 1)} / ${qrFramesTotal || 1}`),
+            h2("div", { key: "dots", style: { display: "flex", gap: "5px" } }, Array.from({ length: qrFramesTotal || 1 }, (_, i) => h2("span", { key: i, style: { width: "7px", height: "7px", borderRadius: "50%", background: i + 1 === (qrFrameIndex || 1) ? accent : "rgba(255,255,255,0.14)", transition: "background .25s" } })))
           ]),
-          (qrFramesTotal || 0) > 1 && h("div", { key: "nav", style: { display: "flex", alignItems: "center", gap: "6px" } }, [
-            h("button", { key: "prev", onClick: prevQrFrame, style: { width: "40px", height: "36px", display: "grid", placeItems: "center", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "#cfcfd4", cursor: "pointer" } }, fa("fa-chevron-left")),
-            h("button", { key: "auto", onClick: toggleQrManualMode, style: { display: "inline-flex", alignItems: "center", gap: "7px", padding: "9px 18px", borderRadius: "10px", border: `1px solid ${qrManualMode ? "rgba(255,255,255,0.1)" : "rgba(240,137,42,0.45)"}`, background: qrManualMode ? "rgba(255,255,255,0.04)" : "rgba(240,137,42,0.08)", color: qrManualMode ? "#9a9aa2" : C_ORANGE, fontFamily: "inherit", fontSize: "13px", fontWeight: 600, cursor: "pointer" } }, qrManualMode ? "Manual" : "Auto"),
-            h("button", { key: "next", onClick: nextQrFrame, style: { width: "40px", height: "36px", display: "grid", placeItems: "center", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "#cfcfd4", cursor: "pointer" } }, fa("fa-chevron-right"))
+          (qrFramesTotal || 0) > 1 && h2("div", { key: "nav", style: { display: "flex", alignItems: "center", gap: "6px" } }, [
+            h2("button", { key: "prev", onClick: prevQrFrame, style: { width: "40px", height: "36px", display: "grid", placeItems: "center", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "#cfcfd4", cursor: "pointer" } }, fa("fa-chevron-left")),
+            h2("button", { key: "auto", onClick: toggleQrManualMode, style: { display: "inline-flex", alignItems: "center", gap: "7px", padding: "9px 18px", borderRadius: "10px", border: `1px solid ${qrManualMode ? "rgba(255,255,255,0.1)" : "rgba(240,137,42,0.45)"}`, background: qrManualMode ? "rgba(255,255,255,0.04)" : "rgba(240,137,42,0.08)", color: qrManualMode ? "#9a9aa2" : C_ORANGE, fontFamily: "inherit", fontSize: "13px", fontWeight: 600, cursor: "pointer" } }, qrManualMode ? "Manual" : "Auto"),
+            h2("button", { key: "next", onClick: nextQrFrame, style: { width: "40px", height: "36px", display: "grid", placeItems: "center", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "#cfcfd4", cursor: "pointer" } }, fa("fa-chevron-right"))
           ]),
-          h("p", { key: "hint", style: { margin: "2px 0 0", textAlign: "center", fontSize: "12px", lineHeight: 1.5, color: "#6b6b73" } }, (qrFramesTotal || 0) > 1 ? `The handshake is split across ${qrFramesTotal} frames \u2014 keep this open until your peer captures all of them.` : "Keep this open until your peer captures the code.")
+          h2("p", { key: "hint", style: { margin: "2px 0 0", textAlign: "center", fontSize: "12px", lineHeight: 1.5, color: "#6b6b73" } }, (qrFramesTotal || 0) > 1 ? `The handshake is split across ${qrFramesTotal} frames \u2014 keep this open until your peer captures all of them.` : "Keep this open until your peer captures the code.")
         ])
       ])
     ])
   );
-  const hero = h("div", { key: "hero", style: { display: "flex", flexWrap: "wrap", minHeight: "100vh", width: "100%", background: "#0f0f11", color: "#e8e8eb" } }, [leftPanel, rightPanel]);
-  const uniqueSection = atIntro && h(UniqueFeatureSlider, { key: "unique-features-slider" });
-  const partnersSection = atIntro && h(BecomePartner, { key: "become-partner" });
-  const roadmapSection = atIntro && h(Roadmap, { key: "roadmap" });
-  const communitySection = atIntro && h(CommunityCTA, { key: "community-cta" });
-  const keyframeStyle = h("style", { key: "kf", dangerouslySetInnerHTML: {
-    __html: "@keyframes sbFlowR{0%{left:4%;opacity:0}12%{opacity:1}88%{opacity:1}100%{left:96%;opacity:0}}@keyframes sbFlowL{0%{left:96%;opacity:0}12%{opacity:1}88%{opacity:1}100%{left:4%;opacity:0}}@keyframes sbPulse{0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.5}50%{transform:translate(-50%,-50%) scale(1.5);opacity:0}}@keyframes sbSpin{to{transform:rotate(360deg)}}@keyframes sbUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes sbNode{0%,100%{box-shadow:0 0 0 0 rgba(62,207,142,0)}50%{box-shadow:0 0 0 6px rgba(62,207,142,.06)}}@keyframes sbScan{0%{top:8%}100%{top:88%}}@keyframes sbBlink{0%,100%{opacity:1}50%{opacity:.35}}"
+  const hero = h2("div", { key: "hero", style: { display: "flex", flexWrap: "wrap", minHeight: "100vh", width: "100%", background: "#0f0f11", color: "#e8e8eb" } }, [leftPanel, rightPanel]);
+  const uniqueSection = atIntro && h2(UniqueFeatureSlider, { key: "unique-features-slider" });
+  const partnersSection = atIntro && h2(BecomePartner, { key: "become-partner" });
+  const roadmapSection = atIntro && h2(Roadmap, { key: "roadmap" });
+  const communitySection = atIntro && h2(CommunityCTA, { key: "community-cta" });
+  const keyframeStyle = h2("style", { key: "kf", dangerouslySetInnerHTML: {
+    __html: '@keyframes sbFlowR{0%{left:4%;opacity:0}12%{opacity:1}88%{opacity:1}100%{left:96%;opacity:0}}@keyframes sbFlowL{0%{left:96%;opacity:0}12%{opacity:1}88%{opacity:1}100%{left:4%;opacity:0}}@keyframes sbPulse{0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.5}50%{transform:translate(-50%,-50%) scale(1.5);opacity:0}}@keyframes sbSpin{to{transform:rotate(360deg)}}@keyframes sbUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes sbNode{0%,100%{box-shadow:0 0 0 0 rgba(62,207,142,0)}50%{box-shadow:0 0 0 6px rgba(62,207,142,.06)}}@keyframes sbScan{0%{top:8%}100%{top:88%}}@keyframes sbBlink{0%,100%{opacity:1}50%{opacity:.35}}@keyframes sbTrav{0%{offset-distance:0%;opacity:0}15%{opacity:1}80%{opacity:1}100%{offset-distance:100%;opacity:0}}@keyframes sbRing1{0%,24%{r:5;opacity:0}26%{opacity:.8}34%{r:22;opacity:0}100%{r:22;opacity:0}}@keyframes sbRing2{0%,54%{r:5;opacity:0}56%{opacity:.8}64%{r:22;opacity:0}100%{r:22;opacity:0}}@keyframes sbIn1{0%,24%{opacity:0}27%{opacity:1}100%{opacity:1}}@keyframes sbIn2{0%,54%{opacity:0}57%{opacity:1}100%{opacity:1}}@keyframes sbRow0{0%,4%{opacity:0;transform:translateY(4px)}8%{opacity:1;transform:none}100%{opacity:1;transform:none}}@keyframes sbRow1{0%,25%{opacity:0;transform:translateY(4px)}29%{opacity:1;transform:none}100%{opacity:1;transform:none}}@keyframes sbRow2{0%,55%{opacity:0;transform:translateY(4px)}59%{opacity:1;transform:none}100%{opacity:1;transform:none}}@media (prefers-reduced-motion: reduce){.sb-start [style*="sbTrav"],.sb-start [style*="sbRing"]{animation:none!important;opacity:0!important}.sb-start [style*="sbIn1"],.sb-start [style*="sbIn2"],.sb-start [style*="sbRow0"],.sb-start [style*="sbRow1"],.sb-start [style*="sbRow2"]{animation:none!important;opacity:1!important;transform:none!important}}'
   } });
   if (compact) {
-    return h("div", { className: "sb-start", style: { flex: 1, minHeight: 0, width: "100%", display: "flex", flexDirection: "column", background: "#0f0f11", color: "#e8e8eb" } }, [keyframeStyle, rightPanel, qrModal]);
+    return h2("div", { className: "sb-start", style: { flex: 1, minHeight: 0, width: "100%", display: "flex", flexDirection: "column", background: "#0f0f11", color: "#e8e8eb" } }, [keyframeStyle, rightPanel, qrModal]);
   }
-  return h("div", { className: "sb-start", style: { width: "100%" } }, [keyframeStyle, hero, uniqueSection, partnersSection, roadmapSection, communitySection, qrModal]);
+  return h2("div", { className: "sb-start", style: { width: "100%" } }, [keyframeStyle, hero, uniqueSection, partnersSection, roadmapSection, communitySection, qrModal]);
 };
 var createScrollToBottomFunction = (chatMessagesRef) => {
   return () => {
@@ -2713,8 +5785,8 @@ var SB_SVG = {
   users: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19"/><circle cx="10" cy="8" r="3.2"/><path d="M20 19v-1.5a3.5 3.5 0 0 0-2.6-3.4"/><path d="M15.5 5.3a3.2 3.2 0 0 1 0 5.4"/></svg>',
   burger: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>'
 };
-var SessionsSidebar = ({ chats, collapsed, drawerOpen, onToggleCollapse, onSelect, onNewChat, onRename, onCloseDrawer, myStatus, onSetStatus }) => {
-  const h = React.createElement;
+var SessionsSidebar = ({ chats, groups = [], collapsed, drawerOpen, onToggleCollapse, onSelect, onSelectGroup, onNewChat, onNewGroup, onRename, onCloseDrawer, myStatus, onSetStatus }) => {
+  const h2 = React.createElement;
   const [editingId, setEditingId] = React.useState(null);
   const [draft, setDraft] = React.useState("");
   const [presenceOpen, setPresenceOpen] = React.useState(false);
@@ -2737,7 +5809,7 @@ var SessionsSidebar = ({ chats, collapsed, drawerOpen, onToggleCollapse, onSelec
       setEditingId(null);
     }
   };
-  const renameInput = (extra = {}) => h("input", {
+  const renameInput = (extra = {}) => h2("input", {
     autoFocus: true,
     value: draft,
     onChange: (e) => setDraft(e.target.value),
@@ -2746,49 +5818,49 @@ var SessionsSidebar = ({ chats, collapsed, drawerOpen, onToggleCollapse, onSelec
     onClick: (e) => e.stopPropagation(),
     style: Object.assign({ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(240,137,42,0.5)", borderRadius: "6px", color: "#f4f4f6", fontFamily: "inherit", fontSize: "14px", fontWeight: 700, padding: "2px 6px", outline: "none" }, extra)
   });
-  const icon = (svg, style) => h("span", { style: Object.assign({ display: "grid", placeItems: "center" }, style || {}), dangerouslySetInnerHTML: { __html: svg } });
-  const avatar = (c, size, ring) => h("div", {
+  const icon = (svg2, style) => h2("span", { style: Object.assign({ display: "grid", placeItems: "center" }, style || {}), dangerouslySetInnerHTML: { __html: svg2 } });
+  const avatar = (c, size, ring) => h2("div", {
     style: { position: "relative", flex: "none", width: size + "px", height: size + "px", borderRadius: (size >= 44 ? 12 : 11) + "px", display: "grid", placeItems: "center", background: c.active ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255," + (c.active ? "0.14" : "0.07") + ")", fontSize: "13px", fontWeight: 700, letterSpacing: "-0.3px", color: c.active ? "#f4f4f6" : "#9a9aa2" }
-  }, [c.mono, h("span", { key: "dot", style: { position: "absolute", right: "-2px", bottom: "-2px", width: "11px", height: "11px", borderRadius: "50%", background: c.dot, border: "2px solid " + ring } })]);
-  const expandedRow = (c) => h("div", {
+  }, [c.mono, h2("span", { key: "dot", style: { position: "absolute", right: "-2px", bottom: "-2px", width: "11px", height: "11px", borderRadius: "50%", background: c.dot, border: "2px solid " + ring } })]);
+  const expandedRow = (c) => h2("div", {
     key: c.id,
     onClick: () => onSelect(c.id),
     style: { position: "relative", display: "flex", alignItems: "center", gap: "12px", padding: "11px 12px", marginBottom: "4px", borderRadius: "11px", background: c.active ? "#161618" : "transparent", border: "1px solid " + (c.active ? "rgba(255,255,255,0.08)" : "transparent"), cursor: "pointer" }
   }, [
-    c.active && h("span", { key: "bar", style: { position: "absolute", left: 0, top: "12px", bottom: "12px", width: "3px", borderRadius: "0 3px 3px 0", background: "#f0892a" } }),
+    c.active && h2("span", { key: "bar", style: { position: "absolute", left: 0, top: "12px", bottom: "12px", width: "3px", borderRadius: "0 3px 3px 0", background: "#f0892a" } }),
     avatar(c, 38, c.active ? "#161618" : "#0c0c0e"),
-    h("div", { key: "body", style: { flex: 1, minWidth: 0 } }, [
-      h("div", { key: "top", style: { display: "flex", alignItems: "center", gap: "7px" } }, [
-        editingId === c.id ? renameInput() : h("span", {
+    h2("div", { key: "body", style: { flex: 1, minWidth: 0 } }, [
+      h2("div", { key: "top", style: { display: "flex", alignItems: "center", gap: "7px" } }, [
+        editingId === c.id ? renameInput() : h2("span", {
           key: "name",
           onDoubleClick: startEdit(c),
           title: "Double-click to rename",
           style: { flex: 1, minWidth: 0, fontSize: "14px", fontWeight: c.active ? 700 : 600, letterSpacing: "-0.2px", color: c.active ? "#f4f4f6" : "#cfcfd4", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }
         }, c.name),
-        c.unread && editingId !== c.id && h("span", { key: "u", style: { flex: "none", minWidth: "18px", height: "18px", padding: "0 5px", borderRadius: "9px", display: "grid", placeItems: "center", background: "#f0892a", color: "#1a0f04", fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 700 } }, c.unread)
+        c.unread && editingId !== c.id && h2("span", { key: "u", style: { flex: "none", minWidth: "18px", height: "18px", padding: "0 5px", borderRadius: "9px", display: "grid", placeItems: "center", background: "#f0892a", color: "#1a0f04", fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 700 } }, c.unread)
       ]),
-      h("div", { key: "prev", style: { fontSize: "12px", color: c.active ? "#8a8a92" : "#6b6b73", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.preview)
+      h2("div", { key: "prev", style: { fontSize: "12px", color: c.active ? "#8a8a92" : "#6b6b73", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.preview)
     ])
   ]);
-  const dockItem = (c) => h("div", { key: c.id, style: { position: "relative" } }, [
-    c.active && h("span", { key: "bar", style: { position: "absolute", left: "-13px", top: "9px", bottom: "9px", width: "3px", borderRadius: "0 3px 3px 0", background: "#f0892a" } }),
-    h("div", {
+  const dockItem = (c) => h2("div", { key: c.id, style: { position: "relative" } }, [
+    c.active && h2("span", { key: "bar", style: { position: "absolute", left: "-13px", top: "9px", bottom: "9px", width: "3px", borderRadius: "0 3px 3px 0", background: "#f0892a" } }),
+    h2("div", {
       key: "tile",
       onClick: () => onSelect(c.id),
       title: c.name,
       style: { position: "relative", width: "44px", height: "44px", borderRadius: "12px", display: "grid", placeItems: "center", cursor: "pointer", background: c.active ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255," + (c.active ? "0.14" : "0.07") + ")", fontSize: "13px", fontWeight: 700, letterSpacing: "-0.3px", color: c.active ? "#f4f4f6" : "#9a9aa2" }
     }, [
       c.mono,
-      h("span", { key: "dot", style: { position: "absolute", right: "-2px", bottom: "-2px", width: "11px", height: "11px", borderRadius: "50%", background: c.dot, border: "2.5px solid #0c0c0e" } }),
-      c.unread && h("span", { key: "u", style: { position: "absolute", left: "-5px", top: "-5px", minWidth: "17px", height: "17px", padding: "0 4px", borderRadius: "9px", display: "grid", placeItems: "center", background: "#f0892a", color: "#1a0f04", fontFamily: "'JetBrains Mono',monospace", fontSize: "9.5px", fontWeight: 700, border: "2px solid #0c0c0e" } }, c.unread)
+      h2("span", { key: "dot", style: { position: "absolute", right: "-2px", bottom: "-2px", width: "11px", height: "11px", borderRadius: "50%", background: c.dot, border: "2.5px solid #0c0c0e" } }),
+      c.unread && h2("span", { key: "u", style: { position: "absolute", left: "-5px", top: "-5px", minWidth: "17px", height: "17px", padding: "0 4px", borderRadius: "9px", display: "grid", placeItems: "center", background: "#f0892a", color: "#1a0f04", fontFamily: "'JetBrains Mono',monospace", fontSize: "9.5px", fontWeight: 700, border: "2px solid #0c0c0e" } }, c.unread)
     ])
   ]);
-  const brandMark = (size) => h(
+  const brandMark = (size) => h2(
     "div",
     { style: { width: size + "px", height: size + "px", flex: "none", display: "grid", placeItems: "center" } },
-    h("img", { src: "/logo/securebit-mark.svg", alt: "SecureBit", style: { width: "100%", height: "100%", objectFit: "contain", display: "block" } })
+    h2("img", { src: "/logo/securebit-mark.svg", alt: "SecureBit", style: { width: "100%", height: "100%", objectFit: "contain", display: "block" } })
   );
-  const collapseBtn = (svg, title) => h("button", { className: "sb-collapse-btn", onClick: onToggleCollapse, title, style: { width: "30px", height: "30px", borderRadius: "8px", display: "grid", placeItems: "center", border: "1px solid rgba(255,255,255,0.07)", background: "transparent", color: "#8a8a92", cursor: "pointer" }, dangerouslySetInnerHTML: { __html: svg } });
+  const collapseBtn = (svg2, title) => h2("button", { className: "sb-collapse-btn", onClick: onToggleCollapse, title, style: { width: "30px", height: "30px", borderRadius: "8px", display: "grid", placeItems: "center", border: "1px solid rgba(255,255,255,0.07)", background: "transparent", color: "#8a8a92", cursor: "pointer" }, dangerouslySetInnerHTML: { __html: svg2 } });
   const myMeta = MY_STATUS_OPTIONS.find((o) => o.key === myStatus) || MY_STATUS_OPTIONS[0];
   const PRES_SVG = {
     user: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20v-1.5a4 4 0 0 0-4-4h-4a4 4 0 0 0-4 4V20"/><circle cx="12" cy="8" r="3.6"/></svg>',
@@ -2796,12 +5868,12 @@ var SessionsSidebar = ({ chats, collapsed, drawerOpen, onToggleCollapse, onSelec
     chevUp: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b6b73" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>',
     lock: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11V7a5 5 0 0 1 10 0v4"/><rect x="4.5" y="11" width="15" height="9" rx="2.2"/></svg>'
   };
-  const presenceMenu = (pos) => presenceOpen ? h("div", {
+  const presenceMenu = (pos) => presenceOpen ? h2("div", {
     key: "pmenu",
     style: Object.assign({ position: "absolute", zIndex: 30, borderRadius: "14px", background: "#161618", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 16px 40px rgba(0,0,0,0.55)", padding: "6px" }, pos)
   }, [
-    h("div", { key: "h", style: { padding: "9px 10px 7px", fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 600, color: "#56565e", textTransform: "uppercase", letterSpacing: "1.2px" } }, "Set your status"),
-    ...MY_STATUS_OPTIONS.map((o) => h("button", {
+    h2("div", { key: "h", style: { padding: "9px 10px 7px", fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 600, color: "#56565e", textTransform: "uppercase", letterSpacing: "1.2px" } }, "Set your status"),
+    ...MY_STATUS_OPTIONS.map((o) => h2("button", {
       key: o.key,
       onClick: () => {
         onSetStatus(o.key);
@@ -2809,74 +5881,108 @@ var SessionsSidebar = ({ chats, collapsed, drawerOpen, onToggleCollapse, onSelec
       },
       style: { width: "100%", display: "flex", alignItems: "center", gap: "11px", padding: "9px 10px", borderRadius: "9px", border: "none", background: "transparent", cursor: "pointer", textAlign: "left" }
     }, [
-      h("span", { key: "d", style: { flex: "none", width: "10px", height: "10px", borderRadius: "50%", background: o.dot } }),
-      h("span", { key: "t", style: { flex: 1, minWidth: 0 } }, [
-        h("span", { key: "w", style: { display: "block", fontSize: "13.5px", fontWeight: 600, color: "#e8e8eb" } }, o.word),
-        h("span", { key: "de", style: { display: "block", fontSize: "11.5px", color: "#6b6b73" } }, o.desc)
+      h2("span", { key: "d", style: { flex: "none", width: "10px", height: "10px", borderRadius: "50%", background: o.dot } }),
+      h2("span", { key: "t", style: { flex: 1, minWidth: 0 } }, [
+        h2("span", { key: "w", style: { display: "block", fontSize: "13.5px", fontWeight: 600, color: "#e8e8eb" } }, o.word),
+        h2("span", { key: "de", style: { display: "block", fontSize: "11.5px", color: "#6b6b73" } }, o.desc)
       ]),
-      o.key === myStatus && h("span", { key: "c", style: { flex: "none", display: "grid", placeItems: "center" }, dangerouslySetInnerHTML: { __html: PRES_SVG.check } })
+      o.key === myStatus && h2("span", { key: "c", style: { flex: "none", display: "grid", placeItems: "center" }, dangerouslySetInnerHTML: { __html: PRES_SVG.check } })
     ])),
-    h("div", { key: "note", style: { display: "flex", alignItems: "flex-start", gap: "8px", margin: "6px 6px 4px", padding: "9px 10px", borderRadius: "9px", background: "rgba(62,207,142,0.06)", border: "1px solid rgba(62,207,142,0.16)" } }, [
-      h("span", { key: "i", style: { flex: "none", marginTop: "1px", display: "grid" }, dangerouslySetInnerHTML: { __html: PRES_SVG.lock } }),
-      h("span", { key: "t", style: { fontSize: "11px", lineHeight: 1.45, color: "#8a8a92" } }, "Sent end-to-end to connected peers only \u2014 never stored on a server.")
+    h2("div", { key: "note", style: { display: "flex", alignItems: "flex-start", gap: "8px", margin: "6px 6px 4px", padding: "9px 10px", borderRadius: "9px", background: "rgba(62,207,142,0.06)", border: "1px solid rgba(62,207,142,0.16)" } }, [
+      h2("span", { key: "i", style: { flex: "none", marginTop: "1px", display: "grid" }, dangerouslySetInnerHTML: { __html: PRES_SVG.lock } }),
+      h2("span", { key: "t", style: { fontSize: "11px", lineHeight: 1.45, color: "#8a8a92" } }, "Sent end-to-end to connected peers only \u2014 never stored on a server.")
     ])
   ]) : null;
-  const presencePanelExpanded = h("div", { key: "you", style: { flex: "none", position: "relative", marginTop: "10px", borderTop: "1px solid rgba(255,255,255,0.06)", padding: "10px 12px 12px" } }, [
+  const presencePanelExpanded = h2("div", { key: "you", style: { flex: "none", position: "relative", marginTop: "10px", borderTop: "1px solid rgba(255,255,255,0.06)", padding: "10px 12px 12px" } }, [
     presenceMenu({ left: "12px", right: "12px", bottom: "64px" }),
-    h("button", { key: "btn", onClick: () => setPresenceOpen((v) => !v), style: { width: "100%", display: "flex", alignItems: "center", gap: "11px", padding: "7px 8px", borderRadius: "11px", border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)", cursor: "pointer" } }, [
-      h("div", { key: "av", style: { position: "relative", flex: "none", width: "36px", height: "36px", borderRadius: "10px", display: "grid", placeItems: "center", background: "rgba(240,137,42,0.12)", border: "1px solid rgba(240,137,42,0.24)", color: "#f0892a" } }, [
-        h("span", { key: "i", style: { display: "grid" }, dangerouslySetInnerHTML: { __html: PRES_SVG.user } }),
-        h("span", { key: "dot", style: { position: "absolute", right: "-2px", bottom: "-2px", width: "11px", height: "11px", borderRadius: "50%", background: myMeta.dot, border: "2px solid #0c0c0e" } })
+    h2("button", { key: "btn", onClick: () => setPresenceOpen((v) => !v), style: { width: "100%", display: "flex", alignItems: "center", gap: "11px", padding: "7px 8px", borderRadius: "11px", border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)", cursor: "pointer" } }, [
+      h2("div", { key: "av", style: { position: "relative", flex: "none", width: "36px", height: "36px", borderRadius: "10px", display: "grid", placeItems: "center", background: "rgba(240,137,42,0.12)", border: "1px solid rgba(240,137,42,0.24)", color: "#f0892a" } }, [
+        h2("span", { key: "i", style: { display: "grid" }, dangerouslySetInnerHTML: { __html: PRES_SVG.user } }),
+        h2("span", { key: "dot", style: { position: "absolute", right: "-2px", bottom: "-2px", width: "11px", height: "11px", borderRadius: "50%", background: myMeta.dot, border: "2px solid #0c0c0e" } })
       ]),
-      h("div", { key: "tx", style: { flex: 1, minWidth: 0, textAlign: "left" } }, [
-        h("div", { key: "y", style: { fontSize: "13.5px", fontWeight: 700, color: "#f4f4f6" } }, "You"),
-        h("div", { key: "w", style: { fontSize: "12px", color: "#8a8a92" } }, myMeta.word)
+      h2("div", { key: "tx", style: { flex: 1, minWidth: 0, textAlign: "left" } }, [
+        h2("div", { key: "y", style: { fontSize: "13.5px", fontWeight: 700, color: "#f4f4f6" } }, "You"),
+        h2("div", { key: "w", style: { fontSize: "12px", color: "#8a8a92" } }, myMeta.word)
       ]),
-      h("span", { key: "ch", style: { display: "grid", placeItems: "center" }, dangerouslySetInnerHTML: { __html: PRES_SVG.chevUp } })
+      h2("span", { key: "ch", style: { display: "grid", placeItems: "center" }, dangerouslySetInnerHTML: { __html: PRES_SVG.chevUp } })
     ])
   ]);
-  const presencePanelCollapsed = h("div", { key: "you", style: { flex: "none", position: "relative", display: "flex", flexDirection: "column", alignItems: "center", padding: "0 0 13px" } }, [
+  const presencePanelCollapsed = h2("div", { key: "you", style: { flex: "none", position: "relative", display: "flex", flexDirection: "column", alignItems: "center", padding: "0 0 13px" } }, [
     presenceMenu({ left: "60px", bottom: "8px", width: "248px" }),
-    h("button", { key: "btn", onClick: () => setPresenceOpen((v) => !v), title: "Your status \u2014 " + myMeta.word, style: { position: "relative", width: "44px", height: "44px", borderRadius: "12px", display: "grid", placeItems: "center", cursor: "pointer", background: "rgba(240,137,42,0.12)", border: "1px solid rgba(240,137,42,0.24)", color: "#f0892a" } }, [
-      h("span", { key: "i", style: { display: "grid" }, dangerouslySetInnerHTML: { __html: PRES_SVG.user } }),
-      h("span", { key: "dot", style: { position: "absolute", right: "-2px", bottom: "-2px", width: "12px", height: "12px", borderRadius: "50%", background: myMeta.dot, border: "2.5px solid #0c0c0e" } })
+    h2("button", { key: "btn", onClick: () => setPresenceOpen((v) => !v), title: "Your status \u2014 " + myMeta.word, style: { position: "relative", width: "44px", height: "44px", borderRadius: "12px", display: "grid", placeItems: "center", cursor: "pointer", background: "rgba(240,137,42,0.12)", border: "1px solid rgba(240,137,42,0.24)", color: "#f0892a" } }, [
+      h2("span", { key: "i", style: { display: "grid" }, dangerouslySetInnerHTML: { __html: PRES_SVG.user } }),
+      h2("span", { key: "dot", style: { position: "absolute", right: "-2px", bottom: "-2px", width: "12px", height: "12px", borderRadius: "50%", background: myMeta.dot, border: "2.5px solid #0c0c0e" } })
     ])
   ]);
   const expandedInner = [
-    h("div", { key: "head", style: { flex: "none", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px 0 16px", height: "64px", borderBottom: "1px solid rgba(255,255,255,0.06)" } }, [
-      h("div", { key: "brand", style: { display: "flex", alignItems: "center", gap: "10px" } }, [brandMark(30), h("span", { key: "t", style: { fontSize: "15px", fontWeight: 800, letterSpacing: "-0.3px", color: "#f4f4f6" } }, "SecureBit")]),
+    h2("div", { key: "head", style: { flex: "none", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px 0 16px", height: "64px", borderBottom: "1px solid rgba(255,255,255,0.06)" } }, [
+      h2("div", { key: "brand", style: { display: "flex", alignItems: "center", gap: "10px" } }, [brandMark(30), h2("span", { key: "t", style: { fontSize: "15px", fontWeight: 800, letterSpacing: "-0.3px", color: "#f4f4f6" } }, "SecureBit")]),
       collapseBtn(SB_SVG.chevL, "Collapse")
     ]),
-    h("div", { key: "label", style: { flex: "none", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 16px 9px" } }, [
-      h("span", { key: "l", style: { fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 600, color: "#56565e", textTransform: "uppercase", letterSpacing: "1.3px" } }, "Chats"),
-      h("span", { key: "c", style: { fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 600, color: "#6b6b73" } }, String(chats.length))
+    h2("div", { key: "label", style: { flex: "none", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 16px 9px" } }, [
+      h2("span", { key: "l", style: { fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 600, color: "#56565e", textTransform: "uppercase", letterSpacing: "1.3px" } }, "Chats"),
+      h2("span", { key: "c", style: { fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 600, color: "#6b6b73" } }, String(chats.length))
     ]),
-    h("div", { key: "list", className: "msc-scroll", style: { flex: 1, overflowY: "auto", padding: "0 10px" } }, [
+    h2("div", { key: "list", className: "msc-scroll", style: { flex: 1, overflowY: "auto", padding: "0 10px" } }, [
       ...chats.map(expandedRow),
-      h("div", { key: "gh", style: { marginTop: "14px", padding: "0 2px 6px" } }, h("span", { style: { fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 600, color: "#56565e", textTransform: "uppercase", letterSpacing: "1.3px" } }, "Group chats")),
-      h("div", { key: "gph", title: "Coming in v6.0", style: { display: "flex", alignItems: "center", gap: "12px", padding: "11px 12px", borderRadius: "11px", background: "transparent", border: "1px dashed rgba(255,255,255,0.09)", cursor: "not-allowed" } }, [
-        h("div", { key: "i", style: { flex: "none", width: "38px", height: "38px", borderRadius: "11px", display: "grid", placeItems: "center", background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", color: "#56565e" }, dangerouslySetInnerHTML: { __html: SB_SVG.users } }),
-        h("div", { key: "b", style: { flex: 1, minWidth: 0 } }, [
-          h("div", { key: "t", style: { fontSize: "14px", fontWeight: 600, color: "#8a8a92" } }, "Group chats"),
-          h("div", { key: "s", style: { fontSize: "11.5px", color: "#56565e" } }, "Up to 8 peers \xB7 P2P mesh")
-        ]),
-        h("span", { key: "soon", style: { flex: "none", padding: "4px 9px", borderRadius: "7px", background: "rgba(240,137,42,0.1)", border: "1px solid rgba(240,137,42,0.24)", fontFamily: "'JetBrains Mono',monospace", fontSize: "9.5px", fontWeight: 700, color: "#f0892a", textTransform: "uppercase", letterSpacing: "0.8px" } }, "Soon")
-      ])
+      h2("div", { key: "gh", style: { marginTop: "14px", padding: "0 2px 6px", display: "flex", alignItems: "baseline", justifyContent: "space-between" } }, [
+        h2("span", { key: "l", style: { fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 600, color: "#56565e", textTransform: "uppercase", letterSpacing: "1.3px" } }, "Group chats"),
+        h2("button", {
+          key: "add",
+          onClick: onNewGroup,
+          title: "New group",
+          style: { border: "none", background: "transparent", color: "#f0892a", cursor: "pointer", fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.9px", padding: 0 }
+        }, "+ New")
+      ]),
+      ...groups.length === 0 ? [h2("div", { key: "gph", onClick: onNewGroup, title: "Create a group", style: { display: "flex", alignItems: "center", gap: "12px", padding: "11px 12px", borderRadius: "11px", background: "transparent", border: "1px dashed rgba(255,255,255,0.09)", cursor: "pointer" } }, [
+        h2("div", { key: "i", style: { flex: "none", width: "38px", height: "38px", borderRadius: "11px", display: "grid", placeItems: "center", background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", color: "#56565e" }, dangerouslySetInnerHTML: { __html: SB_SVG.users } }),
+        h2("div", { key: "b", style: { flex: 1, minWidth: 0 } }, [
+          h2("div", { key: "t", style: { fontSize: "14px", fontWeight: 600, color: "#8a8a92" } }, "New group"),
+          h2("div", { key: "s", style: { fontSize: "11.5px", color: "#56565e" } }, "Up to 8 peers \xB7 P2P mesh")
+        ])
+      ])] : groups.map((g) => h2("div", {
+        key: g.id,
+        onClick: () => onSelectGroup(g.id),
+        style: { position: "relative", display: "flex", alignItems: "center", gap: "12px", padding: "11px 12px", marginBottom: "4px", borderRadius: "11px", background: g.active ? "#161618" : "transparent", border: "1px solid " + (g.active ? "rgba(255,255,255,0.08)" : "transparent"), cursor: "pointer" }
+      }, [
+        g.active && h2("span", { key: "bar", style: { position: "absolute", left: 0, top: "12px", bottom: "12px", width: "3px", borderRadius: "0 3px 3px 0", background: "#f0892a" } }),
+        avatar(g, 38, g.active ? "#161618" : "#0c0c0e"),
+        h2("div", { key: "body", style: { flex: 1, minWidth: 0 } }, [
+          h2("div", { key: "top", style: { display: "flex", alignItems: "center", gap: "7px" } }, [
+            h2("span", { key: "n", style: { flex: 1, minWidth: 0, fontSize: "14px", fontWeight: g.active ? 700 : 600, letterSpacing: "-0.2px", color: g.active ? "#f4f4f6" : "#cfcfd4", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, g.name),
+            g.unread && h2("span", { key: "u", style: { flex: "none", minWidth: "18px", height: "18px", padding: "0 5px", borderRadius: "9px", display: "grid", placeItems: "center", background: "#f0892a", color: "#1a0f04", fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 700 } }, g.unread)
+          ]),
+          h2("div", { key: "prev", style: { fontSize: "12px", color: g.active ? "#8a8a92" : "#6b6b73", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, g.preview)
+        ])
+      ]))
     ]),
-    h("div", { key: "new", style: { flex: "none", padding: "12px" } }, h("button", {
+    h2("div", { key: "new", style: { flex: "none", padding: "12px" } }, h2("button", {
       onClick: onNewChat,
       style: { width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "9px", padding: "12px", borderRadius: "11px", border: "none", background: "#f0892a", color: "#1a0f04", fontFamily: "inherit", fontSize: "14px", fontWeight: 700, cursor: "pointer", boxShadow: "0 8px 24px rgba(240,137,42,0.28)" }
     }, [icon(SB_SVG.plus, { key: "p" }), "New chat"])),
     presencePanelExpanded
   ];
   const collapsedInner = [
-    h("div", { key: "head", style: { flex: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", padding: "13px 0", width: "100%", borderBottom: "1px solid rgba(255,255,255,0.06)" } }, [brandMark(32), collapseBtn(SB_SVG.chevR, "Expand")]),
-    h("div", { key: "list", className: "msc-scroll", style: { flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", padding: "14px 0", width: "100%" } }, [
+    h2("div", { key: "head", style: { flex: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", padding: "13px 0", width: "100%", borderBottom: "1px solid rgba(255,255,255,0.06)" } }, [brandMark(32), collapseBtn(SB_SVG.chevR, "Expand")]),
+    h2("div", { key: "list", className: "msc-scroll", style: { flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", padding: "14px 0", width: "100%" } }, [
       ...chats.map(dockItem),
-      h("div", { key: "sep", style: { width: "30px", height: "1px", background: "rgba(255,255,255,0.07)", margin: "2px 0" } }),
-      h("div", { key: "gph", title: "Group chats \u2014 coming in v6.0", style: { position: "relative", width: "44px", height: "44px", borderRadius: "12px", display: "grid", placeItems: "center", cursor: "not-allowed", background: "transparent", border: "1px dashed rgba(255,255,255,0.1)", color: "#56565e" }, dangerouslySetInnerHTML: { __html: SB_SVG.users } })
+      h2("div", { key: "sep", style: { width: "30px", height: "1px", background: "rgba(255,255,255,0.07)", margin: "2px 0" } }),
+      ...groups.map((g) => h2("div", { key: g.id, style: { position: "relative" } }, [
+        g.active && h2("span", { key: "bar", style: { position: "absolute", left: "-13px", top: "9px", bottom: "9px", width: "3px", borderRadius: "0 3px 3px 0", background: "#f0892a" } }),
+        h2("div", {
+          key: "tile",
+          onClick: () => onSelectGroup(g.id),
+          title: g.name + " \u2014 " + g.headerSub,
+          style: { position: "relative", width: "44px", height: "44px", borderRadius: "12px", display: "grid", placeItems: "center", cursor: "pointer", background: g.active ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255," + (g.active ? "0.14" : "0.07") + ")", fontSize: "13px", fontWeight: 700, letterSpacing: "-0.3px", color: g.active ? "#f4f4f6" : "#9a9aa2" }
+        }, [
+          g.mono,
+          h2("span", { key: "dot", style: { position: "absolute", right: "-2px", bottom: "-2px", width: "11px", height: "11px", borderRadius: "50%", background: g.dot, border: "2.5px solid #0c0c0e" } }),
+          g.unread && h2("span", { key: "u", style: { position: "absolute", left: "-5px", top: "-5px", minWidth: "17px", height: "17px", padding: "0 4px", borderRadius: "9px", display: "grid", placeItems: "center", background: "#f0892a", color: "#1a0f04", fontFamily: "'JetBrains Mono',monospace", fontSize: "9.5px", fontWeight: 700, border: "2px solid #0c0c0e" } }, g.unread)
+        ])
+      ])),
+      h2("div", { key: "gph", onClick: onNewGroup, title: "New group", style: { position: "relative", width: "44px", height: "44px", borderRadius: "12px", display: "grid", placeItems: "center", cursor: "pointer", background: "transparent", border: "1px dashed rgba(255,255,255,0.1)", color: "#56565e" }, dangerouslySetInnerHTML: { __html: SB_SVG.users } })
     ]),
-    h("div", { key: "new", style: { flex: "none", padding: "13px 0" } }, h("button", {
+    h2("div", { key: "new", style: { flex: "none", padding: "13px 0" } }, h2("button", {
       onClick: onNewChat,
       title: "New chat",
       style: { width: "44px", height: "44px", borderRadius: "12px", display: "grid", placeItems: "center", border: "none", background: "#f0892a", color: "#1a0f04", cursor: "pointer", boxShadow: "0 8px 24px rgba(240,137,42,0.28)" },
@@ -2887,22 +5993,22 @@ var SessionsSidebar = ({ chats, collapsed, drawerOpen, onToggleCollapse, onSelec
   const railWidth = collapsed ? "72px" : "292px";
   const railStyle = { flex: "none", width: railWidth, display: "flex", flexDirection: "column", alignItems: collapsed ? "center" : "stretch", background: "#0c0c0e", borderRight: "1px solid rgba(255,255,255,0.06)" };
   const inner = collapsed ? collapsedInner : expandedInner;
-  return h(React.Fragment, null, [
+  return h2(React.Fragment, null, [
     // Responsive behaviour (inline styles can't express media queries).
-    h("style", { key: "css", dangerouslySetInnerHTML: { __html: "@media (max-width:1023px){.sb-rail{display:none !important;}.sb-burger{display:grid !important;}}@media (min-width:1024px){.sb-drawer-overlay{display:none !important;}}.sb-mobile-drawer .sb-collapse-btn{display:none !important;}html,body{background:#0f0f11 !important;overscroll-behavior:none;}.sb-app-shell{height:var(--sb-vh,100dvh) !important;min-height:0 !important;overflow:hidden;}.sb-chat-header{position:sticky;top:0;z-index:20;}.sb-app-col{height:100% !important;min-height:0 !important;}.chat-container{height:100% !important;min-height:0 !important;}.sb-scroll{min-height:0 !important;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}@media (max-width:768px){textarea,input,select{font-size:16px !important;}}@media (max-width:768px){.sb-rename-btn{display:none !important;}}" } }),
+    h2("style", { key: "css", dangerouslySetInnerHTML: { __html: "@media (max-width:1023px){.sb-rail{display:none !important;}.sb-burger{display:grid !important;}}@media (min-width:1024px){.sb-drawer-overlay{display:none !important;}}.sb-mobile-drawer .sb-collapse-btn{display:none !important;}html,body{background:#0f0f11 !important;overscroll-behavior:none;}.sb-app-shell{height:var(--sb-vh,100dvh) !important;min-height:0 !important;overflow:hidden;}.sb-chat-header{position:sticky;top:0;z-index:20;}.sb-app-col{height:100% !important;min-height:0 !important;}.chat-container{height:100% !important;min-height:0 !important;}.sb-scroll{min-height:0 !important;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}@media (max-width:768px){textarea,input,select{font-size:16px !important;}}@media (max-width:768px){.sb-rename-btn{display:none !important;}}" } }),
     // Desktop rail
-    h("aside", { key: "rail", className: "sb-rail", style: railStyle }, inner),
+    h2("aside", { key: "rail", className: "sb-rail", style: railStyle }, inner),
     // Mobile drawer overlay
-    h("div", {
+    h2("div", {
       key: "drawer",
       className: "sb-drawer-overlay",
       onClick: onCloseDrawer,
       style: { position: "fixed", inset: 0, zIndex: 60, background: "rgba(6,6,8,0.6)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)", display: drawerOpen ? "block" : "none" }
-    }, h("aside", { className: "sb-mobile-drawer", onClick: (e) => e.stopPropagation(), style: { position: "absolute", left: 0, top: 0, bottom: 0, width: "min(292px, 86vw)", display: "flex", flexDirection: "column", background: "#0c0c0e", borderRight: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 0 60px rgba(0,0,0,0.6)" } }, [
+    }, h2("aside", { className: "sb-mobile-drawer", onClick: (e) => e.stopPropagation(), style: { position: "absolute", left: 0, top: 0, bottom: 0, width: "min(292px, 86vw)", display: "flex", flexDirection: "column", background: "#0c0c0e", borderRight: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 0 60px rgba(0,0,0,0.6)" } }, [
       // Explicit close button — the drawer's own header only has a
       // "collapse" chevron (a desktop-rail action), so on mobile there was
       // no obvious way to dismiss it. This X closes the drawer reliably.
-      h("button", { key: "x", onClick: onCloseDrawer, title: "Close menu", "aria-label": "Close menu", style: { position: "absolute", top: "15px", right: "13px", zIndex: 2, width: "34px", height: "34px", borderRadius: "9px", display: "grid", placeItems: "center", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", color: "#cfcfd4", cursor: "pointer" } }, h("i", { className: "fas fa-xmark", style: { fontSize: "16px" } })),
+      h2("button", { key: "x", onClick: onCloseDrawer, title: "Close menu", "aria-label": "Close menu", style: { position: "absolute", top: "15px", right: "13px", zIndex: 2, width: "34px", height: "34px", borderRadius: "9px", display: "grid", placeItems: "center", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", color: "#cfcfd4", cursor: "pointer" } }, h2("i", { className: "fas fa-xmark", style: { fontSize: "16px" } })),
       expandedInner
     ]))
   ]);
@@ -2918,6 +6024,137 @@ var EnhancedSecureP2PChat = () => {
   const integrationsRef = React.useRef(/* @__PURE__ */ new Map());
   const queuesRef = React.useRef(/* @__PURE__ */ new Map());
   const statusRef = React.useRef(/* @__PURE__ */ new Map());
+  const [groupsState, groupsDispatch] = React.useReducer(groupsReducer, void 0, createInitialGroupState);
+  const groupRuntimesRef = React.useRef(/* @__PURE__ */ new Map());
+  const activeGroupId = groupsState.activeGroupId;
+  const activeGroup = activeGroupId ? groupsState.groups[activeGroupId] : null;
+  const activeGroupIdRef = React.useRef(null);
+  activeGroupIdRef.current = activeGroupId;
+  const [groupInput, setGroupInput] = React.useState("");
+  const [showCreateGroup, setShowCreateGroup] = React.useState(false);
+  const [showGroupCode, setShowGroupCode] = React.useState(false);
+  const [pendingInvite, setPendingInvite] = React.useState(null);
+  const [groupError, setGroupError] = React.useState(null);
+  const [showAddMembers, setShowAddMembers] = React.useState(false);
+  const groupScrollRef = React.useRef(null);
+  const meshLinksRef = React.useRef(/* @__PURE__ */ new Map());
+  const lastUnreachableRef = React.useRef(/* @__PURE__ */ new Map());
+  const sendGroupFrame = React.useMemo(() => createGroupSender({
+    // A group frame leaves over whichever kind of link carries that member:
+    // an ordinary 1:1 chat, or a connection the group dialled itself.
+    getManager: (sessionId) => managersRef.current.get(sessionId) || meshLinksRef.current.get(sessionId)?.manager || null
+  }), []);
+  const buildGroupMessage = (body, type, extra = {}) => ({
+    id: Date.now() + Math.random(),
+    message: body,
+    type,
+    timestamp: Date.now(),
+    ...extra
+  });
+  const groupEmitter = React.useCallback((gid) => (event, payload = {}) => {
+    switch (event) {
+      case "phase":
+        groupsDispatch({ type: GROUP_ACTIONS.SET_PHASE, id: gid, phase: payload.phase });
+        break;
+      case "members":
+        groupsDispatch({ type: GROUP_ACTIONS.SET_MEMBERS, id: gid, members: payload.members, epoch: payload.epoch });
+        break;
+      case "roster":
+        groupsDispatch({ type: GROUP_ACTIONS.RENAME, id: gid, name: payload.name });
+        break;
+      case "sas":
+        groupsDispatch({ type: GROUP_ACTIONS.SET_SAS, id: gid, code: payload.code });
+        groupsDispatch({ type: GROUP_ACTIONS.SET_ACTIVE_GROUP, id: gid });
+        setShowGroupCode(true);
+        break;
+      case "confirmed":
+        groupsDispatch({ type: GROUP_ACTIONS.CONFIRM_SAS, id: gid });
+        break;
+      case "message":
+        groupsDispatch({
+          type: GROUP_ACTIONS.ADD_MESSAGE,
+          id: gid,
+          message: buildGroupMessage(payload.body, "received", {
+            senderName: payload.name,
+            senderFp: payload.fp,
+            timestamp: payload.ts,
+            relayed: payload.relayed === true
+          })
+        });
+        if (gid !== activeGroupIdRef.current) {
+          groupsDispatch({ type: GROUP_ACTIONS.INCREMENT_UNREAD, id: gid });
+        }
+        break;
+      case "ended":
+        destroyGroupRef.current(gid, { announce: false });
+        break;
+      case "add_failed":
+        groupsDispatch({
+          type: GROUP_ACTIONS.ADD_MESSAGE,
+          id: gid,
+          message: buildGroupMessage("Nobody accepted the invitation. The group is unchanged.", "system")
+        });
+        break;
+      case "left":
+        groupsDispatch({
+          type: GROUP_ACTIONS.ADD_MESSAGE,
+          id: gid,
+          message: buildGroupMessage(`${payload.name} left the group.`, "system")
+        });
+        break;
+      case "inconsistency":
+        groupsDispatch({
+          type: GROUP_ACTIONS.ADD_MESSAGE,
+          id: gid,
+          message: buildGroupMessage(
+            `${payload.name} sent conflicting messages to different members. That message was discarded.`,
+            "system"
+          )
+        });
+        break;
+      case "error":
+        groupsDispatch({ type: GROUP_ACTIONS.SET_ERROR, id: gid, error: payload.error });
+        break;
+      default:
+        break;
+    }
+  }, []);
+  const handleGroupFrame = React.useCallback((sessionId, frame) => {
+    const runtime = groupRuntimesRef.current.get(frame.gid);
+    if (!runtime) {
+      if (groupFrameType(frame) === GROUP_FRAMES.INVITE) {
+        let invite = null;
+        try {
+          invite = decodeEnvelope(frame);
+        } catch (_) {
+          return;
+        }
+        setPendingInvite((current) => current || {
+          gid: invite.gid,
+          name: String(invite.name || "Group").slice(0, GROUP_LIMITS.MAX_NAME_BYTES),
+          frame: invite,
+          sessionId
+        });
+      }
+      return;
+    }
+    runtime.handleFrame(sessionId, frame).catch((error) => {
+      const reason = error?.code || (error?.message ? `frame_rejected: ${String(error.message).slice(0, 120)}` : "frame_rejected");
+      groupsDispatch({ type: GROUP_ACTIONS.SET_ERROR, id: frame.gid, error: reason });
+    });
+  }, []);
+  const handleGroupFrameRef = React.useRef(handleGroupFrame);
+  handleGroupFrameRef.current = handleGroupFrame;
+  const syncGroupLinks = React.useCallback((sessionId, connected) => {
+    for (const runtime of groupRuntimesRef.current.values()) {
+      try {
+        runtime.setSessionState(sessionId, connected);
+      } catch (_) {
+      }
+    }
+  }, []);
+  const syncGroupLinksRef = React.useRef(syncGroupLinks);
+  syncGroupLinksRef.current = syncGroupLinks;
   const dispatchActive = React.useCallback((build) => {
     const id = activeIdRef.current;
     if (!id) return;
@@ -3055,10 +6292,10 @@ var EnhancedSecureP2PChat = () => {
     const root = document.documentElement;
     let lastH = -1, lastInset = "";
     const applyHeight = () => {
-      const h = Math.round(vv ? vv.height : window.innerHeight || 0);
-      if (h && h !== lastH) {
-        lastH = h;
-        root.style.setProperty("--sb-vh", h + "px");
+      const h2 = Math.round(vv ? vv.height : window.innerHeight || 0);
+      if (h2 && h2 !== lastH) {
+        lastH = h2;
+        root.style.setProperty("--sb-vh", h2 + "px");
       }
     };
     const applyInset = () => {
@@ -3442,6 +6679,10 @@ var EnhancedSecureP2PChat = () => {
             if (st) dispatch({ type: SESSION_ACTIONS.SET_PEER_PRESENCE, id, presence: st });
             return;
           }
+          if (isGroupFrame(parsedMessage)) {
+            handleGroupFrameRef.current(id, parsedMessage);
+            return;
+          }
           const blockedTypes = [
             "file_transfer_start",
             "file_transfer_response",
@@ -3506,6 +6747,7 @@ var EnhancedSecureP2PChat = () => {
       const prevStatus = statusRef.current.get(id);
       statusRef.current.set(id, status);
       setConnectionStatus2(status);
+      syncGroupLinksRef.current(id, status === "connected" || status === "verified");
       if (status === "reconnecting") return;
       if (status === "connected" && prevStatus === "reconnecting") {
         flushSessionQueue(id);
@@ -3516,7 +6758,10 @@ var EnhancedSecureP2PChat = () => {
           document.dispatchEvent(new CustomEvent("peer-disconnect"));
           document.dispatchEvent(new CustomEvent("disconnected"));
         }
-        setTimeout(() => destroySession(id), 2500);
+        setTimeout(() => {
+          if (sessionCarriesGroupMemberRef.current(id)) return;
+          destroySession(id);
+        }, 2500);
         return;
       }
       if (status === "connected") {
@@ -3575,6 +6820,10 @@ var EnhancedSecureP2PChat = () => {
         setLocalVerificationConfirmed2(false);
         setRemoteVerificationConfirmed2(false);
         setBothVerificationsConfirmed2(false);
+        setTimeout(() => {
+          if (sessionCarriesGroupMemberRef.current(id)) return;
+          destroySession(id);
+        }, 2500);
       }
     };
     const handleKeyExchange = (fingerprint) => {
@@ -3744,6 +6993,14 @@ var EnhancedSecureP2PChat = () => {
   const createSessionRef = React.useRef(createSession);
   createSessionRef.current = createSession;
   const destroyingRef = React.useRef(/* @__PURE__ */ new Set());
+  const sessionCarriesGroupMember = React.useCallback((id) => {
+    for (const runtime of groupRuntimesRef.current.values()) {
+      if (runtime.sessionToFp && runtime.sessionToFp.has(id)) return true;
+    }
+    return false;
+  }, []);
+  const sessionCarriesGroupMemberRef = React.useRef(sessionCarriesGroupMember);
+  sessionCarriesGroupMemberRef.current = sessionCarriesGroupMember;
   const destroySession = React.useCallback((id) => {
     if (!id || destroyingRef.current.has(id)) return;
     destroyingRef.current.add(id);
@@ -3797,8 +7054,339 @@ var EnhancedSecureP2PChat = () => {
     createSessionRef.current({ role: "offer" });
     setSidebarDrawerOpen(false);
   }, []);
-  const handleRenameSession = React.useCallback((id, label) => {
-    dispatch({ type: SESSION_ACTIONS.RENAME, id, label });
+  const handleRenameSession = React.useCallback((id, label2) => {
+    dispatch({ type: SESSION_ACTIONS.RENAME, id, label: label2 });
+  }, []);
+  const closeMeshLink = React.useCallback((sessionId) => {
+    const entry = meshLinksRef.current.get(sessionId);
+    if (!entry) return;
+    meshLinksRef.current.delete(sessionId);
+    try {
+      entry.manager.disconnect();
+    } catch (_) {
+    }
+  }, []);
+  const closeMeshLinkRef = React.useRef(closeMeshLink);
+  closeMeshLinkRef.current = closeMeshLink;
+  const buildMeshLink = React.useCallback((gid, fp) => {
+    const sessionId = "mesh:" + Array.from(crypto.getRandomValues(new Uint8Array(8))).map((b) => b.toString(16).padStart(2, "0")).join("");
+    const entry = { manager: null, gid, fp, sessionId };
+    const onMessage = (message) => {
+      if (typeof message !== "string" || !message.trim().startsWith("{")) return;
+      let parsed;
+      try {
+        parsed = JSON.parse(message);
+      } catch (_) {
+        return;
+      }
+      if (isGroupFrame(parsed)) handleGroupFrameRef.current(sessionId, parsed);
+    };
+    const onStatusChange = (status) => {
+      const dead = status === "disconnected" || status === "failed" || status === "peer_disconnected" || status === "recovery_failed";
+      syncGroupLinksRef.current(sessionId, !dead && entry.manager?.isVerified === true);
+      if (status === "recovery_failed" || status === "failed") {
+        const runtime = groupRuntimesRef.current.get(gid);
+        try {
+          runtime?.unbindSession(fp);
+        } catch (_) {
+        }
+        closeMeshLinkRef.current(sessionId);
+      }
+    };
+    const onVerificationRequired = (code) => {
+      if (!code || !entry.manager) return;
+      try {
+        entry.manager.markGroupLinkVerified(`group:${gid}`);
+      } catch (_) {
+        closeMeshLinkRef.current(sessionId);
+        syncGroupLinksRef.current(sessionId, false);
+      }
+    };
+    const manager = new EnhancedSecureWebRTCManager(
+      onMessage,
+      onStatusChange,
+      () => {
+      },
+      // key exchange: no fingerprint UI to update
+      onVerificationRequired,
+      () => {
+      },
+      // answer errors surface as a failed dial
+      () => {
+      },
+      // no verification UI to keep in step
+      {
+        // A mesh link has no window of its own, so it must not
+        // announce itself to the application: its lifecycle events
+        // would reset the header and the connection banner belonging
+        // to whichever chat the user is actually looking at.
+        emitGlobalEvents: false,
+        webrtc: {
+          relayOnly: relayOnlyMode,
+          iceServers: Array.isArray(customIceServers) && customIceServers.length ? customIceServers : Array.isArray(window.SECUREBIT_ICE_SERVERS) ? window.SECUREBIT_ICE_SERVERS : void 0
+        }
+      }
+    );
+    entry.manager = manager;
+    meshLinksRef.current.set(sessionId, entry);
+    return entry;
+  }, [relayOnlyMode, customIceServers]);
+  const buildMeshLinkRef = React.useRef(buildMeshLink);
+  buildMeshLinkRef.current = buildMeshLink;
+  const makeMeshAdapter = React.useCallback((gid) => ({
+    createOffer: async (fp) => {
+      const entry = buildMeshLinkRef.current(gid, fp);
+      try {
+        const offer = await entry.manager.createSecureOffer();
+        if (!offer || typeof offer.sbq2 !== "string") {
+          throw new Error("mesh dial needs a compact descriptor");
+        }
+        return { sessionId: entry.sessionId, descriptor: offer.sbq2 };
+      } catch (error) {
+        closeMeshLinkRef.current(entry.sessionId);
+        throw error;
+      }
+    },
+    createAnswer: async (fp, descriptor) => {
+      const entry = buildMeshLinkRef.current(gid, fp);
+      try {
+        const answer = await entry.manager.createSecureAnswer({ t: "offer", sbq2: descriptor });
+        if (!answer || typeof answer.sbq2 !== "string") {
+          throw new Error("mesh answer needs a compact descriptor");
+        }
+        return { sessionId: entry.sessionId, descriptor: answer.sbq2 };
+      } catch (error) {
+        closeMeshLinkRef.current(entry.sessionId);
+        throw error;
+      }
+    },
+    acceptAnswer: async (sessionId, descriptor) => {
+      const entry = meshLinksRef.current.get(sessionId);
+      if (!entry) throw new Error("that mesh dial is no longer open");
+      await entry.manager.handleSecureAnswer({ t: "answer", sbq2: descriptor });
+    },
+    close: (sessionId) => closeMeshLinkRef.current(sessionId),
+    /**
+     * The key fingerprint of a pairwise session, for link probes.
+     *
+     * Both endpoints of a session derive the same value from the shared
+     * secret and nobody else can, which is exactly what makes it usable as
+     * proof that a probe was written for THIS link. Only a verified session
+     * has one worth anything.
+     */
+    linkFingerprint: (sessionId) => {
+      const manager = managersRef.current.get(sessionId) || meshLinksRef.current.get(sessionId)?.manager || null;
+      if (!manager || manager.isVerified !== true) return "";
+      return typeof manager.keyFingerprint === "string" ? manager.keyFingerprint : "";
+    }
+  }), []);
+  React.useEffect(() => {
+    for (const [gid, runtime] of groupRuntimesRef.current) {
+      const group = groupsState.groups[gid];
+      if (!group || group.phase !== GROUP_PHASE.READY || !group.sasConfirmed) continue;
+      for (const sid of sessionsState.order) {
+        const session = sessionsState.sessions[sid];
+        if (!session || !session.sas.isVerified) continue;
+        runtime.probeSession(sid).catch(() => {
+        });
+      }
+    }
+  }, [groupsState, sessionsState]);
+  const groupCandidates = React.useMemo(
+    () => sessionsState.order.map((id) => sessionsState.sessions[id]).filter((s) => s && s.sas && s.sas.isVerified).map((s) => ({ id: s.id, name: s.peerLabel, mono: monoInitials(s.peerLabel) })),
+    [sessionsState]
+  );
+  const handleSelectGroup = React.useCallback((gid) => {
+    groupsDispatch({ type: GROUP_ACTIONS.SET_ACTIVE_GROUP, id: gid });
+    groupsDispatch({ type: GROUP_ACTIONS.CLEAR_UNREAD, id: gid });
+    setSidebarDrawerOpen(false);
+  }, []);
+  const handleCreateGroup = React.useCallback(async ({ name, sessionIds }) => {
+    setShowCreateGroup(false);
+    const gid = GroupSession.newId();
+    const runtime = new GroupSession({
+      groupId: gid,
+      name,
+      isAdmin: true,
+      subtle: crypto.subtle,
+      send: sendGroupFrame,
+      emit: groupEmitter(gid),
+      mesh: makeMeshAdapter(gid)
+    });
+    groupRuntimesRef.current.set(gid, runtime);
+    try {
+      await runtime.init();
+      groupsDispatch({
+        type: GROUP_ACTIONS.CREATE_GROUP,
+        entry: createGroupEntry({
+          id: gid,
+          name,
+          selfFp: runtime.selfFp,
+          adminFp: runtime.selfFp,
+          isAdmin: true,
+          members: runtime._memberSnapshot()
+        })
+      });
+      await runtime.invite(sessionIds.map((sid) => ({
+        sessionId: sid,
+        name: sessionsState.sessions[sid]?.peerLabel || "Member"
+      })));
+    } catch (error) {
+      groupRuntimesRef.current.delete(gid);
+      try {
+        runtime.destroy();
+      } catch (_) {
+      }
+      groupsDispatch({ type: GROUP_ACTIONS.REMOVE_GROUP, id: gid });
+      setGroupError(error?.code === "invitations_could_not_be_sent" ? "The invitation could not be sent. That chat is not connected right now \u2014 reopen it and try again." : `The group could not be created (${error?.code || "unknown error"}).`);
+    }
+  }, [sendGroupFrame, groupEmitter, sessionsState]);
+  const handleAcceptInvite = React.useCallback(async () => {
+    const invite = pendingInvite;
+    if (!invite) return;
+    setPendingInvite(null);
+    const runtime = new GroupSession({
+      groupId: invite.gid,
+      name: invite.name,
+      isAdmin: false,
+      subtle: crypto.subtle,
+      send: sendGroupFrame,
+      emit: groupEmitter(invite.gid),
+      mesh: makeMeshAdapter(invite.gid)
+    });
+    groupRuntimesRef.current.set(invite.gid, runtime);
+    try {
+      await runtime.init();
+      groupsDispatch({
+        type: GROUP_ACTIONS.CREATE_GROUP,
+        entry: createGroupEntry({ id: invite.gid, name: invite.name, selfFp: runtime.selfFp })
+      });
+      await runtime.acceptInvite(invite.sessionId, invite.frame);
+    } catch (error) {
+      groupRuntimesRef.current.delete(invite.gid);
+      try {
+        runtime.destroy();
+      } catch (_) {
+      }
+      groupsDispatch({ type: GROUP_ACTIONS.SET_ERROR, id: invite.gid, error: error?.code || "join_failed" });
+    }
+  }, [pendingInvite, sendGroupFrame, groupEmitter]);
+  const handleConfirmGroupSas = React.useCallback(() => {
+    const gid = activeGroupIdRef.current;
+    const runtime = gid && groupRuntimesRef.current.get(gid);
+    if (!runtime) return;
+    try {
+      runtime.confirmSas();
+      setShowGroupCode(false);
+    } catch (error) {
+      groupsDispatch({ type: GROUP_ACTIONS.SET_ERROR, id: gid, error: error?.code || "confirm_failed" });
+    }
+  }, []);
+  const destroyGroup = React.useCallback((gid, { announce = true } = {}) => {
+    const runtime = groupRuntimesRef.current.get(gid);
+    groupRuntimesRef.current.delete(gid);
+    lastUnreachableRef.current.delete(gid);
+    groupsDispatch({ type: GROUP_ACTIONS.REMOVE_GROUP, id: gid });
+    setShowGroupCode(false);
+    if (runtime) {
+      const done = announce ? Promise.resolve().then(() => runtime.leave()).catch(() => {
+      }) : Promise.resolve();
+      done.then(() => {
+        try {
+          runtime.destroy();
+        } catch (_) {
+        }
+      });
+    }
+  }, []);
+  const destroyGroupRef = React.useRef(destroyGroup);
+  destroyGroupRef.current = destroyGroup;
+  const handleSendGroupMessage = React.useCallback(async (text) => {
+    const gid = activeGroupIdRef.current;
+    const runtime = gid && groupRuntimesRef.current.get(gid);
+    if (!runtime) return;
+    const body = String(text || "").trim();
+    if (!body) return;
+    setGroupInput("");
+    try {
+      const { unreachable } = await runtime.sendText(body);
+      groupsDispatch({
+        type: GROUP_ACTIONS.ADD_MESSAGE,
+        id: gid,
+        message: buildGroupMessage(body, "sent")
+      });
+      const signature = unreachable.map((m) => m.fp).sort().join(",");
+      if (signature !== (lastUnreachableRef.current.get(gid) || "")) {
+        lastUnreachableRef.current.set(gid, signature);
+        if (unreachable.length > 0) {
+          const names = unreachable.map((m) => m.name);
+          const who = names.length === 1 ? `${names[0]} is` : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]} are`;
+          groupsDispatch({
+            type: GROUP_ACTIONS.ADD_MESSAGE,
+            id: gid,
+            message: buildGroupMessage(
+              `${who} offline and will not receive messages until they reconnect.`,
+              "system"
+            )
+          });
+        }
+      }
+    } catch (error) {
+      groupsDispatch({
+        type: GROUP_ACTIONS.ADD_MESSAGE,
+        id: gid,
+        message: buildGroupMessage(`Could not send: ${error?.message || "unknown error"}`, "system")
+      });
+    }
+  }, []);
+  const addCandidates = React.useMemo(() => {
+    if (!activeGroup) return [];
+    const taken = new Set(activeGroup.members.map((m) => m.sessionId).filter(Boolean));
+    return groupCandidates.filter((c) => !taken.has(c.id));
+  }, [activeGroup, groupCandidates]);
+  const handleAddMembers = React.useCallback(async (sessionIds) => {
+    setShowAddMembers(false);
+    const gid = activeGroupIdRef.current;
+    const runtime = gid && groupRuntimesRef.current.get(gid);
+    if (!runtime) return;
+    try {
+      await runtime.addMembers(sessionIds.map((sid) => ({
+        sessionId: sid,
+        name: sessionsState.sessions[sid]?.peerLabel || "Member"
+      })));
+    } catch (error) {
+      setGroupError(error?.code === "invitations_could_not_be_sent" ? "The invitation could not be sent. That chat is not connected right now." : error?.code === "too_many_members" ? `A group is limited to ${GROUP_LIMITS.MAX_MEMBERS} members.` : `Could not invite (${error?.code || "unknown error"}).`);
+    }
+  }, [sessionsState]);
+  const handleRemoveGroupMember = React.useCallback(async (fp) => {
+    const gid = activeGroupIdRef.current;
+    const runtime = gid && groupRuntimesRef.current.get(gid);
+    if (!runtime) return;
+    try {
+      await runtime.removeMember(fp);
+    } catch (error) {
+      groupsDispatch({ type: GROUP_ACTIONS.SET_ERROR, id: gid, error: error?.code || "remove_failed" });
+    }
+  }, []);
+  React.useEffect(() => {
+    if (!activeGroupId) return;
+    groupsDispatch({ type: GROUP_ACTIONS.CLEAR_UNREAD, id: activeGroupId });
+  }, [activeGroupId]);
+  React.useEffect(() => {
+    const el = groupScrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [activeGroup && activeGroup.messages.length]);
+  React.useEffect(() => () => {
+    for (const runtime of groupRuntimesRef.current.values()) {
+      try {
+        runtime.destroy();
+      } catch (_) {
+      }
+    }
+    groupRuntimesRef.current.clear();
+    for (const sessionId of [...meshLinksRef.current.keys()]) {
+      closeMeshLinkRef.current(sessionId);
+    }
   }, []);
   const flushReadAcks = React.useCallback((id) => {
     if (!id) return;
@@ -5267,7 +8855,8 @@ var EnhancedSecureP2PChat = () => {
     }
   }, [showQRScannerModal]);
   const sessionChats = decorateSessions(sessionsState);
-  const showSidebar = sessionsState.order.length > 1 || sessionsState.order.some((id) => {
+  const groupChats = decorateGroups(groupsState);
+  const showSidebar = sessionsState.order.length > 1 || groupsState.order.length > 0 || sessionsState.order.some((id) => {
     const s = sessionsState.sessions[id];
     return s && s.sas && s.sas.isVerified;
   });
@@ -5363,15 +8952,64 @@ var EnhancedSecureP2PChat = () => {
     showSidebar && React.createElement(SessionsSidebar, {
       key: "sessions-sidebar",
       chats: sessionChats,
+      groups: groupChats,
       collapsed: sidebarCollapsed,
       drawerOpen: sidebarDrawerOpen,
       onToggleCollapse: () => setSidebarCollapsed((v) => !v),
-      onSelect: handleSelectSession,
+      // Picking a 1:1 chat drops the group out of the foreground, and
+      // vice versa — one conversation is on screen at a time.
+      onSelect: (id) => {
+        groupsDispatch({ type: GROUP_ACTIONS.SET_ACTIVE_GROUP, id: null });
+        handleSelectSession(id);
+      },
+      onSelectGroup: handleSelectGroup,
       onNewChat: handleNewChat,
+      onNewGroup: () => {
+        setShowCreateGroup(true);
+        setSidebarDrawerOpen(false);
+      },
       onRename: handleRenameSession,
       onCloseDrawer: () => setSidebarDrawerOpen(false),
       myStatus,
       onSetStatus: setMyStatus
+    }),
+    // ---- Group dialogs ----
+    showCreateGroup && React.createElement(CreateGroupModal, {
+      key: "create-group",
+      candidates: groupCandidates,
+      relayOnly: relayOnlyMode,
+      onCreate: handleCreateGroup,
+      onCancel: () => setShowCreateGroup(false)
+    }),
+    pendingInvite && React.createElement(GroupInviteModal, {
+      key: "group-invite",
+      invite: {
+        name: pendingInvite.name,
+        fromLabel: sessionsState.sessions[pendingInvite.sessionId]?.peerLabel || "A verified contact"
+      },
+      onAccept: handleAcceptInvite,
+      onDecline: () => setPendingInvite(null)
+    }),
+    groupError && React.createElement(GroupErrorModal, {
+      key: "group-error",
+      message: groupError,
+      onDismiss: () => setGroupError(null)
+    }),
+    showAddMembers && activeGroup && React.createElement(AddMembersModal, {
+      key: "add-members",
+      candidates: addCandidates,
+      remaining: Math.max(0, GROUP_LIMITS.MAX_MEMBERS - activeGroup.members.length),
+      onAdd: handleAddMembers,
+      onCancel: () => setShowAddMembers(false)
+    }),
+    showGroupCode && activeGroup && React.createElement(GroupSasModal, {
+      key: "group-sas",
+      group: activeGroup,
+      onConfirm: handleConfirmGroupSas,
+      onCancel: () => {
+        if (activeGroup.phase === GROUP_PHASE.READY) setShowGroupCode(false);
+        else destroyGroup(activeGroup.id);
+      }
     }),
     // Mobile-only hamburger that opens the drawer (hidden on desktop via CSS).
     showSidebar && React.createElement("button", {
@@ -5402,7 +9040,24 @@ var EnhancedSecureP2PChat = () => {
         // sessionManager removed - all features enabled by default
         webrtcManager: webrtcManagerRef.current
       }),
-      React.createElement(
+      // A group takes the whole column when it is the active conversation.
+      // It renders its own header and composer, so none of the 1:1 chrome
+      // (which is bound to a single webrtcManager) applies.
+      activeGroup && React.createElement("main", {
+        key: "group-main",
+        style: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }
+      }, React.createElement(GroupChatView, {
+        group: activeGroup,
+        input: groupInput,
+        setInput: setGroupInput,
+        onSend: handleSendGroupMessage,
+        onLeave: () => destroyGroup(activeGroup.id),
+        onRemoveMember: handleRemoveGroupMember,
+        onAddMembers: () => setShowAddMembers(true),
+        isAdmin: activeGroup.isAdmin,
+        scrollRef: groupScrollRef
+      })),
+      !activeGroup && React.createElement(
         "main",
         {
           key: "main"
@@ -5414,8 +9069,8 @@ var EnhancedSecureP2PChat = () => {
             title: active ? active.peerLabel : "",
             isOffline,
             peerPresence: active ? active.peerPresence : null,
-            onRenameTitle: (label) => {
-              if (activeSessionId) dispatch({ type: SESSION_ACTIONS.RENAME, id: activeSessionId, label });
+            onRenameTitle: (label2) => {
+              if (activeSessionId) dispatch({ type: SESSION_ACTIONS.RENAME, id: activeSessionId, label: label2 });
             },
             messages,
             messageInput,

@@ -345,6 +345,24 @@ class EnhancedSecureWebRTCManager {
                     ?? EnhancedSecureWebRTCManager.DEFAULT_ICE_SERVERS.map(server => ({ ...server }))
             }
         };
+
+        /**
+         * Whether this connection may speak to the application at large.
+         *
+         * A manager announces its lifecycle on `document` — new-connection,
+         * peer-disconnect, real-security-calculated — and the header and the
+         * chat shell listen, because for an ordinary chat those events ARE the
+         * application's state changing.
+         *
+         * A group mesh link is not an ordinary chat. It is a routing detail with
+         * no window of its own, and letting one broadcast would have it reset the
+         * security badge and the connection banner belonging to whatever chat the
+         * user happens to be looking at — a link the user never opened tearing
+         * down the display of one they did. Such a manager is muted here: its own
+         * callbacks still fire, so the group learns everything it needs.
+         */
+        this._emitGlobalEvents = config.emitGlobalEvents !== false;
+
         this._ipLeakWarningShown = false;
 
             //   Initialize own logging system
@@ -4050,6 +4068,61 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     }
 
     /**
+     * Release a link that a GROUP authenticated, with no human in the loop.
+     *
+     * WHY THIS IS NOT A BYPASS
+     * ------------------------
+     * The SAS comparison exists to answer one question: is the peer who
+     * completed this handshake the person we meant to talk to? For a 1:1 chat
+     * only a human can answer it, which is why _setVerifiedStatus refuses every
+     * SAS-shaped transition that no human confirmed.
+     *
+     * A mesh link inside a group has already answered it, earlier and by a
+     * different route. The descriptor that opened this connection was signed
+     * with a group identity key; that key's fingerprint is named in a roster
+     * signed by the admin; and the group's safety code — which every member
+     * compared out of band before any of this was allowed to start — covers
+     * that exact set of fingerprints. Asking the two people to also read seven
+     * digits at each other for every one of up to twenty-eight pairs would not
+     * add a check, it would repeat one they already did, badly.
+     *
+     * So the guarantee is not weakened here, it is moved: the caller must have
+     * verified the group signature over the peer's descriptor BEFORE the
+     * transport was created. Everything this method can check for itself, it
+     * does — the session must be SBQ2, its in-band exchange must have completed,
+     * and the peer must have proved possession of the identity key that the
+     * commitment in that descriptor bound it to. A session that has not got that
+     * far is refused outright rather than released on the caller's word.
+     *
+     * @param {string} reason short audit label for why the group vouched
+     */
+    markGroupLinkVerified(reason = 'group_roster_signature') {
+        const st = this._sbq2;
+        if (!this._isSbq2() || !st || !st.completed || !st.proofVerified || !st.keysDerived) {
+            throw new Error('Group link cannot be released: the in-band handshake has not completed');
+        }
+        if (!this.encryptionKey || !this.macKey) {
+            throw new Error('Group link cannot be released: session keys are missing');
+        }
+        if (this.isVerified) return true;
+
+        // There is no peer confirmation to wait for and none to send: both sides
+        // reach this independently, from the same roster.
+        this.localVerificationConfirmed = true;
+        this.remoteVerificationConfirmed = true;
+        this.bothVerificationsConfirmed = true;
+
+        this._setVerifiedStatus(true, 'GROUP_ROSTER_SIGNATURE', {
+            reason,
+            timestamp: Date.now()
+        });
+        this._enforceVerificationGate('group_link_release', false);
+        this.onStatusChange?.('verified');
+        try { this.processMessageQueue(); } catch (_) {}
+        return true;
+    }
+
+    /**
      *   Create AAD (Additional Authenticated Data) for file messages
      * This binds file messages to the current session and prevents replay attacks
      */
@@ -4580,6 +4653,23 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     // ========================================================================
     // SBQ2 — compact descriptor + in-band key exchange
     // ========================================================================
+
+    /**
+     * Announce a lifecycle change to the application, unless this connection is
+     * muted. See `_emitGlobalEvents` in the constructor for why one would be.
+     */
+    _dispatchAppEvent(event) {
+        // Called as `this._dispatchAppEvent?.(...)` everywhere, deliberately.
+        // Announcing a lifecycle change is the least important thing any of
+        // these paths does — several of them are teardown — and an announcement
+        // must never be what stops a connection from being cleaned up.
+        if (!this._emitGlobalEvents) return false;
+        try {
+            return document.dispatchEvent(event);
+        } catch (_) {
+            return false;
+        }
+    }
 
     /** True once this connection has latched onto the SBQ2 handshake. */
     _isSbq2() { return this._handshakeMode === 'sbq2'; }
@@ -8020,7 +8110,7 @@ async processMessage(data) {
                     });
                 
                 // Send an event about security level update
-                document.dispatchEvent(new CustomEvent('security-level-updated', {
+                this._dispatchAppEvent?.(new CustomEvent('security-level-updated', {
                     detail: { 
                         timestamp: Date.now(), 
                         manager: 'webrtc',
@@ -8042,7 +8132,7 @@ async processMessage(data) {
                 
                 // FIX: Direct update if there is a calculation
                 if (this.lastSecurityCalculation) {
-                    document.dispatchEvent(new CustomEvent('real-security-calculated', {
+                    this._dispatchAppEvent?.(new CustomEvent('real-security-calculated', {
                         detail: {
                             securityData: this.lastSecurityCalculation,
                             webrtcManager: this,
@@ -8278,7 +8368,7 @@ async processMessage(data) {
 
                 this.lastSecurityCalculation = securityData;
 
-                document.dispatchEvent(new CustomEvent('real-security-calculated', {
+                this._dispatchAppEvent?.(new CustomEvent('real-security-calculated', {
                     detail: {
                         securityData: securityData,
                         webrtcManager: this,
@@ -11316,7 +11406,7 @@ async processMessage(data) {
                 });
                 
                 // Dispatch event about new connection
-                document.dispatchEvent(new CustomEvent('new-connection', {
+                this._dispatchAppEvent?.(new CustomEvent('new-connection', {
                     detail: { 
                         type: 'offer',
                         timestamp: currentTimestamp,
@@ -11528,7 +11618,7 @@ async processMessage(data) {
                     bindingTag: await sbq2BindingTag(digest, offerBytes),
                 });
 
-                document.dispatchEvent(new CustomEvent('new-connection', {
+                this._dispatchAppEvent?.(new CustomEvent('new-connection', {
                     detail: { type: 'answer', timestamp: Date.now(), operationId }
                 }));
 
@@ -12171,7 +12261,7 @@ async processMessage(data) {
                 });
                 
                 // Dispatch event about new connection
-                document.dispatchEvent(new CustomEvent('new-connection', {
+                this._dispatchAppEvent?.(new CustomEvent('new-connection', {
                     detail: { 
                         type: 'answer',
                         timestamp: currentTimestamp,
@@ -13851,7 +13941,7 @@ async processMessage(data) {
         // Anything the user sent into the dead channel goes out now.
         this.processMessageQueue();
         try {
-            document.dispatchEvent(new CustomEvent('connection-recovered', {
+            this._dispatchAppEvent?.(new CustomEvent('connection-recovered', {
                 detail: { timestamp: Date.now() }
             }));
         } catch (_) { /* non-DOM host */ }
@@ -14315,7 +14405,7 @@ async processMessage(data) {
             this.fileTransferSystem = null;
         }
         
-        document.dispatchEvent(new CustomEvent('peer-disconnect', {
+        this._dispatchAppEvent?.(new CustomEvent('peer-disconnect', {
             detail: { 
                 reason: 'connection_lost',
                 timestamp: Date.now()
@@ -14398,7 +14488,7 @@ async processMessage(data) {
         this.onKeyExchange(''); 
         this.onVerificationRequired(''); 
 
-        document.dispatchEvent(new CustomEvent('peer-disconnect', {
+        this._dispatchAppEvent?.(new CustomEvent('peer-disconnect', {
             detail: { 
                 reason: reason,
                 timestamp: Date.now()
@@ -14528,13 +14618,13 @@ async processMessage(data) {
                 });
             });
 
-            document.dispatchEvent(new CustomEvent('peer-disconnect', {
+            this._dispatchAppEvent?.(new CustomEvent('peer-disconnect', {
                 detail: {
                     reason: 'user_disconnect',
                     timestamp: Date.now()
                 }
             }));
-            document.dispatchEvent(new CustomEvent('connection-cleaned', {
+            this._dispatchAppEvent?.(new CustomEvent('connection-cleaned', {
                 detail: {
                     timestamp: Date.now(),
                     reason: 'user_cleanup'
@@ -15114,7 +15204,7 @@ checkFileTransferReadiness() {
         try { this.onCallStateChanged?.(snapshot); } catch (_) {}
         if (typeof document !== 'undefined') {
             try {
-                document.dispatchEvent(new CustomEvent('securebit-call-state', {
+                this._dispatchAppEvent?.(new CustomEvent('securebit-call-state', {
                     detail: { managerId: this._managerId || null, state: snapshot }
                 }));
             } catch (_) {}

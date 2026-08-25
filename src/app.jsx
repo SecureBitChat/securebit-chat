@@ -12,6 +12,19 @@ import {
     PRESENCE_WORD,
     SESSION_ACTIONS as SA
 } from './state/sessionsStore.js';
+import {
+    groupsReducer,
+    createInitialGroupState,
+    createGroupEntry,
+    decorateGroups,
+    GROUP_PHASE,
+    MEMBER_STATE,
+    GROUP_ACTIONS as GA
+} from './state/groupsStore.js';
+import { GroupSession, GROUP_FRAMES, isGroupFrame, groupFrameType, decodeEnvelope } from './group/GroupSession.js';
+import { GROUP_LIMITS } from './group/groupCrypto.js';
+import { createGroupSender } from './group/groupSender.js';
+import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, GroupErrorModal, AddMembersModal } from './components/ui/GroupChat.jsx';
 
                 // ── Secure chat extras: code blocks, clipboard hygiene ──────────────
                 // Copy text to the clipboard and (optionally) wipe it after a delay so
@@ -1388,30 +1401,68 @@ import {
                         }
                     }, [
                         h('div', { key: 'herowrap', style: { flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative', zIndex: 2 } },
-                        h('div', { key: 'hero', style: { maxWidth: '470px' } }, [
+                        h('div', { key: 'hero', style: { maxWidth: '560px' } }, [
                             h('h1', { key: 'h1', style: { margin: '0 0 14px', fontSize: '34px', fontWeight: 800, letterSpacing: '-1.1px', lineHeight: 1.1, color: '#f4f4f6' } }, [
                                 'A direct line', h('br', { key: 'br' }), 'only you two can read.'
                             ]),
                             h('p', { key: 'p', style: { margin: '0 0 38px', fontSize: '14.5px', lineHeight: 1.6, color: '#8a8a92', maxWidth: '390px' } },
                                 'Keys are generated on your device and exchanged peer-to-peer. No accounts, no servers storing your messages.'),
-                            // animated channel
-                            h('div', { key: 'channel', style: { display: 'flex', alignItems: 'center', height: '74px' } }, [
-                                h('div', { key: 'you', style: { flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '74px' } }, [
-                                    h('div', { key: 'n', style: { width: '50px', height: '50px', borderRadius: '15px', display: 'grid', placeItems: 'center', background: 'rgba(240,137,42,0.13)', border: '1px solid rgba(240,137,42,0.3)', animation: 'sbNode 3s ease-in-out infinite' } }, fa('fa-user', { color: C_ORANGE, fontSize: '20px' })),
-                                    h('span', { key: 'l', style: { fontSize: '11px', fontWeight: 600, color: '#9a9aa2' } }, 'You')
+                            // P2P / mesh animation.
+                            //
+                            // The loop tells the product's story in one shot: a direct line to
+                            // one peer, then two more joining it over 14 seconds — which is what
+                            // v6.0 actually added. Motion is pure CSS (offset-path along the
+                            // same geometry the lines are drawn from), so there is no rAF loop
+                            // burning battery on a landing page and nothing to tear down.
+                            h('div', { key: 'channel', style: { display: 'flex', alignItems: 'center', gap: '32px', flexWrap: 'wrap' } }, [
+                                h('svg', {
+                                    key: 'svg',
+                                    viewBox: '0 0 380 200',
+                                    role: 'img',
+                                    'aria-label': 'A direct encrypted line to one peer, with two more peers joining the mesh',
+                                    // Scales down on narrow screens; the labels sit just outside
+                                    // the viewBox, so the box must not clip them.
+                                    style: { display: 'block', width: '100%', maxWidth: '380px', height: 'auto', overflow: 'visible' }
+                                }, [
+                                    // the established 1:1 line
+                                    h('line', { key: 'l0', x1: 30, y1: 100, x2: 330, y2: 100, stroke: C_ORANGE, strokeWidth: 1.5, strokeOpacity: 0.75 }),
+                                    h('circle', { key: 'p0', r: 3.6, fill: '#f0a455', style: { offsetPath: "path('M30,100 L330,100')", animation: 'sbTrav 2.8s linear infinite' } }),
+
+                                    // first peer joins
+                                    h('g', { key: 'g1', style: { animation: 'sbIn1 14s linear infinite' } }, [
+                                        h('line', { key: 'a', x1: 30, y1: 100, x2: 250, y2: 26, stroke: C_ORANGE, strokeWidth: 1.4, strokeOpacity: 0.7 }),
+                                        h('line', { key: 'b', x1: 250, y1: 26, x2: 330, y2: 100, stroke: C_GREEN, strokeWidth: 1.2, strokeOpacity: 0.3 }),
+                                        h('circle', { key: 'p', r: 3.2, fill: '#f0a455', style: { offsetPath: "path('M30,100 L250,26')", animation: 'sbTrav 3s linear .6s infinite' } }),
+                                        h('circle', { key: 'n', cx: 250, cy: 26, r: 5, fill: '#0c0c0e', stroke: '#6b6760', strokeWidth: 1.2 }),
+                                        h('text', { key: 't', x: 250, y: 8, textAnchor: 'middle', fontFamily: MONO, fontSize: 12, fill: '#8f8b84' }, 'mara')
+                                    ]),
+                                    h('circle', { key: 'r1', cx: 250, cy: 26, r: 5, fill: 'none', stroke: C_ORANGE, strokeOpacity: 0.6, style: { animation: 'sbRing1 14s linear infinite' } }),
+
+                                    // second peer joins, and the mesh closes
+                                    h('g', { key: 'g2', style: { animation: 'sbIn2 14s linear infinite' } }, [
+                                        h('line', { key: 'a', x1: 30, y1: 100, x2: 250, y2: 174, stroke: C_ORANGE, strokeWidth: 1.4, strokeOpacity: 0.7 }),
+                                        h('line', { key: 'b', x1: 250, y1: 174, x2: 330, y2: 100, stroke: C_GREEN, strokeWidth: 1.2, strokeOpacity: 0.3 }),
+                                        h('line', { key: 'c', x1: 250, y1: 26, x2: 250, y2: 174, stroke: C_GREEN, strokeWidth: 1.2, strokeOpacity: 0.3 }),
+                                        h('circle', { key: 'p', r: 3.2, fill: '#f0a455', style: { offsetPath: "path('M30,100 L250,174')", animation: 'sbTrav 3s linear .3s infinite' } }),
+                                        h('circle', { key: 'q', r: 2.8, fill: C_GREEN, style: { offsetPath: "path('M250,26 L250,174')", animation: 'sbTrav 3.4s linear 1.2s infinite' } }),
+                                        h('circle', { key: 'n', cx: 250, cy: 174, r: 5, fill: '#0c0c0e', stroke: '#6b6760', strokeWidth: 1.2 }),
+                                        h('text', { key: 't', x: 250, y: 194, textAnchor: 'middle', fontFamily: MONO, fontSize: 12, fill: '#8f8b84' }, 'tobi')
+                                    ]),
+                                    h('circle', { key: 'r2', cx: 250, cy: 174, r: 5, fill: 'none', stroke: C_ORANGE, strokeOpacity: 0.6, style: { animation: 'sbRing2 14s linear infinite' } }),
+
+                                    // the two endpoints of the original line
+                                    h('circle', { key: 'pe', cx: 330, cy: 100, r: 5, fill: '#0c0c0e', stroke: '#6b6760', strokeWidth: 1.2 }),
+                                    h('text', { key: 'pt', x: 346, y: 104, fontFamily: MONO, fontSize: 12, fill: '#8f8b84' }, 'peer'),
+                                    h('circle', { key: 'yh', cx: 30, cy: 100, r: 15, fill: C_ORANGE, fillOpacity: 0.09 }),
+                                    h('circle', { key: 'yc', cx: 30, cy: 100, r: 6, fill: C_ORANGE }),
+                                    h('text', { key: 'yt', x: 30, y: 126, textAnchor: 'middle', fontFamily: MONO, fontSize: 12, fill: '#d8cfc1' }, 'you')
                                 ]),
-                                h('div', { key: 'wire', style: { flex: 1, position: 'relative', height: '52px', margin: '0 -6px' } }, [
-                                    h('div', { key: 'line', style: { position: 'absolute', top: '50%', left: 0, right: 0, height: '2px', transform: 'translateY(-50%)', background: 'linear-gradient(90deg, rgba(240,137,42,0.45), rgba(62,207,142,0.45))' } }),
-                                    h('span', { key: 'd1', style: { position: 'absolute', top: '50%', transform: 'translateY(-50%)', width: '6px', height: '6px', borderRadius: '50%', background: C_ORANGE, boxShadow: `0 0 8px ${C_ORANGE}`, animation: 'sbFlowR 2.6s linear infinite' } }),
-                                    h('span', { key: 'd2', style: { position: 'absolute', top: '50%', transform: 'translateY(-50%)', width: '6px', height: '6px', borderRadius: '50%', background: C_GREEN, boxShadow: `0 0 8px ${C_GREEN}`, animation: 'sbFlowL 2.6s linear infinite', animationDelay: '0.6s' } }),
-                                    h('div', { key: 'hub', style: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '38px', height: '38px' } }, [
-                                        h('span', { key: 'pulse', style: { position: 'absolute', top: '50%', left: '50%', width: '38px', height: '38px', borderRadius: '50%', border: '1.5px solid rgba(62,207,142,0.5)', animation: 'sbPulse 2.4s ease-out infinite' } }),
-                                        h('div', { key: 'core', style: { position: 'relative', width: '38px', height: '38px', borderRadius: '50%', display: 'grid', placeItems: 'center', background: '#121214', border: '1px solid rgba(62,207,142,0.45)', boxShadow: '0 0 18px rgba(62,207,142,0.25)' } }, fa('fa-lock', { color: C_GREEN, fontSize: '14px' }))
-                                    ])
-                                ]),
-                                h('div', { key: 'peer', style: { flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '74px' } }, [
-                                    h('div', { key: 'n', style: { width: '50px', height: '50px', borderRadius: '15px', display: 'grid', placeItems: 'center', background: 'rgba(62,207,142,0.1)', border: '1px solid rgba(62,207,142,0.3)', animation: 'sbNode 3s ease-in-out infinite', animationDelay: '1.5s' } }, fa('fa-user', { color: C_GREEN, fontSize: '20px' })),
-                                    h('span', { key: 'l', style: { fontSize: '11px', fontWeight: 600, color: '#9a9aa2' } }, 'Peer')
+
+                                // the log, timed to the same 14s loop as the nodes appearing
+                                h('div', { key: 'log', style: { display: 'flex', flexDirection: 'column', gap: '12px', fontFamily: MONO, fontSize: '12px', color: '#85817b' } }, [
+                                    h('div', { key: 'r0', style: { animation: 'sbRow0 14s linear infinite' } }, 'peer \u00b7 session 1'),
+                                    h('div', { key: 'r1', style: { animation: 'sbRow1 14s linear infinite' } }, 'mara joined \u00b7 +2'),
+                                    h('div', { key: 'r2', style: { animation: 'sbRow2 14s linear infinite' } }, 'tobi joined \u00b7 +3')
                                 ])
                             ])
                         ])),
@@ -1730,7 +1781,31 @@ import {
                         '@keyframes sbUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}' +
                         '@keyframes sbNode{0%,100%{box-shadow:0 0 0 0 rgba(62,207,142,0)}50%{box-shadow:0 0 0 6px rgba(62,207,142,.06)}}' +
                         '@keyframes sbScan{0%{top:8%}100%{top:88%}}' +
-                        '@keyframes sbBlink{0%,100%{opacity:1}50%{opacity:.35}}'
+                        '@keyframes sbBlink{0%,100%{opacity:1}50%{opacity:.35}}' +
+                        // P2P / mesh animation (left panel). One 14s loop: the direct line is
+                        // already up, then two peers join it. `sbTrav` moves a dot along the
+                        // same geometry the line is drawn from, via offset-path, so the packet
+                        // and the wire can never drift apart.
+                        '@keyframes sbTrav{0%{offset-distance:0%;opacity:0}15%{opacity:1}80%{opacity:1}100%{offset-distance:100%;opacity:0}}' +
+                        // `r` is animated as a CSS property here. Where a browser does not
+                        // support that the ring simply never expands — it stays invisible
+                        // behind its own opacity, which is a clean way to lose the flourish.
+                        '@keyframes sbRing1{0%,24%{r:5;opacity:0}26%{opacity:.8}34%{r:22;opacity:0}100%{r:22;opacity:0}}' +
+                        '@keyframes sbRing2{0%,54%{r:5;opacity:0}56%{opacity:.8}64%{r:22;opacity:0}100%{r:22;opacity:0}}' +
+                        '@keyframes sbIn1{0%,24%{opacity:0}27%{opacity:1}100%{opacity:1}}' +
+                        '@keyframes sbIn2{0%,54%{opacity:0}57%{opacity:1}100%{opacity:1}}' +
+                        '@keyframes sbRow0{0%,4%{opacity:0;transform:translateY(4px)}8%{opacity:1;transform:none}100%{opacity:1;transform:none}}' +
+                        '@keyframes sbRow1{0%,25%{opacity:0;transform:translateY(4px)}29%{opacity:1;transform:none}100%{opacity:1;transform:none}}' +
+                        '@keyframes sbRow2{0%,55%{opacity:0;transform:translateY(4px)}59%{opacity:1;transform:none}100%{opacity:1;transform:none}}' +
+                        // A looping diagram is exactly what someone who asked for less motion
+                        // does not want. Hold it on the finished state instead of removing it,
+                        // so the picture still reads as a mesh of three.
+                        '@media (prefers-reduced-motion: reduce){' +
+                          '.sb-start [style*="sbTrav"],.sb-start [style*="sbRing"]{animation:none!important;opacity:0!important}' +
+                          '.sb-start [style*="sbIn1"],.sb-start [style*="sbIn2"],' +
+                          '.sb-start [style*="sbRow0"],.sb-start [style*="sbRow1"],.sb-start [style*="sbRow2"]' +
+                          '{animation:none!important;opacity:1!important;transform:none!important}' +
+                        '}'
                     } });
 
                     // Embedded in the chat column (additional session): just the create/connect
@@ -2492,7 +2567,7 @@ import {
                     burger: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>'
                 };
 
-                const SessionsSidebar = ({ chats, collapsed, drawerOpen, onToggleCollapse, onSelect, onNewChat, onRename, onCloseDrawer, myStatus, onSetStatus }) => {
+                const SessionsSidebar = ({ chats, groups = [], collapsed, drawerOpen, onToggleCollapse, onSelect, onSelectGroup, onNewChat, onNewGroup, onRename, onCloseDrawer, myStatus, onSetStatus }) => {
                     const h = React.createElement;
                     const [editingId, setEditingId] = React.useState(null);
                     const [draft, setDraft] = React.useState('');
@@ -2626,15 +2701,36 @@ import {
                         ]),
                         h('div', { key: 'list', className: 'msc-scroll', style: { flex: 1, overflowY: 'auto', padding: '0 10px' } }, [
                             ...chats.map(expandedRow),
-                            h('div', { key: 'gh', style: { marginTop: '14px', padding: '0 2px 6px' } }, h('span', { style: { fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 600, color: '#56565e', textTransform: 'uppercase', letterSpacing: '1.3px' } }, 'Group chats')),
-                            h('div', { key: 'gph', title: 'Coming in v6.0', style: { display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 12px', borderRadius: '11px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.09)', cursor: 'not-allowed' } }, [
-                                h('div', { key: 'i', style: { flex: 'none', width: '38px', height: '38px', borderRadius: '11px', display: 'grid', placeItems: 'center', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', color: '#56565e' }, dangerouslySetInnerHTML: { __html: SB_SVG.users } }),
-                                h('div', { key: 'b', style: { flex: 1, minWidth: 0 } }, [
-                                    h('div', { key: 't', style: { fontSize: '14px', fontWeight: 600, color: '#8a8a92' } }, 'Group chats'),
-                                    h('div', { key: 's', style: { fontSize: '11.5px', color: '#56565e' } }, 'Up to 8 peers · P2P mesh')
-                                ]),
-                                h('span', { key: 'soon', style: { flex: 'none', padding: '4px 9px', borderRadius: '7px', background: 'rgba(240,137,42,0.1)', border: '1px solid rgba(240,137,42,0.24)', fontFamily: "'JetBrains Mono',monospace", fontSize: '9.5px', fontWeight: 700, color: '#f0892a', textTransform: 'uppercase', letterSpacing: '0.8px' } }, 'Soon')
-                            ])
+                            h('div', { key: 'gh', style: { marginTop: '14px', padding: '0 2px 6px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' } }, [
+                                h('span', { key: 'l', style: { fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 600, color: '#56565e', textTransform: 'uppercase', letterSpacing: '1.3px' } }, 'Group chats'),
+                                h('button', {
+                                    key: 'add', onClick: onNewGroup, title: 'New group',
+                                    style: { border: 'none', background: 'transparent', color: '#f0892a', cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.9px', padding: 0 }
+                                }, '+ New')
+                            ]),
+                            ...(groups.length === 0
+                                ? [h('div', { key: 'gph', onClick: onNewGroup, title: 'Create a group', style: { display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 12px', borderRadius: '11px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.09)', cursor: 'pointer' } }, [
+                                    h('div', { key: 'i', style: { flex: 'none', width: '38px', height: '38px', borderRadius: '11px', display: 'grid', placeItems: 'center', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', color: '#56565e' }, dangerouslySetInnerHTML: { __html: SB_SVG.users } }),
+                                    h('div', { key: 'b', style: { flex: 1, minWidth: 0 } }, [
+                                        h('div', { key: 't', style: { fontSize: '14px', fontWeight: 600, color: '#8a8a92' } }, 'New group'),
+                                        h('div', { key: 's', style: { fontSize: '11.5px', color: '#56565e' } }, 'Up to 8 peers · P2P mesh')
+                                    ])
+                                ])]
+                                : groups.map((g) => h('div', {
+                                    key: g.id,
+                                    onClick: () => onSelectGroup(g.id),
+                                    style: { position: 'relative', display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 12px', marginBottom: '4px', borderRadius: '11px', background: g.active ? '#161618' : 'transparent', border: '1px solid ' + (g.active ? 'rgba(255,255,255,0.08)' : 'transparent'), cursor: 'pointer' }
+                                }, [
+                                    g.active && h('span', { key: 'bar', style: { position: 'absolute', left: 0, top: '12px', bottom: '12px', width: '3px', borderRadius: '0 3px 3px 0', background: '#f0892a' } }),
+                                    avatar(g, 38, g.active ? '#161618' : '#0c0c0e'),
+                                    h('div', { key: 'body', style: { flex: 1, minWidth: 0 } }, [
+                                        h('div', { key: 'top', style: { display: 'flex', alignItems: 'center', gap: '7px' } }, [
+                                            h('span', { key: 'n', style: { flex: 1, minWidth: 0, fontSize: '14px', fontWeight: g.active ? 700 : 600, letterSpacing: '-0.2px', color: g.active ? '#f4f4f6' : '#cfcfd4', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, g.name),
+                                            g.unread && h('span', { key: 'u', style: { flex: 'none', minWidth: '18px', height: '18px', padding: '0 5px', borderRadius: '9px', display: 'grid', placeItems: 'center', background: '#f0892a', color: '#1a0f04', fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 700 } }, g.unread)
+                                        ]),
+                                        h('div', { key: 'prev', style: { fontSize: '12px', color: g.active ? '#8a8a92' : '#6b6b73', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, g.preview)
+                                    ])
+                                ])))
                         ]),
                         h('div', { key: 'new', style: { flex: 'none', padding: '12px' } }, h('button', {
                             onClick: onNewChat,
@@ -2649,7 +2745,18 @@ import {
                         h('div', { key: 'list', className: 'msc-scroll', style: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '14px 0', width: '100%' } }, [
                             ...chats.map(dockItem),
                             h('div', { key: 'sep', style: { width: '30px', height: '1px', background: 'rgba(255,255,255,0.07)', margin: '2px 0' } }),
-                            h('div', { key: 'gph', title: 'Group chats — coming in v6.0', style: { position: 'relative', width: '44px', height: '44px', borderRadius: '12px', display: 'grid', placeItems: 'center', cursor: 'not-allowed', background: 'transparent', border: '1px dashed rgba(255,255,255,0.1)', color: '#56565e' }, dangerouslySetInnerHTML: { __html: SB_SVG.users } })
+                            ...groups.map((g) => h('div', { key: g.id, style: { position: 'relative' } }, [
+                                g.active && h('span', { key: 'bar', style: { position: 'absolute', left: '-13px', top: '9px', bottom: '9px', width: '3px', borderRadius: '0 3px 3px 0', background: '#f0892a' } }),
+                                h('div', {
+                                    key: 'tile', onClick: () => onSelectGroup(g.id), title: g.name + ' — ' + g.headerSub,
+                                    style: { position: 'relative', width: '44px', height: '44px', borderRadius: '12px', display: 'grid', placeItems: 'center', cursor: 'pointer', background: g.active ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,' + (g.active ? '0.14' : '0.07') + ')', fontSize: '13px', fontWeight: 700, letterSpacing: '-0.3px', color: g.active ? '#f4f4f6' : '#9a9aa2' }
+                                }, [
+                                    g.mono,
+                                    h('span', { key: 'dot', style: { position: 'absolute', right: '-2px', bottom: '-2px', width: '11px', height: '11px', borderRadius: '50%', background: g.dot, border: '2.5px solid #0c0c0e' } }),
+                                    g.unread && h('span', { key: 'u', style: { position: 'absolute', left: '-5px', top: '-5px', minWidth: '17px', height: '17px', padding: '0 4px', borderRadius: '9px', display: 'grid', placeItems: 'center', background: '#f0892a', color: '#1a0f04', fontFamily: "'JetBrains Mono',monospace", fontSize: '9.5px', fontWeight: 700, border: '2px solid #0c0c0e' } }, g.unread)
+                                ])
+                            ])),
+                            h('div', { key: 'gph', onClick: onNewGroup, title: 'New group', style: { position: 'relative', width: '44px', height: '44px', borderRadius: '12px', display: 'grid', placeItems: 'center', cursor: 'pointer', background: 'transparent', border: '1px dashed rgba(255,255,255,0.1)', color: '#56565e' }, dangerouslySetInnerHTML: { __html: SB_SVG.users } })
                         ]),
                         h('div', { key: 'new', style: { flex: 'none', padding: '13px 0' } }, h('button', {
                             onClick: onNewChat, title: 'New chat',
@@ -2769,6 +2876,206 @@ import {
                     // reconnecting → connected edge (a repaired P2P path) without
                     // going through React state, which manager callbacks can't read.
                     const statusRef = React.useRef(new Map());
+
+                    // ============================================
+                    // GROUPS (v6.0)
+                    //
+                    // A group is an orchestration layer over the pairwise sessions above: it
+                    // owns no transport and no ratchet, and every group frame leaves through
+                    // an ordinary, already-verified 1:1 channel. The runtime half of a group —
+                    // its ECDSA identity key, the running safety-code ceremony, the imported
+                    // member keys — lives in groupRuntimesRef and NEVER in the reducer, for the
+                    // same reason the WebRTC managers do not: a reducer clones what it holds.
+                    // ============================================
+                    const [groupsState, groupsDispatch] = React.useReducer(groupsReducer, undefined, createInitialGroupState);
+                    const groupRuntimesRef = React.useRef(new Map()); // gid -> GroupSession
+                    const activeGroupId = groupsState.activeGroupId;
+                    const activeGroup = activeGroupId ? groupsState.groups[activeGroupId] : null;
+                    const activeGroupIdRef = React.useRef(null);
+                    activeGroupIdRef.current = activeGroupId;
+
+                    const [groupInput, setGroupInput] = React.useState('');
+                    const [showCreateGroup, setShowCreateGroup] = React.useState(false);
+                    const [showGroupCode, setShowGroupCode] = React.useState(false);
+                    const [pendingInvite, setPendingInvite] = React.useState(null);
+                    const [groupError, setGroupError] = React.useState(null);
+                    const [showAddMembers, setShowAddMembers] = React.useState(false);
+                    const groupScrollRef = React.useRef(null);
+
+                    /**
+                     * Put group frames on the wire, paced and serialised per session.
+                     *
+                     * They ride sendMessage — the same authenticated, ratcheted path chat text
+                     * takes — so a group frame inherits the session's encryption, replay
+                     * protection and verification gate without a new branch in the transport.
+                     * The receiving side lifts them back out in handleMessage before anything
+                     * reaches a 1:1 transcript. See src/group/groupSender.js for why the pacing
+                     * is not optional.
+                     */
+                    /**
+                     * Connections a group built for itself, by member.
+                     *
+                     * Deliberately NOT in managersRef and NOT in sessionsStore. A mesh link is
+                     * not a chat: it has no transcript, no sidebar row, no file transfers and
+                     * nothing the user opens. Putting it in the session registry would give the
+                     * user seven new "chats" the moment a group of eight forms, and every piece
+                     * of chat machinery — unread badges, presence, the last-session guard —
+                     * would start treating a routing detail as a conversation.
+                     *
+                     * meshSessionId -> { manager, gid, fp, sessionId }
+                     */
+                    const meshLinksRef = React.useRef(new Map());
+
+                    /**
+                     * Who a group could not reach the last time we said so, by group id.
+                     *
+                     * Kept so the "somebody is offline" notice is posted when the situation
+                     * changes rather than under every message it affects.
+                     */
+                    const lastUnreachableRef = React.useRef(new Map());
+
+                    const sendGroupFrame = React.useMemo(() => createGroupSender({
+                        // A group frame leaves over whichever kind of link carries that member:
+                        // an ordinary 1:1 chat, or a connection the group dialled itself.
+                        getManager: (sessionId) => managersRef.current.get(sessionId)
+                            || meshLinksRef.current.get(sessionId)?.manager
+                            || null
+                    }), []);
+
+                    const buildGroupMessage = (body, type, extra = {}) => ({
+                        id: Date.now() + Math.random(),
+                        message: body,
+                        type,
+                        timestamp: Date.now(),
+                        ...extra
+                    });
+
+                    /** GroupSession events -> reducer. One emitter per group, bound to its id. */
+                    const groupEmitter = React.useCallback((gid) => (event, payload = {}) => {
+                        switch (event) {
+                            case 'phase':
+                                groupsDispatch({ type: GA.SET_PHASE, id: gid, phase: payload.phase });
+                                break;
+                            case 'members':
+                                groupsDispatch({ type: GA.SET_MEMBERS, id: gid, members: payload.members, epoch: payload.epoch });
+                                break;
+                            case 'roster':
+                                groupsDispatch({ type: GA.RENAME, id: gid, name: payload.name });
+                                break;
+                            case 'sas':
+                                groupsDispatch({ type: GA.SET_SAS, id: gid, code: payload.code });
+                                // A code always needs a human, and the group is blocked until it
+                                // gets one — so bring that group forward rather than leaving the
+                                // digits behind a button. Activating it here also keeps the modal
+                                // pointed at the right group: the ceremony finishes in a run of
+                                // microtasks that outpaces React's re-render, so a ref updated
+                                // during render is still null at this point and cannot be used to
+                                // decide whether this group is the one on screen.
+                                groupsDispatch({ type: GA.SET_ACTIVE_GROUP, id: gid });
+                                setShowGroupCode(true);
+                                break;
+                            case 'confirmed':
+                                groupsDispatch({ type: GA.CONFIRM_SAS, id: gid });
+                                break;
+                            case 'message':
+                                groupsDispatch({
+                                    type: GA.ADD_MESSAGE, id: gid,
+                                    message: buildGroupMessage(payload.body, 'received', {
+                                        senderName: payload.name, senderFp: payload.fp, timestamp: payload.ts,
+                                        relayed: payload.relayed === true
+                                    })
+                                });
+                                if (gid !== activeGroupIdRef.current) {
+                                    groupsDispatch({ type: GA.INCREMENT_UNREAD, id: gid });
+                                }
+                                break;
+                            case 'ended':
+                                // The group is over — the admin left, or we are the last one
+                                // in it. Remove it instead of leaving a chat nobody can send
+                                // to, which would also keep occupying its members.
+                                destroyGroupRef.current(gid, { announce: false });
+                                break;
+                            case 'add_failed':
+                                // Nothing changed — the group is exactly as it was, so this is
+                                // a notice rather than an error state.
+                                groupsDispatch({
+                                    type: GA.ADD_MESSAGE, id: gid,
+                                    message: buildGroupMessage('Nobody accepted the invitation. The group is unchanged.', 'system')
+                                });
+                                break;
+                            case 'left':
+                                groupsDispatch({
+                                    type: GA.ADD_MESSAGE, id: gid,
+                                    message: buildGroupMessage(`${payload.name} left the group.`, 'system')
+                                });
+                                break;
+                            case 'inconsistency':
+                                // A member sent two different bodies under one sequence number.
+                                // Both signatures are valid, so this is provable rather than
+                                // suspected — say so in the transcript where everyone can see it.
+                                groupsDispatch({
+                                    type: GA.ADD_MESSAGE, id: gid,
+                                    message: buildGroupMessage(
+                                        `${payload.name} sent conflicting messages to different members. That message was discarded.`,
+                                        'system'
+                                    )
+                                });
+                                break;
+                            case 'error':
+                                groupsDispatch({ type: GA.SET_ERROR, id: gid, error: payload.error });
+                                break;
+                            default:
+                                break;
+                        }
+                    }, []);
+
+                    /**
+                     * Route an inbound group frame.
+                     *
+                     * A frame for a group we do not have is dropped — with one exception, which
+                     * is how anyone ever joins: an invitation is surfaced to the user, and only
+                     * their acceptance creates the group. Nothing arriving on the wire may
+                     * create group state on its own.
+                     */
+                    const handleGroupFrame = React.useCallback((sessionId, frame) => {
+                        const runtime = groupRuntimesRef.current.get(frame.gid);
+                        if (!runtime) {
+                            if (groupFrameType(frame) === GROUP_FRAMES.INVITE) {
+                                let invite = null;
+                                try { invite = decodeEnvelope(frame); } catch (_) { return; }
+                                setPendingInvite((current) => current || {
+                                    gid: invite.gid,
+                                    name: String(invite.name || 'Group').slice(0, GROUP_LIMITS.MAX_NAME_BYTES),
+                                    frame: invite,
+                                    sessionId
+                                });
+                            }
+                            return;
+                        }
+                        runtime.handleFrame(sessionId, frame).catch((error) => {
+                            // A frame that fails validation is the group's business, not the
+                            // 1:1 chat's: it never reaches the transcript either way.
+                            //
+                            // An error with no code of its own is not one of ours — a transport
+                            // rejection, a WebCrypto failure — and collapsing those to a bare
+                            // "frame_rejected" threw away the only clue about what happened.
+                            // Keep the message.
+                            const reason = error?.code
+                                || (error?.message ? `frame_rejected: ${String(error.message).slice(0, 120)}` : 'frame_rejected');
+                            groupsDispatch({ type: GA.SET_ERROR, id: frame.gid, error: reason });
+                        });
+                    }, []);
+                    const handleGroupFrameRef = React.useRef(handleGroupFrame);
+                    handleGroupFrameRef.current = handleGroupFrame;
+
+                    /** Mirror a pairwise link's health onto every group that routes through it. */
+                    const syncGroupLinks = React.useCallback((sessionId, connected) => {
+                        for (const runtime of groupRuntimesRef.current.values()) {
+                            try { runtime.setSessionState(sessionId, connected); } catch (_) {}
+                        }
+                    }, []);
+                    const syncGroupLinksRef = React.useRef(syncGroupLinks);
+                    syncGroupLinksRef.current = syncGroupLinks;
 
                     // Active-session VIEW. The rest of the component (and the child setup/chat
                     // components) read these names unchanged; the setters dispatch to the active
@@ -3427,6 +3734,13 @@ import {
                                         if (st) dispatch({ type: SA.SET_PEER_PRESENCE, id, presence: st });
                                         return;
                                     }
+                                    // Group traffic rides this channel but is never part of the
+                                    // 1:1 conversation. It is lifted out here, before anything
+                                    // can reach the transcript of the chat it travelled over.
+                                    if (isGroupFrame(parsedMessage)) {
+                                        handleGroupFrameRef.current(id, parsedMessage);
+                                        return;
+                                    }
                                     const blockedTypes = [
                                         'file_transfer_start',
                                         'file_transfer_response',
@@ -3507,6 +3821,11 @@ import {
                             statusRef.current.set(id, status);
                             setConnectionStatus(status);
 
+                            // A group routing through this link needs to know whether it is
+                            // usable, so the member strip can show who is actually reachable
+                            // and the router can fall back to a relay for who is not.
+                            syncGroupLinksRef.current(id, status === 'connected' || status === 'verified');
+
                             // Path repair in progress (ICE restart). The session, its keys and
                             // its SAS verification all survive, so nothing is reset here — the
                             // send path just starts queueing (see `offlineNow` in sendMessage).
@@ -3530,8 +3849,12 @@ import {
                                     document.dispatchEvent(new CustomEvent('disconnected'));
                                 }
                                 // Deferred so the closing notice this session just delivered
-                                // renders before its slice is torn out from under it.
-                                setTimeout(() => destroySession(id), 2500);
+                                // renders before its slice is torn out from under it, and
+                                // skipped while a group still routes through it.
+                                setTimeout(() => {
+                                    if (sessionCarriesGroupMemberRef.current(id)) return;
+                                    destroySession(id);
+                                }, 2500);
                                 return;
                             }
 
@@ -3601,6 +3924,23 @@ import {
                                 setLocalVerificationConfirmed(false);
                                 setRemoteVerificationConfirmed(false);
                                 setBothVerificationsConfirmed(false);
+                                // The peer told us they were leaving, which is terminal: this
+                                // status comes only from an explicit peer_disconnect frame, not
+                                // from a transport drop that an ICE restart might repair. There
+                                // is nothing left to reconnect to, so the chat goes rather than
+                                // sitting in the rail advertising a closing notice as its last
+                                // message. A plain 'disconnected' is deliberately NOT treated
+                                // this way — that one is recoverable and keeps its history.
+                                // Deferred so the closing notice renders before the slice it
+                                // lives in is torn out — and skipped entirely if a group is
+                                // built on this session, because a member going offline is not
+                                // the same as them leaving the group. Membership is signed and
+                                // epoch-ordered; a dropped connection does not change it, and
+                                // removing the session would strand the member for good.
+                                setTimeout(() => {
+                                    if (sessionCarriesGroupMemberRef.current(id)) return;
+                                    destroySession(id);
+                                }, 2500);
                             }
                         };
         
@@ -3819,6 +4159,23 @@ import {
                     // Re-entrancy guarded: mgr.disconnect() can synchronously re-fire the
                     // 'disconnected' status callback, which would otherwise recurse back in here.
                     const destroyingRef = React.useRef(new Set());
+                    /**
+                     * Is this pairwise session carrying a group member?
+                     *
+                     * A group is built out of these sessions, so one of them is not just a
+                     * chat the user can close — it is the group's only route to that member.
+                     * Tearing it out because the peer went offline would make them permanently
+                     * unreachable AND leave nothing to re-bind when they come back.
+                     */
+                    const sessionCarriesGroupMember = React.useCallback((id) => {
+                        for (const runtime of groupRuntimesRef.current.values()) {
+                            if (runtime.sessionToFp && runtime.sessionToFp.has(id)) return true;
+                        }
+                        return false;
+                    }, []);
+                    const sessionCarriesGroupMemberRef = React.useRef(sessionCarriesGroupMember);
+                    sessionCarriesGroupMemberRef.current = sessionCarriesGroupMember;
+
                     const destroySession = React.useCallback((id) => {
                         if (!id || destroyingRef.current.has(id)) return;
                         destroyingRef.current.add(id);
@@ -3857,6 +4214,422 @@ import {
                         setSidebarDrawerOpen(false);
                     }, []);
                     const handleRenameSession = React.useCallback((id, label) => { dispatch({ type: SA.RENAME, id, label }); }, []);
+
+                    // ---- Groups: the mesh ----
+                    //
+                    // A group starts out as a star: the admin holds a link to everyone and
+                    // nobody else holds a link to anybody. What follows turns that into a mesh
+                    // by having each pair without a link build one, with the descriptors
+                    // travelling over the relay path that already exists.
+                    //
+                    // Nothing here decides WHETHER to dial or WHO dials — GroupSession owns
+                    // that, and owns the signature that makes a relayed descriptor safe to act
+                    // on. This is only the transport half: make a connection, hand back its
+                    // descriptor, and tear it down when asked.
+
+                    const closeMeshLink = React.useCallback((sessionId) => {
+                        const entry = meshLinksRef.current.get(sessionId);
+                        if (!entry) return;
+                        meshLinksRef.current.delete(sessionId);
+                        try { entry.manager.disconnect(); } catch (_) {}
+                    }, []);
+                    const closeMeshLinkRef = React.useRef(closeMeshLink);
+                    closeMeshLinkRef.current = closeMeshLink;
+
+                    /**
+                     * A manager for one mesh link, wired to the group instead of to a chat.
+                     *
+                     * The callbacks are where a mesh link differs from a 1:1 session. Inbound
+                     * traffic goes to the group router and nowhere else — a mesh link has no
+                     * transcript for a stray message to land in. And nobody is ever shown a
+                     * verification code: when the in-band exchange completes, the link is
+                     * released on the group's authority instead. See markGroupLinkVerified for
+                     * why that is a move of the guarantee rather than a hole in it.
+                     */
+                    const buildMeshLink = React.useCallback((gid, fp) => {
+                        const sessionId = 'mesh:' + Array.from(crypto.getRandomValues(new Uint8Array(8)))
+                            .map((b) => b.toString(16).padStart(2, '0')).join('');
+                        const entry = { manager: null, gid, fp, sessionId };
+
+                        const onMessage = (message) => {
+                            if (typeof message !== 'string' || !message.trim().startsWith('{')) return;
+                            let parsed;
+                            try { parsed = JSON.parse(message); } catch (_) { return; }
+                            if (isGroupFrame(parsed)) handleGroupFrameRef.current(sessionId, parsed);
+                        };
+
+                        const onStatusChange = (status) => {
+                            // isVerified is the authority, not the status word: the manager
+                            // reports 'connected' at points in its own lifecycle where the link
+                            // is not yet releasable, and a group must not start routing over a
+                            // link whose peer has not proved who it is.
+                            const dead = status === 'disconnected'
+                                || status === 'failed'
+                                || status === 'peer_disconnected'
+                                || status === 'recovery_failed';
+                            syncGroupLinksRef.current(sessionId, !dead && entry.manager?.isVerified === true);
+
+                            // Beyond repair — the manager has exhausted its own ICE restarts.
+                            // Release the member so the mesh can dial them again through
+                            // whoever can still reach them. This is the difference between a
+                            // mesh that heals and one that only ever degrades: a link dying is
+                            // not the same as the member going away.
+                            if (status === 'recovery_failed' || status === 'failed') {
+                                const runtime = groupRuntimesRef.current.get(gid);
+                                try { runtime?.unbindSession(fp); } catch (_) {}
+                                closeMeshLinkRef.current(sessionId);
+                            }
+                        };
+
+                        const onVerificationRequired = (code) => {
+                            if (!code || !entry.manager) return;
+                            try {
+                                entry.manager.markGroupLinkVerified(`group:${gid}`);
+                            } catch (_) {
+                                // The link cannot be released, so it is no use to the group.
+                                // Dropping it puts the pair back on the relay path, which is
+                                // where they were before the dial started.
+                                closeMeshLinkRef.current(sessionId);
+                                syncGroupLinksRef.current(sessionId, false);
+                            }
+                        };
+
+                        const manager = new EnhancedSecureWebRTCManager(
+                            onMessage,
+                            onStatusChange,
+                            () => {},                  // key exchange: no fingerprint UI to update
+                            onVerificationRequired,
+                            () => {},                  // answer errors surface as a failed dial
+                            () => {},                  // no verification UI to keep in step
+                            {
+                                // A mesh link has no window of its own, so it must not
+                                // announce itself to the application: its lifecycle events
+                                // would reset the header and the connection banner belonging
+                                // to whichever chat the user is actually looking at.
+                                emitGlobalEvents: false,
+                                webrtc: {
+                                    relayOnly: relayOnlyMode,
+                                    iceServers: (Array.isArray(customIceServers) && customIceServers.length)
+                                        ? customIceServers
+                                        : (Array.isArray(window.SECUREBIT_ICE_SERVERS) ? window.SECUREBIT_ICE_SERVERS : undefined)
+                                }
+                            }
+                        );
+                        entry.manager = manager;
+                        meshLinksRef.current.set(sessionId, entry);
+                        return entry;
+                    }, [relayOnlyMode, customIceServers]);
+                    const buildMeshLinkRef = React.useRef(buildMeshLink);
+                    buildMeshLinkRef.current = buildMeshLink;
+
+                    /** The transport half of the mesh, as one group's GroupSession sees it. */
+                    const makeMeshAdapter = React.useCallback((gid) => ({
+                        createOffer: async (fp) => {
+                            const entry = buildMeshLinkRef.current(gid, fp);
+                            try {
+                                const offer = await entry.manager.createSecureOffer();
+                                // Only the compact descriptor fits a group frame. If this build
+                                // ever emits the old handshake, the dial fails and the pair
+                                // stays relayed rather than silently exceeding the budget.
+                                if (!offer || typeof offer.sbq2 !== 'string') {
+                                    throw new Error('mesh dial needs a compact descriptor');
+                                }
+                                return { sessionId: entry.sessionId, descriptor: offer.sbq2 };
+                            } catch (error) {
+                                closeMeshLinkRef.current(entry.sessionId);
+                                throw error;
+                            }
+                        },
+                        createAnswer: async (fp, descriptor) => {
+                            const entry = buildMeshLinkRef.current(gid, fp);
+                            try {
+                                const answer = await entry.manager.createSecureAnswer({ t: 'offer', sbq2: descriptor });
+                                if (!answer || typeof answer.sbq2 !== 'string') {
+                                    throw new Error('mesh answer needs a compact descriptor');
+                                }
+                                return { sessionId: entry.sessionId, descriptor: answer.sbq2 };
+                            } catch (error) {
+                                closeMeshLinkRef.current(entry.sessionId);
+                                throw error;
+                            }
+                        },
+                        acceptAnswer: async (sessionId, descriptor) => {
+                            const entry = meshLinksRef.current.get(sessionId);
+                            if (!entry) throw new Error('that mesh dial is no longer open');
+                            await entry.manager.handleSecureAnswer({ t: 'answer', sbq2: descriptor });
+                        },
+                        close: (sessionId) => closeMeshLinkRef.current(sessionId),
+                        /**
+                         * The key fingerprint of a pairwise session, for link probes.
+                         *
+                         * Both endpoints of a session derive the same value from the shared
+                         * secret and nobody else can, which is exactly what makes it usable as
+                         * proof that a probe was written for THIS link. Only a verified session
+                         * has one worth anything.
+                         */
+                        linkFingerprint: (sessionId) => {
+                            const manager = managersRef.current.get(sessionId)
+                                || meshLinksRef.current.get(sessionId)?.manager
+                                || null;
+                            if (!manager || manager.isVerified !== true) return '';
+                            return typeof manager.keyFingerprint === 'string' ? manager.keyFingerprint : '';
+                        },
+                    }), []);
+
+                    /**
+                     * Offer every verified chat to every ready group as a link it may adopt.
+                     *
+                     * Two members who were already talking before the group existed do not
+                     * need a second connection dialled between them. probeSession is idempotent
+                     * — it self-limits to one probe per session per epoch and refuses outright
+                     * unless the group is ready — so running this whenever either registry
+                     * changes costs a map walk and nothing else.
+                     */
+                    React.useEffect(() => {
+                        for (const [gid, runtime] of groupRuntimesRef.current) {
+                            const group = groupsState.groups[gid];
+                            if (!group || group.phase !== GROUP_PHASE.READY || !group.sasConfirmed) continue;
+                            for (const sid of sessionsState.order) {
+                                const session = sessionsState.sessions[sid];
+                                if (!session || !session.sas.isVerified) continue;
+                                runtime.probeSession(sid).catch(() => { /* a probe is an offer, not a request */ });
+                            }
+                        }
+                    }, [groupsState, sessionsState]);
+
+                    // ---- Groups: user actions ----
+
+                    /**
+                     * Only VERIFIED 1:1 chats may become group members.
+                     *
+                     * A group built on an unverified session inherits that session's open
+                     * question — whether the peer is who they claim — and then hides it behind
+                     * a group code that looks like it settled the matter. The picker simply
+                     * does not offer them.
+                     */
+                    const groupCandidates = React.useMemo(() => sessionsState.order
+                        .map((id) => sessionsState.sessions[id])
+                        .filter((s) => s && s.sas && s.sas.isVerified)
+                        .map((s) => ({ id: s.id, name: s.peerLabel, mono: monoInitials(s.peerLabel) })),
+                        [sessionsState]);
+
+                    const handleSelectGroup = React.useCallback((gid) => {
+                        groupsDispatch({ type: GA.SET_ACTIVE_GROUP, id: gid });
+                        groupsDispatch({ type: GA.CLEAR_UNREAD, id: gid });
+                        setSidebarDrawerOpen(false);
+                    }, []);
+
+                    const handleCreateGroup = React.useCallback(async ({ name, sessionIds }) => {
+                        setShowCreateGroup(false);
+                        const gid = GroupSession.newId();
+                        const runtime = new GroupSession({
+                            groupId: gid, name, isAdmin: true,
+                            subtle: crypto.subtle,
+                            send: sendGroupFrame,
+                            emit: groupEmitter(gid),
+                            mesh: makeMeshAdapter(gid)
+                        });
+                        groupRuntimesRef.current.set(gid, runtime);
+                        try {
+                            await runtime.init();
+                            groupsDispatch({
+                                type: GA.CREATE_GROUP,
+                                entry: createGroupEntry({
+                                    id: gid, name, selfFp: runtime.selfFp, adminFp: runtime.selfFp,
+                                    isAdmin: true, members: runtime._memberSnapshot()
+                                })
+                            });
+                            await runtime.invite(sessionIds.map((sid) => ({
+                                sessionId: sid,
+                                name: sessionsState.sessions[sid]?.peerLabel || 'Member'
+                            })));
+                        } catch (error) {
+                            groupRuntimesRef.current.delete(gid);
+                            try { runtime.destroy(); } catch (_) {}
+                            groupsDispatch({ type: GA.REMOVE_GROUP, id: gid });
+                            // A group that could not even be announced should not linger as a
+                            // failed row the user has to clean up — say what went wrong instead.
+                            setGroupError(error?.code === 'invitations_could_not_be_sent'
+                                ? 'The invitation could not be sent. That chat is not connected right now — reopen it and try again.'
+                                : `The group could not be created (${error?.code || 'unknown error'}).`);
+                        }
+                    }, [sendGroupFrame, groupEmitter, sessionsState]);
+
+                    const handleAcceptInvite = React.useCallback(async () => {
+                        const invite = pendingInvite;
+                        if (!invite) return;
+                        setPendingInvite(null);
+                        const runtime = new GroupSession({
+                            groupId: invite.gid, name: invite.name, isAdmin: false,
+                            subtle: crypto.subtle,
+                            send: sendGroupFrame,
+                            emit: groupEmitter(invite.gid),
+                            mesh: makeMeshAdapter(invite.gid)
+                        });
+                        groupRuntimesRef.current.set(invite.gid, runtime);
+                        try {
+                            await runtime.init();
+                            groupsDispatch({
+                                type: GA.CREATE_GROUP,
+                                entry: createGroupEntry({ id: invite.gid, name: invite.name, selfFp: runtime.selfFp })
+                            });
+                            await runtime.acceptInvite(invite.sessionId, invite.frame);
+                        } catch (error) {
+                            groupRuntimesRef.current.delete(invite.gid);
+                            try { runtime.destroy(); } catch (_) {}
+                            groupsDispatch({ type: GA.SET_ERROR, id: invite.gid, error: error?.code || 'join_failed' });
+                        }
+                    }, [pendingInvite, sendGroupFrame, groupEmitter]);
+
+                    const handleConfirmGroupSas = React.useCallback(() => {
+                        const gid = activeGroupIdRef.current;
+                        const runtime = gid && groupRuntimesRef.current.get(gid);
+                        if (!runtime) return;
+                        try {
+                            runtime.confirmSas();
+                            setShowGroupCode(false);
+                        } catch (error) {
+                            groupsDispatch({ type: GA.SET_ERROR, id: gid, error: error?.code || 'confirm_failed' });
+                        }
+                    }, []);
+
+                    /** Tear a group down locally and tell whoever we can still reach. */
+                    const destroyGroup = React.useCallback((gid, { announce = true } = {}) => {
+                        const runtime = groupRuntimesRef.current.get(gid);
+                        // Drop the runtime from the registry first, so a new group with the
+                        // same people cannot collide with one that is still tearing down.
+                        groupRuntimesRef.current.delete(gid);
+                        lastUnreachableRef.current.delete(gid);
+                        groupsDispatch({ type: GA.REMOVE_GROUP, id: gid });
+                        setShowGroupCode(false);
+                        if (runtime) {
+                            // Announce BEFORE teardown and wait for it: destroy() clears the
+                            // member map that leave() walks to find recipients, so a leave that
+                            // is merely started can end up addressed to nobody — and a peer that
+                            // never hears it keeps a group nobody is in.
+                            const done = announce
+                                ? Promise.resolve().then(() => runtime.leave()).catch(() => {})
+                                : Promise.resolve();
+                            done.then(() => { try { runtime.destroy(); } catch (_) {} });
+                        }
+                    }, []);
+
+                    const destroyGroupRef = React.useRef(destroyGroup);
+                    destroyGroupRef.current = destroyGroup;
+
+                    const handleSendGroupMessage = React.useCallback(async (text) => {
+                        const gid = activeGroupIdRef.current;
+                        const runtime = gid && groupRuntimesRef.current.get(gid);
+                        if (!runtime) return;
+                        const body = String(text || '').trim();
+                        if (!body) return;
+                        setGroupInput('');
+                        try {
+                            const { unreachable } = await runtime.sendText(body);
+                            groupsDispatch({
+                                type: GA.ADD_MESSAGE, id: gid,
+                                message: buildGroupMessage(body, 'sent')
+                            });
+
+                            // A group with no server has nobody to hold a message for a member
+                            // who is offline, so the sender is told rather than left to assume
+                            // it arrived. Told ONCE, though: this used to print under every
+                            // single message for as long as somebody stayed offline, which
+                            // buried the conversation in a notice that said nothing new each
+                            // time. It is repeated only when the answer actually changes — a
+                            // different member drops, or somebody comes back and then goes.
+                            const signature = unreachable.map((m) => m.fp).sort().join(',');
+                            if (signature !== (lastUnreachableRef.current.get(gid) || '')) {
+                                lastUnreachableRef.current.set(gid, signature);
+                                if (unreachable.length > 0) {
+                                    const names = unreachable.map((m) => m.name);
+                                    const who = names.length === 1
+                                        ? `${names[0]} is`
+                                        : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]} are`;
+                                    groupsDispatch({
+                                        type: GA.ADD_MESSAGE, id: gid,
+                                        message: buildGroupMessage(
+                                            `${who} offline and will not receive messages until they reconnect.`,
+                                            'system'
+                                        )
+                                    });
+                                }
+                            }
+                        } catch (error) {
+                            groupsDispatch({
+                                type: GA.ADD_MESSAGE, id: gid,
+                                message: buildGroupMessage(`Could not send: ${error?.message || 'unknown error'}`, 'system')
+                            });
+                        }
+                    }, []);
+
+                    /**
+                     * Verified 1:1 chats that could still join the ACTIVE group.
+                     *
+                     * A session already carrying a member is filtered out: inviting the same
+                     * chat twice would have it answer with a second identity key and occupy two
+                     * slots in the safety code.
+                     */
+                    const addCandidates = React.useMemo(() => {
+                        if (!activeGroup) return [];
+                        const taken = new Set(activeGroup.members.map((m) => m.sessionId).filter(Boolean));
+                        return groupCandidates.filter((c) => !taken.has(c.id));
+                    }, [activeGroup, groupCandidates]);
+
+                    const handleAddMembers = React.useCallback(async (sessionIds) => {
+                        setShowAddMembers(false);
+                        const gid = activeGroupIdRef.current;
+                        const runtime = gid && groupRuntimesRef.current.get(gid);
+                        if (!runtime) return;
+                        try {
+                            await runtime.addMembers(sessionIds.map((sid) => ({
+                                sessionId: sid,
+                                name: sessionsState.sessions[sid]?.peerLabel || 'Member'
+                            })));
+                        } catch (error) {
+                            setGroupError(error?.code === 'invitations_could_not_be_sent'
+                                ? 'The invitation could not be sent. That chat is not connected right now.'
+                                : error?.code === 'too_many_members'
+                                    ? `A group is limited to ${GROUP_LIMITS.MAX_MEMBERS} members.`
+                                    : `Could not invite (${error?.code || 'unknown error'}).`);
+                        }
+                    }, [sessionsState]);
+
+                    const handleRemoveGroupMember = React.useCallback(async (fp) => {
+                        const gid = activeGroupIdRef.current;
+                        const runtime = gid && groupRuntimesRef.current.get(gid);
+                        if (!runtime) return;
+                        try {
+                            await runtime.removeMember(fp);
+                        } catch (error) {
+                            groupsDispatch({ type: GA.SET_ERROR, id: gid, error: error?.code || 'remove_failed' });
+                        }
+                    }, []);
+
+                    // Opening a group clears its badge; new traffic scrolls the transcript.
+                    React.useEffect(() => {
+                        if (!activeGroupId) return;
+                        groupsDispatch({ type: GA.CLEAR_UNREAD, id: activeGroupId });
+                    }, [activeGroupId]);
+                    React.useEffect(() => {
+                        const el = groupScrollRef.current;
+                        if (el) el.scrollTop = el.scrollHeight;
+                    }, [activeGroup && activeGroup.messages.length]);
+
+                    // Every group runtime is torn down with the app so no identity key or
+                    // ceremony nonce outlives the tab.
+                    React.useEffect(() => () => {
+                        for (const runtime of groupRuntimesRef.current.values()) {
+                            try { runtime.destroy(); } catch (_) {}
+                        }
+                        groupRuntimesRef.current.clear();
+                        // destroy() closes the links its own group opened; this catches any
+                        // that outlived their group — a dial whose runtime was already gone
+                        // when its connection finally came up.
+                        for (const sessionId of [...meshLinksRef.current.keys()]) {
+                            closeMeshLinkRef.current(sessionId);
+                        }
+                    }, []);
                     // Send any held-back read receipts for a session (call when the user opens it).
                     const flushReadAcks = React.useCallback((id) => {
                         if (!id) return;
@@ -5618,13 +6391,16 @@ import {
                     }, [showQRScannerModal]);
         
                     const sessionChats = decorateSessions(sessionsState);
+                    const groupChats = decorateGroups(groupsState);
                     // The multi-session chrome (left rail + chat column) appears only once there
                     // is a genuinely WORKING conversation — a session whose SAS is verified — or
                     // when more than one session exists. The whole offer/answer/verification flow
                     // of the first session (which the manager reports as 'connecting'/'verifying')
                     // stays on the original single-column "Start Secure" screen, exactly as before;
                     // the rail only shows up after the first secure channel is actually established.
-                    const showSidebar = sessionsState.order.length > 1 || sessionsState.order.some((id) => {
+                    // A group also brings the rail up: it is built out of verified sessions, so
+                    // by the time one exists the single-column setup screen is behind us.
+                    const showSidebar = sessionsState.order.length > 1 || groupsState.order.length > 0 || sessionsState.order.some((id) => {
                         const s = sessionsState.sessions[id];
                         return s && s.sas && s.sas.isVerified;
                     });
@@ -5712,15 +6488,60 @@ import {
                         showSidebar && React.createElement(SessionsSidebar, {
                             key: 'sessions-sidebar',
                             chats: sessionChats,
+                            groups: groupChats,
                             collapsed: sidebarCollapsed,
                             drawerOpen: sidebarDrawerOpen,
                             onToggleCollapse: () => setSidebarCollapsed(v => !v),
-                            onSelect: handleSelectSession,
+                            // Picking a 1:1 chat drops the group out of the foreground, and
+                            // vice versa — one conversation is on screen at a time.
+                            onSelect: (id) => { groupsDispatch({ type: GA.SET_ACTIVE_GROUP, id: null }); handleSelectSession(id); },
+                            onSelectGroup: handleSelectGroup,
                             onNewChat: handleNewChat,
+                            onNewGroup: () => { setShowCreateGroup(true); setSidebarDrawerOpen(false); },
                             onRename: handleRenameSession,
                             onCloseDrawer: () => setSidebarDrawerOpen(false),
                             myStatus: myStatus,
                             onSetStatus: setMyStatus
+                        }),
+                        // ---- Group dialogs ----
+                        showCreateGroup && React.createElement(CreateGroupModal, {
+                            key: 'create-group',
+                            candidates: groupCandidates,
+                            relayOnly: relayOnlyMode,
+                            onCreate: handleCreateGroup,
+                            onCancel: () => setShowCreateGroup(false)
+                        }),
+                        pendingInvite && React.createElement(GroupInviteModal, {
+                            key: 'group-invite',
+                            invite: {
+                                name: pendingInvite.name,
+                                fromLabel: sessionsState.sessions[pendingInvite.sessionId]?.peerLabel || 'A verified contact'
+                            },
+                            onAccept: handleAcceptInvite,
+                            onDecline: () => setPendingInvite(null)
+                        }),
+                        groupError && React.createElement(GroupErrorModal, {
+                            key: 'group-error',
+                            message: groupError,
+                            onDismiss: () => setGroupError(null)
+                        }),
+                        (showAddMembers && activeGroup) && React.createElement(AddMembersModal, {
+                            key: 'add-members',
+                            candidates: addCandidates,
+                            remaining: Math.max(0, GROUP_LIMITS.MAX_MEMBERS - activeGroup.members.length),
+                            onAdd: handleAddMembers,
+                            onCancel: () => setShowAddMembers(false)
+                        }),
+                        (showGroupCode && activeGroup) && React.createElement(GroupSasModal, {
+                            key: 'group-sas',
+                            group: activeGroup,
+                            onConfirm: handleConfirmGroupSas,
+                            onCancel: () => {
+                                // Cancelling is a real teardown, not a dismissal: a group whose
+                                // code was not confirmed has authenticated nobody.
+                                if (activeGroup.phase === GROUP_PHASE.READY) setShowGroupCode(false);
+                                else destroyGroup(activeGroup.id);
+                            }
                         }),
                         // Mobile-only hamburger that opens the drawer (hidden on desktop via CSS).
                         showSidebar && React.createElement('button', {
@@ -5752,9 +6573,27 @@ import {
                             webrtcManager: webrtcManagerRef.current
                         }),
         
-                        React.createElement('main', {
+                        // A group takes the whole column when it is the active conversation.
+                        // It renders its own header and composer, so none of the 1:1 chrome
+                        // (which is bound to a single webrtcManager) applies.
+                        activeGroup && React.createElement('main', {
+                            key: 'group-main',
+                            style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }
+                        }, React.createElement(GroupChatView, {
+                            group: activeGroup,
+                            input: groupInput,
+                            setInput: setGroupInput,
+                            onSend: handleSendGroupMessage,
+                            onLeave: () => destroyGroup(activeGroup.id),
+                            onRemoveMember: handleRemoveGroupMember,
+                            onAddMembers: () => setShowAddMembers(true),
+                            isAdmin: activeGroup.isAdmin,
+                            scrollRef: groupScrollRef
+                        })),
+
+                        !activeGroup && React.createElement('main', {
                             key: 'main'
-                        }, 
+                        },
                             (() => {
                                 return isConnectedAndVerified;
                             })()

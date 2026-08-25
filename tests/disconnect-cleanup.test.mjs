@@ -45,6 +45,12 @@ function closableChannel() {
     };
     const timer = setTimeout(() => {}, 10_000);
     const manager = {
+        // A manager announces its lifecycle through _dispatchAppEvent rather
+        // than touching `document` directly, so that a connection with no window
+        // of its own — a group's mesh link — can be muted. The real method is
+        // borrowed here so this test still exercises the path the app uses.
+        _emitGlobalEvents: true,
+        _dispatchAppEvent: EnhancedSecureWebRTCManager.prototype._dispatchAppEvent,
         intentionalDisconnect: false,
         fileTransferSystem: { cleanup() { transferCleanups += 1; } },
         dataChannel,
@@ -115,6 +121,22 @@ function closableChannel() {
     assert.ok(manager.calls.includes('_clearVerificationStates'));
     assert.ok(dispatchedEvents.some(event => event.type === 'peer-disconnect'));
     assert.ok(dispatchedEvents.some(event => event.type === 'connection-cleaned'));
+}
+
+// A connection with no window of its own must not speak to the application.
+//
+// A group's mesh link is a routing detail, not a chat: it has no transcript and
+// no header. Letting it broadcast peer-disconnect would have a link the user
+// never opened reset the display of the chat they are actually looking at.
+{
+    const dispatch = EnhancedSecureWebRTCManager.prototype._dispatchAppEvent;
+    const before = dispatchedEvents.length;
+
+    assert.equal(dispatch.call({ _emitGlobalEvents: false }, { type: 'peer-disconnect' }), false);
+    assert.equal(dispatchedEvents.length, before, 'a muted connection dispatches nothing');
+
+    dispatch.call({ _emitGlobalEvents: true }, { type: 'peer-disconnect' });
+    assert.equal(dispatchedEvents.length, before + 1, 'an ordinary chat still announces itself');
 }
 
 console.log('Disconnect cleanup tests passed');

@@ -1,5 +1,350 @@
 # Changelog
 
+## v6.1.1 — Group chats now connect everyone to everyone
+
+Group chats used to run through whoever created them. That person held a
+connection to every member, and nobody else was connected to anybody — so when
+you wrote to someone in the group, your message went to the creator first and
+they passed it along. It worked, but it meant one person could see when everyone
+else was talking, and if they closed the app the group went quiet.
+
+Now every pair in a group connects directly, by themselves. It happens on its own
+a few seconds after everyone has confirmed the group code, and you can watch it
+in the header: it goes from "2 of 3 connected" to "3 members · P2P mesh". If two
+of you already had a private chat open with each other, the group just uses that
+instead of building a second connection.
+
+The practical difference: whoever created the group is now an ordinary member.
+They can close the app and everyone else keeps talking.
+
+### Also in this release
+
+- When somebody can't be reached directly, their messages still travel through
+  another member — and a message that arrived that way is now marked "relayed",
+  so you can see when it happens.
+- When somebody goes offline, the group says so once and by name, instead of
+  repeating a notice under every message you send until they come back.
+- A connection that drops and can't be repaired is now rebuilt through someone
+  else, rather than staying dead for the rest of the conversation.
+- The warning about relayed messages no longer appears when nothing is being
+  relayed — it used to count people who were simply offline.
+- Group connections no longer interfere with the display of whichever chat you
+  happen to have open.
+
+### Security
+
+- **Fixed: any member of a group could add anyone else to it.** Only the person
+  who created the group was ever meant to be able to invite, but the check for
+  that was missing — a reply to an invitation was accepted from anyone who knew
+  the group's id, whether or not they had been invited. You would have noticed,
+  because a new member appears in the list and everyone's group code changes, but
+  noticing should not have been the only thing standing in the way.
+- The details two members exchange to find each other travel through a third
+  member, so they are now signed. That member can refuse to pass them along, but
+  they cannot swap them for their own and end up sitting in the middle of the
+  connection.
+- Nobody is asked to compare a code for each of these new connections. For a
+  group of eight that would be twenty-eight codes, which is not a check anyone
+  actually performs — the group code everyone already compared covers them.
+
+## v6.0.8 — An offline group member reads as offline
+
+### Fixed
+
+- **A regression from 6.0.7: closing a departed peer's chat could strand a group
+  member.** That release removed the 1:1 chat when a peer disconnected, but a
+  group is built out of those very sessions — one of them is the group's only
+  route to that member. Tearing it out made them permanently unreachable and left
+  nothing to re-bind when they came back. A session carrying a group member is
+  now kept, on both the peer-departure and recovery-exhausted paths.
+- **An offline member is now unmistakable in the member strip** — struck through,
+  dimmed, marked `offline`, with a tooltip saying they will not receive messages
+  and that removing them re-keys the group. They stay listed, because a dropped
+  connection is not a departure: membership is a signed, epoch-ordered fact, and
+  re-keying the group every time somebody's network hiccups would make everyone
+  re-compare a code for nothing. Removing a member is still available to the
+  admin, on the member chip, and that one does open a new epoch.
+- **A relayed message is no longer counted as delivered when the recipient is
+  offline.** A relay hop is unacknowledged: the frame is handed to a member who
+  may or may not reach the target, and nothing comes back either way. For someone
+  we have never held a link to that is the normal path. For someone whose link we
+  lost it is a guess, and counting it told the sender their message had arrived
+  when there was no reason to believe it. The frame is still relayed — the target
+  may be reachable elsewhere in the mesh — it just no longer inflates the count.
+
+## v6.0.7 — Dead chats clear themselves; the group code button is gone
+
+### Removed
+
+- **The Code button in the group header.** It opened a dialog that had nothing to
+  say once the group was ready — the code arrives on its own when there is
+  something to compare, and the header already carries it beside the member
+  count. A control that reports "Working…" forever is worse than no control.
+
+### Fixed
+
+- **A chat the peer walked out of no longer lingers in the rail.** `peer_disconnected`
+  comes only from an explicit peer_disconnect frame, never from a transport drop
+  an ICE restart might repair, so it is terminal: there is nothing to reconnect
+  to, and the chat is now removed rather than sitting there advertising a closing
+  notice as its last message. A plain `disconnected` is deliberately left alone —
+  that one is recoverable and keeps its history.
+- **System notices no longer hijack the chat preview.** The rail showed whatever
+  message came last, so "Enhanced secure connection closed. Check connection
+  status." replaced the last thing the peer actually said — while the status line
+  right next to it was already saying the same thing, better. The preview now
+  skips system messages and falls back to the connection status when a chat has
+  nothing else.
+
+## v6.0.6 — Invite into a running group; departed members actually disappear
+
+### Added
+
+- **The admin can invite more people into a group that is already open.** An Add
+  control in the group header offers the verified 1:1 chats that are not already
+  members. The group keeps working while the invitation is outstanding — nothing
+  about the membership changes until the new members publish their identity keys
+  and a roster for the next epoch goes out. Then everyone, old and new, runs a
+  fresh commit/reveal round and compares a new code. That is not ceremony for its
+  own sake: the safety code covers the member set, so a set that has changed has
+  a different code and the old one no longer describes who is in the room.
+- If nobody accepts, the round is abandoned and the group is left exactly as it
+  was — which is why the epoch is not touched until the roster is actually sent.
+  A partial answer still publishes, with whoever joined.
+
+### Fixed
+
+- **A member who left stayed on the admin's list.** The admin removed them from
+  its own member map and then never told the interface, so someone who had
+  visibly left was still shown as present until some later event happened to
+  refresh the view. A group should not be vague about who is in it.
+- **A fast invitation could abort a round that had already succeeded.** Whether
+  anything had been sent was judged by what was left in the pending-hello queue,
+  but on a fast link the invitee's hello comes back — and the whole round
+  completes — inside the very call that sent the invitation, so the queue was
+  legitimately empty by then. It is now judged by the send results.
+
+## v6.0.5 — Group formation stops hitting the rate limiter
+
+`frame_rejected` on one side, `ceremony_timed_out` on the other: two symptoms,
+one cause.
+
+### Fixed
+
+- **Forming a group exceeded the transport's burst limit and lost frames.** The
+  manager allows ten sends per second, but a group frame spends *two* of those
+  slots — `sendMessage` checks the shared limiter and then hands off to
+  `sendSecureMessage`, which checks the same counter again. Formation sends six
+  frames back to back on one session (invite, two member keys, roster, commit,
+  reveal), asking for twelve slots out of ten. The overflow was rejected as a
+  plain `Error` carrying no code, so it reached the user as the meaningless
+  `frame_rejected`, while the peer that never received the dropped frame simply
+  waited until the ceremony timed out.
+
+  Group frames now go through a per-session queue that serialises and paces them
+  at five a second. Formation takes about a second and a half. The limiter itself
+  is untouched: widening a control that exists for the 1:1 chat, to suit a caller
+  that can perfectly well wait, would have been the wrong trade.
+
+  Ordering is enforced by the same queue. The protocol depends on it — a
+  commitment has to reach a peer before the reveal that opens it — and firing
+  several sends concurrently at one channel left that to the manager's internal
+  mutex.
+- **A rate-limited frame is retried instead of dropped.** Losing one frame of a
+  handshake strands every member of the group, so it is worth waiting for.
+  Failures that will not improve on their own — a closed channel, a refused
+  verification gate — are still reported immediately rather than retried.
+- **An error with no code of its own keeps its message.** Collapsing every such
+  failure to a bare `frame_rejected` threw away the only clue about what actually
+  happened, which is what made this bug take three rounds to find.
+
+### Added
+
+- `group-sender.test.mjs` reproduces the limiter's real accounting — ten slots a
+  second, two per frame — and asserts that all six formation frames land, in
+  order, spaced. It also asserts the failure directly: with pacing disabled, the
+  same run is rejected, and the rejection carries no `code`, which is exactly how
+  it reached the user.
+
+## v6.0.4 — The group code appears, and a failed group says so
+
+Three bugs, one visible symptom: the safety code never showed and the confirm
+button stayed disabled. They are listed worst-first.
+
+### Fixed
+
+- **A failed ceremony could be confirmed into a working group.** `CONFIRM_SAS`
+  required only that a code existed. A ceremony that reached the code step and
+  *then* failed — a commitment that did not match its reveal, a member that
+  vanished — kept that code, so confirming promoted a group whose verification had
+  demonstrably gone wrong straight to ready. Confirmation now also requires the
+  group to still be waiting on that code, which is the group's version of the 1:1
+  rule that verified state comes only from the user acting on something currently
+  true.
+- **A group name in a non-Latin script broke formation silently.** The create
+  dialog capped input at 64 *characters* while the protocol enforces 64 *bytes*,
+  so a perfectly ordinary 36-character Cyrillic name is 68 bytes: accepted by the
+  dialog, then rejected inside the admin's roster signing. Formation died with
+  nothing on screen and the invitee waited for a member list that was never sent.
+  The budget is now 128 bytes and every place that trims a name — the dialog, the
+  rename action — counts bytes.
+- **The safety-code dialog reported "Exchanging nonces…" for a group that had
+  already failed.** It only distinguished one phase from everything else, so a
+  dead group was indistinguishable from a working one; the disabled confirm button
+  was the only hint. It now names the real state and, on failure, says what went
+  wrong in words worth acting on and offers Close instead of a confirm button that
+  cannot do anything.
+
+### Added
+
+- **Coverage for the seam between the protocol and the screen.** Every previous
+  group test drove `GroupSession` and read its fields, leaving the path the UI
+  renders from — emitted event, dispatched action, reducer state — untested. That
+  is exactly where these bugs lived. `group-app-integration.test.mjs` mirrors the
+  app's emitter and asserts the code reaches the *store* on both sides, including
+  with a Cyrillic group name, and that a failed group is never confirmable.
+
+## v6.0.3 — New connection animation, and a re-ordered roadmap
+
+### Changed
+
+- **The landing page's left panel has a new animation.** The old one was a single
+  static wire between two avatars with dots sliding along it. The replacement is
+  a 14-second loop that tells the whole story: a direct line to one peer, then
+  two more joining it — which is what v6.0 actually shipped. It is drawn as one
+  SVG and animated entirely in CSS, with packets moving along `offset-path` built
+  from the same geometry the lines are drawn from, so a packet can never drift
+  off its wire. No requestAnimationFrame loop, so a landing page left open costs
+  nothing. Under `prefers-reduced-motion` it holds on the finished state rather
+  than disappearing, so the picture still reads as a mesh of three.
+- **Mobile Edition moved up to v6.5 and is marked in development**, swapping with
+  Quantum-Resistant Edition, which moves to v7.0.
+
+## v6.0.2 — Groups form reliably, and leaving one frees its members
+
+### Fixed
+
+- **A group no longer sticks at "Exchanging nonces".** Held commitments were
+  replayed *before* our own commitment went out, and replaying them could
+  complete the commit round on the spot — which revealed our nonce and put a
+  reveal on the wire ahead of the commitment it belongs to. The peer then held a
+  reveal it could not check yet and waited for a commitment that was already
+  behind it in the queue, so both sides sat there: one at "exchanging nonces",
+  the other still collecting commitments. Every member now broadcasts its own
+  commitment first and replays held frames afterwards, so a reveal can never
+  outrun it. Asserted directly by a wire-order test on the smallest case, a group
+  of two, which is where it was reported.
+- **Leaving a group actually ends it for the other side.** `leave()` was started
+  but not awaited before teardown, and teardown clears the member map that
+  `leave()` walks to find recipients. Worse, a member who did hear it kept the
+  group anyway: only the admin acted on a departure. When the admin leaves there
+  is nobody left who can sign a roster, so there is no next epoch and no code to
+  compare again — the group is over, and it is now removed instead of lingering
+  as a chat that can never send.
+- **Removing the second-to-last member no longer breaks the group.** It tried to
+  publish a roster for a group of one, which threw out of the member-list
+  validator part-way through the removal and left the group in a failed state.
+  The floor is now checked first and reported.
+- **An invitation that cannot be sent says so immediately.** Send failures were
+  swallowed, so inviting someone over a dead link produced forty-five seconds of
+  silence and then a generic timeout — indistinguishable from an invitee who had
+  not answered yet. A send that fails for every invitee now fails at once, naming
+  the cause; if only some links are down, the unreachable invitees are dropped
+  from the round instead of stalling the roster forever.
+
+### Changed
+
+- **The roadmap reflects what shipped.** Group Communications and Mobile Edition
+  swap places: groups are v6.0 and current, native mobile apps move to v7.0, and
+  Secure Voice & Calls is marked released rather than current. The group entry
+  also lists what was actually built instead of what was guessed at — there is no
+  Double Ratchet "for groups" and no ephemeral-group mode; there are pairwise
+  ratchets, a commit-then-reveal safety code, and signed membership.
+
+## v6.0.1 — The group code now actually appears
+
+### Fixed
+
+- **The safety code opens on its own again.** Whether to show it was decided by
+  comparing the finishing group against a ref that React assigns during render.
+  The commit/reveal round completes in a run of microtasks that outpaces the
+  re-render, so that ref was still null and the modal never opened — leaving a new
+  group sitting silently at "Compare the group code" with the digits reachable
+  only through a button. The group that produced a code is now brought forward
+  directly, which both shows the modal and guarantees it is pointed at the right
+  group when more than one is forming.
+
+## v6.0.0 — Group chats
+
+Up to eight people in one peer-to-peer conversation, with no server and no shared
+group key. A group is an orchestration layer over the 1:1 sessions that already
+exist: every group message travels over a pairwise Double Ratchet that was already
+verified, so the group inherits the forward secrecy and the transport of the chats
+it is built from rather than introducing a second, weaker path.
+
+### Added
+
+- **Group chats, up to 8 members.** Create one from the 1:1 chats you have already
+  verified. Unverified chats are not offered: a group built on a session whose
+  safety code was never compared would inherit that open question and hide it
+  behind a group code that looks like it settled the matter.
+- **A group safety code, compared once by everybody.** Seven digits, the same
+  length as the pairwise code, derived from every member's group identity key and
+  a secret nonce each of them contributes. Nothing is sent until the humans
+  confirm it.
+- **Commit-then-reveal, which is what makes seven digits enough.** The obvious
+  construction — hash the member keys and show the digits — is not safe at a
+  length people will read aloud. A member who introduces two others controls what
+  each of them sees and can generate candidate keys until the two truncated hashes
+  collide; that is a birthday search of roughly 10^(d/2), and seven digits falls
+  in a few thousand tries. Signal answers this by making the safety number sixty
+  digits. Here every member instead publishes a hash of a secret nonce first, and
+  no nonce is revealed until every commitment has arrived — so an attacker must
+  fix both of their commitments before seeing a single honest nonce and is left
+  guessing once, at 10⁻⁷. The gate has one implementation and refuses to reveal
+  early, including on a timeout.
+- **Signed membership, ordered by epochs.** Every change of membership is signed
+  by the group's admin over the resulting member set, and only a strictly greater
+  epoch is accepted — which refuses both a replay and a rollback to a membership
+  that used to be valid. Removing a member opens a new epoch, so the group re-keys
+  and everyone compares a fresh code.
+- **Signed messages, so a split transcript is provable.** Messages fan out over
+  N-1 independent ratchets, so each recipient only learns that the sender's
+  session sent it. A signature over (group, epoch, sequence, body hash) means a
+  member who tells two halves of the group different things under one sequence
+  number produces two valid signatures — non-repudiable evidence rather than
+  suspicion. The offending message is discarded and named in the transcript.
+- **Delivery over a direct link where one exists, relayed where it does not.** A
+  full mesh needs N(N-1)/2 pairwise connections and at creation only the admin
+  holds a link to everyone. Rather than block the group, a frame for an
+  unreachable member is handed to a member who can reach you both. Because every
+  frame is signed, a relaying member can drop or read a frame — reading is what
+  membership already entitles them to — but cannot forge, alter or reattribute
+  one. Relaying is single-hop by construction, and the member strip shows who is
+  direct and who is not.
+- **Partial delivery is reported.** With no server there is nobody to hold a
+  message for an absent member, so a send that reached only some of the group says
+  so in the transcript instead of looking like it succeeded.
+- **A warning before you create a group without relay-only.** In a mesh every
+  member connects to you directly and learns your address — including members
+  somebody else invited. That is a real step down from a 1:1 chat and it is said
+  before you commit, not after.
+
+### Notes
+
+- The group layer required **no changes to the WebRTC manager**. Group frames ride
+  `sendMessage`, the same authenticated and ratcheted path chat text takes, and
+  are lifted out before they can reach a 1:1 transcript.
+- Frames travel base64-wrapped. The chat path sanitises what it sends — DOMPurify
+  escapes `<`, `>` and `&`, control characters are stripped, blank runs collapse,
+  and the result is cut to 2000 characters — all of which is correct for chat text
+  and fatal for a signed frame, whose body would no longer match the hash its
+  signature covers. Base64 has no character that path rewrites. A group message is
+  bounded at 1024 bytes so a frame always fits underneath the same ceiling.
+- There is no message history for a member who joins: a group starts empty, and
+  without a server there is nothing to backfill it from.
+- Group calls are not in this release.
+
 ## v5.9.2 — Responsive layout fixed for phones
 
 The chat was not laying out correctly on phones, iPhone worst of all: the header

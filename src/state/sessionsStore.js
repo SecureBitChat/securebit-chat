@@ -331,7 +331,14 @@ export function sessionsReducer(state, action) {
 // Decorate a session into the shape the sidebar/header rendering consumes (avatar monogram,
 // status dot, sub-text, last-message preview, unread badge). Pure derivation — no state.
 export function decorateSession(session, activeSessionId) {
-    const lastMessage = [...session.messages].reverse().find((m) => !m.expired && ((typeof m.message === 'string' && m.message.trim()) || m.voice));
+    // System notices are not conversation. Letting them win the preview put
+    // things like "Enhanced secure connection closed" in the rail where the last
+    // thing the peer actually said belongs — and the status line beside it was
+    // already saying the same thing, better.
+    const lastMessage = [...session.messages].reverse().find(
+        (m) => !m.expired && m.type !== 'system'
+            && ((typeof m.message === 'string' && m.message.trim()) || m.voice),
+    );
     const s = session.status;
     const isUp = s === 'connected' || s === 'verified';
     // 'reconnecting' is a live session whose path is being repaired — amber, not
