@@ -1,0 +1,264 @@
+/* ============================================================================
+   apple-motion.css — response, materials, type and reduced motion.
+
+   Loaded last, so it can settle arguments with the older sheets on source
+   order alone. Three things live here, and nothing else:
+
+     1. Press feedback and input latency (§ "Response").
+        Feedback belongs on pointer-DOWN. Waiting for the click to acknowledge
+        a tap is the single cheapest way to make an interface feel dead, and
+        almost every control in this app was hover-only — which on a phone
+        means no feedback at all until the action has already happened.
+
+     2. Material weight and type (§ "Materials", § "Typography").
+        Translucent chrome should read as a real, thick surface with content
+        moving under it; tracking is size-specific, never one value for every
+        size.
+
+     3. The three accessibility signals (§ "Reduced motion").
+        Reduced motion is not "no feedback" — it is a non-vestibular
+        equivalent. Looping decoration stops; entrances cross-fade in place
+        instead of travelling; anything that communicates state stays.
+   ============================================================================ */
+
+:root {
+    /* One place for the curves, so a timing value is never invented twice.
+       These mirror the spring parameters in src/ui/motion.js: CSS cannot do a
+       real spring, but for a press — which is short and cannot be grabbed
+       mid-flight — a curve is honest enough. */
+    --sb-press: 110ms cubic-bezier(0.2, 0, 0, 1);
+    --sb-settle: 240ms cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+/* ── 1. Response ─────────────────────────────────────────────────────────── */
+
+/* `touch-action: manipulation` drops the ~300ms wait a mobile browser spends
+   deciding whether a tap was the first half of a double-tap-to-zoom. Nothing
+   here is zoomable, so that delay buys nothing and costs the illusion of
+   directness. The tap highlight goes with it — we draw our own. */
+button,
+[role="button"],
+a,
+label,
+summary,
+input[type="checkbox"],
+input[type="radio"],
+.cursor-pointer {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* The press itself. Deliberately low specificity (0,1,1): every control that
+   already defines its own :active — .button, .btn-partner-modern, the header
+   icons — keeps it, because a class selector outranks this. */
+button:not(:disabled):active,
+[role="button"]:not([aria-disabled="true"]):active,
+.cursor-pointer:active {
+    transform: scale(0.97);
+    transition: transform var(--sb-press);
+}
+
+/* Release should settle rather than snap back at the same speed it depressed. */
+button,
+[role="button"] {
+    transition: transform var(--sb-settle);
+}
+
+/* Disabled controls must not pretend to respond. */
+button:disabled,
+[aria-disabled="true"] {
+    cursor: not-allowed;
+}
+
+/* A pointer that cannot hover should not inherit hover state — on touch, :hover
+   sticks after the tap and leaves controls lit up with no way to clear them. */
+@media (hover: none) {
+    .card-minimal:hover,
+    .wallet-logo:hover,
+    .btn-primary:hover,
+    .btn-secondary:hover,
+    .btn-verify:hover,
+    .lightning-button:hover,
+    .btn-partner-modern:hover,
+    .transfer-item:hover,
+    .file-drop-zone:hover,
+    .project-card:hover .project-card__bg {
+        transform: none;
+        box-shadow: none;
+    }
+}
+
+/* Keyboard users get the same clarity as pointer users. */
+:focus-visible {
+    outline: 2px solid rgba(249, 115, 22, 0.75);
+    outline-offset: 2px;
+}
+
+/* ── 2. Materials ────────────────────────────────────────────────────────── */
+
+/* The header's own background is set inline by Header.jsx (it cross-fades on
+   scroll) so its blur is fixed there. What a class rule can still add is the
+   bright top edge — light catching the near face of the glass, which is what
+   separates a translucent bar from a washed-out rectangle. */
+.header-minimal {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Cards are a smaller surface than chrome, so they read thinner: less blur,
+   a shallower shadow. Weight is how a surface says how big it is. */
+.card-minimal {
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+
+/* ── 3. Typography ───────────────────────────────────────────────────────── */
+
+/* Tracking is size-specific. Letterforms drift apart as they grow, so display
+   text needs negative tracking to hold together, and small text needs a touch
+   of positive tracking to stay legible. A single letter-spacing value is wrong
+   at one end of the scale or the other — usually both. Leading moves the
+   opposite way: tight on headings, open on body copy. */
+html {
+    font-optical-sizing: auto;
+}
+
+h1, .text-6xl, .text-5xl { letter-spacing: -0.024em; line-height: 1.05; }
+h2, .text-4xl           { letter-spacing: -0.021em; line-height: 1.1; }
+h3, .text-3xl           { letter-spacing: -0.018em; line-height: 1.15; }
+.text-2xl               { letter-spacing: -0.014em; }
+.text-xl                { letter-spacing: -0.011em; }
+.text-lg                { letter-spacing: -0.006em; }
+.text-base, p           { letter-spacing: 0; }
+.text-sm                { letter-spacing: 0.004em; }
+.text-xs                { letter-spacing: 0.012em; }
+
+/* Text over a blurred surface loses contrast against whatever is moving
+   behind it. Flat mid-grey is the first thing to disappear; a little more
+   weight and a little more tracking is what keeps it readable — the same
+   trade vibrancy makes on Apple's platforms. */
+.header-minimal .text-secondary,
+.chat-input-area .text-secondary,
+.card-minimal .text-muted {
+    color: #c3c3c9;
+    letter-spacing: 0.01em;
+}
+
+/* ── 4. Reduced motion ───────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+    /* Looping, decorative motion has no state to communicate — it is the
+       first thing to go, and nothing is lost by holding it on a final frame. */
+    .wallet-logos-track,
+    .button,
+    .button::before,
+    .icon-loading,
+    [style*="sbPulse"],
+    [style*="sbFlow"],
+    [style*="sbNode"],
+    [style*="sbScan"],
+    [style*="sbTrav"],
+    [style*="sbRing"],
+    [style*="sbLiveBg"],
+    [style*="sbCallPulse"],
+    [style*="rmPulse"],
+    [style*="vmRing"] {
+        animation: none !important;
+    }
+
+    /* Entrances still happen — they explain that something new arrived — but
+       they cross-fade in place instead of sliding, which is the part that
+       provokes a vestibular response. */
+    @keyframes sbFadeInPlace { from { opacity: 0; } to { opacity: 1; } }
+
+    .message-slide,
+    [style*="sbUp"],
+    [style*="sbSlideUp"],
+    [style*="sbExpand"],
+    [style*="ccUp"],
+    [style*="ptUp"],
+    [style*="wuUp"],
+    [style*="rmExp"],
+    [style*="sbRow"],
+    [style*="sbIn1"],
+    [style*="sbIn2"] {
+        animation: sbFadeInPlace 160ms ease-out both !important;
+        transform: none !important;
+    }
+
+    /* A pulsing REC dot is status, not decoration: keep it, but as opacity
+       alone — the scale component is what makes it jump. */
+    [style*="vmRec"] {
+        animation: vmRecSoft 1.4s ease-in-out infinite !important;
+        transform: none !important;
+    }
+    @keyframes vmRecSoft { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    /* Nothing lifts, scales or hops. Named rather than `*:hover`, because a
+       transform is also how things are centred — a blanket rule would drop
+       elements out of position rather than merely still them. */
+    .card-minimal:hover,
+    .wallet-logo:hover,
+    .btn-primary:hover,
+    .btn-secondary:hover,
+    .btn-verify:hover,
+    .lightning-button:hover,
+    .btn-partner-modern:hover,
+    .transfer-item:hover,
+    .file-drop-zone:hover,
+    .project-card:hover,
+    .project-card:hover .project-card__bg,
+    .header-minimal .cursor-pointer:hover {
+        transform: none !important;
+    }
+    button:not(:disabled):active,
+    [role="button"]:active,
+    .cursor-pointer:active {
+        transform: none !important;
+        opacity: 0.7;
+    }
+
+    /* The mobile drawer's scrim opacity is driven imperatively, frame by frame,
+       from src/ui/motion.js. Under normal motion a CSS transition on top of
+       that would fight the finger; with motion reduced the spring resolves
+       instantly, so the transition is the whole animation — the drawer
+       cross-fades in place instead of sliding in from the edge. */
+    .sb-drawer-overlay { transition: opacity 160ms ease !important; }
+
+    /* Programmatic smooth scrolling is a full-viewport slide. The JS callers
+       check the same media query; this covers the CSS ones. */
+    html, body, .scroll-smooth, .messages-container,
+    .chat-messages-area, .sb-scroll, .track {
+        scroll-behavior: auto !important;
+    }
+}
+
+/* ── 5. Reduced transparency ─────────────────────────────────────────────── */
+
+/* Frostier and heavier, not merely less blurred: the surface still has to
+   separate itself from what is behind it, and without translucency the only
+   tools left are opacity and a border. */
+@media (prefers-reduced-transparency: reduce) {
+    .header-minimal,
+    .card-minimal,
+    .sb-chat-header {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+    .header-minimal { background: #18181a !important; }
+    .card-minimal { background: #202022 !important; }
+}
+
+/* ── 6. Increased contrast ───────────────────────────────────────────────── */
+
+@media (prefers-contrast: more) {
+    .card-minimal,
+    .icon-container,
+    .verification-code,
+    .security-shield {
+        background: #141416 !important;
+        border-color: rgba(255, 255, 255, 0.42) !important;
+    }
+    .text-secondary { color: #e4e4e8 !important; }
+    .text-muted { color: #c8c8cf !important; }
+    :focus-visible { outline-width: 3px; }
+}

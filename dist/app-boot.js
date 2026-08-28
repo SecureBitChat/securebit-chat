@@ -21332,7 +21332,7 @@ var SecureMasterKeyManager = class {
 var import_NotificationIntegration = __toESM(require_NotificationIntegration());
 
 // package.json
-var version = "6.1.1";
+var version = "6.2.0";
 
 // src/components/ui/Header.jsx
 var APP_VERSION = `v${version}`;
@@ -21750,8 +21750,10 @@ Right-click or Ctrl+click to disconnect`,
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+  const GLASS = "blur(20px) saturate(180%)";
+  const MATERIALISE = "background .25s ease, backdrop-filter .25s ease, -webkit-backdrop-filter .25s ease, border-color .25s ease";
   const overlay = { position: "fixed", top: 0, left: 0, right: 0 };
-  const headerStyle = onLanding ? scrolled ? { ...overlay, background: "rgba(15,15,17,0.72)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", borderBottom: "1px solid rgba(255,255,255,0.06)", transition: "background .25s ease, backdrop-filter .25s ease, border-color .25s ease" } : { ...overlay, background: "transparent", backdropFilter: "none", WebkitBackdropFilter: "none", borderBottom: "1px solid transparent", transition: "background .25s ease, backdrop-filter .25s ease, border-color .25s ease" } : { background: "rgba(18,18,20,0.72)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", borderBottom: "1px solid rgba(255,255,255,0.06)" };
+  const headerStyle = onLanding ? scrolled ? { ...overlay, background: "rgba(15,15,17,0.72)", backdropFilter: GLASS, WebkitBackdropFilter: GLASS, borderBottom: "1px solid rgba(255,255,255,0.06)", transition: MATERIALISE } : { ...overlay, background: "transparent", backdropFilter: "blur(0px) saturate(100%)", WebkitBackdropFilter: "blur(0px) saturate(100%)", borderBottom: "1px solid transparent", transition: MATERIALISE } : { background: "rgba(18,18,20,0.72)", backdropFilter: GLASS, WebkitBackdropFilter: GLASS, borderBottom: "1px solid rgba(255,255,255,0.06)" };
   return React.createElement("header", {
     className: onLanding ? "header-minimal z-50" : "header-minimal sticky top-0 z-50",
     style: headerStyle
@@ -21828,7 +21830,7 @@ Right-click or Ctrl+click to disconnect`,
 window.EnhancedMinimalHeader = EnhancedMinimalHeader;
 
 // src/components/ui/DownloadApps.jsx
-var DESKTOP_VERSION = "0.3.0";
+var DESKTOP_VERSION = "0.5.0";
 var DESKTOP_RELEASE = `https://github.com/SecureBitChat/securebit-desktop/releases/download/v${DESKTOP_VERSION}`;
 var DownloadApps = () => {
   const apps = [

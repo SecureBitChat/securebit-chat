@@ -18,3 +18,10 @@ config/ice-servers.js
 SECURITY_AUDIT.md
 SECURITY_AUDIT*.md
 audit/
+
+# Agent tooling — local only. Skills (mine or third-party), their lockfile and
+# the per-machine Claude Code settings describe how someone works on this repo,
+# not what the repo is. They must never reach GitHub.
+.agents/
+.claude/
+skills-lock.json

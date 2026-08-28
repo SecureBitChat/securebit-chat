@@ -24,6 +24,12 @@ import {
 import { GroupSession, GROUP_FRAMES, isGroupFrame, groupFrameType, decodeEnvelope } from './group/GroupSession.js';
 import { GROUP_LIMITS } from './group/groupCrypto.js';
 import { createGroupSender } from './group/groupSender.js';
+import { spring, snapTarget, rubberband, velocityTracker, prefersReducedMotion, SPRING } from './ui/motion.js';
+
+// A programmatic smooth scroll is a full-viewport slide, which is exactly what
+// someone who asked for less motion does not want. The jump still happens and
+// still lands in the same place — it just stops travelling to get there.
+const scrollBehavior = () => (prefersReducedMotion() ? 'auto' : 'smooth');
 import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, GroupErrorModal, AddMembersModal } from './components/ui/GroupChat.jsx';
 
                 // ── Secure chat extras: code blocks, clipboard hygiene ──────────────
@@ -1640,7 +1646,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     // /download/v0.3.0/SecureBit.Chat_0.1.0_x64-setup.exe, a file that never
                     // existed, and the download 404s. A pinned tag keeps serving a real
                     // installer instead.
-                    const SB_DESKTOP_VERSION = '0.3.0';
+                    const SB_DESKTOP_VERSION = '0.5.0';
                     const SB_DESKTOP_RELEASE = `https://github.com/SecureBitChat/securebit-desktop/releases/download/v${SB_DESKTOP_VERSION}`;
                     const DOWNLOADS = {
                         mac: { name: 'macOS', format: '.dmg · Apple Silicon & Intel', icon: 'fab fa-apple', url: `${SB_DESKTOP_RELEASE}/SecureBit.Chat_${SB_DESKTOP_VERSION}_x64.dmg` },
@@ -1825,7 +1831,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                 if (chatMessagesRef.current) {
                                     chatMessagesRef.current.scrollTo({
                                         top: chatMessagesRef.current.scrollHeight,
-                                        behavior: 'smooth'
+                                        behavior: scrollBehavior()
                                     });
                                 }
                             };
@@ -2221,7 +2227,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             if (chatMessagesRef.current) {
                                 chatMessagesRef.current.scrollTo({
                                     top: chatMessagesRef.current.scrollHeight,
-                                    behavior: 'smooth'
+                                    behavior: scrollBehavior()
                                 });
                             }
                         };
@@ -2245,7 +2251,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     scrollToBottom();
                     setShowScrollButton(false);
                 } else if (chatMessagesRef.current) {
-                    chatMessagesRef.current.scrollTo({ top: chatMessagesRef.current.scrollHeight, behavior: 'smooth' });
+                    chatMessagesRef.current.scrollTo({ top: chatMessagesRef.current.scrollHeight, behavior: scrollBehavior() });
                     setShowScrollButton(false);
                 }
             };
@@ -2572,6 +2578,163 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     const [editingId, setEditingId] = React.useState(null);
                     const [draft, setDraft] = React.useState('');
                     const [presenceOpen, setPresenceOpen] = React.useState(false);
+
+                    // ── Mobile drawer: a gesture, not a toggle ───────────────────────
+                    // This used to be `display: none | block`. The drawer existed or it
+                    // did not; there was no in-between, no way to peek at it, and no way
+                    // to change your mind once it was moving. It is dragged now: the
+                    // panel is glued to the finger, resists past its own edge, and on
+                    // release the flick is projected forward to work out whether it was
+                    // being sent home or thrown away. Everything animates on a spring so
+                    // it can be caught again mid-flight and reversed without waiting.
+                    const scrimRef = React.useRef(null);
+                    const panelRef = React.useRef(null);
+                    const animRef = React.useRef(null);
+                    const dragRef = React.useRef(null);
+                    const offsetRef = React.useRef(0);      // px; 0 = open, -width = closed
+                    const openRef = React.useRef(false);    // where the panel is headed
+                    const clickGuardRef = React.useRef(false);
+                    const [drawerMounted, setDrawerMounted] = React.useState(!!drawerOpen);
+
+                    const AXIS_LOCK = 10;   // hysteresis before committing to a direction
+                    const FLICK = 220;      // px/s above which velocity, not position, decides
+
+                    const drawerWidth = () => (panelRef.current && panelRef.current.offsetWidth) || 292;
+
+                    // Written straight to the DOM. Putting a 1:1 drag through React state
+                    // inserts a render between the finger and the pixels, which is exactly
+                    // the latency that makes direct manipulation stop feeling direct.
+                    const paintDrawer = (x) => {
+                        offsetRef.current = x;
+                        const w = drawerWidth();
+                        const progress = Math.min(1, Math.max(0, 1 + x / w));
+                        if (panelRef.current) panelRef.current.style.transform = 'translate3d(' + x.toFixed(2) + 'px,0,0)';
+                        if (scrimRef.current) {
+                            scrimRef.current.style.opacity = progress.toFixed(3);
+                            // The blur comes up with the panel rather than being switched
+                            // on at the end: the scrim should read as a material arriving,
+                            // not as a filter someone flipped.
+                            const blur = 'blur(' + (5 * progress).toFixed(2) + 'px)';
+                            scrimRef.current.style.backdropFilter = blur;
+                            scrimRef.current.style.webkitBackdropFilter = blur;
+                        }
+                    };
+
+                    const settleDrawer = (to, velocity) => {
+                        if (animRef.current) animRef.current.stop();
+                        animRef.current = spring({
+                            from: offsetRef.current,
+                            to,
+                            velocity,
+                            // Overshoot has to be earned. A drawer that was flicked carries
+                            // momentum and should land with a little bounce; one that was
+                            // opened by tapping the burger has none, and wobbling would be
+                            // the interface talking to itself.
+                            damping: Math.abs(velocity) > 60 ? SPRING.drawer.damping : SPRING.move.damping,
+                            response: SPRING.drawer.response,
+                            restDelta: 0.5,
+                            restSpeed: 8,
+                            onUpdate: paintDrawer,
+                            onComplete: () => {
+                                paintDrawer(to);
+                                animRef.current = null;
+                                if (to !== 0) setDrawerMounted(false);
+                            }
+                        });
+                    };
+
+                    React.useLayoutEffect(() => {
+                        if (drawerOpen && !drawerMounted) { setDrawerMounted(true); return; }
+                        if (!drawerMounted) return;
+                        if (drawerOpen === openRef.current) return;   // already going there
+                        const w = drawerWidth();
+                        if (drawerOpen && !animRef.current && !dragRef.current) {
+                            // Parked closed: place it off the edge it will leave by, so the
+                            // way in and the way out are the same path.
+                            paintDrawer(-w);
+                        }
+                        openRef.current = drawerOpen;
+                        // Start from the live velocity, never from zero — reversing a moving
+                        // panel by resetting it to standstill is the "brick wall" the user
+                        // feels at exactly the moment they changed their mind.
+                        settleDrawer(drawerOpen ? 0 : -w, animRef.current ? animRef.current.velocity : 0);
+                    }, [drawerOpen, drawerMounted]);
+
+                    React.useEffect(() => () => { if (animRef.current) animRef.current.stop(); }, []);
+
+                    // Handlers live on the scrim alone; pointer events from the panel bubble
+                    // up to it, so one set covers both surfaces and can never double-fire.
+                    const drawerDown = (e) => {
+                        if (e.pointerType === 'mouse' && e.button !== 0) return;
+                        if (dragRef.current) return;
+                        // Cleared here rather than in the click handler: a drag that ends
+                        // outside the scrim produces no click at all, and a guard left
+                        // standing would swallow the next genuine tap-to-dismiss.
+                        clickGuardRef.current = false;
+                        dragRef.current = {
+                            id: e.pointerId,
+                            x0: e.clientX, y0: e.clientY,
+                            // Where they grabbed is where it stays. Re-centring the panel
+                            // under the finger breaks the illusion on the first frame.
+                            base: offsetRef.current,
+                            axis: null,
+                            vel: velocityTracker()
+                        };
+                        dragRef.current.vel.add(e.clientX, e.timeStamp || performance.now());
+                    };
+
+                    const drawerMove = (e) => {
+                        const d = dragRef.current;
+                        if (!d || e.pointerId !== d.id) return;
+                        const dx = e.clientX - d.x0;
+                        const dy = e.clientY - d.y0;
+                        if (!d.axis) {
+                            // Both gestures are tracked from the first move and the loser is
+                            // only cancelled once intent is unambiguous — a vertical scroll
+                            // through the chat list must never be stolen by the drawer.
+                            if (Math.abs(dx) < AXIS_LOCK && Math.abs(dy) < AXIS_LOCK) return;
+                            if (Math.abs(dy) >= Math.abs(dx)) { dragRef.current = null; return; }
+                            d.axis = 'x';
+                            if (animRef.current) {
+                                // Take over from wherever it is on screen right now, not from
+                                // where the animation was headed.
+                                d.base = offsetRef.current;
+                                d.x0 = e.clientX;
+                                animRef.current.stop();
+                                animRef.current = null;
+                            }
+                            try { e.currentTarget.setPointerCapture(d.id); } catch (_) {}
+                        }
+                        d.vel.add(e.clientX, e.timeStamp || performance.now());
+                        const w = drawerWidth();
+                        let x = d.base + (e.clientX - d.x0);
+                        // Past the open edge there is nothing left to reveal. Resisting
+                        // reads as "responsive, but this is the end"; stopping dead reads
+                        // as the app having frozen.
+                        if (x > 0) x = rubberband(x, w);
+                        else if (x < -w) x = -w + rubberband(x + w, w);
+                        paintDrawer(x);
+                    };
+
+                    const drawerUp = (e) => {
+                        const d = dragRef.current;
+                        if (!d || (e.pointerId !== undefined && e.pointerId !== d.id)) return;
+                        dragRef.current = null;
+                        if (d.axis !== 'x') return;      // a tap: let the click through
+                        clickGuardRef.current = true;    // a drag: the scrim must not also fire
+                        const w = drawerWidth();
+                        const v = d.vel.get(e.timeStamp || performance.now());
+                        // Where the gesture was going, not where it happened to stop.
+                        const open = snapTarget(offsetRef.current, v, [-w, 0], { flick: FLICK }) === 0;
+                        openRef.current = open;
+                        settleDrawer(open ? 0 : -w, v);
+                        if (!open) onCloseDrawer();
+                    };
+
+                    const drawerScrimClick = () => {
+                        if (clickGuardRef.current) { clickGuardRef.current = false; return; }
+                        onCloseDrawer();
+                    };
                     const startEdit = (c) => (e) => { e.stopPropagation(); setEditingId(c.id); setDraft(c.name); };
                     const commitEdit = () => { if (editingId) { onRename(editingId, draft); setEditingId(null); } };
                     const editKey = (e) => {
@@ -2836,12 +2999,19 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             '@media (max-width:768px){.sb-rename-btn{display:none !important;}}' } }),
                         // Desktop rail
                         h('aside', { key: 'rail', className: 'sb-rail', style: railStyle }, inner),
-                        // Mobile drawer overlay
+                        // Mobile drawer overlay. `touch-action: pan-y` hands vertical
+                        // scrolling back to the browser and keeps the horizontal axis for
+                        // us, so the chat list still scrolls with the drawer open.
                         h('div', {
                             key: 'drawer', className: 'sb-drawer-overlay',
-                            onClick: onCloseDrawer,
-                            style: { position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(6,6,8,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', display: drawerOpen ? 'block' : 'none' }
-                        }, h('aside', { className: 'sb-mobile-drawer', onClick: (e) => e.stopPropagation(), style: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 'min(292px, 86vw)', display: 'flex', flexDirection: 'column', background: '#0c0c0e', borderRight: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 0 60px rgba(0,0,0,0.6)' } }, [
+                            ref: scrimRef,
+                            onClick: drawerScrimClick,
+                            onPointerDown: drawerDown,
+                            onPointerMove: drawerMove,
+                            onPointerUp: drawerUp,
+                            onPointerCancel: drawerUp,
+                            style: { position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(6,6,8,0.6)', backdropFilter: 'blur(0px)', WebkitBackdropFilter: 'blur(0px)', opacity: 0, display: drawerMounted ? 'block' : 'none', touchAction: 'pan-y', willChange: 'opacity' }
+                        }, h('aside', { className: 'sb-mobile-drawer', ref: panelRef, onClick: (e) => e.stopPropagation(), style: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 'min(292px, 86vw)', display: 'flex', flexDirection: 'column', background: '#0c0c0e', borderRight: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 0 60px rgba(0,0,0,0.6)', touchAction: 'pan-y', willChange: 'transform' } }, [
                             // Explicit close button — the drawer's own header only has a
                             // "collapse" chevron (a desktop-rail action), so on mobile there was
                             // no obvious way to dismiss it. This X closes the drawer reliably.
@@ -3440,7 +3610,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                                 if (container && container.scrollTo) {
                                                     container.scrollTo({
                                                         top: container.scrollHeight,
-                                                        behavior: 'smooth'
+                                                        behavior: scrollBehavior()
                                                     });
                                                 }
                                             });

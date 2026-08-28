@@ -7,7 +7,7 @@ this document describes.
 
 | | |
 | --- | --- |
-| Release | v6.1.1 |
+| Release | v6.2.0 |
 | Protocol version | 4.1 |
 | Ratchet wire version | 1 |
 
@@ -308,5 +308,5 @@ and receiving their group traffic.
 
 ## Scope
 
-This describes the browser implementation as it stands in v6.1.1. It is not a
+This describes the browser implementation as it stands in v6.2.0. It is not a
 substitute for independent cryptographic review.

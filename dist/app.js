@@ -2698,6 +2698,167 @@ function createGroupSender({
   };
 }
 
+// src/ui/motion.js
+var SPRING = {
+  // Move / reposition something. No overshoot: a panel that bounces when it
+  // was not thrown reads as decoration.
+  move: { damping: 1, response: 0.4 },
+  // A sheet or drawer the user dragged. The bounce is earned — the gesture
+  // carried momentum into it.
+  drawer: { damping: 0.8, response: 0.3 },
+  // Rotation.
+  rotate: { damping: 0.8, response: 0.4 }
+};
+var DT = 1 / 480;
+var MAX_FRAME = 0.064;
+function prefersReducedMotion() {
+  try {
+    return typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  } catch (_) {
+    return false;
+  }
+}
+function project(velocity, decelerationRate = 0.998) {
+  return velocity / 1e3 * decelerationRate / (1 - decelerationRate);
+}
+function snapTarget(position, velocity, points, o = {}) {
+  const { flick = 220, decelerationRate = 0.998 } = o;
+  if (!points || !points.length) return position;
+  const projected = position + project(velocity, decelerationRate);
+  let pool = points;
+  if (Math.abs(velocity) > flick) {
+    const ahead = points.filter((p) => velocity > 0 ? p >= position : p <= position);
+    if (ahead.length) pool = ahead;
+  }
+  return pool.reduce(
+    (best, p) => Math.abs(p - projected) < Math.abs(best - projected) ? p : best,
+    pool[0]
+  );
+}
+function rubberband(overshoot, dimension, constant = 0.55) {
+  if (!dimension) return 0;
+  return overshoot * dimension * constant / (dimension + constant * Math.abs(overshoot));
+}
+function velocityTracker(windowMs = 100) {
+  const samples = [];
+  return {
+    add(value, time = performance.now()) {
+      samples.push({ value, time });
+      while (samples.length > 2 && time - samples[0].time > windowMs) samples.shift();
+    },
+    /** @returns {number} px/s over the trailing window */
+    get(now = performance.now()) {
+      if (samples.length < 2) return 0;
+      const last = samples[samples.length - 1];
+      if (now - last.time > windowMs) return 0;
+      const first = samples[0];
+      const dt = (last.time - first.time) / 1e3;
+      if (dt <= 0) return 0;
+      return (last.value - first.value) / dt;
+    },
+    reset() {
+      samples.length = 0;
+    }
+  };
+}
+function spring(o) {
+  const {
+    from,
+    to,
+    velocity = 0,
+    damping = SPRING.move.damping,
+    response = SPRING.move.response,
+    restDelta = 0.1,
+    restSpeed = 0.5,
+    respectReducedMotion = true,
+    onUpdate,
+    onComplete
+  } = o;
+  let value = from;
+  let vel = velocity;
+  let target = to;
+  let raf = 0;
+  let last = 0;
+  let done = false;
+  const omega = 2 * Math.PI / response;
+  const zeta = damping;
+  const finish = () => {
+    done = true;
+    raf = 0;
+    value = target;
+    vel = 0;
+    if (onUpdate) onUpdate(value);
+    if (onComplete) onComplete();
+  };
+  if (respectReducedMotion && prefersReducedMotion()) {
+    finish();
+    return {
+      get value() {
+        return value;
+      },
+      get velocity() {
+        return 0;
+      },
+      get done() {
+        return true;
+      },
+      retarget(next) {
+        target = next;
+        finish();
+      },
+      stop() {
+      }
+    };
+  }
+  const step = (now) => {
+    raf = 0;
+    const frame = Math.min((now - last) / 1e3, MAX_FRAME);
+    last = now;
+    let t = frame;
+    while (t > 0) {
+      const dt = Math.min(DT, t);
+      const accel = -omega * omega * (value - target) - 2 * zeta * omega * vel;
+      vel += accel * dt;
+      value += vel * dt;
+      t -= dt;
+    }
+    if (Math.abs(value - target) < restDelta && Math.abs(vel) < restSpeed) {
+      finish();
+      return;
+    }
+    if (onUpdate) onUpdate(value);
+    raf = requestAnimationFrame(step);
+  };
+  last = performance.now();
+  raf = requestAnimationFrame(step);
+  return {
+    get value() {
+      return value;
+    },
+    get velocity() {
+      return vel;
+    },
+    get done() {
+      return done;
+    },
+    /**
+     * Point the spring somewhere else without touching its current velocity.
+     *
+     * This is the anti-"brick wall" move. Killing this animation and starting
+     * a new one at velocity 0 puts a discontinuity exactly where the user
+     * reversed direction, which is the moment they are most attentive.
+     */
+    retarget(next) {
+      target = next;
+    },
+    stop() {
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+      done = true;
+    }
+  };
+}
+
 // src/components/ui/GroupChat.jsx
 var h = (...args) => React.createElement(...args);
 var C = {
@@ -3476,6 +3637,7 @@ function GroupChatView({
 }
 
 // src/app.jsx
+var scrollBehavior = () => prefersReducedMotion() ? "auto" : "smooth";
 var copyToClipboardSecure = async (text, autoClearMs = 0) => {
   let ok = false;
   try {
@@ -4879,7 +5041,7 @@ var EnhancedConnectionSetup = ({
       }, disabled: !hasInvite || connectionStatus === "connecting", style: { width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "9px", padding: "14px", borderRadius: "13px", border: "none", background: hasInvite && connectionStatus !== "connecting" ? C_ORANGE : "rgba(255,255,255,0.05)", color: hasInvite && connectionStatus !== "connecting" ? "#1a0f04" : "#56565e", fontFamily: "inherit", fontSize: "15px", fontWeight: 700, cursor: hasInvite && connectionStatus !== "connecting" ? "pointer" : "not-allowed", boxShadow: hasInvite && connectionStatus !== "connecting" ? "0 8px 24px rgba(240,137,42,0.28)" : "none" } }, connectionStatus === "connecting" ? "Processing\u2026" : "Connect")
     ]);
   }
-  const SB_DESKTOP_VERSION = "0.3.0";
+  const SB_DESKTOP_VERSION = "0.5.0";
   const SB_DESKTOP_RELEASE = `https://github.com/SecureBitChat/securebit-desktop/releases/download/v${SB_DESKTOP_VERSION}`;
   const DOWNLOADS = {
     mac: { name: "macOS", format: ".dmg \xB7 Apple Silicon & Intel", icon: "fab fa-apple", url: `${SB_DESKTOP_RELEASE}/SecureBit.Chat_${SB_DESKTOP_VERSION}_x64.dmg` },
@@ -5028,7 +5190,7 @@ var createScrollToBottomFunction = (chatMessagesRef) => {
         if (chatMessagesRef.current) {
           chatMessagesRef.current.scrollTo({
             top: chatMessagesRef.current.scrollHeight,
-            behavior: "smooth"
+            behavior: scrollBehavior()
           });
         }
       };
@@ -5417,7 +5579,7 @@ var EnhancedChatInterface = ({
           if (chatMessagesRef.current) {
             chatMessagesRef.current.scrollTo({
               top: chatMessagesRef.current.scrollHeight,
-              behavior: "smooth"
+              behavior: scrollBehavior()
             });
           }
         };
@@ -5439,7 +5601,7 @@ var EnhancedChatInterface = ({
       scrollToBottom();
       setShowScrollButton(false);
     } else if (chatMessagesRef.current) {
-      chatMessagesRef.current.scrollTo({ top: chatMessagesRef.current.scrollHeight, behavior: "smooth" });
+      chatMessagesRef.current.scrollTo({ top: chatMessagesRef.current.scrollHeight, behavior: scrollBehavior() });
       setShowScrollButton(false);
     }
   };
@@ -5790,6 +5952,134 @@ var SessionsSidebar = ({ chats, groups = [], collapsed, drawerOpen, onToggleColl
   const [editingId, setEditingId] = React.useState(null);
   const [draft, setDraft] = React.useState("");
   const [presenceOpen, setPresenceOpen] = React.useState(false);
+  const scrimRef = React.useRef(null);
+  const panelRef = React.useRef(null);
+  const animRef = React.useRef(null);
+  const dragRef = React.useRef(null);
+  const offsetRef = React.useRef(0);
+  const openRef = React.useRef(false);
+  const clickGuardRef = React.useRef(false);
+  const [drawerMounted, setDrawerMounted] = React.useState(!!drawerOpen);
+  const AXIS_LOCK = 10;
+  const FLICK = 220;
+  const drawerWidth = () => panelRef.current && panelRef.current.offsetWidth || 292;
+  const paintDrawer = (x) => {
+    offsetRef.current = x;
+    const w = drawerWidth();
+    const progress = Math.min(1, Math.max(0, 1 + x / w));
+    if (panelRef.current) panelRef.current.style.transform = "translate3d(" + x.toFixed(2) + "px,0,0)";
+    if (scrimRef.current) {
+      scrimRef.current.style.opacity = progress.toFixed(3);
+      const blur = "blur(" + (5 * progress).toFixed(2) + "px)";
+      scrimRef.current.style.backdropFilter = blur;
+      scrimRef.current.style.webkitBackdropFilter = blur;
+    }
+  };
+  const settleDrawer = (to, velocity) => {
+    if (animRef.current) animRef.current.stop();
+    animRef.current = spring({
+      from: offsetRef.current,
+      to,
+      velocity,
+      // Overshoot has to be earned. A drawer that was flicked carries
+      // momentum and should land with a little bounce; one that was
+      // opened by tapping the burger has none, and wobbling would be
+      // the interface talking to itself.
+      damping: Math.abs(velocity) > 60 ? SPRING.drawer.damping : SPRING.move.damping,
+      response: SPRING.drawer.response,
+      restDelta: 0.5,
+      restSpeed: 8,
+      onUpdate: paintDrawer,
+      onComplete: () => {
+        paintDrawer(to);
+        animRef.current = null;
+        if (to !== 0) setDrawerMounted(false);
+      }
+    });
+  };
+  React.useLayoutEffect(() => {
+    if (drawerOpen && !drawerMounted) {
+      setDrawerMounted(true);
+      return;
+    }
+    if (!drawerMounted) return;
+    if (drawerOpen === openRef.current) return;
+    const w = drawerWidth();
+    if (drawerOpen && !animRef.current && !dragRef.current) {
+      paintDrawer(-w);
+    }
+    openRef.current = drawerOpen;
+    settleDrawer(drawerOpen ? 0 : -w, animRef.current ? animRef.current.velocity : 0);
+  }, [drawerOpen, drawerMounted]);
+  React.useEffect(() => () => {
+    if (animRef.current) animRef.current.stop();
+  }, []);
+  const drawerDown = (e) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    if (dragRef.current) return;
+    clickGuardRef.current = false;
+    dragRef.current = {
+      id: e.pointerId,
+      x0: e.clientX,
+      y0: e.clientY,
+      // Where they grabbed is where it stays. Re-centring the panel
+      // under the finger breaks the illusion on the first frame.
+      base: offsetRef.current,
+      axis: null,
+      vel: velocityTracker()
+    };
+    dragRef.current.vel.add(e.clientX, e.timeStamp || performance.now());
+  };
+  const drawerMove = (e) => {
+    const d = dragRef.current;
+    if (!d || e.pointerId !== d.id) return;
+    const dx = e.clientX - d.x0;
+    const dy = e.clientY - d.y0;
+    if (!d.axis) {
+      if (Math.abs(dx) < AXIS_LOCK && Math.abs(dy) < AXIS_LOCK) return;
+      if (Math.abs(dy) >= Math.abs(dx)) {
+        dragRef.current = null;
+        return;
+      }
+      d.axis = "x";
+      if (animRef.current) {
+        d.base = offsetRef.current;
+        d.x0 = e.clientX;
+        animRef.current.stop();
+        animRef.current = null;
+      }
+      try {
+        e.currentTarget.setPointerCapture(d.id);
+      } catch (_) {
+      }
+    }
+    d.vel.add(e.clientX, e.timeStamp || performance.now());
+    const w = drawerWidth();
+    let x = d.base + (e.clientX - d.x0);
+    if (x > 0) x = rubberband(x, w);
+    else if (x < -w) x = -w + rubberband(x + w, w);
+    paintDrawer(x);
+  };
+  const drawerUp = (e) => {
+    const d = dragRef.current;
+    if (!d || e.pointerId !== void 0 && e.pointerId !== d.id) return;
+    dragRef.current = null;
+    if (d.axis !== "x") return;
+    clickGuardRef.current = true;
+    const w = drawerWidth();
+    const v = d.vel.get(e.timeStamp || performance.now());
+    const open = snapTarget(offsetRef.current, v, [-w, 0], { flick: FLICK }) === 0;
+    openRef.current = open;
+    settleDrawer(open ? 0 : -w, v);
+    if (!open) onCloseDrawer();
+  };
+  const drawerScrimClick = () => {
+    if (clickGuardRef.current) {
+      clickGuardRef.current = false;
+      return;
+    }
+    onCloseDrawer();
+  };
   const startEdit = (c) => (e) => {
     e.stopPropagation();
     setEditingId(c.id);
@@ -5998,13 +6288,20 @@ var SessionsSidebar = ({ chats, groups = [], collapsed, drawerOpen, onToggleColl
     h2("style", { key: "css", dangerouslySetInnerHTML: { __html: "@media (max-width:1023px){.sb-rail{display:none !important;}.sb-burger{display:grid !important;}}@media (min-width:1024px){.sb-drawer-overlay{display:none !important;}}.sb-mobile-drawer .sb-collapse-btn{display:none !important;}html,body{background:#0f0f11 !important;overscroll-behavior:none;}.sb-app-shell{height:var(--sb-vh,100dvh) !important;min-height:0 !important;overflow:hidden;}.sb-chat-header{position:sticky;top:0;z-index:20;}.sb-app-col{height:100% !important;min-height:0 !important;}.chat-container{height:100% !important;min-height:0 !important;}.sb-scroll{min-height:0 !important;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}@media (max-width:768px){textarea,input,select{font-size:16px !important;}}@media (max-width:768px){.sb-rename-btn{display:none !important;}}" } }),
     // Desktop rail
     h2("aside", { key: "rail", className: "sb-rail", style: railStyle }, inner),
-    // Mobile drawer overlay
+    // Mobile drawer overlay. `touch-action: pan-y` hands vertical
+    // scrolling back to the browser and keeps the horizontal axis for
+    // us, so the chat list still scrolls with the drawer open.
     h2("div", {
       key: "drawer",
       className: "sb-drawer-overlay",
-      onClick: onCloseDrawer,
-      style: { position: "fixed", inset: 0, zIndex: 60, background: "rgba(6,6,8,0.6)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)", display: drawerOpen ? "block" : "none" }
-    }, h2("aside", { className: "sb-mobile-drawer", onClick: (e) => e.stopPropagation(), style: { position: "absolute", left: 0, top: 0, bottom: 0, width: "min(292px, 86vw)", display: "flex", flexDirection: "column", background: "#0c0c0e", borderRight: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 0 60px rgba(0,0,0,0.6)" } }, [
+      ref: scrimRef,
+      onClick: drawerScrimClick,
+      onPointerDown: drawerDown,
+      onPointerMove: drawerMove,
+      onPointerUp: drawerUp,
+      onPointerCancel: drawerUp,
+      style: { position: "fixed", inset: 0, zIndex: 60, background: "rgba(6,6,8,0.6)", backdropFilter: "blur(0px)", WebkitBackdropFilter: "blur(0px)", opacity: 0, display: drawerMounted ? "block" : "none", touchAction: "pan-y", willChange: "opacity" }
+    }, h2("aside", { className: "sb-mobile-drawer", ref: panelRef, onClick: (e) => e.stopPropagation(), style: { position: "absolute", left: 0, top: 0, bottom: 0, width: "min(292px, 86vw)", display: "flex", flexDirection: "column", background: "#0c0c0e", borderRight: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 0 60px rgba(0,0,0,0.6)", touchAction: "pan-y", willChange: "transform" } }, [
       // Explicit close button — the drawer's own header only has a
       // "collapse" chevron (a desktop-rail action), so on mobile there was
       // no obvious way to dismiss it. This X closes the drawer reliably.
@@ -6447,7 +6744,7 @@ var EnhancedSecureP2PChat = () => {
                 if (container && container.scrollTo) {
                   container.scrollTo({
                     top: container.scrollHeight,
-                    behavior: "smooth"
+                    behavior: scrollBehavior()
                   });
                 }
               });

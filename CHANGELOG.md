@@ -1,5 +1,44 @@
 # Changelog
 
+## v6.2.0 — The interface answers you now
+
+Most of this release you will feel rather than see.
+
+**The menu on your phone is something you can drag.** Before, it was either
+there or it wasn't — it appeared, and tapping outside made it vanish. Now you
+can pull it in and push it away with your finger, and it stays under your thumb
+the whole way. Flick it and it goes; catch it while it's still moving and it
+follows you back. Push it past the edge and it resists instead of stopping dead,
+so you can feel that there's nothing more that way.
+
+**Buttons react the moment you press them, not when you let go.** On a phone
+that was the difference between an app that felt asleep and one that answers.
+Along with it went the small delay every mobile browser adds to a tap while it
+waits to see whether you meant to zoom — nothing here zooms, so the wait bought
+nothing.
+
+**If you've asked your phone or computer for less motion, the app now listens.**
+Looping decoration stops, things fade into place instead of sliding, and the chat
+jumps to the newest message instead of scrolling to it. Recording indicators and
+anything else that tells you what's happening stay — the point is to stop the
+movement, not the information. The same goes for the system settings for reduced
+transparency and higher contrast, which the app previously ignored: frosted
+panels become solid, and edges get drawn properly.
+
+### Also in this release
+
+- Headings are set more tightly and small print more openly, the way type is
+  meant to change shape as it changes size. Text over blurred panels is a little
+  heavier so it stays readable against whatever is moving behind it.
+- The bar at the top of the page is a thicker piece of glass, and it now
+  materialises as you scroll rather than simply fading in.
+- Controls no longer stay stuck in a highlighted state after you tap them on a
+  touchscreen.
+- Keyboard focus is visible everywhere.
+- The desktop download buttons now offer 0.5.0, the release that adds group
+  chats. Linux gained `.deb` and `.rpm` packages alongside the AppImage the
+  button hands you.
+
 ## v6.1.1 — Group chats now connect everyone to everyone
 
 Group chats used to run through whoever created them. That person held a

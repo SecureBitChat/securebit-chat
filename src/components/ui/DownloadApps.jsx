@@ -5,7 +5,7 @@
 // The tag is pinned rather than using /releases/latest/download/: the filenames
 // carry the version, so a `latest` link 404s the moment a newer release exists,
 // whereas a pinned tag keeps serving a working (if older) installer.
-const DESKTOP_VERSION = '0.3.0';
+const DESKTOP_VERSION = '0.5.0';
 const DESKTOP_RELEASE = `https://github.com/SecureBitChat/securebit-desktop/releases/download/v${DESKTOP_VERSION}`;
 
 const DownloadApps = () => {

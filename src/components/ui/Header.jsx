@@ -538,12 +538,18 @@ const EnhancedMinimalHeader = ({
     // On the landing the header floats *over* the full-height hero (position
     // fixed), transparent at the top and blurred once scrolled. When connected it
     // falls back to the in-flow sticky bar.
+    // The bar is a material, not a coloured strip: a big surface reads as a thick
+    // one, so it gets a heavy blur, and the saturation bump is what stops a
+    // blurred dark background from going flat grey. Blur and background are
+    // animated together so the bar *materialises* on scroll rather than fading in.
+    const GLASS = 'blur(20px) saturate(180%)';
+    const MATERIALISE = 'background .25s ease, backdrop-filter .25s ease, -webkit-backdrop-filter .25s ease, border-color .25s ease';
     const overlay = { position: 'fixed', top: 0, left: 0, right: 0 };
     const headerStyle = onLanding
         ? (scrolled
-            ? { ...overlay, background: 'rgba(15,15,17,0.72)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderBottom: '1px solid rgba(255,255,255,0.06)', transition: 'background .25s ease, backdrop-filter .25s ease, border-color .25s ease' }
-            : { ...overlay, background: 'transparent', backdropFilter: 'none', WebkitBackdropFilter: 'none', borderBottom: '1px solid transparent', transition: 'background .25s ease, backdrop-filter .25s ease, border-color .25s ease' })
-        : { background: 'rgba(18,18,20,0.72)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderBottom: '1px solid rgba(255,255,255,0.06)' };
+            ? { ...overlay, background: 'rgba(15,15,17,0.72)', backdropFilter: GLASS, WebkitBackdropFilter: GLASS, borderBottom: '1px solid rgba(255,255,255,0.06)', transition: MATERIALISE }
+            : { ...overlay, background: 'transparent', backdropFilter: 'blur(0px) saturate(100%)', WebkitBackdropFilter: 'blur(0px) saturate(100%)', borderBottom: '1px solid transparent', transition: MATERIALISE })
+        : { background: 'rgba(18,18,20,0.72)', backdropFilter: GLASS, WebkitBackdropFilter: GLASS, borderBottom: '1px solid rgba(255,255,255,0.06)' };
 
     return React.createElement('header', {
         className: onLanding ? 'header-minimal z-50' : 'header-minimal sticky top-0 z-50',
