@@ -167,9 +167,12 @@ export function GroupSasModal({ group, onConfirm, onCancel }) {
                         background: 'rgba(240,137,42,0.09)', border: '1px solid rgba(240,137,42,0.3)',
                     },
                 }, h('span', {
+                    // Everyone in the group compares these digits against each other's
+                    // screens, so their order must not depend on the reader's language.
+                    dir: 'ltr',
                     style: {
                         fontFamily: C.mono, fontSize: 'clamp(30px, 9vw, 42px)', fontWeight: 700,
-                        letterSpacing: '9px', color: C.accent,
+                        letterSpacing: '9px', color: C.accent, unicodeBidi: 'isolate',
                     },
                 }, group.sasCode)),
 
@@ -277,7 +280,7 @@ export function CreateGroupModal({ candidates, relayOnly, onCreate, onCancel }) 
                             disabled: full,
                             style: {
                                 display: 'flex', alignItems: 'center', gap: '11px', padding: '10px 12px',
-                                borderRadius: '10px', cursor: full ? 'not-allowed' : 'pointer', textAlign: 'left',
+                                borderRadius: '10px', cursor: full ? 'not-allowed' : 'pointer', textAlign: 'start',
                                 background: on ? 'rgba(240,137,42,0.1)' : 'transparent',
                                 border: `1px solid ${on ? 'rgba(240,137,42,0.32)' : C.line}`,
                                 opacity: full ? 0.4 : 1, fontFamily: 'inherit',
@@ -405,7 +408,7 @@ export function AddMembersModal({ candidates, remaining, onAdd, onCancel }) {
                         disabled: full,
                         style: {
                             display: 'flex', alignItems: 'center', gap: '11px', padding: '10px 12px',
-                            borderRadius: '10px', cursor: full ? 'not-allowed' : 'pointer', textAlign: 'left',
+                            borderRadius: '10px', cursor: full ? 'not-allowed' : 'pointer', textAlign: 'start',
                             background: on ? 'rgba(240,137,42,0.1)' : 'transparent',
                             border: `1px solid ${on ? 'rgba(240,137,42,0.32)' : C.line}`,
                             opacity: full ? 0.4 : 1, fontFamily: 'inherit',
@@ -558,7 +561,7 @@ function Bubble({ msg }) {
     }, [
         !mine && h('span', {
             key: 'who',
-            style: { fontSize: '11.5px', fontWeight: 600, color: C.accent, paddingLeft: '3px' },
+            style: { fontSize: '11.5px', fontWeight: 600, color: C.accent, paddingInlineStart: '3px' },
         }, msg.senderName || t('group.member')),
         h('div', {
             key: 'b',
@@ -626,7 +629,9 @@ export function GroupChatView({
                 }, [
                     svg(ICON.users, { key: 'i', width: '13px', height: '13px' }),
                     t('group.membersCount', { count: group.members.length }),
-                    ready && group.sasCode ? t('group.codeSuffix', { code: group.sasCode }) : '',
+                    ready && group.sasCode
+                        ? h('span', { key: 'code', dir: 'ltr', style: { unicodeBidi: 'isolate' } }, t('group.codeSuffix', { code: group.sasCode }))
+                        : '',
                 ]),
             ]),
             (isAdmin && onAddMembers && group.members.length < GROUP_LIMITS.MAX_MEMBERS) && h('button', {

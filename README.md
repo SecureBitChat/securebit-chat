@@ -9,7 +9,7 @@
 No accounts. No servers storing your messages. No installation required.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-f0892a.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-6.3.0-3ecf8e.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-6.4.0-3ecf8e.svg)](CHANGELOG.md)
 [![PWA](https://img.shields.io/badge/PWA-installable-3ecf8e.svg)](#install-as-an-app)
 [![Encryption](https://img.shields.io/badge/crypto-ECDH%20P--384%20%C2%B7%20AES--256--GCM-blue.svg)](#security-model)
 [![Forward secrecy](https://img.shields.io/badge/forward%20secrecy-Double%20Ratchet-3ecf8e.svg)](#forward-secrecy)

@@ -157,6 +157,10 @@ function buildPages(site, template, version) {
         const locale = site.byCode[code];
         const html = render(template, {
             HTML_LANG: attr(locale.htmlLang),
+            // Written into <html> rather than left to the app: the page is styled and
+            // painted long before React mounts, so a direction applied in JS would show
+            // the reader one frame of a mirrored layout first.
+            HTML_DIR: attr(locale.dir || 'ltr'),
             TITLE: attr(locale.meta.title),
             DESCRIPTION: attr(locale.meta.description),
             KEYWORDS: attr(locale.meta.keywords),

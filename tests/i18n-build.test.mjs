@@ -47,7 +47,7 @@ for (const code of site.locales) {
     const html = read(pageFor(code));
     const locale = localeFile(code);
 
-    assert.match(html, new RegExp(`<html lang="${locale.htmlLang}">`), `${code}: wrong <html lang>`);
+    assert.match(html, new RegExp(`<html lang="${locale.htmlLang}" dir="${locale.dir}">`), `${code}: wrong <html lang>/<html dir>`);
     assert.ok(
         html.includes(`<link rel="canonical" href="${urlFor(code)}">`),
         `${code}: canonical must point at its own URL, not another locale's`
@@ -181,7 +181,10 @@ for (const code of site.locales) {
 
     const en = JSON.parse(read('locales/en.json'));
     const xx = JSON.parse(JSON.stringify(en));
-    Object.assign(xx, { htmlLang: 'xx', ogLocale: 'xx_XX', nativeName: 'Test' });
+    // Right-to-left on purpose: direction is carried from the locale file all the way
+    // into <html dir> and the per-locale manifest, and the throwaway site is where that
+    // plumbing can be exercised without a real RTL locale having to be the one under test.
+    Object.assign(xx, { htmlLang: 'xx', ogLocale: 'xx_XX', nativeName: 'Test', dir: 'rtl' });
     xx.manifest = { name: 'XX name', short_name: 'XX', description: 'XX description' };
     writeFileSync(path.join(localesDir, 'en.json'), JSON.stringify(en, null, 2));
     writeFileSync(path.join(localesDir, 'xx.json'), JSON.stringify(xx, null, 2));
@@ -202,7 +205,10 @@ for (const code of site.locales) {
     // The secondary locale points at itself, not at the default one.
     assert.ok(secondary.includes('<link rel="canonical" href="https://securebit.chat/xx/">'),
         'a secondary locale must be canonical to itself, or Google will not index it');
-    assert.match(secondary, /<html lang="xx">/);
+    assert.match(secondary, /<html lang="xx" dir="rtl">/,
+        'the locale\'s writing direction must be on <html>, not applied later by the app');
+    assert.match(primary, /<html lang="en" dir="ltr">/,
+        'a left-to-right locale must still say so explicitly');
 
     // hreflang has to be reciprocal: both pages list both locales plus x-default.
     for (const page of [primary, secondary]) {
@@ -223,6 +229,7 @@ for (const code of site.locales) {
     assert.ok(secondary.includes('<link rel="manifest" href="/xx/manifest.json">'));
     const manifest = JSON.parse(at('xx/manifest.json'));
     assert.equal(manifest.lang, 'xx');
+    assert.equal(manifest.dir, 'rtl', 'an installed RTL locale must launch right-to-left');
     assert.equal(manifest.start_url, '/xx/', 'an installed locale must launch into its own page');
     assert.equal(manifest.scope, '/', 'scope must still cover the whole site');
     assert.equal(manifest.name, 'XX name', 'manifest name should come from the locale file');

@@ -47,9 +47,9 @@ const BecomePartner = () => {
         }
     ];
 
-    const svg = (inner, size, stroke, sw) =>
+    const svg = (inner, size, stroke, sw, className) =>
         React.createElement('svg', {
-            width: size, height: size, viewBox: '0 0 24 24', fill: 'none',
+            className, width: size, height: size, viewBox: '0 0 24 24', fill: 'none',
             stroke, strokeWidth: sw, strokeLinecap: 'round', strokeLinejoin: 'round',
             dangerouslySetInnerHTML: { __html: inner }
         });
@@ -123,7 +123,7 @@ const BecomePartner = () => {
             }
         }, [
             t('partners.inviteCta'),
-            svg('<path d="M5 12h14M13 6l6 6-6 6"/>', 17, 'currentColor', 2.2)
+            svg('<path d="M5 12h14M13 6l6 6-6 6"/>', 17, 'currentColor', 2.2, 'sb-mirror-rtl')
         ])
     ]);
 

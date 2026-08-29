@@ -1,0 +1,100 @@
+/* ============================================================================
+   Right-to-left support.
+   ============================================================================
+
+   Almost nothing is here. The layout mirrors because the app was moved onto CSS
+   logical properties — margin-inline-start instead of margin-left, inset-inline-end
+   instead of right — and those follow dir on <html>, which build-i18n.js writes from
+   the locale file. That is the load-bearing change; this sheet is only for the
+   handful of things logical properties cannot express:
+
+     · glyphs that carry a direction, which have to be flipped rather than moved,
+     · text that must NOT mirror — keys, descriptors, URLs, version numbers,
+     · Latin fonts that have no Arabic or Hebrew in them.
+
+   Loaded last so it wins over the utility classes above it. Every rule is scoped to
+   [dir="rtl"], so a left-to-right page is byte-for-byte unaffected.
+   ========================================================================= */
+
+/* ── Typography ──────────────────────────────────────────────────────────────
+   Inter is subsetted to Latin only (deliberately — it is self-hosted to keep
+   fonts.gstatic.com out of the request log, and the CSP has no room for a third
+   party anyway). Its unicode-range simply does not match Arabic or Hebrew, so the
+   browser falls through to the next family in the stack; naming that family here
+   is the difference between SF Arabic and whatever the fallback happens to be.
+
+   Nothing is downloaded for this. An Arabic webfont worth reading is 100 KB+ per
+   weight, and every platform that reads these scripts already ships a good one. */
+[lang="ar"], [lang="fa"], [lang="ur"] {
+    font-family: 'Inter', 'SF Arabic', 'Geeza Pro', 'Segoe UI', Tahoma,
+        'Noto Naskh Arabic', 'Noto Sans Arabic', 'Droid Arabic Naskh', sans-serif;
+}
+
+/* Urdu is written in Nastaliq, which cascades diagonally and needs far more line
+   height than a Naskh face. Where no Nastaliq font is installed the text falls back
+   to Naskh, which Urdu readers read without trouble — the extra leading is harmless
+   there and essential when Nastaliq does resolve. */
+[lang="ur"] {
+    font-family: 'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', 'Urdu Typesetting',
+        'Inter', 'SF Arabic', 'Segoe UI', Tahoma, 'Noto Naskh Arabic', sans-serif;
+    line-height: 2;
+}
+
+[lang="he"] {
+    font-family: 'Inter', 'SF Hebrew', 'Arial Hebrew', 'Segoe UI', 'Noto Sans Hebrew', sans-serif;
+}
+
+/* ── Text that must not mirror ───────────────────────────────────────────────
+   Bidi reordering is applied to rendered text, and it does not know that a session
+   descriptor is one atom. Inside an RTL paragraph the browser will happily print
+   "a1b2:c3d4" as "c3d4:a1b2": every character is present, nothing looks broken, and
+   the person comparing it against their peer's screen is comparing the wrong thing.
+
+   `direction: ltr` fixes the order; `unicode-bidi: isolate` stops the run from
+   dragging the surrounding sentence around with it. Both are needed. */
+[dir="rtl"] code,
+[dir="rtl"] pre,
+[dir="rtl"] .sb-sc {
+    direction: ltr;
+    unicode-bidi: isolate;
+    text-align: start;
+}
+
+/* Digit shape is left to the font rather than forced here. Everything that has to be
+   read back character by character — the safety code, a key, a byte count — is already
+   set in the monospace stack, which carries no Arabic-Indic substitution, so those
+   digits stay Western without a rule. Prose is free to render its own numerals. */
+
+/* ── Glyphs that carry a direction ───────────────────────────────────────────
+   A chevron pointing at the next item points the other way when "next" is the other
+   way. These are flipped, not repositioned — the element is already in the right
+   place, it is the drawing inside it that is backwards.
+
+   Only genuinely directional icons are listed. fa-share (the iOS share sheet: a box
+   with an arrow leaving the top) and fa-download are vertical and stay put; mirroring
+   them would make them wrong rather than localized. */
+[dir="rtl"] .fa-chevron-left,
+[dir="rtl"] .fa-chevron-right,
+[dir="rtl"] .fa-angle-left,
+[dir="rtl"] .fa-angle-right,
+[dir="rtl"] .fa-arrow-left,
+[dir="rtl"] .fa-arrow-right,
+[dir="rtl"] .fa-caret-left,
+[dir="rtl"] .fa-caret-right,
+[dir="rtl"] .fa-reply,
+[dir="rtl"] .sb-mirror-rtl {
+    transform: scaleX(-1);
+}
+
+/* ── Utility classes assembled at runtime ────────────────────────────────────
+   Tailwind's translate utilities set a custom property that the transform reads, so
+   redefining the property is enough to send a toast in from the other edge. This has
+   to be done in CSS rather than by swapping classes: the toasts add and remove
+   `translate-x-full` by name to animate, and a second class would survive the
+   removal and pin them off-screen. */
+[dir="rtl"] .translate-x-full { --tw-translate-x: -100%; }
+[dir="rtl"] .-translate-x-full { --tw-translate-x: 100%; }
+
+/* The mesh animation on the landing page moves its packet along an offset-path taken
+   from the SVG it travels over, so it mirrors with the drawing and needs nothing here.
+   Scrollbars, gradients and shadows are symmetric in this design; likewise nothing. */

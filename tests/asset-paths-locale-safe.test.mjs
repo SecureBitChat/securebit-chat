@@ -19,6 +19,10 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url));
 // locale page has to start with a slash.
 const ROOT_DIRS = ['logo', 'assets', 'libs', 'dist', 'config', 'src'];
 
+// Prose about a path is not a path. A comment quoting './sw.js' to explain why it is
+// wrong must not itself be reported as the thing being wrong.
+const isComment = (line) => /^\s*(\/\/|\/?\*)/.test(line);
+
 const files = execFileSync('git', ['ls-files', 'src'], { cwd: ROOT, encoding: 'utf8' })
     .trim().split('\n')
     .filter((f) => /\.(js|jsx)$/.test(f) && f !== 'src/i18n/generated.js');
@@ -27,6 +31,7 @@ const offenders = [];
 for (const file of files) {
     const text = readFileSync(path.join(ROOT, file), 'utf8');
     text.split('\n').forEach((line, i) => {
+        if (isComment(line)) return;
         // A quoted path that starts with a root directory name and no leading slash.
         for (const match of line.matchAll(new RegExp(`['"](?:${ROOT_DIRS.join('|')})/[A-Za-z0-9_./-]+\\.(png|jpe?g|svg|gif|webp|ico|css|mp3|mp4|webm|woff2?)['"]`, 'g'))) {
             // An ES import specifier is resolved by the bundler at build time, not by the
@@ -37,9 +42,38 @@ for (const file of files) {
     });
 }
 
+// The check above only knows about root *directories*, so a root-level *file* walked
+// straight past it: the Service Worker was registered as './sw.js', which asks /ar/ for
+// /ar/sw.js and gets a 404. That left twelve of the thirteen pages with no worker at all
+// — no offline shell, no update prompt — and it was invisible from the English page,
+// which is the only one where the relative path happens to be right.
+const ROOT_FILES = ['sw.js', 'manifest.json', 'meta.json', 'robots.txt', 'sitemap.xml', 'browserconfig.xml'];
+for (const file of files) {
+    const text = readFileSync(path.join(ROOT, file), 'utf8');
+    text.split('\n').forEach((line, i) => {
+        if (isComment(line)) return;
+        for (const match of line.matchAll(new RegExp(`['"](?:\\./)?(?:${ROOT_FILES.join('|').replace(/\./g, '\\.')})['"]`, 'g'))) {
+            if (/\b(import|from|require)\b/.test(line)) continue;
+            offenders.push(`${file}:${i + 1}  ${match[0]}`);
+        }
+    });
+}
+
+// A worker scoped to './' controls only the directory it was registered from, so an app
+// installed at /ar/ would stop being covered the moment it navigated to the root. There
+// is one worker for the whole site; its scope is the whole site.
+for (const file of files) {
+    const text = readFileSync(path.join(ROOT, file), 'utf8');
+    if (!text.includes('serviceWorker.register')) continue;
+    text.split('\n').forEach((line, i) => {
+        if (isComment(line)) return;
+        if (/scope:\s*['"](?!\/['"])/.test(line)) offenders.push(`${file}:${i + 1}  ${line.trim()}`);
+    });
+}
+
 assert.deepEqual(
     offenders, [],
-    'these asset paths are relative and will 404 from a locale subdirectory — prefix them with "/":\n' +
+    'these paths are relative and change meaning inside a locale subdirectory — make them root-absolute:\n' +
     offenders.join('\n')
 );
 

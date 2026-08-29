@@ -1,4 +1,4 @@
-import { t } from '../../i18n/index.js';
+import { t, direction } from '../../i18n/index.js';
 // Advanced network settings: lets a user supply their own STUN/TURN servers
 // instead of the bundled public defaults, and toggle relay-only privacy mode.
 // Free / power-user feature, hidden behind an explicit "Advanced" entry point.
@@ -115,7 +115,7 @@ const IceServerSettings = ({ isOpen, onClose, initial, hasSaved, onApply, onForg
     const radioCard = (selected, onClick, title, desc, extraStyle) => h('button', {
         type: 'button', onClick,
         style: Object.assign({
-            width: '100%', textAlign: 'left', display: 'flex', alignItems: 'flex-start', gap: '12px',
+            width: '100%', textAlign: 'start', display: 'flex', alignItems: 'flex-start', gap: '12px',
             padding: '14px 15px', borderRadius: '13px',
             border: `1px solid ${selected ? 'rgba(240,137,42,0.45)' : 'rgba(255,255,255,0.07)'}`,
             background: selected ? 'rgba(240,137,42,0.06)' : '#141416',
@@ -134,7 +134,7 @@ const IceServerSettings = ({ isOpen, onClose, initial, hasSaved, onApply, onForg
     const toggleRow = (on, onClick, title, desc, accent, badge) => h('button', {
         type: 'button', onClick,
         style: {
-            width: '100%', textAlign: 'left', display: 'flex', alignItems: 'flex-start', gap: '12px',
+            width: '100%', textAlign: 'start', display: 'flex', alignItems: 'flex-start', gap: '12px',
             padding: '14px 15px', borderRadius: '13px',
             border: `1px solid ${on ? 'rgba(62,207,142,0.3)' : 'rgba(255,255,255,0.07)'}`,
             background: on ? 'rgba(62,207,142,0.05)' : '#141416',
@@ -149,7 +149,7 @@ const IceServerSettings = ({ isOpen, onClose, initial, hasSaved, onApply, onForg
             h('span', { key: 'd', style: { display: 'block', fontSize: '12.5px', lineHeight: 1.5, color: '#8a8a92', marginTop: '3px' } }, desc)
         ]),
         h('span', { key: 'tr', style: { flex: 'none', width: '42px', height: '24px', borderRadius: '99px', background: on ? (accent || C_GREEN) : 'rgba(255,255,255,0.08)', border: `1px solid ${on ? (accent || C_GREEN) : 'rgba(255,255,255,0.12)'}`, position: 'relative', transition: 'all .18s', marginTop: '1px' } },
-            h('span', { style: { position: 'absolute', top: '2px', left: '2px', width: '18px', height: '18px', borderRadius: '50%', background: '#fff', transform: on ? 'translateX(18px)' : 'translateX(0)', transition: 'transform .18s' } }))
+            h('span', { style: { position: 'absolute', top: '2px', insetInlineStart: '2px', width: '18px', height: '18px', borderRadius: '50%', background: '#fff', transform: on ? `translateX(${18 * direction()}px)` : 'translateX(0)', transition: 'transform .18s' } }))
     ]);
 
     // ── scrollable body ──
@@ -163,16 +163,17 @@ const IceServerSettings = ({ isOpen, onClose, initial, hasSaved, onApply, onForg
         const custom = [];
         custom.push(h('div', { key: 'ta', style: { borderRadius: '13px', border: '1px solid rgba(255,255,255,0.08)', background: '#0c0c0e', overflow: 'hidden', marginBottom: '12px' } },
             h('textarea', {
+                dir: 'ltr',
                 value: serversText, onChange: (e) => setServersText(e.target.value), rows: 5, spellCheck: false, autoComplete: 'off',
                 placeholder: PLACEHOLDER,
                 style: { width: '100%', resize: 'vertical', border: 'none', outline: 'none', background: 'transparent', color: '#c9ccd8', fontFamily: MONO, fontSize: '12px', lineHeight: 1.65, padding: '13px 14px', minHeight: '104px' }
             })));
         if (parsed.errors.length > 0) {
-            custom.push(h('ul', { key: 'err', style: { margin: '0 0 10px', paddingLeft: '18px', color: '#e5727a', fontSize: '12.5px' } },
+            custom.push(h('ul', { key: 'err', style: { margin: '0 0 10px', paddingInlineStart: '18px', color: '#e5727a', fontSize: '12.5px' } },
                 parsed.errors.slice(0, 6).map((err, i) => h('li', { key: i }, err))));
         }
         if (parsed.warnings.length > 0) {
-            custom.push(h('ul', { key: 'warn', style: { margin: '0 0 10px', paddingLeft: '18px', color: '#e3c84e', fontSize: '12.5px' } },
+            custom.push(h('ul', { key: 'warn', style: { margin: '0 0 10px', paddingInlineStart: '18px', color: '#e3c84e', fontSize: '12.5px' } },
                 parsed.warnings.slice(0, 6).map((w, i) => h('li', { key: i }, w))));
         }
         if (parsed.servers.length > 0 && parsed.errors.length === 0) {
@@ -219,7 +220,7 @@ const IceServerSettings = ({ isOpen, onClose, initial, hasSaved, onApply, onForg
     const footerBtns = [];
     if (hasSaved) {
         footerBtns.push(h('button', { key: 'forget', type: 'button', onClick: handleForget,
-            style: { marginRight: 'auto', padding: '11px 18px', borderRadius: '11px', border: '1px solid rgba(229,114,122,0.3)', background: 'transparent', color: '#e5727a', fontFamily: 'inherit', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' } }, t('ice.forget')));
+            style: { marginInlineEnd: 'auto', padding: '11px 18px', borderRadius: '11px', border: '1px solid rgba(229,114,122,0.3)', background: 'transparent', color: '#e5727a', fontFamily: 'inherit', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' } }, t('ice.forget')));
     }
     footerBtns.push(h('button', { key: 'cancel', type: 'button', onClick: onClose,
         style: { padding: '11px 18px', borderRadius: '11px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#b3b3ba', fontFamily: 'inherit', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' } }, t('ice.cancel')));

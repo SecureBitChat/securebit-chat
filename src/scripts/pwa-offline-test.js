@@ -145,7 +145,7 @@ class PWAOfflineTester {
         modal.innerHTML = `
             <div class="bg-gray-800 rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
                 <div class="flex items-center mb-6">
-                    <div class="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center mr-4">
+                    <div class="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center me-4">
                         <i class="fas fa-vial text-blue-400 text-xl"></i>
                     </div>
                     <h3 class="text-xl font-semibold text-white">PWA Offline Test Results</h3>

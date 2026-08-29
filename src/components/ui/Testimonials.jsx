@@ -84,7 +84,7 @@ const Testimonials = () => {
     <div key={`${t.id}-${index}`} className="card bg-neutral-900 rounded-xl p-5 shadow-md w-72 text-sm text-white flex-shrink-0">
       <div className="flex items-center mb-2 text-yellow-400">
         {"★".repeat(Math.floor(t.rating))}
-        <span className="ml-2 text-secondary">{t.rating.toFixed(1)}</span>
+        <span className="ms-2 text-secondary">{t.rating.toFixed(1)}</span>
       </div>
       <p className="text-secondary mb-3">{t.text}</p>
     </div>
@@ -104,8 +104,8 @@ const Testimonials = () => {
         </div>
 
         <div className="lg:col-span-3 testimonials-wrapper flex gap-6 overflow-hidden relative h-[420px]">
-          <div className="pointer-events-none absolute top-0 left-0 w-full h-16 bg-gradient-to-b from-[#1f1f1f]/90 to-transparent z-20"></div>
-          <div className="pointer-events-none absolute bottom-0 left-0 w-full h-16 bg-gradient-to-t from-[#1f1f1f]/90 to-transparent z-20"></div>
+          <div className="pointer-events-none absolute top-0 start-0 w-full h-16 bg-gradient-to-b from-[#1f1f1f]/90 to-transparent z-20"></div>
+          <div className="pointer-events-none absolute bottom-0 start-0 w-full h-16 bg-gradient-to-t from-[#1f1f1f]/90 to-transparent z-20"></div>
 
           <div className="col-up flex flex-col gap-6">
             {testimonials.map((t, i) => renderCard(t, i))}

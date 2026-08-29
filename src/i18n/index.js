@@ -111,6 +111,44 @@ export function currentLocale() {
 }
 
 /**
+ * Writing direction of a locale. Arabic, Hebrew, Persian and Urdu read right to left,
+ * and the whole layout — not just the text — has to follow: an avatar that sits before
+ * a name in English sits after it in Arabic.
+ *
+ * The generated page already carries dir on <html>, so nothing here needs to apply it
+ * at load. This exists for the handful of decisions CSS cannot express on its own —
+ * which way an arrow points, which edge a drawer slides in from.
+ */
+export function localeDir(code = currentLocale()) {
+    return LOCALE_META[code]?.dir === 'rtl' ? 'rtl' : 'ltr';
+}
+
+export function isRTL(code = currentLocale()) {
+    return localeDir(code) === 'rtl';
+}
+
+/**
+ * +1 or -1, for arithmetic on a horizontal offset: a swipe threshold, a translate, the
+ * side a sheet enters from. `x * direction()` is the whole of what a mirrored gesture
+ * needs, and it reads better than an `isRTL ? -x : x` at every call site.
+ */
+export function direction(code = currentLocale()) {
+    return isRTL(code) ? -1 : 1;
+}
+
+/**
+ * Force a fragment to be laid out left to right inside right-to-left text.
+ *
+ * Bidi reordering is done by the browser on the rendered text, and it mangles exactly
+ * the strings this app is made of: a key fingerprint, a base64 session descriptor, a
+ * URL, a version number. In an RTL paragraph "a1b2:c3d4" can come out as "c3d4:a1b2" —
+ * the characters are all there, so nothing looks broken, and the reader compares the
+ * wrong thing against their peer's screen. Any element showing machine text gets these
+ * props.
+ */
+export const LTR_TEXT = { dir: 'ltr', style: { unicodeBidi: 'isolate', textAlign: 'start' } };
+
+/**
  * A locale the visitor would probably rather read, when it is not the one they are on.
  * Used to offer a link, never to redirect: an automatic redirect sends Googlebot —
  * which crawls from one place — to a single locale and leaves the rest unindexed.
@@ -150,6 +188,9 @@ export function languageLinks({ pathname = '/', active = DEFAULT_LOCALE } = {}) 
         label: LOCALE_META[code]?.nativeName || code,
         // Short code for the collapsed switcher.
         abbr: LOCALE_META[code]?.abbr || code.toUpperCase(),
+        // The row renders a name in its own script, so it needs its own direction:
+        // "العربية" laid out left-to-right is the word spelled backwards.
+        dir: LOCALE_META[code]?.dir || 'ltr',
         isCurrent: code === active,
     }));
 }

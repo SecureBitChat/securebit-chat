@@ -258,7 +258,7 @@ class PWAOfflineManager {
                 `<div style="${PILL} border:1px solid rgba(227,179,65,0.32);">
                     <span style="width:8px; height:8px; border-radius:50%; background:#e3b341;"></span>
                     <span>${t('offline.mode')}</span>
-                    <button class="oi-close" type="button" aria-label="${t('offline.dismiss')}" style="margin-left:4px; width:22px; height:22px; padding:0; display:grid; place-items:center; border:none; background:transparent; color:#8a8a92; cursor:pointer; border-radius:6px; transition:color .15s ease;">
+                    <button class="oi-close" type="button" aria-label="${t('offline.dismiss')}" style="margin-inline-start:4px; width:22px; height:22px; padding:0; display:grid; place-items:center; border:none; background:transparent; color:#8a8a92; cursor:pointer; border-radius:6px; transition:color .15s ease;">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M6 6l12 12M18 6L6 18"/></svg>
                     </button>
                 </div>`;
@@ -366,7 +366,7 @@ class PWAOfflineManager {
                     </div>
                     <button class="om-learn" type="button" style="width:100%; display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:12px 18px; border-radius:13px; border:none; background:transparent; color:#9a9aa2; font-family:inherit; font-size:14px; font-weight:600; cursor:pointer; transition:color .18s cubic-bezier(.2,.7,.3,1);">
                         ${t('offline.learnMore')}
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" class="sb-mirror-rtl" style="pointer-events:none;"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
                     </button>
                 </div>
             </div>`;
@@ -375,7 +375,7 @@ class PWAOfflineManager {
             <div style="animation:omSwap .26s cubic-bezier(.2,.7,.3,1);">
                 <div style="display:flex; align-items:center; gap:12px; margin-bottom:18px;">
                     <button class="om-back" type="button" title="Back" style="flex:none; width:34px; height:34px; border-radius:10px; display:grid; place-items:center; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.025); color:#cfcfd4; cursor:pointer; transition:all .18s cubic-bezier(.2,.7,.3,1);">
-                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M15 6l-6 6 6 6"/></svg>
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" class="sb-mirror-rtl" style="pointer-events:none;"><path d="M15 6l-6 6 6 6"/></svg>
                     </button>
                     <h3 style="margin:0; font-size:20px; font-weight:800; letter-spacing:-0.5px; color:#f4f4f6;">${t('offline.restoredTitle')}</h3>
                 </div>
@@ -713,7 +713,7 @@ class PWAOfflineManager {
 
     showSyncNotification(successCount, errorCount) {
         const notification = document.createElement('div');
-        notification.className = 'fixed bottom-4 right-4 bg-green-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm transform translate-x-full transition-transform duration-300';
+        notification.className = 'fixed bottom-4 end-4 bg-green-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm transform translate-x-full transition-transform duration-300';
         
         let message = '';
         if (successCount > 0 && errorCount === 0) {
@@ -796,7 +796,7 @@ class PWAOfflineManager {
 
     showReconnectionSuccess() {
         const notification = document.createElement('div');
-        notification.className = 'fixed top-4 right-4 bg-green-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm';
+        notification.className = 'fixed top-4 end-4 bg-green-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm';
         notification.innerHTML = `
             <div class="flex items-center space-x-3">
                 <i class="fas fa-check-circle text-lg"></i>
@@ -814,7 +814,7 @@ class PWAOfflineManager {
 
     showReconnectionError(error) {
         const notification = document.createElement('div');
-        notification.className = 'fixed top-4 right-4 bg-yellow-500 text-black p-4 rounded-lg shadow-lg z-50 max-w-sm';
+        notification.className = 'fixed top-4 end-4 bg-yellow-500 text-black p-4 rounded-lg shadow-lg z-50 max-w-sm';
         notification.innerHTML = `
             <div class="flex items-center space-x-3">
                 <i class="fas fa-exclamation-triangle text-lg"></i>
@@ -1125,7 +1125,7 @@ class PWAOfflineManager {
         
         // Show fallback UI
         const fallback = document.createElement('div');
-        fallback.className = 'fixed bottom-4 right-4 bg-red-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm';
+        fallback.className = 'fixed bottom-4 end-4 bg-red-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm';
         fallback.innerHTML = `
             <div class="flex items-start space-x-3">
                 <i class="fas fa-exclamation-triangle text-lg mt-0.5"></i>
@@ -1150,7 +1150,7 @@ class PWAOfflineManager {
         helpModal.innerHTML = `
             <div class="bg-gray-800 rounded-xl p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto">
                 <div class="flex items-center mb-6">
-                    <div class="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center mr-4">
+                    <div class="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center me-4">
                         <i class="fas fa-question-circle text-blue-400 text-xl"></i>
                     </div>
                     <h3 class="text-xl font-semibold text-white">Offline Mode Guide</h3>
@@ -1159,10 +1159,10 @@ class PWAOfflineManager {
                 <div class="space-y-6 text-gray-300 text-sm">
                     <div>
                         <h4 class="font-medium text-white mb-3 flex items-center">
-                            <i class="fas fa-check-circle text-green-400 mr-2"></i>
+                            <i class="fas fa-check-circle text-green-400 me-2"></i>
                             What works offline:
                         </h4>
-                        <ul class="space-y-2 ml-6">
+                        <ul class="space-y-2 ms-6">
                             <li>• App interface and navigation</li>
                             <li>• Previously cached resources</li>
                             <li>• Session data and keys (preserved in memory)</li>
@@ -1173,10 +1173,10 @@ class PWAOfflineManager {
                     
                     <div>
                         <h4 class="font-medium text-white mb-3 flex items-center">
-                            <i class="fas fa-times-circle text-red-400 mr-2"></i>
+                            <i class="fas fa-times-circle text-red-400 me-2"></i>
                             What requires internet:
                         </h4>
-                        <ul class="space-y-2 ml-6">
+                        <ul class="space-y-2 ms-6">
                             <li>• P2P connections (WebRTC)</li>
                             <li>• Real-time messaging</li>
                             <li>• Session verification</li>
@@ -1186,10 +1186,10 @@ class PWAOfflineManager {
                     
                     <div>
                         <h4 class="font-medium text-white mb-3 flex items-center">
-                            <i class="fas fa-sync-alt text-blue-400 mr-2"></i>
+                            <i class="fas fa-sync-alt text-blue-400 me-2"></i>
                             Automatic sync:
                         </h4>
-                        <p class="ml-6">
+                        <p class="ms-6">
                             When you're back online, all queued messages and actions 
                             will be automatically synchronized. No data is lost.
                         </p>
@@ -1197,7 +1197,7 @@ class PWAOfflineManager {
                     
                     <div class="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4">
                         <h4 class="font-medium text-orange-300 mb-2 flex items-center">
-                            <i class="fas fa-shield-alt mr-2"></i>
+                            <i class="fas fa-shield-alt me-2"></i>
                             Security Notice
                         </h4>
                         <p class="text-orange-200 text-xs">

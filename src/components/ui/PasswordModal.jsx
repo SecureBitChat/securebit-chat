@@ -29,7 +29,7 @@ const PasswordModal = ({ isOpen, onClose, onSubmit, action, password, setPasswor
             }, [
                 React.createElement('div', {
                     key: 'icon',
-                    className: 'w-10 h-10 bg-purple-500/10 border border-purple-500/20 rounded-lg flex items-center justify-center mr-3'
+                    className: 'w-10 h-10 bg-purple-500/10 border border-purple-500/20 rounded-lg flex items-center justify-center me-3'
                 }, [
                     React.createElement('i', {
                         className: 'fas fa-key accent-purple'
@@ -68,7 +68,7 @@ const PasswordModal = ({ isOpen, onClose, onSubmit, action, password, setPasswor
                         className: 'flex-1 btn-primary text-white py-3 px-4 rounded-lg font-medium transition-all duration-200'
                     }, [
                         React.createElement('i', {
-                            className: 'fas fa-unlock-alt mr-2'
+                            className: 'fas fa-unlock-alt me-2'
                         }),
                         t('pw.decrypt')
                     ]),
@@ -79,7 +79,7 @@ const PasswordModal = ({ isOpen, onClose, onSubmit, action, password, setPasswor
                         className: 'flex-1 btn-secondary text-white py-3 px-4 rounded-lg font-medium transition-all duration-200'
                     }, [
                         React.createElement('i', {
-                            className: 'fas fa-times mr-2'
+                            className: 'fas fa-times me-2'
                         }),
                         t('pw.cancel')
                     ])

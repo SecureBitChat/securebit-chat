@@ -180,7 +180,7 @@
                         {/* Mobile Alert */}
                         <div className="md:hidden p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg mb-4">
                         <p className="text-yellow-400 text-sm text-center">
-                            <i className="fas fa-lightbulb mr-2"></i>
+                            <i className="fas fa-lightbulb me-2"></i>
                             Rotate your device horizontally for better viewing
                         </p>
                         </div>
@@ -194,7 +194,7 @@
                             {/* Table Header */}
                             <thead>
                             <tr className="bg-black-table">
-                                <th className="text-left p-4 border-b border-gray-600 text-white font-bold min-w-[240px]">
+                                <th className="text-start p-4 border-b border-gray-600 text-white font-bold min-w-[240px]">
                                 Security Criterion
                                 </th>
                                 {messengers.map((messenger, index) => (
@@ -282,20 +282,20 @@
                         {/* Legend */}
                         <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto">
                         <div className="flex items-center justify-center p-4 bg-orange-500/10 rounded-xl hover:bg-orange-500/40 transition-colors">
-                            <i className="fas fa-trophy text-orange-400 mr-2 text-xl"></i>
+                            <i className="fas fa-trophy text-orange-400 me-2 text-xl"></i>
                             <span className="text-orange-300 text-sm font-bold">Category Leader</span>
                         </div>
 
                         <div className="flex items-center justify-center p-4 bg-green-500/10 rounded-xl hover:bg-green-600/40 transition-colors">
-                            <i className="fas fa-check text-green-300 mr-2 text-xl"></i>
+                            <i className="fas fa-check text-green-300 me-2 text-xl"></i>
                             <span className="text-green-200 text-sm font-bold">Excellent</span>
                         </div>
                         <div className="flex items-center justify-center p-4 bg-yellow-500/10 rounded-xl hover:bg-yellow-600/40 transition-colors">
-                            <i className="fas fa-exclamation-triangle text-yellow-300 mr-2 text-xl"></i>
+                            <i className="fas fa-exclamation-triangle text-yellow-300 me-2 text-xl"></i>
                             <span className="text-yellow-200 text-sm font-bold">Partial/Limited</span>
                         </div>
                         <div className="flex items-center justify-center p-4 bg-red-500/10 rounded-xl hover:bg-red-600/40 transition-colors">
-                            <i className="fas fa-times text-red-300 mr-2 text-xl"></i>
+                            <i className="fas fa-times text-red-300 me-2 text-xl"></i>
                             <span className="text-red-200 text-sm font-bold">Not Available</span>
                         </div>
                         </div>

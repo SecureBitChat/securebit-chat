@@ -25,7 +25,12 @@ import { GroupSession, GROUP_FRAMES, isGroupFrame, groupFrameType, decodeEnvelop
 import { GROUP_LIMITS } from './group/groupCrypto.js';
 import { createGroupSender } from './group/groupSender.js';
 import { spring, snapTarget, rubberband, velocityTracker, prefersReducedMotion, SPRING } from './ui/motion.js';
-import { t } from './i18n/index.js';
+import { t, direction, LTR_TEXT } from './i18n/index.js';
+
+// +1 in a left-to-right locale, -1 in a right-to-left one. Only the handful of
+// horizontal transforms that CSS logical properties cannot express need it —
+// everything else mirrors on its own from dir on <html>.
+const DIR = direction();
 
 // A programmatic smooth scroll is a full-viewport slide, which is exactly what
 // someone who asked for less motion does not want. The jump still happens and
@@ -195,7 +200,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             }, [
                                 React.createElement('i', {
                                     key: 'ic',
-                                    className: `${copied ? 'fas fa-check text-green-400' : 'far fa-copy'} mr-1`
+                                    className: `${copied ? 'fas fa-check text-green-400' : 'far fa-copy'} me-1`
                                 }),
                                 copied ? t('action.copied') : t('action.copy')
                             ])
@@ -250,7 +255,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             type: 'button',
                             onClick: () => { onPick(opt.value); setOpenMenu(null); },
                             // Comfortable tap target + readable size on mobile.
-                            className: `w-full text-left px-4 py-3 sm:py-2.5 text-sm flex items-center gap-3 transition-colors ${current === opt.value
+                            className: `w-full text-start px-4 py-3 sm:py-2.5 text-sm flex items-center gap-3 transition-colors ${current === opt.value
                                 ? 'accent-orange bg-orange-500/10'
                                 : 'text-gray-200 hover:bg-gray-700/50 active:bg-gray-700/60'}`
                         }, [
@@ -262,7 +267,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     // purgeable utility class and never pushes the composer layout down.
                     const picker = (options, current, onPick) =>
                         React.createElement('div', {
-                            className: "absolute right-0 z-50 min-w-[180px] max-w-[78vw] rounded-xl shadow-2xl overflow-hidden",
+                            className: "absolute end-0 z-50 min-w-[180px] max-w-[78vw] rounded-xl shadow-2xl overflow-hidden",
                             style: { backgroundColor: '#1f201f', border: '0 solid #e5e7eb', bottom: '100%', marginBottom: '8px' }
                         }, options.map(opt => pickerItem(opt, current, onPick)));
 
@@ -361,7 +366,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     }, [
                         React.createElement('i', {
                             key: 'icon',
-                            className: `${copied ? 'fas fa-check accent-green' : 'fas fa-copy text-secondary'} mr-2`
+                            className: `${copied ? 'fas fa-check accent-green' : 'fas fa-copy text-secondary'} me-2`
                         }),
                         copied ? t('chat.copied') : children
                     ]);
@@ -403,7 +408,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         }, [
                             React.createElement('div', {
                                 key: 'icon',
-                                className: "w-10 h-10 bg-purple-500/10 border border-purple-500/20 rounded-lg flex items-center justify-center mr-3"
+                                className: "w-10 h-10 bg-purple-500/10 border border-purple-500/20 rounded-lg flex items-center justify-center me-3"
                             }, [
                                 React.createElement('i', {
                                     className: 'fas fa-shield-alt accent-purple'
@@ -428,7 +433,9 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             }, [
                                 React.createElement('div', {
                                     key: 'code',
-                                    className: "verification-code text-2xl py-4"
+                                    ...LTR_TEXT,
+                                    className: "verification-code text-2xl py-4",
+                                    style: { ...LTR_TEXT.style, textAlign: 'center' }
                                 }, verificationCode)
                             ]),
                             React.createElement('div', {
@@ -442,6 +449,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                 React.createElement('input', {
                                     key: 'sas-input',
                                     type: 'text',
+                                    dir: 'ltr',
                                     value: sasInput,
                                     onChange: (event) => {
                                         setSasInput(event.target.value.toUpperCase());
@@ -480,7 +488,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                     }, [
                                         React.createElement('i', {
                                             key: 'local-icon',
-                                            className: `fas ${localConfirmed ? 'fa-check-circle text-green-400' : 'fa-clock text-gray-400'} mr-2`
+                                            className: `fas ${localConfirmed ? 'fa-check-circle text-green-400' : 'fa-clock text-gray-400'} me-2`
                                         }),
                                         React.createElement('span', {
                                             key: 'local-text',
@@ -502,7 +510,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                     }, [
                                         React.createElement('i', {
                                             key: 'remote-icon',
-                                            className: `fas ${remoteConfirmed ? 'fa-check-circle text-green-400' : 'fa-clock text-gray-400'} mr-2`
+                                            className: `fas ${remoteConfirmed ? 'fa-check-circle text-green-400' : 'fa-clock text-gray-400'} me-2`
                                         }),
                                         React.createElement('span', {
                                             key: 'remote-text',
@@ -519,7 +527,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                     className: "text-yellow-400 text-sm flex items-center"
                                 }, [
                                     React.createElement('i', {
-                                        className: 'fas fa-exclamation-triangle mr-2'
+                                        className: 'fas fa-exclamation-triangle me-2'
                                     }),
                                     t('sas.makeSure')
                                 ])
@@ -535,7 +543,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                     className: `flex-1 py-3 px-4 rounded-lg font-medium transition-all duration-200 ${!canConfirm ? 'bg-gray-500/20 text-gray-400 cursor-not-allowed' : 'btn-verify text-white'}`
                                 }, [
                                     React.createElement('i', {
-                                        className: `fas ${localConfirmed ? 'fa-check-circle' : 'fa-check'} mr-2`
+                                        className: `fas ${localConfirmed ? 'fa-check-circle' : 'fa-check'} me-2`
                                     }),
                                     localConfirmed ? t('verify.confirmed') : t('verify.confirm')
                                 ]),
@@ -545,7 +553,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                     className: "flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 py-3 px-4 rounded-lg font-medium transition-all duration-200"
                                 }, [
                                     React.createElement('i', {
-                                        className: 'fas fa-times mr-2'
+                                        className: 'fas fa-times me-2'
                                     }),
                                     t('sas.noMatch')
                                 ])
@@ -1385,7 +1393,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         if (opts.animation) { svgStyle.animation = opts.animation; svgStyle.transformOrigin = 'center'; svgStyle.transformBox = 'fill-box'; }
                         if (opts.style) Object.assign(svgStyle, opts.style);
                         return h('svg', {
-                            key: opts.key, width: size, height: size, viewBox: '0 0 24 24',
+                            key: opts.key, className: name, width: size, height: size, viewBox: '0 0 24 24',
                             fill: 'none', stroke: opts.color || 'currentColor',
                             strokeWidth: def.sw || 2, strokeLinecap: 'round', strokeLinejoin: 'round',
                             style: svgStyle
@@ -1403,7 +1411,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             minHeight: '100vh', boxSizing: 'border-box',
                             padding: '46px', display: 'flex', flexDirection: 'column',
                             justifyContent: 'space-between', gap: '36px',
-                            borderRight: '1px solid rgba(255,255,255,0.06)',
+                            borderInlineEnd: '1px solid rgba(255,255,255,0.06)',
                             background: 'radial-gradient(900px 600px at 25% 18%, rgba(240,137,42,0.07), transparent 62%), radial-gradient(800px 700px at 80% 92%, rgba(62,207,142,0.06), transparent 60%), #0c0c0e'
                         }
                     }, [
@@ -1485,19 +1493,19 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
 
                     // ── RIGHT PANEL · flow body (varies by step) ──
                     const segToggle = atIntro && h('div', { key: 'seg', style: { position: 'relative', display: 'flex', padding: '4px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.07)', background: '#141416', marginBottom: '26px' } }, [
-                        h('div', { key: 'ind', style: { position: 'absolute', top: '4px', bottom: '4px', left: '4px', width: 'calc(50% - 4px)', borderRadius: '9px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.08)', transform: isCreate ? 'translateX(0%)' : 'translateX(100%)', transition: 'transform .26s cubic-bezier(.3,.8,.3,1)' } }),
+                        h('div', { key: 'ind', style: { position: 'absolute', top: '4px', bottom: '4px', insetInlineStart: '4px', width: 'calc(50% - 4px)', borderRadius: '9px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.08)', transform: isCreate ? 'translateX(0%)' : `translateX(${100 * DIR}%)`, transition: 'transform .26s cubic-bezier(.3,.8,.3,1)' } }),
                         h('button', { key: 'c', className: 'sb-seg-btn', onClick: () => setMode('create'), style: { position: 'relative', zIndex: 1, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '11px', border: 'none', background: 'transparent', color: isCreate ? '#f4f4f6' : '#7b7b83', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, cursor: 'pointer' } }, [fa('fa-plus', { key: 'i' }), t('action.create')]),
                         h('button', { key: 'j', className: 'sb-seg-btn', onClick: () => setMode('join'), style: { position: 'relative', zIndex: 1, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '11px', border: 'none', background: 'transparent', color: !isCreate ? '#f4f4f6' : '#7b7b83', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, cursor: 'pointer' } }, [fa('fa-link', { key: 'i' }), t('action.join')])
                     ]);
 
-                    const backButton = (key) => h('button', { key: key || 'back', className: 'sb-soft-btn', onClick: resetToSelect, style: { display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '14px', padding: '6px 11px 6px 8px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#9a9aa2', fontFamily: 'inherit', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' } }, [fa('fa-chevron-left', { key: 'i' }), t('action.back')]);
+                    const backButton = (key) => h('button', { key: key || 'back', className: 'sb-soft-btn', onClick: resetToSelect, style: { display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '14px', paddingBlock: '6px', paddingInlineStart: '8px', paddingInlineEnd: '11px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#9a9aa2', fontFamily: 'inherit', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' } }, [fa('fa-chevron-left', { key: 'i' }), t('action.back')]);
 
                     // credential code block (offer/answer text fallback + copy)
                     const credBlock = h('div', { key: 'codeblock', style: { borderRadius: '13px', border: '1px solid rgba(255,255,255,0.08)', background: '#141416', overflow: 'hidden', marginBottom: '16px' } }, [
                         h('div', { key: 'bar', style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.2)' } }, [
                             h('span', { key: 'dot', style: { width: '7px', height: '7px', borderRadius: '50%', background: accent } }),
                             h('span', { key: 'tag', style: { fontFamily: MONO, fontSize: '10.5px', fontWeight: 600, color: '#8a8a92' } }, isCreate ? t('cred.offerTag') : t('cred.answerTag')),
-                            h('button', { key: 'copy', onClick: copyCred, style: { marginLeft: 'auto', padding: '4px 9px', borderRadius: '6px', border: `1px solid ${copied ? 'rgba(62,207,142,0.4)' : 'rgba(255,255,255,0.1)'}`, background: copied ? 'rgba(62,207,142,0.1)' : 'rgba(255,255,255,0.04)', color: copied ? C_GREEN : '#b3b3ba', fontFamily: 'inherit', fontSize: '11px', fontWeight: 600, cursor: 'pointer', transition: 'all .14s' } }, copied ? t('action.copied') : t('action.copy'))
+                            h('button', { key: 'copy', onClick: copyCred, style: { marginInlineStart: 'auto', padding: '4px 9px', borderRadius: '6px', border: `1px solid ${copied ? 'rgba(62,207,142,0.4)' : 'rgba(255,255,255,0.1)'}`, background: copied ? 'rgba(62,207,142,0.1)' : 'rgba(255,255,255,0.04)', color: copied ? C_GREEN : '#b3b3ba', fontFamily: 'inherit', fontSize: '11px', fontWeight: 600, cursor: 'pointer', transition: 'all .14s' } }, copied ? t('action.copied') : t('action.copy'))
                         ]),
                         // The handshake code is sensitive — keep it blurred until the
                         // user deliberately reveals it, underscoring that it must be
@@ -1511,7 +1519,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         ])
                     ]);
 
-                    const showQrButton = qrCodeUrl && h('button', { key: 'showqr', onClick: () => setQrModalOpen(true), style: { width: '100%', display: 'flex', alignItems: 'center', gap: '13px', padding: '15px 16px', borderRadius: '14px', border: `1px solid ${isCreate ? 'rgba(240,137,42,0.3)' : 'rgba(62,207,142,0.3)'}`, background: isCreate ? 'rgba(240,137,42,0.06)' : 'rgba(62,207,142,0.06)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'left', marginBottom: '14px' } }, [
+                    const showQrButton = qrCodeUrl && h('button', { key: 'showqr', onClick: () => setQrModalOpen(true), style: { width: '100%', display: 'flex', alignItems: 'center', gap: '13px', padding: '15px 16px', borderRadius: '14px', border: `1px solid ${isCreate ? 'rgba(240,137,42,0.3)' : 'rgba(62,207,142,0.3)'}`, background: isCreate ? 'rgba(240,137,42,0.06)' : 'rgba(62,207,142,0.06)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'start', marginBottom: '14px' } }, [
                         h('span', { key: 'ic', style: { flex: 'none', width: '42px', height: '42px', borderRadius: '12px', display: 'grid', placeItems: 'center', background: isCreate ? 'rgba(240,137,42,0.12)' : 'rgba(62,207,142,0.12)', border: `1px solid ${isCreate ? 'rgba(240,137,42,0.28)' : 'rgba(62,207,142,0.28)'}` } }, fa('fa-qrcode', { color: accent, fontSize: '18px' })),
                         h('span', { key: 'tx', style: { flex: 1 } }, [
                             h('span', { key: 't', style: { display: 'block', fontSize: '14.5px', fontWeight: 700, color: '#f4f4f6' } }, t('qr.showTitle')),
@@ -1532,7 +1540,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                 h('h2', { key: 't', style: { margin: 0, fontSize: '21px', fontWeight: 800, letterSpacing: '-0.4px', color: '#f4f4f6' } }, t('verify.title'))
                             ]),
                             h('p', { key: 'sub', style: { margin: '0 0 18px', fontSize: '13.5px', lineHeight: 1.55, color: '#8a8a92' } }, t('verify.desc')),
-                            h('div', { key: 'cells', style: { display: 'flex', gap: '6px', justifyContent: 'center', marginBottom: '20px', flexWrap: 'wrap' } }, cells),
+                            h('div', { key: 'cells', dir: 'ltr', style: { display: 'flex', gap: '6px', justifyContent: 'center', marginBottom: '20px', flexWrap: 'wrap' } }, cells),
                             verified
                                 ? h('div', { key: 'ok', style: { display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '24px 16px', borderRadius: '16px', border: '1px solid rgba(62,207,142,0.25)', background: 'rgba(62,207,142,0.06)', animation: 'sbUp .3s ease' } }, [
                                     h('div', { key: 'i', style: { width: '54px', height: '54px', borderRadius: '16px', display: 'grid', placeItems: 'center', background: 'rgba(62,207,142,0.14)', border: '1px solid rgba(62,207,142,0.35)', marginBottom: '14px' } }, fa('fa-check', { color: C_GREEN, fontSize: '24px' })),
@@ -1541,7 +1549,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                 ])
                                 : h('div', { key: 'form' }, [
                                     h('div', { key: 'lbl', style: { fontSize: '12.5px', fontWeight: 600, color: '#9a9aa2', marginBottom: '8px' } }, t('verify.enterLabel')),
-                                    h('input', { key: 'in', value: sasInput, onChange: (e) => { setSasInput(e.target.value.toUpperCase()); if (sasError) setSasError(''); }, disabled: localVerificationConfirmed, autoFocus: true, autoComplete: 'off', spellCheck: false, placeholder: verificationCode ? t('verify.placeholder') : t('verify.waiting'), style: { width: '100%', textAlign: 'center', letterSpacing: '6px', borderRadius: '12px', border: `1px solid ${sasInput.length ? (canConfirm || localVerificationConfirmed ? 'rgba(62,207,142,0.5)' : 'rgba(255,255,255,0.14)') : 'rgba(255,255,255,0.08)'}`, background: '#141416', color: '#f4f4f6', fontFamily: MONO, fontSize: '20px', fontWeight: 700, padding: '14px', outline: 'none', textTransform: 'uppercase', marginBottom: sasError ? '8px' : '16px' } }),
+                                    h('input', { key: 'in', dir: 'ltr', value: sasInput, onChange: (e) => { setSasInput(e.target.value.toUpperCase()); if (sasError) setSasError(''); }, disabled: localVerificationConfirmed, autoFocus: true, autoComplete: 'off', spellCheck: false, placeholder: verificationCode ? t('verify.placeholder') : t('verify.waiting'), style: { width: '100%', textAlign: 'center', letterSpacing: '6px', borderRadius: '12px', border: `1px solid ${sasInput.length ? (canConfirm || localVerificationConfirmed ? 'rgba(62,207,142,0.5)' : 'rgba(255,255,255,0.14)') : 'rgba(255,255,255,0.08)'}`, background: '#141416', color: '#f4f4f6', fontFamily: MONO, fontSize: '20px', fontWeight: 700, padding: '14px', outline: 'none', textTransform: 'uppercase', marginBottom: sasError ? '8px' : '16px' } }),
                                     sasError && h('p', { key: 'err', style: { color: '#e5727a', fontSize: '12.5px', margin: '0 0 16px' } }, sasError),
                                     h('div', { key: 'status', style: { display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' } }, [
                                         h('div', { key: 'you', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderRadius: '11px', border: '1px solid rgba(255,255,255,0.06)', background: '#141416' } }, [
@@ -1593,7 +1601,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             isOfferCred && h('div', { key: 'offerextra', style: { marginTop: '4px' } }, [
                                 h('div', { key: 'lbl', style: { fontSize: '12.5px', fontWeight: 600, color: '#9a9aa2', marginBottom: '8px' } }, t('handshake.thenReceive')),
                                 h('div', { key: 'ta', style: { borderRadius: '12px', border: `1px solid ${hasAnswer ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.07)'}`, background: '#141416', padding: '11px 14px', marginBottom: '10px' } },
-                                    h('textarea', { value: answerInput, onChange: (e) => { setAnswerInput(e.target.value); if (e.target.value.trim().length > 0 && typeof markAnswerCreated === 'function') markAnswerCreated(); }, rows: 2, placeholder: t('handshake.pasteAnswerPlaceholder'), style: { width: '100%', resize: 'none', border: 'none', outline: 'none', background: 'transparent', color: '#d7d7db', fontFamily: MONO, fontSize: '12px', lineHeight: 1.55, minHeight: '44px' } })),
+                                    h('textarea', { dir: 'ltr', value: answerInput, onChange: (e) => { setAnswerInput(e.target.value); if (e.target.value.trim().length > 0 && typeof markAnswerCreated === 'function') markAnswerCreated(); }, rows: 2, placeholder: t('handshake.pasteAnswerPlaceholder'), style: { width: '100%', resize: 'none', border: 'none', outline: 'none', background: 'transparent', color: '#d7d7db', fontFamily: MONO, fontSize: '12px', lineHeight: 1.55, minHeight: '44px' } })),
                                 h('div', { key: 'btns', style: { display: 'flex', gap: '10px' } }, [
                                     h('button', { key: 'scan', className: 'sb-scan-btn', onClick: () => setShowQRScannerModal(true), style: { flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px 16px', borderRadius: '13px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#cfcfd4', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, cursor: 'pointer' } }, [fa('fa-camera', { key: 'i' }), t('action.scan')]),
                                     h('button', { key: 'est', onClick: onConnect, disabled: !hasAnswer, style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '14px', borderRadius: '13px', border: 'none', background: hasAnswer ? C_ORANGE : 'rgba(255,255,255,0.05)', color: hasAnswer ? '#1a0f04' : '#56565e', fontFamily: 'inherit', fontSize: '14.5px', fontWeight: 700, cursor: hasAnswer ? 'pointer' : 'not-allowed', boxShadow: hasAnswer ? '0 8px 24px rgba(240,137,42,0.28)' : 'none' } }, t('handshake.establish'))
@@ -1616,7 +1624,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         inner = h('div', { key: 'introJ', style: { animation: 'sbUp .28s ease' } }, [
                             h('h2', { key: 'h', style: { margin: '0 0 6px', fontSize: '23px', fontWeight: 800, letterSpacing: '-0.5px', color: '#f4f4f6' } }, t('intro.joinTitle')),
                             h('p', { key: 'p', style: { margin: '0 0 16px', fontSize: '14px', lineHeight: 1.55, color: '#8a8a92' } }, "Scan your peer's QR with your camera, or paste their invitation code."),
-                            h('button', { key: 'scan', className: 'sb-scan-btn', onClick: () => { requestNotificationPermissionOnInteraction(); setShowQRScannerModal(true); }, style: { width: '100%', display: 'flex', alignItems: 'center', gap: '13px', padding: '15px 16px', borderRadius: '14px', border: '1px solid rgba(62,207,142,0.3)', background: 'rgba(62,207,142,0.06)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'left', marginBottom: '14px' } }, [
+                            h('button', { key: 'scan', className: 'sb-scan-btn', onClick: () => { requestNotificationPermissionOnInteraction(); setShowQRScannerModal(true); }, style: { width: '100%', display: 'flex', alignItems: 'center', gap: '13px', padding: '15px 16px', borderRadius: '14px', border: '1px solid rgba(62,207,142,0.3)', background: 'rgba(62,207,142,0.06)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'start', marginBottom: '14px' } }, [
                                 h('span', { key: 'ic', style: { flex: 'none', width: '42px', height: '42px', borderRadius: '12px', display: 'grid', placeItems: 'center', background: 'rgba(62,207,142,0.12)', border: '1px solid rgba(62,207,142,0.28)' } }, fa('fa-camera', { color: C_GREEN, fontSize: '18px' })),
                                 h('span', { key: 'tx', style: { flex: 1 } }, [
                                     h('span', { key: 't', style: { display: 'block', fontSize: '14.5px', fontWeight: 700, color: '#f4f4f6' } }, t('intro.scanTitle')),
@@ -1630,7 +1638,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                 h('span', { key: 'b', style: { flex: 1, height: '1px', background: 'rgba(255,255,255,0.07)' } })
                             ]),
                             h('div', { key: 'ta', style: { borderRadius: '13px', border: `1px solid ${hasInvite ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.07)'}`, background: '#141416', padding: '13px 15px', marginBottom: '12px' } },
-                                h('textarea', { value: offerInput, onChange: (e) => { setOfferInput(e.target.value); if (e.target.value.trim().length > 0 && typeof markAnswerCreated === 'function') markAnswerCreated(); }, rows: 3, placeholder: t('intro.pastePlaceholder'), style: { width: '100%', resize: 'none', border: 'none', outline: 'none', background: 'transparent', color: '#d7d7db', fontFamily: MONO, fontSize: '12.5px', lineHeight: 1.6, minHeight: '66px' } })),
+                                h('textarea', { dir: 'ltr', value: offerInput, onChange: (e) => { setOfferInput(e.target.value); if (e.target.value.trim().length > 0 && typeof markAnswerCreated === 'function') markAnswerCreated(); }, rows: 3, placeholder: t('intro.pastePlaceholder'), style: { width: '100%', resize: 'none', border: 'none', outline: 'none', background: 'transparent', color: '#d7d7db', fontFamily: MONO, fontSize: '12.5px', lineHeight: 1.6, minHeight: '66px' } })),
                             h('button', { key: 'connect', onClick: () => { requestNotificationPermissionOnInteraction(); onCreateAnswer(); }, disabled: !hasInvite || connectionStatus === 'connecting', style: { width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '14px', borderRadius: '13px', border: 'none', background: (hasInvite && connectionStatus !== 'connecting') ? C_ORANGE : 'rgba(255,255,255,0.05)', color: (hasInvite && connectionStatus !== 'connecting') ? '#1a0f04' : '#56565e', fontFamily: 'inherit', fontSize: '15px', fontWeight: 700, cursor: (hasInvite && connectionStatus !== 'connecting') ? 'pointer' : 'not-allowed', boxShadow: (hasInvite && connectionStatus !== 'connecting') ? '0 8px 24px rgba(240,137,42,0.28)' : 'none' } }, connectionStatus === 'connecting' ? t('intro.connecting') : t('intro.connect'))
                         ]);
                     }
@@ -1665,7 +1673,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     const otherOS = ['mac', 'win', 'linux'].filter((k) => k !== detectedOS);
                     const dlLink = (url) => { try { window.open(url, '_blank', 'noopener'); } catch (e) {} };
 
-                    const platformsMenu = platformsOpen && h('div', { key: 'platmenu', className: 'sb-platforms-menu', style: { position: 'absolute', left: 0, bottom: 'calc(100% + 10px)', width: '344px', maxWidth: '100%', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', background: '#161618', boxShadow: '0 24px 60px rgba(0,0,0,0.55)', overflow: 'hidden', zIndex: 25, animation: 'sbUp .2s ease' } }, [
+                    const platformsMenu = platformsOpen && h('div', { key: 'platmenu', className: 'sb-platforms-menu', style: { position: 'absolute', insetInlineStart: 0, bottom: 'calc(100% + 10px)', width: '344px', maxWidth: '100%', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', background: '#161618', boxShadow: '0 24px 60px rgba(0,0,0,0.55)', overflow: 'hidden', zIndex: 25, animation: 'sbUp .2s ease' } }, [
                         h('div', { key: 'mh', style: { display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' } }, [
                             h('div', { key: 't', style: { flex: 1, lineHeight: 1.2 } }, [
                                 h('div', { key: 'a', style: { fontSize: '14px', fontWeight: 800, color: '#f4f4f6' } }, t('dl.title')),
@@ -1674,7 +1682,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             h('span', { key: 'pill', style: { fontFamily: MONO, fontSize: '10px', fontWeight: 600, color: C_GREEN, padding: '3px 8px', borderRadius: '6px', background: 'rgba(62,207,142,0.1)', border: '1px solid rgba(62,207,142,0.22)' } }, t('chat.onWeb'))
                         ]),
                         h('div', { key: 'rec', style: { padding: '12px 12px 6px' } },
-                            h('button', { key: 'b', onClick: () => dlLink(DOWNLOADS[detectedOS].url), style: { width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '13px 14px', borderRadius: '12px', border: '1px solid rgba(240,137,42,0.4)', background: 'rgba(240,137,42,0.08)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'left' } }, [
+                            h('button', { key: 'b', onClick: () => dlLink(DOWNLOADS[detectedOS].url), style: { width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '13px 14px', borderRadius: '12px', border: '1px solid rgba(240,137,42,0.4)', background: 'rgba(240,137,42,0.08)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'start' } }, [
                                 h('span', { key: 'ic', style: { flex: 'none', display: 'grid', placeItems: 'center', width: '38px', height: '38px', borderRadius: '11px', background: 'rgba(240,137,42,0.14)', border: '1px solid rgba(240,137,42,0.3)', color: C_ORANGE } }, h('i', { className: DOWNLOADS[detectedOS].icon, style: { fontSize: '17px' } })),
                                 h('span', { key: 'tx', style: { flex: 1, minWidth: 0 } }, [
                                     h('span', { key: 'n', style: { display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#f4f4f6' } }, DOWNLOADS[detectedOS].name),
@@ -1683,7 +1691,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                 fa('fa-download', { color: C_ORANGE })
                             ])),
                         h('div', { key: 'others', style: { padding: '0 12px 8px', display: 'flex', flexDirection: 'column', gap: '2px' } },
-                            otherOS.map((k) => h('button', { key: k, onClick: () => dlLink(DOWNLOADS[k].url), style: { width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 14px', borderRadius: '11px', border: 'none', background: 'transparent', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'left' } }, [
+                            otherOS.map((k) => h('button', { key: k, onClick: () => dlLink(DOWNLOADS[k].url), style: { width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 14px', borderRadius: '11px', border: 'none', background: 'transparent', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'start' } }, [
                                 h('span', { key: 'ic', style: { flex: 'none', display: 'grid', placeItems: 'center', width: '34px', height: '34px', borderRadius: '10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#cfcfd4' } }, h('i', { className: DOWNLOADS[k].icon, style: { fontSize: '15px' } })),
                                 h('span', { key: 'tx', style: { flex: 1, minWidth: 0 } }, [
                                     h('span', { key: 'n', style: { display: 'block', fontSize: '13px', fontWeight: 600, color: '#e8e8eb' } }, DOWNLOADS[k].name),
@@ -1698,7 +1706,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     ]);
 
                     const footer = h('div', { key: 'footer', className: 'sb-conn-footer', style: { position: 'relative', marginTop: '30px', paddingTop: '18px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' } }, [
-                        h('button', { key: 'dl', onClick: () => setPlatformsOpen((v) => !v), style: { display: 'inline-flex', alignItems: 'center', gap: '9px', padding: '8px 13px 8px 9px', borderRadius: '10px', border: `1px solid ${platformsOpen ? 'rgba(240,137,42,0.4)' : 'rgba(255,255,255,0.08)'}`, background: platformsOpen ? 'rgba(240,137,42,0.06)' : 'rgba(255,255,255,0.02)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', transition: 'all .15s' } }, [
+                        h('button', { key: 'dl', onClick: () => setPlatformsOpen((v) => !v), style: { display: 'inline-flex', alignItems: 'center', gap: '9px', paddingBlock: '8px', paddingInlineStart: '9px', paddingInlineEnd: '13px', borderRadius: '10px', border: `1px solid ${platformsOpen ? 'rgba(240,137,42,0.4)' : 'rgba(255,255,255,0.08)'}`, background: platformsOpen ? 'rgba(240,137,42,0.06)' : 'rgba(255,255,255,0.02)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', transition: 'all .15s' } }, [
                             fa('fa-download', { key: 'i', color: C_ORANGE }),
                             h('span', { key: 't', style: { fontSize: '12.5px', fontWeight: 700, color: '#e8e8eb' } }, t('action.downloadDesktop')),
                             fa('fa-chevron-down', { key: 'c', color: '#6b6b73', style: { fontSize: '11px', transform: platformsOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s' } })
@@ -1928,7 +1936,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                 modal.innerHTML = `
                   <style>@keyframes svIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes svPulse{0%,100%{opacity:1}50%{opacity:.4}}</style>
                   <div style="position:relative; max-width:960px; width:100%; border-radius:20px; background:radial-gradient(1100px 640px at 50% -6%, rgba(${accentRGB},0.05), transparent 62%), #0f0f11; border:1px solid rgba(255,255,255,0.08); color:#e8e8eb; padding:30px; box-shadow:0 30px 70px rgba(0,0,0,0.55); animation:svIn .3s cubic-bezier(.2,.7,.3,1); max-height:calc(100vh - 48px); overflow:auto;">
-                    <button class="sv-close" type="button" title="${t('chat.close')}" style="position:absolute; top:16px; right:16px; width:32px; height:32px; border-radius:9px; display:grid; place-items:center; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.02); color:#8a8a92; cursor:pointer; z-index:2;">
+                    <button class="sv-close" type="button" title="${t('chat.close')}" style="position:absolute; top:16px; inset-inline-end:16px; width:32px; height:32px; border-radius:9px; display:grid; place-items:center; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.02); color:#8a8a92; cursor:pointer; z-index:2;">
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M6 6l12 12M18 6L6 18"/></svg>
                     </button>
                     <div style="position:relative; overflow:hidden; border-radius:18px; background:#141416; border:1px solid rgba(255,255,255,0.07); padding:28px 30px; display:flex; align-items:center; gap:30px; flex-wrap:wrap; margin-bottom:20px;">
@@ -2065,7 +2073,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     // Mobile: leave room for the drawer hamburger and shed non-essential header
                     // chrome so avatar + name + status + call/Disconnect fit a narrow screen.
                     '@media (max-width:768px){' +
-                    '.sb-chat-header{padding-left:58px !important;gap:8px !important;}' +
+                    '.sb-chat-header{padding-inline-start:58px !important;gap:8px !important;}' +
                     // Remove the security/verification pill on mobile (per request) — the
                     // full report is still available from the desktop header.
                     '.sb-chat-header .sb-secpill{display:none !important;}' +
@@ -2084,7 +2092,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     '.sb-chips .sb-chips-right{flex-wrap:nowrap !important;}' +
                     '.sb-chips .sb-chip{white-space:nowrap;}' +
                     '}' +
-                    '@media (max-width:480px){.sb-chat-header{padding-right:12px !important;}}'
+                    '@media (max-width:480px){.sb-chat-header{padding-inline-end:12px !important;}}'
                 } });
                 const header = React.createElement('header', {
                     key: 'hdr', className: 'sb-chat-header', style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px', padding: '0 20px', height: '64px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(18,18,20,0.72)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }
@@ -2095,7 +2103,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     React.createElement('div', { key: 'left', style: { display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 } }, [
                         React.createElement('div', { key: 'avatar', style: { position: 'relative', flex: 'none', width: '36px', height: '36px', borderRadius: '10px', display: 'grid', placeItems: 'center', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', fontSize: '13px', fontWeight: 700, letterSpacing: '-0.3px', color: '#e8e8eb' } }, [
                             monoInitials(title || t('chatHdr.chat')),
-                            React.createElement('span', { key: 'dot', style: { position: 'absolute', right: '-2px', bottom: '-2px', width: '11px', height: '11px', borderRadius: '50%', background: peerDot, border: '2px solid #121214' } })
+                            React.createElement('span', { key: 'dot', style: { position: 'absolute', insetInlineEnd: '-2px', bottom: '-2px', width: '11px', height: '11px', borderRadius: '50%', background: peerDot, border: '2px solid #121214' } })
                         ]),
                         editingName
                             ? React.createElement('div', { key: 'edit', style: { display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 } }, [
@@ -2358,7 +2366,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
             }, [
                 React.createElement('button', {
                     key: 'hs-btn', onClick: () => setShowHandshake(v => !v),
-                    style: { width: '100%', display: 'flex', alignItems: 'center', gap: '13px', padding: '14px 16px', background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }
+                    style: { width: '100%', display: 'flex', alignItems: 'center', gap: '13px', padding: '14px 16px', background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', textAlign: 'start', fontFamily: 'inherit' }
                 }, [
                     React.createElement('div', { key: 'ic', style: { flex: 'none', width: '30px', height: '30px', display: 'grid', placeItems: 'center' } },
                         React.createElement('i', { className: 'fas fa-check', style: { color: '#3ecf8e', fontSize: '16px' } })
@@ -2369,8 +2377,8 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     ]),
                     React.createElement('i', { key: 'chev', className: 'fas fa-chevron-down', style: { flex: 'none', color: '#6b6b73', fontSize: '13px', transform: showHandshake ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s' } })
                 ]),
-                showHandshake && React.createElement('div', { key: 'hs-body', style: { padding: '2px 16px 14px 59px' } }, [
-                    systemMessages.length > 0 && React.createElement('div', { key: 'steps', className: 'sb-scroll', style: { marginBottom: '12px', maxHeight: '220px', overflowY: 'auto', paddingRight: '6px' } },
+                showHandshake && React.createElement('div', { key: 'hs-body', style: { paddingTop: '2px', paddingBottom: '14px', paddingInlineStart: '59px', paddingInlineEnd: '16px' } }, [
+                    systemMessages.length > 0 && React.createElement('div', { key: 'steps', className: 'sb-scroll', style: { marginBottom: '12px', maxHeight: '220px', overflowY: 'auto', paddingInlineEnd: '6px' } },
                         systemMessages.map((m, i) => React.createElement('div', { key: 's' + i, style: { display: 'flex', gap: '11px', padding: '6px 0', borderTop: i === 0 ? 'none' : '1px solid rgba(255,255,255,0.04)' } }, [
                             React.createElement('span', { key: 'd', style: { flex: 'none', width: '5px', height: '5px', borderRadius: '50%', background: '#3ecf8e', marginTop: '7px', opacity: 0.6 } }),
                             React.createElement('span', { key: 't', style: { flex: 1, fontSize: '12.5px', color: '#9a9aa2', lineHeight: 1.5, wordBreak: 'break-word' } }, String(m.message || '').trim()),
@@ -2425,12 +2433,12 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
 
             // ---- option rows ----
             const timerRow = showTimer && React.createElement('div', { key: 'timer-row', style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', padding: '10px 12px', marginBottom: '10px', borderRadius: '11px', border: '1px solid rgba(255,255,255,0.07)', background: '#161618' } },
-                [React.createElement('span', { key: 'lbl', style: { fontSize: '12px', color: '#8a8a92', fontWeight: 600, marginRight: '4px' } }, t('chat.disappearAfter'))].concat(
+                [React.createElement('span', { key: 'lbl', style: { fontSize: '12px', color: '#8a8a92', fontWeight: 600, marginInlineEnd: '4px' } }, t('chat.disappearAfter'))].concat(
                     timerDefs.map((d) => React.createElement('button', { key: 'td' + d.v, onClick: () => pickTimer(d.v), style: optStyle(disappearTtl === d.v) }, d.label))
                 )
             );
             const onceRow = showOnce && React.createElement('div', { key: 'once-row', style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', padding: '10px 12px', marginBottom: '10px', borderRadius: '11px', border: '1px solid rgba(255,255,255,0.07)', background: '#161618' } },
-                [React.createElement('span', { key: 'lbl', style: { fontSize: '12px', color: '#8a8a92', fontWeight: 600, marginRight: '4px' } }, t('chat.visibleFor'))].concat(
+                [React.createElement('span', { key: 'lbl', style: { fontSize: '12px', color: '#8a8a92', fontWeight: 600, marginInlineEnd: '4px' } }, t('chat.visibleFor'))].concat(
                     onceDefs.map((d) => React.createElement('button', { key: 'od' + d.v, onClick: () => pickOnce(d.v), style: optStyle(onceSelected === d.v) }, d.label))
                 )
             );
@@ -2474,14 +2482,14 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
             const codeStrip = codeMode && React.createElement('div', { key: 'code-strip', style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 14px', border: '1px solid rgba(255,255,255,0.08)', borderBottom: 'none', borderRadius: '14px 14px 0 0', background: '#161618' } }, [
                 React.createElement('i', { key: 'i', className: 'fas fa-code', style: { color: '#8a8a92', fontSize: '12px' } }),
                 React.createElement('span', { key: 's', style: { fontSize: '11.5px', fontWeight: 600, color: '#8a8a92' } }, t('chat.codeHint')),
-                React.createElement('button', { key: 'c', onClick: () => setCodeMode(false), className: 'sb-link', style: { marginLeft: 'auto', background: 'none', border: 'none', color: '#6b6b73', cursor: 'pointer', fontSize: '11.5px', fontFamily: 'inherit', fontWeight: 600 } }, t('chat.close'))
+                React.createElement('button', { key: 'c', onClick: () => setCodeMode(false), className: 'sb-link', style: { marginInlineStart: 'auto', background: 'none', border: 'none', color: '#6b6b73', cursor: 'pointer', fontSize: '11.5px', fontFamily: 'inherit', fontWeight: 600 } }, t('chat.close'))
             ]);
 
             // ---- input row ----
             const sendBtn = React.createElement('button', {
                 key: 'send', onClick: onSendMessage, disabled: !hasText, title: t('chat.send'), className: 'sb-send',
                 style: { flex: 'none', width: '44px', height: '44px', borderRadius: '11px', border: 'none', display: 'grid', placeItems: 'center', cursor: hasText ? 'pointer' : 'default', background: hasText ? '#f0892a' : 'rgba(255,255,255,0.05)', color: hasText ? '#1a0f04' : '#56565e', transition: 'all .15s' }
-            }, React.createElement('i', { className: 'fas fa-paper-plane', style: { fontSize: '15px' } }));
+            }, React.createElement('i', { className: 'fas fa-paper-plane sb-mirror-rtl', style: { fontSize: '15px' } }));
             const micBtn = React.createElement('button', {
                 key: 'mic', onClick: () => setIsRecording(true), title: t('chat.recordVoice'), className: 'sb-send',
                 style: { flex: 'none', width: '44px', height: '44px', borderRadius: '50%', border: 'none', display: 'grid', placeItems: 'center', cursor: 'pointer', background: '#f0892a', color: '#1a0f04', boxShadow: '0 8px 22px rgba(240,137,42,0.3)', transition: 'transform .15s cubic-bezier(.2,.7,.3,1)' }
@@ -2498,7 +2506,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
 
             const inputRow = React.createElement('div', {
                 key: 'input',
-                style: { display: 'flex', alignItems: 'flex-end', gap: '11px', padding: '11px 11px 11px 16px', border: '1px solid ' + (hasText ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)'), background: '#161618', borderRadius: codeMode ? '0 0 14px 14px' : '14px', transition: 'border .15s' }
+                style: { display: 'flex', alignItems: 'flex-end', gap: '11px', paddingBlock: '11px', paddingInlineStart: '16px', paddingInlineEnd: '11px', border: '1px solid ' + (hasText ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)'), background: '#161618', borderRadius: codeMode ? '0 0 14px 14px' : '14px', transition: 'border .15s' }
             }, [
                 React.createElement('div', { key: 'ta-wrap', style: { flex: 1, minWidth: 0 } }, [
                     React.createElement('textarea', {
@@ -2518,7 +2526,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             React.createElement('i', { key: 'i', className: 'fas fa-lock', style: { color: '#3ecf8e', fontSize: '10px' } }),
                             t('chat.encryptedOnDevice')
                         ]),
-                        React.createElement('span', { key: 'cnt', style: { fontFamily: MONO, fontSize: '10.5px', color: '#56565e', marginLeft: 'auto' } }, (messageInput ? messageInput.length : 0) + '/2000')
+                        React.createElement('span', { key: 'cnt', style: { fontFamily: MONO, fontSize: '10.5px', color: '#56565e', marginInlineStart: 'auto' } }, (messageInput ? messageInput.length : 0) + '/2000')
                     ])
                 ])
             ].concat(trailingButtons));
@@ -2542,7 +2550,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
 
             const scrollBtn = showScrollButton && React.createElement('button', {
                 key: 'scrollbtn', onClick: handleScrollToBottom,
-                style: { position: 'fixed', right: '24px', bottom: '150px', width: '44px', height: '44px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.1)', background: '#26262b', color: '#cfcfd4', display: 'grid', placeItems: 'center', cursor: 'pointer', zIndex: 50, boxShadow: '0 6px 20px rgba(0,0,0,0.4)' }
+                style: { position: 'fixed', insetInlineEnd: '24px', bottom: '150px', width: '44px', height: '44px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.1)', background: '#26262b', color: '#cfcfd4', display: 'grid', placeItems: 'center', cursor: 'pointer', zIndex: 50, boxShadow: '0 6px 20px rgba(0,0,0,0.4)' }
             }, React.createElement('i', { className: 'fas fa-arrow-down', style: { fontSize: '15px' } }));
 
             const chatHeader = React.createElement(SecureBitChatHeader, {
@@ -2585,8 +2593,8 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                 // (72px) — plus a mobile slide-out drawer. Pure presentational: all data comes
                 // from decorated session objects, all actions are callbacks.
                 const SB_SVG = {
-                    chevL: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>',
-                    chevR: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+                    chevL: '<svg class="sb-mirror-rtl" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>',
+                    chevR: '<svg class="sb-mirror-rtl" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
                     plus: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
                     users: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19"/><circle cx="10" cy="8" r="3.2"/><path d="M20 19v-1.5a3.5 3.5 0 0 0-2.6-3.4"/><path d="M15.5 5.3a3.2 3.2 0 0 1 0 5.4"/></svg>',
                     burger: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>'
@@ -2627,7 +2635,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         offsetRef.current = x;
                         const w = drawerWidth();
                         const progress = Math.min(1, Math.max(0, 1 + x / w));
-                        if (panelRef.current) panelRef.current.style.transform = 'translate3d(' + x.toFixed(2) + 'px,0,0)';
+                        if (panelRef.current) panelRef.current.style.transform = 'translate3d(' + (x * DIR).toFixed(2) + 'px,0,0)';
                         if (scrimRef.current) {
                             scrimRef.current.style.opacity = progress.toFixed(3);
                             // The blur comes up with the panel rather than being switched
@@ -2699,7 +2707,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             axis: null,
                             vel: velocityTracker()
                         };
-                        dragRef.current.vel.add(e.clientX, e.timeStamp || performance.now());
+                        dragRef.current.vel.add(e.clientX * DIR, e.timeStamp || performance.now());
                     };
 
                     const drawerMove = (e) => {
@@ -2724,9 +2732,9 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             }
                             try { e.currentTarget.setPointerCapture(d.id); } catch (_) {}
                         }
-                        d.vel.add(e.clientX, e.timeStamp || performance.now());
+                        d.vel.add(e.clientX * DIR, e.timeStamp || performance.now());
                         const w = drawerWidth();
-                        let x = d.base + (e.clientX - d.x0);
+                        let x = d.base + (e.clientX - d.x0) * DIR;
                         // Past the open edge there is nothing left to reveal. Resisting
                         // reads as "responsive, but this is the end"; stopping dead reads
                         // as the app having frozen.
@@ -2772,7 +2780,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     const icon = (svg, style) => h('span', { style: Object.assign({ display: 'grid', placeItems: 'center' }, style || {}), dangerouslySetInnerHTML: { __html: svg } });
                     const avatar = (c, size, ring) => h('div', {
                         style: { position: 'relative', flex: 'none', width: size + 'px', height: size + 'px', borderRadius: (size >= 44 ? 12 : 11) + 'px', display: 'grid', placeItems: 'center', background: c.active ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,' + (c.active ? '0.14' : '0.07') + ')', fontSize: '13px', fontWeight: 700, letterSpacing: '-0.3px', color: c.active ? '#f4f4f6' : '#9a9aa2' }
-                    }, [c.mono, h('span', { key: 'dot', style: { position: 'absolute', right: '-2px', bottom: '-2px', width: '11px', height: '11px', borderRadius: '50%', background: c.dot, border: '2px solid ' + ring } })]);
+                    }, [c.mono, h('span', { key: 'dot', style: { position: 'absolute', insetInlineEnd: '-2px', bottom: '-2px', width: '11px', height: '11px', borderRadius: '50%', background: c.dot, border: '2px solid ' + ring } })]);
 
                     // ---- Expanded list row ----
                     const expandedRow = (c) => h('div', {
@@ -2780,7 +2788,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         onClick: () => onSelect(c.id),
                         style: { position: 'relative', display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 12px', marginBottom: '4px', borderRadius: '11px', background: c.active ? '#161618' : 'transparent', border: '1px solid ' + (c.active ? 'rgba(255,255,255,0.08)' : 'transparent'), cursor: 'pointer' }
                     }, [
-                        c.active && h('span', { key: 'bar', style: { position: 'absolute', left: 0, top: '12px', bottom: '12px', width: '3px', borderRadius: '0 3px 3px 0', background: '#f0892a' } }),
+                        c.active && h('span', { key: 'bar', style: { position: 'absolute', insetInlineStart: 0, top: '12px', bottom: '12px', width: '3px', borderStartEndRadius: '3px', borderEndEndRadius: '3px', background: '#f0892a' } }),
                         avatar(c, 38, c.active ? '#161618' : '#0c0c0e'),
                         h('div', { key: 'body', style: { flex: 1, minWidth: 0 } }, [
                             h('div', { key: 'top', style: { display: 'flex', alignItems: 'center', gap: '7px' } }, [
@@ -2800,7 +2808,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
 
                     // ---- Collapsed dock item ----
                     const dockItem = (c) => h('div', { key: c.id, style: { position: 'relative' } }, [
-                        c.active && h('span', { key: 'bar', style: { position: 'absolute', left: '-13px', top: '9px', bottom: '9px', width: '3px', borderRadius: '0 3px 3px 0', background: '#f0892a' } }),
+                        c.active && h('span', { key: 'bar', style: { position: 'absolute', insetInlineStart: '-13px', top: '9px', bottom: '9px', width: '3px', borderStartEndRadius: '3px', borderEndEndRadius: '3px', background: '#f0892a' } }),
                         h('div', {
                             key: 'tile',
                             onClick: () => onSelect(c.id),
@@ -2808,8 +2816,8 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             style: { position: 'relative', width: '44px', height: '44px', borderRadius: '12px', display: 'grid', placeItems: 'center', cursor: 'pointer', background: c.active ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,' + (c.active ? '0.14' : '0.07') + ')', fontSize: '13px', fontWeight: 700, letterSpacing: '-0.3px', color: c.active ? '#f4f4f6' : '#9a9aa2' }
                         }, [
                             c.mono,
-                            h('span', { key: 'dot', style: { position: 'absolute', right: '-2px', bottom: '-2px', width: '11px', height: '11px', borderRadius: '50%', background: c.dot, border: '2.5px solid #0c0c0e' } }),
-                            c.unread && h('span', { key: 'u', style: { position: 'absolute', left: '-5px', top: '-5px', minWidth: '17px', height: '17px', padding: '0 4px', borderRadius: '9px', display: 'grid', placeItems: 'center', background: '#f0892a', color: '#1a0f04', fontFamily: "'JetBrains Mono',monospace", fontSize: '9.5px', fontWeight: 700, border: '2px solid #0c0c0e' } }, c.unread)
+                            h('span', { key: 'dot', style: { position: 'absolute', insetInlineEnd: '-2px', bottom: '-2px', width: '11px', height: '11px', borderRadius: '50%', background: c.dot, border: '2.5px solid #0c0c0e' } }),
+                            c.unread && h('span', { key: 'u', style: { position: 'absolute', insetInlineStart: '-5px', top: '-5px', minWidth: '17px', height: '17px', padding: '0 4px', borderRadius: '9px', display: 'grid', placeItems: 'center', background: '#f0892a', color: '#1a0f04', fontFamily: "'JetBrains Mono',monospace", fontSize: '9.5px', fontWeight: 700, border: '2px solid #0c0c0e' } }, c.unread)
                         ])
                     ]);
 
@@ -2836,7 +2844,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         ...MY_STATUS_OPTIONS.map((o) => h('button', {
                             key: o.key,
                             onClick: () => { onSetStatus(o.key); setPresenceOpen(false); },
-                            style: { width: '100%', display: 'flex', alignItems: 'center', gap: '11px', padding: '9px 10px', borderRadius: '9px', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }
+                            style: { width: '100%', display: 'flex', alignItems: 'center', gap: '11px', padding: '9px 10px', borderRadius: '9px', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'start' }
                         }, [
                             h('span', { key: 'd', style: { flex: 'none', width: '10px', height: '10px', borderRadius: '50%', background: o.dot } }),
                             h('span', { key: 't', style: { flex: 1, minWidth: 0 } }, [
@@ -2855,9 +2863,9 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         h('button', { key: 'btn', onClick: () => setPresenceOpen((v) => !v), style: { width: '100%', display: 'flex', alignItems: 'center', gap: '11px', padding: '7px 8px', borderRadius: '11px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', cursor: 'pointer' } }, [
                             h('div', { key: 'av', style: { position: 'relative', flex: 'none', width: '36px', height: '36px', borderRadius: '10px', display: 'grid', placeItems: 'center', background: 'rgba(240,137,42,0.12)', border: '1px solid rgba(240,137,42,0.24)', color: '#f0892a' } }, [
                                 h('span', { key: 'i', style: { display: 'grid' }, dangerouslySetInnerHTML: { __html: PRES_SVG.user } }),
-                                h('span', { key: 'dot', style: { position: 'absolute', right: '-2px', bottom: '-2px', width: '11px', height: '11px', borderRadius: '50%', background: myMeta.dot, border: '2px solid #0c0c0e' } })
+                                h('span', { key: 'dot', style: { position: 'absolute', insetInlineEnd: '-2px', bottom: '-2px', width: '11px', height: '11px', borderRadius: '50%', background: myMeta.dot, border: '2px solid #0c0c0e' } })
                             ]),
-                            h('div', { key: 'tx', style: { flex: 1, minWidth: 0, textAlign: 'left' } }, [
+                            h('div', { key: 'tx', style: { flex: 1, minWidth: 0, textAlign: 'start' } }, [
                                 h('div', { key: 'y', style: { fontSize: '13.5px', fontWeight: 700, color: '#f4f4f6' } }, t('chatHdr.you')),
                                 h('div', { key: 'w', style: { fontSize: '12px', color: '#8a8a92' } }, myMeta.word)
                             ]),
@@ -2865,15 +2873,15 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         ])
                     ]);
                     const presencePanelCollapsed = h('div', { key: 'you', style: { flex: 'none', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 0 13px' } }, [
-                        presenceMenu({ left: '60px', bottom: '8px', width: '248px' }),
+                        presenceMenu({ insetInlineStart: '60px', bottom: '8px', width: '248px' }),
                         h('button', { key: 'btn', onClick: () => setPresenceOpen((v) => !v), title: t('chat.yourStatusPrefix') + myMeta.word, style: { position: 'relative', width: '44px', height: '44px', borderRadius: '12px', display: 'grid', placeItems: 'center', cursor: 'pointer', background: 'rgba(240,137,42,0.12)', border: '1px solid rgba(240,137,42,0.24)', color: '#f0892a' } }, [
                             h('span', { key: 'i', style: { display: 'grid' }, dangerouslySetInnerHTML: { __html: PRES_SVG.user } }),
-                            h('span', { key: 'dot', style: { position: 'absolute', right: '-2px', bottom: '-2px', width: '12px', height: '12px', borderRadius: '50%', background: myMeta.dot, border: '2.5px solid #0c0c0e' } })
+                            h('span', { key: 'dot', style: { position: 'absolute', insetInlineEnd: '-2px', bottom: '-2px', width: '12px', height: '12px', borderRadius: '50%', background: myMeta.dot, border: '2.5px solid #0c0c0e' } })
                         ])
                     ]);
 
                     const expandedInner = [
-                        h('div', { key: 'head', style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px 0 16px', height: '64px', borderBottom: '1px solid rgba(255,255,255,0.06)' } }, [
+                        h('div', { key: 'head', style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBlock: 0, paddingInlineStart: '16px', paddingInlineEnd: '12px', height: '64px', borderBottom: '1px solid rgba(255,255,255,0.06)' } }, [
                             h('div', { key: 'brand', style: { display: 'flex', alignItems: 'center', gap: '10px' } }, [brandMark(30), h('span', { key: 't', style: { fontSize: '15px', fontWeight: 800, letterSpacing: '-0.3px', color: '#f4f4f6' } }, 'SecureBit')]),
                             collapseBtn(SB_SVG.chevL, t('chat.collapse'))
                         ]),
@@ -2903,7 +2911,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                     onClick: () => onSelectGroup(g.id),
                                     style: { position: 'relative', display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 12px', marginBottom: '4px', borderRadius: '11px', background: g.active ? '#161618' : 'transparent', border: '1px solid ' + (g.active ? 'rgba(255,255,255,0.08)' : 'transparent'), cursor: 'pointer' }
                                 }, [
-                                    g.active && h('span', { key: 'bar', style: { position: 'absolute', left: 0, top: '12px', bottom: '12px', width: '3px', borderRadius: '0 3px 3px 0', background: '#f0892a' } }),
+                                    g.active && h('span', { key: 'bar', style: { position: 'absolute', insetInlineStart: 0, top: '12px', bottom: '12px', width: '3px', borderStartEndRadius: '3px', borderEndEndRadius: '3px', background: '#f0892a' } }),
                                     avatar(g, 38, g.active ? '#161618' : '#0c0c0e'),
                                     h('div', { key: 'body', style: { flex: 1, minWidth: 0 } }, [
                                         h('div', { key: 'top', style: { display: 'flex', alignItems: 'center', gap: '7px' } }, [
@@ -2928,14 +2936,14 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             ...chats.map(dockItem),
                             h('div', { key: 'sep', style: { width: '30px', height: '1px', background: 'rgba(255,255,255,0.07)', margin: '2px 0' } }),
                             ...groups.map((g) => h('div', { key: g.id, style: { position: 'relative' } }, [
-                                g.active && h('span', { key: 'bar', style: { position: 'absolute', left: '-13px', top: '9px', bottom: '9px', width: '3px', borderRadius: '0 3px 3px 0', background: '#f0892a' } }),
+                                g.active && h('span', { key: 'bar', style: { position: 'absolute', insetInlineStart: '-13px', top: '9px', bottom: '9px', width: '3px', borderStartEndRadius: '3px', borderEndEndRadius: '3px', background: '#f0892a' } }),
                                 h('div', {
                                     key: 'tile', onClick: () => onSelectGroup(g.id), title: g.name + ' — ' + g.headerSub,
                                     style: { position: 'relative', width: '44px', height: '44px', borderRadius: '12px', display: 'grid', placeItems: 'center', cursor: 'pointer', background: g.active ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,' + (g.active ? '0.14' : '0.07') + ')', fontSize: '13px', fontWeight: 700, letterSpacing: '-0.3px', color: g.active ? '#f4f4f6' : '#9a9aa2' }
                                 }, [
                                     g.mono,
-                                    h('span', { key: 'dot', style: { position: 'absolute', right: '-2px', bottom: '-2px', width: '11px', height: '11px', borderRadius: '50%', background: g.dot, border: '2.5px solid #0c0c0e' } }),
-                                    g.unread && h('span', { key: 'u', style: { position: 'absolute', left: '-5px', top: '-5px', minWidth: '17px', height: '17px', padding: '0 4px', borderRadius: '9px', display: 'grid', placeItems: 'center', background: '#f0892a', color: '#1a0f04', fontFamily: "'JetBrains Mono',monospace", fontSize: '9.5px', fontWeight: 700, border: '2px solid #0c0c0e' } }, g.unread)
+                                    h('span', { key: 'dot', style: { position: 'absolute', insetInlineEnd: '-2px', bottom: '-2px', width: '11px', height: '11px', borderRadius: '50%', background: g.dot, border: '2.5px solid #0c0c0e' } }),
+                                    g.unread && h('span', { key: 'u', style: { position: 'absolute', insetInlineStart: '-5px', top: '-5px', minWidth: '17px', height: '17px', padding: '0 4px', borderRadius: '9px', display: 'grid', placeItems: 'center', background: '#f0892a', color: '#1a0f04', fontFamily: "'JetBrains Mono',monospace", fontSize: '9.5px', fontWeight: 700, border: '2px solid #0c0c0e' } }, g.unread)
                                 ])
                             ])),
                             h('div', { key: 'gph', onClick: onNewGroup, title: t('chat.newGroup'), style: { position: 'relative', width: '44px', height: '44px', borderRadius: '12px', display: 'grid', placeItems: 'center', cursor: 'pointer', background: 'transparent', border: '1px dashed rgba(255,255,255,0.1)', color: '#56565e' }, dangerouslySetInnerHTML: { __html: SB_SVG.users } })
@@ -2948,7 +2956,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     ];
 
                     const railWidth = collapsed ? '72px' : '292px';
-                    const railStyle = { flex: 'none', width: railWidth, display: 'flex', flexDirection: 'column', alignItems: collapsed ? 'center' : 'stretch', background: '#0c0c0e', borderRight: '1px solid rgba(255,255,255,0.06)' };
+                    const railStyle = { flex: 'none', width: railWidth, display: 'flex', flexDirection: 'column', alignItems: collapsed ? 'center' : 'stretch', background: '#0c0c0e', borderInlineEnd: '1px solid rgba(255,255,255,0.06)' };
                     const inner = collapsed ? collapsedInner : expandedInner;
 
                     return h(React.Fragment, null, [
@@ -3030,11 +3038,11 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             onPointerUp: drawerUp,
                             onPointerCancel: drawerUp,
                             style: { position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(6,6,8,0.6)', backdropFilter: 'blur(0px)', WebkitBackdropFilter: 'blur(0px)', opacity: 0, display: drawerMounted ? 'block' : 'none', touchAction: 'pan-y', willChange: 'opacity' }
-                        }, h('aside', { className: 'sb-mobile-drawer', ref: panelRef, onClick: (e) => e.stopPropagation(), style: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 'min(292px, 86vw)', display: 'flex', flexDirection: 'column', background: '#0c0c0e', borderRight: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 0 60px rgba(0,0,0,0.6)', touchAction: 'pan-y', willChange: 'transform' } }, [
+                        }, h('aside', { className: 'sb-mobile-drawer', ref: panelRef, onClick: (e) => e.stopPropagation(), style: { position: 'absolute', insetInlineStart: 0, top: 0, bottom: 0, width: 'min(292px, 86vw)', display: 'flex', flexDirection: 'column', background: '#0c0c0e', borderInlineEnd: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 0 60px rgba(0,0,0,0.6)', touchAction: 'pan-y', willChange: 'transform' } }, [
                             // Explicit close button — the drawer's own header only has a
                             // "collapse" chevron (a desktop-rail action), so on mobile there was
                             // no obvious way to dismiss it. This X closes the drawer reliably.
-                            h('button', { key: 'x', onClick: onCloseDrawer, title: t('chat.closeMenu'), 'aria-label': t('chat.closeMenu'), style: { position: 'absolute', top: '15px', right: '13px', zIndex: 2, width: '34px', height: '34px', borderRadius: '9px', display: 'grid', placeItems: 'center', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#cfcfd4', cursor: 'pointer' } }, h('i', { className: 'fas fa-xmark', style: { fontSize: '16px' } })),
+                            h('button', { key: 'x', onClick: onCloseDrawer, title: t('chat.closeMenu'), 'aria-label': t('chat.closeMenu'), style: { position: 'absolute', top: '15px', insetInlineEnd: '13px', zIndex: 2, width: '34px', height: '34px', borderRadius: '9px', display: 'grid', placeItems: 'center', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#cfcfd4', cursor: 'pointer' } }, h('i', { className: 'fas fa-xmark', style: { fontSize: '16px' } })),
                             expandedInner
                         ]))
                     ]);
@@ -6637,7 +6645,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             React.createElement('button', {
                                 key: 'burger', className: 'sb-burger',
                                 onClick: () => setSidebarDrawerOpen(true),
-                                style: { display: 'none', position: 'fixed', top: '13px', left: '13px', zIndex: 55, width: '38px', height: '38px', borderRadius: '10px', placeItems: 'center', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(18,18,20,0.9)', color: '#cfcfd4', cursor: 'pointer' },
+                                style: { display: 'none', position: 'fixed', top: '13px', insetInlineStart: '13px', zIndex: 55, width: '38px', height: '38px', borderRadius: '10px', placeItems: 'center', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(18,18,20,0.9)', color: '#cfcfd4', cursor: 'pointer' },
                                 dangerouslySetInnerHTML: { __html: SB_SVG.burger }
                             }),
                             React.createElement('div', {
@@ -6737,7 +6745,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             key: 'sb-burger',
                             className: 'sb-burger',
                             onClick: () => setSidebarDrawerOpen(true),
-                            style: { display: 'none', position: 'fixed', top: '13px', left: '13px', zIndex: 55, width: '38px', height: '38px', borderRadius: '10px', placeItems: 'center', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(18,18,20,0.9)', color: '#cfcfd4', cursor: 'pointer' },
+                            style: { display: 'none', position: 'fixed', top: '13px', insetInlineStart: '13px', zIndex: 55, width: '38px', height: '38px', borderRadius: '10px', placeItems: 'center', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(18,18,20,0.9)', color: '#cfcfd4', cursor: 'pointer' },
                             dangerouslySetInnerHTML: { __html: SB_SVG.burger }
                         }),
                         React.createElement('div', {
@@ -6950,10 +6958,10 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                                 id: 'qr-reader',
                                                 style: { position: 'absolute', inset: 0, zIndex: 1 }
                                             }),
-                                            corner('c-tl', { top: '18px', left: '18px', borderTop: '2.5px solid #3ecf8e', borderLeft: '2.5px solid #3ecf8e', borderRadius: '8px 0 0 0' }),
-                                            corner('c-tr', { top: '18px', right: '18px', borderTop: '2.5px solid #3ecf8e', borderRight: '2.5px solid #3ecf8e', borderRadius: '0 8px 0 0' }),
-                                            corner('c-bl', { bottom: '18px', left: '18px', borderBottom: '2.5px solid #3ecf8e', borderLeft: '2.5px solid #3ecf8e', borderRadius: '0 0 0 8px' }),
-                                            corner('c-br', { bottom: '18px', right: '18px', borderBottom: '2.5px solid #3ecf8e', borderRight: '2.5px solid #3ecf8e', borderRadius: '0 0 8px 0' }),
+                                            corner('c-tl', { top: '18px', insetInlineStart: '18px', borderTop: '2.5px solid #3ecf8e', borderInlineStart: '2.5px solid #3ecf8e', borderRadius: '8px 0 0 0' }),
+                                            corner('c-tr', { top: '18px', insetInlineEnd: '18px', borderTop: '2.5px solid #3ecf8e', borderInlineEnd: '2.5px solid #3ecf8e', borderRadius: '0 8px 0 0' }),
+                                            corner('c-bl', { bottom: '18px', insetInlineStart: '18px', borderBottom: '2.5px solid #3ecf8e', borderInlineStart: '2.5px solid #3ecf8e', borderRadius: '0 0 0 8px' }),
+                                            corner('c-br', { bottom: '18px', insetInlineEnd: '18px', borderBottom: '2.5px solid #3ecf8e', borderInlineEnd: '2.5px solid #3ecf8e', borderRadius: '0 0 8px 0' }),
                                             React.createElement('span', {
                                                 key: 'scan-line',
                                                 style: { position: 'absolute', left: '18px', right: '18px', height: '2.5px', zIndex: 2, background: 'linear-gradient(90deg, transparent, #3ecf8e, transparent)', boxShadow: '0 0 16px #3ecf8e', animation: 'sbScan 1.5s ease-in-out infinite alternate' }

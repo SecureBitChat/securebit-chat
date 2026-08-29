@@ -183,7 +183,7 @@ const UpdateChecker = ({ children, onUpdateAvailable, debug = false }) => {
                 // version comparison
                 React.createElement('div', {
                     key: 'vbox',
-                    style: { borderRadius: '14px', background: '#0c0c0e', border: '1px solid rgba(255,255,255,0.06)', padding: '16px 18px', marginBottom: '24px', textAlign: 'left' }
+                    style: { borderRadius: '14px', background: '#0c0c0e', border: '1px solid rgba(255,255,255,0.06)', padding: '16px 18px', marginBottom: '24px', textAlign: 'start' }
                 }, [
                     React.createElement('div', { key: 'cur', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', padding: '5px 0' } }, [
                         React.createElement('span', { key: 'l', style: { fontSize: '13.5px', fontWeight: 500, color: '#8a8a92' } }, t('update.currentVersion')),

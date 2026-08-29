@@ -203,7 +203,7 @@ const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFile
         }, [
             React.createElement('i', {
                 key: 'icon',
-                className: 'fas fa-exclamation-triangle mr-2'
+                className: 'fas fa-exclamation-triangle me-2'
             }),
             'Соединение устанавливается... Передача файлов будет доступна после завершения установки.'
         ]);
@@ -333,7 +333,7 @@ const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFile
                             React.createElement('i', {
                                 key: 'icon',
                                 className: 'fas fa-arrow-up',
-                                style: { color: '#f0892a', fontSize: '13px', marginRight: '8px' }
+                                style: { color: '#f0892a', fontSize: '13px', marginInlineEnd: '8px' }
                             }),
                             React.createElement('span', {
                                 key: 'name',
@@ -342,7 +342,7 @@ const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFile
                             }, transfer.fileName),
                             React.createElement('span', {
                                 key: 'size',
-                                className: "text-xs ml-2",
+                                className: "text-xs ms-2",
                                 style: { color: '#7b7b83' }
                             }, formatFileSize(transfer.fileSize))
                         ]),
@@ -377,7 +377,7 @@ const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFile
                             React.createElement('i', {
                                 key: 'icon',
                                 className: 'fas fa-arrow-down',
-                                style: { color: '#3ecf8e', fontSize: '13px', marginRight: '8px' }
+                                style: { color: '#3ecf8e', fontSize: '13px', marginInlineEnd: '8px' }
                             }),
                             React.createElement('span', {
                                 key: 'name',
@@ -386,7 +386,7 @@ const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFile
                             }, transfer.fileName),
                             React.createElement('span', {
                                 key: 'size',
-                                className: "text-xs ml-2",
+                                className: "text-xs ms-2",
                                 style: { color: '#7b7b83' }
                             }, formatFileSize(transfer.fileSize))
                         ]),
@@ -408,7 +408,7 @@ const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFile
                                     }
                                 }
                             }, [
-                                React.createElement('i', { key: 'i', className: 'fas fa-download mr-1' }),
+                                React.createElement('i', { key: 'i', className: 'fas fa-download me-1' }),
                                 t('file.download')
                             ]) : null,
                             React.createElement('button', {

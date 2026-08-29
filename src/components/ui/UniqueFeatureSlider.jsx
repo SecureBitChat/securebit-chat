@@ -82,7 +82,7 @@ const UniqueFeatureSlider = () => {
 
   const navBtn = (key, onClick, path) =>
     React.createElement('button', {
-      key, onClick, 'aria-label': key,
+      key, onClick, 'aria-label': key, className: 'sb-mirror-rtl',
       style: {
         width: '46px', height: '46px', display: 'grid', placeItems: 'center',
         borderRadius: '50%', border: '1px solid rgba(255,255,255,0.1)',

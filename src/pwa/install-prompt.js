@@ -161,14 +161,14 @@ class PWAInstallPrompt {
         this.installButton = document.createElement('div');
         this.installButton.id = 'pwa-install-button';
         this.installButton.className = 'hidden';
-        this.installButton.style.cssText = "position:fixed; bottom:24px; right:24px; z-index:50; font-family:'Manrope',system-ui,-apple-system,sans-serif;";
+        this.installButton.style.cssText = "position:fixed; bottom:24px; inset-inline-end:24px; z-index:50; font-family:'Manrope',system-ui,-apple-system,sans-serif;";
 
         this.installButton.innerHTML = `
         <div style="position:relative; display:inline-flex;">
-            <button class="close-btn" type="button" title="${t('pwa.dismiss')}" aria-label="${t('pwa.dismiss')}" style="position:absolute; top:-11px; right:-11px; z-index:3; width:28px; height:28px; padding:0; border-radius:50%; display:grid; place-items:center; border:1px solid rgba(255,255,255,0.1); background:#1a1a1d; color:#9a9aa2; cursor:pointer; transition:all .18s cubic-bezier(.2,.7,.3,1);">
+            <button class="close-btn" type="button" title="${t('pwa.dismiss')}" aria-label="${t('pwa.dismiss')}" style="position:absolute; top:-11px; inset-inline-end:-11px; z-index:3; width:28px; height:28px; padding:0; border-radius:50%; display:grid; place-items:center; border:1px solid rgba(255,255,255,0.1); background:#1a1a1d; color:#9a9aa2; cursor:pointer; transition:all .18s cubic-bezier(.2,.7,.3,1);">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M6 6l12 12M18 6L6 18"/></svg>
             </button>
-            <button class="install-pill" type="button" style="display:inline-flex; align-items:center; gap:11px; padding:15px 26px 15px 22px; border-radius:15px; border:none; background:#f0892a; color:#1a0f04; font-family:inherit; font-size:16px; font-weight:700; letter-spacing:-0.2px; cursor:pointer; box-shadow:0 10px 30px rgba(240,137,42,0.32); transition:all .2s cubic-bezier(.2,.7,.3,1);">
+            <button class="install-pill" type="button" style="display:inline-flex; align-items:center; gap:11px; padding-block:15px; padding-inline-start:22px; padding-inline-end:26px; border-radius:15px; border:none; background:#f0892a; color:#1a0f04; font-family:inherit; font-size:16px; font-weight:700; letter-spacing:-0.2px; cursor:pointer; box-shadow:0 10px 30px rgba(240,137,42,0.32); transition:all .2s cubic-bezier(.2,.7,.3,1);">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M12 3v11"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M5 20h14"/></svg>
                 ${t('pwa.installApp')}
             </button>
@@ -219,7 +219,7 @@ class PWAInstallPrompt {
                     </div>
                     <div class="flex items-center space-x-3">
                         <button class="install-btn bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-medium transition-colors" data-action="install">
-                            <i class="fas fa-download mr-2"></i>
+                            <i class="fas fa-download me-2"></i>
                             ${t('pwa.install')}
                         </button>
                         <button class="close-btn text-gray-400 hover:text-white px-3 py-2 rounded-lg transition-colors" data-action="close">
@@ -360,13 +360,13 @@ class PWAInstallPrompt {
                 </div>
                 <h3 class="text-xl font-semibold text-white mb-4">${t('pwa.iosTitle')}</h3>
                 
-                <div class="space-y-4 text-left text-sm text-gray-300 mb-6">
+                <div class="space-y-4 text-start text-sm text-gray-300 mb-6">
                     <div class="flex items-start space-x-3">
                         <div class="w-8 h-8 bg-blue-500 rounded-full text-white flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">1</div>
                         <div class="flex-1">
                             <div class="font-medium text-white mb-1">${t('pwa.iosStep1')}</div>
                             <div class="flex items-center text-blue-400">
-                                <i class="fas fa-share mr-2"></i>
+                                <i class="fas fa-share me-2"></i>
                                 <span>${t('pwa.iosStep1Hint')}</span>
                             </div>
                         </div>
@@ -391,7 +391,7 @@ class PWAInstallPrompt {
                 
                 <div class="bg-orange-500/10 border border-orange-500/20 rounded-lg p-3 mb-4">
                     <p class="text-orange-300 text-xs">
-                        <i class="fas fa-info-circle mr-1"></i>
+                        <i class="fas fa-info-circle me-1"></i>
                         After installation, open SecureBit from your home screen for the best experience.
                     </p>
                 </div>
@@ -451,7 +451,7 @@ class PWAInstallPrompt {
 
         modal.innerHTML = `
             <div style="position:relative; z-index:2; width:480px; max-width:calc(100vw - 48px); border-radius:22px; background:#121214; border:1px solid rgba(255,255,255,0.08); padding:34px 30px 26px; box-shadow:0 30px 70px rgba(0,0,0,0.6); animation:igPop .32s cubic-bezier(.2,.7,.3,1);">
-                <button class="close-x" type="button" title="${t('pwa.close')}" aria-label="${t('pwa.close')}" style="position:absolute; top:18px; right:18px; width:30px; height:30px; padding:0; border-radius:9px; display:grid; place-items:center; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.02); color:#8a8a92; cursor:pointer; transition:all .18s cubic-bezier(.2,.7,.3,1);">
+                <button class="close-x" type="button" title="${t('pwa.close')}" aria-label="${t('pwa.close')}" style="position:absolute; top:18px; inset-inline-end:18px; width:30px; height:30px; padding:0; border-radius:9px; display:grid; place-items:center; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.02); color:#8a8a92; cursor:pointer; transition:all .18s cubic-bezier(.2,.7,.3,1);">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M6 6l12 12M18 6L6 18"/></svg>
                 </button>
 
@@ -499,7 +499,7 @@ class PWAInstallPrompt {
     showInstallSuccess() {
         
         const notification = document.createElement('div');
-        notification.className = 'fixed top-4 right-4 bg-green-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm transform translate-x-full transition-transform duration-300';
+        notification.className = 'fixed top-4 end-4 bg-green-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm transform translate-x-full transition-transform duration-300';
         
         const successText = this.isIOSSafari() ? 
             t('pwa.installedIos') : 

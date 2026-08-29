@@ -68,20 +68,30 @@ const LanguageSwitcher = () => {
     const menu = React.createElement('div', {
         key: 'menu',
         role: 'menu',
+        // The same scrollbar the chat uses, rather than the browser's default slab —
+        // a 170px menu is exactly where a 15px stock scrollbar looks like a mistake.
+        className: 'sb-scroll',
         // Kept in the DOM when shut: the links stay followable and the menu costs nothing
         // to reopen.
         style: {
-            position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 60,
+            position: 'absolute', top: 'calc(100% + 6px)', insetInlineEnd: 0, zIndex: 60,
             display: open ? 'block' : 'none',
             minWidth: '170px', padding: '5px', borderRadius: '11px',
             border: '1px solid rgba(255,255,255,0.08)', background: '#161618',
             boxShadow: '0 14px 34px rgba(0,0,0,0.45)',
+            // Thirteen languages is taller than a phone in landscape. Cap it and scroll
+            // rather than let the list run off the bottom, where the last few entries
+            // would be unreachable.
+            maxHeight: 'min(62vh, 420px)', overflowY: 'auto', overscrollBehavior: 'contain',
         },
     }, links.map((link) => React.createElement('a', {
         key: link.code,
         href: link.href,
         hrefLang: link.hrefLang,
         lang: link.hrefLang,
+        // Each row is a word in its own script, so it gets its own direction — the menu
+        // around it stays in the direction of the page being read.
+        dir: link.dir,
         role: 'menuitem',
         // aria-current names the page you are on for a screen reader; the weight and
         // contrast below say the same thing to everyone else.
@@ -101,7 +111,7 @@ const LanguageSwitcher = () => {
     }, [
         React.createElement('span', {
             key: 'a',
-            style: { fontSize: '11px', fontWeight: 700, letterSpacing: '0.4px', color: '#6b6b73', width: '22px' },
+            style: { fontSize: '11px', fontWeight: 700, letterSpacing: '0.4px', color: '#6b6b73', width: '22px', flex: 'none', textAlign: 'start' },
         }, link.abbr),
         React.createElement('span', { key: 'n' }, link.label),
     ])));

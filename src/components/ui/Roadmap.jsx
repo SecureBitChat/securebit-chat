@@ -75,28 +75,28 @@ function Roadmap() {
     const renderNode = (status) => {
         if (status === 'released') {
             return (
-                <div style={{ position: 'absolute', left: '13px', top: '16px', width: '28px', height: '28px', borderRadius: '50%', display: 'grid', placeItems: 'center', background: 'linear-gradient(rgba(62,207,142,0.16),rgba(62,207,142,0.16)), #0f0f11', border: '1px solid rgba(62,207,142,0.4)', zIndex: 2 }}>
+                <div style={{ position: 'absolute', insetInlineStart: '13px', top: '16px', width: '28px', height: '28px', borderRadius: '50%', display: 'grid', placeItems: 'center', background: 'linear-gradient(rgba(62,207,142,0.16),rgba(62,207,142,0.16)), #0f0f11', border: '1px solid rgba(62,207,142,0.4)', zIndex: 2 }}>
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4 10-11" /></svg>
                 </div>
             );
         }
         if (status === 'current') {
             return (
-                <div style={{ position: 'absolute', left: '13px', top: '16px', width: '28px', height: '28px', borderRadius: '50%', display: 'grid', placeItems: 'center', background: 'linear-gradient(rgba(240,137,42,0.2),rgba(240,137,42,0.2)), #0f0f11', border: '1px solid #f0892a', zIndex: 2, animation: 'rmPulse 2.4s ease-out infinite' }}>
+                <div style={{ position: 'absolute', insetInlineStart: '13px', top: '16px', width: '28px', height: '28px', borderRadius: '50%', display: 'grid', placeItems: 'center', background: 'linear-gradient(rgba(240,137,42,0.2),rgba(240,137,42,0.2)), #0f0f11', border: '1px solid #f0892a', zIndex: 2, animation: 'rmPulse 2.4s ease-out infinite' }}>
                     <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#f0892a' }} />
                 </div>
             );
         }
         if (status === 'dev') {
             return (
-                <div style={{ position: 'absolute', left: '13px', top: '16px', width: '28px', height: '28px', borderRadius: '50%', display: 'grid', placeItems: 'center', background: 'linear-gradient(rgba(227,179,65,0.15),rgba(227,179,65,0.15)), #0f0f11', border: '1px solid rgba(227,179,65,0.4)', zIndex: 2 }}>
+                <div style={{ position: 'absolute', insetInlineStart: '13px', top: '16px', width: '28px', height: '28px', borderRadius: '50%', display: 'grid', placeItems: 'center', background: 'linear-gradient(rgba(227,179,65,0.15),rgba(227,179,65,0.15)), #0f0f11', border: '1px solid rgba(227,179,65,0.4)', zIndex: 2 }}>
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#e3b341" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a9 9 0 1 0 9 9" /></svg>
                 </div>
             );
         }
         // planned / research
         return (
-            <div style={{ position: 'absolute', left: '13px', top: '16px', width: '28px', height: '28px', borderRadius: '50%', display: 'grid', placeItems: 'center', background: '#0f0f11', border: `1px ${status === 'research' ? 'dashed' : 'solid'} rgba(255,255,255,0.18)`, zIndex: 2 }}>
+            <div style={{ position: 'absolute', insetInlineStart: '13px', top: '16px', width: '28px', height: '28px', borderRadius: '50%', display: 'grid', placeItems: 'center', background: '#0f0f11', border: `1px ${status === 'research' ? 'dashed' : 'solid'} rgba(255,255,255,0.18)`, zIndex: 2 }}>
                 <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: META[status].color }} />
             </div>
         );
@@ -134,7 +134,7 @@ function Roadmap() {
 
                             {/* spine */}
                             <div style={{ position: 'relative' }}>
-                                {notLast && <div style={{ position: 'absolute', left: '26px', top: '30px', height: 'calc(100% + 16px)', width: '2px', background: meta.line }} />}
+                                {notLast && <div style={{ position: 'absolute', insetInlineStart: '26px', top: '30px', height: 'calc(100% + 16px)', width: '2px', background: meta.line }} />}
                                 {renderNode(d.status)}
                             </div>
 
@@ -156,7 +156,7 @@ function Roadmap() {
                                             <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: meta.color }} />
                                             {!isMobile && meta.word}
                                         </span>
-                                        {!isMobile && <span style={{ fontFamily: MONO, fontSize: '12px', fontWeight: 500, color: '#8a8a92', whiteSpace: 'nowrap', minWidth: '74px', textAlign: 'right' }}>{d.date}</span>}
+                                        {!isMobile && <span style={{ fontFamily: MONO, fontSize: '12px', fontWeight: 500, color: '#8a8a92', whiteSpace: 'nowrap', minWidth: '74px', textAlign: 'end' }}>{d.date}</span>}
                                         <span style={{ color: '#6b6b73', display: 'inline-flex', transition: 'transform .22s cubic-bezier(.2,.7,.3,1)', transform: opened ? 'rotate(180deg)' : 'rotate(0deg)' }}>
                                             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
                                         </span>

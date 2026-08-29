@@ -111,8 +111,7 @@ tr.bg-black-table {
     }
 
     .header-minimal .max-w-7xl {
-        padding-left: 8px;
-        padding-right: 8px;
+        padding-inline: 8px;
     }
 
     .header-minimal button {
@@ -123,8 +122,7 @@ tr.bg-black-table {
 
 @media (min-width: 641px) and (max-width: 1024px) {
     .header-minimal .max-w-7xl {
-        padding-left: 16px;
-        padding-right: 16px;
+        padding-inline: 16px;
     }
 }
 
@@ -410,7 +408,7 @@ body {
     writing-mode: horizontal-tb;
     transform: none;
     font-size: 1.2rem;
-    margin-right: auto;
+    margin-inline-end: auto;
   }
 
   .project-card__thumb,

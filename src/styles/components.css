@@ -31,7 +31,7 @@
     /* Кнопка прокрутки на мобильном */
     .scroll-to-bottom-mobile {
         bottom: 140px !important;
-        right: 16px !important;
+        inset-inline-end: 16px !important;
         width: 40px !important;
         height: 40px !important;
     }
@@ -102,7 +102,7 @@
 .progress-text {
     position: absolute;
     top: -20px;
-    right: 0;
+    inset-inline-end: 0;
     color: #9ca3af;
 }
 
@@ -218,7 +218,7 @@ main {
     height: 8px;
     border-radius: 50%;
     display: inline-block;
-    margin-right: 8px;
+    margin-inline-end: 8px;
 }
 .status-connected { background: #10b981; }
 .status-connecting { background: #6b7280; }
@@ -346,7 +346,7 @@ main {
 /* Icon alignment in buttons */
 button i {
     vertical-align: middle;
-    margin-right: 0.5rem;
+    margin-inline-end: 0.5rem;
 }
 
 /* Lightning button */
@@ -736,7 +736,14 @@ button i {
 /* ============================================================
    SecureBit Chat — redesigned chat surface (v4.8.21)
    ============================================================ */
-.sb-scroll { scrollbar-gutter: auto; }
+/* Firefox has no ::-webkit-scrollbar, so without these two it ignored everything below
+   and drew its default slab — the chat and the language menu looked like different
+   applications depending on the browser. */
+.sb-scroll {
+    scrollbar-gutter: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.13) transparent;
+}
 .sb-scroll::-webkit-scrollbar { width: 9px; }
 .sb-scroll::-webkit-scrollbar-track { background: transparent; }
 .sb-scroll::-webkit-scrollbar-thumb {
@@ -790,7 +797,7 @@ button i {
 .sb-scan-btn:hover { border-color: rgba(62,207,142,0.5) !important; background: rgba(62,207,142,0.1) !important; }
 .sb-gen-btn:hover { background: #ff9637 !important; }
 .sb-start-card { transition: transform .26s cubic-bezier(.3,.8,.3,1); }
-@media (max-width: 900px) { .sb-start-left { border-right: none !important; } }
+@media (max-width: 900px) { .sb-start-left { border-inline-end: none !important; } }
 @media (max-width: 560px) { .sb-start-left { padding: 30px 22px !important; } }
 /* PWA install pill belongs to the landing page only — hide it inside the chat. */
 body.sb-in-chat #pwa-install-button { display: none !important; }
@@ -802,5 +809,5 @@ body.sb-in-chat #pwa-connection-status {
     top: calc(64px + 12px + env(safe-area-inset-top, 0px)) !important;
 }
 /* The new design spaces icons with flex gap, not icon margins — neutralise the
-   global `button i { margin-right: .5rem }` so icons stay centered in their tiles. */
-.sb-start button i, .sb-ice-overlay button i { margin-right: 0; vertical-align: baseline; }
+   global `button i { margin-inline-end: .5rem }` so icons stay centered in their tiles. */
+.sb-start button i, .sb-ice-overlay button i { margin-inline-end: 0; vertical-align: baseline; }

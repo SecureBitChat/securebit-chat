@@ -11,12 +11,12 @@ let DYNAMIC_CACHE = 'securebit-pwa-dynamic-v4.7.56';
 // Build stamp — rewritten by scripts/post-build.js on every release so this file's
 // bytes change each deploy. That is what makes the browser detect a new Service Worker,
 // reinstall it, drop stale caches and (via controllerchange) prompt the page to update.
-const SW_BUILD_VERSION = '1788021796445';
+const SW_BUILD_VERSION = '1788040116230';
 
 // Locale subdirectories, rewritten by scripts/build-i18n.js. Each localized page is a
 // separate document at its own URL, so the shell has to be cached and served per
 // locale — otherwise an offline visitor on /de/ is handed the English page back.
-const SW_LOCALES = ['de', 'fr', 'es', 'uk', 'ru', 'zh', 'ko', 'hi'];
+const SW_LOCALES = ['de', 'fr', 'es', 'uk', 'ru', 'zh', 'ko', 'hi', 'ar', 'he', 'fa', 'ur'];
 const LOCALE_SHELLS = SW_LOCALES.flatMap((code) => [`/${code}/`, `/${code}/index.html`, `/${code}/manifest.json`]);
 
 // The locale a request belongs to, as a shell path. Falls back to the root shell.

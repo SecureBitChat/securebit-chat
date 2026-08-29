@@ -70,7 +70,7 @@ window.showUpdateNotification = function showUpdateNotification() {
       <h2 style="margin:0 0 9px; font-size:26px; font-weight:800; letter-spacing:-0.7px; color:#f4f4f6;">Update available</h2>
       <p style="margin:0 0 24px; font-size:14.5px; line-height:1.55; color:#9a9aa2;">A newer version of SecureBit has been detected.</p>
 
-      <div style="border-radius:14px; background:#0c0c0e; border:1px solid rgba(255,255,255,0.06); padding:16px 18px; margin-bottom:24px; text-align:left;">
+      <div style="border-radius:14px; background:#0c0c0e; border:1px solid rgba(255,255,255,0.06); padding:16px 18px; margin-bottom:24px; text-align:start;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:14px; padding:5px 0;">
           <span style="font-size:13.5px; font-weight:500; color:#8a8a92;">Current version</span>
           <span class="cur-ver" style="font-family:'JetBrains Mono',ui-monospace,Menlo,monospace; font-size:13px; font-weight:500; color:#9a9aa2; white-space:nowrap;">${currentStr}</span>

@@ -177,12 +177,12 @@ const CallUIComponent = ({ webrtcManager, peerTitle }) => {
 
     // ── MINIMIZED widget ─────────────────────────────────────────────────────
     if (minimized) {
-        return h('div', { style: { position: 'absolute', bottom: '18px', right: '18px', zIndex: 40, width: '236px', borderRadius: '14px', overflow: 'hidden', background: '#161618', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 18px 44px rgba(0,0,0,0.55)', animation: 'sbExpand .18s ease' } }, [
+        return h('div', { style: { position: 'absolute', bottom: '18px', insetInlineEnd: '18px', zIndex: 40, width: '236px', borderRadius: '14px', overflow: 'hidden', background: '#161618', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 18px 44px rgba(0,0,0,0.55)', animation: 'sbExpand .18s ease' } }, [
             hiddenAudio,
             isVideo && h('div', { key: 'v', style: { position: 'relative', height: '132px', background: '#111' } }, [
                 h('video', { key: 'rv', ref: remoteVideoRef, autoPlay: true, muted: true, playsInline: true, style: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' } }),
                 !call.remoteHasVideo && h('div', { key: 'off', style: { position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'linear-gradient(120deg,#15151b,#1d1a24)', color: '#6b6b73' } }, svg(ICON.camOff, 22, 1.8)),
-                h('span', { key: 's', style: { position: 'absolute', top: '8px', left: '9px', fontFamily: MONO, fontSize: '11px', fontWeight: 600, color: '#fff', padding: '3px 7px', borderRadius: '6px', background: 'rgba(0,0,0,0.5)' } }, callStatus)
+                h('span', { key: 's', style: { position: 'absolute', top: '8px', insetInlineStart: '9px', fontFamily: MONO, fontSize: '11px', fontWeight: 600, color: '#fff', padding: '3px 7px', borderRadius: '6px', background: 'rgba(0,0,0,0.5)' } }, callStatus)
             ]),
             h('div', { key: 'bar', style: { display: 'flex', alignItems: 'center', gap: '11px', padding: '11px 12px' } }, [
                 h('span', { key: 'ic', style: { position: 'relative', flex: 'none', width: '34px', height: '34px', borderRadius: '9px', display: 'grid', placeItems: 'center', background: 'rgba(62,207,142,0.1)', border: '1px solid rgba(62,207,142,0.25)', color: '#3ecf8e' } }, svg(ICON.user, 16, 1.9)),
@@ -222,7 +222,7 @@ const CallUIComponent = ({ webrtcManager, peerTitle }) => {
                 h('button', { key: 'min', onClick: () => setMinimized(true), title: t('call.minimize'), style: { flex: 'none', ...minimizeBtn(true) } }, svg(ICON.minimize, 16, 2))
             ]),
             // Self-cam PiP
-            h('div', { key: 'self', style: { position: 'absolute', bottom: '108px', right: '18px', width: '132px', height: '176px', borderRadius: '14px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.16)', boxShadow: '0 12px 30px rgba(0,0,0,0.5)', background: '#111' } }, [
+            h('div', { key: 'self', style: { position: 'absolute', bottom: '108px', insetInlineEnd: '18px', width: '132px', height: '176px', borderRadius: '14px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.16)', boxShadow: '0 12px 30px rgba(0,0,0,0.5)', background: '#111' } }, [
                 h('video', { key: 'sv', ref: selfVideoRef, autoPlay: true, muted: true, playsInline: true, style: { width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)', display: 'block' } }),
                 !call.cameraEnabled && h('div', { key: 'off', style: { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#161618', color: '#6b6b73' } }, [
                     svg(ICON.camOff, 24, 1.8),

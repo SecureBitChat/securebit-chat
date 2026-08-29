@@ -461,7 +461,7 @@ const QRScanner = ({ onScan, onClose, isVisible, continuous = false }) => {
                 }, [
                     React.createElement('i', {
                         key: 'tips-icon',
-                        className: 'fas fa-lightbulb mr-2'
+                        className: 'fas fa-lightbulb me-2'
                     }),
                     'Tips for better scanning:'
                 ]),

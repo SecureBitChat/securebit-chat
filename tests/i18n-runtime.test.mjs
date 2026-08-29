@@ -23,6 +23,43 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url));
     );
 }
 
+// The dictionaries have to reach the bundle the browser actually downloads, not just
+// the module on disk. `build:js` bundles whatever src/i18n/generated.js says at the
+// moment it runs, so if generation happened after bundling, a newly added language
+// would ship a correct page — right <html lang>, right <html dir> — wrapped around an
+// app that has never heard of it and quietly falls back to English. That failure looks
+// like a translation bug and is really a build-order bug, so it is pinned here.
+{
+    const bundle = readFileSync(path.join(ROOT, 'dist/app.js'), 'utf8');
+    const { SUPPORTED_LOCALES, DICTIONARIES } = await import(
+        pathToFileURL(path.join(ROOT, 'src/i18n/generated.js'))
+    );
+
+    // esbuild escapes anything outside ASCII, so nothing but pure Latin is findable as
+    // literal text: Latin-1 becomes \xNN, everything above it \uXXXX, both uppercase.
+    // Escape the needle the same way before looking for it.
+    const asEmitted = (text) =>
+        [...text]
+            .map((ch) => {
+                const code = ch.codePointAt(0);
+                if (code < 0x80) return ch;
+                const hex = (n, width) => n.toString(16).toUpperCase().padStart(width, '0');
+                if (code <= 0xff) return `\\x${hex(code, 2)}`;
+                return [...ch].map((unit) => `\\u${hex(unit.charCodeAt(0), 4)}`).join('');
+            })
+            .join('');
+
+    const absent = SUPPORTED_LOCALES.filter(
+        (code) => !bundle.includes(asEmitted(DICTIONARIES[code]['hero.headlineTop']))
+    );
+    assert.deepEqual(absent, [],
+        `dist/app.js carries no strings for: ${absent.join(', ')} — run \`npm run build\`, ` +
+        'and check that build:i18n still runs before build:js');
+
+    assert.ok(bundle.includes(`SUPPORTED_LOCALES = ${JSON.stringify(SUPPORTED_LOCALES).replace(/,/g, ', ')}`),
+        'the bundled locale registry disagrees with src/i18n/generated.js');
+}
+
 // The real module, as shipped.
 {
     const live = await import(pathToFileURL(path.join(ROOT, 'src/i18n/index.js')));

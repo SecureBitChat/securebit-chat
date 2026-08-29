@@ -2,8 +2,14 @@
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const registration = await navigator.serviceWorker.register('./sw.js', {
-        scope: './',
+      // Root-absolute, both of them. Every locale is its own page in its own
+      // subdirectory, so './sw.js' asks /ar/ for /ar/sw.js — a 404, and no Service
+      // Worker at all on twelve of the thirteen pages. There is one worker for the
+      // whole site and it needs the whole site as its scope, or an installed app
+      // that started at /ar/ would stop being offline-capable the moment it
+      // navigated to the root.
+      const registration = await navigator.serviceWorker.register('/sw.js', {
+        scope: '/',
       });
 
       // Store registration for use in other modules

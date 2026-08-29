@@ -1,5 +1,61 @@
 # Changelog
 
+## v6.4.0 — Now it reads right to left
+
+Arabic, Hebrew, Persian and Urdu, at `/ar/`, `/he/`, `/fa/` and `/ur/`.
+Thirteen languages in all.
+
+**Translating the words was the smaller half.** In these languages the whole
+page runs the other way: the avatar sits to the left of the name instead of the
+right, the drawer slides in from the right edge, the chevron that means "next"
+points the other way. A messenger that only swapped its words would be a
+left-to-right app wearing Arabic - readable, and wrong in a way that is tiring
+rather than obviously broken.
+
+**So the layout no longer has a left and a right.** It has a start and an end,
+and which side those land on is decided by the language. That is one line in the
+page - `dir="rtl"` - and a few hundred small changes underneath it, every margin
+and every corner rewritten to say "the side the text starts from" instead of
+"the left". The English page is pixel-for-pixel what it was.
+
+**The drawer follows your thumb the way it should.** Swiping it open is a
+gesture, not a button, and a gesture that ignores direction pulls the wrong way
+under the finger - which feels less like a bug and more like the phone
+misunderstanding you. It now enters from whichever edge the language starts at
+and tracks the same way in both.
+
+**Keys and codes stay left-to-right, deliberately.** This is the part that would
+have been dangerous to miss. A browser rewrites the order of a mixed run of text
+inside a right-to-left paragraph, and a safety code or an invitation is exactly
+such a run: `a1b2:c3d4` can come out as `c3d4:a1b2`. Every character is still
+there, so nothing looks wrong - and someone comparing that code against their
+peer's screen would be comparing the wrong thing and confirming a channel they
+never actually verified. The safety code, the invitation, the answer and the
+server list are all pinned to one direction now.
+
+**Fonts come from your device, as before.** Inter carries no Arabic or Hebrew,
+and a webfont worth reading in those scripts is bigger than the rest of the app.
+Every platform that reads them already ships a good one, so the page asks for
+that instead - and no font request leaves your browser, which is why Inter was
+self-hosted in the first place.
+
+**The language menu scrolls.** Thirteen entries is taller than a phone held
+sideways, and the last few were off the bottom edge.
+
+**The app was never installable in any language but English.** The Service Worker
+was registered as `./sw.js`, which from `/de/` asks for `/de/sw.js` and gets a 404 -
+so twelve of the thirteen pages had no worker at all: no offline shell, no update
+prompt, nothing to install. It was invisible from the English page, the only one
+where a relative path happens to land in the right place. It is registered from the
+site root now, with the whole site as its scope, so an app installed from `/ar/`
+stays covered when it navigates anywhere else.
+
+**A build could ship a page in a language the app had never heard of.** The bundler
+ran before the dictionaries were generated, so a newly added language reached the
+served page - correct title, correct direction - wrapped around an app still working
+from the previous build's list. The steps are in dependency order now, and a test
+reads the shipped bundle back to confirm every language is actually in it.
+
 ## v6.3.0 — Now it speaks your language
 
 The site is now available in German, French, Spanish, Ukrainian, Russian,
