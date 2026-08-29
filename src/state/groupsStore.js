@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 // Groups registry for SecureBit.chat.
 //
 // Same contract as sessionsStore.js, and deliberately a SEPARATE reducer rather
@@ -64,12 +65,12 @@ export const MEMBER_STATE = Object.freeze({
 });
 
 export const GROUP_PHASE_WORD = {
-    [GROUP_PHASE.FORMING]: 'Forming…',
-    [GROUP_PHASE.COMMITTING]: 'Exchanging commitments…',
-    [GROUP_PHASE.REVEALING]: 'Revealing…',
-    [GROUP_PHASE.AWAITING_SAS]: 'Compare the group code',
-    [GROUP_PHASE.READY]: 'Group ready',
-    [GROUP_PHASE.FAILED]: 'Group failed',
+    [GROUP_PHASE.FORMING]: t('groupPhase.forming'),
+    [GROUP_PHASE.COMMITTING]: t('groupPhase.commitments'),
+    [GROUP_PHASE.REVEALING]: t('groupPhase.revealing'),
+    [GROUP_PHASE.AWAITING_SAS]: t('groupPhase.compare'),
+    [GROUP_PHASE.READY]: t('groupPhase.ready'),
+    [GROUP_PHASE.FAILED]: t('groupPhase.failed'),
 };
 
 /** Two-letter monogram for the group tile. Mirrors monoInitials in sessionsStore. */

@@ -1,8 +1,10 @@
+import { t } from '../../i18n/index.js';
 // The version shown in the header comes from package.json rather than a literal,
 // so a release cannot ship a header advertising the previous one. It was
 // hard-coded and drifted. A named import lets the bundler inline just this field
 // instead of embedding the whole manifest.
 import { version as packageVersion } from '../../../package.json';
+import { LanguageSwitcher } from './LanguageSwitcher.jsx';
 
 const APP_VERSION = `v${packageVersion}`;
 
@@ -250,7 +252,7 @@ const EnhancedMinimalHeader = ({
 
         // If no real test results and no existing security level, show progress message
         if (!realTestResults && !realSecurityLevel) {
-            alert('Security verification in progress...\nPlease wait for real-time cryptographic verification to complete.');
+            alert(t('sec.verificationWait'));
             return;
         }
 
@@ -265,7 +267,7 @@ const EnhancedMinimalHeader = ({
                 color: 'gray',
                 verificationResults: {},
                 timestamp: Date.now(),
-                details: 'Security verification not available',
+                details: t('sec.verificationUnavailable'),
                 isRealData: false,
                 passedChecks: 0,
                 totalChecks: 0
@@ -277,7 +279,7 @@ const EnhancedMinimalHeader = ({
         let message = `REAL-TIME SECURITY VERIFICATION\n\n`;
         message += `Security Level: ${securityData.level} (${securityData.score}%)\n`;
         message += `Verification Time: ${new Date(securityData.timestamp).toLocaleTimeString()}\n`;
-        message += `Data Source: ${securityData.isRealData ? 'Real Cryptographic Tests' : 'Simulated Data'}\n\n`;
+        message += `Data Source: ${securityData.isRealData ? t('sec.realTests') : t('sec.simulatedData')}\n\n`;
         
         if (securityData.verificationResults) {
             message += 'DETAILED CRYPTOGRAPHIC TESTS:\n';
@@ -290,7 +292,7 @@ const EnhancedMinimalHeader = ({
                 message += 'PASSED TESTS:\n';
                 passedTests.forEach(([key, result]) => {
                     const testName = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-                    message += `   ${testName}: ${result.details || 'Test passed'}\n`;
+                    message += `   ${testName}: ${result.details || t('sec.testPassed')}\n`;
                 });
                 message += '\n';
             }
@@ -299,7 +301,7 @@ const EnhancedMinimalHeader = ({
                 message += 'FAILED/UNAVAILABLE TESTS:\n';
                 failedTests.forEach(([key, result]) => {
                     const testName = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-                    message += `   ${testName}: ${result.details || 'Test failed or unavailable'}\n`;
+                    message += `   ${testName}: ${result.details || t('sec.testFailed')}\n`;
                 });
                 message += '\n';
             }
@@ -318,13 +320,13 @@ const EnhancedMinimalHeader = ({
                 'ECDSA Digital Signatures': securityData.verificationResults.verifyECDSASignatures?.passed || false,
                 'ECDH Key Exchange': securityData.verificationResults.verifyECDHKeyExchange?.passed || false,
                 'AES-GCM Encryption': securityData.verificationResults.verifyEncryption?.passed || false,
-                'Message Integrity (HMAC)': securityData.verificationResults.verifyMessageIntegrity?.passed || false,
-                'Perfect Forward Secrecy': securityData.verificationResults.verifyPerfectForwardSecrecy?.passed || false,
-                'Replay Protection': securityData.verificationResults.verifyReplayProtection?.passed || false,
+                [t('sec.messageIntegrity')]: securityData.verificationResults.verifyMessageIntegrity?.passed || false,
+                [t('sec.forwardSecrecy')]: securityData.verificationResults.verifyPerfectForwardSecrecy?.passed || false,
+                [t('sec.replayProtection')]: securityData.verificationResults.verifyReplayProtection?.passed || false,
                 'DTLS Fingerprint': securityData.verificationResults.verifyDTLSFingerprint?.passed || false,
                 'SAS Verification': securityData.verificationResults.verifySASVerification?.passed || false,
-                'Metadata Protection': securityData.verificationResults.verifyMetadataProtection?.passed || false,
-                'Traffic Obfuscation': securityData.verificationResults.verifyTrafficObfuscation?.passed || false
+                [t('sec.metadataProtection')]: securityData.verificationResults.verifyMetadataProtection?.passed || false,
+                [t('sec.trafficObfuscation')]: securityData.verificationResults.verifyTrafficObfuscation?.passed || false
             };
             
             Object.entries(features).forEach(([feature, isEnabled]) => {
@@ -344,7 +346,7 @@ const EnhancedMinimalHeader = ({
             message += `✅ Traffic Obfuscation\n`;
         }
         
-        message += `\n${securityData.details || 'Real cryptographic verification completed'}`;
+        message += `\n${securityData.details || t('sec.verificationDone')}`;
         
         if (securityData.isRealData) {
             message += '\n\n✅ This is REAL-TIME verification using actual cryptographic functions.';
@@ -411,49 +413,49 @@ const EnhancedMinimalHeader = ({
         switch (status) {
             case 'connected':
                 return {
-                    text: 'Connected',
+                    text: t('status.connected'),
                     className: 'status-connected',
                     badgeClass: 'bg-green-500/10 text-green-400 border-green-500/20'
                 };
             case 'verifying':
                 return {
-                    text: 'Verifying...',
+                    text: t('status.verifying'),
                     className: 'status-verifying',
                     badgeClass: 'bg-purple-500/10 text-purple-400 border-purple-500/20'
                 };
             case 'connecting':
                 return {
-                    text: 'Connecting...',
+                    text: t('status.connecting'),
                     className: 'status-connecting',
                     badgeClass: 'bg-blue-500/10 text-blue-400 border-blue-500/20'
                 };
             case 'retrying':
                 return {
-                    text: 'Retrying...',
+                    text: t('status.retrying'),
                     className: 'status-connecting',
                     badgeClass: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
                 };
             case 'failed':
                 return {
-                    text: 'Error',
+                    text: t('status.error'),
                     className: 'status-failed',
                     badgeClass: 'bg-red-500/10 text-red-400 border-red-500/20'
                 };
             case 'reconnecting':
                 return {
-                    text: 'Reconnecting...',
+                    text: t('status.reconnecting'),
                     className: 'status-connecting',
                     badgeClass: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
                 };
             case 'peer_disconnected':
                 return {
-                    text: 'Peer disconnected',
+                    text: t('status.peerDisconnected'),
                     className: 'status-failed',
                     badgeClass: 'bg-orange-500/10 text-orange-400 border-orange-500/20'
                 };
             default:
                 return {
-                    text: 'Not connected',
+                    text: t('status.notConnected'),
                     className: 'status-disconnected',
                     badgeClass: 'bg-gray-500/10 text-gray-400 border-gray-500/20'
                 };
@@ -471,7 +473,7 @@ const EnhancedMinimalHeader = ({
     const getSecurityIndicatorDetails = () => {
         if (!displaySecurityLevel) {
             return {
-                tooltip: 'Security verification in progress...',
+                tooltip: t('sec.verificationInProgress'),
                 isVerified: false,
                 dataSource: 'loading'
             };
@@ -575,15 +577,19 @@ const EnhancedMinimalHeader = ({
                             React.createElement('span', { key: 'n', style: { fontSize: '16px', fontWeight: 800, letterSpacing: '-0.3px', color: '#e8e8eb' } }, 'SecureBit'),
                             React.createElement('span', { key: 'v', style: { fontFamily: MONO, fontSize: '10px', fontWeight: 500, color: '#56565e' } }, APP_VERSION)
                         ]),
-                        React.createElement('div', { key: 'r2', className: 'hidden sm:block', style: { fontSize: '11px', color: '#6b6b73', fontWeight: 500 } }, 'End-to-end encrypted')
+                        React.createElement('div', { key: 'r2', className: 'hidden sm:block', style: { fontSize: '11px', color: '#6b6b73', fontWeight: 500 } }, t('hdr.tagline'))
                     ])
                 ]),
                 // Right: controls
                 React.createElement('div', { key: 'right', style: { display: 'flex', alignItems: 'center', gap: '9px' } }, [
+                    // Landing only: switching locale reloads the document, which would
+                    // tear down an live peer connection if offered inside the chat.
+                    onLanding && React.createElement(LanguageSwitcher, { key: 'lang' }),
+
                     !onLanding && React.createElement('button', {
                         key: 'net', type: 'button',
                         onClick: () => window.dispatchEvent(new CustomEvent('securebit:open-network-settings')),
-                        title: 'Advanced network settings (STUN/TURN)', 'aria-label': 'Advanced network settings',
+                        title: t('hdr.netSettingsTitle'), 'aria-label': t('hdr.netSettings'),
                         className: 'sb-disconnect',
                         style: { display: 'grid', placeItems: 'center', width: '38px', height: '38px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)', color: '#9a9aa2', cursor: 'pointer', transition: 'all .15s' }
                     }, React.createElement('i', { className: 'fas fa-network-wired', style: { fontSize: '13px' } })),
@@ -595,7 +601,7 @@ const EnhancedMinimalHeader = ({
                         style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 12px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)', cursor: 'pointer' }
                     }, [
                         React.createElement('i', { key: 'i', className: 'fas fa-shield-halved', style: { fontSize: '13px', color: secColor } }),
-                        React.createElement('span', { key: 'l', className: 'hidden sm:inline', style: { fontSize: '12.5px', fontWeight: 600, color: '#e8e8eb' } }, String(displaySecurityLevel.level)),
+                        React.createElement('span', { key: 'l', className: 'hidden sm:inline', style: { fontSize: '12.5px', fontWeight: 600, color: '#e8e8eb' } }, (t(`secLevel.${displaySecurityLevel.level}`) === `secLevel.${displaySecurityLevel.level}` ? String(displaySecurityLevel.level) : t(`secLevel.${displaySecurityLevel.level}`))),
                         React.createElement('span', { key: 's', style: { fontFamily: MONO, fontSize: '11.5px', color: '#8a8a92' } }, displaySecurityLevel.score + '%')
                     ]),
 
@@ -609,7 +615,7 @@ const EnhancedMinimalHeader = ({
                         style: { display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 14px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#9a9aa2', fontFamily: 'inherit', fontSize: '13px', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }
                     }, [
                         React.createElement('i', { key: 'i', className: 'fas fa-power-off', style: { fontSize: '12px' } }),
-                        React.createElement('span', { key: 't', className: 'sb-hide-sm' }, 'Disconnect')
+                        React.createElement('span', { key: 't', className: 'sb-hide-sm' }, t('hdr.disconnect'))
                     ])
                 ])
             ])

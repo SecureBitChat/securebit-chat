@@ -1,5 +1,72 @@
 # Changelog
 
+## v6.3.0 — Now it speaks your language
+
+The site is now available in German, French, Spanish, Ukrainian, Russian,
+Chinese, Korean and Hindi, alongside English.
+
+**The language picker is a dropdown of short codes.** Nine full native names do
+not fit a phone header, so the control shows the current code and opens a list.
+The entries are still ordinary links, and they stay in the document whether the
+menu is open or shut.
+
+**Each language has its own address.** German lives at `/de/`, Spanish at
+`/es/`, and so on. That sounds like a detail, but it is the whole point: a page
+that only changes language when you click a button has one address for every
+language, so a search engine can only ever find one of them, and a link you send
+someone opens in whichever language *they* happened to pick last. Now the link
+you copy is the page you were reading, in the language you were reading it.
+
+**The language you asked for wins.** Open `/uk/` and you get Ukrainian, even if
+you chose English here yesterday. Your choice is remembered for when you arrive
+somewhere that doesn't say — but it never overrules an address you typed or a
+link a friend sent you.
+
+**Nothing redirects you.** If your browser says it prefers Spanish, the site
+does not throw you at the Spanish page — it offers. Automatic redirects are how
+sites end up invisible to search engines outside one country, and how someone who
+deliberately opened the English page keeps getting bounced away from it.
+
+**The translations were written, not machine-generated.** The landing page, the
+key exchange, the safety-code check, the install prompt and every section below
+them read as they should in each language - including all thirteen roadmap
+entries and the ninety-four bullets under them. That is 623 strings per
+language - 5,607 translations in all.
+
+**The update notice showed up on every page load.** "Back online" describes a
+transition - being offline, then not - and on a fresh load no such transition had
+happened, so the pill was announcing something that never occurred. It now
+appears only when there is actually a problem. It became obvious once switching
+language started reloading the page.
+
+**Build timestamps follow your language.** The update dialog formatted its dates
+as 08/28/2026 for everyone; a German reader now sees a German date.
+
+**Long dashes are now plain hyphens.** Titles and descriptions used a typographic
+em dash; they now read "SecureBit.chat - Private, Encrypted Messenger" in every
+language.
+
+**Partner logos were pointing at the wrong place.** Their paths were written
+relative to the page, so on `/de/` the browser looked for them under `/de/logo/`
+and found nothing. There is now a test that fails on any relative asset path
+anywhere in the source, because this is a bug you cannot see while you only ever
+open the English page.
+
+**A search engine can finally see the site.** There was no `robots.txt` and no
+`sitemap.xml` at all — now both exist, and the sitemap lists every language with
+the right cross-references between them.
+
+**The people in the animation have local names.** The loop on the front page
+shows two contacts joining a mesh. They were mara and tobi everywhere; now they
+are lena and jonas in German, lucía and mateo in Spanish, 小红 and 小明 in
+Chinese. The point of that animation is "someone you know just joined", and a
+foreign-looking name quietly undercuts it.
+
+**The chat is translated too.** Not just the landing page: the composer, message
+states, disappearing and view-once messages, voice notes, file transfers, calls,
+group chats and their safety-code ceremony, the connection details panel, and
+every error you can hit along the way.
+
 ## v6.2.0 — The interface answers you now
 
 Most of this release you will feel rather than see.

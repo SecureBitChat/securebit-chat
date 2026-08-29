@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 // ============================================
 // SECURE FILE TRANSFER CONTEXT
 // ============================================
@@ -314,7 +315,7 @@ class EnhancedSecureFileTransfer {
                 extensions: ['.txt'],
                 mimeTypes: ['text/plain', 'application/txt'],
                 maxSize: 10 * 1024 * 1024,
-                category: 'Plain text',
+                category: t('fileType.text'),
                 description: 'TXT'
             },
 
@@ -333,7 +334,7 @@ class EnhancedSecureFileTransfer {
                     'image/vnd.microsoft.icon'
                 ],
                 maxSize: 25 * 1024 * 1024, // 25 MB
-                category: 'Images',
+                category: t('fileType.images'),
                 description: 'JPG, JPEG, PNG, GIF, WEBP, BMP, ICO'
             },
 
@@ -346,7 +347,7 @@ class EnhancedSecureFileTransfer {
                     'multipart/x-zip'
                 ],
                 maxSize: 100 * 1024 * 1024, // 100 MB
-                category: 'Archives',
+                category: t('fileType.archives'),
                 description: 'ZIP'
             },
 
@@ -370,7 +371,7 @@ class EnhancedSecureFileTransfer {
                 ],
                 maxSize: 20 * 1024 * 1024, // 20 MB (well beyond any sane voice note)
                 category: 'Voice',
-                description: 'Voice messages'
+                description: t('fileType.voice')
             }
         };
         this.BLOCKED_EXTENSIONS = new Set([
@@ -470,7 +471,7 @@ class EnhancedSecureFileTransfer {
 
         return {
             type: 'blocked',
-            category: 'Unsupported',
+            category: t('fileType.unsupported'),
             description: 'Allowed: JPG, JPEG, PNG, GIF, WEBP, BMP, ICO, PDF, TXT, ZIP',
             maxSize: this.MAX_FILE_SIZE,
             allowed: false,
@@ -1412,7 +1413,7 @@ class EnhancedSecureFileTransfer {
                     voice: pendingMetadata.voice || null
                 });
             } else {
-                await this.rejectIncomingFile(metadata.fileId, 'User consent unavailable');
+                await this.rejectIncomingFile(metadata.fileId, t('file.consentUnavailable'));
             }
             
         } catch (error) {

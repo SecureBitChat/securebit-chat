@@ -1,3 +1,4 @@
+import { t } from '../../i18n/index.js';
 // File Transfer Component for Chat Interface - Fixed Version
 const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFiles = [], onIncomingDecision, showDropzone = true }) => {
     const [dragOver, setDragOver] = React.useState(false);
@@ -50,13 +51,13 @@ const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFile
                 // Более мягкая обработка ошибок - не закрываем сессию
                 
                 // Показываем пользователю ошибку, но не закрываем соединение
-                if (error.message.includes('Connection not ready')) {
+                if (error.message.includes(t('file.notReady'))) {
                     alert(`Файл ${file.name} не может быть отправлен сейчас. Проверьте соединение и попробуйте снова.`);
-                } else if (error.message.includes('File too large') || error.message.includes('exceeds maximum')) {
+                } else if (error.message.includes(t('file.tooLarge')) || error.message.includes('exceeds maximum')) {
                     alert(`Файл ${file.name} слишком большой: ${error.message}`);
-                } else if (error.message.includes('Maximum concurrent transfers')) {
+                } else if (error.message.includes(t('file.maxConcurrent'))) {
                     alert(`Достигнут лимит одновременных передач. Дождитесь завершения текущих передач.`);
-                } else if (error.message.includes('File type not allowed')) {
+                } else if (error.message.includes(t('file.typeNotAllowed'))) {
                     alert(`Тип файла ${file.name} не поддерживается: ${error.message}`);
                 } else {
                     alert(`Ошибка отправки файла ${file.name}: ${error.message}`);
@@ -190,7 +191,7 @@ const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFile
     if (!isConnected) {
         return React.createElement('div', {
             className: "p-4 text-center text-muted"
-        }, 'Передача файлов доступна только при установленном соединении');
+        }, t('file.needConnection'));
     }
 
     // Проверяем дополнительное состояние соединения
@@ -232,8 +233,8 @@ const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFile
                 key: 'icon-box',
                 style: { width: '42px', height: '42px', margin: '0 auto 10px', borderRadius: '12px', display: 'grid', placeItems: 'center', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }
             }, React.createElement('i', { className: 'fas fa-arrow-up-from-bracket', style: { color: '#9a9aa2', fontSize: '18px' } })),
-            React.createElement('div', { key: 'title', style: { fontSize: '14px', fontWeight: 700, color: '#e8e8eb' } }, 'Drag & drop files here'),
-            React.createElement('div', { key: 'sub', style: { fontSize: '12px', color: '#7b7b83', marginTop: '4px' } }, 'Encrypted end-to-end before transfer · up to 100 MB'),
+            React.createElement('div', { key: 'title', style: { fontSize: '14px', fontWeight: 700, color: '#e8e8eb' } }, t('file.drop')),
+            React.createElement('div', { key: 'sub', style: { fontSize: '12px', color: '#7b7b83', marginTop: '4px' } }, t('file.dropHint')),
             React.createElement('button', {
                 key: 'browse',
                 type: 'button',
@@ -242,7 +243,7 @@ const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFile
                 style: { marginTop: '14px', display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '9px 16px', borderRadius: '9px', border: 'none', background: '#f0892a', color: '#1a0f04', fontFamily: 'inherit', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }
             }, [
                 React.createElement('i', { key: 'i', className: 'fas fa-folder-open', style: { fontSize: '13px' } }),
-                'Browse device'
+                t('file.browse')
             ])
         ]),
 
@@ -274,7 +275,7 @@ const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFile
                     React.createElement('div', {
                         key: 'title',
                         style: { fontSize: '13px', fontWeight: 600, color: '#e8e8eb' }
-                    }, 'Incoming file request'),
+                    }, t('file.incoming')),
                     React.createElement('div', {
                         key: 'meta',
                         style: { fontSize: '11.5px', color: '#7b7b83', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
@@ -289,12 +290,12 @@ const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFile
                     key: 'accept',
                     onClick: () => handleIncomingDecision(file.fileId, true),
                     style: { display: 'inline-flex', alignItems: 'center', gap: '6px', borderRadius: '8px', border: 'none', background: '#f0892a', color: '#1a0f04', padding: '8px 14px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }
-                }, [React.createElement('i', { key: 'i', className: 'fas fa-check', style: { fontSize: '12px' } }), 'Accept']),
+                }, [React.createElement('i', { key: 'i', className: 'fas fa-check', style: { fontSize: '12px' } }), t('file.accept')]),
                 React.createElement('button', {
                     key: 'reject',
                     onClick: () => handleIncomingDecision(file.fileId, false),
                     style: { display: 'inline-flex', alignItems: 'center', gap: '6px', borderRadius: '8px', border: '1px solid rgba(229,114,122,0.3)', background: 'rgba(229,114,122,0.08)', color: '#e5727a', padding: '8px 14px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }
-                }, [React.createElement('i', { key: 'i', className: 'fas fa-xmark', style: { fontSize: '12px' } }), 'Reject'])
+                }, [React.createElement('i', { key: 'i', className: 'fas fa-xmark', style: { fontSize: '12px' } }), t('file.reject')])
             ])
         ]))),
 
@@ -312,7 +313,7 @@ const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFile
                     className: 'fas fa-right-left',
                     style: { fontSize: '12px' }
                 }),
-                'File transfers'
+                t('file.title')
             ]),
 
             // Sending files
@@ -396,19 +397,19 @@ const FileTransferComponent = ({ webrtcManager, isConnected, pendingIncomingFile
                                 onClick: async () => {
                                     try {
                                         const url = await webrtcManager.getReceivedFileObjectURL(transfer.fileId);
-                                        if (!url) { alert('This file is no longer available for download.'); return; }
+                                        if (!url) { alert(t('file.gone')); return; }
                                         const a = document.createElement('a');
                                         a.href = url;
                                         a.download = transfer.fileName || 'file';
                                         a.click();
                                         setTimeout(() => webrtcManager.revokeReceivedFileObjectURL(url), 10000);
                                     } catch (e) {
-                                        alert(e.message || 'This file is no longer available for download.');
+                                        alert(e.message || t('file.gone'));
                                     }
                                 }
                             }, [
                                 React.createElement('i', { key: 'i', className: 'fas fa-download mr-1' }),
-                                'Download'
+                                t('file.download')
                             ]) : null,
                             React.createElement('button', {
                                 key: 'cancel',

@@ -1,3 +1,4 @@
+import { t } from '../../i18n/index.js';
 const React = window.React;
 
 const PasswordModal = ({ isOpen, onClose, onSubmit, action, password, setPassword }) => {
@@ -37,7 +38,7 @@ const PasswordModal = ({ isOpen, onClose, onSubmit, action, password, setPasswor
                 React.createElement('h3', {
                     key: 'title',
                     className: 'text-lg font-medium text-primary'
-                }, 'Password input')
+                }, t('pw.label'))
             ]),
             React.createElement('form', {
                 key: 'form',
@@ -53,7 +54,7 @@ const PasswordModal = ({ isOpen, onClose, onSubmit, action, password, setPasswor
                     type: 'password',
                     value: password,
                     onChange: (e) => setPassword(e.target.value),
-                    placeholder: 'Enter password...',
+                    placeholder: t('pw.placeholder'),
                     className: 'w-full p-3 bg-gray-900/30 border border-gray-500/20 rounded-lg text-primary placeholder-gray-500 focus:border-purple-500/40 focus:outline-none transition-all',
                     autoFocus: true
                 }),
@@ -69,7 +70,7 @@ const PasswordModal = ({ isOpen, onClose, onSubmit, action, password, setPasswor
                         React.createElement('i', {
                             className: 'fas fa-unlock-alt mr-2'
                         }),
-                        'Decrypt'
+                        t('pw.decrypt')
                     ]),
                     React.createElement('button', {
                         key: 'cancel',
@@ -80,7 +81,7 @@ const PasswordModal = ({ isOpen, onClose, onSubmit, action, password, setPasswor
                         React.createElement('i', {
                             className: 'fas fa-times mr-2'
                         }),
-                        'Cancel'
+                        t('pw.cancel')
                     ])
                 ])
             ])

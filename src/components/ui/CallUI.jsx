@@ -1,3 +1,4 @@
+import { t } from '../../i18n/index.js';
 // Encrypted voice / video call UI for SecureBit.chat.
 //
 // Faithful implementation of the "SecureBit Chat.dc.html" design: the voice-call
@@ -89,10 +90,10 @@ const CallUIComponent = ({ webrtcManager, peerTitle }) => {
 
     const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
     const ringing = phase === 'outgoing' || phase === 'connecting';
-    const callStatus = phase === 'outgoing' ? 'Ringing…'
-        : phase === 'connecting' ? 'Connecting…'
-            : phase === 'active' ? fmt(seconds) : 'Ringing…';
-    const name = peerTitle || 'Secure peer';
+    const callStatus = phase === 'outgoing' ? t('call.ringing')
+        : phase === 'connecting' ? t('call.connecting')
+            : phase === 'active' ? fmt(seconds) : t('call.ringing');
+    const name = peerTitle || t('call.peer');
 
     // ── shared styles (from the design) ──────────────────────────────────────
     const ctrlBase = {
@@ -114,15 +115,15 @@ const CallUIComponent = ({ webrtcManager, peerTitle }) => {
     });
 
     const encBadge = h('span', { key: 'enc', style: { display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 600, color: '#3ecf8e' } },
-        [svg(ICON.lock, 11, 2), 'Encrypted']);
+        [svg(ICON.lock, 11, 2), t('call.encryptedShort')]);
 
     // Connection-quality indicator — driven by the adaptation controller's
     // getStats (loss + RTT). Signal bars + label; hidden until there's data.
     const QUALITY = {
-        excellent: { bars: 4, color: '#3ecf8e', label: 'Excellent' },
-        good: { bars: 3, color: '#3ecf8e', label: 'Good' },
-        fair: { bars: 2, color: '#e3c84e', label: 'Fair' },
-        poor: { bars: 1, color: '#e5727a', label: 'Weak' },
+        excellent: { bars: 4, color: '#3ecf8e', label: t('call.qualityExcellent') },
+        good: { bars: 3, color: '#3ecf8e', label: t('call.qualityGood') },
+        fair: { bars: 2, color: '#e3c84e', label: t('call.qualityFair') },
+        poor: { bars: 1, color: '#e5727a', label: t('call.qualityWeak') },
     };
     const qualityIndicator = (compact) => {
         const q = QUALITY[call.quality];
@@ -132,7 +133,7 @@ const CallUIComponent = ({ webrtcManager, peerTitle }) => {
                 key: i, style: { width: '3px', height: (5 + i * 3) + 'px', borderRadius: '1px', background: i < q.bars ? q.color : 'rgba(255,255,255,0.18)' }
             })));
         if (compact) return bars;
-        return h('span', { key: 'q', title: 'Connection quality', style: { display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', fontWeight: 600, color: q.color } }, [bars, q.label]);
+        return h('span', { key: 'q', title: t('call.quality'), style: { display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', fontWeight: 600, color: q.color } }, [bars, q.label]);
     };
 
     // ── actions ──────────────────────────────────────────────────────────────
@@ -161,15 +162,15 @@ const CallUIComponent = ({ webrtcManager, peerTitle }) => {
         return h('div', { style: { position: 'absolute', inset: 0, zIndex: 40, display: 'flex', flexDirection: 'column', background: 'radial-gradient(680px 460px at 50% 36%, rgba(240,137,42,0.08), transparent 70%), #0d0d0f', animation: 'sbExpand .2s ease' } }, [
             hiddenAudio,
             h('div', { key: 'top', style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', padding: '16px 18px' } },
-                h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '12px', fontWeight: 600, color: '#3ecf8e' } }, [svg(ICON.lock, 13, 2), 'Encrypted call'])),
+                h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '12px', fontWeight: 600, color: '#3ecf8e' } }, [svg(ICON.lock, 13, 2), t('call.encrypted')])),
             h('div', { key: 'mid', style: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' } }, [
                 avatarDisc(46, true),
                 h('div', { key: 'nm', style: { fontSize: '24px', fontWeight: 800, letterSpacing: '-0.5px', color: '#f4f4f6' } }, name),
-                h('div', { key: 'st', style: { fontFamily: MONO, fontSize: '14px', fontWeight: 500, color: '#9a9aa2', marginTop: '8px' } }, call.withVideo ? 'Incoming video call' : 'Incoming call')
+                h('div', { key: 'st', style: { fontFamily: MONO, fontSize: '14px', fontWeight: 500, color: '#9a9aa2', marginTop: '8px' } }, call.withVideo ? t('call.incomingVideo') : t('call.incoming'))
             ]),
             h('div', { key: 'ctrls', style: { flex: 'none', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: '48px', padding: '28px 24px 40px' } }, [
-                labeled('dec', h('button', { onClick: doDecline, title: 'Decline', style: { ...endBtn, width: '62px', height: '62px' } }, svg(ICON.phoneHangup, 24, 1.9)), 'Decline'),
-                labeled('acc', h('button', { onClick: doAccept, title: 'Accept', style: { width: '62px', height: '62px', borderRadius: '50%', display: 'grid', placeItems: 'center', border: 'none', background: '#3ecf8e', color: '#06231a', cursor: 'pointer', boxShadow: '0 8px 24px rgba(62,207,142,0.35)' } }, svg(ICON.phone, 24, 1.9)), 'Accept')
+                labeled('dec', h('button', { onClick: doDecline, title: t('call.decline'), style: { ...endBtn, width: '62px', height: '62px' } }, svg(ICON.phoneHangup, 24, 1.9)), t('call.decline')),
+                labeled('acc', h('button', { onClick: doAccept, title: t('call.accept'), style: { width: '62px', height: '62px', borderRadius: '50%', display: 'grid', placeItems: 'center', border: 'none', background: '#3ecf8e', color: '#06231a', cursor: 'pointer', boxShadow: '0 8px 24px rgba(62,207,142,0.35)' } }, svg(ICON.phone, 24, 1.9)), t('call.accept'))
             ])
         ]);
     }
@@ -188,12 +189,12 @@ const CallUIComponent = ({ webrtcManager, peerTitle }) => {
                 h('div', { key: 'tx', style: { flex: 1, minWidth: 0 } }, [
                     h('div', { key: 'n', style: { fontSize: '13px', fontWeight: 700, color: '#f4f4f6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, name),
                     h('div', { key: 's', style: { display: 'flex', alignItems: 'center', gap: '7px', fontFamily: MONO, fontSize: '11px', color: '#9a9aa2' } }, [
-                        (isVideo ? 'Video · ' : 'Voice · ') + callStatus,
+                        (isVideo ? t('call.videoPrefix') : t('call.voicePrefix')) + callStatus,
                         phase === 'active' && qualityIndicator(true)
                     ])
                 ]),
-                h('button', { key: 'exp', onClick: () => setMinimized(false), title: 'Expand', style: { flex: 'none', width: '32px', height: '32px', borderRadius: '8px', display: 'grid', placeItems: 'center', border: 'none', background: 'rgba(255,255,255,0.05)', color: '#cfcfd4', cursor: 'pointer', transition: 'all .15s' } }, svg(ICON.expand, 15, 2)),
-                h('button', { key: 'end', onClick: doEnd, title: 'End call', style: { flex: 'none', width: '32px', height: '32px', borderRadius: '8px', display: 'grid', placeItems: 'center', border: 'none', background: '#e5484d', color: '#fff', cursor: 'pointer', transition: 'transform .15s' } }, svg(ICON.phoneHangup, 15, 2))
+                h('button', { key: 'exp', onClick: () => setMinimized(false), title: t('call.expand'), style: { flex: 'none', width: '32px', height: '32px', borderRadius: '8px', display: 'grid', placeItems: 'center', border: 'none', background: 'rgba(255,255,255,0.05)', color: '#cfcfd4', cursor: 'pointer', transition: 'all .15s' } }, svg(ICON.expand, 15, 2)),
+                h('button', { key: 'end', onClick: doEnd, title: t('call.end'), style: { flex: 'none', width: '32px', height: '32px', borderRadius: '8px', display: 'grid', placeItems: 'center', border: 'none', background: '#e5484d', color: '#fff', cursor: 'pointer', transition: 'transform .15s' } }, svg(ICON.phoneHangup, 15, 2))
             ])
         ]);
     }
@@ -206,7 +207,7 @@ const CallUIComponent = ({ webrtcManager, peerTitle }) => {
                 ? h('video', { key: 'rv', ref: remoteVideoRef, autoPlay: true, muted: true, playsInline: true, style: { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', background: '#0a0a0c' } })
                 : h('div', { key: 'ph', style: { position: 'absolute', inset: 0, background: 'linear-gradient(120deg, #15151b, #1d1a24, #161620)', backgroundSize: '200% 200%', animation: 'sbLiveBg 9s ease-in-out infinite', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '18px' } }, [
                     h('div', { key: 'a', style: { width: '120px', height: '120px', borderRadius: '50%', display: 'grid', placeItems: 'center', background: 'radial-gradient(circle at 35% 30%, #2a2a30, #161618)', border: '1px solid rgba(255,255,255,0.1)', color: '#9a9aa2' } }, svg(ICON.user, 54, 1.5)),
-                    h('div', { key: 't', style: { fontSize: '15px', fontWeight: 600, color: '#8a8a92' } }, "Peer's camera is off")
+                    h('div', { key: 't', style: { fontSize: '15px', fontWeight: 600, color: '#8a8a92' } }, t('call.peerCameraOff'))
                 ]),
             // Top bar
             h('div', { key: 'top', style: { position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '14px', padding: '18px 20px', background: 'linear-gradient(180deg, rgba(0,0,0,0.55), transparent)' } }, [
@@ -218,22 +219,22 @@ const CallUIComponent = ({ webrtcManager, peerTitle }) => {
                         phase === 'active' && qualityIndicator(false)
                     ])
                 ]),
-                h('button', { key: 'min', onClick: () => setMinimized(true), title: 'Minimize', style: { flex: 'none', ...minimizeBtn(true) } }, svg(ICON.minimize, 16, 2))
+                h('button', { key: 'min', onClick: () => setMinimized(true), title: t('call.minimize'), style: { flex: 'none', ...minimizeBtn(true) } }, svg(ICON.minimize, 16, 2))
             ]),
             // Self-cam PiP
             h('div', { key: 'self', style: { position: 'absolute', bottom: '108px', right: '18px', width: '132px', height: '176px', borderRadius: '14px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.16)', boxShadow: '0 12px 30px rgba(0,0,0,0.5)', background: '#111' } }, [
                 h('video', { key: 'sv', ref: selfVideoRef, autoPlay: true, muted: true, playsInline: true, style: { width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)', display: 'block' } }),
                 !call.cameraEnabled && h('div', { key: 'off', style: { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#161618', color: '#6b6b73' } }, [
                     svg(ICON.camOff, 24, 1.8),
-                    h('span', { key: 't', style: { fontSize: '10.5px', color: '#6b6b73', fontFamily: MONO } }, 'Camera off')
+                    h('span', { key: 't', style: { fontSize: '10.5px', color: '#6b6b73', fontFamily: MONO } }, t('call.cameraOff'))
                 ])
             ]),
             // Control bar
             h('div', { key: 'ctrls', style: { position: 'absolute', bottom: 0, left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '18px', padding: '22px 24px 28px', background: 'linear-gradient(0deg, rgba(0,0,0,0.6), transparent)' } }, [
-                h('button', { key: 'mute', onClick: doMute, title: 'Mute', style: call.micEnabled ? ctrlBase : dangerCtrl }, svg(call.micEnabled ? ICON.micOn : ICON.micOff, 21, 1.9)),
-                h('button', { key: 'cam', onClick: doCamera, title: 'Camera', style: call.cameraEnabled ? ctrlBase : dangerCtrl }, svg(call.cameraEnabled ? ICON.camOn : ICON.camOff, 21, 1.8)),
-                h('button', { key: 'flip', onClick: doFlip, title: 'Flip camera', style: ctrlBase }, svg(ICON.flip, 21, 1.8)),
-                h('button', { key: 'end', onClick: doEnd, title: 'End call', style: endBtn }, svg(ICON.phoneHangup, 22, 1.9))
+                h('button', { key: 'mute', onClick: doMute, title: t('call.mute'), style: call.micEnabled ? ctrlBase : dangerCtrl }, svg(call.micEnabled ? ICON.micOn : ICON.micOff, 21, 1.9)),
+                h('button', { key: 'cam', onClick: doCamera, title: t('call.camera'), style: call.cameraEnabled ? ctrlBase : dangerCtrl }, svg(call.cameraEnabled ? ICON.camOn : ICON.camOff, 21, 1.8)),
+                h('button', { key: 'flip', onClick: doFlip, title: t('call.flipCamera'), style: ctrlBase }, svg(ICON.flip, 21, 1.8)),
+                h('button', { key: 'end', onClick: doEnd, title: t('call.end'), style: endBtn }, svg(ICON.phoneHangup, 22, 1.9))
             ])
         ]);
     }
@@ -242,8 +243,8 @@ const CallUIComponent = ({ webrtcManager, peerTitle }) => {
     return h('div', { style: { position: 'absolute', inset: 0, zIndex: 40, display: 'flex', flexDirection: 'column', background: 'radial-gradient(680px 460px at 50% 36%, rgba(240,137,42,0.08), transparent 70%), #0d0d0f', animation: 'sbExpand .2s ease' } }, [
         hiddenAudio,
         h('div', { key: 'top', style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px' } }, [
-            h('span', { key: 'enc', style: { display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '12px', fontWeight: 600, color: '#3ecf8e' } }, [svg(ICON.lock, 13, 2), 'Encrypted call']),
-            h('button', { key: 'min', onClick: () => setMinimized(true), title: 'Minimize', style: minimizeBtn(false) }, svg(ICON.minimize, 16, 2))
+            h('span', { key: 'enc', style: { display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '12px', fontWeight: 600, color: '#3ecf8e' } }, [svg(ICON.lock, 13, 2), t('call.encrypted')]),
+            h('button', { key: 'min', onClick: () => setMinimized(true), title: t('call.minimize'), style: minimizeBtn(false) }, svg(ICON.minimize, 16, 2))
         ]),
         h('div', { key: 'mid', style: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' } }, [
             avatarDisc(46, ringing),
@@ -252,9 +253,9 @@ const CallUIComponent = ({ webrtcManager, peerTitle }) => {
             phase === 'active' && h('div', { key: 'q', style: { marginTop: '12px' } }, qualityIndicator(false))
         ]),
         h('div', { key: 'ctrls', style: { flex: 'none', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: '26px', padding: '28px 24px 34px' } }, [
-            labeled('mute', h('button', { onClick: doMute, title: 'Mute', style: call.micEnabled ? ctrlBase : dangerCtrl }, svg(call.micEnabled ? ICON.micOn : ICON.micOff, 22, 1.9)), call.micEnabled ? 'Mute' : 'Muted'),
-            labeled('video', h('button', { onClick: doUpgrade, title: 'Add video', style: ctrlBase }, svg(ICON.camOn, 22, 1.8)), 'Video'),
-            labeled('end', h('button', { onClick: doEnd, title: 'End call', style: endBtn }, svg(ICON.phoneHangup, 22, 1.9)), 'End')
+            labeled('mute', h('button', { onClick: doMute, title: t('call.mute'), style: call.micEnabled ? ctrlBase : dangerCtrl }, svg(call.micEnabled ? ICON.micOn : ICON.micOff, 22, 1.9)), call.micEnabled ? 'Mute' : t('call.muted')),
+            labeled('video', h('button', { onClick: doUpgrade, title: t('call.addVideo'), style: ctrlBase }, svg(ICON.camOn, 22, 1.8)), t('call.video')),
+            labeled('end', h('button', { onClick: doEnd, title: t('call.end'), style: endBtn }, svg(ICON.phoneHangup, 22, 1.9)), t('call.endShort'))
         ])
     ]);
 };

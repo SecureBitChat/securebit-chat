@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.js';
+
 class PWAInstallPrompt {
     constructor() {
         this.deferredPrompt = null;
@@ -163,12 +165,12 @@ class PWAInstallPrompt {
 
         this.installButton.innerHTML = `
         <div style="position:relative; display:inline-flex;">
-            <button class="close-btn" type="button" title="Dismiss" aria-label="Dismiss" style="position:absolute; top:-11px; right:-11px; z-index:3; width:28px; height:28px; padding:0; border-radius:50%; display:grid; place-items:center; border:1px solid rgba(255,255,255,0.1); background:#1a1a1d; color:#9a9aa2; cursor:pointer; transition:all .18s cubic-bezier(.2,.7,.3,1);">
+            <button class="close-btn" type="button" title="${t('pwa.dismiss')}" aria-label="${t('pwa.dismiss')}" style="position:absolute; top:-11px; right:-11px; z-index:3; width:28px; height:28px; padding:0; border-radius:50%; display:grid; place-items:center; border:1px solid rgba(255,255,255,0.1); background:#1a1a1d; color:#9a9aa2; cursor:pointer; transition:all .18s cubic-bezier(.2,.7,.3,1);">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M6 6l12 12M18 6L6 18"/></svg>
             </button>
             <button class="install-pill" type="button" style="display:inline-flex; align-items:center; gap:11px; padding:15px 26px 15px 22px; border-radius:15px; border:none; background:#f0892a; color:#1a0f04; font-family:inherit; font-size:16px; font-weight:700; letter-spacing:-0.2px; cursor:pointer; box-shadow:0 10px 30px rgba(240,137,42,0.32); transition:all .2s cubic-bezier(.2,.7,.3,1);">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M12 3v11"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M5 20h14"/></svg>
-                Install App
+                ${t('pwa.installApp')}
             </button>
         </div>
         `;
@@ -211,14 +213,14 @@ class PWAInstallPrompt {
                             <i class="fas fa-shield-halved text-orange-400 text-xl"></i>
                         </div>
                         <div>
-                            <div class="font-medium text-white">Install SecureBit.chat</div>
-                            <div class="text-sm text-gray-300">Get the native app experience with enhanced security</div>
+                            <div class="font-medium text-white">${t('pwa.bannerTitle')}</div>
+                            <div class="text-sm text-gray-300">${t('pwa.bannerDesc')}</div>
                         </div>
                     </div>
                     <div class="flex items-center space-x-3">
                         <button class="install-btn bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-medium transition-colors" data-action="install">
                             <i class="fas fa-download mr-2"></i>
-                            Install
+                            ${t('pwa.install')}
                         </button>
                         <button class="close-btn text-gray-400 hover:text-white px-3 py-2 rounded-lg transition-colors" data-action="close">
                             <i class="fas fa-times"></i>
@@ -356,16 +358,16 @@ class PWAInstallPrompt {
                 <div class="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
                     <i class="fab fa-apple text-blue-400 text-2xl"></i>
                 </div>
-                <h3 class="text-xl font-semibold text-white mb-4">Install on iOS</h3>
+                <h3 class="text-xl font-semibold text-white mb-4">${t('pwa.iosTitle')}</h3>
                 
                 <div class="space-y-4 text-left text-sm text-gray-300 mb-6">
                     <div class="flex items-start space-x-3">
                         <div class="w-8 h-8 bg-blue-500 rounded-full text-white flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">1</div>
                         <div class="flex-1">
-                            <div class="font-medium text-white mb-1">Tap the Share button</div>
+                            <div class="font-medium text-white mb-1">${t('pwa.iosStep1')}</div>
                             <div class="flex items-center text-blue-400">
                                 <i class="fas fa-share mr-2"></i>
-                                <span>Usually at the bottom of Safari</span>
+                                <span>${t('pwa.iosStep1Hint')}</span>
                             </div>
                         </div>
                     </div>
@@ -373,16 +375,16 @@ class PWAInstallPrompt {
                     <div class="flex items-start space-x-3">
                         <div class="w-8 h-8 bg-blue-500 rounded-full text-white flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">2</div>
                         <div class="flex-1">
-                            <div class="font-medium text-white mb-1">Find "Add to Home Screen"</div>
-                            <div class="text-gray-400">Scroll down in the share menu</div>
+                            <div class="font-medium text-white mb-1">${t('pwa.iosStep2')}</div>
+                            <div class="text-gray-400">${t('pwa.iosStep2Hint')}</div>
                         </div>
                     </div>
                     
                     <div class="flex items-start space-x-3">
                         <div class="w-8 h-8 bg-blue-500 rounded-full text-white flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">3</div>
                         <div class="flex-1">
-                            <div class="font-medium text-white mb-1">Tap "Add"</div>
-                            <div class="text-gray-400">Confirm to install SecureBit.chat</div>
+                            <div class="font-medium text-white mb-1">${t('pwa.iosStep3')}</div>
+                            <div class="text-gray-400">${t('pwa.iosStep3Hint')}</div>
                         </div>
                     </div>
                 </div>
@@ -449,7 +451,7 @@ class PWAInstallPrompt {
 
         modal.innerHTML = `
             <div style="position:relative; z-index:2; width:480px; max-width:calc(100vw - 48px); border-radius:22px; background:#121214; border:1px solid rgba(255,255,255,0.08); padding:34px 30px 26px; box-shadow:0 30px 70px rgba(0,0,0,0.6); animation:igPop .32s cubic-bezier(.2,.7,.3,1);">
-                <button class="close-x" type="button" title="Close" aria-label="Close" style="position:absolute; top:18px; right:18px; width:30px; height:30px; padding:0; border-radius:9px; display:grid; place-items:center; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.02); color:#8a8a92; cursor:pointer; transition:all .18s cubic-bezier(.2,.7,.3,1);">
+                <button class="close-x" type="button" title="${t('pwa.close')}" aria-label="${t('pwa.close')}" style="position:absolute; top:18px; right:18px; width:30px; height:30px; padding:0; border-radius:9px; display:grid; place-items:center; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.02); color:#8a8a92; cursor:pointer; transition:all .18s cubic-bezier(.2,.7,.3,1);">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M6 6l12 12M18 6L6 18"/></svg>
                 </button>
 
@@ -457,8 +459,8 @@ class PWAInstallPrompt {
                     <div style="display:inline-flex; width:60px; height:60px; border-radius:16px; align-items:center; justify-content:center; background:rgba(240,137,42,0.12); border:1px solid rgba(240,137,42,0.3); margin-bottom:18px;">
                         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#f0892a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M5 20h14"/></svg>
                     </div>
-                    <h3 style="margin:0 0 10px; font-size:24px; font-weight:800; letter-spacing:-0.6px; color:#f4f4f6;">Install SecureBit</h3>
-                    <p style="margin:0 auto; max-width:380px; font-size:14px; line-height:1.55; color:#9a9aa2;">Your browser handles installs its own way. Pick the steps that match yours.</p>
+                    <h3 style="margin:0 0 10px; font-size:24px; font-weight:800; letter-spacing:-0.6px; color:#f4f4f6;">${t('pwa.genericTitle')}</h3>
+                    <p style="margin:0 auto; max-width:380px; font-size:14px; line-height:1.55; color:#9a9aa2;">${t('pwa.genericDesc')}</p>
                 </div>
 
                 <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:22px;">
@@ -467,7 +469,7 @@ class PWAInstallPrompt {
                     ${row(rowIcon.safari, 'Safari', 'Share &rarr; Add to Home Screen', '.5s', true)}
                 </div>
 
-                <button class="got-it" type="button" style="width:100%; padding:14px 20px; border-radius:13px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.03); color:#e8e8eb; font-family:inherit; font-size:15px; font-weight:700; cursor:pointer; transition:all .2s cubic-bezier(.2,.7,.3,1);">Got it</button>
+                <button class="got-it" type="button" style="width:100%; padding:14px 20px; border-radius:13px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.03); color:#e8e8eb; font-family:inherit; font-size:15px; font-weight:700; cursor:pointer; transition:all .2s cubic-bezier(.2,.7,.3,1);">${t('pwa.gotIt')}</button>
             </div>
         `;
 
@@ -500,8 +502,8 @@ class PWAInstallPrompt {
         notification.className = 'fixed top-4 right-4 bg-green-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm transform translate-x-full transition-transform duration-300';
         
         const successText = this.isIOSSafari() ? 
-            'iOS App installed! Open from home screen.' : 
-            'SecureBit.chat is now on your device';
+            t('pwa.installedIos') : 
+            t('pwa.installedGeneric');
             
         notification.innerHTML = `
             <div class="flex items-center space-x-3">
@@ -509,7 +511,7 @@ class PWAInstallPrompt {
                     <i class="fas fa-check text-lg"></i>
                 </div>
                 <div>
-                    <div class="font-medium">App Installed!</div>
+                    <div class="font-medium">${t('pwa.installedTitle')}</div>
                     <div class="text-sm opacity-90">${successText}</div>
                 </div>
             </div>
@@ -588,12 +590,12 @@ class PWAInstallPrompt {
                     <i class="fas fa-info text-sm"></i>
                 </div>
                 <div class="flex-1">
-                    <div class="font-medium mb-1">Install Anytime</div>
+                    <div class="font-medium mb-1">${t('pwa.anytimeTitle')}</div>
                     <div class="text-sm opacity-90 mb-3">
-                        You can still install SecureBit.chat from your browser's menu for the best experience.
+                        ${t('pwa.anytimeDesc')}
                     </div>
                     <button class="ok-btn text-sm bg-white/20 hover:bg-white/30 px-3 py-1 rounded transition-colors">
-                        OK
+                        ${t('pwa.ok')}
                     </button>
                 </div>
             </div>

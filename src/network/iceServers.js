@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 // Pure, dependency-free validation and normalization of user-supplied ICE
 // (STUN/TURN) servers. No DOM, no browser APIs — safe to unit-test in Node.
 //
@@ -38,26 +39,26 @@ function hasControlChars(value) {
  * @returns {string|null} error message, or null if valid.
  */
 export function validateIceUrl(url) {
-    if (typeof url !== 'string') return 'URL must be a string';
+    if (typeof url !== 'string') return t('iceUrl.notString');
     const trimmed = url.trim();
-    if (!trimmed) return 'URL is empty';
-    if (trimmed.length > ICE_LIMITS.MAX_STRING_LENGTH) return 'URL is too long';
-    if (hasControlChars(trimmed)) return 'URL contains invalid characters';
+    if (!trimmed) return t('iceUrl.empty');
+    if (trimmed.length > ICE_LIMITS.MAX_STRING_LENGTH) return t('iceUrl.tooLong');
+    if (hasControlChars(trimmed)) return t('iceUrl.badChars');
 
     const scheme = trimmed.match(SCHEME_RE);
     if (!scheme) {
-        return 'URL must start with stun:, stuns:, turn: or turns:';
+        return t('iceUrl.badScheme');
     }
 
     // Validate the part after "<scheme>:" — host[:port][?transport=udp|tcp].
     const rest = trimmed.slice(scheme[0].length);
     const [hostPort, query, ...extra] = rest.split('?');
-    if (extra.length > 0) return 'URL has an invalid query';
-    if (!hostPort) return 'URL is missing a host';
-    if (!HOST_RE.test(hostPort)) return 'URL has an invalid host or port';
+    if (extra.length > 0) return t('iceUrl.badQuery');
+    if (!hostPort) return t('iceUrl.noHost');
+    if (!HOST_RE.test(hostPort)) return t('iceUrl.badHost');
 
     if (query !== undefined && !TRANSPORT_RE.test(query)) {
-        return 'URL query must be transport=udp or transport=tcp';
+        return t('iceUrl.badTransport');
     }
 
     return null;
@@ -86,26 +87,26 @@ export function normalizeIceServers(entries) {
     const servers = [];
 
     if (!Array.isArray(entries)) {
-        return { servers: [], errors: ['Server list must be an array'], warnings: [] };
+        return { servers: [], errors: [t('iceErr.notArray')], warnings: [] };
     }
     if (entries.length === 0) {
         return { servers: [], errors: [], warnings: [] };
     }
     if (entries.length > ICE_LIMITS.MAX_SERVERS) {
-        errors.push(`Too many servers (max ${ICE_LIMITS.MAX_SERVERS})`);
+        errors.push(t('iceErr.tooMany', { max: ICE_LIMITS.MAX_SERVERS }));
         return { servers: [], errors, warnings };
     }
 
     entries.forEach((entry, index) => {
         const label = `Server #${index + 1}`;
         if (!entry || typeof entry !== 'object') {
-            errors.push(`${label}: invalid entry`);
+            errors.push(t('iceErr.invalidEntry', { label }));
             return;
         }
 
         const rawUrls = Array.isArray(entry.urls) ? entry.urls : [entry.urls];
         if (rawUrls.length === 0 || rawUrls.length > ICE_LIMITS.MAX_URLS_PER_SERVER) {
-            errors.push(`${label}: between 1 and ${ICE_LIMITS.MAX_URLS_PER_SERVER} URLs required`);
+            errors.push(t('iceErr.urlCount', { label, max: ICE_LIMITS.MAX_URLS_PER_SERVER }));
             return;
         }
 
@@ -133,7 +134,7 @@ export function normalizeIceServers(entries) {
         if (entry.credential) server.credential = String(entry.credential);
 
         if (entryHasTurn && (!server.username || !server.credential)) {
-            warnings.push(`${label}: TURN servers usually require a username and credential`);
+            warnings.push(t('iceErr.turnCreds', { label }));
         }
 
         servers.push(server);
@@ -158,7 +159,7 @@ export function parseIceServersInput(text) {
         try {
             parsed = JSON.parse(trimmed);
         } catch {
-            return { servers: [], errors: ['Invalid JSON'], warnings: [] };
+            return { servers: [], errors: [t('iceErr.invalidJson')], warnings: [] };
         }
         const arr = Array.isArray(parsed) ? parsed : [parsed];
         return normalizeIceServers(arr);

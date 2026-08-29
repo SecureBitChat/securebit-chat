@@ -25,6 +25,7 @@ import { GroupSession, GROUP_FRAMES, isGroupFrame, groupFrameType, decodeEnvelop
 import { GROUP_LIMITS } from './group/groupCrypto.js';
 import { createGroupSender } from './group/groupSender.js';
 import { spring, snapTarget, rubberband, velocityTracker, prefersReducedMotion, SPRING } from './ui/motion.js';
+import { t } from './i18n/index.js';
 
 // A programmatic smooth scroll is a full-viewport slide, which is exactly what
 // someone who asked for less motion does not want. The jump still happens and
@@ -196,7 +197,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                     key: 'ic',
                                     className: `${copied ? 'fas fa-check text-green-400' : 'far fa-copy'} mr-1`
                                 }),
-                                copied ? 'Copied' : 'Copy'
+                                copied ? t('action.copied') : t('action.copy')
                             ])
                         ]),
                         React.createElement('pre', {
@@ -286,8 +287,8 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         labelBtn('code', {
                             active: codeMode,
                             icon: 'fas fa-code',
-                            label: 'Code',
-                            title: 'Send as a code block (expands the input)',
+                            label: t('msg.code'),
+                            title: t('chat.codeBlock'),
                             onClick: () => setCodeMode(v => !v)
                         }),
 
@@ -296,8 +297,8 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             labelBtn('once-btn', {
                                 active: viewOnceMode,
                                 icon: 'fas fa-eye-slash',
-                                label: viewOnceMode ? `Once · ${fmt(viewOnceTtl)}` : 'View once',
-                                title: 'View once — vanishes after the peer reads it',
+                                label: viewOnceMode ? `Once · ${fmt(viewOnceTtl)}` : t('chat.viewOnce'),
+                                title: t('chat.viewOnceTitle'),
                                 onClick: () => setOpenMenu(openMenu === 'once' ? null : 'once')
                             }),
                             openMenu === 'once' && picker([
@@ -317,8 +318,8 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             labelBtn('timer-btn', {
                                 active: disappearTtl > 0,
                                 icon: 'fas fa-stopwatch',
-                                label: disappearTtl > 0 ? `Timer · ${fmt(disappearTtl)}` : 'Timer',
-                                title: 'Disappearing message — deletes on both sides',
+                                label: disappearTtl > 0 ? `${t('msg.timer')} · ${fmt(disappearTtl)}` : t('msg.timer'),
+                                title: t('chat.disappearing'),
                                 onClick: () => setOpenMenu(openMenu === 'timer' ? null : 'timer')
                             }),
                             openMenu === 'timer' && picker([
@@ -362,7 +363,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             key: 'icon',
                             className: `${copied ? 'fas fa-check accent-green' : 'fas fa-copy text-secondary'} mr-2`
                         }),
-                        copied ? 'Copied!' : children
+                        copied ? t('chat.copied') : children
                     ]);
                 };
         
@@ -386,9 +387,9 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         } catch (confirmationError) {
                             setSasInput('');
                             if (confirmationError?.message === 'SAS_MAX_ATTEMPTS') {
-                                setError('Too many incorrect attempts. Session reset for safety.');
+                                setError(t('sas.tooManyAttempts'));
                             } else {
-                                setError('Incorrect code. Check it with your peer and try again.');
+                                setError(t('sas.incorrect'));
                             }
                         }
                     };
@@ -451,7 +452,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                     spellCheck: false,
                                     inputMode: 'text',
                                     disabled: localConfirmed,
-                                    placeholder: verificationCode ? 'Type code here' : 'Waiting for code…',
+                                    placeholder: verificationCode ? t('verify.placeholder') : t('verify.waiting'),
                                     className: "w-full rounded-lg border border-purple-500/30 bg-black/20 px-4 py-3 text-center text-xl tracking-[0.3em] text-primary uppercase focus:border-purple-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60",
                                     style: { fontFamily: 'monospace', textTransform: 'uppercase' }
                                 }),
@@ -484,7 +485,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                         React.createElement('span', {
                                             key: 'local-text',
                                             className: `text-sm ${localConfirmed ? 'text-green-400' : 'text-gray-400'}`
-                                        }, localConfirmed ? 'Confirmed' : 'Pending')
+                                        }, localConfirmed ? t('verify.confirmed') : t('verify.pending'))
                                     ])
                                 ]),
                                 React.createElement('div', {
@@ -506,7 +507,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                         React.createElement('span', {
                                             key: 'remote-text',
                                             className: `text-sm ${remoteConfirmed ? 'text-green-400' : 'text-gray-400'}`
-                                        }, remoteConfirmed ? 'Confirmed' : 'Pending')
+                                        }, remoteConfirmed ? t('verify.confirmed') : t('verify.pending'))
                                     ])
                                 ])
                             ]),
@@ -520,7 +521,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                     React.createElement('i', {
                                         className: 'fas fa-exclamation-triangle mr-2'
                                     }),
-                                    'Make sure the codes match exactly.!'
+                                    t('sas.makeSure')
                                 ])
                             ]),
                             React.createElement('div', {
@@ -536,7 +537,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                     React.createElement('i', {
                                         className: `fas ${localConfirmed ? 'fa-check-circle' : 'fa-check'} mr-2`
                                     }),
-                                    localConfirmed ? 'Confirmed' : 'Confirm code'
+                                    localConfirmed ? t('verify.confirmed') : t('verify.confirm')
                                 ]),
                                 React.createElement('button', {
                                     key: 'reject',
@@ -546,7 +547,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                     React.createElement('i', {
                                         className: 'fas fa-times mr-2'
                                     }),
-                                    'The codes do not match'
+                                    t('sas.noMatch')
                                 ])
                             ])
                         ])
@@ -671,14 +672,14 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                 ? h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'currentColor' }, [h('rect', { key: 'a', x: 6, y: 5, width: 4, height: 14, rx: 1.2 }), h('rect', { key: 'b', x: 14, y: 5, width: 4, height: 14, rx: 1.2 })])
                                 : h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'currentColor' }, h('path', { d: 'M8 5.2v13.6l11-6.8z' }))));
 
-                    const label = failed ? 'Failed' : (transferring ? (dir === 'up' ? 'Uploading' : 'Downloading') : 'Voice');
+                    const label = failed ? t('msg.failed') : (transferring ? (dir === 'up' ? t('chat.uploading') : t('chat.downloading')) : t('msg.voice'));
                     const timeText = transferring ? (pct + '%') : sbFmtClock((playing || progress > 0) ? elapsed : dur);
 
                     return h('div', { style: { display: 'flex', alignItems: 'center', gap: '13px', padding: '13px 15px 12px' } }, [
                         h('div', { key: 'pw', style: { position: 'relative', flex: 'none', width: '50px', height: '50px', display: 'grid', placeItems: 'center' } }, [
                             ring,
                             h('button', {
-                                key: 'pb', onClick: toggle, title: transferring ? 'Transferring…' : (playing ? 'Pause' : 'Play'),
+                                key: 'pb', onClick: toggle, title: transferring ? t('chat.transferring') : (playing ? t('msg.pause') : t('msg.play')),
                                 style: { width: '42px', height: '42px', borderRadius: '50%', display: 'grid', placeItems: 'center', border: 'none', background: failed ? 'rgba(229,114,122,0.15)' : playBg, color: failed ? '#e5727a' : playColor, cursor: (transferring || failed || !src) ? 'default' : 'pointer', transition: 'transform .15s cubic-bezier(.2,.7,.3,1)' }
                             }, icon)
                         ]),
@@ -894,9 +895,9 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         return h('div', { style: { display: 'flex', alignItems: 'center', gap: '12px' } }, [
                             h('div', { key: 'msg', style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '9px', height: '46px', padding: '0 16px', borderRadius: '13px', background: 'rgba(229,72,72,0.06)', border: '1px solid rgba(229,72,72,0.22)', color: '#e5727a', fontSize: '13.5px' } }, [
                                 h('i', { key: 'i', className: 'fas fa-microphone-slash', style: { fontSize: '14px' } }),
-                                'No audio captured — check microphone permission and try again.'
+                                t('err.noAudio')
                             ]),
-                            h('button', { key: 'x', onClick: onCancel, title: 'Close', style: { flex: 'none', width: '46px', height: '46px', borderRadius: '50%', display: 'grid', placeItems: 'center', border: 'none', background: 'rgba(255,255,255,0.05)', color: '#9a9aa2', cursor: 'pointer' } },
+                            h('button', { key: 'x', onClick: onCancel, title: t('chatHdr.close'), style: { flex: 'none', width: '46px', height: '46px', borderRadius: '50%', display: 'grid', placeItems: 'center', border: 'none', background: 'rgba(255,255,255,0.05)', color: '#9a9aa2', cursor: 'pointer' } },
                                 h('i', { className: 'fas fa-xmark', style: { fontSize: '16px' } }))
                         ]);
                     }
@@ -905,7 +906,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
 
                     return h('div', { style: { display: 'flex', alignItems: 'center', gap: '12px' } }, [
                         h('button', {
-                            key: 'cancel', onClick: () => finish(false), title: 'Discard',
+                            key: 'cancel', onClick: () => finish(false), title: t('chat.discard'),
                             style: { flex: 'none', width: '42px', height: '42px', borderRadius: '12px', display: 'grid', placeItems: 'center', border: 'none', background: 'rgba(255,255,255,0.04)', color: '#9a9aa2', cursor: 'pointer' }
                         }, h('i', { className: 'fas fa-trash-can', style: { fontSize: '15px' } })),
                         h('div', { key: 'bar', style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '11px', height: '46px', padding: '0 16px', borderRadius: '13px', background: 'rgba(229,72,72,0.06)', border: '1px solid rgba(229,72,72,0.22)' } }, [
@@ -915,7 +916,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             h('div', { key: 'wave', style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '2px', height: '30px', overflow: 'hidden' } }, barEls)
                         ]),
                         h('button', {
-                            key: 'send', onClick: () => finish(true), title: 'Send voice message',
+                            key: 'send', onClick: () => finish(true), title: t('chat.sendVoice'),
                             style: { flex: 'none', width: '46px', height: '46px', borderRadius: '50%', display: 'grid', placeItems: 'center', border: 'none', background: '#f0892a', color: '#1a0f04', cursor: 'pointer', boxShadow: '0 8px 22px rgba(240,137,42,0.3)', transition: 'transform .15s cubic-bezier(.2,.7,.3,1)' }
                         }, h('svg', { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }, [h('path', { key: 'a', d: 'M22 2L11 13' }), h('path', { key: 'b', d: 'M22 2l-7 20-4-9-9-4 20-7z' })]))
                     ]);
@@ -976,7 +977,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         }, React.createElement('div', { style: { maxWidth: '74%', minWidth: '170px' } },
                             React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '9px', padding: '12px 15px', borderRadius: radius, border: '1px dashed rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.018)' } }, [
                                 React.createElement('i', { key: 'i', className: 'fas fa-clock', style: { color: '#6b6b73', fontSize: '13px' } }),
-                                React.createElement('span', { key: 't', style: { fontSize: '13px', color: '#6b6b73', fontStyle: 'italic' } }, 'This message has expired')
+                                React.createElement('span', { key: 't', style: { fontSize: '13px', color: '#6b6b73', fontStyle: 'italic' } }, t('chat.expired'))
                             ])
                         ));
                     }
@@ -994,7 +995,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             React.createElement('div', { key: 'grain', style: { position: 'absolute', inset: 0, backgroundImage: GRAIN_URL, backgroundSize: '90px', opacity: 0.18, mixBlendMode: 'screen', pointerEvents: 'none' } }),
                             React.createElement('div', { key: 'lbl', style: { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', pointerEvents: 'none' } }, [
                                 React.createElement('i', { key: 'i', className: 'fas fa-eye-slash', style: { color: '#e8e8eb', fontSize: '13px' } }),
-                                React.createElement('span', { key: 't', style: { fontSize: '12px', fontWeight: 600, color: '#e8e8eb', textShadow: '0 1px 5px rgba(0,0,0,0.75)' } }, 'View once · tap to reveal')
+                                React.createElement('span', { key: 't', style: { fontSize: '12px', fontWeight: 600, color: '#e8e8eb', textShadow: '0 1px 5px rgba(0,0,0,0.75)' } }, t('chat.viewOnceTap'))
                             ])
                         ]);
                     } else {
@@ -1009,14 +1010,14 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     // WhatsApp-style delivery state on our own messages.
                     if (isMe) {
                         const stCfg = ({
-                            sending: { icon: 'fa-clock', color: '#6b6b73', label: 'Sending' },
-                            sent: { icon: 'fa-check', color: '#8a8a92', label: 'Sent' },
+                            sending: { icon: 'fa-clock', color: '#6b6b73', label: t('chat.sending') },
+                            sent: { icon: 'fa-check', color: '#8a8a92', label: t('msg.sent') },
                             // Two GREY ticks = delivered to the peer's device but not yet read.
-                            delivered: { icon: 'fa-check-double', color: '#8a8a92', label: 'Delivered' },
+                            delivered: { icon: 'fa-check-double', color: '#8a8a92', label: t('chat.delivered') },
                             // Two GREEN ticks = the peer actually opened the chat and read it.
-                            read: { icon: 'fa-check-double', color: '#3ecf8e', label: 'Read' },
-                            failed: { icon: 'fa-triangle-exclamation', color: '#e5727a', label: 'Not sent' }
-                        })[status || 'sent'] || { icon: 'fa-check', color: '#8a8a92', label: 'Sent' };
+                            read: { icon: 'fa-check-double', color: '#3ecf8e', label: t('msg.read') },
+                            failed: { icon: 'fa-triangle-exclamation', color: '#e5727a', label: t('chat.notSent') }
+                        })[status || 'sent'] || { icon: 'fa-check', color: '#8a8a92', label: t('msg.sent') };
                         metaLeft.push(React.createElement('span', {
                             key: 'dlv', title: stCfg.label,
                             style: { display: 'inline-flex', alignItems: 'center', color: stCfg.color }
@@ -1025,7 +1026,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     if (isViewOnce && revealed) {
                         metaLeft.push(React.createElement('span', { key: 'vo', style: { display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: 600, color: '#8a8a92' } }, [
                             React.createElement('span', { key: 'd', style: { width: '4px', height: '4px', borderRadius: '50%', background: '#8a8a92' } }),
-                            'Viewed once'
+                            t('chat.viewedOnce')
                         ]));
                     } else if (remaining !== null) {
                         metaLeft.push(React.createElement('span', { key: 'ttl', style: { display: 'inline-flex', alignItems: 'center', gap: '4px', fontFamily: SB_MONO, fontSize: '10.5px', fontWeight: 500, color: '#f0892a' } }, [
@@ -1037,12 +1038,12 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     const metaRight = [];
                     metaRight.push(React.createElement('span', { key: 'status', style: { display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '10.5px', fontWeight: 600, color: '#3ecf8e', flex: 'none' } }, [
                         React.createElement('i', { key: 'i', className: encrypted ? 'fas fa-lock' : 'fas fa-lock-open', style: { fontSize: '10px' } }),
-                        encrypted ? 'Encrypted' : 'Decrypted'
+                        encrypted ? t('chat.encrypted') : t('chat.decrypted')
                     ]));
                     // Delete-for-everyone sits AFTER the Encrypted/Decrypted status.
                     if (canUnsend && isMe && mid) {
                         metaRight.push(React.createElement('button', {
-                            key: 'unsend', onClick: () => onUnsend && onUnsend(mid), title: 'Delete for everyone',
+                            key: 'unsend', onClick: () => onUnsend && onUnsend(mid), title: t('chat.deleteForEveryone'),
                             className: 'sb-unsend',
                             style: { background: 'none', border: 'none', cursor: 'pointer', color: '#56565e', fontSize: '11px', padding: 0, lineHeight: 1 }
                         }, React.createElement('i', { className: 'fas fa-trash-can' })));
@@ -1223,7 +1224,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                     setTimeout(() => {
                                         try {
                                             const welcomeNotification = new Notification('SecureBit Chat', {
-                                                body: 'Notifications enabled! You will receive alerts for new messages.',
+                                                body: t('notify.enabledBody'),
                                                 icon: '/logo/icon-192x192.png',
                                                 tag: 'welcome-notification'
                                             });
@@ -1260,7 +1261,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                 setTimeout(() => {
                                     try {
                                         const testNotification = new Notification('SecureBit Chat', {
-                                            body: 'Notifications are working! You will receive alerts for new messages.',
+                                            body: t('notify.workingBody'),
                                             icon: '/logo/icon-192x192.png',
                                             tag: 'test-notification'
                                         });
@@ -1313,8 +1314,8 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     const atIntro = !showVerification && !isGenerating && !isOfferCred && !isAnswerCred;
                     const accent = isCreate ? C_ORANGE : C_GREEN;
                     const kicker = showVerification
-                        ? 'Step 3 · verification'
-                        : ((isOfferCred || isAnswerCred) ? 'Step 2 · exchange' : 'Step 1 · open a channel');
+                        ? t('step.verification')
+                        : ((isOfferCred || isAnswerCred) ? t('step.exchange') : t('step.open'));
 
                     const credCode = isCreate ? encode(offerData) : encode(answerData);
                     const hasInvite = (offerInput || '').trim().length > 0;
@@ -1340,8 +1341,8 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         } catch (err) {
                             setSasInput('');
                             setSasError(err?.message === 'SAS_MAX_ATTEMPTS'
-                                ? 'Too many incorrect attempts. Session reset for safety.'
-                                : 'Incorrect code. Check it with your peer and try again.');
+                                ? t('sas.tooManyAttempts')
+                                : t('sas.incorrect'));
                         }
                     };
 
@@ -1409,10 +1410,10 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         h('div', { key: 'herowrap', style: { flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative', zIndex: 2 } },
                         h('div', { key: 'hero', style: { maxWidth: '560px' } }, [
                             h('h1', { key: 'h1', style: { margin: '0 0 14px', fontSize: '34px', fontWeight: 800, letterSpacing: '-1.1px', lineHeight: 1.1, color: '#f4f4f6' } }, [
-                                'A direct line', h('br', { key: 'br' }), 'only you two can read.'
+                                t('hero.headlineTop'), h('br', { key: 'br' }), t('hero.headlineBottom')
                             ]),
                             h('p', { key: 'p', style: { margin: '0 0 38px', fontSize: '14.5px', lineHeight: 1.6, color: '#8a8a92', maxWidth: '390px' } },
-                                'Keys are generated on your device and exchanged peer-to-peer. No accounts, no servers storing your messages.'),
+                                t('hero.subheading')),
                             // P2P / mesh animation.
                             //
                             // The loop tells the product's story in one shot: a direct line to
@@ -1425,7 +1426,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                     key: 'svg',
                                     viewBox: '0 0 380 200',
                                     role: 'img',
-                                    'aria-label': 'A direct encrypted line to one peer, with two more peers joining the mesh',
+                                    'aria-label': t('hero.diagramAlt'),
                                     // Scales down on narrow screens; the labels sit just outside
                                     // the viewBox, so the box must not clip them.
                                     style: { display: 'block', width: '100%', maxWidth: '380px', height: 'auto', overflow: 'visible' }
@@ -1461,19 +1462,19 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                     h('text', { key: 'pt', x: 346, y: 104, fontFamily: MONO, fontSize: 12, fill: '#8f8b84' }, 'peer'),
                                     h('circle', { key: 'yh', cx: 30, cy: 100, r: 15, fill: C_ORANGE, fillOpacity: 0.09 }),
                                     h('circle', { key: 'yc', cx: 30, cy: 100, r: 6, fill: C_ORANGE }),
-                                    h('text', { key: 'yt', x: 30, y: 126, textAnchor: 'middle', fontFamily: MONO, fontSize: 12, fill: '#d8cfc1' }, 'you')
+                                    h('text', { key: 'yt', x: 30, y: 126, textAnchor: 'middle', fontFamily: MONO, fontSize: 12, fill: '#d8cfc1' }, t('mesh.you'))
                                 ]),
 
                                 // the log, timed to the same 14s loop as the nodes appearing
                                 h('div', { key: 'log', style: { display: 'flex', flexDirection: 'column', gap: '12px', fontFamily: MONO, fontSize: '12px', color: '#85817b' } }, [
-                                    h('div', { key: 'r0', style: { animation: 'sbRow0 14s linear infinite' } }, 'peer \u00b7 session 1'),
-                                    h('div', { key: 'r1', style: { animation: 'sbRow1 14s linear infinite' } }, 'mara joined \u00b7 +2'),
-                                    h('div', { key: 'r2', style: { animation: 'sbRow2 14s linear infinite' } }, 'tobi joined \u00b7 +3')
+                                    h('div', { key: 'r0', style: { animation: 'sbRow0 14s linear infinite' } }, t('mesh.peer')),
+                                    h('div', { key: 'r1', style: { animation: 'sbRow1 14s linear infinite' } }, t('mesh.joined2')),
+                                    h('div', { key: 'r2', style: { animation: 'sbRow2 14s linear infinite' } }, t('mesh.joined3'))
                                 ])
                             ])
                         ])),
                         h('div', { key: 'badges', style: { position: 'relative', zIndex: 2, display: 'flex', flexWrap: 'wrap', gap: '8px' } },
-                            ['ECDH P-384', 'AES-256-GCM', 'Perfect Forward Secrecy'].map((label) =>
+                            ['ECDH P-384', 'AES-256-GCM', t('sec.pfsShort')].map((label) =>
                                 h('span', { key: label, style: { display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 11px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.025)', fontFamily: MONO, fontSize: '11px', fontWeight: 500, color: '#9a9aa2' } }, [
                                     h('span', { key: 'dot', style: { width: '5px', height: '5px', borderRadius: '50%', background: C_GREEN } }),
                                     label
@@ -1485,18 +1486,18 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     // ── RIGHT PANEL · flow body (varies by step) ──
                     const segToggle = atIntro && h('div', { key: 'seg', style: { position: 'relative', display: 'flex', padding: '4px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.07)', background: '#141416', marginBottom: '26px' } }, [
                         h('div', { key: 'ind', style: { position: 'absolute', top: '4px', bottom: '4px', left: '4px', width: 'calc(50% - 4px)', borderRadius: '9px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.08)', transform: isCreate ? 'translateX(0%)' : 'translateX(100%)', transition: 'transform .26s cubic-bezier(.3,.8,.3,1)' } }),
-                        h('button', { key: 'c', className: 'sb-seg-btn', onClick: () => setMode('create'), style: { position: 'relative', zIndex: 1, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '11px', border: 'none', background: 'transparent', color: isCreate ? '#f4f4f6' : '#7b7b83', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, cursor: 'pointer' } }, [fa('fa-plus', { key: 'i' }), 'Create']),
-                        h('button', { key: 'j', className: 'sb-seg-btn', onClick: () => setMode('join'), style: { position: 'relative', zIndex: 1, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '11px', border: 'none', background: 'transparent', color: !isCreate ? '#f4f4f6' : '#7b7b83', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, cursor: 'pointer' } }, [fa('fa-link', { key: 'i' }), 'Join'])
+                        h('button', { key: 'c', className: 'sb-seg-btn', onClick: () => setMode('create'), style: { position: 'relative', zIndex: 1, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '11px', border: 'none', background: 'transparent', color: isCreate ? '#f4f4f6' : '#7b7b83', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, cursor: 'pointer' } }, [fa('fa-plus', { key: 'i' }), t('action.create')]),
+                        h('button', { key: 'j', className: 'sb-seg-btn', onClick: () => setMode('join'), style: { position: 'relative', zIndex: 1, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '11px', border: 'none', background: 'transparent', color: !isCreate ? '#f4f4f6' : '#7b7b83', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, cursor: 'pointer' } }, [fa('fa-link', { key: 'i' }), t('action.join')])
                     ]);
 
-                    const backButton = (key) => h('button', { key: key || 'back', className: 'sb-soft-btn', onClick: resetToSelect, style: { display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '14px', padding: '6px 11px 6px 8px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#9a9aa2', fontFamily: 'inherit', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' } }, [fa('fa-chevron-left', { key: 'i' }), 'Back']);
+                    const backButton = (key) => h('button', { key: key || 'back', className: 'sb-soft-btn', onClick: resetToSelect, style: { display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '14px', padding: '6px 11px 6px 8px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#9a9aa2', fontFamily: 'inherit', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' } }, [fa('fa-chevron-left', { key: 'i' }), t('action.back')]);
 
                     // credential code block (offer/answer text fallback + copy)
                     const credBlock = h('div', { key: 'codeblock', style: { borderRadius: '13px', border: '1px solid rgba(255,255,255,0.08)', background: '#141416', overflow: 'hidden', marginBottom: '16px' } }, [
                         h('div', { key: 'bar', style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.2)' } }, [
                             h('span', { key: 'dot', style: { width: '7px', height: '7px', borderRadius: '50%', background: accent } }),
-                            h('span', { key: 'tag', style: { fontFamily: MONO, fontSize: '10.5px', fontWeight: 600, color: '#8a8a92' } }, `${isCreate ? 'offer' : 'answer'} · or copy text`),
-                            h('button', { key: 'copy', onClick: copyCred, style: { marginLeft: 'auto', padding: '4px 9px', borderRadius: '6px', border: `1px solid ${copied ? 'rgba(62,207,142,0.4)' : 'rgba(255,255,255,0.1)'}`, background: copied ? 'rgba(62,207,142,0.1)' : 'rgba(255,255,255,0.04)', color: copied ? C_GREEN : '#b3b3ba', fontFamily: 'inherit', fontSize: '11px', fontWeight: 600, cursor: 'pointer', transition: 'all .14s' } }, copied ? 'Copied' : 'Copy')
+                            h('span', { key: 'tag', style: { fontFamily: MONO, fontSize: '10.5px', fontWeight: 600, color: '#8a8a92' } }, isCreate ? t('cred.offerTag') : t('cred.answerTag')),
+                            h('button', { key: 'copy', onClick: copyCred, style: { marginLeft: 'auto', padding: '4px 9px', borderRadius: '6px', border: `1px solid ${copied ? 'rgba(62,207,142,0.4)' : 'rgba(255,255,255,0.1)'}`, background: copied ? 'rgba(62,207,142,0.1)' : 'rgba(255,255,255,0.04)', color: copied ? C_GREEN : '#b3b3ba', fontFamily: 'inherit', fontSize: '11px', fontWeight: 600, cursor: 'pointer', transition: 'all .14s' } }, copied ? t('action.copied') : t('action.copy'))
                         ]),
                         // The handshake code is sensitive — keep it blurred until the
                         // user deliberately reveals it, underscoring that it must be
@@ -1505,7 +1506,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             h('div', { key: 'code', className: 'sb-sc', style: { fontFamily: MONO, fontSize: '11px', lineHeight: 1.55, color: '#c9ccd8', wordBreak: 'break-all', padding: '11px 12px', maxHeight: '72px', overflowY: 'auto', filter: codeRevealed ? 'none' : 'blur(6px)', userSelect: codeRevealed ? 'text' : 'none', transition: 'filter .2s' } }, credCode),
                             !codeRevealed && h('button', { key: 'reveal', onClick: () => setCodeRevealed(true), style: { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', border: 'none', background: 'rgba(20,20,22,0.25)', color: '#cfcfd4', fontFamily: 'inherit', fontSize: '12px', fontWeight: 600, cursor: 'pointer' } }, [
                                 fa('fa-eye', { key: 'i', fontSize: '15px' }),
-                                'Click to reveal — keep this code private'
+                                t('cred.reveal')
                             ])
                         ])
                     ]);
@@ -1513,8 +1514,8 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     const showQrButton = qrCodeUrl && h('button', { key: 'showqr', onClick: () => setQrModalOpen(true), style: { width: '100%', display: 'flex', alignItems: 'center', gap: '13px', padding: '15px 16px', borderRadius: '14px', border: `1px solid ${isCreate ? 'rgba(240,137,42,0.3)' : 'rgba(62,207,142,0.3)'}`, background: isCreate ? 'rgba(240,137,42,0.06)' : 'rgba(62,207,142,0.06)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'left', marginBottom: '14px' } }, [
                         h('span', { key: 'ic', style: { flex: 'none', width: '42px', height: '42px', borderRadius: '12px', display: 'grid', placeItems: 'center', background: isCreate ? 'rgba(240,137,42,0.12)' : 'rgba(62,207,142,0.12)', border: `1px solid ${isCreate ? 'rgba(240,137,42,0.28)' : 'rgba(62,207,142,0.28)'}` } }, fa('fa-qrcode', { color: accent, fontSize: '18px' })),
                         h('span', { key: 'tx', style: { flex: 1 } }, [
-                            h('span', { key: 't', style: { display: 'block', fontSize: '14.5px', fontWeight: 700, color: '#f4f4f6' } }, 'Show QR code'),
-                            h('span', { key: 's', style: { display: 'block', fontSize: '12.5px', color: '#8a8a92', marginTop: '1px' } }, `Full-screen · let your peer scan${(qrFramesTotal || 0) > 1 ? ` all ${qrFramesTotal} frames` : ''}`)
+                            h('span', { key: 't', style: { display: 'block', fontSize: '14.5px', fontWeight: 700, color: '#f4f4f6' } }, t('qr.showTitle')),
+                            h('span', { key: 's', style: { display: 'block', fontSize: '12.5px', color: '#8a8a92', marginTop: '1px' } }, (qrFramesTotal || 0) > 1 ? t('qr.showSubtitleFrames', { frames: qrFramesTotal }) : t('qr.showSubtitle'))
                         ]),
                         fa('fa-chevron-right', { color: '#6b6b73' })
                     ]);
@@ -1528,44 +1529,44 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             !verified && backButton('vback'),
                             h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', gap: '11px', marginBottom: '8px' } }, [
                                 h('div', { key: 'i', style: { width: '34px', height: '34px', flex: 'none', borderRadius: '10px', display: 'grid', placeItems: 'center', background: 'rgba(62,207,142,0.1)', border: '1px solid rgba(62,207,142,0.25)' } }, fa('fa-shield-alt', { color: C_GREEN })),
-                                h('h2', { key: 't', style: { margin: 0, fontSize: '21px', fontWeight: 800, letterSpacing: '-0.4px', color: '#f4f4f6' } }, 'Security verification')
+                                h('h2', { key: 't', style: { margin: 0, fontSize: '21px', fontWeight: 800, letterSpacing: '-0.4px', color: '#f4f4f6' } }, t('verify.title'))
                             ]),
-                            h('p', { key: 'sub', style: { margin: '0 0 18px', fontSize: '13.5px', lineHeight: 1.55, color: '#8a8a92' } }, 'Compare this safety code with your peer over a separate channel (voice / in person), then type it to unlock the chat.'),
+                            h('p', { key: 'sub', style: { margin: '0 0 18px', fontSize: '13.5px', lineHeight: 1.55, color: '#8a8a92' } }, t('verify.desc')),
                             h('div', { key: 'cells', style: { display: 'flex', gap: '6px', justifyContent: 'center', marginBottom: '20px', flexWrap: 'wrap' } }, cells),
                             verified
                                 ? h('div', { key: 'ok', style: { display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '24px 16px', borderRadius: '16px', border: '1px solid rgba(62,207,142,0.25)', background: 'rgba(62,207,142,0.06)', animation: 'sbUp .3s ease' } }, [
                                     h('div', { key: 'i', style: { width: '54px', height: '54px', borderRadius: '16px', display: 'grid', placeItems: 'center', background: 'rgba(62,207,142,0.14)', border: '1px solid rgba(62,207,142,0.35)', marginBottom: '14px' } }, fa('fa-check', { color: C_GREEN, fontSize: '24px' })),
-                                    h('div', { key: 't', style: { fontSize: '18px', fontWeight: 800, color: '#f4f4f6' } }, 'Channel verified'),
-                                    h('div', { key: 's', style: { fontSize: '13.5px', color: '#8a8a92', marginTop: '5px' } }, 'Both parties confirmed. Opening the secure chat…')
+                                    h('div', { key: 't', style: { fontSize: '18px', fontWeight: 800, color: '#f4f4f6' } }, t('verify.verified')),
+                                    h('div', { key: 's', style: { fontSize: '13.5px', color: '#8a8a92', marginTop: '5px' } }, t('verify.bothConfirmed'))
                                 ])
                                 : h('div', { key: 'form' }, [
-                                    h('div', { key: 'lbl', style: { fontSize: '12.5px', fontWeight: 600, color: '#9a9aa2', marginBottom: '8px' } }, 'Enter the verified code'),
-                                    h('input', { key: 'in', value: sasInput, onChange: (e) => { setSasInput(e.target.value.toUpperCase()); if (sasError) setSasError(''); }, disabled: localVerificationConfirmed, autoFocus: true, autoComplete: 'off', spellCheck: false, placeholder: verificationCode ? 'Type code here' : 'Waiting for code…', style: { width: '100%', textAlign: 'center', letterSpacing: '6px', borderRadius: '12px', border: `1px solid ${sasInput.length ? (canConfirm || localVerificationConfirmed ? 'rgba(62,207,142,0.5)' : 'rgba(255,255,255,0.14)') : 'rgba(255,255,255,0.08)'}`, background: '#141416', color: '#f4f4f6', fontFamily: MONO, fontSize: '20px', fontWeight: 700, padding: '14px', outline: 'none', textTransform: 'uppercase', marginBottom: sasError ? '8px' : '16px' } }),
+                                    h('div', { key: 'lbl', style: { fontSize: '12.5px', fontWeight: 600, color: '#9a9aa2', marginBottom: '8px' } }, t('verify.enterLabel')),
+                                    h('input', { key: 'in', value: sasInput, onChange: (e) => { setSasInput(e.target.value.toUpperCase()); if (sasError) setSasError(''); }, disabled: localVerificationConfirmed, autoFocus: true, autoComplete: 'off', spellCheck: false, placeholder: verificationCode ? t('verify.placeholder') : t('verify.waiting'), style: { width: '100%', textAlign: 'center', letterSpacing: '6px', borderRadius: '12px', border: `1px solid ${sasInput.length ? (canConfirm || localVerificationConfirmed ? 'rgba(62,207,142,0.5)' : 'rgba(255,255,255,0.14)') : 'rgba(255,255,255,0.08)'}`, background: '#141416', color: '#f4f4f6', fontFamily: MONO, fontSize: '20px', fontWeight: 700, padding: '14px', outline: 'none', textTransform: 'uppercase', marginBottom: sasError ? '8px' : '16px' } }),
                                     sasError && h('p', { key: 'err', style: { color: '#e5727a', fontSize: '12.5px', margin: '0 0 16px' } }, sasError),
                                     h('div', { key: 'status', style: { display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' } }, [
                                         h('div', { key: 'you', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderRadius: '11px', border: '1px solid rgba(255,255,255,0.06)', background: '#141416' } }, [
-                                            h('span', { key: 'l', style: { fontSize: '13px', color: '#cfcfd4', fontWeight: 600 } }, 'Your confirmation'),
-                                            h('span', { key: 'v', style: { display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: localVerificationConfirmed ? C_GREEN : '#7b7b83' } }, [fa(localVerificationConfirmed ? 'fa-check-circle' : 'fa-clock', { key: 'i' }), localVerificationConfirmed ? 'Confirmed' : 'Pending'])
+                                            h('span', { key: 'l', style: { fontSize: '13px', color: '#cfcfd4', fontWeight: 600 } }, t('verify.yours')),
+                                            h('span', { key: 'v', style: { display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: localVerificationConfirmed ? C_GREEN : '#7b7b83' } }, [fa(localVerificationConfirmed ? 'fa-check-circle' : 'fa-clock', { key: 'i' }), localVerificationConfirmed ? t('verify.confirmed') : t('verify.pending')])
                                         ]),
                                         h('div', { key: 'peer', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderRadius: '11px', border: '1px solid rgba(255,255,255,0.06)', background: '#141416' } }, [
-                                            h('span', { key: 'l', style: { fontSize: '13px', color: '#cfcfd4', fontWeight: 600 } }, 'Peer confirmation'),
-                                            h('span', { key: 'v', style: { display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: remoteVerificationConfirmed ? C_GREEN : '#7b7b83' } }, [fa(remoteVerificationConfirmed ? 'fa-check-circle' : 'fa-clock', { key: 'i' }), remoteVerificationConfirmed ? 'Confirmed' : 'Pending'])
+                                            h('span', { key: 'l', style: { fontSize: '13px', color: '#cfcfd4', fontWeight: 600 } }, t('verify.peer')),
+                                            h('span', { key: 'v', style: { display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: remoteVerificationConfirmed ? C_GREEN : '#7b7b83' } }, [fa(remoteVerificationConfirmed ? 'fa-check-circle' : 'fa-clock', { key: 'i' }), remoteVerificationConfirmed ? t('verify.confirmed') : t('verify.pending')])
                                         ])
                                     ]),
                                     h('div', { key: 'btns', style: { display: 'flex', gap: '10px' } }, [
-                                        h('button', { key: 'ok', onClick: handleSasConfirm, disabled: !canConfirm, style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', borderRadius: '13px', border: 'none', background: canConfirm ? C_GREEN : 'rgba(255,255,255,0.05)', color: canConfirm ? '#08160e' : '#56565e', fontFamily: 'inherit', fontSize: '14.5px', fontWeight: 700, cursor: canConfirm ? 'pointer' : 'not-allowed', boxShadow: canConfirm ? '0 8px 24px rgba(62,207,142,0.25)' : 'none' } }, [fa(localVerificationConfirmed ? 'fa-check-circle' : 'fa-check', { key: 'i' }), localVerificationConfirmed ? 'Confirmed' : 'Confirm code']),
-                                        h('button', { key: 'no', onClick: handleVerificationReject, style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', padding: '14px 16px', borderRadius: '13px', border: '1px solid rgba(229,114,122,0.3)', background: 'transparent', color: '#e5727a', fontFamily: 'inherit', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' } }, [fa('fa-times', { key: 'i' }), "Don't match"])
+                                        h('button', { key: 'ok', onClick: handleSasConfirm, disabled: !canConfirm, style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', borderRadius: '13px', border: 'none', background: canConfirm ? C_GREEN : 'rgba(255,255,255,0.05)', color: canConfirm ? '#08160e' : '#56565e', fontFamily: 'inherit', fontSize: '14.5px', fontWeight: 700, cursor: canConfirm ? 'pointer' : 'not-allowed', boxShadow: canConfirm ? '0 8px 24px rgba(62,207,142,0.25)' : 'none' } }, [fa(localVerificationConfirmed ? 'fa-check-circle' : 'fa-check', { key: 'i' }), localVerificationConfirmed ? t('verify.confirmed') : t('verify.confirm')]),
+                                        h('button', { key: 'no', onClick: handleVerificationReject, style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', padding: '14px 16px', borderRadius: '13px', border: '1px solid rgba(229,114,122,0.3)', background: 'transparent', color: '#e5727a', fontFamily: 'inherit', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' } }, [fa('fa-times', { key: 'i' }), t('verify.mismatch')])
                                     ])
                                 ])
                         ]);
                     } else if (isGenerating) {
-                        const genSteps = ['Generating ECDH P-384 key pair', 'Deriving verification code', 'Pinning Perfect Forward Secrecy'];
+                        const genSteps = [t('handshake.step1'), t('handshake.step2'), t('handshake.step3')];
                         inner = h('div', { key: 'gen', style: { animation: 'sbUp .28s ease' } }, [
                             h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', gap: '13px', marginBottom: '22px' } }, [
                                 h('div', { key: 'sp', style: { width: '44px', height: '44px', flex: 'none', display: 'grid', placeItems: 'center' } }, fa('fa-circle-notch', { color: C_ORANGE, fontSize: '32px', animation: 'sbSpin 1s linear infinite' })),
                                 h('div', { key: 'tx' }, [
-                                    h('h2', { key: 't', style: { margin: 0, fontSize: '20px', fontWeight: 800, letterSpacing: '-0.4px', color: '#f4f4f6' } }, isCreate ? 'Securing your channel' : 'Building your answer'),
-                                    h('p', { key: 's', style: { margin: '3px 0 0', fontSize: '13px', color: '#8a8a92' } }, 'Forging keys strong enough to resist tampering.')
+                                    h('h2', { key: 't', style: { margin: 0, fontSize: '20px', fontWeight: 800, letterSpacing: '-0.4px', color: '#f4f4f6' } }, isCreate ? t('handshake.securingTitle') : t('handshake.answerTitle')),
+                                    h('p', { key: 's', style: { margin: '3px 0 0', fontSize: '13px', color: '#8a8a92' } }, t('handshake.securingDesc'))
                                 ])
                             ]),
                             h('div', { key: 'steps', style: { display: 'flex', flexDirection: 'column', borderRadius: '13px', border: '1px solid rgba(255,255,255,0.07)', background: '#141416', overflow: 'hidden' } },
@@ -1585,52 +1586,52 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     } else if (isOfferCred || isAnswerCred) {
                         inner = h('div', { key: 'cred', style: { animation: 'sbUp .3s ease' } }, [
                             backButton('cback'),
-                            h('h2', { key: 'h', style: { margin: '0 0 6px', fontSize: '23px', fontWeight: 800, letterSpacing: '-0.5px', color: '#f4f4f6' } }, isCreate ? 'Share your invitation' : 'Send back your answer'),
-                            h('p', { key: 'p', style: { margin: '0 0 18px', fontSize: '14px', lineHeight: 1.55, color: '#8a8a92' } }, isCreate ? 'Show the QR or send the code to your peer. It is one-time and expires shortly.' : 'Give this answer to the channel creator so they can finish the handshake.'),
+                            h('h2', { key: 'h', style: { margin: '0 0 6px', fontSize: '23px', fontWeight: 800, letterSpacing: '-0.5px', color: '#f4f4f6' } }, isCreate ? t('handshake.shareTitle') : t('handshake.sendAnswerTitle')),
+                            h('p', { key: 'p', style: { margin: '0 0 18px', fontSize: '14px', lineHeight: 1.55, color: '#8a8a92' } }, isCreate ? t('handshake.shareDesc') : t('handshake.sendAnswerDesc')),
                             showQrButton,
                             credBlock,
                             isOfferCred && h('div', { key: 'offerextra', style: { marginTop: '4px' } }, [
-                                h('div', { key: 'lbl', style: { fontSize: '12.5px', fontWeight: 600, color: '#9a9aa2', marginBottom: '8px' } }, "Then receive the answer your peer sends back"),
+                                h('div', { key: 'lbl', style: { fontSize: '12.5px', fontWeight: 600, color: '#9a9aa2', marginBottom: '8px' } }, t('handshake.thenReceive')),
                                 h('div', { key: 'ta', style: { borderRadius: '12px', border: `1px solid ${hasAnswer ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.07)'}`, background: '#141416', padding: '11px 14px', marginBottom: '10px' } },
-                                    h('textarea', { value: answerInput, onChange: (e) => { setAnswerInput(e.target.value); if (e.target.value.trim().length > 0 && typeof markAnswerCreated === 'function') markAnswerCreated(); }, rows: 2, placeholder: "Paste peer's answer code…", style: { width: '100%', resize: 'none', border: 'none', outline: 'none', background: 'transparent', color: '#d7d7db', fontFamily: MONO, fontSize: '12px', lineHeight: 1.55, minHeight: '44px' } })),
+                                    h('textarea', { value: answerInput, onChange: (e) => { setAnswerInput(e.target.value); if (e.target.value.trim().length > 0 && typeof markAnswerCreated === 'function') markAnswerCreated(); }, rows: 2, placeholder: t('handshake.pasteAnswerPlaceholder'), style: { width: '100%', resize: 'none', border: 'none', outline: 'none', background: 'transparent', color: '#d7d7db', fontFamily: MONO, fontSize: '12px', lineHeight: 1.55, minHeight: '44px' } })),
                                 h('div', { key: 'btns', style: { display: 'flex', gap: '10px' } }, [
-                                    h('button', { key: 'scan', className: 'sb-scan-btn', onClick: () => setShowQRScannerModal(true), style: { flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px 16px', borderRadius: '13px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#cfcfd4', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, cursor: 'pointer' } }, [fa('fa-camera', { key: 'i' }), 'Scan']),
-                                    h('button', { key: 'est', onClick: onConnect, disabled: !hasAnswer, style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '14px', borderRadius: '13px', border: 'none', background: hasAnswer ? C_ORANGE : 'rgba(255,255,255,0.05)', color: hasAnswer ? '#1a0f04' : '#56565e', fontFamily: 'inherit', fontSize: '14.5px', fontWeight: 700, cursor: hasAnswer ? 'pointer' : 'not-allowed', boxShadow: hasAnswer ? '0 8px 24px rgba(240,137,42,0.28)' : 'none' } }, 'Establish connection')
+                                    h('button', { key: 'scan', className: 'sb-scan-btn', onClick: () => setShowQRScannerModal(true), style: { flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px 16px', borderRadius: '13px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#cfcfd4', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, cursor: 'pointer' } }, [fa('fa-camera', { key: 'i' }), t('action.scan')]),
+                                    h('button', { key: 'est', onClick: onConnect, disabled: !hasAnswer, style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '14px', borderRadius: '13px', border: 'none', background: hasAnswer ? C_ORANGE : 'rgba(255,255,255,0.05)', color: hasAnswer ? '#1a0f04' : '#56565e', fontFamily: 'inherit', fontSize: '14.5px', fontWeight: 700, cursor: hasAnswer ? 'pointer' : 'not-allowed', boxShadow: hasAnswer ? '0 8px 24px rgba(240,137,42,0.28)' : 'none' } }, t('handshake.establish'))
                                 ])
                             ]),
                             isAnswerCred && h('div', { key: 'answerextra', style: { marginTop: '4px', display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', borderRadius: '12px', border: '1px solid rgba(62,207,142,0.18)', background: 'rgba(62,207,142,0.05)' } }, [
                                 fa('fa-circle-notch', { key: 'i', color: C_GREEN, animation: 'sbSpin 1.4s linear infinite' }),
-                                h('span', { key: 't', style: { fontSize: '13px', color: '#cfcfd4', fontWeight: 500 } }, 'Send this answer to the creator, then wait — the chat opens once they connect.')
+                                h('span', { key: 't', style: { fontSize: '13px', color: '#cfcfd4', fontWeight: 500 } }, t('handshake.answerSentNote'))
                             ])
                         ]);
                     } else if (isCreate) {
                         // CREATE intro
                         inner = h('div', { key: 'introC', style: { animation: 'sbUp .28s ease' } }, [
-                            h('h2', { key: 'h', style: { margin: '0 0 6px', fontSize: '23px', fontWeight: 800, letterSpacing: '-0.5px', color: '#f4f4f6' } }, 'Create a new channel'),
-                            h('p', { key: 'p', style: { margin: '0 0 22px', fontSize: '14px', lineHeight: 1.55, color: '#8a8a92' } }, 'Your device generates the keys and a one-time invitation. Nothing touches a server.'),
-                            h('button', { key: 'gen', className: 'sb-gen-btn', onClick: () => { requestNotificationPermissionOnInteraction(); if (webrtcManagerRef.current) handleCreateOffer(); }, style: { width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '15px', borderRadius: '13px', border: 'none', background: C_ORANGE, color: '#1a0f04', fontFamily: 'inherit', fontSize: '15px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 8px 24px rgba(240,137,42,0.28)' } }, [fa('fa-bolt', { key: 'i' }), 'Generate keys & invitation'])
+                            h('h2', { key: 'h', style: { margin: '0 0 6px', fontSize: '23px', fontWeight: 800, letterSpacing: '-0.5px', color: '#f4f4f6' } }, t('intro.createTitle')),
+                            h('p', { key: 'p', style: { margin: '0 0 22px', fontSize: '14px', lineHeight: 1.55, color: '#8a8a92' } }, t('intro.createDesc')),
+                            h('button', { key: 'gen', className: 'sb-gen-btn', onClick: () => { requestNotificationPermissionOnInteraction(); if (webrtcManagerRef.current) handleCreateOffer(); }, style: { width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '15px', borderRadius: '13px', border: 'none', background: C_ORANGE, color: '#1a0f04', fontFamily: 'inherit', fontSize: '15px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 8px 24px rgba(240,137,42,0.28)' } }, [fa('fa-bolt', { key: 'i' }), t('intro.createCta')])
                         ]);
                     } else {
                         // JOIN intro
                         inner = h('div', { key: 'introJ', style: { animation: 'sbUp .28s ease' } }, [
-                            h('h2', { key: 'h', style: { margin: '0 0 6px', fontSize: '23px', fontWeight: 800, letterSpacing: '-0.5px', color: '#f4f4f6' } }, 'Join a channel'),
+                            h('h2', { key: 'h', style: { margin: '0 0 6px', fontSize: '23px', fontWeight: 800, letterSpacing: '-0.5px', color: '#f4f4f6' } }, t('intro.joinTitle')),
                             h('p', { key: 'p', style: { margin: '0 0 16px', fontSize: '14px', lineHeight: 1.55, color: '#8a8a92' } }, "Scan your peer's QR with your camera, or paste their invitation code."),
                             h('button', { key: 'scan', className: 'sb-scan-btn', onClick: () => { requestNotificationPermissionOnInteraction(); setShowQRScannerModal(true); }, style: { width: '100%', display: 'flex', alignItems: 'center', gap: '13px', padding: '15px 16px', borderRadius: '14px', border: '1px solid rgba(62,207,142,0.3)', background: 'rgba(62,207,142,0.06)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'left', marginBottom: '14px' } }, [
                                 h('span', { key: 'ic', style: { flex: 'none', width: '42px', height: '42px', borderRadius: '12px', display: 'grid', placeItems: 'center', background: 'rgba(62,207,142,0.12)', border: '1px solid rgba(62,207,142,0.28)' } }, fa('fa-camera', { color: C_GREEN, fontSize: '18px' })),
                                 h('span', { key: 'tx', style: { flex: 1 } }, [
-                                    h('span', { key: 't', style: { display: 'block', fontSize: '14.5px', fontWeight: 700, color: '#f4f4f6' } }, 'Scan QR with camera'),
-                                    h('span', { key: 's', style: { display: 'block', fontSize: '12.5px', color: '#8a8a92', marginTop: '1px' } }, "Fastest — point at your peer's screen")
+                                    h('span', { key: 't', style: { display: 'block', fontSize: '14.5px', fontWeight: 700, color: '#f4f4f6' } }, t('intro.scanTitle')),
+                                    h('span', { key: 's', style: { display: 'block', fontSize: '12.5px', color: '#8a8a92', marginTop: '1px' } }, t('intro.scanSubtitle'))
                                 ]),
                                 fa('fa-chevron-right', { color: '#6b6b73' })
                             ]),
                             h('div', { key: 'or', style: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' } }, [
                                 h('span', { key: 'a', style: { flex: 1, height: '1px', background: 'rgba(255,255,255,0.07)' } }),
-                                h('span', { key: 'm', style: { fontSize: '11px', fontWeight: 600, color: '#56565e', textTransform: 'uppercase', letterSpacing: '0.7px' } }, 'or paste code'),
+                                h('span', { key: 'm', style: { fontSize: '11px', fontWeight: 600, color: '#56565e', textTransform: 'uppercase', letterSpacing: '0.7px' } }, t('intro.orPasteCode')),
                                 h('span', { key: 'b', style: { flex: 1, height: '1px', background: 'rgba(255,255,255,0.07)' } })
                             ]),
                             h('div', { key: 'ta', style: { borderRadius: '13px', border: `1px solid ${hasInvite ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.07)'}`, background: '#141416', padding: '13px 15px', marginBottom: '12px' } },
-                                h('textarea', { value: offerInput, onChange: (e) => { setOfferInput(e.target.value); if (e.target.value.trim().length > 0 && typeof markAnswerCreated === 'function') markAnswerCreated(); }, rows: 3, placeholder: 'Paste invitation code here…', style: { width: '100%', resize: 'none', border: 'none', outline: 'none', background: 'transparent', color: '#d7d7db', fontFamily: MONO, fontSize: '12.5px', lineHeight: 1.6, minHeight: '66px' } })),
-                            h('button', { key: 'connect', onClick: () => { requestNotificationPermissionOnInteraction(); onCreateAnswer(); }, disabled: !hasInvite || connectionStatus === 'connecting', style: { width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '14px', borderRadius: '13px', border: 'none', background: (hasInvite && connectionStatus !== 'connecting') ? C_ORANGE : 'rgba(255,255,255,0.05)', color: (hasInvite && connectionStatus !== 'connecting') ? '#1a0f04' : '#56565e', fontFamily: 'inherit', fontSize: '15px', fontWeight: 700, cursor: (hasInvite && connectionStatus !== 'connecting') ? 'pointer' : 'not-allowed', boxShadow: (hasInvite && connectionStatus !== 'connecting') ? '0 8px 24px rgba(240,137,42,0.28)' : 'none' } }, connectionStatus === 'connecting' ? 'Processing…' : 'Connect')
+                                h('textarea', { value: offerInput, onChange: (e) => { setOfferInput(e.target.value); if (e.target.value.trim().length > 0 && typeof markAnswerCreated === 'function') markAnswerCreated(); }, rows: 3, placeholder: t('intro.pastePlaceholder'), style: { width: '100%', resize: 'none', border: 'none', outline: 'none', background: 'transparent', color: '#d7d7db', fontFamily: MONO, fontSize: '12.5px', lineHeight: 1.6, minHeight: '66px' } })),
+                            h('button', { key: 'connect', onClick: () => { requestNotificationPermissionOnInteraction(); onCreateAnswer(); }, disabled: !hasInvite || connectionStatus === 'connecting', style: { width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '14px', borderRadius: '13px', border: 'none', background: (hasInvite && connectionStatus !== 'connecting') ? C_ORANGE : 'rgba(255,255,255,0.05)', color: (hasInvite && connectionStatus !== 'connecting') ? '#1a0f04' : '#56565e', fontFamily: 'inherit', fontSize: '15px', fontWeight: 700, cursor: (hasInvite && connectionStatus !== 'connecting') ? 'pointer' : 'not-allowed', boxShadow: (hasInvite && connectionStatus !== 'connecting') ? '0 8px 24px rgba(240,137,42,0.28)' : 'none' } }, connectionStatus === 'connecting' ? t('intro.connecting') : t('intro.connect'))
                         ]);
                     }
 
@@ -1667,10 +1668,10 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     const platformsMenu = platformsOpen && h('div', { key: 'platmenu', className: 'sb-platforms-menu', style: { position: 'absolute', left: 0, bottom: 'calc(100% + 10px)', width: '344px', maxWidth: '100%', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', background: '#161618', boxShadow: '0 24px 60px rgba(0,0,0,0.55)', overflow: 'hidden', zIndex: 25, animation: 'sbUp .2s ease' } }, [
                         h('div', { key: 'mh', style: { display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' } }, [
                             h('div', { key: 't', style: { flex: 1, lineHeight: 1.2 } }, [
-                                h('div', { key: 'a', style: { fontSize: '14px', fontWeight: 800, color: '#f4f4f6' } }, 'Download SecureBit'),
-                                h('div', { key: 'b', style: { fontSize: '11.5px', color: '#7b7b83' } }, 'Free · open source')
+                                h('div', { key: 'a', style: { fontSize: '14px', fontWeight: 800, color: '#f4f4f6' } }, t('dl.title')),
+                                h('div', { key: 'b', style: { fontSize: '11.5px', color: '#7b7b83' } }, t('dl.free'))
                             ]),
-                            h('span', { key: 'pill', style: { fontFamily: MONO, fontSize: '10px', fontWeight: 600, color: C_GREEN, padding: '3px 8px', borderRadius: '6px', background: 'rgba(62,207,142,0.1)', border: '1px solid rgba(62,207,142,0.22)' } }, "You're on Web")
+                            h('span', { key: 'pill', style: { fontFamily: MONO, fontSize: '10px', fontWeight: 600, color: C_GREEN, padding: '3px 8px', borderRadius: '6px', background: 'rgba(62,207,142,0.1)', border: '1px solid rgba(62,207,142,0.22)' } }, t('chat.onWeb'))
                         ]),
                         h('div', { key: 'rec', style: { padding: '12px 12px 6px' } },
                             h('button', { key: 'b', onClick: () => dlLink(DOWNLOADS[detectedOS].url), style: { width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '13px 14px', borderRadius: '12px', border: '1px solid rgba(240,137,42,0.4)', background: 'rgba(240,137,42,0.08)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'left' } }, [
@@ -1692,17 +1693,17 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             ]))),
                         h('div', { key: 'soon', style: { display: 'flex', alignItems: 'center', gap: '9px', padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.015)' } }, [
                             fa('fa-clock', { key: 'i', color: '#6b6b73' }),
-                            h('span', { key: 't', style: { fontSize: '11.5px', lineHeight: 1.45, color: '#7b7b83' } }, 'Mobile (iOS, Android) and browser extensions (Chrome, Firefox, Opera) are coming soon.')
+                            h('span', { key: 't', style: { fontSize: '11.5px', lineHeight: 1.45, color: '#7b7b83' } }, t('dl.soon'))
                         ])
                     ]);
 
                     const footer = h('div', { key: 'footer', className: 'sb-conn-footer', style: { position: 'relative', marginTop: '30px', paddingTop: '18px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' } }, [
                         h('button', { key: 'dl', onClick: () => setPlatformsOpen((v) => !v), style: { display: 'inline-flex', alignItems: 'center', gap: '9px', padding: '8px 13px 8px 9px', borderRadius: '10px', border: `1px solid ${platformsOpen ? 'rgba(240,137,42,0.4)' : 'rgba(255,255,255,0.08)'}`, background: platformsOpen ? 'rgba(240,137,42,0.06)' : 'rgba(255,255,255,0.02)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', transition: 'all .15s' } }, [
                             fa('fa-download', { key: 'i', color: C_ORANGE }),
-                            h('span', { key: 't', style: { fontSize: '12.5px', fontWeight: 700, color: '#e8e8eb' } }, 'Download desktop app'),
+                            h('span', { key: 't', style: { fontSize: '12.5px', fontWeight: 700, color: '#e8e8eb' } }, t('action.downloadDesktop')),
                             fa('fa-chevron-down', { key: 'c', color: '#6b6b73', style: { fontSize: '11px', transform: platformsOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s' } })
                         ]),
-                        h('button', { key: 'settings', className: 'sb-link', onClick: () => setShowIceSettings && setShowIceSettings(true), style: { display: 'inline-flex', alignItems: 'center', gap: '7px', background: 'none', border: 'none', color: '#8a8a92', fontFamily: 'inherit', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' } }, [fa('fa-sliders-h', { key: 'i' }), 'Advanced settings']),
+                        h('button', { key: 'settings', className: 'sb-link', onClick: () => setShowIceSettings && setShowIceSettings(true), style: { display: 'inline-flex', alignItems: 'center', gap: '7px', background: 'none', border: 'none', color: '#8a8a92', fontFamily: 'inherit', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' } }, [fa('fa-sliders-h', { key: 'i' }), t('action.advancedSettings')]),
                         platformsMenu
                     ]);
 
@@ -1745,14 +1746,14 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', gap: '11px', padding: '18px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' } }, [
                                 h('span', { key: 'd', style: { width: '9px', height: '9px', borderRadius: '50%', background: accent } }),
                                 h('div', { key: 'tx', style: { flex: 1, lineHeight: 1.2 } }, [
-                                    h('div', { key: 't', style: { fontSize: '15.5px', fontWeight: 800, color: '#f4f4f6' } }, isCreate ? 'Share your invitation' : 'Send back your answer'),
+                                    h('div', { key: 't', style: { fontSize: '15.5px', fontWeight: 800, color: '#f4f4f6' } }, isCreate ? t('handshake.shareTitle') : t('handshake.sendAnswerTitle')),
                                     h('div', { key: 's', style: { fontSize: '12px', color: '#7b7b83' } }, `${isCreate ? 'offer' : 'answer'} · one-time`)
                                 ]),
                                 h('button', { key: 'x', onClick: () => setQrModalOpen(false), style: { width: '32px', height: '32px', display: 'grid', placeItems: 'center', borderRadius: '9px', border: 'none', background: 'rgba(255,255,255,0.05)', color: '#9a9aa2', cursor: 'pointer' } }, fa('fa-times'))
                             ]),
                             h('div', { key: 'body', style: { padding: '22px 24px 24px' } }, [
                                 h('div', { key: 'qr', style: { position: 'relative', width: '100%', aspectRatio: '1', borderRadius: '18px', overflow: 'hidden', background: '#fff', padding: '18px', display: 'grid', placeItems: 'center' } },
-                                    h('img', { src: qrCodeUrl, alt: 'QR code', style: { width: '100%', height: '100%', objectFit: 'contain', display: 'block' } })),
+                                    h('img', { src: qrCodeUrl, alt: t('chatHdr.qrCode'), style: { width: '100%', height: '100%', objectFit: 'contain', display: 'block' } })),
                                 h('div', { key: 'ctrls', style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginTop: '18px' } }, [
                                     (qrFramesTotal || 0) >= 1 && h('div', { key: 'frame', style: { display: 'flex', alignItems: 'center', gap: '9px' } }, [
                                         h('span', { key: 'l', style: { fontFamily: MONO, fontSize: '12px', fontWeight: 600, color: '#9a9aa2' } }, `Frame ${Math.max(1, qrFrameIndex || 1)} / ${qrFramesTotal || 1}`),
@@ -1763,7 +1764,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                         h('button', { key: 'auto', onClick: toggleQrManualMode, style: { display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '9px 18px', borderRadius: '10px', border: `1px solid ${qrManualMode ? 'rgba(255,255,255,0.1)' : 'rgba(240,137,42,0.45)'}`, background: qrManualMode ? 'rgba(255,255,255,0.04)' : 'rgba(240,137,42,0.08)', color: qrManualMode ? '#9a9aa2' : C_ORANGE, fontFamily: 'inherit', fontSize: '13px', fontWeight: 600, cursor: 'pointer' } }, qrManualMode ? 'Manual' : 'Auto'),
                                         h('button', { key: 'next', onClick: nextQrFrame, style: { width: '40px', height: '36px', display: 'grid', placeItems: 'center', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#cfcfd4', cursor: 'pointer' } }, fa('fa-chevron-right'))
                                     ]),
-                                    h('p', { key: 'hint', style: { margin: '2px 0 0', textAlign: 'center', fontSize: '12px', lineHeight: 1.5, color: '#6b6b73' } }, (qrFramesTotal || 0) > 1 ? `The handshake is split across ${qrFramesTotal} frames — keep this open until your peer captures all of them.` : 'Keep this open until your peer captures the code.')
+                                    h('p', { key: 'hint', style: { margin: '2px 0 0', textAlign: 'center', fontSize: '12px', lineHeight: 1.5, color: '#6b6b73' } }, (qrFramesTotal || 0) > 1 ? t('handshake.qrHintFrames', { frames: qrFramesTotal }) : t('handshake.qrHint'))
                                 ])
                             ])
                         ])
@@ -1886,6 +1887,12 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                 const totalCount = Number.isFinite(securityData.totalChecks) ? securityData.totalChecks : entries.length;
                 const verifiedAt = new Date(securityData.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 
+                // A written name for each check, keyed by its verify* function. Falls back to
+                // the derived title for a check that has not been given one yet.
+                const testTitle = (k) => {
+                    const named = t(`secTest.${k}`);
+                    return named === `secTest.${k}` ? pretty(k) : named;
+                };
                 const pretty = (k) => {
                     let s = String(k).replace(/^verify/i, '').replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').trim();
                     s = s.replace(/\b(ecdh|ecdsa|aes|gcm|hmac|pfs|sas|mitm|asn|dtls|hkdf|spki|oid|p384)\b/gi, (m) => m.toUpperCase());
@@ -1896,7 +1903,11 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                 const xIcon = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#e5727a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>`;
                 const testsHTML = entries.map(([k, r], i) => {
                     const passed = !!(r && r.passed);
-                    const desc = (r && r.details) || (passed ? 'Test passed' : 'Test failed or unavailable');
+                    const raw = (r && r.details) || (passed ? t('sec.testPassed') : t('sec.testFailed'));
+                    // The crypto layer reports in English; translate by the sentence itself,
+                    // which leaves anything not yet translated readable rather than blank.
+                    const looked = t(`secDetail.${raw}`);
+                    const desc = looked === `secDetail.${raw}` ? raw : looked;
                     const bg = passed ? '#161618' : '#121214';
                     const border = passed ? 'rgba(62,207,142,0.16)' : 'rgba(229,114,122,0.18)';
                     const iconBg = passed ? 'rgba(62,207,142,0.12)' : 'rgba(229,114,122,0.1)';
@@ -1905,7 +1916,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     return `<div style="display:flex; align-items:flex-start; gap:13px; padding:16px 18px; border-radius:14px; background:${bg}; border:1px solid ${border}; animation:svIn .3s cubic-bezier(.2,.7,.3,1) both; animation-delay:${(i * 0.04).toFixed(2)}s;">
                         <span style="flex:none; width:34px; height:34px; border-radius:9px; display:grid; place-items:center; background:${iconBg}; border:1px solid ${iconBorder};">${passed ? checkIcon : xIcon}</span>
                         <div style="flex:1; min-width:0;">
-                            <div style="font-size:14.5px; font-weight:700; letter-spacing:-0.2px; color:${titleColor}; margin-bottom:3px;">${esc(pretty(k))}</div>
+                            <div style="font-size:14.5px; font-weight:700; letter-spacing:-0.2px; color:${titleColor}; margin-bottom:3px;">${esc(testTitle(k))}</div>
                             <div style="font-family:${MONO}; font-size:11.5px; line-height:1.45; color:#8a8a92;">${esc(desc)}</div>
                         </div>
                     </div>`;
@@ -1917,7 +1928,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                 modal.innerHTML = `
                   <style>@keyframes svIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes svPulse{0%,100%{opacity:1}50%{opacity:.4}}</style>
                   <div style="position:relative; max-width:960px; width:100%; border-radius:20px; background:radial-gradient(1100px 640px at 50% -6%, rgba(${accentRGB},0.05), transparent 62%), #0f0f11; border:1px solid rgba(255,255,255,0.08); color:#e8e8eb; padding:30px; box-shadow:0 30px 70px rgba(0,0,0,0.55); animation:svIn .3s cubic-bezier(.2,.7,.3,1); max-height:calc(100vh - 48px); overflow:auto;">
-                    <button class="sv-close" type="button" title="Close" style="position:absolute; top:16px; right:16px; width:32px; height:32px; border-radius:9px; display:grid; place-items:center; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.02); color:#8a8a92; cursor:pointer; z-index:2;">
+                    <button class="sv-close" type="button" title="${t('chat.close')}" style="position:absolute; top:16px; right:16px; width:32px; height:32px; border-radius:9px; display:grid; place-items:center; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.02); color:#8a8a92; cursor:pointer; z-index:2;">
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M6 6l12 12M18 6L6 18"/></svg>
                     </button>
                     <div style="position:relative; overflow:hidden; border-radius:18px; background:#141416; border:1px solid rgba(255,255,255,0.07); padding:28px 30px; display:flex; align-items:center; gap:30px; flex-wrap:wrap; margin-bottom:20px;">
@@ -1933,15 +1944,15 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         </div>
                       </div>
                       <div style="flex:1; min-width:240px;">
-                        <div style="font-family:${MONO}; font-size:11px; font-weight:600; color:#6b6b73; text-transform:uppercase; letter-spacing:1.6px; margin-bottom:10px;">Real-time security verification</div>
+                        <div style="font-family:${MONO}; font-size:11px; font-weight:600; color:#6b6b73; text-transform:uppercase; letter-spacing:1.6px; margin-bottom:10px;">${t('report.title')}</div>
                         <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap;">
                           <h2 style="margin:0; font-size:26px; font-weight:800; letter-spacing:-0.7px; color:#f4f4f6;">Security level: ${esc(level)}</h2>
-                          <span style="display:inline-flex; align-items:center; gap:8px; padding:6px 12px; border-radius:9px; background:rgba(${accentRGB},0.12); border:1px solid rgba(${accentRGB},0.3); font-family:${MONO}; font-size:11px; font-weight:700; color:${accent}; text-transform:uppercase; letter-spacing:0.6px;"><span style="width:7px; height:7px; border-radius:50%; background:${accent}; animation:svPulse 2s ease-in-out infinite;"></span>Active</span>
+                          <span style="display:inline-flex; align-items:center; gap:8px; padding:6px 12px; border-radius:9px; background:rgba(${accentRGB},0.12); border:1px solid rgba(${accentRGB},0.3); font-family:${MONO}; font-size:11px; font-weight:700; color:${accent}; text-transform:uppercase; letter-spacing:0.6px;"><span style="width:7px; height:7px; border-radius:50%; background:${accent}; animation:svPulse 2s ease-in-out infinite;"></span>${t('report.active')}</span>
                         </div>
                         <div style="display:flex; gap:28px; flex-wrap:wrap;">
-                          <div><div style="font-family:${MONO}; font-size:10px; font-weight:600; color:#56565e; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Tests passed</div><div style="font-size:15px; font-weight:700; color:#e8e8eb;"><span style="color:${accent};">${passedCount}</span> / ${totalCount}</div></div>
-                          <div><div style="font-family:${MONO}; font-size:10px; font-weight:600; color:#56565e; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Verified at</div><div style="font-family:${MONO}; font-size:15px; font-weight:600; color:#e8e8eb;">${esc(verifiedAt)}</div></div>
-                          <div><div style="font-family:${MONO}; font-size:10px; font-weight:600; color:#56565e; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Source</div><div style="font-size:15px; font-weight:600; color:#e8e8eb;">${isReal ? 'Real cryptographic tests' : 'Simulated data'}</div></div>
+                          <div><div style="font-family:${MONO}; font-size:10px; font-weight:600; color:#56565e; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">${t('report.testsPassed')}</div><div style="font-size:15px; font-weight:700; color:#e8e8eb;"><span style="color:${accent};">${passedCount}</span> / ${totalCount}</div></div>
+                          <div><div style="font-family:${MONO}; font-size:10px; font-weight:600; color:#56565e; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">${t('report.verifiedAt')}</div><div style="font-family:${MONO}; font-size:15px; font-weight:600; color:#e8e8eb;">${esc(verifiedAt)}</div></div>
+                          <div><div style="font-family:${MONO}; font-size:10px; font-weight:600; color:#56565e; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">${t('report.source')}</div><div style="font-size:15px; font-weight:600; color:#e8e8eb;">${isReal ? t('sec.realTests') : t('sec.simulatedData')}</div></div>
                         </div>
                       </div>
                       <button class="sv-rerun" type="button" style="flex:none; display:inline-flex; align-items:center; gap:9px; padding:12px 18px; border-radius:11px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.025); color:#cfcfd4; font-family:'Manrope',sans-serif; font-size:14px; font-weight:700; cursor:pointer; transition:all .2s;">
@@ -1952,7 +1963,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(248px, 1fr)); gap:12px;">${testsHTML}</div>
                     <div style="display:flex; align-items:center; gap:12px; margin-top:18px; padding:16px 20px; border-radius:14px; background:rgba(${accentRGB},0.06); border:1px solid rgba(${accentRGB},0.18);">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${accent}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M12 3l8 4v5c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V7l8-4z"/><path d="M9.2 12.2l2 2 3.6-3.8"/></svg>
-                      <span style="font-size:14px; font-weight:600; color:#e8e8eb;">${isReal ? 'Real-time verification using actual cryptographic functions — no mock data.' : 'Warning: connection may not be fully established — values may be simulated.'}</span>
+                      <span style="font-size:14px; font-weight:600; color:#e8e8eb;">${isReal ? t('sec.realTimeNote') : t('sec.simulatedWarning')}</span>
                     </div>
                   </div>`;
 
@@ -2005,10 +2016,10 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                 const connected = onlineConnected && !isOffline;
                 const connDot = (isOffline || dropped) ? '#e5727a' : (onlineConnected ? '#3ecf8e' : '#e3c84e');
                 const connLabel = isOffline
-                    ? 'Offline'
-                    : (onlineConnected ? 'Connected'
-                        : (status === 'peer_disconnected' ? 'Peer disconnected'
-                            : (status === 'disconnected' ? 'Disconnected' : 'Connecting…')));
+                    ? t('chat.offline')
+                    : (onlineConnected ? t('status.connected')
+                        : (status === 'peer_disconnected' ? t('status.peerDisconnected')
+                            : (status === 'disconnected' ? t('chat.disconnected') : t('status.connecting'))));
                 const connGlow = (isOffline || dropped) ? '0 0 0 3px rgba(229,114,122,0.16)' : (onlineConnected ? '0 0 0 3px rgba(62,207,142,0.16)' : '0 0 0 3px rgba(227,200,78,0.16)');
                 // The avatar dot + subtitle reflect the PEER's advertised availability while connected.
                 const peerDot = (onlineConnected && !isOffline) ? (PRESENCE_DOT[peerPresence] || '#3ecf8e') : connDot;
@@ -2018,23 +2029,31 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                 const renameKey = (e) => { if (e.key === 'Enter') { e.preventDefault(); commitRename(); } else if (e.key === 'Escape') { setEditingName(false); } };
                 const passed = sec && Number.isFinite(sec.passedChecks) ? sec.passedChecks : null;
                 const total = sec && Number.isFinite(sec.totalChecks) ? sec.totalChecks : null;
+                // The security level arrives from the WebRTC layer as an identifier
+                // ('MAXIMUM', 'INITIALIZING'). Translate it where it is shown; anything
+                // without a translation falls through as-is rather than vanishing.
+                const secLevelLabel = (lvl) => {
+                    if (!lvl) return lvl;
+                    const named = t(`secLevel.${lvl}`);
+                    return named === `secLevel.${lvl}` ? lvl : named;
+                };
                 const scoreLabel = (passed != null && total) ? (passed + '/' + total) : (sec ? (sec.score + '%') : '—');
                 const accent = sec
                     ? (sec.color === 'green' ? '#3ecf8e' : sec.color === 'orange' ? '#f0892a' : sec.color === 'yellow' ? '#e3c84e' : '#e5727a')
                     : '#3ecf8e';
 
                 const secBtn = React.createElement('div', {
-                    key: 'sec', title: 'Run security verification',
+                    key: 'sec', title: t('sas.runVerification'),
                     onClick: () => runSecurityReport(webrtcManager),
                     className: 'sb-secpill',
                     style: { display: 'flex', alignItems: 'center', gap: '9px', padding: '7px 13px', borderRadius: '9px', border: '1px solid ' + (showNetwork ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.07)'), background: showNetwork ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.02)', cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s' }
                 }, [
                     React.createElement('i', { key: 'i', className: 'fas fa-shield-halved', style: { color: accent, fontSize: '13px' } }),
-                    React.createElement('span', { key: 'l', className: 'sb-sec-label', style: { fontSize: '13px', fontWeight: 600, color: '#e8e8eb' } }, sec ? (sec.level || 'Secure') : 'Secure'),
+                    React.createElement('span', { key: 'l', className: 'sb-sec-label', style: { fontSize: '13px', fontWeight: 600, color: '#e8e8eb' } }, sec ? (secLevelLabel(sec.level) || t('chatHdr.secure')) : t('chatHdr.secure')),
                     React.createElement('span', { key: 'd', className: 'sb-sec-div', style: { width: '1px', height: '13px', background: 'rgba(255,255,255,0.12)' } }),
                     React.createElement('span', { key: 's', className: 'sb-sec-score', style: { fontFamily: MONO, fontSize: '11.5px', fontWeight: 500, color: '#8a8a92' } }, scoreLabel),
                     React.createElement('button', {
-                        key: 'c', type: 'button', title: 'Network & crypto details',
+                        key: 'c', type: 'button', title: t('sec.panelTitle'),
                         onClick: (e) => { e.stopPropagation(); setShowNetwork(v => !v); },
                         style: { background: 'none', border: 'none', padding: 0, margin: 0, cursor: 'pointer', display: 'grid', placeItems: 'center' }
                     }, React.createElement('i', { className: 'fas fa-chevron-down', style: { color: '#6b6b73', fontSize: '11px', transform: showNetwork ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s' } }))
@@ -2075,23 +2094,23 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     // ACTIVE conversation — avatar monogram + local label + connection status.
                     React.createElement('div', { key: 'left', style: { display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 } }, [
                         React.createElement('div', { key: 'avatar', style: { position: 'relative', flex: 'none', width: '36px', height: '36px', borderRadius: '10px', display: 'grid', placeItems: 'center', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', fontSize: '13px', fontWeight: 700, letterSpacing: '-0.3px', color: '#e8e8eb' } }, [
-                            monoInitials(title || 'Chat'),
+                            monoInitials(title || t('chatHdr.chat')),
                             React.createElement('span', { key: 'dot', style: { position: 'absolute', right: '-2px', bottom: '-2px', width: '11px', height: '11px', borderRadius: '50%', background: peerDot, border: '2px solid #121214' } })
                         ]),
                         editingName
                             ? React.createElement('div', { key: 'edit', style: { display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 } }, [
                                 React.createElement('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: '6px' } }, [
-                                    React.createElement('input', { key: 'in', autoFocus: true, value: nameDraft, maxLength: 32, placeholder: 'Name this chat', onChange: (e) => setNameDraft(e.target.value), onKeyDown: renameKey, onBlur: commitRename, style: { width: '210px', padding: '5px 10px', borderRadius: '8px', border: '1px solid rgba(240,137,42,0.55)', background: '#0f0f11', color: '#f4f4f6', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, outline: 'none' } }),
-                                    React.createElement('button', { key: 'ok', onMouseDown: (e) => e.preventDefault(), onClick: commitRename, title: 'Save', style: { flex: 'none', width: '28px', height: '28px', borderRadius: '8px', display: 'grid', placeItems: 'center', border: 'none', background: '#f0892a', color: '#1a0f04', cursor: 'pointer' } }, React.createElement('i', { className: 'fas fa-check', style: { fontSize: '12px' } }))
+                                    React.createElement('input', { key: 'in', autoFocus: true, value: nameDraft, maxLength: 32, placeholder: t('chat.nameThis'), onChange: (e) => setNameDraft(e.target.value), onKeyDown: renameKey, onBlur: commitRename, style: { width: '210px', padding: '5px 10px', borderRadius: '8px', border: '1px solid rgba(240,137,42,0.55)', background: '#0f0f11', color: '#f4f4f6', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, outline: 'none' } }),
+                                    React.createElement('button', { key: 'ok', onMouseDown: (e) => e.preventDefault(), onClick: commitRename, title: t('chatHdr.save'), style: { flex: 'none', width: '28px', height: '28px', borderRadius: '8px', display: 'grid', placeItems: 'center', border: 'none', background: '#f0892a', color: '#1a0f04', cursor: 'pointer' } }, React.createElement('i', { className: 'fas fa-check', style: { fontSize: '12px' } }))
                                 ]),
-                                React.createElement('div', { key: 'hint', style: { fontSize: '11px', color: '#56565e' } }, 'Local label · stored only on this device')
+                                React.createElement('div', { key: 'hint', style: { fontSize: '11px', color: '#56565e' } }, t('chat.localLabel'))
                             ])
                             : React.createElement('div', { key: 'txt', style: { lineHeight: 1.2, minWidth: 0 } }, [
                                 React.createElement('div', { key: 'r1', style: { display: 'flex', alignItems: 'center', gap: '7px' } }, [
-                                    React.createElement('span', { key: 'n', style: { fontSize: '15px', fontWeight: 800, letterSpacing: '-0.3px', color: '#f4f4f6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, title || 'Secure chat'),
-                                    React.createElement('button', { key: 'edit', className: 'sb-rename-btn', onClick: startRename, title: 'Rename chat (local only)', style: { flex: 'none', width: '24px', height: '24px', borderRadius: '7px', display: 'grid', placeItems: 'center', border: 'none', background: 'transparent', color: '#56565e', cursor: 'pointer' } }, React.createElement('i', { className: 'fas fa-pen', style: { fontSize: '11px' } }))
+                                    React.createElement('span', { key: 'n', style: { fontSize: '15px', fontWeight: 800, letterSpacing: '-0.3px', color: '#f4f4f6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, title || t('chat.secureChat')),
+                                    React.createElement('button', { key: 'edit', className: 'sb-rename-btn', onClick: startRename, title: t('chat.rename'), style: { flex: 'none', width: '24px', height: '24px', borderRadius: '7px', display: 'grid', placeItems: 'center', border: 'none', background: 'transparent', color: '#56565e', cursor: 'pointer' } }, React.createElement('i', { className: 'fas fa-pen', style: { fontSize: '11px' } }))
                                 ]),
-                                React.createElement('div', { key: 'r2', className: 'sb-hdr-sub', style: { fontSize: '11px', color: '#6b6b73', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, isOffline ? 'No network · reconnecting' : (status === 'reconnecting' ? 'Restoring connection…' : (peerPresenceWord || (onlineConnected ? 'P2P · end-to-end encrypted' : (status === 'peer_disconnected' ? 'Peer disconnected' : (status === 'disconnected' ? 'Disconnected' : 'Connecting…'))))))
+                                React.createElement('div', { key: 'r2', className: 'sb-hdr-sub', style: { fontSize: '11px', color: '#6b6b73', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, isOffline ? t('chat.noNetwork') : (status === 'reconnecting' ? t('flow.restoring') : (peerPresenceWord || (onlineConnected ? t('chatHdr.p2pSub') : (status === 'peer_disconnected' ? t('status.peerDisconnected') : (status === 'disconnected' ? t('chat.disconnected') : t('status.connecting')))))))
                             ])
                     ]),
                     secBtn,
@@ -2117,8 +2136,8 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             const PHONE_SVG = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
                             const VIDEO_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2.5"/></svg>';
                             return [
-                                React.createElement('button', { key: 'call-audio', className: callReady ? 'sb-call-btn' : 'sb-call-btn sb-call-off', disabled: !callReady, onClick: () => startCall(false), title: callReady ? 'Start encrypted voice call' : 'Verify the session to enable calls', style: callBtnStyle, dangerouslySetInnerHTML: { __html: PHONE_SVG } }),
-                                React.createElement('button', { key: 'call-video', className: callReady ? 'sb-call-btn' : 'sb-call-btn sb-call-off', disabled: !callReady, onClick: () => startCall(true), title: callReady ? 'Start encrypted video call' : 'Verify the session to enable calls', style: callBtnStyle, dangerouslySetInnerHTML: { __html: VIDEO_SVG } })
+                                React.createElement('button', { key: 'call-audio', className: callReady ? 'sb-call-btn' : 'sb-call-btn sb-call-off', disabled: !callReady, onClick: () => startCall(false), title: callReady ? t('chat.startVoiceCall') : t('chat.verifyForCalls'), style: callBtnStyle, dangerouslySetInnerHTML: { __html: PHONE_SVG } }),
+                                React.createElement('button', { key: 'call-video', className: callReady ? 'sb-call-btn' : 'sb-call-btn sb-call-off', disabled: !callReady, onClick: () => startCall(true), title: callReady ? t('chat.startVideoCall') : t('chat.verifyForCalls'), style: callBtnStyle, dangerouslySetInnerHTML: { __html: VIDEO_SVG } })
                             ];
                         })()),
                         React.createElement('div', { key: 'conn', className: 'sb-conn', style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 13px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' } }, [
@@ -2127,7 +2146,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         ]),
                         React.createElement('button', { key: 'dc', onClick: onDisconnect, className: 'sb-disconnect', style: { display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 14px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#9a9aa2', fontFamily: 'inherit', fontSize: '13px', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' } }, [
                             React.createElement('i', { key: 'i', className: 'fas fa-power-off', style: { fontSize: '12px' } }),
-                            React.createElement('span', { key: 't', className: 'sb-hide-sm' }, 'Disconnect')
+                            React.createElement('span', { key: 't', className: 'sb-hide-sm' }, t('hdr.disconnect'))
                         ])
                     ])
                 ]);
@@ -2136,10 +2155,10 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     key: 'net', style: { flex: 'none', padding: '13px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(18,18,20,0.72)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }
                 }, React.createElement('div', { style: { maxWidth: '1000px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: '14px', fontFamily: MONO } },
                     [
-                        ['Transport', 'WebRTC · DTLS'],
-                        ['Cipher', 'AES-256-GCM'],
-                        ['Key exchange', 'ECDH P-384'],
-                        ['Security', scoreLabel + (sec ? (' · ' + sec.score + '%') : '')]
+                        [t('sec.transport'), 'WebRTC · DTLS'],
+                        [t('sec.cipher'), 'AES-256-GCM'],
+                        [t('sec.keyExchange'), 'ECDH P-384'],
+                        [t('sec.security'), scoreLabel + (sec ? (' · ' + sec.score + '%') : '')]
                     ].map(([k, v], i) => React.createElement('div', { key: 'nf' + i }, [
                         React.createElement('div', { key: 'k', style: { fontSize: '10px', color: '#6b6b73', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '4px' } }, k),
                         React.createElement('div', { key: 'v', style: { fontSize: '12.5px', color: i === 3 ? accent : '#cfcfd4', fontWeight: 500 } }, v)
@@ -2299,11 +2318,11 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
             });
 
             const timerDefs = [
-                { label: 'Off', v: 0 }, { label: '5s', v: 5 }, { label: '30s', v: 30 },
+                { label: t('msg.off'), v: 0 }, { label: '5s', v: 5 }, { label: '30s', v: 30 },
                 { label: '1m', v: 60 }, { label: '1h', v: 3600 }, { label: '24h', v: 86400 }
             ];
             const onceDefs = [
-                { label: 'Off', v: 0 }, { label: '5s', v: 5 }, { label: '10s', v: 10 },
+                { label: t('msg.off'), v: 0 }, { label: '5s', v: 5 }, { label: '10s', v: 10 },
                 { label: '30s', v: 30 }, { label: '1m', v: 60 }
             ];
             const onceSelected = viewOnceMode ? viewOnceTtl : 0;
@@ -2345,8 +2364,8 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         React.createElement('i', { className: 'fas fa-check', style: { color: '#3ecf8e', fontSize: '16px' } })
                     ),
                     React.createElement('div', { key: 'tx', style: { flex: 1, minWidth: 0 } }, [
-                        React.createElement('div', { key: 't1', style: { fontSize: '13.5px', fontWeight: 600, color: '#e8e8eb', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, 'Secure channel established'),
-                        React.createElement('div', { key: 't2', style: { fontSize: '12px', color: '#7b7b83', marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, 'Verified · Perfect Forward Secrecy' + (systemMessages.length ? (' · ' + systemMessages.length + (systemMessages.length === 1 ? ' event' : ' events')) : ''))
+                        React.createElement('div', { key: 't1', style: { fontSize: '13.5px', fontWeight: 600, color: '#e8e8eb', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, t('flow.channelEstablished')),
+                        React.createElement('div', { key: 't2', style: { fontSize: '12px', color: '#7b7b83', marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, t('sas.verified') + (systemMessages.length ? (' · ' + systemMessages.length + (systemMessages.length === 1 ? ' event' : ' events')) : ''))
                     ]),
                     React.createElement('i', { key: 'chev', className: 'fas fa-chevron-down', style: { flex: 'none', color: '#6b6b73', fontSize: '13px', transform: showHandshake ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s' } })
                 ]),
@@ -2360,7 +2379,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     ),
                     keyFingerprint && React.createElement('div', { key: 'sn', style: { display: 'flex', alignItems: 'center', gap: '9px', padding: '10px 12px', borderRadius: '9px', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' } }, [
                         React.createElement('i', { key: 'i', className: 'fas fa-lock', style: { color: '#8a8a92', fontSize: '12px' } }),
-                        React.createElement('span', { key: 'l', style: { fontSize: '11.5px', color: '#8a8a92' } }, 'Safety number'),
+                        React.createElement('span', { key: 'l', style: { fontSize: '11.5px', color: '#8a8a92' } }, t('sas.safetyNumber')),
                         React.createElement('span', { key: 'v', style: { fontFamily: MONO, fontSize: '12px', color: '#cfcfd4', letterSpacing: '0.8px', fontWeight: 500, wordBreak: 'break-all' } }, keyFingerprint)
                     ])
                 ])
@@ -2370,8 +2389,8 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
             const emptyState = React.createElement('div', { key: 'empty', style: { display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, minHeight: '40vh' } },
                 React.createElement('div', { style: { textAlign: 'center', maxWidth: '420px' } }, [
                     React.createElement('img', { key: 'ic', src: '/logo/securebit-mark.svg', alt: 'SecureBit', style: { width: '60px', height: '60px', objectFit: 'contain', display: 'block', margin: '0 auto 16px' } }),
-                    React.createElement('h3', { key: 't', style: { fontSize: '17px', fontWeight: 700, color: '#e8e8eb', margin: '0 0 6px' } }, 'Secure channel is ready'),
-                    React.createElement('p', { key: 'p', style: { fontSize: '13px', color: '#7b7b83', margin: 0 } }, 'Every message is end-to-end encrypted on your device before it leaves.')
+                    React.createElement('h3', { key: 't', style: { fontSize: '17px', fontWeight: 700, color: '#e8e8eb', margin: '0 0 6px' } }, t('flow.channelReady')),
+                    React.createElement('p', { key: 'p', style: { fontSize: '13px', color: '#7b7b83', margin: 0 } }, t('chat.e2eeNote'))
                 ])
             );
 
@@ -2406,12 +2425,12 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
 
             // ---- option rows ----
             const timerRow = showTimer && React.createElement('div', { key: 'timer-row', style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', padding: '10px 12px', marginBottom: '10px', borderRadius: '11px', border: '1px solid rgba(255,255,255,0.07)', background: '#161618' } },
-                [React.createElement('span', { key: 'lbl', style: { fontSize: '12px', color: '#8a8a92', fontWeight: 600, marginRight: '4px' } }, 'Disappear after')].concat(
+                [React.createElement('span', { key: 'lbl', style: { fontSize: '12px', color: '#8a8a92', fontWeight: 600, marginRight: '4px' } }, t('chat.disappearAfter'))].concat(
                     timerDefs.map((d) => React.createElement('button', { key: 'td' + d.v, onClick: () => pickTimer(d.v), style: optStyle(disappearTtl === d.v) }, d.label))
                 )
             );
             const onceRow = showOnce && React.createElement('div', { key: 'once-row', style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', padding: '10px 12px', marginBottom: '10px', borderRadius: '11px', border: '1px solid rgba(255,255,255,0.07)', background: '#161618' } },
-                [React.createElement('span', { key: 'lbl', style: { fontSize: '12px', color: '#8a8a92', fontWeight: 600, marginRight: '4px' } }, 'Visible for')].concat(
+                [React.createElement('span', { key: 'lbl', style: { fontSize: '12px', color: '#8a8a92', fontWeight: 600, marginRight: '4px' } }, t('chat.visibleFor'))].concat(
                     onceDefs.map((d) => React.createElement('button', { key: 'od' + d.v, onClick: () => pickOnce(d.v), style: optStyle(onceSelected === d.v) }, d.label))
                 )
             );
@@ -2434,19 +2453,19 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     else { setShowFileTransfer(true); setFileSendMode(true); }
                 }, className: 'sb-chip', style: chipStyle(showFileTransfer && fileSendMode) }, [
                     React.createElement('i', { key: 'i', className: 'fas fa-paperclip', style: { fontSize: '13px' } }),
-                    (showFileTransfer && fileSendMode) ? 'Hide files' : 'Send files'
+                    (showFileTransfer && fileSendMode) ? t('chat.hideFiles') : t('chat.sendFiles')
                 ]),
                 React.createElement('div', { key: 'right', className: 'sb-chips-right', style: { display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' } }, [
                     React.createElement('button', { key: 'code', onClick: () => setCodeMode(v => !v), className: 'sb-chip', style: chipStyle(codeMode) }, [
-                        React.createElement('i', { key: 'i', className: 'fas fa-code', style: { fontSize: '13px' } }), 'Code'
+                        React.createElement('i', { key: 'i', className: 'fas fa-code', style: { fontSize: '13px' } }), t('msg.code')
                     ]),
                     React.createElement('button', { key: 'once', onClick: () => { setShowOnce(v => !v); setShowTimer(false); }, className: 'sb-chip', style: chipStyle(showOnce || viewOnceMode) }, [
                         React.createElement('i', { key: 'i', className: 'fas fa-eye-slash', style: { fontSize: '13px' } }),
-                        viewOnceMode ? ('View once · ' + fmtShort(viewOnceTtl)) : 'View once'
+                        viewOnceMode ? (t('chat.viewOncePrefix') + fmtShort(viewOnceTtl)) : t('chat.viewOnce')
                     ]),
                     React.createElement('button', { key: 'timer', onClick: () => { setShowTimer(v => !v); setShowOnce(false); }, className: 'sb-chip', style: chipStyle(showTimer || disappearTtl > 0) }, [
                         React.createElement('i', { key: 'i', className: 'fas fa-stopwatch', style: { fontSize: '13px' } }),
-                        disappearTtl > 0 ? ('Timer · ' + fmtShort(disappearTtl)) : 'Timer'
+                        disappearTtl > 0 ? (t('chat.timerPrefix') + fmtShort(disappearTtl)) : t('msg.timer')
                     ])
                 ])
             ]);
@@ -2454,17 +2473,17 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
             // ---- code-mode header strip ----
             const codeStrip = codeMode && React.createElement('div', { key: 'code-strip', style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 14px', border: '1px solid rgba(255,255,255,0.08)', borderBottom: 'none', borderRadius: '14px 14px 0 0', background: '#161618' } }, [
                 React.createElement('i', { key: 'i', className: 'fas fa-code', style: { color: '#8a8a92', fontSize: '12px' } }),
-                React.createElement('span', { key: 's', style: { fontSize: '11.5px', fontWeight: 600, color: '#8a8a92' } }, 'Code snippet · formatting preserved · ⌘↵ to send'),
-                React.createElement('button', { key: 'c', onClick: () => setCodeMode(false), className: 'sb-link', style: { marginLeft: 'auto', background: 'none', border: 'none', color: '#6b6b73', cursor: 'pointer', fontSize: '11.5px', fontFamily: 'inherit', fontWeight: 600 } }, 'Close')
+                React.createElement('span', { key: 's', style: { fontSize: '11.5px', fontWeight: 600, color: '#8a8a92' } }, t('chat.codeHint')),
+                React.createElement('button', { key: 'c', onClick: () => setCodeMode(false), className: 'sb-link', style: { marginLeft: 'auto', background: 'none', border: 'none', color: '#6b6b73', cursor: 'pointer', fontSize: '11.5px', fontFamily: 'inherit', fontWeight: 600 } }, t('chat.close'))
             ]);
 
             // ---- input row ----
             const sendBtn = React.createElement('button', {
-                key: 'send', onClick: onSendMessage, disabled: !hasText, title: 'Send message', className: 'sb-send',
+                key: 'send', onClick: onSendMessage, disabled: !hasText, title: t('chat.send'), className: 'sb-send',
                 style: { flex: 'none', width: '44px', height: '44px', borderRadius: '11px', border: 'none', display: 'grid', placeItems: 'center', cursor: hasText ? 'pointer' : 'default', background: hasText ? '#f0892a' : 'rgba(255,255,255,0.05)', color: hasText ? '#1a0f04' : '#56565e', transition: 'all .15s' }
             }, React.createElement('i', { className: 'fas fa-paper-plane', style: { fontSize: '15px' } }));
             const micBtn = React.createElement('button', {
-                key: 'mic', onClick: () => setIsRecording(true), title: 'Record voice message', className: 'sb-send',
+                key: 'mic', onClick: () => setIsRecording(true), title: t('chat.recordVoice'), className: 'sb-send',
                 style: { flex: 'none', width: '44px', height: '44px', borderRadius: '50%', border: 'none', display: 'grid', placeItems: 'center', cursor: 'pointer', background: '#f0892a', color: '#1a0f04', boxShadow: '0 8px 22px rgba(240,137,42,0.3)', transition: 'transform .15s cubic-bezier(.2,.7,.3,1)' }
             }, React.createElement('svg', { width: 19, height: 19, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.9, strokeLinecap: 'round', strokeLinejoin: 'round' }, [
                 React.createElement('rect', { key: 'a', x: 9, y: 3, width: 6, height: 11, rx: 3 }),
@@ -2490,14 +2509,14 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         onKeyDown: handleKeyPress,
                         rows: 1,
                         maxLength: 2000,
-                        placeholder: codeMode ? 'Paste or write code…' : 'Type an encrypted message…',
+                        placeholder: codeMode ? t('flow.pasteOrWrite') : t('chat.placeholder'),
                         className: 'sb-textarea',
                         style: { width: '100%', minHeight: codeMode ? '120px' : '22px', maxHeight: '240px', resize: 'none', border: 'none', outline: 'none', background: 'transparent', color: '#e8e8eb', fontFamily: codeMode ? MONO : 'inherit', fontSize: codeMode ? '13px' : '14.5px', lineHeight: 1.55, padding: '6px 0' }
                     }),
                     React.createElement('div', { key: 'foot', style: { display: 'flex', alignItems: 'center', gap: '12px', marginTop: '3px' } }, [
                         React.createElement('span', { key: 'enc', style: { display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: '#56565e' } }, [
                             React.createElement('i', { key: 'i', className: 'fas fa-lock', style: { color: '#3ecf8e', fontSize: '10px' } }),
-                            'Encrypted on your device'
+                            t('chat.encryptedOnDevice')
                         ]),
                         React.createElement('span', { key: 'cnt', style: { fontFamily: MONO, fontSize: '10.5px', color: '#56565e', marginLeft: 'auto' } }, (messageInput ? messageInput.length : 0) + '/2000')
                     ])
@@ -2770,7 +2789,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                     : h('span', {
                                         key: 'name',
                                         onDoubleClick: startEdit(c),
-                                        title: 'Double-click to rename',
+                                        title: t('chat.renameHint'),
                                         style: { flex: 1, minWidth: 0, fontSize: '14px', fontWeight: c.active ? 700 : 600, letterSpacing: '-0.2px', color: c.active ? '#f4f4f6' : '#cfcfd4', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
                                     }, c.name),
                                 c.unread && editingId !== c.id && h('span', { key: 'u', style: { flex: 'none', minWidth: '18px', height: '18px', padding: '0 5px', borderRadius: '9px', display: 'grid', placeItems: 'center', background: '#f0892a', color: '#1a0f04', fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 700 } }, c.unread)
@@ -2813,7 +2832,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         key: 'pmenu',
                         style: Object.assign({ position: 'absolute', zIndex: 30, borderRadius: '14px', background: '#161618', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 16px 40px rgba(0,0,0,0.55)', padding: '6px' }, pos)
                     }, [
-                        h('div', { key: 'h', style: { padding: '9px 10px 7px', fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 600, color: '#56565e', textTransform: 'uppercase', letterSpacing: '1.2px' } }, 'Set your status'),
+                        h('div', { key: 'h', style: { padding: '9px 10px 7px', fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 600, color: '#56565e', textTransform: 'uppercase', letterSpacing: '1.2px' } }, t('chat.setStatus')),
                         ...MY_STATUS_OPTIONS.map((o) => h('button', {
                             key: o.key,
                             onClick: () => { onSetStatus(o.key); setPresenceOpen(false); },
@@ -2828,7 +2847,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         ])),
                         h('div', { key: 'note', style: { display: 'flex', alignItems: 'flex-start', gap: '8px', margin: '6px 6px 4px', padding: '9px 10px', borderRadius: '9px', background: 'rgba(62,207,142,0.06)', border: '1px solid rgba(62,207,142,0.16)' } }, [
                             h('span', { key: 'i', style: { flex: 'none', marginTop: '1px', display: 'grid' }, dangerouslySetInnerHTML: { __html: PRES_SVG.lock } }),
-                            h('span', { key: 't', style: { fontSize: '11px', lineHeight: 1.45, color: '#8a8a92' } }, 'Sent end-to-end to connected peers only — never stored on a server.')
+                            h('span', { key: 't', style: { fontSize: '11px', lineHeight: 1.45, color: '#8a8a92' } }, t('chat.peersOnly'))
                         ])
                     ]) : null);
                     const presencePanelExpanded = h('div', { key: 'you', style: { flex: 'none', position: 'relative', marginTop: '10px', borderTop: '1px solid rgba(255,255,255,0.06)', padding: '10px 12px 12px' } }, [
@@ -2839,7 +2858,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                 h('span', { key: 'dot', style: { position: 'absolute', right: '-2px', bottom: '-2px', width: '11px', height: '11px', borderRadius: '50%', background: myMeta.dot, border: '2px solid #0c0c0e' } })
                             ]),
                             h('div', { key: 'tx', style: { flex: 1, minWidth: 0, textAlign: 'left' } }, [
-                                h('div', { key: 'y', style: { fontSize: '13.5px', fontWeight: 700, color: '#f4f4f6' } }, 'You'),
+                                h('div', { key: 'y', style: { fontSize: '13.5px', fontWeight: 700, color: '#f4f4f6' } }, t('chatHdr.you')),
                                 h('div', { key: 'w', style: { fontSize: '12px', color: '#8a8a92' } }, myMeta.word)
                             ]),
                             h('span', { key: 'ch', style: { display: 'grid', placeItems: 'center' }, dangerouslySetInnerHTML: { __html: PRES_SVG.chevUp } })
@@ -2847,7 +2866,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     ]);
                     const presencePanelCollapsed = h('div', { key: 'you', style: { flex: 'none', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 0 13px' } }, [
                         presenceMenu({ left: '60px', bottom: '8px', width: '248px' }),
-                        h('button', { key: 'btn', onClick: () => setPresenceOpen((v) => !v), title: 'Your status — ' + myMeta.word, style: { position: 'relative', width: '44px', height: '44px', borderRadius: '12px', display: 'grid', placeItems: 'center', cursor: 'pointer', background: 'rgba(240,137,42,0.12)', border: '1px solid rgba(240,137,42,0.24)', color: '#f0892a' } }, [
+                        h('button', { key: 'btn', onClick: () => setPresenceOpen((v) => !v), title: t('chat.yourStatusPrefix') + myMeta.word, style: { position: 'relative', width: '44px', height: '44px', borderRadius: '12px', display: 'grid', placeItems: 'center', cursor: 'pointer', background: 'rgba(240,137,42,0.12)', border: '1px solid rgba(240,137,42,0.24)', color: '#f0892a' } }, [
                             h('span', { key: 'i', style: { display: 'grid' }, dangerouslySetInnerHTML: { __html: PRES_SVG.user } }),
                             h('span', { key: 'dot', style: { position: 'absolute', right: '-2px', bottom: '-2px', width: '12px', height: '12px', borderRadius: '50%', background: myMeta.dot, border: '2.5px solid #0c0c0e' } })
                         ])
@@ -2856,27 +2875,27 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     const expandedInner = [
                         h('div', { key: 'head', style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px 0 16px', height: '64px', borderBottom: '1px solid rgba(255,255,255,0.06)' } }, [
                             h('div', { key: 'brand', style: { display: 'flex', alignItems: 'center', gap: '10px' } }, [brandMark(30), h('span', { key: 't', style: { fontSize: '15px', fontWeight: 800, letterSpacing: '-0.3px', color: '#f4f4f6' } }, 'SecureBit')]),
-                            collapseBtn(SB_SVG.chevL, 'Collapse')
+                            collapseBtn(SB_SVG.chevL, t('chat.collapse'))
                         ]),
                         h('div', { key: 'label', style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 16px 9px' } }, [
-                            h('span', { key: 'l', style: { fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 600, color: '#56565e', textTransform: 'uppercase', letterSpacing: '1.3px' } }, 'Chats'),
+                            h('span', { key: 'l', style: { fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 600, color: '#56565e', textTransform: 'uppercase', letterSpacing: '1.3px' } }, t('chatHdr.chats')),
                             h('span', { key: 'c', style: { fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 600, color: '#6b6b73' } }, String(chats.length))
                         ]),
                         h('div', { key: 'list', className: 'msc-scroll', style: { flex: 1, overflowY: 'auto', padding: '0 10px' } }, [
                             ...chats.map(expandedRow),
                             h('div', { key: 'gh', style: { marginTop: '14px', padding: '0 2px 6px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' } }, [
-                                h('span', { key: 'l', style: { fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 600, color: '#56565e', textTransform: 'uppercase', letterSpacing: '1.3px' } }, 'Group chats'),
+                                h('span', { key: 'l', style: { fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 600, color: '#56565e', textTransform: 'uppercase', letterSpacing: '1.3px' } }, t('chat.groupChats')),
                                 h('button', {
-                                    key: 'add', onClick: onNewGroup, title: 'New group',
+                                    key: 'add', onClick: onNewGroup, title: t('chat.newGroup'),
                                     style: { border: 'none', background: 'transparent', color: '#f0892a', cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.9px', padding: 0 }
-                                }, '+ New')
+                                }, t('chatHdr.newChat'))
                             ]),
                             ...(groups.length === 0
-                                ? [h('div', { key: 'gph', onClick: onNewGroup, title: 'Create a group', style: { display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 12px', borderRadius: '11px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.09)', cursor: 'pointer' } }, [
+                                ? [h('div', { key: 'gph', onClick: onNewGroup, title: t('chat.createGroup'), style: { display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 12px', borderRadius: '11px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.09)', cursor: 'pointer' } }, [
                                     h('div', { key: 'i', style: { flex: 'none', width: '38px', height: '38px', borderRadius: '11px', display: 'grid', placeItems: 'center', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', color: '#56565e' }, dangerouslySetInnerHTML: { __html: SB_SVG.users } }),
                                     h('div', { key: 'b', style: { flex: 1, minWidth: 0 } }, [
-                                        h('div', { key: 't', style: { fontSize: '14px', fontWeight: 600, color: '#8a8a92' } }, 'New group'),
-                                        h('div', { key: 's', style: { fontSize: '11.5px', color: '#56565e' } }, 'Up to 8 peers · P2P mesh')
+                                        h('div', { key: 't', style: { fontSize: '14px', fontWeight: 600, color: '#8a8a92' } }, t('chat.newGroup')),
+                                        h('div', { key: 's', style: { fontSize: '11.5px', color: '#56565e' } }, t('chat.meshHint'))
                                     ])
                                 ])]
                                 : groups.map((g) => h('div', {
@@ -2898,13 +2917,13 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         h('div', { key: 'new', style: { flex: 'none', padding: '12px' } }, h('button', {
                             onClick: onNewChat,
                             style: { width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '12px', borderRadius: '11px', border: 'none', background: '#f0892a', color: '#1a0f04', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 8px 24px rgba(240,137,42,0.28)' }
-                        }, [icon(SB_SVG.plus, { key: 'p' }), 'New chat'])),
+                        }, [icon(SB_SVG.plus, { key: 'p' }), t('chat.newChat')])),
                         presencePanelExpanded
                     ];
 
                     // ---- Collapsed dock content ----
                     const collapsedInner = [
-                        h('div', { key: 'head', style: { flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '13px 0', width: '100%', borderBottom: '1px solid rgba(255,255,255,0.06)' } }, [brandMark(32), collapseBtn(SB_SVG.chevR, 'Expand')]),
+                        h('div', { key: 'head', style: { flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '13px 0', width: '100%', borderBottom: '1px solid rgba(255,255,255,0.06)' } }, [brandMark(32), collapseBtn(SB_SVG.chevR, t('chatHdr.expand'))]),
                         h('div', { key: 'list', className: 'msc-scroll', style: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '14px 0', width: '100%' } }, [
                             ...chats.map(dockItem),
                             h('div', { key: 'sep', style: { width: '30px', height: '1px', background: 'rgba(255,255,255,0.07)', margin: '2px 0' } }),
@@ -2919,10 +2938,10 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                     g.unread && h('span', { key: 'u', style: { position: 'absolute', left: '-5px', top: '-5px', minWidth: '17px', height: '17px', padding: '0 4px', borderRadius: '9px', display: 'grid', placeItems: 'center', background: '#f0892a', color: '#1a0f04', fontFamily: "'JetBrains Mono',monospace", fontSize: '9.5px', fontWeight: 700, border: '2px solid #0c0c0e' } }, g.unread)
                                 ])
                             ])),
-                            h('div', { key: 'gph', onClick: onNewGroup, title: 'New group', style: { position: 'relative', width: '44px', height: '44px', borderRadius: '12px', display: 'grid', placeItems: 'center', cursor: 'pointer', background: 'transparent', border: '1px dashed rgba(255,255,255,0.1)', color: '#56565e' }, dangerouslySetInnerHTML: { __html: SB_SVG.users } })
+                            h('div', { key: 'gph', onClick: onNewGroup, title: t('chat.newGroup'), style: { position: 'relative', width: '44px', height: '44px', borderRadius: '12px', display: 'grid', placeItems: 'center', cursor: 'pointer', background: 'transparent', border: '1px dashed rgba(255,255,255,0.1)', color: '#56565e' }, dangerouslySetInnerHTML: { __html: SB_SVG.users } })
                         ]),
                         h('div', { key: 'new', style: { flex: 'none', padding: '13px 0' } }, h('button', {
-                            onClick: onNewChat, title: 'New chat',
+                            onClick: onNewChat, title: t('chat.newChat'),
                             style: { width: '44px', height: '44px', borderRadius: '12px', display: 'grid', placeItems: 'center', border: 'none', background: '#f0892a', color: '#1a0f04', cursor: 'pointer', boxShadow: '0 8px 24px rgba(240,137,42,0.28)' }, dangerouslySetInnerHTML: { __html: SB_SVG.plus }
                         })),
                         presencePanelCollapsed
@@ -3015,7 +3034,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             // Explicit close button — the drawer's own header only has a
                             // "collapse" chevron (a desktop-rail action), so on mobile there was
                             // no obvious way to dismiss it. This X closes the drawer reliably.
-                            h('button', { key: 'x', onClick: onCloseDrawer, title: 'Close menu', 'aria-label': 'Close menu', style: { position: 'absolute', top: '15px', right: '13px', zIndex: 2, width: '34px', height: '34px', borderRadius: '9px', display: 'grid', placeItems: 'center', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#cfcfd4', cursor: 'pointer' } }, h('i', { className: 'fas fa-xmark', style: { fontSize: '16px' } })),
+                            h('button', { key: 'x', onClick: onCloseDrawer, title: t('chat.closeMenu'), 'aria-label': t('chat.closeMenu'), style: { position: 'absolute', top: '15px', right: '13px', zIndex: 2, width: '34px', height: '34px', borderRadius: '9px', display: 'grid', placeItems: 'center', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#cfcfd4', cursor: 'pointer' } }, h('i', { className: 'fas fa-xmark', style: { fontSize: '16px' } })),
                             expandedInner
                         ]))
                     ]);
@@ -3170,7 +3189,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                 // a notice rather than an error state.
                                 groupsDispatch({
                                     type: GA.ADD_MESSAGE, id: gid,
-                                    message: buildGroupMessage('Nobody accepted the invitation. The group is unchanged.', 'system')
+                                    message: buildGroupMessage(t('err.nobodyAccepted'), 'system')
                                 });
                                 break;
                             case 'left':
@@ -3745,7 +3764,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                     level: 'MAXIMUM',
                                     score: 100,
                                     color: 'green',
-                                    details: 'All security features enabled by default',
+                                    details: t('sec.allEnabled'),
                                     passedChecks: 10,
                                     totalChecks: 10,
                                     isRealData: true
@@ -3769,7 +3788,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                 level: 'ERROR',
                                 score: 0,
                                 color: 'red',
-                                details: 'Verification failed'
+                                details: t('sas.verificationFailed')
                             });
                         } finally {
                             setTimeout(() => {
@@ -4283,9 +4302,9 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             (error) => {
                                 console.error('File transfer error:', error);
 
-                                if (error.includes('Connection not ready')) {
+                                if (error.includes(t('err.notReady'))) {
                                     addMessageWithAutoScroll(` File transfer error: connection not ready. Try again later.`, 'system');
-                                } else if (error.includes('File too large')) {
+                                } else if (error.includes(t('err.fileTooLarge'))) {
                                     addMessageWithAutoScroll(` File is too big. Maximum size: 100 MB`, 'system');
                                 } else {
                                     addMessageWithAutoScroll(` File transfer error: ${error}`, 'system');
@@ -4620,7 +4639,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             // A group that could not even be announced should not linger as a
                             // failed row the user has to clean up — say what went wrong instead.
                             setGroupError(error?.code === 'invitations_could_not_be_sent'
-                                ? 'The invitation could not be sent. That chat is not connected right now — reopen it and try again.'
+                                ? t('err.inviteNotConnectedRetry')
                                 : `The group could not be created (${error?.code || 'unknown error'}).`);
                         }
                     }, [sendGroupFrame, groupEmitter, sessionsState]);
@@ -4758,7 +4777,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             })));
                         } catch (error) {
                             setGroupError(error?.code === 'invitations_could_not_be_sent'
-                                ? 'The invitation could not be sent. That chat is not connected right now.'
+                                ? t('err.inviteNotConnected')
                                 : error?.code === 'too_many_members'
                                     ? `A group is limited to ${GROUP_LIMITS.MAX_MEMBERS} members.`
                                     : `Could not invite (${error?.code || 'unknown error'}).`);
@@ -5258,7 +5277,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                     setOfferInput(scannedData);
                                 }
                                 setMessages(prev => [...prev, {
-                                    message: 'Invitation captured.',
+                                    message: t('flow.invitationCaptured'),
                                     type: 'success'
                                 }]);
                                 setShowQRScannerModal(false);
@@ -5585,7 +5604,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             // where createQRReference used to be.
                             else if (parsedData.type === 'secure_offer_reference') {
                                 setMessages(prev => [...prev, {
-                                    message: 'This QR code uses a retired format that could not transfer the invitation. Ask your peer to generate a new one, or use copy/paste.',
+                                    message: t('err.retiredQr'),
                                     type: 'error'
                                 }]);
                                 return false;
@@ -5593,7 +5612,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                 // If payload was compressed, it's already decompressed above; keep legacy warning only when clearly incomplete
                                 if (!parsedData.sdp && parsedData.type === 'enhanced_secure_offer') {
                                     setMessages(prev => [...prev, {
-                                        message: 'Compressed QR may omit SDP for brevity. Use copy/paste if connection fails.',
+                                        message: t('err.compressedQrNote'),
                                         type: 'warning'
                                     }]);
                                 }
@@ -5713,19 +5732,19 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
         
                             const existingMessages = messages.filter(m => 
                                 m.type === 'system' && 
-                                (m.message.includes('Secure invitation created') || m.message.includes('Send the encrypted code'))
+                                (m.message.includes(t('flow.invitationCreated')) || m.message.includes(t('flow.sendEncryptedCode')))
                             );
                             
                             if (existingMessages.length === 0) {
                                 setMessages(prev => [...prev, { 
-                                    message: 'Secure invitation created and encrypted!', 
+                                    message: t('flow.invitationCreatedBang'), 
                                     type: 'system',
                                     id: Date.now(),
                                     timestamp: Date.now()
                                 }]);
                                 
                                 setMessages(prev => [...prev, { 
-                                    message: 'Send the invitation code to your interlocutor via a secure channel (voice call, SMS, etc.).',
+                                    message: t('flow.sendInvitation'),
                                     type: 'system',
                                     id: Date.now(),
                                     timestamp: Date.now()
@@ -5753,7 +5772,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             
                             if (!offerInput.trim()) {
                                 setMessages(prev => [...prev, { 
-                                    message: 'You need to insert the invitation code from your interlocutor.', 
+                                    message: t('err.needInvitation'), 
                                     type: 'system',
                                     id: Date.now(),
                                     timestamp: Date.now()
@@ -5763,7 +5782,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
         
                             try {
                                 setMessages(prev => [...prev, { 
-                                    message: 'Processing the secure invitation...', 
+                                    message: t('flow.processingInvitation'), 
                                     type: 'system',
                                     id: Date.now(),
                                     timestamp: Date.now()
@@ -5867,19 +5886,19 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
         
                                 const existingResponseMessages = messages.filter(m => 
                                     m.type === 'system' && 
-                                    (m.message.includes('Secure response created') || m.message.includes('Send the response'))
+                                    (m.message.includes(t('flow.responseCreated')) || m.message.includes(t('flow.sendTheResponse')))
                                 );
                                 
                                 if (existingResponseMessages.length === 0) {
                                     setMessages(prev => [...prev, { 
-                                        message: 'Secure response created!', 
+                                        message: t('flow.responseCreatedBang'), 
                                         type: 'system',
                                         id: Date.now(),
                                         timestamp: Date.now()
                                     }]);
                                     
                                     setMessages(prev => [...prev, { 
-                                        message: 'Send the response code to the initiator via a secure channel or let them scan the QR code below.', 
+                                        message: t('flow.sendResponse'), 
                                         type: 'system',
                                         id: Date.now(),
                                         timestamp: Date.now()
@@ -5915,7 +5934,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         try {
                             if (!answerInput.trim()) {
                                 setMessages(prev => [...prev, { 
-                                    message: 'You need to insert the response code from your interlocutor.', 
+                                    message: t('err.needResponse'), 
                                     type: 'system',
                                     id: Date.now(),
                                     timestamp: Date.now()
@@ -5925,7 +5944,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
         
                             try {
                                 setMessages(prev => [...prev, { 
-                                    message: 'Processing the secure response...', 
+                                    message: t('flow.processingResponse'), 
                                     type: 'system',
                                     id: Date.now(),
                                     timestamp: Date.now()
@@ -5969,7 +5988,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                     }
                                     
                                     setMessages(prev => [...prev, { 
-                                        message: 'Finalizing the secure connection...', 
+                                        message: t('flow.finalizing'), 
                                         type: 'system',
                                         id: Date.now(),
                                         timestamp: Date.now()
@@ -5983,21 +6002,21 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                     console.error('Error in handleConnect inner try:', error);
                                     
                                     // Более детальная обработка ошибок
-                                    let errorMessage = 'Connection setup error';
+                                    let errorMessage = t('err.setupError');
                                     if (error.message.includes('CRITICAL SECURITY FAILURE')) {
                                         if (error.message.includes('ECDH public key structure')) {
-                                            errorMessage = 'Invalid response code - missing or corrupted cryptographic key. Please check the code and try again.';
+                                            errorMessage = t('err.responseNoKey');
                                         } else if (error.message.includes('ECDSA public key structure')) {
-                                            errorMessage = 'Invalid response code - missing signature verification key. Please check the code and try again.';
+                                            errorMessage = t('err.responseNoSignKey');
                                         } else {
-                                            errorMessage = 'Security validation failed - possible attack detected';
+                                            errorMessage = t('err.securityValidation');
                                         }
                                     } else if (error.message.includes('too old') || error.message.includes('replay')) {
-                                        errorMessage = 'Response data is outdated - please use a fresh invitation';
+                                        errorMessage = t('err.responseOutdated');
                                     } else if (error.message.includes('MITM') || error.message.includes('signature')) {
-                                        errorMessage = 'Security breach detected - connection rejected';
+                                        errorMessage = t('err.securityBreach');
                                     } else if (error.message.includes('Invalid') || error.message.includes('format')) {
-                                        errorMessage = 'Invalid response format - please check the code';
+                                        errorMessage = t('err.responseFormat');
                                     } else {
                                         errorMessage = ` ${error.message}`;
                                     }
@@ -6021,21 +6040,21 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         } catch (error) {
                             console.error('Error in handleConnect outer try:', error);
 
-                            let errorMessage = 'Connection setup error';
+                            let errorMessage = t('err.setupError');
                             if (error.message.includes('CRITICAL SECURITY FAILURE')) {
                                 if (error.message.includes('ECDH public key structure')) {
-                                    errorMessage = 'Invalid response code - missing or corrupted cryptographic key. Please check the code and try again.';
+                                    errorMessage = t('err.responseNoKey');
                                 } else if (error.message.includes('ECDSA public key structure')) {
-                                    errorMessage = 'Invalid response code - missing signature verification key. Please check the code and try again.';
+                                    errorMessage = t('err.responseNoSignKey');
                                 } else {
-                                    errorMessage = 'Security validation failed - possible attack detected';
+                                    errorMessage = t('err.securityValidation');
                                 }
                             } else if (error.message.includes('too old') || error.message.includes('replay')) {
-                                errorMessage = 'Response data is outdated - please use a fresh invitation';
+                                errorMessage = t('err.responseOutdated');
                             } else if (error.message.includes('MITM') || error.message.includes('signature')) {
-                                errorMessage = 'Security breach detected - connection rejected';
+                                errorMessage = t('err.securityBreach');
                             } else if (error.message.includes('Invalid') || error.message.includes('format')) {
-                                errorMessage = 'Invalid response format - please check the code';
+                                errorMessage = t('err.responseFormat');
                             } else {
                                 errorMessage = `${error.message}`;
                             }
@@ -6189,7 +6208,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         // used to `return` in silence: the typed text stayed in the box,
                         // nothing was sent, and nothing said why.
                         if (!channelUsable) {
-                            addMessageWithAutoScroll('Not sent — the secure channel is not ready. Reconnect to continue.', 'system');
+                            addMessageWithAutoScroll(t('chat.notSentReason'), 'system');
                             return;
                         }
 
@@ -6272,8 +6291,8 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             if (localUrl) { try { URL.revokeObjectURL(localUrl); } catch (_) {} }
                             addMessageWithAutoScroll(
                                 reconnecting
-                                    ? 'Restoring the connection — try sending the voice message again in a moment.'
-                                    : 'Voice message needs an active secure connection. Reconnect and try again.',
+                                    ? t('err.voiceRestoring')
+                                    : t('err.voiceNeedsConnection'),
                                 'system'
                             );
                             return;
@@ -6868,7 +6887,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             const hasParts = !!(buf && buf.id && buf.total > 1);
                             const framesText = hasParts
                                 ? `Scanning frames… ${buf.seen.size} / ${buf.total}`
-                                : 'Scanning…';
+                                : t('qr.scanning');
                             const corner = (k, st) => React.createElement('span', {
                                 key: k,
                                 style: Object.assign({ position: 'absolute', width: '34px', height: '34px', zIndex: 3 }, st)
@@ -6900,11 +6919,11 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                             React.createElement('div', {
                                                 key: 'scanner-title',
                                                 style: { fontSize: '15.5px', fontWeight: 800, color: '#f4f4f6' }
-                                            }, 'Scan QR code'),
+                                            }, t('qr.title')),
                                             React.createElement('div', {
                                                 key: 'scanner-hint',
                                                 style: { fontSize: '12px', color: '#7b7b83' }
-                                            }, "Point your camera at their QR")
+                                            }, t('qr.subtitle'))
                                         ]),
                                         React.createElement('button', {
                                             key: 'close-btn',
@@ -6957,7 +6976,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                         React.createElement('p', {
                                             key: 'scanner-note',
                                             style: { margin: '16px 0 0', textAlign: 'center', fontSize: '12px', lineHeight: 1.5, color: '#6b6b73' }
-                                        }, 'Hold steady until all parts are captured. Camera access is local — nothing is uploaded.')
+                                        }, t('qr.hint'))
                                     ])
                                 ])
                             ]);

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { t } from '../src/i18n/index.js';
 
 const effects = [];
 const setterCalls = [];
@@ -9,6 +10,10 @@ const callbackCalls = [];
 
 const context = {
     window: {},
+    // The component reaches its copy through t(); in the browser that arrives as an
+    // ES import, which a bare VM script cannot evaluate. Supply the real function so
+    // the component sees exactly what it sees at runtime.
+    t,
     React: {
         useState(initialValue) {
             const index = stateIndex++;
@@ -26,7 +31,12 @@ const context = {
     }
 };
 
-const source = fs.readFileSync(new URL('../src/components/ui/FileTransfer.jsx', import.meta.url), 'utf8');
+// vm.runInNewContext evaluates a script, not a module, so the import statements are
+// stripped and their bindings handed in through the context above — the same
+// substitution the bundler performs, done by hand.
+const source = fs
+    .readFileSync(new URL('../src/components/ui/FileTransfer.jsx', import.meta.url), 'utf8')
+    .replace(/^import\s[^;]*;\s*$/gm, '');
 vm.runInNewContext(source, context);
 
 const manager = {

@@ -1,3 +1,5 @@
+import { t, tList } from '../../i18n/index.js';
+
 // "Development Roadmap" — milestone timeline section.
 // Translated from the Claude Design component (Roadmap.dc.html): a full-bleed
 // dark band with a shipped-progress bar and an expandable, status-coded timeline.
@@ -19,40 +21,35 @@ function Roadmap() {
     const SANS = "'Manrope', system-ui, -apple-system, sans-serif";
 
     const DATA = [
-        { v: "v1.0", title: "Start of Development", sub: "Idea, prototype, and infrastructure setup", status: "released", date: "Early 2025",
-          features: ["Concept and requirements formation", "Stack selection: WebRTC, P2P, cryptography", "First messaging prototypes", "Repository creation and CI", "Basic encryption architecture", "UX/UI design"] },
-        { v: "v1.5", title: "Alpha Release", sub: "First public alpha: basic chat and key exchange", status: "released", date: "Spring 2025",
-          features: ["Basic P2P messaging via WebRTC", "Simple E2E encryption (demo scheme)", "Stable signaling and reconnection", "Minimal UX for testing", "Feedback collection from early testers"] },
-        { v: "v2.0", title: "Security Hardened", sub: "Security strengthening and stable branch release", status: "released", date: "Summer 2025",
-          features: ["ECDH/ECDSA implementation in production", "Perfect Forward Secrecy and key rotation", "Improved authentication checks", "File encryption and large payload transfers", "Audit of basic cryptoprocesses"] },
-        { v: "v3.0", title: "Scaling & Stability", sub: "Network scaling and stability improvements", status: "released", date: "Fall 2025",
-          features: ["Optimization of P2P connections and NAT traversal", "Reconnection mechanisms and message queues", "Reduced battery consumption on mobile", "Multi-device synchronization support", "Monitoring and logging tools for developers"] },
-        { v: "v3.5", title: "Privacy-first Release", sub: "Focus on privacy: minimizing metadata", status: "released", date: "Winter 2025",
-          features: ["Metadata protection and fingerprint reduction", "Experiments with onion routing and DHT", "Options for anonymous connections", "Preparation for open code audit", "Improved user verification processes"] },
-        { v: "v4.5", title: "Enhanced Security Edition", sub: "18-layer military-grade cryptography with complete ASN.1 validation", status: "released", date: "Late 2025",
-          features: ["ECDH + DTLS + SAS triple-layer security", "ECDH P-384 + AES-GCM 256-bit encryption", "DTLS fingerprint verification", "SAS (Short Authentication String) verification", "Perfect Forward Secrecy with key rotation", "Enhanced MITM attack prevention", "Complete ASN.1 DER validation", "OID and EC point verification", "SPKI structure validation", "P2P WebRTC architecture", "Metadata protection", "100% open source code"] },
-        { v: "v5.0", title: "Desktop Edition", sub: "Native desktop apps for Windows, macOS, and Linux", status: "released", date: "Early 2026",
-          features: ["Windows desktop app (Tauri v2)", "macOS desktop app (Tauri v2)", "Linux AppImage support (Tauri v2)", "Real-time notifications", "Automatic reconnection", "Cross-device synchronization", "Improved UX/UI", "Support for files up to 100MB"] },
-        { v: "v5.5", title: "Secure Voice & Calls", sub: "Encrypted voice messages, audio calls, and video calls", status: "released", date: "Early 2026",
-          features: ["End-to-end encrypted voice messages", "1:1 encrypted audio calls (WebRTC)", "1:1 encrypted video calls (WebRTC)", "Perfect Forward Secrecy for live media", "SRTP/DTLS-protected media streams", "In-call SAS verification", "Call notifications and auto-reconnection", "Low-latency P2P media"] },
-        { v: "v6.0", title: "Group Communications", sub: "Group chats with preserved privacy", status: "current", date: "Now",
-          features: ["P2P group chats up to 8 participants", "Mesh delivery with signed relay fallback", "One group safety code, compared by everyone", "Commit-then-reveal ceremony against code grinding", "Per-group identity keys, ephemeral by design", "Signed membership with epoch ordering", "Signed messages, so a split transcript is provable", "No server, no shared group key, no history"] },
-        { v: "v6.5", title: "Mobile Edition", sub: "Native mobile apps for iOS and Android", status: "dev", date: "Q2 2027",
-          features: ["iOS native app (Swift/SwiftUI)", "Android native app (Kotlin/Jetpack Compose)", "PWA support for mobile browsers", "Real-time push notifications", "Battery optimization", "Mobile-optimized UX/UI", "Offline message queuing", "Biometric authentication"] },
-        { v: "v7.0", title: "Quantum-Resistant Edition", sub: "Protection against quantum computers", status: "planned", date: "Q4 2027",
-          features: ["Post-quantum cryptography CRYSTALS-Kyber", "SPHINCS+ digital signatures", "Hybrid scheme: classic + PQ", "Quantum-safe key exchange", "Updated hashing algorithms", "Migration of existing sessions", "Compatibility with v5.x", "Quantum-resistant protocols"] },
-        { v: "v7.5", title: "Decentralized Network", sub: "Fully decentralized network", status: "research", date: "2028",
-          features: ["Node mesh network", "DHT for peer discovery", "Built-in onion routing", "Tokenomics and node incentives", "Governance via DAO", "Interoperability with other networks", "Cross-platform compatibility", "Self-healing network"] },
-        { v: "v8.0", title: "AI Privacy Assistant", sub: "AI for privacy and security", status: "research", date: "2028+",
-          features: ["Local AI threat analysis", "Automatic MITM detection", "Adaptive cryptography", "Personalized security recommendations", "Zero-knowledge machine learning", "Private AI assistant", "Predictive security", "Autonomous attack protection"] }
-    ];
+        { v: "v1.0", k: 'r1', status: "released" },
+        { v: "v1.5", k: 'r2', status: "released" },
+        { v: "v2.0", k: 'r3', status: "released" },
+        { v: "v3.0", k: 'r4', status: "released" },
+        { v: "v3.5", k: 'r5', status: "released" },
+        { v: "v4.5", k: 'r6', status: "released" },
+        { v: "v5.0", k: 'r7', status: "released" },
+        { v: "v5.5", k: 'r8', status: "released" },
+        { v: "v6.0", k: 'r9', status: "current" },
+        { v: "v6.5", k: 'r10', status: "dev" },
+        { v: "v7.0", k: 'r11', status: "planned" },
+        { v: "v7.5", k: 'r12', status: "research" },
+        { v: "v8.0", k: 'r13', status: "research" }
+    ].map((d) => ({
+        ...d,
+        // Version tag and status are identifiers, not copy; everything a reader
+        // actually reads comes from the locale file.
+        title: t(`roadmap.${d.k}.title`),
+        sub: t(`roadmap.${d.k}.sub`),
+        date: t(`roadmap.${d.k}.date`),
+        features: tList(`roadmap.${d.k}.features`)
+    }));
 
     const META = {
-        released: { word: "Released", color: "#3ecf8e", line: "rgba(62,207,142,0.32)" },
-        current: { word: "Current", color: "#f0892a", line: "rgba(240,137,42,0.32)" },
-        dev: { word: "In development", color: "#e3b341", line: "rgba(255,255,255,0.08)" },
-        planned: { word: "Planned", color: "#8a8a92", line: "rgba(255,255,255,0.08)" },
-        research: { word: "Research", color: "#6b6b73", line: "rgba(255,255,255,0.08)" }
+        released: { word: t('roadmap.status.released'), color: "#3ecf8e", line: "rgba(62,207,142,0.32)" },
+        current: { word: t('roadmap.status.current'), color: "#f0892a", line: "rgba(240,137,42,0.32)" },
+        dev: { word: t('roadmap.status.dev'), color: "#e3b341", line: "rgba(255,255,255,0.08)" },
+        planned: { word: t('roadmap.status.planned'), color: "#8a8a92", line: "rgba(255,255,255,0.08)" },
+        research: { word: t('roadmap.status.research'), color: "#6b6b73", line: "rgba(255,255,255,0.08)" }
     };
 
     const [open, setOpen] = React.useState({});
@@ -68,6 +65,12 @@ function Roadmap() {
     const shipped = DATA.filter((d) => d.status === 'released' || d.status === 'current').length;
     const upcoming = total - shipped;
     const shippedPct = (shipped / total * 100).toFixed(1) + '%';
+
+    // The shipped count is highlighted, so the sentence is split around it rather than
+    // interpolated whole. Passing only `total` leaves the {shipped} placeholder in the
+    // string, which is where the highlighted number goes — a translation is free to put
+    // it anywhere in the sentence, and the highlight follows it there.
+    const [progressBefore, progressAfter] = t('roadmap.progress', { total }).split('{shipped}');
 
     const renderNode = (status) => {
         if (status === 'released') {
@@ -107,18 +110,18 @@ function Roadmap() {
 
                 {/* header */}
                 <div style={{ marginBottom: '30px' }}>
-                    <div style={{ fontFamily: MONO, fontSize: '11px', fontWeight: 600, color: '#6b6b73', textTransform: 'uppercase', letterSpacing: '1.6px', marginBottom: '13px' }}>Development Roadmap</div>
-                    <h2 style={{ margin: '0 0 14px', fontSize: isMobile ? '27px' : '34px', fontWeight: 800, letterSpacing: '-1px', lineHeight: 1.08, color: '#f4f4f6' }}>The evolution of SecureBit</h2>
-                    <p style={{ margin: 0, fontSize: '15.5px', lineHeight: 1.6, color: '#8a8a92', maxWidth: '660px' }}>From the first prototype to a quantum-resistant, decentralized network — with complete ASN.1 validation at every layer.</p>
+                    <div style={{ fontFamily: MONO, fontSize: '11px', fontWeight: 600, color: '#6b6b73', textTransform: 'uppercase', letterSpacing: '1.6px', marginBottom: '13px' }}>{t('roadmap.eyebrow')}</div>
+                    <h2 style={{ margin: '0 0 14px', fontSize: isMobile ? '27px' : '34px', fontWeight: 800, letterSpacing: '-1px', lineHeight: 1.08, color: '#f4f4f6' }}>{t('roadmap.heading')}</h2>
+                    <p style={{ margin: 0, fontSize: '15.5px', lineHeight: 1.6, color: '#8a8a92', maxWidth: '660px' }}>{t('roadmap.subheading')}</p>
                 </div>
 
                 {/* progress */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap', padding: '18px 22px', borderRadius: '14px', background: '#141416', border: '1px solid rgba(255,255,255,0.06)', marginBottom: '36px' }}>
-                    <div style={{ fontFamily: MONO, fontSize: '12px', fontWeight: 600, color: '#e8e8eb', whiteSpace: 'nowrap' }}><span style={{ color: '#3ecf8e' }}>{shipped}</span> of {total} milestones shipped</div>
+                    <div style={{ fontFamily: MONO, fontSize: '12px', fontWeight: 600, color: '#e8e8eb', whiteSpace: 'nowrap' }}>{progressBefore}<span style={{ color: '#3ecf8e' }}>{shipped}</span>{progressAfter}</div>
                     <div style={{ flex: '1 1 240px', minWidth: '200px', height: '8px', borderRadius: '99px', background: '#0c0c0e', border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
                         <div style={{ height: '100%', width: shippedPct, background: 'linear-gradient(90deg, #3ecf8e, #f0892a)' }} />
                     </div>
-                    <div style={{ fontFamily: MONO, fontSize: '11px', fontWeight: 600, color: '#6b6b73', textTransform: 'uppercase', letterSpacing: '0.8px', whiteSpace: 'nowrap' }}>{upcoming} on the way</div>
+                    <div style={{ fontFamily: MONO, fontSize: '11px', fontWeight: 600, color: '#6b6b73', textTransform: 'uppercase', letterSpacing: '0.8px', whiteSpace: 'nowrap' }}>{t('roadmap.upcoming', { upcoming })}</div>
                 </div>
 
                 {/* timeline */}
@@ -161,7 +164,7 @@ function Roadmap() {
                                 </div>
                                 {opened && (
                                     <div style={{ padding: '4px 22px 22px 22px', animation: 'rmExp .24s cubic-bezier(.2,.7,.3,1)' }}>
-                                        <div style={{ fontFamily: MONO, fontSize: '10px', fontWeight: 600, color: '#56565e', textTransform: 'uppercase', letterSpacing: '1.2px', marginBottom: '14px', paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>Key features</div>
+                                        <div style={{ fontFamily: MONO, fontSize: '10px', fontWeight: 600, color: '#56565e', textTransform: 'uppercase', letterSpacing: '1.2px', marginBottom: '14px', paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>{t('roadmap.keyFeatures')}</div>
                                         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '11px 28px' }}>
                                             {d.features.map((f, fi) => (
                                                 <div key={fi} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>

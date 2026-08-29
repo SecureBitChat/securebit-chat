@@ -104,6 +104,15 @@
     </IfModule>
 </FilesMatch>
 
+# The dictionary is imported by a bare path from a plain browser module, so nothing
+# busts its cache. It must revalidate or translations freeze at whatever a visitor
+# first loaded.
+<FilesMatch "^(index|generated)\.js$">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "no-cache, must-revalidate"
+    </IfModule>
+</FilesMatch>
+
 # CSS files - long cache
 <FilesMatch "\.css$">
     <IfModule mod_headers.c>
@@ -130,6 +139,13 @@
 <FilesMatch "\.(mp3|mp4|webm|ogg)$">
     <IfModule mod_headers.c>
         Header set Cache-Control "public, max-age=31536000, immutable"
+    </IfModule>
+</FilesMatch>
+
+# Crawler-facing files - short cache so search engines re-read them
+<FilesMatch "^(robots\.txt|sitemap\.xml)$">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "public, max-age=3600"
     </IfModule>
 </FilesMatch>
 
@@ -186,6 +202,35 @@
 
 # If file not found, redirect to index.html (for SPA routing)
 <IfModule mod_rewrite.c>
+    # Locale shells first: a deep link under /de/ must fall back to the German page,
+    # not the English one. Rewritten by scripts/build-i18n.js from locales/site.json.
+    # BEGIN generated locale shells
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^de(/.*)?$ /de/index.html [L]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^fr(/.*)?$ /fr/index.html [L]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^es(/.*)?$ /es/index.html [L]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^uk(/.*)?$ /uk/index.html [L]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ru(/.*)?$ /ru/index.html [L]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^zh(/.*)?$ /zh/index.html [L]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ko(/.*)?$ /ko/index.html [L]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^hi(/.*)?$ /hi/index.html [L]
+    # END generated locale shells
+
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_URI} !^/meta\.json$

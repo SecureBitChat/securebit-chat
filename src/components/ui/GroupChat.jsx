@@ -1,3 +1,4 @@
+import { t } from '../../i18n/index.js';
 // Group chat surfaces: the conversation view, the safety-code ceremony, the
 // create dialog and the inbound invitation.
 //
@@ -92,7 +93,7 @@ const label = {
 /**
  * What to say while there is no code yet.
  *
- * This used to collapse to "Exchanging nonces…" for every phase that was not
+ * This used to collapse to t('group.exchangingNonces') for every phase that was not
  * COMMITTING — which included FAILED. A group that had actually died therefore
  * looked identical to one still working, the confirm button stayed disabled, and
  * the only visible symptom was a dialog that never finished. Naming the real
@@ -100,30 +101,30 @@ const label = {
  */
 function waitingWord(group) {
     switch (group.phase) {
-        case GROUP_PHASE.FORMING: return 'Waiting for the other members to join…';
-        case GROUP_PHASE.COMMITTING: return 'Waiting for every member to commit…';
-        case GROUP_PHASE.REVEALING: return 'Exchanging nonces…';
-        case GROUP_PHASE.FAILED: return GROUP_ERROR_WORD[group.error] || 'This group could not be formed.';
-        default: return 'Working…';
+        case GROUP_PHASE.FORMING: return t('group.waitingJoin');
+        case GROUP_PHASE.COMMITTING: return t('group.waitingCommit');
+        case GROUP_PHASE.REVEALING: return t('group.exchangingNonces');
+        case GROUP_PHASE.FAILED: return GROUP_ERROR_WORD[group.error] || t('group.errNotFormed');
+        default: return t('group.working');
     }
 }
 
 /** Failure codes from GroupSession, in words a person can act on. */
 const GROUP_ERROR_WORD = {
-    invitations_could_not_be_sent: 'The invitation could not be sent — that chat is not connected.',
-    invitees_did_not_respond: 'Nobody accepted the invitation in time.',
-    roster_never_arrived: 'The group owner never sent the member list.',
-    ceremony_timed_out: 'A member stopped responding before the code was ready.',
-    bad_signature: 'The member list was not signed by the group owner. Do not retry — tell them.',
-    wrong_admin: 'Someone other than the group owner tried to change the members.',
-    fingerprint_mismatch: 'A member’s key did not match the identity claimed for it.',
-    commitment_mismatch: 'A member’s revealed value did not match what they committed to.',
-    commitment_changed: 'A member changed their commitment part-way through.',
-    missing_member_key: 'A member was listed whose key never arrived.',
-    not_a_member: 'A frame arrived from someone outside the group.',
-    bad_name: 'The group name is too long.',
-    too_many_members: 'A group is limited to eight members.',
-    frame_too_large: 'A message was too large to send to the group.',
+    invitations_could_not_be_sent: t('group.errInviteFailed'),
+    invitees_did_not_respond: t('group.errNobodyAccepted'),
+    roster_never_arrived: t('group.errNoMemberList'),
+    ceremony_timed_out: t('groupErr.timeout'),
+    bad_signature: t('group.errUnsignedList'),
+    wrong_admin: t('group.errNotOwner'),
+    fingerprint_mismatch: t('groupErr.keyMismatch'),
+    commitment_mismatch: t('groupErr.revealMismatch'),
+    commitment_changed: t('groupErr.commitChanged'),
+    missing_member_key: t('groupErr.missingKey'),
+    not_a_member: t('groupErr.outsider'),
+    bad_name: t('group.nameTooLong'),
+    too_many_members: t('groupErr.limit'),
+    frame_too_large: t('groupErr.tooLarge'),
 };
 
 export function GroupSasModal({ group, onConfirm, onCancel }) {
@@ -134,7 +135,7 @@ export function GroupSasModal({ group, onConfirm, onCancel }) {
     return h('div', { style: overlay, role: 'dialog', 'aria-modal': 'true' },
         h('div', { style: card }, [
             h('div', { key: 'h', style: { display: 'flex', flexDirection: 'column', gap: '6px' } }, [
-                h('span', { key: 'l', style: label }, 'Group safety code'),
+                h('span', { key: 'l', style: label }, t('group.sasTitle')),
                 h('h3', { key: 't', style: { margin: 0, fontSize: '19px', fontWeight: 700, color: C.ink } }, group.name),
             ]),
 
@@ -176,7 +177,7 @@ export function GroupSasModal({ group, onConfirm, onCancel }) {
                 key: 'why',
                 style: { margin: 0, fontSize: '13.5px', lineHeight: 1.62, color: C.ink2 },
             }, [
-                'Read these digits aloud to ', h('b', { key: 'b', style: { color: C.ink } }, `all ${group.members.length - 1} other members`),
+                t('group.sasReadAloud'), h('b', { key: 'b', style: { color: C.ink } }, `all ${group.members.length - 1} other members`),
                 ' — in person, or on a call where you recognise every voice. Everyone must see the same code.',
             ]),
 
@@ -187,16 +188,16 @@ export function GroupSasModal({ group, onConfirm, onCancel }) {
                     background: 'rgba(229,114,122,0.09)', border: '1px solid rgba(229,114,122,0.26)', color: '#f0a6ab',
                 },
             }, failed
-                ? 'Nothing was sent and nothing was verified. Close this and try again once everyone is connected.'
-                : 'If even one member reads a different code, someone is sitting between you. Cancel the group — do not confirm.'),
+                ? t('group.errNothingSent')
+                : t('group.sasWarning')),
 
             h('div', { key: 'actions', style: { display: 'flex', gap: '10px' } }, [
                 h('button', { key: 'c', onClick: onCancel, style: { ...btn(failed), flex: failed ? 2 : 1 } },
-                    failed ? 'Close' : 'Cancel group'),
+                    failed ? t('group.close') : t('group.cancel')),
                 !failed && h('button', {
                     key: 'ok', onClick: onConfirm, disabled: waiting,
                     style: { ...btn(true), flex: 2, opacity: waiting ? 0.4 : 1, cursor: waiting ? 'not-allowed' : 'pointer' },
-                }, [svg(ICON.shield, { key: 'i' }), 'Everyone sees this code']),
+                }, [svg(ICON.shield, { key: 'i' }), t('group.sasEveryone')]),
             ]),
         ]));
 }
@@ -227,11 +228,11 @@ export function CreateGroupModal({ candidates, relayOnly, onCreate, onCancel }) 
     return h('div', { style: overlay, role: 'dialog', 'aria-modal': 'true' },
         h('div', { style: { ...card, maxWidth: '470px' } }, [
             h('div', { key: 'h', style: { display: 'flex', flexDirection: 'column', gap: '6px' } }, [
-                h('span', { key: 'l', style: label }, 'New group'),
+                h('span', { key: 'l', style: label }, t('group.new')),
                 h('p', {
                     key: 'p',
                     style: { margin: 0, fontSize: '13.5px', lineHeight: 1.6, color: C.ink2 },
-                }, `Up to ${GROUP_LIMITS.MAX_MEMBERS} people, peer to peer. Everyone will compare one safety code before the group opens.`),
+                }, t('group.capacity', { max: GROUP_LIMITS.MAX_MEMBERS })),
             ]),
 
             h('input', {
@@ -241,7 +242,7 @@ export function CreateGroupModal({ candidates, relayOnly, onCreate, onCancel }) 
                 // enforces. Counting characters here let a Cyrillic name through
                 // the dialog that the admin's roster signing then rejected.
                 onChange: (e) => setName(clampToBytes(e.target.value, GROUP_LIMITS.MAX_NAME_BYTES)),
-                placeholder: 'Group name',
+                placeholder: t('group.name'),
                 style: {
                     width: '100%', padding: '12px 14px', borderRadius: '10px', outline: 'none',
                     background: C.panel2, border: `1px solid ${C.line2}`, color: C.ink,
@@ -251,7 +252,7 @@ export function CreateGroupModal({ candidates, relayOnly, onCreate, onCancel }) 
 
             h('div', { key: 'pick', style: { display: 'flex', flexDirection: 'column', gap: '9px' } }, [
                 h('div', { key: 'l', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' } }, [
-                    h('span', { key: 'a', style: label }, 'Members'),
+                    h('span', { key: 'a', style: label }, t('group.members')),
                     h('span', { key: 'b', style: { ...label, color: picked.length >= max ? C.warn : C.ink3 } },
                         `${picked.length} / ${max}`),
                 ]),
@@ -262,7 +263,7 @@ export function CreateGroupModal({ candidates, relayOnly, onCreate, onCancel }) 
                             padding: '18px 14px', borderRadius: '10px', textAlign: 'center',
                             background: C.panel2, border: `1px dashed ${C.line2}`, color: C.ink3, fontSize: '13px', lineHeight: 1.55,
                         },
-                    }, 'No verified chats yet. Open a 1:1 chat and compare its safety code first — a group is built out of connections you have already checked.')
+                    }, t('group.noVerified'))
                     : h('div', {
                         key: 'list',
                         className: 'msc-scroll',
@@ -313,16 +314,16 @@ export function CreateGroupModal({ candidates, relayOnly, onCreate, onCancel }) 
                     margin: 0, padding: '11px 13px', borderRadius: '9px', fontSize: '12.5px', lineHeight: 1.55,
                     background: 'rgba(227,179,65,0.08)', border: '1px solid rgba(227,179,65,0.26)', color: '#e3b341',
                 },
-            }, 'Relay-only mode is off, so each member connects to you directly and learns your IP address — including members somebody else invited. Turn it on in network settings if that matters here.'),
+            }, t('group.relayOnlyOff')),
 
             h('div', { key: 'actions', style: { display: 'flex', gap: '10px' } }, [
-                h('button', { key: 'c', onClick: onCancel, style: { ...btn(false), flex: 1 } }, 'Cancel'),
+                h('button', { key: 'c', onClick: onCancel, style: { ...btn(false), flex: 1 } }, t('group.cancelBtn')),
                 h('button', {
                     key: 'ok',
                     onClick: () => ready && onCreate({ name: name.trim(), sessionIds: picked }),
                     disabled: !ready,
                     style: { ...btn(true), flex: 2, opacity: ready ? 1 : 0.4, cursor: ready ? 'pointer' : 'not-allowed' },
-                }, 'Create group'),
+                }, t('group.create')),
             ]),
         ]));
 }
@@ -343,12 +344,12 @@ export function GroupErrorModal({ message, onDismiss }) {
     if (!message) return null;
     return h('div', { style: overlay, role: 'alertdialog', 'aria-modal': 'true' },
         h('div', { style: { ...card, maxWidth: '400px' } }, [
-            h('span', { key: 'l', style: label }, 'Group not created'),
+            h('span', { key: 'l', style: label }, t('group.errNotCreated')),
             h('p', {
                 key: 'm',
                 style: { margin: 0, fontSize: '14px', lineHeight: 1.6, color: C.ink2 },
             }, message),
-            h('button', { key: 'ok', onClick: onDismiss, style: btn(true) }, 'Close'),
+            h('button', { key: 'ok', onClick: onDismiss, style: btn(true) }, t('group.close')),
         ]));
 }
 
@@ -374,13 +375,13 @@ export function AddMembersModal({ candidates, remaining, onAdd, onCancel }) {
     return h('div', { style: overlay, role: 'dialog', 'aria-modal': 'true' },
         h('div', { style: { ...card, maxWidth: '440px' } }, [
             h('div', { key: 'h', style: { display: 'flex', flexDirection: 'column', gap: '6px' } }, [
-                h('span', { key: 'l', style: label }, 'Add members'),
+                h('span', { key: 'l', style: label }, t('group.addMembers')),
                 h('p', {
                     key: 'p',
                     style: { margin: 0, fontSize: '13.5px', lineHeight: 1.6, color: C.ink2 },
                 }, remaining > 0
-                    ? `Room for ${remaining} more. Everyone will compare a new group code once they join.`
-                    : 'This group is full.'),
+                    ? t('group.roomFor', { remaining })
+                    : t('group.errFull')),
             ]),
 
             candidates.length === 0
@@ -390,7 +391,7 @@ export function AddMembersModal({ candidates, remaining, onAdd, onCancel }) {
                         padding: '18px 14px', borderRadius: '10px', textAlign: 'center',
                         background: C.panel2, border: `1px dashed ${C.line2}`, color: C.ink3, fontSize: '13px', lineHeight: 1.55,
                     },
-                }, 'No other verified chats to add. Open a 1:1 chat and compare its safety code first.')
+                }, t('group.noMoreToAdd'))
                 : h('div', {
                     key: 'list',
                     className: 'msc-scroll',
@@ -436,16 +437,16 @@ export function AddMembersModal({ candidates, remaining, onAdd, onCancel }) {
                     margin: 0, padding: '11px 13px', borderRadius: '9px', fontSize: '12.5px', lineHeight: 1.55,
                     background: C.panel2, border: `1px solid ${C.line}`, color: C.ink3,
                 },
-            }, 'The group keeps working until they accept. There is no history for them to catch up on — they will only see what is sent from now on.'),
+            }, t('group.inviteSentNote')),
 
             h('div', { key: 'actions', style: { display: 'flex', gap: '10px' } }, [
-                h('button', { key: 'c', onClick: onCancel, style: { ...btn(false), flex: 1 } }, 'Cancel'),
+                h('button', { key: 'c', onClick: onCancel, style: { ...btn(false), flex: 1 } }, t('group.cancelBtn')),
                 h('button', {
                     key: 'ok',
                     onClick: () => picked.length && onAdd(picked),
                     disabled: picked.length === 0,
                     style: { ...btn(true), flex: 2, opacity: picked.length ? 1 : 0.4, cursor: picked.length ? 'pointer' : 'not-allowed' },
-                }, picked.length > 1 ? `Invite ${picked.length} people` : 'Invite'),
+                }, picked.length > 1 ? t('group.invitePeople', { count: picked.length }) : t('group.invite')),
             ]),
         ]));
 }
@@ -459,7 +460,7 @@ export function GroupInviteModal({ invite, onAccept, onDecline }) {
     return h('div', { style: overlay, role: 'dialog', 'aria-modal': 'true' },
         h('div', { style: card }, [
             h('div', { key: 'h', style: { display: 'flex', flexDirection: 'column', gap: '6px' } }, [
-                h('span', { key: 'l', style: label }, 'Group invitation'),
+                h('span', { key: 'l', style: label }, t('group.invitation')),
                 h('h3', { key: 't', style: { margin: 0, fontSize: '19px', fontWeight: 700, color: C.ink } }, invite.name),
             ]),
             h('p', {
@@ -475,10 +476,10 @@ export function GroupInviteModal({ invite, onAccept, onDecline }) {
                     margin: 0, padding: '11px 13px', borderRadius: '9px', fontSize: '12.5px', lineHeight: 1.55,
                     background: C.panel2, border: `1px solid ${C.line}`, color: C.ink3,
                 },
-            }, 'Other members will learn your presence in this group. There is no message history to catch up on — a group starts empty.'),
+            }, t('group.joinNote')),
             h('div', { key: 'actions', style: { display: 'flex', gap: '10px' } }, [
-                h('button', { key: 'd', onClick: onDecline, style: { ...btn(false), flex: 1 } }, 'Decline'),
-                h('button', { key: 'a', onClick: onAccept, style: { ...btn(true), flex: 2 } }, 'Join group'),
+                h('button', { key: 'd', onClick: onDecline, style: { ...btn(false), flex: 1 } }, t('group.decline')),
+                h('button', { key: 'a', onClick: onAccept, style: { ...btn(true), flex: 2 } }, t('group.join')),
             ]),
         ]));
 }
@@ -503,9 +504,9 @@ function MemberStrip({ group, onRemove, isAdmin }) {
         return h('span', {
             key: m.fp,
             title: self ? 'You'
-                : m.state === MEMBER_STATE.LINKED ? 'Direct peer-to-peer link'
-                : m.state === MEMBER_STATE.PENDING ? 'No direct link yet — messages are relayed by another member while one is being built'
-                : `${m.name} is offline and will not receive messages. They are still a member — removing them re-keys the group.`,
+                : m.state === MEMBER_STATE.LINKED ? t('group.directLink')
+                : m.state === MEMBER_STATE.PENDING ? t('group.noDirectLink')
+                : t('group.memberOffline', { name: m.name }),
             style: {
                 flex: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px',
                 padding: '5px 10px', borderRadius: '20px',
@@ -529,7 +530,7 @@ function MemberStrip({ group, onRemove, isAdmin }) {
             (isAdmin && !self && onRemove) && h('button', {
                 key: 'x',
                 onClick: () => onRemove(m.fp),
-                title: `Remove ${m.name}`,
+                title: t('group.remove', { name: m.name }),
                 style: { border: 'none', background: 'transparent', color: C.ink3, cursor: 'pointer', display: 'grid', padding: 0 },
                 dangerouslySetInnerHTML: { __html: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>' },
             }),
@@ -558,7 +559,7 @@ function Bubble({ msg }) {
         !mine && h('span', {
             key: 'who',
             style: { fontSize: '11.5px', fontWeight: 600, color: C.accent, paddingLeft: '3px' },
-        }, msg.senderName || 'Member'),
+        }, msg.senderName || t('group.member')),
         h('div', {
             key: 'b',
             style: {
@@ -624,18 +625,18 @@ export function GroupChatView({
                     style: { fontSize: '11.5px', color: degraded ? C.warn : C.ink3, display: 'flex', alignItems: 'center', gap: '5px' },
                 }, [
                     svg(ICON.users, { key: 'i', width: '13px', height: '13px' }),
-                    `${group.members.length} members`,
-                    ready && group.sasCode ? ` · code ${group.sasCode}` : '',
+                    t('group.membersCount', { count: group.members.length }),
+                    ready && group.sasCode ? t('group.codeSuffix', { code: group.sasCode }) : '',
                 ]),
             ]),
             (isAdmin && onAddMembers && group.members.length < GROUP_LIMITS.MAX_MEMBERS) && h('button', {
-                key: 'add', onClick: onAddMembers, title: 'Invite more members',
+                key: 'add', onClick: onAddMembers, title: t('group.inviteMore'),
                 style: { ...btn(false), padding: '8px 12px', fontSize: '12.5px' },
-            }, [svg(ICON.plus, { key: 'i' }), 'Add']),
+            }, [svg(ICON.plus, { key: 'i' }), t('group.add')]),
             h('button', {
-                key: 'leave', onClick: onLeave, title: 'Leave this group',
+                key: 'leave', onClick: onLeave, title: t('group.leaveThis'),
                 style: { ...btn(false), padding: '8px 12px', fontSize: '12.5px', color: C.bad, borderColor: 'rgba(229,114,122,0.3)' },
-            }, 'Leave'),
+            }, t('group.leave')),
         ]),
 
         h(MemberStrip, { key: 'strip', group, onRemove: onRemoveMember, isAdmin }),
@@ -646,7 +647,7 @@ export function GroupChatView({
                 flex: 'none', padding: '8px 16px', fontSize: '12px', lineHeight: 1.5, color: C.warn,
                 background: 'rgba(227,179,65,0.08)', borderBottom: `1px solid ${C.line}`,
             },
-        }, 'Some members have no direct link to you yet. Their messages travel through another member, who can see that you are talking but cannot read past the signature or change what you said. The group keeps trying to connect them directly.'),
+        }, t('group.relayNote')),
 
         // transcript
         h('div', {
@@ -662,8 +663,8 @@ export function GroupChatView({
                 key: 'empty',
                 style: { margin: 'auto', textAlign: 'center', color: C.ink3, fontSize: '13.5px', lineHeight: 1.6, maxWidth: '320px' },
             }, ready
-                ? 'Nothing here yet. Messages are signed by their sender and travel over each member’s own encrypted link.'
-                : 'Compare the group code with every member to open this group.')]
+                ? t('group.emptyChat')
+                : t('group.sasCompare'))]
             : group.messages.map((m) => h(Bubble, { key: m.id, msg: m }))),
 
         // composer
@@ -679,7 +680,7 @@ export function GroupChatView({
                 key: 'in',
                 value: input,
                 onChange: (e) => setInput(e.target.value),
-                placeholder: ready ? `Message ${group.name}` : 'Confirm the group code first',
+                placeholder: ready ? t('group.message', { name: group.name }) : t('group.confirmFirst'),
                 disabled: !ready,
                 maxLength: GROUP_LIMITS.MAX_BODY_BYTES,
                 style: {
@@ -689,7 +690,7 @@ export function GroupChatView({
                 },
             }),
             h('button', {
-                key: 'send', type: 'submit', disabled: !ready || !input.trim(), title: 'Send',
+                key: 'send', type: 'submit', disabled: !ready || !input.trim(), title: t('group.send'),
                 style: {
                     ...btn(true), flex: 'none', width: '44px', height: '44px', padding: 0, borderRadius: '11px',
                     opacity: (!ready || !input.trim()) ? 0.4 : 1,

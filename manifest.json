@@ -1,5 +1,5 @@
 {
-  "name": "SecureBit.chat — Private, Encrypted Messenger",
+  "name": "SecureBit.chat - Private, Encrypted Messenger",
   "short_name": "SecureBit",
   "description": "P2P messenger with ECDH + DTLS + SAS security, military-grade cryptography and Lightning Network payments",
   "start_url": "./",
@@ -10,7 +10,11 @@
   "scope": "./",
   "lang": "en",
   "dir": "ltr",
-  "categories": ["communication", "security", "productivity"],
+  "categories": [
+    "communication",
+    "security",
+    "productivity"
+  ],
   "prefer_related_applications": false,
   "icons": [
     {
@@ -102,7 +106,7 @@
     },
     {
       "name": "Join Channel",
-      "short_name": "Join", 
+      "short_name": "Join",
       "description": "Join an existing secure channel",
       "url": "./?action=join",
       "icons": [

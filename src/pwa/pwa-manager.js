@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 // PWA Offline Manager for SecureBit.chat
 // Enhanced Security Edition v4.02.442
 // Handles offline functionality, data synchronization, and user experience
@@ -66,8 +67,14 @@ class PWAOfflineManager {
             // Setup periodic cleanup
             this.setupPeriodicCleanup();
             
-            // Show initial connection status
-            this.updateConnectionStatus(this.isOnline);
+            // Only announce a *problem* on first load. "Back online" describes a
+            // transition — being offline and then not — and on a fresh page load no
+            // such transition happened. Showing it unconditionally meant the pill
+            // appeared on every single load, which became obvious once switching
+            // language started reloading the page.
+            if (!this.isOnline) {
+                this.updateConnectionStatus(false);
+            }
             
             // Try to process any pending queue items
             if (this.isOnline) {
@@ -239,7 +246,7 @@ class PWAOfflineManager {
             this.offlineIndicator.innerHTML =
                 `<div style="${PILL} border:1px solid rgba(62,207,142,0.3);">
                     <span style="width:8px; height:8px; border-radius:50%; background:#3ecf8e; box-shadow:0 0 8px rgba(62,207,142,0.6);"></span>
-                    <span>Back online</span>
+                    <span>${t('offline.backOnline')}</span>
                 </div>`;
             this.offlineIndicator.classList.remove('hidden');
             // Auto-hide after 3 seconds.
@@ -250,8 +257,8 @@ class PWAOfflineManager {
             this.offlineIndicator.innerHTML =
                 `<div style="${PILL} border:1px solid rgba(227,179,65,0.32);">
                     <span style="width:8px; height:8px; border-radius:50%; background:#e3b341;"></span>
-                    <span>Offline mode</span>
-                    <button class="oi-close" type="button" aria-label="Dismiss" style="margin-left:4px; width:22px; height:22px; padding:0; display:grid; place-items:center; border:none; background:transparent; color:#8a8a92; cursor:pointer; border-radius:6px; transition:color .15s ease;">
+                    <span>${t('offline.mode')}</span>
+                    <button class="oi-close" type="button" aria-label="${t('offline.dismiss')}" style="margin-left:4px; width:22px; height:22px; padding:0; display:grid; place-items:center; border:none; background:transparent; color:#8a8a92; cursor:pointer; border-radius:6px; transition:color .15s ease;">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M6 6l12 12M18 6L6 18"/></svg>
                     </button>
                 </div>`;
@@ -341,24 +348,24 @@ class PWAOfflineManager {
                     <div style="display:inline-flex; width:64px; height:64px; border-radius:50%; align-items:center; justify-content:center; background:rgba(227,179,65,0.12); border:1px solid rgba(227,179,65,0.3); margin-bottom:18px;">
                         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#e3b341" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.8a15 15 0 0 1 20 0"/><path d="M5 12.5a11 11 0 0 1 14 0"/><path d="M8.5 16.3a6 6 0 0 1 7 0"/><path d="M12 20h.01"/><path d="M2 2l20 20"/></svg>
                     </div>
-                    <h3 style="margin:0 0 10px; font-size:24px; font-weight:800; letter-spacing:-0.6px; color:#f4f4f6;">Connection lost</h3>
-                    <p style="margin:0 auto; max-width:380px; font-size:14px; line-height:1.55; color:#9a9aa2;">SecureBit is now in offline mode. Some features are limited, but your data stays safe.</p>
+                    <h3 style="margin:0 0 10px; font-size:24px; font-weight:800; letter-spacing:-0.6px; color:#f4f4f6;">${t('offline.lostTitle')}</h3>
+                    <p style="margin:0 auto; max-width:380px; font-size:14px; line-height:1.55; color:#9a9aa2;">${t('offline.lostDesc')}</p>
                 </div>
                 <div style="display:flex; flex-direction:column; gap:14px; margin-bottom:24px; padding:0 6px;">
-                    ${feature(GREEN_BG, GREEN_BD, '#3ecf8e', '2.3', '<path d="M5 13l4 4 10-11"/>', 'Your session and keys are preserved')}
-                    ${feature(GREEN_BG, GREEN_BD, '#3ecf8e', '1.9', '<path d="M12 3l8 4v5c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V7l8-4z"/>', 'No data is stored on servers')}
-                    ${feature(ORANGE_BG, ORANGE_BD, '#f0892a', '1.9', '<path d="M21 8a8.5 8.5 0 0 0-15.6-2.5M3 4v4h4"/><path d="M3 16a8.5 8.5 0 0 0 15.6 2.5M21 20v-4h-4"/>', 'Messages &amp; files sync when you reconnect')}
+                    ${feature(GREEN_BG, GREEN_BD, '#3ecf8e', '2.3', '<path d="M5 13l4 4 10-11"/>', t('offline.point1'))}
+                    ${feature(GREEN_BG, GREEN_BD, '#3ecf8e', '1.9', '<path d="M12 3l8 4v5c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V7l8-4z"/>', t('offline.point2'))}
+                    ${feature(ORANGE_BG, ORANGE_BD, '#f0892a', '1.9', '<path d="M21 8a8.5 8.5 0 0 0-15.6-2.5M3 4v4h4"/><path d="M3 16a8.5 8.5 0 0 0 15.6 2.5M21 20v-4h-4"/>', t('offline.point3'))}
                 </div>
                 <div style="display:flex; flex-direction:column; gap:11px;">
                     <div style="display:flex; gap:12px;">
-                        <button class="om-continue" type="button" style="flex:1; padding:14px 18px; border-radius:13px; border:none; background:#f0892a; color:#1a0f04; font-family:inherit; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 8px 24px rgba(240,137,42,0.28); transition:all .2s cubic-bezier(.2,.7,.3,1);">Continue offline</button>
+                        <button class="om-continue" type="button" style="flex:1; padding:14px 18px; border-radius:13px; border:none; background:#f0892a; color:#1a0f04; font-family:inherit; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 8px 24px rgba(240,137,42,0.28); transition:all .2s cubic-bezier(.2,.7,.3,1);">${t('offline.continue')}</button>
                         <button class="om-disconnect" type="button" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:9px; padding:14px 18px; border-radius:13px; border:1px solid rgba(229,114,122,0.3); background:rgba(229,114,122,0.08); color:#e5727a; font-family:inherit; font-size:15px; font-weight:700; cursor:pointer; transition:all .2s cubic-bezier(.2,.7,.3,1);">
                             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M12 4v8"/><path d="M7 7a8 8 0 1 0 10 0"/></svg>
-                            Disconnect
+                            ${t('offline.disconnect')}
                         </button>
                     </div>
                     <button class="om-learn" type="button" style="width:100%; display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:12px 18px; border-radius:13px; border:none; background:transparent; color:#9a9aa2; font-family:inherit; font-size:14px; font-weight:600; cursor:pointer; transition:color .18s cubic-bezier(.2,.7,.3,1);">
-                        Learn more
+                        ${t('offline.learnMore')}
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
                     </button>
                 </div>
@@ -370,16 +377,16 @@ class PWAOfflineManager {
                     <button class="om-back" type="button" title="Back" style="flex:none; width:34px; height:34px; border-radius:10px; display:grid; place-items:center; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.025); color:#cfcfd4; cursor:pointer; transition:all .18s cubic-bezier(.2,.7,.3,1);">
                         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M15 6l-6 6 6 6"/></svg>
                     </button>
-                    <h3 style="margin:0; font-size:20px; font-weight:800; letter-spacing:-0.5px; color:#f4f4f6;">When you reconnect</h3>
+                    <h3 style="margin:0; font-size:20px; font-weight:800; letter-spacing:-0.5px; color:#f4f4f6;">${t('offline.restoredTitle')}</h3>
                 </div>
-                <p style="margin:0 0 20px; font-size:14px; line-height:1.6; color:#9a9aa2;">A dropped connection costs you nothing. SecureBit queues everything locally and resumes the encrypted session the instant you're back online.</p>
+                <p style="margin:0 0 20px; font-size:14px; line-height:1.6; color:#9a9aa2;">${t('offline.restoredDesc')}</p>
                 <div style="display:flex; flex-direction:column; gap:11px; margin-bottom:22px;">
-                    ${card(GREEN_BG, GREEN_BD, '#3ecf8e', '<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/>', 'Your messages get delivered', 'Everything you wrote while offline is sent to your contact automatically.')}
-                    ${card(GREEN_BG, GREEN_BD, '#3ecf8e', '<path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M12 18v-6M9.5 14.5L12 12l2.5 2.5"/>', 'Files finish transferring', 'Uploads resume from where they stopped — no need to resend.')}
-                    ${card(GREEN_BG, GREEN_BD, '#3ecf8e', '<path d="M12 3v12"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M5 20h14"/>', 'Their messages &amp; files arrive', 'Whatever your contact sent during the outage is delivered to you in order.')}
-                    ${card(ORANGE_BG, ORANGE_BD, '#f0892a', '<path d="M12 3l8 4v5c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V7l8-4z"/><path d="M9.2 12.2l2 2 3.6-3.8"/>', 'Nothing is lost', "After reconnect there's no gap — the conversation continues exactly where it paused.")}
+                    ${card(GREEN_BG, GREEN_BD, '#3ecf8e', '<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/>', t('offline.r1Title'), t('offline.r1Desc'))}
+                    ${card(GREEN_BG, GREEN_BD, '#3ecf8e', '<path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M12 18v-6M9.5 14.5L12 12l2.5 2.5"/>', t('offline.r2Title'), t('offline.r2Desc'))}
+                    ${card(GREEN_BG, GREEN_BD, '#3ecf8e', '<path d="M12 3v12"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M5 20h14"/>', t('offline.r3Title'), t('offline.r3Desc'))}
+                    ${card(ORANGE_BG, ORANGE_BD, '#f0892a', '<path d="M12 3l8 4v5c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V7l8-4z"/><path d="M9.2 12.2l2 2 3.6-3.8"/>', t('offline.r4Title'), t('offline.r4Desc'))}
                 </div>
-                <button class="om-gotit" type="button" style="width:100%; padding:14px 18px; border-radius:13px; border:none; background:#f0892a; color:#1a0f04; font-family:inherit; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 8px 24px rgba(240,137,42,0.28); transition:all .2s cubic-bezier(.2,.7,.3,1);">Got it</button>
+                <button class="om-gotit" type="button" style="width:100%; padding:14px 18px; border-radius:13px; border:none; background:#f0892a; color:#1a0f04; font-family:inherit; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 8px 24px rgba(240,137,42,0.28); transition:all .2s cubic-bezier(.2,.7,.3,1);">${t('offline.gotIt')}</button>
             </div>`;
 
         const cardWrap = document.createElement('div');

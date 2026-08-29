@@ -120,30 +120,56 @@ function generateMetaJson() {
 }
 
 /**
- * Update versions in index.html
+ * Every generated app shell: the root one plus one per locale subdirectory.
+ *
+ * scripts/build-i18n.js runs before this script and stamps the version it reads from
+ * meta.json — which is still the *previous* build at that point, since meta.json is
+ * regenerated below. The root page used to be the only one re-stamped here, so the
+ * localized pages shipped pointing at an older ?v= than the root did.
+ */
+function appShellPaths() {
+    const shells = [path.join(CONFIG.publicDir, 'index.html')];
+    try {
+        const sitePath = path.join(CONFIG.publicDir, 'locales', 'site.json');
+        if (fs.existsSync(sitePath)) {
+            const site = JSON.parse(fs.readFileSync(sitePath, 'utf-8'));
+            for (const code of site.locales || []) {
+                if (code === site.defaultLocale) continue;
+                shells.push(path.join(CONFIG.publicDir, code, 'index.html'));
+            }
+        }
+    } catch (error) {
+        console.warn('⚠️  Could not read locales/site.json:', error.message);
+    }
+    return shells;
+}
+
+/**
+ * Update versions in every index.html
  */
 function updateIndexHtmlVersions(buildVersion) {
-    try {
-        const indexHtmlPath = path.join(CONFIG.publicDir, 'index.html');
-        
-        if (!fs.existsSync(indexHtmlPath)) {
-            console.warn('⚠️  index.html not found, skipping version update');
-            return;
-        }
-        
-        let indexHtml = fs.readFileSync(indexHtmlPath, 'utf-8');
-        
-        // Update versions in query parameters for JS files
-        // Pattern: src="dist/app.js?v=..." or src="dist/app-boot.js?v=..."
-        // Also replace BUILD_VERSION placeholder
-        indexHtml = indexHtml.replace(/\?v=BUILD_VERSION/g, `?v=${buildVersion}`);
-        indexHtml = indexHtml.replace(/\?v=(\d+)/g, `?v=${buildVersion}`);
-        
-        fs.writeFileSync(indexHtmlPath, indexHtml, 'utf-8');
-        console.log('✅ index.html versions updated');
+    for (const indexHtmlPath of appShellPaths()) {
+        const label = path.relative(CONFIG.publicDir, indexHtmlPath);
+        try {
+            if (!fs.existsSync(indexHtmlPath)) {
+                console.warn(`⚠️  ${label} not found, skipping version update`);
+                continue;
+            }
 
-    } catch (error) {
-        console.warn('⚠️  Failed to update index.html versions:', error.message);
+            let indexHtml = fs.readFileSync(indexHtmlPath, 'utf-8');
+
+            // Update versions in query parameters for JS files
+            // Pattern: src="dist/app.js?v=..." or src="dist/app-boot.js?v=..."
+            // Also replace BUILD_VERSION placeholder
+            indexHtml = indexHtml.replace(/\?v=BUILD_VERSION/g, `?v=${buildVersion}`);
+            indexHtml = indexHtml.replace(/\?v=(\d+)/g, `?v=${buildVersion}`);
+
+            fs.writeFileSync(indexHtmlPath, indexHtml, 'utf-8');
+            console.log(`✅ ${label} versions updated`);
+
+        } catch (error) {
+            console.warn(`⚠️  Failed to update ${label} versions:`, error.message);
+        }
     }
 }
 

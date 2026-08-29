@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 // Simple QR Scanner Component using only Html5Qrcode
 const QRScanner = ({ onScan, onClose, isVisible, continuous = false }) => {
 	const videoRef = React.useRef(null);
@@ -297,7 +298,7 @@ const QRScanner = ({ onScan, onClose, isVisible, continuous = false }) => {
 				React.createElement('h3', {
 					key: 'title',
 					className: "text-lg font-medium text-white"
-				}, 'Scan QR Code'),
+				}, t('qrScan.title')),
 				React.createElement('button', {
 					key: 'close-btn',
 					onClick: handleClose,
@@ -357,16 +358,16 @@ const QRScanner = ({ onScan, onClose, isVisible, continuous = false }) => {
 							? 'bg-blue-500 text-white' 
 							: 'bg-gray-600 text-gray-300 hover:bg-gray-500'
 					}`
-				}, manualMode ? 'Manual Mode' : 'Auto Mode'),
+				}, manualMode ? 'Manual Mode' : t('qrScan.auto')),
 				React.createElement('button', {
 					key: 'reset-progress',
 					onClick: resetProgress,
 					className: "px-3 py-1 bg-red-500/20 text-red-400 border border-red-500/20 rounded text-xs font-medium hover:bg-red-500/30"
-				}, 'Reset'),
+				}, t('qrScan.reset')),
 				React.createElement('span', {
 					key: 'mode-hint',
 					className: "text-xs text-gray-400 self-center"
-				}, manualMode ? 'Tap to focus, scan manually' : 'Auto-scrolling enabled')
+				}, manualMode ? 'Tap to focus, scan manually' : t('qrScan.autoScroll'))
 			]),
 			
 			React.createElement('div', {
@@ -414,7 +415,7 @@ const QRScanner = ({ onScan, onClose, isVisible, continuous = false }) => {
 						React.createElement('p', {
 							key: 'loading-text',
 							className: "text-sm"
-						}, 'Starting camera...')
+						}, t('qrScan.starting'))
 					])
 				]),
 
@@ -433,11 +434,11 @@ const QRScanner = ({ onScan, onClose, isVisible, continuous = false }) => {
 						React.createElement('p', {
 							key: 'scanning-text',
 							className: "text-xs"
-                        }, progress && progress.total > 1 ? `Frames: ${Math.min(progress.seq, progress.total)}/${progress.total}` : 'Point camera at QR code'),
+                        }, progress && progress.total > 1 ? `Frames: ${Math.min(progress.seq, progress.total)}/${progress.total}` : t('qrScan.point')),
                         React.createElement('p', {
                             key: 'tap-hint',
                             className: "text-xs text-blue-300 mt-1"
-                        }, 'Tap screen to focus')
+                        }, t('qrScan.tapFocus'))
 					])
 				]),
 
@@ -445,7 +446,7 @@ const QRScanner = ({ onScan, onClose, isVisible, continuous = false }) => {
                 showFocusHint && React.createElement('div', {
                     key: 'focus-hint',
                     className: "absolute top-4 left-1/2 transform -translate-x-1/2 bg-green-500/90 text-white px-3 py-1 rounded-full text-xs font-medium z-10"
-                }, 'Focusing...'),
+                }, t('qrScan.focusing')),
                 // Bottom overlay kept simple on mobile
 			]),
 

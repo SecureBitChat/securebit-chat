@@ -1,3 +1,4 @@
+import { t } from '../../i18n/index.js';
 // Advanced network settings: lets a user supply their own STUN/TURN servers
 // instead of the bundled public defaults, and toggle relay-only privacy mode.
 // Free / power-user feature, hidden behind an explicit "Advanced" entry point.
@@ -25,13 +26,13 @@ const PLACEHOLDER = [
 async function testIceServers(servers, timeoutMs = 6000) {
     const found = { host: 0, srflx: 0, relay: 0 };
     if (typeof RTCPeerConnection === 'undefined') {
-        return { ...found, error: 'WebRTC is not available in this browser' };
+        return { ...found, error: t('ice.errUnavailable') };
     }
     let pc;
     try {
         pc = new RTCPeerConnection({ iceServers: servers });
     } catch (error) {
-        return { ...found, error: error.message || 'Invalid server configuration' };
+        return { ...found, error: error.message || t('ice.errInvalid') };
     }
 
     return new Promise((resolve) => {
@@ -154,9 +155,9 @@ const IceServerSettings = ({ isOpen, onClose, initial, hasSaved, onApply, onForg
     // ── scrollable body ──
     const body = [];
     body.push(h('p', { key: 'intro', style: { margin: '0 0 18px', fontSize: '13.5px', lineHeight: 1.6, color: '#9a9aa2' } },
-        'SecureBit uses public STUN servers by default to negotiate the peer-to-peer link. Point it at your own STUN/TURN if you self-host.'));
-    body.push(radioCard(!useCustom, () => setUseCustom(false), 'Public servers (default)', 'Zero-config. Good for most users.'));
-    body.push(radioCard(useCustom, () => setUseCustom(true), 'My own STUN/TURN servers', `Up to ${ICE_LIMITS.MAX_SERVERS} servers.`, useCustom ? { marginBottom: '14px' } : null));
+        t('ice.intro')));
+    body.push(radioCard(!useCustom, () => setUseCustom(false), t('ice.publicTitle'), t('ice.publicDesc')));
+    body.push(radioCard(useCustom, () => setUseCustom(true), t('ice.customTitle'), t('ice.customDesc', { max: ICE_LIMITS.MAX_SERVERS }), useCustom ? { marginBottom: '14px' } : null));
 
     if (useCustom) {
         const custom = [];
@@ -181,8 +182,8 @@ const IceServerSettings = ({ isOpen, onClose, initial, hasSaved, onApply, onForg
         custom.push(h('div', { key: 'note', style: { display: 'flex', alignItems: 'flex-start', gap: '9px', padding: '12px 13px', borderRadius: '11px', border: '1px solid rgba(62,207,142,0.18)', background: 'rgba(62,207,142,0.05)', marginBottom: '12px' } }, [
             h('i', { key: 'i', className: 'fas fa-info-circle', style: { color: C_GREEN, fontSize: '13px', marginTop: '2px', flex: 'none' } }),
             h('span', { key: 't', style: { fontSize: '12px', lineHeight: 1.55, color: '#a8b8ae' } }, [
-                'A TURN relay sees both peers’ IP and traffic timing — but never message contents, which stay end-to-end encrypted. Prefer ',
-                h('span', { key: 'm', style: { fontFamily: MONO, color: C_GREEN } }, 'turns:'), ' (TLS).'
+                t('ice.turnNote'),
+                h('span', { key: 'm', style: { fontFamily: MONO, color: C_GREEN } }, 'turns:'), t('ice.turnNoteTls')
             ])
         ]));
         const testColor = testState === 'done' && testResult && !testResult.error ? C_GREEN : '#cfcfd4';
@@ -192,7 +193,7 @@ const IceServerSettings = ({ isOpen, onClose, initial, hasSaved, onApply, onForg
                 style: { display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 15px', borderRadius: '10px', border: `1px solid ${testState === 'done' && testResult && !testResult.error ? 'rgba(62,207,142,0.4)' : 'rgba(255,255,255,0.1)'}`, background: testState === 'done' && testResult && !testResult.error ? 'rgba(62,207,142,0.08)' : 'rgba(255,255,255,0.04)', color: testColor, fontFamily: 'inherit', fontSize: '13px', fontWeight: 600, cursor: (!canApply || testState === 'running') ? 'not-allowed' : 'pointer', opacity: (!canApply || testState === 'running') ? 0.6 : 1 }
             }, [
                 h('i', { key: 'i', className: testState === 'running' ? 'fas fa-circle-notch' : 'fas fa-play-circle', style: testState === 'running' ? { animation: 'sbSpin 1s linear infinite' } : null }),
-                testState === 'running' ? 'Testing…' : 'Test servers'
+                testState === 'running' ? t('ice.testing') : t('ice.test')
             ]),
             (testState === 'done' && testResult) ? h('span', { key: 'res', style: { fontSize: '12px', color: testResult.error ? '#e5727a' : '#8a8a92' } },
                 testResult.error
@@ -205,26 +206,26 @@ const IceServerSettings = ({ isOpen, onClose, initial, hasSaved, onApply, onForg
         body.push(h('div', { key: 'custom', style: { marginBottom: '16px' } }, custom));
     }
 
-    body.push(toggleRow(relayOnly, () => setRelayOnly(!relayOnly), 'Relay-only mode',
-        'Routes all traffic through TURN so your IP is never exposed to the peer. Requires a TURN server.', C_GREEN, 'MAX PRIVACY'));
+    body.push(toggleRow(relayOnly, () => setRelayOnly(!relayOnly), t('ice.relayTitle'),
+        t('ice.relayDesc'), C_GREEN, t('ice.relayBadge')));
     if (relayOnly && useCustom && !hasTurn) {
         body.push(h('p', { key: 'relaywarn', style: { margin: '-4px 0 10px', fontSize: '12.5px', color: '#e3c84e' } },
-            'Relay-only is enabled but no TURN server is configured. The connection will not be able to start.'));
+            t('ice.relayWarning')));
     }
-    body.push(toggleRow(persist, () => setPersist(!persist), 'Save on this device',
-        'Stored encrypted in this browser. Leave off to use only for this session.', C_ORANGE));
+    body.push(toggleRow(persist, () => setPersist(!persist), t('ice.persist'),
+        t('ice.persistDesc'), C_ORANGE));
 
     // ── footer actions ──
     const footerBtns = [];
     if (hasSaved) {
         footerBtns.push(h('button', { key: 'forget', type: 'button', onClick: handleForget,
-            style: { marginRight: 'auto', padding: '11px 18px', borderRadius: '11px', border: '1px solid rgba(229,114,122,0.3)', background: 'transparent', color: '#e5727a', fontFamily: 'inherit', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' } }, 'Forget saved'));
+            style: { marginRight: 'auto', padding: '11px 18px', borderRadius: '11px', border: '1px solid rgba(229,114,122,0.3)', background: 'transparent', color: '#e5727a', fontFamily: 'inherit', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' } }, t('ice.forget')));
     }
     footerBtns.push(h('button', { key: 'cancel', type: 'button', onClick: onClose,
-        style: { padding: '11px 18px', borderRadius: '11px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#b3b3ba', fontFamily: 'inherit', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' } }, 'Cancel'));
+        style: { padding: '11px 18px', borderRadius: '11px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#b3b3ba', fontFamily: 'inherit', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' } }, t('ice.cancel')));
     footerBtns.push(h('button', { key: 'apply', type: 'button', onClick: handleApply, disabled: !canApply,
         style: { display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '11px 20px', borderRadius: '11px', border: 'none', background: C_ORANGE, color: '#1a0f04', fontFamily: 'inherit', fontSize: '13.5px', fontWeight: 700, cursor: canApply ? 'pointer' : 'not-allowed', opacity: canApply ? 1 : 0.5, boxShadow: '0 6px 18px rgba(240,137,42,0.28)' } }, [
-        h('i', { key: 'i', className: 'fas fa-check' }), 'Apply'
+        h('i', { key: 'i', className: 'fas fa-check' }), t('ice.apply')
     ]));
 
     // Embedded mode (default for the new design): fill the connection screen's
@@ -240,8 +241,8 @@ const IceServerSettings = ({ isOpen, onClose, initial, hasSaved, onApply, onForg
                 h('div', { key: 'ic', style: { width: '38px', height: '38px', flex: 'none', display: 'grid', placeItems: 'center', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' } },
                     h('i', { className: 'fas fa-sliders-h', style: { color: '#cfcfd4', fontSize: '15px' } })),
                 h('div', { key: 'tx', style: { flex: 1, lineHeight: 1.25 } }, [
-                    h('div', { key: 't', style: { fontSize: '16.5px', fontWeight: 800, letterSpacing: '-0.3px', color: '#f4f4f6' } }, 'Network settings'),
-                    h('div', { key: 's', style: { fontSize: '12px', color: '#7b7b83' } }, 'Configured locally — never shared with your peer')
+                    h('div', { key: 't', style: { fontSize: '16.5px', fontWeight: 800, letterSpacing: '-0.3px', color: '#f4f4f6' } }, t('ice.title')),
+                    h('div', { key: 's', style: { fontSize: '12px', color: '#7b7b83' } }, t('ice.subtitle'))
                 ]),
                 h('button', { key: 'x', type: 'button', onClick: onClose, style: { width: '32px', height: '32px', flex: 'none', display: 'grid', placeItems: 'center', borderRadius: '9px', border: 'none', background: 'rgba(255,255,255,0.04)', color: '#8a8a92', cursor: 'pointer' } },
                     h('i', { className: 'fas fa-times' }))

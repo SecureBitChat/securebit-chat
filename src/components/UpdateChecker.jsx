@@ -1,3 +1,4 @@
+import { t, currentLocale, LOCALE_META } from '../i18n/index.js';
 /**
  * UpdateChecker - React component for automatic update checking
  * 
@@ -75,12 +76,12 @@ const UpdateChecker = ({ children, onUpdateAvailable, debug = false }) => {
         try {
             // Simulate update progress
             const progressSteps = [
-                { progress: 10, message: 'Saving data...' },
-                { progress: 30, message: 'Clearing Service Worker caches...' },
-                { progress: 50, message: 'Unregistering Service Workers...' },
-                { progress: 70, message: 'Clearing browser cache...' },
-                { progress: 90, message: 'Updating version...' },
-                { progress: 100, message: 'Reloading application...' }
+                { progress: 10, message: t('update.stepSaving') },
+                { progress: 30, message: t('update.stepSwCaches') },
+                { progress: 50, message: t('update.stepSwUnregister') },
+                { progress: 70, message: t('update.stepBrowserCache') },
+                { progress: 90, message: t('update.stepVersion') },
+                { progress: 100, message: t('update.stepReload') }
             ];
             
             for (const step of progressSteps) {
@@ -103,14 +104,14 @@ const UpdateChecker = ({ children, onUpdateAvailable, debug = false }) => {
             }));
             
             // Show error to user
-            alert('Update error. Please refresh the page manually (Ctrl+F5 or Cmd+Shift+R)');
+            alert(t('update.error'));
         }
     };
     
     // Close modal (not recommended, but leaving the option)
     const handleCloseModal = () => {
         // Warn user
-        if (window.confirm('New version available. Update is recommended for security and stability. Continue without update?')) {
+        if (window.confirm(t('update.confirmSkip'))) {
             setUpdateState(prev => ({
                 ...prev,
                 showModal: false
@@ -120,11 +121,11 @@ const UpdateChecker = ({ children, onUpdateAvailable, debug = false }) => {
     
     // Format version for display
     const formatVersion = (version) => {
-        if (!version) return 'N/A';
+        if (!version) return t('update.unknown');
         // If version is timestamp, format as date
         if (/^\d+$/.test(version)) {
             const date = new Date(parseInt(version));
-            return date.toLocaleString('en-US', {
+            return date.toLocaleString(LOCALE_META[currentLocale()]?.htmlLang || 'en', {
                 year: 'numeric',
                 month: '2-digit',
                 day: '2-digit',
@@ -176,8 +177,8 @@ const UpdateChecker = ({ children, onUpdateAvailable, debug = false }) => {
                     dangerouslySetInnerHTML: { __html: '<path d="M21 8a8.5 8.5 0 0 0-15.6-2.5M3 4v4h4"/><path d="M3 16a8.5 8.5 0 0 0 15.6 2.5M21 20v-4h-4"/>' }
                 })),
 
-                React.createElement('h2', { key: 'title', style: { margin: '0 0 9px', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.7px', color: '#f4f4f6' } }, 'Update available'),
-                React.createElement('p', { key: 'sub', style: { margin: '0 0 24px', fontSize: '14.5px', lineHeight: 1.55, color: '#9a9aa2' } }, 'A newer version of SecureBit has been detected.'),
+                React.createElement('h2', { key: 'title', style: { margin: '0 0 9px', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.7px', color: '#f4f4f6' } }, t('update.title')),
+                React.createElement('p', { key: 'sub', style: { margin: '0 0 24px', fontSize: '14.5px', lineHeight: 1.55, color: '#9a9aa2' } }, t('update.desc')),
 
                 // version comparison
                 React.createElement('div', {
@@ -185,14 +186,14 @@ const UpdateChecker = ({ children, onUpdateAvailable, debug = false }) => {
                     style: { borderRadius: '14px', background: '#0c0c0e', border: '1px solid rgba(255,255,255,0.06)', padding: '16px 18px', marginBottom: '24px', textAlign: 'left' }
                 }, [
                     React.createElement('div', { key: 'cur', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', padding: '5px 0' } }, [
-                        React.createElement('span', { key: 'l', style: { fontSize: '13.5px', fontWeight: 500, color: '#8a8a92' } }, 'Current version'),
+                        React.createElement('span', { key: 'l', style: { fontSize: '13.5px', fontWeight: 500, color: '#8a8a92' } }, t('update.currentVersion')),
                         React.createElement('span', { key: 'v', style: { fontFamily: MONO, fontSize: '13px', fontWeight: 500, color: '#9a9aa2', whiteSpace: 'nowrap' } }, formatVersion(updateState.currentVersion))
                     ]),
                     React.createElement('div', { key: 'sep', style: { height: '1px', background: 'rgba(255,255,255,0.05)', margin: '4px 0' } }),
                     React.createElement('div', { key: 'new', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', padding: '5px 0' } }, [
                         React.createElement('span', { key: 'l', style: { display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13.5px', fontWeight: 600, color: '#e8e8eb' } }, [
                             React.createElement('span', { key: 'd', style: { width: '6px', height: '6px', borderRadius: '50%', background: '#f0892a' } }),
-                            'New version'
+                            t('update.newVersion')
                         ]),
                         React.createElement('span', { key: 'v', style: { fontFamily: MONO, fontSize: '13px', fontWeight: 700, color: '#f0892a', whiteSpace: 'nowrap' } }, formatVersion(updateState.newVersion))
                     ])
@@ -216,12 +217,12 @@ const UpdateChecker = ({ children, onUpdateAvailable, debug = false }) => {
                             onMouseLeave: (e) => { e.currentTarget.style.background = '#f0892a'; e.currentTarget.style.transform = 'none'; }
                         }, [
                             React.createElement('svg', { key: 'i', width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.1, strokeLinecap: 'round', strokeLinejoin: 'round', dangerouslySetInnerHTML: { __html: '<path d="M12 3v11"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M5 20h14"/>' } }),
-                            'Update now'
+                            t('update.now')
                         ]),
                         React.createElement('button', {
                             key: 'later',
                             onClick: handleCloseModal,
-                            title: 'Later',
+                            title: t('update.later'),
                             style: { flex: 'none', width: '50px', height: '50px', borderRadius: '13px', display: 'grid', placeItems: 'center', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.025)', color: '#9a9aa2', cursor: 'pointer', transition: 'all .18s cubic-bezier(.2,.7,.3,1)' },
                             onMouseEnter: (e) => { e.currentTarget.style.color = '#e5727a'; e.currentTarget.style.borderColor = 'rgba(229,114,122,0.4)'; },
                             onMouseLeave: (e) => { e.currentTarget.style.color = '#9a9aa2'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }

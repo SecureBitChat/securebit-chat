@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 // Sessions registry for SecureBit.chat multi-session support.
 //
 // Pure, framework-free reducer + helpers. The root React component drives it via
@@ -34,20 +35,20 @@ export const SESSION_ACTIONS = Object.freeze({
 // Availability presence the PEER advertises to us (sent E2E over the data channel, never
 // stored on a server). 'invisible' is sent on the wire as 'offline' so peers can't tell.
 export const PRESENCE_DOT = { available: '#3ecf8e', away: '#e3b341', busy: '#e5727a', offline: '#6b6b73' };
-export const PRESENCE_WORD = { available: 'Available', away: 'Away', busy: 'Busy', offline: 'Offline' };
+export const PRESENCE_WORD = { available: t('presence.available'), away: t('presence.away'), busy: t('presence.busy'), offline: t('presence.offline') };
 // The statuses the local user can pick for themselves (design: Set your status).
 export const MY_STATUS_OPTIONS = [
-    { key: 'available', word: 'Available', desc: 'Online and reachable', dot: '#3ecf8e' },
-    { key: 'away', word: 'Away', desc: 'Idle · stepped away', dot: '#e3b341' },
-    { key: 'busy', word: 'Busy', desc: 'Do not disturb', dot: '#e5727a' },
-    { key: 'invisible', word: 'Invisible', desc: 'Appear offline to peers', dot: '#6b6b73' }
+    { key: 'available', word: t('presence.available'), desc: t('presence.availableDesc'), dot: '#3ecf8e' },
+    { key: 'away', word: t('presence.away'), desc: t('presence.awayDesc'), dot: '#e3b341' },
+    { key: 'busy', word: t('presence.busy'), desc: t('presence.busyDesc'), dot: '#e5727a' },
+    { key: 'invisible', word: t('presence.invisible'), desc: t('presence.invisibleDesc'), dot: '#6b6b73' }
 ];
 
 // Short, human-friendly default label derived from the local sessionId. Never the peer's
 // identity — just something stable to show before the SAS-derived label is available.
 export function shortLabelFromId(id) {
     const hex = String(id || '').replace(/[^a-z0-9]/gi, '');
-    return 'Chat ' + (hex.slice(0, 4) || '0000').toUpperCase();
+    return t('chat.defaultLabel') + ' ' + (hex.slice(0, 4) || '0000').toUpperCase();
 }
 
 // Two-letter monogram for the avatar tile (mirrors the design's `mono()` helper).
@@ -78,18 +79,18 @@ export function statusSub(status) {
     switch (status) {
         case 'connected':
         case 'verified':
-            return 'P2P · connected';
+            return t('conn.p2p');
         case 'verifying':
-            return 'Verifying…';
+            return t('conn.verifying');
         case 'connecting':
         case 'new':
-            return 'Connecting…';
+            return t('conn.connecting');
         case 'reconnecting':
-            return 'Reconnecting…';
+            return t('conn.reconnecting');
         case 'peer_disconnected':
-            return 'Peer disconnected';
+            return t('conn.peerDisconnected');
         default:
-            return 'Disconnected';
+            return t('conn.disconnected');
     }
 }
 
@@ -352,7 +353,7 @@ export function decorateSession(session, activeSessionId) {
         headerSub = statusSub(s);
     } else if (isUp) {
         dot = session.peerPresence ? (PRESENCE_DOT[session.peerPresence] || '#6b6b73') : '#3ecf8e';
-        headerSub = session.peerPresence ? (PRESENCE_WORD[session.peerPresence] || 'Online') : 'P2P · connected';
+        headerSub = session.peerPresence ? (PRESENCE_WORD[session.peerPresence] || t('presence.online')) : t('conn.p2p');
     } else {
         dot = '#e5727a';
         headerSub = statusSub(s);

@@ -1,3 +1,5 @@
+import { t, tList } from '../../i18n/index.js';
+
 // "Why SecureBit is unique" — interactive accordion section.
 // Translated from the Claude Design component (Why Unique.dc.html) into the
 // project's React.createElement style. Five horizontal panels; the active one
@@ -28,42 +30,42 @@ const UniqueFeatureSlider = () => {
   const slides = [
     {
       num: '01',
-      title: ['Layered', 'encryption core'],
-      collapsed: 'Encryption core',
-      desc: 'ECDH P-384 key exchange, AES-256-GCM payloads, ECDSA signatures and full ASN.1 validation — composed into one hardened pipeline.',
-      tags: ['ECDH P-384', 'AES-256-GCM', 'ECDSA', 'ASN.1'],
+      title: [t('unique.s1.titleTop'), t('unique.s1.titleBottom')],
+      collapsed: t('unique.s1.collapsed'),
+      desc: t('unique.s1.desc'),
+      tags: tList('unique.s1.tags'),
       icon: '<path d="M12 3l8 4v5c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V7l8-4z"/><path d="M9.2 12.2l2 2 3.6-3.8"/>'
     },
     {
       num: '02',
-      title: ['Pure P2P', 'WebRTC'],
-      collapsed: 'Pure P2P WebRTC',
-      desc: 'Messages travel directly between devices over WebRTC. No relay holds your data — the server only helps two peers find each other.',
-      tags: ['DTLS 1.3', 'No relay'],
+      title: [t('unique.s2.titleTop'), t('unique.s2.titleBottom')],
+      collapsed: t('unique.s2.collapsed'),
+      desc: t('unique.s2.desc'),
+      tags: tList('unique.s2.tags'),
       icon: '<circle cx="5.5" cy="12" r="2.5"/><circle cx="18.5" cy="6" r="2.5"/><circle cx="18.5" cy="18" r="2.5"/><path d="M7.8 10.8l8.4-3.6M7.8 13.2l8.4 3.6"/>'
     },
     {
       num: '03',
-      title: ['Perfect', 'forward secrecy'],
-      collapsed: 'Forward secrecy',
-      desc: 'Session keys rotate continuously and are discarded after use, so a single compromised key can never unlock past conversations.',
-      tags: ['Ephemeral keys', 'Auto-rotate'],
+      title: [t('unique.s3.titleTop'), t('unique.s3.titleBottom')],
+      collapsed: t('unique.s3.collapsed'),
+      desc: t('unique.s3.desc'),
+      tags: tList('unique.s3.tags'),
       icon: '<path d="M21 8a8.5 8.5 0 0 0-15.6-2.5M3 4v4h4"/><path d="M3 16a8.5 8.5 0 0 0 15.6 2.5M21 20v-4h-4"/>'
     },
     {
       num: '04',
-      title: ['Traffic', 'obfuscation'],
-      collapsed: 'Traffic obfuscation',
-      desc: 'Packet sizes and timing are padded and randomized, hiding metadata patterns from anyone watching the wire.',
-      tags: ['Packet padding', 'Timing jitter'],
+      title: [t('unique.s4.titleTop'), t('unique.s4.titleBottom')],
+      collapsed: t('unique.s4.collapsed'),
+      desc: t('unique.s4.desc'),
+      tags: tList('unique.s4.tags'),
       icon: '<path d="M3 7h4l3 10h4M14 7h3l3 0"/><path d="M17 4l3 3-3 3"/><path d="M3 17h4l2-6"/>'
     },
     {
       num: '05',
-      title: ['Zero data', 'collection'],
-      collapsed: 'Zero data collection',
-      desc: 'No accounts, no logs, no message storage. There is nothing on a server to leak, subpoena, or sell.',
-      tags: ['No accounts', 'No logs'],
+      title: [t('unique.s5.titleTop'), t('unique.s5.titleBottom')],
+      collapsed: t('unique.s5.collapsed'),
+      desc: t('unique.s5.desc'),
+      tags: tList('unique.s5.tags'),
       icon: '<path d="M9.9 5.1A9.6 9.6 0 0 1 12 5c5.5 0 9 5 9 7a11 11 0 0 1-2.2 3M6.3 7.3C3.6 8.9 2 11.2 2 12c0 1.4 3.5 7 10 7 1.6 0 3-.3 4.2-.8"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2M3 3l18 18"/>'
     }
   ];
@@ -198,11 +200,11 @@ const UniqueFeatureSlider = () => {
         React.createElement('div', {
           key: 'eyebrow',
           style: { fontFamily: MONO, fontSize: '11px', fontWeight: 600, color: '#6b6b73', textTransform: 'uppercase', letterSpacing: '1.4px', marginBottom: '12px' }
-        }, 'What sets us apart'),
+        }, t('unique.eyebrow')),
         React.createElement('h2', {
           key: 'h2',
           style: { margin: 0, fontSize: isMobile ? '28px' : '38px', fontWeight: 800, letterSpacing: '-1.1px', lineHeight: 1.05, color: '#f4f4f6' }
-        }, 'Why SecureBit is unique')
+        }, t('unique.heading'))
       ]),
       React.createElement('div', { key: 'nav', style: { display: 'flex', alignItems: 'center', gap: '10px', flex: 'none' } }, [
         navBtn('prev', () => go(-1), '<path d="M15 6l-6 6 6 6"/>'),

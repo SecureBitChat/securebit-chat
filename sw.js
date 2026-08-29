@@ -11,7 +11,19 @@ let DYNAMIC_CACHE = 'securebit-pwa-dynamic-v4.7.56';
 // Build stamp — rewritten by scripts/post-build.js on every release so this file's
 // bytes change each deploy. That is what makes the browser detect a new Service Worker,
 // reinstall it, drop stale caches and (via controllerchange) prompt the page to update.
-const SW_BUILD_VERSION = '1787944850227';
+const SW_BUILD_VERSION = '1788021796445';
+
+// Locale subdirectories, rewritten by scripts/build-i18n.js. Each localized page is a
+// separate document at its own URL, so the shell has to be cached and served per
+// locale — otherwise an offline visitor on /de/ is handed the English page back.
+const SW_LOCALES = ['de', 'fr', 'es', 'uk', 'ru', 'zh', 'ko', 'hi'];
+const LOCALE_SHELLS = SW_LOCALES.flatMap((code) => [`/${code}/`, `/${code}/index.html`, `/${code}/manifest.json`]);
+
+// The locale a request belongs to, as a shell path. Falls back to the root shell.
+function shellFor(pathname) {
+    const code = SW_LOCALES.find((c) => pathname === `/${c}` || pathname.startsWith(`/${c}/`));
+    return code ? `/${code}/index.html` : '/index.html';
+}
 
 // Load version from meta.json on install
 async function getAppVersion() {
@@ -59,7 +71,15 @@ const STATIC_ASSETS = [
     '/src/pwa/pwa-manager.js',
     '/src/pwa/install-prompt.js',
     '/src/scripts/pwa-register.js',
-    '/src/scripts/pwa-offline-test.js'
+    '/src/scripts/pwa-offline-test.js',
+
+    // The install prompt is precached and imports these at runtime; without them it
+    // would fail to load offline, which is exactly when it is most likely to be shown.
+    '/src/i18n/index.js',
+    '/src/i18n/generated.js',
+
+    // Localized app shells (empty when the site is single-locale).
+    ...LOCALE_SHELLS
 ];
 
 // Sensitive files that should never be cached
@@ -105,7 +125,10 @@ const CACHEABLE_PATHS = new Set([
     '/src/pwa/pwa-manager.js',
     '/src/pwa/install-prompt.js',
     '/src/scripts/pwa-register.js',
-    '/src/scripts/pwa-offline-test.js'
+    '/src/scripts/pwa-offline-test.js',
+    '/src/i18n/index.js',
+    '/src/i18n/generated.js',
+    ...LOCALE_SHELLS
 ]);
 
 function isSensitivePath(pathname) {
@@ -416,6 +439,13 @@ async function handleOffline(request) {
     
     // For navigation requests, return cached index.html
     if (request.destination === 'document' || request.mode === 'navigate') {
+        // Serve the shell for the locale that was requested, so an offline visitor on
+        // /de/ does not silently get the English page.
+        const localeShell = await caches.match(shellFor(url.pathname));
+        if (localeShell) {
+            return localeShell;
+        }
+
         const cachedIndex = await caches.match('/index.html');
         if (cachedIndex) {
             return cachedIndex;

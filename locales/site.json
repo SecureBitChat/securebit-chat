@@ -1,0 +1,19 @@
+{
+  "baseUrl": "https://securebit.chat",
+  "defaultLocale": "en",
+  "locales": [
+    "en",
+    "de",
+    "fr",
+    "es",
+    "uk",
+    "ru",
+    "zh",
+    "ko",
+    "hi"
+  ],
+  "author": "Volodymyr",
+  "siteName": "SecureBit.chat",
+  "socialCard": "/assets/social-card.png",
+  "repository": "https://github.com/SecureBitChat/securebit-chat"
+}
