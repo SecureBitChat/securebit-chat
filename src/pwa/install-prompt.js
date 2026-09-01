@@ -1,4 +1,5 @@
 import { t } from '../i18n/index.js';
+import { prefersReducedMotion } from '../ui/motion.js';
 
 class PWAInstallPrompt {
     constructor() {
@@ -202,30 +203,37 @@ class PWAInstallPrompt {
             return;
         }
 
+        // Android gets a bottom sheet rather than the desktop pill: it sits where the
+        // thumb already is, and a phone has no room for a floating pill that does not
+        // land on the composer. It was the one surface in this file still built from
+        // the old Tailwind palette — a grey card with blue accents, wrapped by an
+        // orange gradient bar from pwa.css — which is why it read as another app's.
+        // Styling is inline in the same idiom as the install pill and the install
+        // guide, so all three track one design.
         this.installBanner = document.createElement('div');
         this.installBanner.id = 'pwa-install-banner';
-        this.installBanner.className = 'pwa-install-banner fixed bottom-0 left-0 right-0 transform translate-y-full transition-transform duration-300 z-40';
+        this.installBanner.style.cssText =
+            "position:fixed; inset-inline:12px; bottom:calc(12px + env(safe-area-inset-bottom, 0px)); z-index:1000; " +
+            "font-family:'Manrope',system-ui,-apple-system,sans-serif; " +
+            "transform:translateY(calc(100% + 28px)); opacity:0; " +
+            (prefersReducedMotion()
+                ? "transition:opacity .2s linear;"
+                : "transition:transform .44s cubic-bezier(.2,.7,.3,1), opacity .3s ease;");
+
         this.installBanner.innerHTML = `
-            <div class="bg-gray-800/95 backdrop-blur-sm border-t border-gray-600/30 p-4">
-                <div class="max-w-4xl mx-auto flex items-center justify-between">
-                    <div class="flex items-center space-x-4">
-                        <div class="w-12 h-12 bg-orange-500/10 border border-orange-500/20 rounded-lg flex items-center justify-center">
-                            <i class="fas fa-shield-halved text-orange-400 text-xl"></i>
-                        </div>
-                        <div>
-                            <div class="font-medium text-white">${t('pwa.bannerTitle')}</div>
-                            <div class="text-sm text-gray-300">${t('pwa.bannerDesc')}</div>
-                        </div>
+            <div style="max-width:520px; margin-inline:auto; border-radius:20px; background:#121214; border:1px solid rgba(255,255,255,0.08); padding:18px; box-shadow:0 20px 50px rgba(0,0,0,0.55);">
+                <div style="display:flex; align-items:center; gap:14px; margin-bottom:16px;">
+                    <div style="flex:none; width:44px; height:44px; border-radius:12px; display:grid; place-items:center; background:rgba(240,137,42,0.12); border:1px solid rgba(240,137,42,0.28);">
+                        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#f0892a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M5 20h14"/></svg>
                     </div>
-                    <div class="flex items-center space-x-3">
-                        <button class="install-btn bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-medium transition-colors" data-action="install">
-                            <i class="fas fa-download me-2"></i>
-                            ${t('pwa.install')}
-                        </button>
-                        <button class="close-btn text-gray-400 hover:text-white px-3 py-2 rounded-lg transition-colors" data-action="close">
-                            <i class="fas fa-times"></i>
-                        </button>
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-size:15.5px; font-weight:800; letter-spacing:-0.3px; color:#f4f4f6; margin-bottom:3px;">${t('pwa.bannerTitle')}</div>
+                        <div style="font-size:13px; line-height:1.45; color:#8a8a92;">${t('pwa.bannerDesc')}</div>
                     </div>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <button class="install-btn" type="button" data-action="install" style="flex:1; padding:13px 20px; border-radius:13px; border:none; background:#f0892a; color:#1a0f04; font-family:inherit; font-size:15px; font-weight:700; letter-spacing:-0.2px; cursor:pointer; transition:background .2s cubic-bezier(.2,.7,.3,1);">${t('pwa.install')}</button>
+                    <button class="close-btn" type="button" data-action="close" style="flex:none; padding:13px 18px; border-radius:13px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.03); color:#9a9aa2; font-family:inherit; font-size:15px; font-weight:700; cursor:pointer; transition:all .2s cubic-bezier(.2,.7,.3,1);">${t('pwa.dismiss')}</button>
                 </div>
             </div>
         `;
@@ -233,7 +241,7 @@ class PWAInstallPrompt {
         // Handle banner actions
         this.installBanner.addEventListener('click', (event) => {
             const action = event.target.closest('[data-action]')?.dataset.action;
-            
+
             if (action === 'install') {
                 this.handleInstallClick();
             } else if (action === 'close') {
@@ -284,8 +292,8 @@ class PWAInstallPrompt {
         
         if (this.installBanner && !this.isInstalled) {
             setTimeout(() => {
-                this.installBanner.classList.add('show');
                 this.installBanner.style.transform = 'translateY(0)';
+                this.installBanner.style.opacity = '1';
             }, 1000);
 
         } else {
@@ -304,8 +312,10 @@ class PWAInstallPrompt {
         }
         
         if (this.installBanner) {
-            this.installBanner.classList.remove('show');
-            this.installBanner.style.transform = 'translateY(100%)';
+            // Clear of the bottom inset as well as the sheet's own height, or the
+            // card's top edge stays parked on the screen.
+            this.installBanner.style.transform = 'translateY(calc(100% + 28px))';
+            this.installBanner.style.opacity = '0';
             if (this.isInstalled) {
                 setTimeout(() => {
                     if (this.installBanner) {
@@ -351,78 +361,79 @@ class PWAInstallPrompt {
     }
 
     showIOSInstallInstructions() {
+        // Same surface language as the install guide below: dark card, orange accent,
+        // inline styles. The previous version was Tailwind blue-on-grey and had three
+        // strings baked in English, which a thirteen-locale site cannot ship.
         const modal = document.createElement('div');
-        modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm';
+        modal.id = 'pwa-ios-install';
+        modal.style.cssText = "position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; padding:24px; background:rgba(8,8,10,0.55); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); animation:igFade .3s ease; font-family:'Manrope',system-ui,-apple-system,sans-serif;";
+
+        const step = (n, title, hint, delay) => `
+            <div style="display:flex; align-items:flex-start; gap:14px; padding:14px 16px; border-radius:13px; background:#161618; border:1px solid rgba(255,255,255,0.06); animation:igRow ${delay} cubic-bezier(.2,.7,.3,1);">
+                <div style="flex:none; width:26px; height:26px; border-radius:9px; display:grid; place-items:center; background:rgba(240,137,42,0.12); border:1px solid rgba(240,137,42,0.28); font-size:13px; font-weight:800; color:#f0892a;">${n}</div>
+                <div style="flex:1; min-width:0;">
+                    <div style="font-size:14.5px; font-weight:700; color:#f4f4f6; margin-bottom:2px;">${title}</div>
+                    <div style="font-size:13px; line-height:1.45; color:#8a8a92;">${hint}</div>
+                </div>
+            </div>`;
+
         modal.innerHTML = `
-            <div class="bg-gray-800 rounded-xl p-6 max-w-sm w-full text-center">
-                <div class="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i class="fab fa-apple text-blue-400 text-2xl"></i>
-                </div>
-                <h3 class="text-xl font-semibold text-white mb-4">${t('pwa.iosTitle')}</h3>
-                
-                <div class="space-y-4 text-start text-sm text-gray-300 mb-6">
-                    <div class="flex items-start space-x-3">
-                        <div class="w-8 h-8 bg-blue-500 rounded-full text-white flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">1</div>
-                        <div class="flex-1">
-                            <div class="font-medium text-white mb-1">${t('pwa.iosStep1')}</div>
-                            <div class="flex items-center text-blue-400">
-                                <i class="fas fa-share me-2"></i>
-                                <span>${t('pwa.iosStep1Hint')}</span>
-                            </div>
-                        </div>
+            <div style="position:relative; z-index:2; width:440px; max-width:calc(100vw - 48px); border-radius:22px; background:#121214; border:1px solid rgba(255,255,255,0.08); padding:34px 30px 26px; box-shadow:0 30px 70px rgba(0,0,0,0.6); animation:igPop .32s cubic-bezier(.2,.7,.3,1);">
+                <button class="close-x" type="button" title="${t('pwa.close')}" aria-label="${t('pwa.close')}" style="position:absolute; top:18px; inset-inline-end:18px; width:30px; height:30px; padding:0; border-radius:9px; display:grid; place-items:center; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.02); color:#8a8a92; cursor:pointer; transition:all .18s cubic-bezier(.2,.7,.3,1);">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                </button>
+
+                <div style="text-align:center; margin-bottom:22px;">
+                    <div style="display:inline-flex; width:60px; height:60px; border-radius:16px; align-items:center; justify-content:center; background:rgba(240,137,42,0.12); border:1px solid rgba(240,137,42,0.3); margin-bottom:18px;">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#f0892a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M8.5 7.5L12 4l3.5 3.5"/><path d="M6 11H5a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7a1 1 0 0 0-1-1h-1"/></svg>
                     </div>
-                    
-                    <div class="flex items-start space-x-3">
-                        <div class="w-8 h-8 bg-blue-500 rounded-full text-white flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">2</div>
-                        <div class="flex-1">
-                            <div class="font-medium text-white mb-1">${t('pwa.iosStep2')}</div>
-                            <div class="text-gray-400">${t('pwa.iosStep2Hint')}</div>
-                        </div>
-                    </div>
-                    
-                    <div class="flex items-start space-x-3">
-                        <div class="w-8 h-8 bg-blue-500 rounded-full text-white flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">3</div>
-                        <div class="flex-1">
-                            <div class="font-medium text-white mb-1">${t('pwa.iosStep3')}</div>
-                            <div class="text-gray-400">${t('pwa.iosStep3Hint')}</div>
-                        </div>
-                    </div>
+                    <h3 style="margin:0; font-size:23px; font-weight:800; letter-spacing:-0.6px; color:#f4f4f6;">${t('pwa.iosTitle')}</h3>
                 </div>
-                
-                <div class="bg-orange-500/10 border border-orange-500/20 rounded-lg p-3 mb-4">
-                    <p class="text-orange-300 text-xs">
-                        <i class="fas fa-info-circle me-1"></i>
-                        After installation, open SecureBit from your home screen for the best experience.
-                    </p>
+
+                <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:22px;">
+                    ${step(1, t('pwa.iosStep1'), t('pwa.iosStep1Hint'), '.34s')}
+                    ${step(2, t('pwa.iosStep2'), t('pwa.iosStep2Hint'), '.42s')}
+                    ${step(3, t('pwa.iosStep3'), t('pwa.iosStep3Hint'), '.5s')}
                 </div>
-                
-                <div class="flex space-x-3">
-                    <button class="got-it-btn flex-1 bg-blue-500 hover:bg-blue-600 text-white py-3 px-4 rounded-lg font-medium transition-colors">
-                        Got it
-                    </button>
-                    <button class="close-btn flex-1 bg-gray-600 hover:bg-gray-500 text-white py-3 px-4 rounded-lg font-medium transition-colors">
-                        Close
-                    </button>
-                </div>
+
+                <button class="got-it" type="button" style="width:100%; padding:14px 20px; border-radius:13px; border:none; background:#f0892a; color:#1a0f04; font-family:inherit; font-size:15px; font-weight:700; cursor:pointer; transition:background .2s cubic-bezier(.2,.7,.3,1);">${t('pwa.gotIt')}</button>
             </div>
         `;
-        
-        const gotItBtn = modal.querySelector('.got-it-btn');
-        const closeBtn = modal.querySelector('.close-btn');
-        
-        gotItBtn.addEventListener('click', () => {
+
+        const closeX = modal.querySelector('.close-x');
+        closeX.addEventListener('mouseenter', () => { closeX.style.color = '#e5727a'; closeX.style.borderColor = 'rgba(229,114,122,0.4)'; });
+        closeX.addEventListener('mouseleave', () => { closeX.style.color = '#8a8a92'; closeX.style.borderColor = 'rgba(255,255,255,0.08)'; });
+
+        const gotIt = modal.querySelector('.got-it');
+
+        // "Got it" means the steps landed, so the 24h quiet period starts. Dismissing
+        // with the X is a rejection and still counts against maxDismissals — the two
+        // are not the same signal, and were not before this redesign either.
+        gotIt.addEventListener('click', () => {
             modal.remove();
             this.saveInstallPreference('ios_instructions_shown', Date.now());
         });
-        
-        closeBtn.addEventListener('click', () => {
+
+        closeX.addEventListener('click', () => {
             modal.remove();
             this.dismissedCount++;
             this.saveInstallPreference('dismissed', this.dismissedCount);
         });
-        
+
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
+        this.ensureModalKeyframes();
         document.body.appendChild(modal);
         this.saveInstallPreference('ios_instructions_shown', Date.now());
+    }
+
+    // Entrance keyframes shared by the iOS instructions and the install guide.
+    ensureModalKeyframes() {
+        if (document.getElementById('pwa-install-guide-kf')) return;
+        const style = document.createElement('style');
+        style.id = 'pwa-install-guide-kf';
+        style.textContent = '@keyframes igPop{from{opacity:0;transform:scale(.96) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}@keyframes igFade{from{opacity:0}to{opacity:1}}@keyframes igRow{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}';
+        document.head.appendChild(style);
     }
 
     showFallbackInstructions() {
@@ -486,46 +497,54 @@ class PWAInstallPrompt {
         gotIt.addEventListener('click', close);
         modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
 
-        if (!document.getElementById('pwa-install-guide-kf')) {
-            const style = document.createElement('style');
-            style.id = 'pwa-install-guide-kf';
-            style.textContent = '@keyframes igPop{from{opacity:0;transform:scale(.96) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}@keyframes igFade{from{opacity:0}to{opacity:1}}@keyframes igRow{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}';
-            document.head.appendChild(style);
-        }
-
+        this.ensureModalKeyframes();
         document.body.appendChild(modal);
     }
 
     showInstallSuccess() {
-        
-        const notification = document.createElement('div');
-        notification.className = 'fixed top-4 end-4 bg-green-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm transform translate-x-full transition-transform duration-300';
-        
-        const successText = this.isIOSSafari() ? 
-            t('pwa.installedIos') : 
+
+        const successText = this.isIOSSafari() ?
+            t('pwa.installedIos') :
             t('pwa.installedGeneric');
-            
+
+        // Confirmation lands on the same dark surface as everything else, and clears
+        // the iOS status bar: installed, this toast would otherwise sit under the clock.
+        const notification = document.createElement('div');
+        notification.id = 'pwa-install-success';
+        notification.style.cssText =
+            "position:fixed; top:calc(16px + var(--sb-safe-top, 0px)); inset-inline-end:16px; inset-inline-start:auto; max-width:min(360px, calc(100vw - 32px)); z-index:9999; " +
+            "font-family:'Manrope',system-ui,-apple-system,sans-serif; " +
+            "border-radius:15px; background:#121214; border:1px solid rgba(62,207,142,0.28); padding:15px 17px; box-shadow:0 20px 50px rgba(0,0,0,0.55); " +
+            "transform:translateX(calc(100% + 24px)); opacity:0; " +
+            (prefersReducedMotion()
+                ? "transition:opacity .2s linear;"
+                : "transition:transform .42s cubic-bezier(.2,.7,.3,1), opacity .3s ease;");
+
         notification.innerHTML = `
-            <div class="flex items-center space-x-3">
-                <div class="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                    <i class="fas fa-check text-lg"></i>
+            <div style="display:flex; align-items:center; gap:13px;">
+                <div style="flex:none; width:36px; height:36px; border-radius:11px; display:grid; place-items:center; background:rgba(62,207,142,0.12); border:1px solid rgba(62,207,142,0.28);">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
                 </div>
-                <div>
-                    <div class="font-medium">${t('pwa.installedTitle')}</div>
-                    <div class="text-sm opacity-90">${successText}</div>
+                <div style="flex:1; min-width:0;">
+                    <div style="font-size:14.5px; font-weight:800; letter-spacing:-0.2px; color:#f4f4f6; margin-bottom:2px;">${t('pwa.installedTitle')}</div>
+                    <div style="font-size:12.5px; line-height:1.4; color:#8a8a92;">${successText}</div>
                 </div>
             </div>
         `;
-        
+
         document.body.appendChild(notification);
-        
+
+        // Two frames, not one: the element has to be laid out with the off-screen
+        // transform before the transition has anything to animate from.
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            notification.style.transform = 'translateX(0)';
+            notification.style.opacity = '1';
+        }));
+
         setTimeout(() => {
-            notification.classList.remove('translate-x-full');
-        }, 100);
-        
-        setTimeout(() => {
-            notification.classList.add('translate-x-full');
-            setTimeout(() => notification.remove(), 300);
+            notification.style.transform = 'translateX(calc(100% + 24px))';
+            notification.style.opacity = '0';
+            setTimeout(() => notification.remove(), 450);
         }, 5000);
 
         this.hideInstallPrompts();

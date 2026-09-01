@@ -75,6 +75,11 @@ import {
     verifyMeshDescriptor,
     signLinkProbe,
     verifyLinkProbe,
+    CALL_ACTIONS,
+    newCallId,
+    assertCallId,
+    signGroupCall,
+    verifyGroupCall,
     randomBytes,
     canonicalFingerprints,
     assertGroupId,
@@ -106,6 +111,9 @@ export const GROUP_FRAMES = Object.freeze({
     MESH_ABORT: 'g_mabort',
     // "The pairwise chat this arrived on is me, member <fp>."
     PROBE: 'g_probe',
+    // Call control: who opened a call, who is in it, who has left. Media never
+    // travels here — see the call section below.
+    CALL: 'g_call',
 });
 
 /** The outer wrapper every group frame travels inside. See encodeEnvelope. */
@@ -325,6 +333,23 @@ export class GroupSession {
         this._probed = new Set();
         /** The coalescing timer for _meshMaintain, or null when none is armed. */
         this._meshPass = null;
+
+        /**
+         * The call this group is currently holding, or null.
+         *
+         * { callId, startedBy, withVideo, startedAt, participants: Set<fp>, joined }
+         *
+         * `joined` is about US specifically: a call can be running with three
+         * people in it while we have not picked up, and the difference decides
+         * whether this device is capturing a microphone. It is never inferred
+         * from the participant set, because a member could otherwise put us in a
+         * call by naming us in one.
+         */
+        this.call = null;
+        /** Our own counter over call frames. Monotonic; never reset within an epoch. */
+        this.callSeq = 0;
+        /** fp -> highest call sequence seen, so a captured frame cannot be replayed. */
+        this._callSeen = new Map();
     }
 
     // -----------------------------------------------------------------------
@@ -371,6 +396,9 @@ export class GroupSession {
         this._meshDials.clear();
         this._meshFailures.clear();
         this._probed.clear();
+
+        this.call = null;
+        this._callSeen.clear();
 
         this.members.clear();
         this.sessionToFp.clear();
@@ -419,7 +447,26 @@ export class GroupSession {
     }
 
     _emitMembers() {
+        this._pruneCall();
         this._emit('members', { members: this._memberSnapshot(), epoch: this.epoch });
+    }
+
+    /**
+     * Drop anyone from the current call who is no longer a member.
+     *
+     * Membership can change under a call — the admin removes somebody, a roster
+     * for a new epoch arrives — and a participant list that outlives the roster
+     * would show a person in the call who is not in the group, which is exactly
+     * the kind of stale claim a group must not make about who can hear it.
+     */
+    _pruneCall() {
+        if (!this.call) return;
+        let changed = false;
+        for (const fp of [...this.call.participants]) {
+            if (!this.members.has(fp)) { this.call.participants.delete(fp); changed = true; }
+        }
+        if (this.call.participants.size === 0) { this.call = null; changed = true; }
+        if (changed) this._emit('call', { call: this.getCallSnapshot() });
     }
 
     // -----------------------------------------------------------------------
@@ -1617,6 +1664,264 @@ export class GroupSession {
     }
 
     // -----------------------------------------------------------------------
+    // calls
+    // -----------------------------------------------------------------------
+    //
+    // WHAT TRAVELS HERE AND WHAT DOES NOT
+    // -----------------------------------
+    // Only the roster of a call: somebody opened one, somebody joined it,
+    // somebody left. No SDP, no ICE, no audio, no video. Media is carried by the
+    // pairwise sessions themselves — each member places an ordinary encrypted
+    // call to each other member over the link they already share, so a group
+    // call is N-1 of the 1:1 calls this app already makes, on transports that
+    // were already SAS-verified. There is no mixer, no conference server and no
+    // point at which two people's audio meets anywhere but on a device.
+    //
+    // That is why call control is separate from the media path. Control has to
+    // reach every member, including one who is currently reachable only through
+    // a relay; media can only flow where a direct link exists. Splitting them
+    // means a member with no direct link still SEES the call and can be dialled
+    // into it as the mesh completes, instead of silently missing it.
+    //
+    // WHY THESE FRAMES ARE SIGNED
+    // ---------------------------
+    // A relaying member carries call control for pairs that cannot reach each
+    // other. Unsigned, that member could add somebody to a call they never
+    // joined, or drop somebody who is in one, and nobody could tell it had
+    // happened. Signed with the group identity key, a relay can still refuse to
+    // carry a frame — the same availability cost relaying always has — but it
+    // cannot write one.
+
+    /** What the app renders. Null when there is no call. */
+    getCallSnapshot() {
+        if (!this.call) return null;
+        const starter = this.members.get(this.call.startedBy);
+        return {
+            callId: this.call.callId,
+            startedBy: this.call.startedBy,
+            startedByName: this.call.startedBy === this.selfFp
+                ? 'You'
+                : (starter?.name || 'A member'),
+            withVideo: this.call.withVideo,
+            startedAt: this.call.startedAt,
+            joined: this.call.joined,
+            participants: [...this.call.participants].map((fp) => {
+                const member = this.members.get(fp);
+                return {
+                    fp,
+                    name: fp === this.selfFp ? 'You' : (member?.name || 'A member'),
+                    self: fp === this.selfFp,
+                    sessionId: member?.sessionId || null,
+                    state: member?.state || MEMBER_STATE.LOST,
+                };
+            }).sort((a, b) => (a.fp < b.fp ? -1 : a.fp > b.fp ? 1 : 0)),
+        };
+    }
+
+    _emitCall() {
+        this._emit('call', { call: this.getCallSnapshot() });
+    }
+
+    _requireReady() {
+        if (this.phase !== GROUP_PHASE.READY || !this.sasConfirmed) {
+            throw new GroupSessionError('the group code has not been confirmed', 'not_ready');
+        }
+    }
+
+    /** Sign and fan out one call-control frame. */
+    async _sendCallFrame(action, callId, withVideo) {
+        const seq = ++this.callSeq;
+        const sig = await signGroupCall(this.subtle, this.identity.keyPair.privateKey, {
+            groupId: this.groupId, epoch: this.epoch, callId, action,
+            fp: this.selfFp, seq, withVideo,
+        });
+        return this._broadcast({
+            type: GROUP_FRAMES.CALL,
+            gid: this.groupId,
+            epoch: this.epoch,
+            callId,
+            action,
+            fp: this.selfFp,
+            seq,
+            v: withVideo === true,
+            ts: Date.now(),
+            sig: toB64(sig),
+        });
+    }
+
+    /**
+     * Open a call and put ourselves in it.
+     *
+     * Refused while one is already running: joining the call that exists is what
+     * the user means, and a second concurrent call would split the group into two
+     * rooms that cannot hear each other.
+     */
+    async startCall({ withVideo = false, prepare = null } = {}) {
+        this._requireReady();
+        if (this.call) throw new GroupSessionError('a call is already running in this group', 'call_in_progress');
+
+        const callId = newCallId();
+        this.call = {
+            callId,
+            startedBy: this.selfFp,
+            withVideo: withVideo === true,
+            startedAt: Date.now(),
+            participants: new Set([this.selfFp]),
+            joined: true,
+        };
+        this._emitCall();
+        // Media needs a direct link, so a call is the moment it is most worth
+        // having one. The mesh would get there on its own; this stops the first
+        // seconds of the call being spent waiting for a maintenance pass.
+        this._scheduleMeshMaintain();
+        try {
+            // `prepare` is where the caller opens its microphone, and it runs
+            // BEFORE the group is told anything. Announcing first would ring
+            // everybody else's device for a call this one turns out not to be
+            // able to make — a denied permission, no microphone, another
+            // application holding it. Failing here costs nobody but the person
+            // who pressed the button.
+            if (typeof prepare === 'function') await prepare(this.getCallSnapshot());
+            const { unreachable } = await this._sendCallFrame(CALL_ACTIONS.START, callId, this.call.withVideo);
+            return { callId, unreachable };
+        } catch (error) {
+            this.call = null;
+            this._emitCall();
+            throw error;
+        }
+    }
+
+    /** Join the call that is already running. */
+    async joinCall() {
+        this._requireReady();
+        if (!this.call) throw new GroupSessionError('there is no call to join', 'no_call');
+        if (this.call.joined) return { callId: this.call.callId, unreachable: [] };
+
+        this.call.joined = true;
+        this.call.participants.add(this.selfFp);
+        this._emitCall();
+        this._scheduleMeshMaintain();
+        const { unreachable } = await this._sendCallFrame(CALL_ACTIONS.JOIN, this.call.callId, this.call.withVideo);
+        return { callId: this.call.callId, unreachable };
+    }
+
+    /**
+     * Leave the call.
+     *
+     * Leaving is always local first: the frame is best effort, because a member
+     * who cannot be reached must not be able to keep us in a call by being
+     * unreachable.
+     */
+    async leaveCall() {
+        if (!this.call) return;
+        const callId = this.call.callId;
+        const withVideo = this.call.withVideo;
+        this.call.joined = false;
+        this.call.participants.delete(this.selfFp);
+        if (this.call.participants.size === 0) this.call = null;
+        this._emitCall();
+        try {
+            await this._sendCallFrame(CALL_ACTIONS.LEAVE, callId, withVideo);
+        } catch (_) { /* leaving is best effort */ }
+    }
+
+    /**
+     * A member is gone (left the call, left the group, or was removed).
+     *
+     * A call with NOBODY in it is over. A call with only us in it is not: that
+     * is exactly the state every call is in for the seconds between opening it
+     * and the first person joining, and ending it there would hang up on
+     * somebody who is on their way in. Leaving is the user's decision, and
+     * leaveCall is the only thing that makes it.
+     */
+    _dropFromCall(fp) {
+        if (!this.call || !this.call.participants.has(fp)) return;
+        this.call.participants.delete(fp);
+        if (this.call.participants.size === 0) this.call = null;
+        this._emitCall();
+    }
+
+    async _onCall(frame) {
+        const epoch = assertEpoch(frame.epoch);
+        const seq = assertEpoch(frame.seq);
+        const senderFp = assertFingerprint(String(frame.fp || ''));
+        const callId = assertCallId(String(frame.callId || ''));
+        const action = String(frame.action || '');
+        const withVideo = frame.v === true;
+
+        if (senderFp === this.selfFp) return;
+        const member = this.members.get(senderFp);
+        if (!member || !member.publicKey) throw new GroupSessionError('call frame from a non-member', 'not_a_member');
+        if (epoch !== this.epoch) throw new GroupSessionError('call frame from another epoch', 'stale_epoch');
+
+        // Replay window first, so a captured frame is dropped before its action
+        // is considered at all. Equal counts as a replay: a sender never reuses
+        // a sequence number, and fan-out duplicates of the same frame are
+        // exactly what this absorbs.
+        const seen = this._callSeen.get(senderFp);
+        if (seen !== undefined && seq <= seen) return;
+
+        const ok = await verifyGroupCall(this.subtle, member.publicKey, {
+            groupId: this.groupId, epoch, callId, action, fp: senderFp, seq, withVideo,
+        }, fromB64(String(frame.sig || ''), { max: GROUP_LIMITS.MAX_SIG_BYTES }));
+        if (!ok) throw new GroupSessionError('call frame signature did not verify', 'bad_signature');
+        this._callSeen.set(senderFp, seq);
+
+        // Nothing about a call may be acted on before the group itself is
+        // usable: a call that arrives mid-ceremony would be a ringing phone for
+        // a group nobody has authenticated yet.
+        if (this.phase !== GROUP_PHASE.READY || !this.sasConfirmed) return;
+
+        switch (action) {
+            case CALL_ACTIONS.START: {
+                if (this.call && this.call.callId !== callId) {
+                    // Two calls opened at once. The lower id wins for everyone,
+                    // because every member compares the same two values and gets
+                    // the same answer — so the group converges on one room
+                    // instead of splitting into two that cannot hear each other.
+                    if (callId >= this.call.callId) return;
+                    // We are being moved off a call we may be in. Say so, so the
+                    // media layer tears the old one down before building the new.
+                    this.call = null;
+                }
+                if (!this.call) {
+                    this.call = {
+                        callId,
+                        startedBy: senderFp,
+                        withVideo,
+                        startedAt: Date.now(),
+                        participants: new Set([senderFp]),
+                        joined: false,
+                    };
+                } else {
+                    this.call.participants.add(senderFp);
+                }
+                this._emitCall();
+                this._scheduleMeshMaintain();
+                return;
+            }
+            case CALL_ACTIONS.JOIN: {
+                if (!this.call || this.call.callId !== callId) return;
+                if (this.call.participants.has(senderFp)) return;
+                this.call.participants.add(senderFp);
+                // A member joining with video turns the call into one that has
+                // video in it; nobody's own camera is turned on by this.
+                if (withVideo) this.call.withVideo = true;
+                this._emitCall();
+                this._scheduleMeshMaintain();
+                return;
+            }
+            case CALL_ACTIONS.LEAVE: {
+                if (!this.call || this.call.callId !== callId) return;
+                this._dropFromCall(senderFp);
+                return;
+            }
+            default:
+                return;
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // inbound dispatch
     // -----------------------------------------------------------------------
 
@@ -1658,6 +1963,8 @@ export class GroupSession {
                 return this._onMeshAnswer(frame);
             case GROUP_FRAMES.MESH_ABORT:
                 return this._onMeshAbort(frame);
+            case GROUP_FRAMES.CALL:
+                return this._onCall(frame);
             case GROUP_FRAMES.PROBE:
                 // A probe is a claim about the link it arrived on, so it is only
                 // meaningful on a direct one. Relayed, it says nothing.
@@ -1695,6 +2002,7 @@ export class GroupSession {
         const member = this.members.get(fp);
         if (!member || fp === this.selfFp) return;
         this._emit('left', { fp, name: member.name });
+        this._dropFromCall(fp);
 
         // The admin leaving ends the group for everyone else. Nobody else can
         // sign a roster, so there is no next epoch and no safety code to compare

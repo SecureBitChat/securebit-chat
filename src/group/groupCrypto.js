@@ -118,6 +118,31 @@ export const GROUP_LIMITS = Object.freeze({
     MAX_DESCRIPTOR_CHARS: 768,
     /** Binds an answer to the one dial attempt that asked for it. */
     MESH_NONCE_BYTES: 16,
+
+    /**
+     * A group call's identifier, in bytes.
+     *
+     * Random rather than derived, and long enough that two members who press
+     * "call" at the same instant cannot collide. Everything about a call is
+     * scoped to it: a `join` for one call says nothing about another, and a
+     * `leave` replayed from a finished call cannot end a later one.
+     */
+    CALL_ID_BYTES: 16,
+});
+
+/**
+ * What one member is telling the group about a call.
+ *
+ * There is deliberately no "end the call for everyone": a call ends when the
+ * last person in it leaves, which is a fact every member can observe from the
+ * frames they already have. An explicit end would be a button one member could
+ * press to hang up on the others, and nothing in a group without a server makes
+ * that person more entitled to it than anybody else.
+ */
+export const CALL_ACTIONS = Object.freeze({
+    START: 'start',   // I have opened a call and I am in it
+    JOIN: 'join',     // I am joining the call already open
+    LEAVE: 'leave',   // I have left; the call ends when nobody is left
 });
 
 /** Which half of a mesh dial a signature covers. */
@@ -754,6 +779,71 @@ export async function verifyLinkProbe(subtle, publicKey, fields, signature) {
     let payload;
     try {
         payload = linkProbePayload(fields);
+    } catch (_) {
+        return false;
+    }
+    try {
+        return await subtle.verify({ name: 'ECDSA', hash: 'SHA-384' }, publicKey, signature, payload);
+    } catch (_) {
+        return false;
+    }
+}
+
+/**
+ * The bytes a call-control frame is signed over.
+ *
+ * Call control is membership-visible metadata, not content, but it is signed
+ * with the same group identity key for the same reason a message is: a relaying
+ * member carries these frames, and a relay that could forge one could put a
+ * member into a call they never joined, or take one out of a call they are in,
+ * with no way for anyone to tell who did it.
+ *
+ * `seq` is a per-sender counter over call frames only. It is what makes a
+ * captured frame unusable later: a `leave` from a finished call replays with a
+ * sequence number the receiver has already passed, and is dropped before its
+ * action is ever considered.
+ */
+export function groupCallPayload({ groupId, epoch, callId, action, fp, seq, withVideo }) {
+    assertGroupId(groupId);
+    assertEpoch(epoch);
+    assertCallId(callId);
+    assertEpoch(seq);
+    assertFingerprint(fp);
+    if (action !== CALL_ACTIONS.START && action !== CALL_ACTIONS.JOIN && action !== CALL_ACTIONS.LEAVE) {
+        fail('unknown call action', 'bad_call_action');
+    }
+    return lp(
+        'securebit/group/call/v1',
+        fromHex(groupId), u32(epoch), fromHex(callId), action,
+        fromHex(fp), u32(seq), withVideo === true ? 'v' : 'a',
+    );
+}
+
+export function assertCallId(callId) {
+    if (typeof callId !== 'string' || callId.length !== GROUP_LIMITS.CALL_ID_BYTES * 2 || !/^[0-9a-f]+$/.test(callId)) {
+        fail('malformed call id', 'bad_call_id');
+    }
+    return callId;
+}
+
+export function newCallId() {
+    return toHex(randomBytes(GROUP_LIMITS.CALL_ID_BYTES));
+}
+
+export async function signGroupCall(subtle, privateKey, fields) {
+    const sig = await subtle.sign({ name: 'ECDSA', hash: 'SHA-384' }, privateKey, groupCallPayload(fields));
+    return new Uint8Array(sig);
+}
+
+export async function verifyGroupCall(subtle, publicKey, fields, signature) {
+    if (!(signature instanceof Uint8Array)
+        || signature.length < GROUP_LIMITS.MIN_SIG_BYTES
+        || signature.length > GROUP_LIMITS.MAX_SIG_BYTES) {
+        return false;
+    }
+    let payload;
+    try {
+        payload = groupCallPayload(fields);
     } catch (_) {
         return false;
     }

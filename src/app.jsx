@@ -26,6 +26,7 @@ import { GROUP_LIMITS } from './group/groupCrypto.js';
 import { createGroupSender } from './group/groupSender.js';
 import { spring, snapTarget, rubberband, velocityTracker, prefersReducedMotion, SPRING } from './ui/motion.js';
 import { t, direction, LTR_TEXT } from './i18n/index.js';
+import { LanguageSuggestion } from './components/ui/LanguageSuggestion.jsx';
 
 // +1 in a left-to-right locale, -1 in a right-to-left one. Only the handful of
 // horizontal transforms that CSS logical properties cannot express need it —
@@ -37,6 +38,8 @@ const DIR = direction();
 // still lands in the same place — it just stops travelling to get there.
 const scrollBehavior = () => (prefersReducedMotion() ? 'auto' : 'smooth');
 import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, GroupErrorModal, AddMembersModal } from './components/ui/GroupChat.jsx';
+import { GroupCallUI } from './components/ui/GroupCallUI.jsx';
+import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
 
                 // ── Secure chat extras: code blocks, clipboard hygiene ──────────────
                 // Copy text to the clipboard and (optionally) wipe it after a delay so
@@ -372,6 +375,16 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     ]);
                 };
         
+                /**
+                 * How many digits a safety code has.
+                 *
+                 * Seven, everywhere: the pairwise code is `n % 10_000_000` padded to
+                 * seven (see the manager's SAS derivation) and the group code is derived
+                 * to the same length. It is stated once here so the two inputs that ask
+                 * for it cannot drift apart from each other or from the real code.
+                 */
+                const SAS_CODE_LENGTH = 7;
+
                 // Verification Component
                 const VerificationStep = ({ verificationCode, onConfirm, onReject, localConfirmed, remoteConfirmed, bothConfirmed }) => {
                     const [sasInput, setSasInput] = React.useState('');
@@ -451,18 +464,28 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                     type: 'text',
                                     dir: 'ltr',
                                     value: sasInput,
+                                    // The safety code is seven DIGITS and has been for as
+                                    // long as it has existed (see the manager's SAS
+                                    // derivation). Asking for text opened a full QWERTY
+                                    // keyboard on a phone, where the digits are a shift
+                                    // away — a keyboard for characters that can never be
+                                    // part of the answer. Non-digits are stripped rather
+                                    // than rejected so a pasted "123-4567" still works.
                                     onChange: (event) => {
-                                        setSasInput(event.target.value.toUpperCase());
+                                        setSasInput(event.target.value.replace(/\D/g, '').slice(0, SAS_CODE_LENGTH));
                                         if (error) setError('');
                                     },
                                     autoFocus: true,
-                                    autoComplete: 'off',
+                                    autoComplete: 'one-time-code',
                                     spellCheck: false,
-                                    inputMode: 'text',
+                                    type: 'text',
+                                    inputMode: 'numeric',
+                                    pattern: '[0-9]*',
+                                    maxLength: SAS_CODE_LENGTH,
                                     disabled: localConfirmed,
                                     placeholder: verificationCode ? t('verify.placeholder') : t('verify.waiting'),
-                                    className: "w-full rounded-lg border border-purple-500/30 bg-black/20 px-4 py-3 text-center text-xl tracking-[0.3em] text-primary uppercase focus:border-purple-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60",
-                                    style: { fontFamily: 'monospace', textTransform: 'uppercase' }
+                                    className: "w-full rounded-lg border border-purple-500/30 bg-black/20 px-4 py-3 text-center text-xl tracking-[0.3em] text-primary focus:border-purple-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60",
+                                    style: { fontFamily: 'monospace' }
                                 }),
                                 error && React.createElement('p', {
                                     key: 'sas-error',
@@ -1338,7 +1361,9 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         setTimeout(() => setCopied(false), 1600);
                     };
 
-                    // SAS verification (alphanumeric, variable length — matches real codes)
+                    // SAS verification. The length is read off the code we were given
+                    // rather than assumed, so the button enables exactly when the input
+                    // is as long as the real answer.
                     const normExpected = (verificationCode || '').replace(/[-\s]/g, '').length;
                     const normInput = sasInput.replace(/[-\s]/g, '').length;
                     const canConfirm = !localVerificationConfirmed && normExpected > 0 && normInput === normExpected;
@@ -1549,7 +1574,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                 ])
                                 : h('div', { key: 'form' }, [
                                     h('div', { key: 'lbl', style: { fontSize: '12.5px', fontWeight: 600, color: '#9a9aa2', marginBottom: '8px' } }, t('verify.enterLabel')),
-                                    h('input', { key: 'in', dir: 'ltr', value: sasInput, onChange: (e) => { setSasInput(e.target.value.toUpperCase()); if (sasError) setSasError(''); }, disabled: localVerificationConfirmed, autoFocus: true, autoComplete: 'off', spellCheck: false, placeholder: verificationCode ? t('verify.placeholder') : t('verify.waiting'), style: { width: '100%', textAlign: 'center', letterSpacing: '6px', borderRadius: '12px', border: `1px solid ${sasInput.length ? (canConfirm || localVerificationConfirmed ? 'rgba(62,207,142,0.5)' : 'rgba(255,255,255,0.14)') : 'rgba(255,255,255,0.08)'}`, background: '#141416', color: '#f4f4f6', fontFamily: MONO, fontSize: '20px', fontWeight: 700, padding: '14px', outline: 'none', textTransform: 'uppercase', marginBottom: sasError ? '8px' : '16px' } }),
+                                    h('input', { key: 'in', dir: 'ltr', value: sasInput, onChange: (e) => { setSasInput(e.target.value.replace(/\D/g, '').slice(0, SAS_CODE_LENGTH)); if (sasError) setSasError(''); }, disabled: localVerificationConfirmed, autoFocus: true, autoComplete: 'one-time-code', spellCheck: false, type: 'text', inputMode: 'numeric', pattern: '[0-9]*', maxLength: SAS_CODE_LENGTH, placeholder: verificationCode ? t('verify.placeholder') : t('verify.waiting'), style: { width: '100%', textAlign: 'center', letterSpacing: '6px', borderRadius: '12px', border: `1px solid ${sasInput.length ? (canConfirm || localVerificationConfirmed ? 'rgba(62,207,142,0.5)' : 'rgba(255,255,255,0.14)') : 'rgba(255,255,255,0.08)'}`, background: '#141416', color: '#f4f4f6', fontFamily: MONO, fontSize: '20px', fontWeight: 700, padding: '14px', outline: 'none', marginBottom: sasError ? '8px' : '16px' } }),
                                     sasError && h('p', { key: 'err', style: { color: '#e5727a', fontSize: '12.5px', margin: '0 0 16px' } }, sasError),
                                     h('div', { key: 'status', style: { display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' } }, [
                                         h('div', { key: 'you', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderRadius: '11px', border: '1px solid rgba(255,255,255,0.06)', background: '#141416' } }, [
@@ -2095,7 +2120,11 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     '@media (max-width:480px){.sb-chat-header{padding-inline-end:12px !important;}}'
                 } });
                 const header = React.createElement('header', {
-                    key: 'hdr', className: 'sb-chat-header', style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px', padding: '0 20px', height: '64px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(18,18,20,0.72)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }
+                    // --sb-safe-top is the iOS status-bar strip the installed web view draws
+                    // under (0 in a browser tab). It is added to BOTH the padding and the
+                    // height so the 64px of header content is untouched and only the
+                    // translucent bar grows upward to meet the top edge of the screen.
+                    key: 'hdr', className: 'sb-chat-header', style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px', padding: 'var(--sb-safe-top, 0px) 20px var(--sb-bar-extra, 0px)', minHeight: 'calc(var(--sb-bar-h, 64px) + var(--sb-safe-top, 0px) + var(--sb-bar-extra, 0px))', boxSizing: 'border-box', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(18,18,20,0.72)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }
                 }, [
                     headerResponsiveCss,
                     // The SecureBit brand/logo lives in the left rail; this header identifies the
@@ -2881,7 +2910,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     ]);
 
                     const expandedInner = [
-                        h('div', { key: 'head', style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBlock: 0, paddingInlineStart: '16px', paddingInlineEnd: '12px', height: '64px', borderBottom: '1px solid rgba(255,255,255,0.06)' } }, [
+                        h('div', { key: 'head', style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBlock: 0, paddingInlineStart: '16px', paddingInlineEnd: '12px', height: 'var(--sb-bar-h, 64px)', borderBottom: '1px solid rgba(255,255,255,0.06)' } }, [
                             h('div', { key: 'brand', style: { display: 'flex', alignItems: 'center', gap: '10px' } }, [brandMark(30), h('span', { key: 't', style: { fontSize: '15px', fontWeight: 800, letterSpacing: '-0.3px', color: '#f4f4f6' } }, 'SecureBit')]),
                             collapseBtn(SB_SVG.chevL, t('chat.collapse'))
                         ]),
@@ -2956,7 +2985,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     ];
 
                     const railWidth = collapsed ? '72px' : '292px';
-                    const railStyle = { flex: 'none', width: railWidth, display: 'flex', flexDirection: 'column', alignItems: collapsed ? 'center' : 'stretch', background: '#0c0c0e', borderInlineEnd: '1px solid rgba(255,255,255,0.06)' };
+                    const railStyle = { flex: 'none', width: railWidth, display: 'flex', flexDirection: 'column', alignItems: collapsed ? 'center' : 'stretch', paddingTop: 'var(--sb-safe-top, 0px)', background: '#0c0c0e', borderInlineEnd: '1px solid rgba(255,255,255,0.06)' };
                     const inner = collapsed ? collapsedInner : expandedInner;
 
                     return h(React.Fragment, null, [
@@ -3038,11 +3067,11 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             onPointerUp: drawerUp,
                             onPointerCancel: drawerUp,
                             style: { position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(6,6,8,0.6)', backdropFilter: 'blur(0px)', WebkitBackdropFilter: 'blur(0px)', opacity: 0, display: drawerMounted ? 'block' : 'none', touchAction: 'pan-y', willChange: 'opacity' }
-                        }, h('aside', { className: 'sb-mobile-drawer', ref: panelRef, onClick: (e) => e.stopPropagation(), style: { position: 'absolute', insetInlineStart: 0, top: 0, bottom: 0, width: 'min(292px, 86vw)', display: 'flex', flexDirection: 'column', background: '#0c0c0e', borderInlineEnd: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 0 60px rgba(0,0,0,0.6)', touchAction: 'pan-y', willChange: 'transform' } }, [
+                        }, h('aside', { className: 'sb-mobile-drawer', ref: panelRef, onClick: (e) => e.stopPropagation(), style: { position: 'absolute', insetInlineStart: 0, top: 0, bottom: 0, width: 'min(292px, 86vw)', display: 'flex', flexDirection: 'column', paddingTop: 'var(--sb-safe-top, 0px)', background: '#0c0c0e', borderInlineEnd: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 0 60px rgba(0,0,0,0.6)', touchAction: 'pan-y', willChange: 'transform' } }, [
                             // Explicit close button — the drawer's own header only has a
                             // "collapse" chevron (a desktop-rail action), so on mobile there was
                             // no obvious way to dismiss it. This X closes the drawer reliably.
-                            h('button', { key: 'x', onClick: onCloseDrawer, title: t('chat.closeMenu'), 'aria-label': t('chat.closeMenu'), style: { position: 'absolute', top: '15px', insetInlineEnd: '13px', zIndex: 2, width: '34px', height: '34px', borderRadius: '9px', display: 'grid', placeItems: 'center', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#cfcfd4', cursor: 'pointer' } }, h('i', { className: 'fas fa-xmark', style: { fontSize: '16px' } })),
+                            h('button', { key: 'x', onClick: onCloseDrawer, title: t('chat.closeMenu'), 'aria-label': t('chat.closeMenu'), style: { position: 'absolute', top: 'calc(15px + var(--sb-safe-top, 0px))', insetInlineEnd: '13px', zIndex: 2, width: '34px', height: '34px', borderRadius: '9px', display: 'grid', placeItems: 'center', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#cfcfd4', cursor: 'pointer' } }, h('i', { className: 'fas fa-xmark', style: { fontSize: '16px' } })),
                             expandedInner
                         ]))
                     ]);
@@ -3098,6 +3127,24 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     const [groupError, setGroupError] = React.useState(null);
                     const [showAddMembers, setShowAddMembers] = React.useState(false);
                     const groupScrollRef = React.useRef(null);
+
+                    // ---- Groups: calls ----
+                    //
+                    // Two pieces of state, deliberately separate. `groupCallState` is what
+                    // the GROUP says — who opened a call, who is in it — and it arrives as
+                    // signed frames that reach members we have no direct link to. `groupCallMedia`
+                    // is what THIS DEVICE has actually managed to connect, leg by leg, and it
+                    // can never be better than the mesh underneath it. Rendering them from one
+                    // object would mean either hiding a member the group can see or claiming a
+                    // connection this device does not have.
+                    const [groupCallState, setGroupCallState] = React.useState({}); // gid -> snapshot|null
+                    const [groupCallMediaState, setGroupCallMediaState] = React.useState({});
+                    /** gid -> GroupCallMedia. Held in a ref: it owns a live capture, not state. */
+                    const groupCallMediaRef = React.useRef(new Map());
+                    /** gid -> the call id this device declined, so a dismissed ring stays gone. */
+                    const [dismissedCalls, setDismissedCalls] = React.useState({});
+                    /** gid:callId already badged, so a badge is raised once per call, not per join. */
+                    const announcedCallsRef = React.useRef(new Set());
 
                     /**
                      * Put group frames on the wire, paced and serialised per session.
@@ -3155,6 +3202,10 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                 break;
                             case 'members':
                                 groupsDispatch({ type: GA.SET_MEMBERS, id: gid, members: payload.members, epoch: payload.epoch });
+                                // A member whose direct link only just came up can now carry
+                                // media. Nothing about the call roster changed, so this is the
+                                // only event that tells us to build the leg.
+                                syncGroupCallMediaRef.current(gid, null);
                                 break;
                             case 'roster':
                                 groupsDispatch({ type: GA.RENAME, id: gid, name: payload.name });
@@ -3173,6 +3224,24 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                                 break;
                             case 'confirmed':
                                 groupsDispatch({ type: GA.CONFIRM_SAS, id: gid });
+                                break;
+                            case 'call':
+                                setGroupCallState((current) => ({ ...current, [gid]: payload.call }));
+                                // The media layer follows the roster: a member who just joined
+                                // needs a leg, one who left needs theirs torn down, and a member
+                                // whose direct link only just came up needs one built now.
+                                syncGroupCallMediaRef.current(gid, payload.call);
+                                if (payload.call && !payload.call.joined && gid !== activeGroupIdRef.current) {
+                                    // A call the user cannot see is still a call: badge the group
+                                    // rather than let it ring in a window nobody has open. Once
+                                    // per call — every later join and leave emits this event too,
+                                    // and badging on each would count the room, not the call.
+                                    const token = `${gid}:${payload.call.callId}`;
+                                    if (!announcedCallsRef.current.has(token)) {
+                                        announcedCallsRef.current.add(token);
+                                        groupsDispatch({ type: GA.INCREMENT_UNREAD, id: gid });
+                                    }
+                                }
                                 break;
                             case 'message':
                                 groupsDispatch({
@@ -4406,7 +4475,24 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         dispatch({ type: SA.CLEAR_UNREAD, id });
                         setSidebarDrawerOpen(false);
                     }, []);
+                    /**
+                     * Start a new 1:1 chat and put it on screen.
+                     *
+                     * Clearing the active group is the part that matters. One conversation
+                     * owns the column at a time, and a group owns it unconditionally — so
+                     * from inside a group this button used to create a session that was
+                     * never rendered: no invitation to copy, no way to verify it, no sign
+                     * anything had happened at all.
+                     *
+                     * That made adding somebody to a group impossible in the one case where
+                     * you would want to. A group is built out of chats you have already
+                     * verified, so adding a member means first opening a chat with them —
+                     * and the button that opens one did nothing while a group was in front
+                     * of you. The admin was told there was nobody left to add, and the only
+                     * route to changing that was closed.
+                     */
                     const handleNewChat = React.useCallback(() => {
+                        groupsDispatch({ type: GA.SET_ACTIVE_GROUP, id: null });
                         createSessionRef.current({ role: 'offer' });
                         setSidebarDrawerOpen(false);
                     }, []);
@@ -4693,6 +4779,25 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     /** Tear a group down locally and tell whoever we can still reach. */
                     const destroyGroup = React.useCallback((gid, { announce = true } = {}) => {
                         const runtime = groupRuntimesRef.current.get(gid);
+                        // A group that is going away takes its call with it — and the capture
+                        // with that. Released before anything else, because a microphone left
+                        // running after the window it belonged to is gone is the one failure
+                        // here nobody would see happening.
+                        const media = groupCallMediaRef.current.get(gid);
+                        if (media) {
+                            groupCallMediaRef.current.delete(gid);
+                            media.leave().catch(() => {});
+                        }
+                        setGroupCallState((current) => {
+                            const next = { ...current };
+                            delete next[gid];
+                            return next;
+                        });
+                        setGroupCallMediaState((current) => {
+                            const next = { ...current };
+                            delete next[gid];
+                            return next;
+                        });
                         // Drop the runtime from the registry first, so a new group with the
                         // same people cannot collide with one that is still tearing down.
                         groupRuntimesRef.current.delete(gid);
@@ -4803,6 +4908,173 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                         }
                     }, []);
 
+                    // ---- Groups: call actions ----
+                    //
+                    // The split throughout: GroupSession decides WHO is in the call and tells
+                    // everyone in signed frames; GroupCallMedia connects the legs it can. A
+                    // failure in the second never rewrites the first — a member this device
+                    // cannot reach is still in the call, and is shown as such.
+
+                    /** Reconcile one group's media legs against its call roster. */
+                    const syncGroupCallMedia = React.useCallback((gid, callOrNull) => {
+                        const media = groupCallMediaRef.current.get(gid);
+                        if (!media) return;
+                        const runtime = groupRuntimesRef.current.get(gid);
+                        const call = callOrNull !== null ? callOrNull : (runtime?.getCallSnapshot?.() || null);
+
+                        // The call is over, or we are no longer in it: release the capture.
+                        // This is the ONLY place the microphone is let go on a state change,
+                        // so a call that ends while the tab is in the background still stops
+                        // recording.
+                        if (!call || !call.joined || call.callId !== media.callId) {
+                            groupCallMediaRef.current.delete(gid);
+                            media.leave().catch(() => {});
+                            setGroupCallMediaState((current) => {
+                                const next = { ...current };
+                                delete next[gid];
+                                return next;
+                            });
+                            return;
+                        }
+                        media.setPeers(call.participants);
+                    }, []);
+                    const syncGroupCallMediaRef = React.useRef(syncGroupCallMedia);
+                    syncGroupCallMediaRef.current = syncGroupCallMedia;
+
+                    /**
+                     * Build the media controller for a group and capture the microphone.
+                     *
+                     * Capture only — no legs. Connecting them is a separate step because
+                     * the group has to be told we are in the call FIRST: attaching a leg
+                     * can place an offer straight away, and an offer that overtakes the
+                     * announcement lands on a peer who does not yet know this session is
+                     * a call leg, so they ring instead of answering. See setPeers.
+                     */
+                    const openGroupCallMedia = React.useCallback(async (gid, call) => {
+                        const existing = groupCallMediaRef.current.get(gid);
+                        if (existing && existing.callId === call.callId) {
+                            existing.setPeers(call.participants);
+                            return existing;
+                        }
+                        if (existing) {
+                            groupCallMediaRef.current.delete(gid);
+                            await existing.leave().catch(() => {});
+                        }
+                        const media = new GroupCallMedia({
+                            getManager: (sessionId) => managersRef.current.get(sessionId)
+                                || meshLinksRef.current.get(sessionId)?.manager
+                                || null,
+                            onChange: (snapshot) => {
+                                setGroupCallMediaState((current) => ({ ...current, [gid]: snapshot }));
+                            },
+                        });
+                        groupCallMediaRef.current.set(gid, media);
+                        await media.join({
+                            callId: call.callId,
+                            selfFp: groupsState.groups[gid]?.selfFp || groupRuntimesRef.current.get(gid)?.selfFp || '',
+                            withVideo: call.withVideo,
+                            peers: [],   // legs are connected after the announcement
+                        });
+                        return media;
+                    }, [groupsState]);
+
+                    /**
+                     * Open a call: capture first, announce second.
+                     *
+                     * The order is the whole point, and it is why startCall takes a `prepare`
+                     * hook rather than the app calling the two in sequence. Ringing everybody
+                     * else's device and only then discovering this device has no microphone
+                     * would make one person's permission dialog into everyone's interruption.
+                     */
+                    const handleStartGroupCall = React.useCallback(async (withVideo) => {
+                        const gid = activeGroupIdRef.current;
+                        const runtime = gid && groupRuntimesRef.current.get(gid);
+                        if (!runtime) return;
+                        try {
+                            await runtime.startCall({
+                                withVideo,
+                                prepare: (call) => openGroupCallMedia(gid, call),
+                            });
+                        } catch (error) {
+                            // The runtime has already rolled the call back; drop whatever the
+                            // capture managed to build so no leg outlives it.
+                            const media = groupCallMediaRef.current.get(gid);
+                            if (media) { groupCallMediaRef.current.delete(gid); media.leave().catch(() => {}); }
+                            const code = error?.code || 'media_failed';
+                            groupsDispatch({
+                                type: GA.ADD_MESSAGE, id: gid,
+                                message: buildGroupMessage(
+                                    code === 'call_in_progress' ? t('groupCall.err.call_in_progress')
+                                        : code === 'not_ready' ? t('groupCall.err.not_ready')
+                                            : t(`groupCall.err.${mediaErrorCode(error)}`),
+                                    'system'
+                                )
+                            });
+                        }
+                    }, [openGroupCallMedia]);
+
+                    const handleJoinGroupCall = React.useCallback(async () => {
+                        const gid = activeGroupIdRef.current;
+                        const runtime = gid && groupRuntimesRef.current.get(gid);
+                        const call = runtime?.getCallSnapshot?.();
+                        if (!runtime || !call) return;
+                        try {
+                            // Capture, announce, then connect — in that order. Capturing
+                            // first means a device with no microphone never tells the group
+                            // it joined; announcing before connecting means our offer cannot
+                            // reach a peer who has not yet heard that we are in the call.
+                            const media = await openGroupCallMedia(gid, { ...call, joined: true });
+                            await runtime.joinCall();
+                            media.setPeers(runtime.getCallSnapshot()?.participants || []);
+                        } catch (error) {
+                            const media = groupCallMediaRef.current.get(gid);
+                            if (media) { groupCallMediaRef.current.delete(gid); media.leave().catch(() => {}); }
+                            groupsDispatch({
+                                type: GA.ADD_MESSAGE, id: gid,
+                                message: buildGroupMessage(t(`groupCall.err.${mediaErrorCode(error)}`), 'system')
+                            });
+                        }
+                    }, [openGroupCallMedia]);
+
+                    /**
+                     * Dismissing is local and silent.
+                     *
+                     * There is no "declined" to broadcast: in a group without a server nobody
+                     * is entitled to be told who chose not to pick up, and a decline frame
+                     * would leak exactly that. The call carries on for whoever is in it, and
+                     * this device simply stops showing the prompt.
+                     */
+                    const handleDismissGroupCall = React.useCallback(() => {
+                        const gid = activeGroupIdRef.current;
+                        const call = gid && groupRuntimesRef.current.get(gid)?.getCallSnapshot?.();
+                        if (!call) return;
+                        setDismissedCalls((current) => ({ ...current, [gid]: call.callId }));
+                    }, []);
+
+                    const handleLeaveGroupCall = React.useCallback(async () => {
+                        const gid = activeGroupIdRef.current;
+                        if (!gid) return;
+                        const media = groupCallMediaRef.current.get(gid);
+                        if (media) {
+                            groupCallMediaRef.current.delete(gid);
+                            setGroupCallMediaState((current) => {
+                                const next = { ...current };
+                                delete next[gid];
+                                return next;
+                            });
+                            await media.leave().catch(() => {});
+                        }
+                        try { await groupRuntimesRef.current.get(gid)?.leaveCall(); } catch (_) {}
+                    }, []);
+
+                    const activeGroupMedia = React.useCallback(() => (
+                        activeGroupIdRef.current ? groupCallMediaRef.current.get(activeGroupIdRef.current) : null
+                    ), []);
+
+                    const handleGroupCallMic = React.useCallback(() => { activeGroupMedia()?.toggleMic(); }, [activeGroupMedia]);
+                    const handleGroupCallCamera = React.useCallback(() => { activeGroupMedia()?.toggleCamera(); }, [activeGroupMedia]);
+                    const handleGroupCallFlip = React.useCallback(() => { activeGroupMedia()?.flipCamera(); }, [activeGroupMedia]);
+
                     // Opening a group clears its badge; new traffic scrolls the transcript.
                     React.useEffect(() => {
                         if (!activeGroupId) return;
@@ -4816,6 +5088,12 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                     // Every group runtime is torn down with the app so no identity key or
                     // ceremony nonce outlives the tab.
                     React.useEffect(() => () => {
+                        // Captures first: a group call holds a live microphone, and it must not
+                        // outlive the app under any teardown order.
+                        for (const media of groupCallMediaRef.current.values()) {
+                            media.leave().catch(() => {});
+                        }
+                        groupCallMediaRef.current.clear();
                         for (const runtime of groupRuntimesRef.current.values()) {
                             try { runtime.destroy(); } catch (_) {}
                         }
@@ -6645,7 +6923,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             React.createElement('button', {
                                 key: 'burger', className: 'sb-burger',
                                 onClick: () => setSidebarDrawerOpen(true),
-                                style: { display: 'none', position: 'fixed', top: '13px', insetInlineStart: '13px', zIndex: 55, width: '38px', height: '38px', borderRadius: '10px', placeItems: 'center', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(18,18,20,0.9)', color: '#cfcfd4', cursor: 'pointer' },
+                                style: { display: 'none', position: 'fixed', top: 'calc(13px + var(--sb-safe-top, 0px))', insetInlineStart: '13px', zIndex: 55, width: '38px', height: '38px', borderRadius: '10px', placeItems: 'center', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(18,18,20,0.9)', color: '#cfcfd4', cursor: 'pointer' },
                                 dangerouslySetInnerHTML: { __html: SB_SVG.burger }
                             }),
                             React.createElement('div', {
@@ -6745,7 +7023,7 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             key: 'sb-burger',
                             className: 'sb-burger',
                             onClick: () => setSidebarDrawerOpen(true),
-                            style: { display: 'none', position: 'fixed', top: '13px', insetInlineStart: '13px', zIndex: 55, width: '38px', height: '38px', borderRadius: '10px', placeItems: 'center', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(18,18,20,0.9)', color: '#cfcfd4', cursor: 'pointer' },
+                            style: { display: 'none', position: 'fixed', top: 'calc(13px + var(--sb-safe-top, 0px))', insetInlineStart: '13px', zIndex: 55, width: '38px', height: '38px', borderRadius: '10px', placeItems: 'center', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(18,18,20,0.9)', color: '#cfcfd4', cursor: 'pointer' },
                             dangerouslySetInnerHTML: { __html: SB_SVG.burger }
                         }),
                         React.createElement('div', {
@@ -6769,6 +7047,11 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             // sessionManager removed - all features enabled by default
                             webrtcManager: webrtcManagerRef.current
                         }),
+
+                        // Offered, never forced: the visitor's language decides what this
+                        // bar says, and only a click on it changes the URL. Landing only,
+                        // for the same reason as the switcher — following it navigates.
+                        (!isConnectedAndVerified && !showSidebar) && React.createElement(LanguageSuggestion, { key: 'lang-suggest' }),
         
                         // A group takes the whole column when it is the active conversation.
                         // It renders its own header and composer, so none of the 1:1 chrome
@@ -6785,7 +7068,32 @@ import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, Group
                             onRemoveMember: handleRemoveGroupMember,
                             onAddMembers: () => setShowAddMembers(true),
                             isAdmin: activeGroup.isAdmin,
-                            scrollRef: groupScrollRef
+                            scrollRef: groupScrollRef,
+                            onStartCall: handleStartGroupCall,
+                            callActive: !!groupCallState[activeGroup.id],
+                            // The overlay renders nothing when there is no call, and a
+                            // dismissed ring is treated as no call for this device only —
+                            // the call itself carries on for whoever is in it.
+                            callOverlay: (() => {
+                                const call = groupCallState[activeGroup.id] || null;
+                                if (!call) return null;
+                                if (!call.joined && dismissedCalls[activeGroup.id] === call.callId) return null;
+                                const media = groupCallMediaState[activeGroup.id] || null;
+                                return React.createElement(GroupCallUI, {
+                                    key: 'group-call',
+                                    call,
+                                    media,
+                                    groupName: activeGroup.name,
+                                    localStream: groupCallMediaRef.current.get(activeGroup.id)?.getLocalStream() || null,
+                                    getRemoteStream: (fp) => groupCallMediaRef.current.get(activeGroup.id)?.getRemoteStream(fp) || null,
+                                    onJoin: handleJoinGroupCall,
+                                    onDismiss: handleDismissGroupCall,
+                                    onLeave: handleLeaveGroupCall,
+                                    onToggleMic: handleGroupCallMic,
+                                    onToggleCamera: handleGroupCallCamera,
+                                    onFlipCamera: handleGroupCallFlip
+                                });
+                            })()
                         })),
 
                         !activeGroup && React.createElement('main', {

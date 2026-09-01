@@ -1,5 +1,68 @@
 # Changelog
 
+## v6.6.6 — Group calls
+
+Groups can call now. Press the handset in a group's header for voice, the camera
+for video, and everyone in the group gets a ring. Whoever joins appears as a tile
+of their own; tap somebody to give them the whole screen and drop the rest into a
+strip along the bottom. Mute, camera, front/back, and a green ring around whoever
+is talking.
+
+**There is no conference server, and there was never going to be one.** The usual
+way to do this is to send everyone's audio to a machine in the middle that mixes
+it and sends one stream back. It is cheaper, it scales further, and it means a
+computer you do not own is holding the room. A group call here is instead a
+separate encrypted call to each other member, over the connection you already
+built with them and already verified in person by reading the safety code aloud.
+Four people means three calls out of your browser. That is the honest cost of the
+room only existing on the devices that are in it.
+
+**Nobody's phone rings for a call they were not invited to.** Who opened a call
+and who is in it travels as a message signed with the sender's group key — the
+same signature the group's text messages carry. Members who cannot reach each
+other directly pass those messages along for one another, which is how a group
+works here, and a member passing one along can drop it but cannot write it. So
+nobody can add you to a call you never joined, take you out of one you are in, or
+hang up on the group.
+
+**Your microphone opens once, for the whole call, and only after you agree.** One
+capture is shared across every connection rather than one per person, which is
+also what stops the browser asking a group of six for permission six times. It
+stops the moment you leave — including if you close the group, or the tab.
+
+**A member with no direct link is in the call, not missing from it.** Groups start
+as a star, with only the person who created it connected to everyone, and build
+the remaining connections quietly afterwards. Someone still being connected shows
+as connecting rather than being left out of the list, and joins when their link
+comes up.
+
+**Also in this release:** the safety code now asks for a number instead of text,
+so phones open a keypad rather than a full keyboard for an answer that is always
+seven digits. And starting a new chat from inside a group works — it used to
+create the chat behind the group and leave it invisible, which meant that while
+you had a group open you could not connect to anybody new, or add anybody to the
+group.
+
+## v6.5.0 — It asks, in your language
+
+If your browser reads Arabic and you land on the English page, a small bar now
+appears in the corner: "هذه الصفحة متوفرة أيضًا بالعربية" - with a link. One
+click and you are on `/ar/`. Dismiss it and it never comes back.
+
+**What it deliberately does not do is move you.** The obvious version of this
+feature reads the browser's language on load and redirects. It looks right from
+your own machine and quietly ruins the site everywhere else. Search engines
+crawl from one place with one language set, so a redirect answers every one of
+the thirteen locale addresses with the same page - and the twelve translations
+stop existing as far as the index is concerned, however carefully they are
+linked. Shared links break the same way: a link posted in a German group chat
+has to open in German for everyone who follows it, including the person whose
+laptop is set to English.
+
+So the address still decides the language, always. The bar is an offer sitting
+next to it: written in the language it is offering, laid out in that language's
+direction, and gone for good once you say no.
+
 ## v6.4.0 — Now it reads right to left
 
 Arabic, Hebrew, Persian and Urdu, at `/ar/`, `/he/`, `/fa/` and `/ur/`.

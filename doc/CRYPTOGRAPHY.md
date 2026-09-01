@@ -7,7 +7,7 @@ this document describes.
 
 | | |
 | --- | --- |
-| Release | v6.4.0 |
+| Release | v6.6.6 |
 | Protocol version | 4.1 |
 | Ratchet wire version | 1 |
 
@@ -306,7 +306,46 @@ from the shared secret and nobody else can, so a probe replayed onto a different
 chat does not verify — which is what stops a member claiming to be someone else
 and receiving their group traffic.
 
+### Group calls
+
+A group call is not a conference. It is N-1 ordinary 1:1 calls, one to each other
+member, each carried by that member's own pairwise session — so every leg's media
+rides a DTLS-SRTP transport that a human already authenticated by comparing the
+pairwise safety code. There is no mixer and no selective forwarding unit, and at
+no point does two members' media meet anywhere but on a device.
+
+Call control is separate from call media, because the two can reach different
+sets of people. Control — a call was opened, a member joined, a member left —
+travels as group frames and therefore reaches members who are currently reachable
+only through a relay; media flows only where a direct link exists, so a member
+without one is shown as connecting rather than omitted.
+
+Each control frame is signed with the sender's group identity key over group id,
+epoch, call id, action, sender fingerprint, a per-sender sequence number and
+whether the call carries video. The signature is what makes relaying these frames
+safe: a relaying member can refuse to carry one — the availability cost relaying
+always has — but cannot add a member to a call, remove one, or end a call on
+somebody else's behalf. The sequence number is checked before the action is
+considered, so a captured frame cannot be replayed to drag a member back into a
+call they left or to close one that is running. Frames are refused outright
+unless the group is READY and its code confirmed.
+
+Call ids are 16 random bytes. Two members opening a call in the same instant
+therefore produce two ids, and every member resolves it identically by keeping
+the lower one — nothing is negotiated and no member arbitrates. Which side of a
+pair places its leg is the mesh's rule again: the smaller fingerprint dials, the
+other answers.
+
+A leg answers without prompting the user, and that is the one place a call is
+opened without a per-call confirmation. The flag permitting it is set only by the
+local group-call controller, only while this user is in that call, and is cleared
+when they leave; nothing arriving on the wire can set it. The alternative —
+prompting once per member — would be seven prompts for one decision and would
+train users to accept them. A single capture is opened when the user joins,
+shared across every leg, and stopped when the call, the group or the tab ends;
+no leg may stop a capture it borrowed.
+
 ## Scope
 
-This describes the browser implementation as it stands in v6.4.0. It is not a
+This describes the browser implementation as it stands in v6.6.6. It is not a
 substitute for independent cryptographic review.

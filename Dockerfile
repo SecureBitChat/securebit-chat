@@ -6,6 +6,11 @@ FROM nginx:1.27-alpine
 # Replace the default nginx config with our static-serving config.
 COPY deploy/nginx.conf /etc/nginx/nginx.conf
 
+# The www.securebit.chat kill-switch worker. It lives outside the web root because
+# it is deployment plumbing, not site content: the apex must never serve it as
+# /sw.js, which is the real, caching worker.
+COPY deploy/www-sw.js /etc/nginx/www-sw.js
+
 # Serve the repository (src/, assets/, libs/, dist/, config/, logo/, sw.js, ...).
 COPY . /usr/share/nginx/html
 

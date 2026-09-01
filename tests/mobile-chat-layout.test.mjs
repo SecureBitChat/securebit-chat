@@ -155,12 +155,20 @@ assert.match(app, /webrtcManager: null/,
 // the connection toast must not sit on the header
 //
 // It is `fixed top-4 left-1/2` (src/pwa/pwa-manager.js), which inside the chat
-// lands on the 64px header and covers the peer name.
+// lands on the header and covers the peer name. The offset is expressed in the
+// same two variables the header's own height is (--sb-bar-h for the content row,
+// --sb-safe-top for the status-bar strip an installed app draws under), so the
+// toast follows the bar instead of restating a number that only holds in a
+// browser tab.
 // ---------------------------------------------------------------------------
 {
     const css = readFileSync(new URL('../src/styles/components.css', import.meta.url), 'utf8');
-    assert.match(css, /body\.sb-in-chat #pwa-connection-status\s*\{[^}]*top:\s*calc\(64px/,
-        'the online/offline toast must clear the chat header');
+    const rule = css.match(/body\.sb-in-chat #pwa-connection-status\s*\{[^}]*\}/);
+    assert.ok(rule, 'the online/offline toast must be offset inside the chat');
+    assert.match(rule[0], /top:\s*calc\([^)]*var\(--sb-bar-h/,
+        'the toast offset must track the header height, not a hard-coded 64px');
+    assert.match(rule[0], /var\(--sb-safe-top/,
+        'the toast must also clear the status-bar strip in an installed app');
 }
 
 // ---------------------------------------------------------------------------

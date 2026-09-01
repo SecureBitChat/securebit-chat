@@ -37,6 +37,9 @@ const ICON = {
     x: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
     plus: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
     relay: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h4l3-7 4 14 3-7h2"/></svg>',
+    phone: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
+    exit: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h4"/><path d="m15 16 4-4-4-4"/><path d="M19 12H10"/></svg>',
+    video: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2.5"/></svg>',
 };
 
 const svg = (markup, extra = {}) => h('span', {
@@ -584,6 +587,7 @@ function Bubble({ msg }) {
 
 export function GroupChatView({
     group, input, setInput, onSend, onLeave, onRemoveMember, onAddMembers, isAdmin, scrollRef,
+    onStartCall, callActive, callOverlay,
 }) {
     const ready = group.phase === GROUP_PHASE.READY && group.sasConfirmed;
     // Only members we are RELAYING to. A member who is offline is not relayed —
@@ -599,14 +603,40 @@ export function GroupChatView({
     };
 
     return h('div', {
-        style: { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, background: C.bg },
+        style: {
+            position: 'relative', display: 'flex', flexDirection: 'column',
+            height: '100%', minHeight: 0, background: C.bg,
+        },
     }, [
+        // Responsive rules the inline styles cannot express. The group header had
+        // none, so on a phone the drawer hamburger — which is position:fixed at the
+        // top-left corner — sat directly on top of the group's avatar and name. The
+        // 1:1 header has always reserved that space; this is the same reservation,
+        // plus the safe-area strip an installed web view draws under.
+        h('style', {
+            key: 'head-css',
+            dangerouslySetInnerHTML: {
+                __html: '@media (max-width:1023px){'
+                    + '.sb-group-header{padding-inline-start:58px !important;gap:9px !important;}'
+                    + '}'
+                    + '@media (max-width:600px){'
+                    // Icon-only actions: three labelled buttons and a group name do not
+                    // fit a narrow screen, and the name is the part that must not be cut.
+                    + '.sb-group-header .sb-gh-label{display:none !important;}'
+                    + '.sb-group-header .sb-gh-btn{padding:8px 10px !important;}'
+                    + '}',
+            },
+        }),
+
         // header
         h('div', {
             key: 'head',
+            className: 'sb-group-header',
             style: {
-                flex: 'none', display: 'flex', alignItems: 'center', gap: '12px', padding: '0 16px',
-                height: '64px', borderBottom: `1px solid ${C.line}`,
+                flex: 'none', display: 'flex', alignItems: 'center', gap: '12px',
+                padding: 'var(--sb-safe-top, 0px) 16px 0',
+                minHeight: 'calc(64px + var(--sb-safe-top, 0px))',
+                borderBottom: `1px solid ${C.line}`,
             },
         }, [
             h('span', {
@@ -634,14 +664,40 @@ export function GroupChatView({
                         : '',
                 ]),
             ]),
+            // Calls are offered only once the group is usable: a call before the
+            // safety code is confirmed would be media on links nobody has
+            // authenticated as belonging to this group.
+            (ready && onStartCall) && h('button', {
+                key: 'callvoice', className: 'sb-gh-btn', onClick: () => onStartCall(false), disabled: callActive,
+                title: t('groupCall.startVoice'), 'aria-label': t('groupCall.startVoice'),
+                style: {
+                    ...btn(false), flex: 'none', padding: '8px 10px', opacity: callActive ? 0.4 : 1,
+                    cursor: callActive ? 'default' : 'pointer',
+                },
+            }, svg(ICON.phone, { key: 'i' })),
+            (ready && onStartCall) && h('button', {
+                key: 'callvideo', className: 'sb-gh-btn', onClick: () => onStartCall(true), disabled: callActive,
+                title: t('groupCall.startVideo'), 'aria-label': t('groupCall.startVideo'),
+                style: {
+                    ...btn(false), flex: 'none', padding: '8px 10px', opacity: callActive ? 0.4 : 1,
+                    cursor: callActive ? 'default' : 'pointer',
+                },
+            }, svg(ICON.video, { key: 'i' })),
             (isAdmin && onAddMembers && group.members.length < GROUP_LIMITS.MAX_MEMBERS) && h('button', {
-                key: 'add', onClick: onAddMembers, title: t('group.inviteMore'),
-                style: { ...btn(false), padding: '8px 12px', fontSize: '12.5px' },
-            }, [svg(ICON.plus, { key: 'i' }), t('group.add')]),
+                key: 'add', className: 'sb-gh-btn', onClick: onAddMembers, title: t('group.inviteMore'),
+                style: { ...btn(false), flex: 'none', padding: '8px 12px', fontSize: '12.5px' },
+            }, [
+                svg(ICON.plus, { key: 'i' }),
+                h('span', { key: 'l', className: 'sb-gh-label' }, t('group.add')),
+            ]),
             h('button', {
-                key: 'leave', onClick: onLeave, title: t('group.leaveThis'),
-                style: { ...btn(false), padding: '8px 12px', fontSize: '12.5px', color: C.bad, borderColor: 'rgba(229,114,122,0.3)' },
-            }, t('group.leave')),
+                key: 'leave', className: 'sb-gh-btn', onClick: onLeave, title: t('group.leaveThis'),
+                'aria-label': t('group.leaveThis'),
+                style: { ...btn(false), flex: 'none', padding: '8px 12px', fontSize: '12.5px', color: C.bad, borderColor: 'rgba(229,114,122,0.3)' },
+            }, [
+                svg(ICON.exit, { key: 'i' }),
+                h('span', { key: 'l', className: 'sb-gh-label' }, t('group.leave')),
+            ]),
         ]),
 
         h(MemberStrip, { key: 'strip', group, onRemove: onRemoveMember, isAdmin }),
@@ -702,5 +758,9 @@ export function GroupChatView({
                 },
             }, svg(ICON.send)),
         ]),
+
+        // The group call covers the transcript when it is running and renders
+        // nothing when it is not — the same shape as the 1:1 call overlay.
+        callOverlay,
     ]);
 }

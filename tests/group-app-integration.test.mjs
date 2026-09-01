@@ -10,6 +10,7 @@
 // the code reaching the store fails here rather than on a user's screen.
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 const { GroupSession, GROUP_FRAMES, groupFrameType, decodeEnvelope } =
     await import('../src/group/GroupSession.js');
@@ -197,6 +198,45 @@ async function formPair(groupName) {
     admin.store.dispatch({ type: GA.CONFIRM_SAS, id: gid });
     assert.notEqual(admin.store.get().groups[gid].phase, GROUP_PHASE.READY,
         'a failed group must not be confirmable');
+}
+
+// ---------------------------------------------------------------------------
+// a group must not be able to trap the user inside it
+// ---------------------------------------------------------------------------
+//
+// One conversation owns the column at a time, and a group owns it
+// unconditionally: the 1:1 side of the screen is rendered only when no group is
+// active. So every action that is supposed to bring a CHAT to the front has to
+// clear the active group first, or it silently does nothing.
+//
+// "New chat" did not, and the consequence was not cosmetic. A group is built out
+// of chats that have already been verified, so adding a member means first
+// opening a chat with them — and from inside a group, the button that opens one
+// created a session that was never rendered: no invitation to copy, nothing to
+// verify. The admin was told there was nobody left to add and had no way to
+// change that.
+//
+// app.jsx cannot be imported here (it is a .jsx module that expects a browser),
+// so this reads the wiring. Crude, but it is the invariant that broke.
+{
+    const app = readFileSync(new URL('../src/app.jsx', import.meta.url), 'utf8');
+
+    const newChat = app.slice(app.indexOf('const handleNewChat'), app.indexOf('const handleRenameSession'));
+    assert.match(newChat, /SET_ACTIVE_GROUP, id: null/,
+        'starting a new chat must clear the active group, or the new chat is never shown');
+    assert.ok(
+        newChat.indexOf('SET_ACTIVE_GROUP') < newChat.indexOf('createSessionRef'),
+        'the group must be cleared before the session is created, so the new chat lands in front',
+    );
+
+    // The sibling path has always done it; keep them together.
+    const sidebar = app.slice(app.indexOf('React.createElement(SessionsSidebar'), app.indexOf('onSelectGroup:'));
+    assert.match(sidebar, /onSelect: \(id\) => \{ groupsDispatch\(\{ type: GA\.SET_ACTIVE_GROUP, id: null \}\)/,
+        'selecting a chat must clear the active group too');
+
+    // And the group view really is exclusive, which is why the above matters.
+    assert.match(app, /activeGroup && React\.createElement\('main', \{\s*key: 'group-main'/);
+    assert.match(app, /!activeGroup && React\.createElement\('main', \{\s*key: 'main'/);
 }
 
 console.log('group-app-integration.test.mjs: all assertions passed');

@@ -87,6 +87,11 @@ const CallUIComponent = ({ webrtcManager, peerTitle }) => {
     React.useEffect(() => { if (phase === 'idle') setMinimized(false); }, [phase]);
 
     if (!active || phase === 'idle' || phase === 'ended') return null;
+    // One leg of a group call runs on this same session. The group's own surface
+    // renders it as a tile alongside the others; a second full-screen 1:1 overlay
+    // on top of that would be the same audio shown twice, with two hang-up
+    // buttons that mean different things.
+    if (call.groupCallId) return null;
 
     const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
     const ringing = phase === 'outgoing' || phase === 'connecting';

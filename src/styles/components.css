@@ -39,6 +39,11 @@
 
 @media (max-width: 480px) {
     .header-minimal {
+        /* Browser only. Installed, this fixed height is what left the brand row
+           hanging below the bar's own blurred background: box-sizing is border-box
+           globally, so the status-bar inset added as padding is subtracted from
+           this box rather than added to it. src/styles/pwa.css — the last
+           stylesheet in the document — replaces this with height:auto there. */
         height: 56px;
     }
     
@@ -806,7 +811,7 @@ body.sb-in-chat #pwa-install-button { display: none !important; }
    header there, and keep it clear of the notch. It stays where it is on the landing
    page, which has no header of its own to collide with. */
 body.sb-in-chat #pwa-connection-status {
-    top: calc(64px + 12px + env(safe-area-inset-top, 0px)) !important;
+    top: calc(var(--sb-bar-h, 64px) + 12px + var(--sb-safe-top, 0px) + var(--sb-bar-extra, 0px)) !important;
 }
 /* The new design spaces icons with flex gap, not icon margins — neutralise the
    global `button i { margin-inline-end: .5rem }` so icons stay centered in their tiles. */

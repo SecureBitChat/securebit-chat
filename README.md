@@ -9,7 +9,7 @@
 No accounts. No servers storing your messages. No installation required.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-f0892a.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-6.4.0-3ecf8e.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-6.6.6-3ecf8e.svg)](CHANGELOG.md)
 [![PWA](https://img.shields.io/badge/PWA-installable-3ecf8e.svg)](#install-as-an-app)
 [![Encryption](https://img.shields.io/badge/crypto-ECDH%20P--384%20%C2%B7%20AES--256--GCM-blue.svg)](#security-model)
 [![Forward secrecy](https://img.shields.io/badge/forward%20secrecy-Double%20Ratchet-3ecf8e.svg)](#forward-secrecy)
@@ -50,6 +50,8 @@ It is designed for people who need a small, auditable, zero-infrastructure way t
 - **Adaptive audio**: Opus with in-band FEC, DTX and RED redundancy for intelligible speech at 15 to 20 percent packet loss; audio is prioritised and never throttled by the network controller.
 - **Adaptive video**: VP9/AV1 single-encoding SVC (H.264/VP8 fallback) that degrades by spatial/temporal layer, with a runtime controller that trims video bitrate on loss/RTT and recovers as the link clears.
 - **Live connection-quality indicator** (Excellent, Good, Fair, Weak) shown during a call, plus in-call mute and video controls.
+- **Group voice and video calls**, built as one encrypted call per member rather than a conference server: media flows directly between each pair over the link they already verified, so no machine in the middle ever holds the room. Who opened a call and who is in it is signed with each member's group key, so a member relaying that message for two people who cannot reach each other can drop it but never forge it.
+- **One microphone capture for the whole group call**, shared across every leg, released the moment you leave — you are asked for the microphone once, not once per participant.
 
 **Messaging**
 - **Encrypted voice messages.** Record in the browser and send over the same end-to-end encrypted transfer channel as files. Audio is captured as PCM/WAV, integrity-protected by a signed hash, and played back inline on the recipient's device without ever touching disk.

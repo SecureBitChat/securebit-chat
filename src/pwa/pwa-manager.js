@@ -237,6 +237,14 @@ class PWAOfflineManager {
     updateConnectionStatus(isOnline) {
         if (!this.offlineIndicator) return;
 
+        // A pending auto-hide from a previous "back online" would otherwise fire on
+        // top of whatever is showing now — flap once inside three seconds and the
+        // timer hides the offline pill you have just been given.
+        if (this.connectionPillTimer) {
+            clearTimeout(this.connectionPillTimer);
+            this.connectionPillTimer = null;
+        }
+
         // Clean pill matching the app's design language (no emoji, no FontAwesome,
         // proper SVG close wired via a real listener — the old inline onclick was
         // blocked by the CSP anyway).
@@ -250,7 +258,8 @@ class PWAOfflineManager {
                 </div>`;
             this.offlineIndicator.classList.remove('hidden');
             // Auto-hide after 3 seconds.
-            setTimeout(() => {
+            this.connectionPillTimer = setTimeout(() => {
+                this.connectionPillTimer = null;
                 if (this.offlineIndicator) this.offlineIndicator.classList.add('hidden');
             }, 3000);
         } else {
@@ -274,21 +283,48 @@ class PWAOfflineManager {
 
     async handleConnectionRestored() {
         console.log('🔄 Handling connection restoration...');
-        
+
+        // Both routes back online converge here — the `online` event, and the ten
+        // second probe in checkOnlineStatus() for the reconnections the OS never
+        // announces. Taking the offline UI down has to happen here for that reason:
+        // it used to be wired to neither. The full-screen offline modal had no
+        // dismissal at all except a click from the user, so it simply stayed up
+        // after the network came back; and the probe route never touched the pill
+        // either, so that outlived the outage too. Do this first and unconditionally
+        // — before any await — so a failure further down cannot leave the screen
+        // claiming to be offline while the app is demonstrably not.
+        this.dismissOfflineUI();
+        this.updateConnectionStatus(true);
+
+        // The retry loop notices on its next tick anyway; stopping it here means the
+        // outage does not keep probing for up to ten more seconds after it is over.
+        if (this.reconnectInterval) {
+            clearInterval(this.reconnectInterval);
+            this.reconnectInterval = null;
+        }
+        this.reconnectAttempts = 0;
+
         try {
             // Process offline queue
             await this.processOfflineQueue();
-            
+
             // Restore WebRTC connections if needed
             await this.attemptWebRTCReconnection();
-            
-            // Show success notification
-            this.showReconnectionSuccess();
-            
+
+            // No success toast here: updateConnectionStatus(true) above already shows
+            // the "Back online" pill. The old one was a second, English-only banner
+            // that landed on top of it.
+
         } catch (error) {
             console.error('❌ Connection restoration failed:', error);
             this.showReconnectionError(error);
         }
+    }
+
+    // Everything the offline state puts on screen, taken down in one place.
+    dismissOfflineUI() {
+        const modal = document.getElementById('pwa-offline-modal');
+        if (modal) modal.remove();
     }
 
     handleConnectionLost() {
@@ -792,24 +828,6 @@ class PWAOfflineManager {
                 indicator.remove();
             }
         }, 5000);
-    }
-
-    showReconnectionSuccess() {
-        const notification = document.createElement('div');
-        notification.className = 'fixed top-4 end-4 bg-green-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm';
-        notification.innerHTML = `
-            <div class="flex items-center space-x-3">
-                <i class="fas fa-check-circle text-lg"></i>
-                <div>
-                    <div class="font-medium">Reconnected!</div>
-                    <div class="text-sm opacity-90">All services restored</div>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(notification);
-        
-        setTimeout(() => notification.remove(), 3000);
     }
 
     showReconnectionError(error) {

@@ -609,6 +609,7 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
         remoteHasVideo: false,
         callId: null,
         quality: null,        // 'excellent'|'good'|'fair'|'poor'|null — link quality for the UI
+        groupCallId: null,    // set while this call is one leg of a group call
         error: null
     };
     this.localMediaStream = null;
@@ -619,6 +620,32 @@ this._secureLog('info', '🔒 Enhanced Mutex system fully initialized and valida
     this._callVideoSender = null;
     this._callFacingMode = 'user';
     this._adaptationController = null; // NetworkAdaptationController while a call is active
+
+    // ── Group calls ────────────────────────────────────────────────────────
+    // A group call is N-1 ordinary calls, one per member, each on its own
+    // already-verified pairwise session. Two things differ from a 1:1 call and
+    // both live here, because the group layer owns them and this manager only
+    // carries one leg of the result.
+    //
+    //   _callGroupContext   The group call this leg belongs to. While it is
+    //                       set, an inbound offer is answered without ringing —
+    //                       the user already consented, once, by joining the
+    //                       call, and asking again per member would mean seven
+    //                       prompts for one decision. It is set ONLY by the
+    //                       group-call controller while the local user is in a
+    //                       call, and cleared the moment they leave, so it can
+    //                       never auto-answer a call the user did not ask for.
+    //
+    //   _externalMediaStream  One capture shared across every leg. Without it
+    //                       each leg would open its own getUserMedia, which is
+    //                       N microphone captures of the same microphone and N
+    //                       camera indicators for one call. The stream is owned
+    //                       by the controller: this manager attaches its tracks
+    //                       and never stops them.
+    this._callGroupContext = null;
+    this._externalMediaStream = null;
+    /** Extra call-state subscribers, so the group layer and the 1:1 UI coexist. */
+    this._callStateListeners = new Set();
 
     // PFS (Perfect Forward Secrecy) Implementation
     this.keyRotationInterval = null; // отключаем таймерную ротацию
@@ -14523,6 +14550,13 @@ async processMessage(data) {
             try { this._stopLocalMediaPermanently?.(); } catch (_) {}
             this._callAudioSender = null;
             this._callVideoSender = null;
+            // A session that is ending is no longer a leg of anything. Clearing
+            // the group context matters most: it is what allows an inbound offer
+            // to be answered without asking, and it must not survive the session
+            // it was granted for.
+            this._callGroupContext = null;
+            this._externalMediaStream = null;
+            this._callStateListeners?.clear?.();
 
             // Preserve the explicit-disconnect notification flow before channels are closed.
             this.intentionalDisconnect = true;
@@ -15157,6 +15191,71 @@ checkFileTransferReadiness() {
         return { ...this.callState };
     }
 
+    /**
+     * Subscribe to call-state changes without taking the onCallStateChanged slot.
+     * @param {(state: object) => void} listener
+     * @returns {() => void} unsubscribe
+     */
+    addCallStateListener(listener) {
+        if (typeof listener !== 'function') return () => {};
+        this._callStateListeners.add(listener);
+        return () => this._callStateListeners.delete(listener);
+    }
+
+    removeCallStateListener(listener) {
+        this._callStateListeners.delete(listener);
+    }
+
+    /**
+     * Mark this session as one leg of a group call, or clear it.
+     *
+     * While set, an inbound call offer is answered without ringing. That is safe
+     * only because of who sets it: the group-call controller, and only while the
+     * local user is in that group's call. Nothing on the wire can set it, so a
+     * peer cannot cause this session to open a microphone on its own.
+     *
+     * @param {string|null} groupCallId
+     */
+    setCallGroupContext(groupCallId) {
+        this._callGroupContext = (typeof groupCallId === 'string' && groupCallId) ? groupCallId : null;
+        // Reflect it immediately: the 1:1 call UI uses this field to stay out of
+        // the way of a group call running on the same session.
+        this._updateCallState({});
+
+        // An offer that arrived BEFORE we knew this session was a call leg is
+        // sitting here ringing, and nothing would ever pick it up: the auto-answer
+        // is checked when the offer lands, not afterwards. That window is real —
+        // a peer can dial the moment they join, which can beat the announcement
+        // telling us they joined — and the visible symptom was one member stuck
+        // at "connecting" for the whole call while the other's phone rang for a
+        // call they had already agreed to. Answer it now.
+        if (this._callGroupContext && this._pendingCallOffer && this.callState.phase === 'incoming') {
+            this.acceptCall().catch((error) => {
+                this._secureLog('warn', '⚠️ Failed to answer a group call leg that was already ringing', {
+                    errorType: error?.constructor?.name
+                });
+            });
+        }
+    }
+
+    /**
+     * Use a capture owned by somebody else for the next call on this session.
+     *
+     * The group-call controller captures the microphone and camera ONCE and
+     * hands the same stream to every leg. This manager attaches its tracks and
+     * must never stop them: the other legs are still sending them.
+     *
+     * @param {MediaStream|null} stream
+     */
+    setExternalMediaStream(stream) {
+        this._externalMediaStream = stream || null;
+    }
+
+    /** True when the live capture belongs to somebody else. */
+    _usingExternalMedia() {
+        return !!this._externalMediaStream && this.localMediaStream === this._externalMediaStream;
+    }
+
     getRemoteMediaStream() {
         return this.remoteMediaStream;
     }
@@ -15195,13 +15294,19 @@ checkFileTransferReadiness() {
     }
 
     _updateCallState(patch) {
-        this.callState = { ...this.callState, ...patch };
+        this.callState = { ...this.callState, ...patch, groupCallId: this._callGroupContext };
         const snapshot = this.getCallState();
         // Adaptation controller follows the call lifecycle: run while active,
         // stop when the call ends.
         if (snapshot.phase === 'active') this._startAdaptation();
         else if (snapshot.phase === 'idle') this._stopAdaptation();
         try { this.onCallStateChanged?.(snapshot); } catch (_) {}
+        // A single callback property cannot serve two owners, and a group call
+        // has two: the group's media controller and whatever UI is bound to this
+        // session. Listeners are additive so neither has to displace the other.
+        for (const listener of this._callStateListeners) {
+            try { listener(snapshot); } catch (_) {}
+        }
         if (typeof document !== 'undefined') {
             try {
                 this._dispatchAppEvent?.(new CustomEvent('securebit-call-state', {
@@ -15238,7 +15343,9 @@ checkFileTransferReadiness() {
         // Fresh capture each call (the mic/camera is fully released on hang-up, so
         // the OS indicator goes off). Senders are reused across calls via
         // replaceTrack; addTrack only on first use.
-        const stream = await navigator.mediaDevices.getUserMedia({
+        // A group call captures once and shares the result across every leg, so
+        // there is nothing to capture here — just tracks to attach.
+        const stream = this._externalMediaStream || await navigator.mediaDevices.getUserMedia({
             audio: this._audioConstraints(),
             video: withVideo ? this._videoConstraints() : false
         });
@@ -15261,7 +15368,7 @@ checkFileTransferReadiness() {
     // Fully release the mic/camera — only on session disconnect, not between calls.
     _stopLocalMediaPermanently() {
         try {
-            if (this.localMediaStream) {
+            if (this.localMediaStream && !this._usingExternalMedia()) {
                 for (const t of this.localMediaStream.getTracks()) { try { t.stop(); } catch (_) {} }
             }
         } catch (_) {}
@@ -15415,6 +15522,12 @@ checkFileTransferReadiness() {
             active: true, phase: 'incoming', withVideo: !!data.withVideo,
             callId: data.callId, remoteHasVideo: !!data.withVideo, error: null
         });
+        // One leg of a group call the user has already joined: answer it rather
+        // than ring. The consent was given once, for the whole call — see
+        // setCallGroupContext for why nothing on the wire can reach this branch.
+        if (this._callGroupContext) {
+            await this.acceptCall();
+        }
     }
 
     async _answerCallOffer(data, renegotiation = false) {
@@ -15483,8 +15596,10 @@ checkFileTransferReadiness() {
         const pc = this.peerConnection;
         try {
             // 1. STOP our capture tracks → releases the mic/camera so the OS
-            //    indicator goes off after the call.
-            if (this.localMediaStream) {
+            //    indicator goes off after the call. A capture we borrowed from a
+            //    group call is left alone: the other legs are still sending it,
+            //    and stopping it here would mute this device for all of them.
+            if (this.localMediaStream && !this._usingExternalMedia()) {
                 for (const track of this.localMediaStream.getTracks()) { try { track.stop(); } catch (_) {} }
             }
             // 2. Do NOT stop the REMOTE receiver tracks: the transceivers are reused
@@ -15559,16 +15674,45 @@ checkFileTransferReadiness() {
             const camStream = await navigator.mediaDevices.getUserMedia({ video: this._videoConstraints() });
             const videoTrack = camStream.getVideoTracks()[0];
             if (!videoTrack) return;
-            this.localMediaStream.addTrack(videoTrack);
-            if (this._callVideoSender) await this._callVideoSender.replaceTrack(videoTrack);
-            else this._callVideoSender = this.peerConnection.addTrack(videoTrack, this.localMediaStream);
-            this._applyCallCodecPrefs();
-            this._updateCallState({ cameraEnabled: true, withVideo: true });
-            await this._renegotiateCall();
+            await this.addVideoTrack(videoTrack);
         } catch (error) {
             this._secureLog('error', '❌ upgradeToVideo failed', { errorType: error?.constructor?.name });
             this._updateCallState({ cameraEnabled: false, error: 'camera_failed' });
         }
+    }
+
+    /**
+     * Put an already-captured camera track on this call and renegotiate.
+     *
+     * Split out of upgradeToVideo so a group call can capture its camera once
+     * and add the SAME track to every leg — N captures of one camera is both
+     * wasteful and, on several devices, simply not permitted.
+     *
+     * @param {MediaStreamTrack} videoTrack
+     */
+    async addVideoTrack(videoTrack) {
+        if (!videoTrack || !this.localMediaStream || !this.peerConnection) return;
+        if (!this.localMediaStream.getVideoTracks().includes(videoTrack)) {
+            this.localMediaStream.addTrack(videoTrack);
+        }
+        if (this._callVideoSender) await this._callVideoSender.replaceTrack(videoTrack);
+        else this._callVideoSender = this.peerConnection.addTrack(videoTrack, this.localMediaStream);
+        this._applyCallCodecPrefs();
+        this._updateCallState({ cameraEnabled: true, withVideo: true });
+        await this._renegotiateCall();
+    }
+
+    /**
+     * Swap the outgoing camera track without renegotiating.
+     *
+     * The group's camera flip captures one new track and hands it to every leg;
+     * replaceTrack keeps the transceiver, so no leg has to renegotiate for it.
+     *
+     * @param {MediaStreamTrack} videoTrack
+     */
+    async replaceVideoTrack(videoTrack) {
+        if (!videoTrack || !this._callVideoSender) return;
+        await this._callVideoSender.replaceTrack(videoTrack);
     }
 
     // Flip between front/back cameras without renegotiation (replaceTrack).

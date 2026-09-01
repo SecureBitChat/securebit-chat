@@ -250,6 +250,9 @@ var LOCALE_META = {
 var DICTIONARIES = {
   "en": {
     "language.label": "Language",
+    "language.suggest.text": "This page is also available in English.",
+    "language.suggest.cta": "Read in English",
+    "language.suggest.dismiss": "Dismiss",
     "community.title": "Join the future of privacy",
     "community.description": "SecureBit grows thanks to its community. Your ideas and feedback shape the future of secure communication - built in the open, with complete ASN.1 validation end-to-end.",
     "community.github": "GitHub Repository",
@@ -995,10 +998,35 @@ var DICTIONARIES = {
     "offline.disconnect": "Disconnect",
     "offline.learnMore": "Learn more",
     "pwa.installApp": "Install App",
-    "chat.onWeb": "You're on Web"
+    "chat.onWeb": "You're on Web",
+    "groupCall.startVoice": "Start a group voice call",
+    "groupCall.startVideo": "Start a group video call",
+    "groupCall.join": "Join",
+    "groupCall.dismiss": "Not now",
+    "groupCall.leave": "Leave call",
+    "groupCall.you": "You",
+    "groupCall.connecting": "Connecting\u2026",
+    "groupCall.waitingLink": "Waiting for a direct link\u2026",
+    "groupCall.legFailed": "Could not connect",
+    "groupCall.startedVoice": "{name} started a voice call",
+    "groupCall.startedVideo": "{name} started a video call",
+    "groupCall.inCall": "{count} in the call",
+    "groupCall.err.permission_denied": "The call could not start - microphone and camera access is blocked. Allow it for this site, then try again.",
+    "groupCall.err.device_not_found": "The call could not start - no microphone was found on this device.",
+    "groupCall.err.device_busy": "The call could not start - your microphone is in use by another app. Close it and try again.",
+    "groupCall.err.media_failed": "The call could not start - the microphone could not be opened.",
+    "groupCall.err.call_in_progress": "A call is already running in this group. Join it instead of starting another.",
+    "groupCall.err.not_ready": "Confirm the group code before calling.",
+    "groupCall.speaking": "{name} is speaking",
+    "groupCall.pin": "Show {name} large",
+    "groupCall.unpin": "Back to everyone",
+    "groupCall.showEveryone": "Everyone"
   },
   "de": {
     "language.label": "Sprache",
+    "language.suggest.text": "Diese Seite gibt es auch auf Deutsch.",
+    "language.suggest.cta": "Auf Deutsch lesen",
+    "language.suggest.dismiss": "Schlie\xDFen",
     "community.title": "Gestalten Sie die Zukunft der Privatsph\xE4re mit",
     "community.description": "SecureBit w\xE4chst durch seine Community. Ihre Ideen und Ihr Feedback pr\xE4gen die Zukunft sicherer Kommunikation - offen entwickelt, mit vollst\xE4ndiger ASN.1-Validierung von Ende zu Ende.",
     "community.github": "GitHub-Repository",
@@ -1744,10 +1772,35 @@ var DICTIONARIES = {
     "offline.disconnect": "Trennen",
     "offline.learnMore": "Mehr erfahren",
     "pwa.installApp": "App installieren",
-    "chat.onWeb": "Sie nutzen die Web-Version"
+    "chat.onWeb": "Sie nutzen die Web-Version",
+    "groupCall.startVoice": "Gruppen-Sprachanruf starten",
+    "groupCall.startVideo": "Gruppen-Videoanruf starten",
+    "groupCall.join": "Beitreten",
+    "groupCall.dismiss": "Jetzt nicht",
+    "groupCall.leave": "Anruf verlassen",
+    "groupCall.you": "Du",
+    "groupCall.connecting": "Verbinden\u2026",
+    "groupCall.waitingLink": "Warten auf eine direkte Verbindung\u2026",
+    "groupCall.legFailed": "Verbindung fehlgeschlagen",
+    "groupCall.startedVoice": "{name} hat einen Sprachanruf gestartet",
+    "groupCall.startedVideo": "{name} hat einen Videoanruf gestartet",
+    "groupCall.inCall": "{count} im Anruf",
+    "groupCall.err.permission_denied": "Der Anruf konnte nicht starten - der Zugriff auf Mikrofon und Kamera ist blockiert. Erlaube ihn f\xFCr diese Seite und versuche es erneut.",
+    "groupCall.err.device_not_found": "Der Anruf konnte nicht starten - auf diesem Ger\xE4t wurde kein Mikrofon gefunden.",
+    "groupCall.err.device_busy": "Der Anruf konnte nicht starten - dein Mikrofon wird von einer anderen App verwendet. Schlie\xDFe sie und versuche es erneut.",
+    "groupCall.err.media_failed": "Der Anruf konnte nicht starten - das Mikrofon lie\xDF sich nicht \xF6ffnen.",
+    "groupCall.err.call_in_progress": "In dieser Gruppe l\xE4uft bereits ein Anruf. Tritt ihm bei, statt einen neuen zu starten.",
+    "groupCall.err.not_ready": "Best\xE4tige zuerst den Gruppencode, bevor du anrufst.",
+    "groupCall.speaking": "{name} spricht",
+    "groupCall.pin": "{name} gro\xDF anzeigen",
+    "groupCall.unpin": "Zur\xFCck zu allen",
+    "groupCall.showEveryone": "Alle"
   },
   "fr": {
     "language.label": "Langue",
+    "language.suggest.text": "Cette page est aussi disponible en fran\xE7ais.",
+    "language.suggest.cta": "Lire en fran\xE7ais",
+    "language.suggest.dismiss": "Fermer",
     "community.title": "Construisez l'avenir de la vie priv\xE9e",
     "community.description": "SecureBit grandit gr\xE2ce \xE0 sa communaut\xE9. Vos id\xE9es et vos retours fa\xE7onnent l'avenir des communications s\xE9curis\xE9es, d\xE9velopp\xE9es \xE0 ciel ouvert, avec une validation ASN.1 compl\xE8te de bout en bout.",
     "community.github": "D\xE9p\xF4t GitHub",
@@ -2493,10 +2546,35 @@ var DICTIONARIES = {
     "offline.disconnect": "Se d\xE9connecter",
     "offline.learnMore": "En savoir plus",
     "pwa.installApp": "Installer l'application",
-    "chat.onWeb": "Vous \xEAtes sur la version web"
+    "chat.onWeb": "Vous \xEAtes sur la version web",
+    "groupCall.startVoice": "D\xE9marrer un appel vocal de groupe",
+    "groupCall.startVideo": "D\xE9marrer un appel vid\xE9o de groupe",
+    "groupCall.join": "Rejoindre",
+    "groupCall.dismiss": "Pas maintenant",
+    "groupCall.leave": "Quitter l'appel",
+    "groupCall.you": "Vous",
+    "groupCall.connecting": "Connexion\u2026",
+    "groupCall.waitingLink": "En attente d'un lien direct\u2026",
+    "groupCall.legFailed": "Connexion impossible",
+    "groupCall.startedVoice": "{name} a d\xE9marr\xE9 un appel vocal",
+    "groupCall.startedVideo": "{name} a d\xE9marr\xE9 un appel vid\xE9o",
+    "groupCall.inCall": "{count} dans l'appel",
+    "groupCall.err.permission_denied": "L'appel n'a pas pu d\xE9marrer - l'acc\xE8s au micro et \xE0 la cam\xE9ra est bloqu\xE9. Autorisez-le pour ce site, puis r\xE9essayez.",
+    "groupCall.err.device_not_found": "L'appel n'a pas pu d\xE9marrer - aucun micro n'a \xE9t\xE9 trouv\xE9 sur cet appareil.",
+    "groupCall.err.device_busy": "L'appel n'a pas pu d\xE9marrer - votre micro est utilis\xE9 par une autre application. Fermez-la et r\xE9essayez.",
+    "groupCall.err.media_failed": "L'appel n'a pas pu d\xE9marrer - le micro n'a pas pu \xEAtre ouvert.",
+    "groupCall.err.call_in_progress": "Un appel est d\xE9j\xE0 en cours dans ce groupe. Rejoignez-le plut\xF4t que d'en d\xE9marrer un autre.",
+    "groupCall.err.not_ready": "Confirmez le code du groupe avant d'appeler.",
+    "groupCall.speaking": "{name} parle",
+    "groupCall.pin": "Afficher {name} en grand",
+    "groupCall.unpin": "Revenir \xE0 tous",
+    "groupCall.showEveryone": "Tout le monde"
   },
   "es": {
     "language.label": "Idioma",
+    "language.suggest.text": "Esta p\xE1gina tambi\xE9n est\xE1 disponible en espa\xF1ol.",
+    "language.suggest.cta": "Leer en espa\xF1ol",
+    "language.suggest.dismiss": "Cerrar",
     "community.title": "Construye el futuro de la privacidad",
     "community.description": "SecureBit crece gracias a su comunidad. Tus ideas y comentarios dan forma al futuro de la comunicaci\xF3n segura, desarrollada de forma abierta y con validaci\xF3n ASN.1 completa de extremo a extremo.",
     "community.github": "Repositorio en GitHub",
@@ -3242,10 +3320,35 @@ var DICTIONARIES = {
     "offline.disconnect": "Desconectar",
     "offline.learnMore": "M\xE1s informaci\xF3n",
     "pwa.installApp": "Instalar la app",
-    "chat.onWeb": "Est\xE1s en la versi\xF3n web"
+    "chat.onWeb": "Est\xE1s en la versi\xF3n web",
+    "groupCall.startVoice": "Iniciar llamada de voz grupal",
+    "groupCall.startVideo": "Iniciar videollamada grupal",
+    "groupCall.join": "Unirse",
+    "groupCall.dismiss": "Ahora no",
+    "groupCall.leave": "Salir de la llamada",
+    "groupCall.you": "T\xFA",
+    "groupCall.connecting": "Conectando\u2026",
+    "groupCall.waitingLink": "Esperando un enlace directo\u2026",
+    "groupCall.legFailed": "No se pudo conectar",
+    "groupCall.startedVoice": "{name} inici\xF3 una llamada de voz",
+    "groupCall.startedVideo": "{name} inici\xF3 una videollamada",
+    "groupCall.inCall": "{count} en la llamada",
+    "groupCall.err.permission_denied": "La llamada no pudo iniciarse - el acceso al micr\xF3fono y a la c\xE1mara est\xE1 bloqueado. Perm\xEDtelo para este sitio e int\xE9ntalo de nuevo.",
+    "groupCall.err.device_not_found": "La llamada no pudo iniciarse - no se encontr\xF3 ning\xFAn micr\xF3fono en este dispositivo.",
+    "groupCall.err.device_busy": "La llamada no pudo iniciarse - otra aplicaci\xF3n est\xE1 usando tu micr\xF3fono. Ci\xE9rrala e int\xE9ntalo de nuevo.",
+    "groupCall.err.media_failed": "La llamada no pudo iniciarse - no se pudo abrir el micr\xF3fono.",
+    "groupCall.err.call_in_progress": "Ya hay una llamada en este grupo. \xDAnete en lugar de iniciar otra.",
+    "groupCall.err.not_ready": "Confirma el c\xF3digo del grupo antes de llamar.",
+    "groupCall.speaking": "{name} est\xE1 hablando",
+    "groupCall.pin": "Ver a {name} en grande",
+    "groupCall.unpin": "Volver a todos",
+    "groupCall.showEveryone": "Todos"
   },
   "uk": {
     "language.label": "\u041C\u043E\u0432\u0430",
+    "language.suggest.text": "\u0426\u044F \u0441\u0442\u043E\u0440\u0456\u043D\u043A\u0430 \u0442\u0430\u043A\u043E\u0436 \u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430 \u0443\u043A\u0440\u0430\u0457\u043D\u0441\u044C\u043A\u043E\u044E.",
+    "language.suggest.cta": "\u0427\u0438\u0442\u0430\u0442\u0438 \u0443\u043A\u0440\u0430\u0457\u043D\u0441\u044C\u043A\u043E\u044E",
+    "language.suggest.dismiss": "\u0417\u0430\u043A\u0440\u0438\u0442\u0438",
     "community.title": "\u0414\u043E\u043B\u0443\u0447\u0430\u0439\u0442\u0435\u0441\u044F \u0434\u043E \u043C\u0430\u0439\u0431\u0443\u0442\u043D\u044C\u043E\u0433\u043E \u043F\u0440\u0438\u0432\u0430\u0442\u043D\u043E\u0441\u0442\u0456",
     "community.description": "SecureBit \u0440\u043E\u0441\u0442\u0435 \u0437\u0430\u0432\u0434\u044F\u043A\u0438 \u0441\u0432\u043E\u0457\u0439 \u0441\u043F\u0456\u043B\u044C\u043D\u043E\u0442\u0456. \u0412\u0430\u0448\u0456 \u0456\u0434\u0435\u0457 \u0442\u0430 \u0432\u0456\u0434\u0433\u0443\u043A\u0438 \u0444\u043E\u0440\u043C\u0443\u044E\u0442\u044C \u043C\u0430\u0439\u0431\u0443\u0442\u043D\u0454 \u0437\u0430\u0445\u0438\u0449\u0435\u043D\u043E\u0433\u043E \u0441\u043F\u0456\u043B\u043A\u0443\u0432\u0430\u043D\u043D\u044F - \u0440\u043E\u0437\u0440\u043E\u0431\u043A\u0430 \u0432\u0435\u0434\u0435\u0442\u044C\u0441\u044F \u0432\u0456\u0434\u043A\u0440\u0438\u0442\u043E, \u0437 \u043F\u043E\u0432\u043D\u043E\u044E \u0432\u0430\u043B\u0456\u0434\u0430\u0446\u0456\u0454\u044E ASN.1 \u043D\u0430 \u0432\u0441\u044C\u043E\u043C\u0443 \u0448\u043B\u044F\u0445\u0443.",
     "community.github": "\u0420\u0435\u043F\u043E\u0437\u0438\u0442\u043E\u0440\u0456\u0439 \u043D\u0430 GitHub",
@@ -3991,10 +4094,35 @@ var DICTIONARIES = {
     "offline.disconnect": "\u0412\u0456\u0434'\u0454\u0434\u043D\u0430\u0442\u0438\u0441\u044F",
     "offline.learnMore": "\u0414\u043E\u043A\u043B\u0430\u0434\u043D\u0456\u0448\u0435",
     "pwa.installApp": "\u0412\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u0438 \u0437\u0430\u0441\u0442\u043E\u0441\u0443\u043D\u043E\u043A",
-    "chat.onWeb": "\u0412\u0438 \u0443 \u0432\u0435\u0431\u0432\u0435\u0440\u0441\u0456\u0457"
+    "chat.onWeb": "\u0412\u0438 \u0443 \u0432\u0435\u0431\u0432\u0435\u0440\u0441\u0456\u0457",
+    "groupCall.startVoice": "\u041F\u043E\u0447\u0430\u0442\u0438 \u0433\u0440\u0443\u043F\u043E\u0432\u0438\u0439 \u0433\u043E\u043B\u043E\u0441\u043E\u0432\u0438\u0439 \u0434\u0437\u0432\u0456\u043D\u043E\u043A",
+    "groupCall.startVideo": "\u041F\u043E\u0447\u0430\u0442\u0438 \u0433\u0440\u0443\u043F\u043E\u0432\u0438\u0439 \u0432\u0456\u0434\u0435\u043E\u0434\u0437\u0432\u0456\u043D\u043E\u043A",
+    "groupCall.join": "\u041F\u0440\u0438\u0454\u0434\u043D\u0430\u0442\u0438\u0441\u044F",
+    "groupCall.dismiss": "\u041D\u0435 \u0437\u0430\u0440\u0430\u0437",
+    "groupCall.leave": "\u0412\u0438\u0439\u0442\u0438 \u0437 \u0434\u0437\u0432\u0456\u043D\u043A\u0430",
+    "groupCall.you": "\u0412\u0438",
+    "groupCall.connecting": "\u0417'\u0454\u0434\u043D\u0430\u043D\u043D\u044F\u2026",
+    "groupCall.waitingLink": "\u041E\u0447\u0456\u043A\u0443\u0432\u0430\u043D\u043D\u044F \u043F\u0440\u044F\u043C\u043E\u0433\u043E \u0437'\u0454\u0434\u043D\u0430\u043D\u043D\u044F\u2026",
+    "groupCall.legFailed": "\u041D\u0435 \u0432\u0434\u0430\u043B\u043E\u0441\u044F \u0437'\u0454\u0434\u043D\u0430\u0442\u0438\u0441\u044F",
+    "groupCall.startedVoice": "{name} \u043F\u043E\u0447\u0430\u0432 \u0433\u043E\u043B\u043E\u0441\u043E\u0432\u0438\u0439 \u0434\u0437\u0432\u0456\u043D\u043E\u043A",
+    "groupCall.startedVideo": "{name} \u043F\u043E\u0447\u0430\u0432 \u0432\u0456\u0434\u0435\u043E\u0434\u0437\u0432\u0456\u043D\u043E\u043A",
+    "groupCall.inCall": "{count} \u0443 \u0434\u0437\u0432\u0456\u043D\u043A\u0443",
+    "groupCall.err.permission_denied": "\u0414\u0437\u0432\u0456\u043D\u043E\u043A \u043D\u0435 \u043F\u043E\u0447\u0430\u0432\u0441\u044F - \u0434\u043E\u0441\u0442\u0443\u043F \u0434\u043E \u043C\u0456\u043A\u0440\u043E\u0444\u043E\u043D\u0430 \u0439 \u043A\u0430\u043C\u0435\u0440\u0438 \u0437\u0430\u0431\u043B\u043E\u043A\u043E\u0432\u0430\u043D\u043E. \u0414\u043E\u0437\u0432\u043E\u043B\u044C\u0442\u0435 \u0439\u043E\u0433\u043E \u0434\u043B\u044F \u0446\u044C\u043E\u0433\u043E \u0441\u0430\u0439\u0442\u0443 \u0439 \u0441\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0449\u0435 \u0440\u0430\u0437.",
+    "groupCall.err.device_not_found": "\u0414\u0437\u0432\u0456\u043D\u043E\u043A \u043D\u0435 \u043F\u043E\u0447\u0430\u0432\u0441\u044F - \u043D\u0430 \u0446\u044C\u043E\u043C\u0443 \u043F\u0440\u0438\u0441\u0442\u0440\u043E\u0457 \u043D\u0435 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u043E \u043C\u0456\u043A\u0440\u043E\u0444\u043E\u043D\u0430.",
+    "groupCall.err.device_busy": "\u0414\u0437\u0432\u0456\u043D\u043E\u043A \u043D\u0435 \u043F\u043E\u0447\u0430\u0432\u0441\u044F - \u043C\u0456\u043A\u0440\u043E\u0444\u043E\u043D \u0437\u0430\u0439\u043D\u044F\u0442\u0438\u0439 \u0456\u043D\u0448\u0438\u043C \u0437\u0430\u0441\u0442\u043E\u0441\u0443\u043D\u043A\u043E\u043C. \u0417\u0430\u043A\u0440\u0438\u0439\u0442\u0435 \u0439\u043E\u0433\u043E \u0439 \u0441\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0449\u0435 \u0440\u0430\u0437.",
+    "groupCall.err.media_failed": "\u0414\u0437\u0432\u0456\u043D\u043E\u043A \u043D\u0435 \u043F\u043E\u0447\u0430\u0432\u0441\u044F - \u043D\u0435 \u0432\u0434\u0430\u043B\u043E\u0441\u044F \u0432\u0456\u0434\u043A\u0440\u0438\u0442\u0438 \u043C\u0456\u043A\u0440\u043E\u0444\u043E\u043D.",
+    "groupCall.err.call_in_progress": "\u0423 \u0446\u0456\u0439 \u0433\u0440\u0443\u043F\u0456 \u0432\u0436\u0435 \u0442\u0440\u0438\u0432\u0430\u0454 \u0434\u0437\u0432\u0456\u043D\u043E\u043A. \u041F\u0440\u0438\u0454\u0434\u043D\u0430\u0439\u0442\u0435\u0441\u044F \u0434\u043E \u043D\u044C\u043E\u0433\u043E, \u0430 \u043D\u0435 \u043F\u043E\u0447\u0438\u043D\u0430\u0439\u0442\u0435 \u043D\u043E\u0432\u0438\u0439.",
+    "groupCall.err.not_ready": "\u0421\u043F\u0435\u0440\u0448\u0443 \u043F\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u044C\u0442\u0435 \u043A\u043E\u0434 \u0433\u0440\u0443\u043F\u0438.",
+    "groupCall.speaking": "{name} \u0433\u043E\u0432\u043E\u0440\u0438\u0442\u044C",
+    "groupCall.pin": "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u0438 {name} \u0432\u0435\u043B\u0438\u043A\u0438\u043C",
+    "groupCall.unpin": "\u041F\u043E\u0432\u0435\u0440\u043D\u0443\u0442\u0438\u0441\u044F \u0434\u043E \u0432\u0441\u0456\u0445",
+    "groupCall.showEveryone": "\u0423\u0441\u0456"
   },
   "ru": {
     "language.label": "\u042F\u0437\u044B\u043A",
+    "language.suggest.text": "\u042D\u0442\u0430 \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0430 \u0442\u0430\u043A\u0436\u0435 \u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430 \u043D\u0430 \u0440\u0443\u0441\u0441\u043A\u043E\u043C.",
+    "language.suggest.cta": "\u0427\u0438\u0442\u0430\u0442\u044C \u043F\u043E-\u0440\u0443\u0441\u0441\u043A\u0438",
+    "language.suggest.dismiss": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C",
     "community.title": "\u041F\u0440\u0438\u0441\u043E\u0435\u0434\u0438\u043D\u044F\u0439\u0442\u0435\u0441\u044C \u043A \u0431\u0443\u0434\u0443\u0449\u0435\u043C\u0443 \u043F\u0440\u0438\u0432\u0430\u0442\u043D\u043E\u0441\u0442\u0438",
     "community.description": "SecureBit \u0440\u0430\u0441\u0442\u0451\u0442 \u0431\u043B\u0430\u0433\u043E\u0434\u0430\u0440\u044F \u0441\u043E\u043E\u0431\u0449\u0435\u0441\u0442\u0432\u0443. \u0412\u0430\u0448\u0438 \u0438\u0434\u0435\u0438 \u0438 \u043E\u0442\u0437\u044B\u0432\u044B \u0444\u043E\u0440\u043C\u0438\u0440\u0443\u044E\u0442 \u0431\u0443\u0434\u0443\u0449\u0435\u0435 \u0437\u0430\u0449\u0438\u0449\u0451\u043D\u043D\u043E\u0433\u043E \u043E\u0431\u0449\u0435\u043D\u0438\u044F - \u0440\u0430\u0437\u0440\u0430\u0431\u043E\u0442\u043A\u0430 \u0432\u0435\u0434\u0451\u0442\u0441\u044F \u043E\u0442\u043A\u0440\u044B\u0442\u043E, \u0441 \u043F\u043E\u043B\u043D\u043E\u0439 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u043E\u0439 ASN.1 \u043D\u0430 \u0432\u0441\u0451\u043C \u043F\u0443\u0442\u0438.",
     "community.github": "\u0420\u0435\u043F\u043E\u0437\u0438\u0442\u043E\u0440\u0438\u0439 \u043D\u0430 GitHub",
@@ -4740,10 +4868,35 @@ var DICTIONARIES = {
     "offline.disconnect": "\u041E\u0442\u043A\u043B\u044E\u0447\u0438\u0442\u044C\u0441\u044F",
     "offline.learnMore": "\u041F\u043E\u0434\u0440\u043E\u0431\u043D\u0435\u0435",
     "pwa.installApp": "\u0423\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435",
-    "chat.onWeb": "\u0412\u044B \u0432 \u0432\u0435\u0431-\u0432\u0435\u0440\u0441\u0438\u0438"
+    "chat.onWeb": "\u0412\u044B \u0432 \u0432\u0435\u0431-\u0432\u0435\u0440\u0441\u0438\u0438",
+    "groupCall.startVoice": "\u041D\u0430\u0447\u0430\u0442\u044C \u0433\u0440\u0443\u043F\u043F\u043E\u0432\u043E\u0439 \u0433\u043E\u043B\u043E\u0441\u043E\u0432\u043E\u0439 \u0437\u0432\u043E\u043D\u043E\u043A",
+    "groupCall.startVideo": "\u041D\u0430\u0447\u0430\u0442\u044C \u0433\u0440\u0443\u043F\u043F\u043E\u0432\u043E\u0439 \u0432\u0438\u0434\u0435\u043E\u0437\u0432\u043E\u043D\u043E\u043A",
+    "groupCall.join": "\u041F\u0440\u0438\u0441\u043E\u0435\u0434\u0438\u043D\u0438\u0442\u044C\u0441\u044F",
+    "groupCall.dismiss": "\u041D\u0435 \u0441\u0435\u0439\u0447\u0430\u0441",
+    "groupCall.leave": "\u0412\u044B\u0439\u0442\u0438 \u0438\u0437 \u0437\u0432\u043E\u043D\u043A\u0430",
+    "groupCall.you": "\u0412\u044B",
+    "groupCall.connecting": "\u0421\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435\u2026",
+    "groupCall.waitingLink": "\u041E\u0436\u0438\u0434\u0430\u043D\u0438\u0435 \u043F\u0440\u044F\u043C\u043E\u0433\u043E \u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u044F\u2026",
+    "groupCall.legFailed": "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043E\u0435\u0434\u0438\u043D\u0438\u0442\u044C\u0441\u044F",
+    "groupCall.startedVoice": "{name} \u043D\u0430\u0447\u0430\u043B \u0433\u043E\u043B\u043E\u0441\u043E\u0432\u043E\u0439 \u0437\u0432\u043E\u043D\u043E\u043A",
+    "groupCall.startedVideo": "{name} \u043D\u0430\u0447\u0430\u043B \u0432\u0438\u0434\u0435\u043E\u0437\u0432\u043E\u043D\u043E\u043A",
+    "groupCall.inCall": "{count} \u0432 \u0437\u0432\u043E\u043D\u043A\u0435",
+    "groupCall.err.permission_denied": "\u0417\u0432\u043E\u043D\u043E\u043A \u043D\u0435 \u043D\u0430\u0447\u0430\u043B\u0441\u044F - \u0434\u043E\u0441\u0442\u0443\u043F \u043A \u043C\u0438\u043A\u0440\u043E\u0444\u043E\u043D\u0443 \u0438 \u043A\u0430\u043C\u0435\u0440\u0435 \u0437\u0430\u0431\u043B\u043E\u043A\u0438\u0440\u043E\u0432\u0430\u043D. \u0420\u0430\u0437\u0440\u0435\u0448\u0438\u0442\u0435 \u0435\u0433\u043E \u0434\u043B\u044F \u044D\u0442\u043E\u0433\u043E \u0441\u0430\u0439\u0442\u0430 \u0438 \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0441\u043D\u043E\u0432\u0430.",
+    "groupCall.err.device_not_found": "\u0417\u0432\u043E\u043D\u043E\u043A \u043D\u0435 \u043D\u0430\u0447\u0430\u043B\u0441\u044F - \u043D\u0430 \u044D\u0442\u043E\u043C \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u0435 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D \u043C\u0438\u043A\u0440\u043E\u0444\u043E\u043D.",
+    "groupCall.err.device_busy": "\u0417\u0432\u043E\u043D\u043E\u043A \u043D\u0435 \u043D\u0430\u0447\u0430\u043B\u0441\u044F - \u043C\u0438\u043A\u0440\u043E\u0444\u043E\u043D \u0437\u0430\u043D\u044F\u0442 \u0434\u0440\u0443\u0433\u0438\u043C \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435\u043C. \u0417\u0430\u043A\u0440\u043E\u0439\u0442\u0435 \u0435\u0433\u043E \u0438 \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0441\u043D\u043E\u0432\u0430.",
+    "groupCall.err.media_failed": "\u0417\u0432\u043E\u043D\u043E\u043A \u043D\u0435 \u043D\u0430\u0447\u0430\u043B\u0441\u044F - \u043D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u043C\u0438\u043A\u0440\u043E\u0444\u043E\u043D.",
+    "groupCall.err.call_in_progress": "\u0412 \u044D\u0442\u043E\u0439 \u0433\u0440\u0443\u043F\u043F\u0435 \u0443\u0436\u0435 \u0438\u0434\u0451\u0442 \u0437\u0432\u043E\u043D\u043E\u043A. \u041F\u0440\u0438\u0441\u043E\u0435\u0434\u0438\u043D\u0438\u0442\u0435\u0441\u044C \u043A \u043D\u0435\u043C\u0443, \u0430 \u043D\u0435 \u043D\u0430\u0447\u0438\u043D\u0430\u0439\u0442\u0435 \u043D\u043E\u0432\u044B\u0439.",
+    "groupCall.err.not_ready": "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u0435 \u043A\u043E\u0434 \u0433\u0440\u0443\u043F\u043F\u044B.",
+    "groupCall.speaking": "{name} \u0433\u043E\u0432\u043E\u0440\u0438\u0442",
+    "groupCall.pin": "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C {name} \u043A\u0440\u0443\u043F\u043D\u043E",
+    "groupCall.unpin": "\u0412\u0435\u0440\u043D\u0443\u0442\u044C\u0441\u044F \u043A\u043E \u0432\u0441\u0435\u043C",
+    "groupCall.showEveryone": "\u0412\u0441\u0435"
   },
   "zh": {
     "language.label": "\u8BED\u8A00",
+    "language.suggest.text": "\u672C\u9875\u9762\u4E5F\u6709\u7B80\u4F53\u4E2D\u6587\u7248\u672C\u3002",
+    "language.suggest.cta": "\u9605\u8BFB\u7B80\u4F53\u4E2D\u6587",
+    "language.suggest.dismiss": "\u5173\u95ED",
     "community.title": "\u4E00\u8D77\u6784\u7B51\u9690\u79C1\u7684\u672A\u6765",
     "community.description": "SecureBit \u56E0\u793E\u533A\u800C\u6210\u957F\u3002\u4F60\u7684\u60F3\u6CD5\u4E0E\u53CD\u9988\u5851\u9020\u7740\u5B89\u5168\u901A\u8BAF\u7684\u672A\u6765 \u2014\u2014 \u5F00\u653E\u5F00\u53D1\uFF0C\u5168\u7A0B\u5B8C\u6574\u7684 ASN.1 \u6821\u9A8C\u3002",
     "community.github": "GitHub \u4ED3\u5E93",
@@ -5489,10 +5642,35 @@ var DICTIONARIES = {
     "offline.disconnect": "\u65AD\u5F00\u8FDE\u63A5",
     "offline.learnMore": "\u4E86\u89E3\u66F4\u591A",
     "pwa.installApp": "\u5B89\u88C5\u5E94\u7528",
-    "chat.onWeb": "\u4F60\u6B63\u5728\u4F7F\u7528\u7F51\u9875\u7248"
+    "chat.onWeb": "\u4F60\u6B63\u5728\u4F7F\u7528\u7F51\u9875\u7248",
+    "groupCall.startVoice": "\u53D1\u8D77\u7FA4\u7EC4\u8BED\u97F3\u901A\u8BDD",
+    "groupCall.startVideo": "\u53D1\u8D77\u7FA4\u7EC4\u89C6\u9891\u901A\u8BDD",
+    "groupCall.join": "\u52A0\u5165",
+    "groupCall.dismiss": "\u6682\u4E0D\u52A0\u5165",
+    "groupCall.leave": "\u79BB\u5F00\u901A\u8BDD",
+    "groupCall.you": "\u4F60",
+    "groupCall.connecting": "\u8FDE\u63A5\u4E2D\u2026",
+    "groupCall.waitingLink": "\u6B63\u5728\u7B49\u5F85\u76F4\u8FDE\u2026",
+    "groupCall.legFailed": "\u65E0\u6CD5\u8FDE\u63A5",
+    "groupCall.startedVoice": "{name} \u53D1\u8D77\u4E86\u8BED\u97F3\u901A\u8BDD",
+    "groupCall.startedVideo": "{name} \u53D1\u8D77\u4E86\u89C6\u9891\u901A\u8BDD",
+    "groupCall.inCall": "{count} \u4EBA\u5728\u901A\u8BDD\u4E2D",
+    "groupCall.err.permission_denied": "\u901A\u8BDD\u65E0\u6CD5\u5F00\u59CB - \u9EA6\u514B\u98CE\u548C\u6444\u50CF\u5934\u6743\u9650\u88AB\u62D2\u7EDD\u3002\u8BF7\u4E3A\u672C\u7AD9\u70B9\u5141\u8BB8\u540E\u91CD\u8BD5\u3002",
+    "groupCall.err.device_not_found": "\u901A\u8BDD\u65E0\u6CD5\u5F00\u59CB - \u6B64\u8BBE\u5907\u4E0A\u672A\u627E\u5230\u9EA6\u514B\u98CE\u3002",
+    "groupCall.err.device_busy": "\u901A\u8BDD\u65E0\u6CD5\u5F00\u59CB - \u9EA6\u514B\u98CE\u6B63\u88AB\u5176\u4ED6\u5E94\u7528\u5360\u7528\u3002\u8BF7\u5173\u95ED\u540E\u91CD\u8BD5\u3002",
+    "groupCall.err.media_failed": "\u901A\u8BDD\u65E0\u6CD5\u5F00\u59CB - \u65E0\u6CD5\u6253\u5F00\u9EA6\u514B\u98CE\u3002",
+    "groupCall.err.call_in_progress": "\u8BE5\u7FA4\u7EC4\u5DF2\u6709\u901A\u8BDD\u6B63\u5728\u8FDB\u884C\u3002\u8BF7\u52A0\u5165\uFF0C\u800C\u4E0D\u662F\u53E6\u5F00\u4E00\u4E2A\u3002",
+    "groupCall.err.not_ready": "\u8BF7\u5148\u786E\u8BA4\u7FA4\u7EC4\u5B89\u5168\u7801\u518D\u901A\u8BDD\u3002",
+    "groupCall.speaking": "{name} \u6B63\u5728\u8BB2\u8BDD",
+    "groupCall.pin": "\u653E\u5927\u663E\u793A {name}",
+    "groupCall.unpin": "\u8FD4\u56DE\u6240\u6709\u4EBA",
+    "groupCall.showEveryone": "\u6240\u6709\u4EBA"
   },
   "ko": {
     "language.label": "\uC5B8\uC5B4",
+    "language.suggest.text": "\uC774 \uD398\uC774\uC9C0\uB294 \uD55C\uAD6D\uC5B4\uB85C\uB3C4 \uBCFC \uC218 \uC788\uC2B5\uB2C8\uB2E4.",
+    "language.suggest.cta": "\uD55C\uAD6D\uC5B4\uB85C \uBCF4\uAE30",
+    "language.suggest.dismiss": "\uB2EB\uAE30",
     "community.title": "\uD504\uB77C\uC774\uBC84\uC2DC\uC758 \uBBF8\uB798\uB97C \uD568\uAED8 \uB9CC\uB4ED\uB2C8\uB2E4",
     "community.description": "SecureBit\uC740 \uCEE4\uBBA4\uB2C8\uD2F0 \uB355\uBD84\uC5D0 \uC790\uB78D\uB2C8\uB2E4. \uC5EC\uB7EC\uBD84\uC758 \uC544\uC774\uB514\uC5B4\uC640 \uC758\uACAC\uC774 \uC548\uC804\uD55C \uC18C\uD1B5\uC758 \uBBF8\uB798\uB97C \uB9CC\uB4ED\uB2C8\uB2E4 - \uBAA8\uB4E0 \uACFC\uC815\uC774 \uACF5\uAC1C\uB418\uC5B4 \uC788\uACE0, \uC804 \uAD6C\uAC04\uC5D0\uC11C ASN.1 \uAC80\uC99D\uC744 \uC218\uD589\uD569\uB2C8\uB2E4.",
     "community.github": "GitHub \uC800\uC7A5\uC18C",
@@ -6238,10 +6416,35 @@ var DICTIONARIES = {
     "offline.disconnect": "\uC5F0\uACB0 \uB04A\uAE30",
     "offline.learnMore": "\uC790\uC138\uD788 \uBCF4\uAE30",
     "pwa.installApp": "\uC571 \uC124\uCE58",
-    "chat.onWeb": "\uC6F9 \uBC84\uC804\uC744 \uC4F0\uACE0 \uC788\uC2B5\uB2C8\uB2E4"
+    "chat.onWeb": "\uC6F9 \uBC84\uC804\uC744 \uC4F0\uACE0 \uC788\uC2B5\uB2C8\uB2E4",
+    "groupCall.startVoice": "\uADF8\uB8F9 \uC74C\uC131 \uD1B5\uD654 \uC2DC\uC791",
+    "groupCall.startVideo": "\uADF8\uB8F9 \uC601\uC0C1 \uD1B5\uD654 \uC2DC\uC791",
+    "groupCall.join": "\uCC38\uC5EC",
+    "groupCall.dismiss": "\uB098\uC911\uC5D0",
+    "groupCall.leave": "\uD1B5\uD654 \uB098\uAC00\uAE30",
+    "groupCall.you": "\uB098",
+    "groupCall.connecting": "\uC5F0\uACB0 \uC911\u2026",
+    "groupCall.waitingLink": "\uC9C1\uC811 \uC5F0\uACB0\uC744 \uAE30\uB2E4\uB9AC\uB294 \uC911\u2026",
+    "groupCall.legFailed": "\uC5F0\uACB0\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4",
+    "groupCall.startedVoice": "{name} \uB2D8\uC774 \uC74C\uC131 \uD1B5\uD654\uB97C \uC2DC\uC791\uD588\uC2B5\uB2C8\uB2E4",
+    "groupCall.startedVideo": "{name} \uB2D8\uC774 \uC601\uC0C1 \uD1B5\uD654\uB97C \uC2DC\uC791\uD588\uC2B5\uB2C8\uB2E4",
+    "groupCall.inCall": "\uD1B5\uD654 \uC911 {count}\uBA85",
+    "groupCall.err.permission_denied": "\uD1B5\uD654\uB97C \uC2DC\uC791\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4 - \uB9C8\uC774\uD06C\uC640 \uCE74\uBA54\uB77C \uC811\uADFC\uC774 \uCC28\uB2E8\uB418\uC5B4 \uC788\uC2B5\uB2C8\uB2E4. \uC774 \uC0AC\uC774\uD2B8\uC5D0 \uD5C8\uC6A9\uD55C \uB4A4 \uB2E4\uC2DC \uC2DC\uB3C4\uD558\uC138\uC694.",
+    "groupCall.err.device_not_found": "\uD1B5\uD654\uB97C \uC2DC\uC791\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4 - \uC774 \uAE30\uAE30\uC5D0\uC11C \uB9C8\uC774\uD06C\uB97C \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.",
+    "groupCall.err.device_busy": "\uD1B5\uD654\uB97C \uC2DC\uC791\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4 - \uB9C8\uC774\uD06C\uB97C \uB2E4\uB978 \uC571\uC774 \uC0AC\uC6A9 \uC911\uC785\uB2C8\uB2E4. \uC885\uB8CC\uD55C \uB4A4 \uB2E4\uC2DC \uC2DC\uB3C4\uD558\uC138\uC694.",
+    "groupCall.err.media_failed": "\uD1B5\uD654\uB97C \uC2DC\uC791\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4 - \uB9C8\uC774\uD06C\uB97C \uC5F4\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.",
+    "groupCall.err.call_in_progress": "\uC774 \uADF8\uB8F9\uC5D0\uC11C \uC774\uBBF8 \uD1B5\uD654\uAC00 \uC9C4\uD589 \uC911\uC785\uB2C8\uB2E4. \uC0C8\uB85C \uC2DC\uC791\uD558\uC9C0 \uB9D0\uACE0 \uCC38\uC5EC\uD558\uC138\uC694.",
+    "groupCall.err.not_ready": "\uD1B5\uD654\uD558\uAE30 \uC804\uC5D0 \uADF8\uB8F9 \uCF54\uB4DC\uB97C \uD655\uC778\uD558\uC138\uC694.",
+    "groupCall.speaking": "{name} \uB2D8\uC774 \uB9D0\uD558\uB294 \uC911",
+    "groupCall.pin": "{name} \uD06C\uAC8C \uBCF4\uAE30",
+    "groupCall.unpin": "\uC804\uCCB4 \uBCF4\uAE30\uB85C \uB3CC\uC544\uAC00\uAE30",
+    "groupCall.showEveryone": "\uC804\uCCB4"
   },
   "hi": {
     "language.label": "\u092D\u093E\u0937\u093E",
+    "language.suggest.text": "\u092F\u0939 \u092A\u0943\u0937\u094D\u0920 \u0939\u093F\u0928\u094D\u0926\u0940 \u092E\u0947\u0902 \u092D\u0940 \u0909\u092A\u0932\u092C\u094D\u0927 \u0939\u0948\u0964",
+    "language.suggest.cta": "\u0939\u093F\u0928\u094D\u0926\u0940 \u092E\u0947\u0902 \u092A\u0922\u093C\u0947\u0902",
+    "language.suggest.dismiss": "\u092C\u0902\u0926 \u0915\u0930\u0947\u0902",
     "community.title": "\u0928\u093F\u091C\u0924\u093E \u0915\u0947 \u092D\u0935\u093F\u0937\u094D\u092F \u092E\u0947\u0902 \u0936\u093E\u092E\u093F\u0932 \u0939\u094B\u0902",
     "community.description": "SecureBit \u0905\u092A\u0928\u0947 \u0938\u092E\u0941\u0926\u093E\u092F \u0938\u0947 \u092C\u0922\u093C\u0924\u093E \u0939\u0948\u0964 \u0906\u092A\u0915\u0947 \u0935\u093F\u091A\u093E\u0930 \u0914\u0930 \u0938\u0941\u091D\u093E\u0935 \u0938\u0941\u0930\u0915\u094D\u0937\u093F\u0924 \u0938\u0902\u0935\u093E\u0926 \u0915\u093E \u092D\u0935\u093F\u0937\u094D\u092F \u0917\u0922\u093C\u0924\u0947 \u0939\u0948\u0902 - \u0916\u0941\u0932\u0947 \u092E\u0947\u0902 \u092C\u0928\u093E, \u0914\u0930 \u092A\u0942\u0930\u0947 \u0930\u093E\u0938\u094D\u0924\u0947 \u092A\u0942\u0930\u0940 ASN.1 \u091C\u093E\u0901\u091A \u0915\u0947 \u0938\u093E\u0925\u0964",
     "community.github": "GitHub \u0930\u093F\u092A\u0949\u091C\u093C\u093F\u091F\u0930\u0940",
@@ -6987,10 +7190,35 @@ var DICTIONARIES = {
     "offline.disconnect": "\u091C\u0941\u0921\u093C\u093E\u0935 \u0924\u094B\u0921\u093C\u0947\u0902",
     "offline.learnMore": "\u0914\u0930 \u091C\u093E\u0928\u0947\u0902",
     "pwa.installApp": "\u0910\u092A \u0907\u0902\u0938\u094D\u091F\u0949\u0932 \u0915\u0930\u0947\u0902",
-    "chat.onWeb": "\u0906\u092A \u0935\u0947\u092C \u0938\u0902\u0938\u094D\u0915\u0930\u0923 \u092A\u0930 \u0939\u0948\u0902"
+    "chat.onWeb": "\u0906\u092A \u0935\u0947\u092C \u0938\u0902\u0938\u094D\u0915\u0930\u0923 \u092A\u0930 \u0939\u0948\u0902",
+    "groupCall.startVoice": "\u0938\u092E\u0942\u0939 \u0935\u0949\u0907\u0938 \u0915\u0949\u0932 \u0936\u0941\u0930\u0942 \u0915\u0930\u0947\u0902",
+    "groupCall.startVideo": "\u0938\u092E\u0942\u0939 \u0935\u0940\u0921\u093F\u092F\u094B \u0915\u0949\u0932 \u0936\u0941\u0930\u0942 \u0915\u0930\u0947\u0902",
+    "groupCall.join": "\u0936\u093E\u092E\u093F\u0932 \u0939\u094B\u0902",
+    "groupCall.dismiss": "\u0905\u092D\u0940 \u0928\u0939\u0940\u0902",
+    "groupCall.leave": "\u0915\u0949\u0932 \u091B\u094B\u0921\u093C\u0947\u0902",
+    "groupCall.you": "\u0906\u092A",
+    "groupCall.connecting": "\u091C\u0941\u0921\u093C \u0930\u0939\u093E \u0939\u0948\u2026",
+    "groupCall.waitingLink": "\u0938\u0940\u0927\u0947 \u0932\u093F\u0902\u0915 \u0915\u0940 \u092A\u094D\u0930\u0924\u0940\u0915\u094D\u0937\u093E\u2026",
+    "groupCall.legFailed": "\u0915\u0928\u0947\u0915\u094D\u091F \u0928\u0939\u0940\u0902 \u0939\u094B \u0938\u0915\u093E",
+    "groupCall.startedVoice": "{name} \u0928\u0947 \u0935\u0949\u0907\u0938 \u0915\u0949\u0932 \u0936\u0941\u0930\u0942 \u0915\u0940",
+    "groupCall.startedVideo": "{name} \u0928\u0947 \u0935\u0940\u0921\u093F\u092F\u094B \u0915\u0949\u0932 \u0936\u0941\u0930\u0942 \u0915\u0940",
+    "groupCall.inCall": "\u0915\u0949\u0932 \u092E\u0947\u0902 {count}",
+    "groupCall.err.permission_denied": "\u0915\u0949\u0932 \u0936\u0941\u0930\u0942 \u0928\u0939\u0940\u0902 \u0939\u094B \u0938\u0915\u0940 - \u092E\u093E\u0907\u0915\u094D\u0930\u094B\u092B\u093C\u094B\u0928 \u0914\u0930 \u0915\u0948\u092E\u0930\u0947 \u0915\u0940 \u0905\u0928\u0941\u092E\u0924\u093F \u0905\u0935\u0930\u0941\u0926\u094D\u0927 \u0939\u0948\u0964 \u0907\u0938 \u0938\u093E\u0907\u091F \u0915\u0947 \u0932\u093F\u090F \u0905\u0928\u0941\u092E\u0924\u093F \u0926\u0947\u0902 \u0914\u0930 \u092B\u093F\u0930 \u0915\u094B\u0936\u093F\u0936 \u0915\u0930\u0947\u0902\u0964",
+    "groupCall.err.device_not_found": "\u0915\u0949\u0932 \u0936\u0941\u0930\u0942 \u0928\u0939\u0940\u0902 \u0939\u094B \u0938\u0915\u0940 - \u0907\u0938 \u0921\u093F\u0935\u093E\u0907\u0938 \u092A\u0930 \u0915\u094B\u0908 \u092E\u093E\u0907\u0915\u094D\u0930\u094B\u092B\u093C\u094B\u0928 \u0928\u0939\u0940\u0902 \u092E\u093F\u0932\u093E\u0964",
+    "groupCall.err.device_busy": "\u0915\u0949\u0932 \u0936\u0941\u0930\u0942 \u0928\u0939\u0940\u0902 \u0939\u094B \u0938\u0915\u0940 - \u0906\u092A\u0915\u093E \u092E\u093E\u0907\u0915\u094D\u0930\u094B\u092B\u093C\u094B\u0928 \u0915\u093F\u0938\u0940 \u0905\u0928\u094D\u092F \u0910\u092A \u0915\u0947 \u0909\u092A\u092F\u094B\u0917 \u092E\u0947\u0902 \u0939\u0948\u0964 \u0909\u0938\u0947 \u092C\u0902\u0926 \u0915\u0930\u0915\u0947 \u092B\u093F\u0930 \u0915\u094B\u0936\u093F\u0936 \u0915\u0930\u0947\u0902\u0964",
+    "groupCall.err.media_failed": "\u0915\u0949\u0932 \u0936\u0941\u0930\u0942 \u0928\u0939\u0940\u0902 \u0939\u094B \u0938\u0915\u0940 - \u092E\u093E\u0907\u0915\u094D\u0930\u094B\u092B\u093C\u094B\u0928 \u0928\u0939\u0940\u0902 \u0916\u0941\u0932 \u0938\u0915\u093E\u0964",
+    "groupCall.err.call_in_progress": "\u0907\u0938 \u0938\u092E\u0942\u0939 \u092E\u0947\u0902 \u092A\u0939\u0932\u0947 \u0938\u0947 \u090F\u0915 \u0915\u0949\u0932 \u091A\u0932 \u0930\u0939\u0940 \u0939\u0948\u0964 \u0928\u0908 \u0936\u0941\u0930\u0942 \u0915\u0930\u0928\u0947 \u0915\u0947 \u092C\u091C\u093E\u092F \u0909\u0938\u092E\u0947\u0902 \u0936\u093E\u092E\u093F\u0932 \u0939\u094B\u0902\u0964",
+    "groupCall.err.not_ready": "\u0915\u0949\u0932 \u0915\u0930\u0928\u0947 \u0938\u0947 \u092A\u0939\u0932\u0947 \u0938\u092E\u0942\u0939 \u0915\u094B\u0921 \u0915\u0940 \u092A\u0941\u0937\u094D\u091F\u093F \u0915\u0930\u0947\u0902\u0964",
+    "groupCall.speaking": "{name} \u092C\u094B\u0932 \u0930\u0939\u0947 \u0939\u0948\u0902",
+    "groupCall.pin": "{name} \u0915\u094B \u092C\u0921\u093C\u093E \u0926\u093F\u0916\u093E\u090F\u0901",
+    "groupCall.unpin": "\u0938\u092D\u0940 \u092A\u0930 \u0932\u094C\u091F\u0947\u0902",
+    "groupCall.showEveryone": "\u0938\u092D\u0940"
   },
   "ar": {
     "language.label": "\u0627\u0644\u0644\u063A\u0629",
+    "language.suggest.text": "\u0647\u0630\u0647 \u0627\u0644\u0635\u0641\u062D\u0629 \u0645\u062A\u0648\u0641\u0631\u0629 \u0623\u064A\u0636\u064B\u0627 \u0628\u0627\u0644\u0639\u0631\u0628\u064A\u0629.",
+    "language.suggest.cta": "\u0627\u0642\u0631\u0623 \u0628\u0627\u0644\u0639\u0631\u0628\u064A\u0629",
+    "language.suggest.dismiss": "\u0625\u063A\u0644\u0627\u0642",
     "community.title": "\u0627\u0646\u0636\u0645\u0651 \u0625\u0644\u0649 \u0645\u0633\u062A\u0642\u0628\u0644 \u0627\u0644\u062E\u0635\u0648\u0635\u064A\u0629",
     "community.description": "\u064A\u0646\u0645\u0648 SecureBit \u0628\u0641\u0636\u0644 \u0645\u062C\u062A\u0645\u0639\u0647. \u0623\u0641\u0643\u0627\u0631\u0643\u0645 \u0648\u0645\u0644\u0627\u062D\u0638\u0627\u062A\u0643\u0645 \u0647\u064A \u0645\u0627 \u064A\u0635\u0648\u063A \u0645\u0633\u062A\u0642\u0628\u0644 \u0627\u0644\u062A\u0648\u0627\u0635\u0644 \u0627\u0644\u0622\u0645\u0646 - \u0645\u0628\u0646\u064A\u0651 \u0641\u064A \u0627\u0644\u0639\u0644\u0646\u060C \u0645\u0639 \u062A\u062D\u0642\u0651\u0642 ASN.1 \u0643\u0627\u0645\u0644 \u0645\u0646 \u0637\u0631\u0641 \u0625\u0644\u0649 \u0637\u0631\u0641.",
     "community.github": "\u0645\u0633\u062A\u0648\u062F\u0639 GitHub",
@@ -7736,10 +7964,35 @@ var DICTIONARIES = {
     "offline.disconnect": "\u0642\u0637\u0639 \u0627\u0644\u0627\u062A\u0635\u0627\u0644",
     "offline.learnMore": "\u0627\u0639\u0631\u0641 \u0627\u0644\u0645\u0632\u064A\u062F",
     "pwa.installApp": "\u062B\u0628\u0651\u062A \u0627\u0644\u062A\u0637\u0628\u064A\u0642",
-    "chat.onWeb": "\u0623\u0646\u062A \u0639\u0644\u0649 \u0627\u0644\u0648\u064A\u0628"
+    "chat.onWeb": "\u0623\u0646\u062A \u0639\u0644\u0649 \u0627\u0644\u0648\u064A\u0628",
+    "groupCall.startVoice": "\u0628\u062F\u0621 \u0645\u0643\u0627\u0644\u0645\u0629 \u0635\u0648\u062A\u064A\u0629 \u062C\u0645\u0627\u0639\u064A\u0629",
+    "groupCall.startVideo": "\u0628\u062F\u0621 \u0645\u0643\u0627\u0644\u0645\u0629 \u0641\u064A\u062F\u064A\u0648 \u062C\u0645\u0627\u0639\u064A\u0629",
+    "groupCall.join": "\u0627\u0646\u0636\u0645\u0627\u0645",
+    "groupCall.dismiss": "\u0644\u064A\u0633 \u0627\u0644\u0622\u0646",
+    "groupCall.leave": "\u0645\u063A\u0627\u062F\u0631\u0629 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0629",
+    "groupCall.you": "\u0623\u0646\u062A",
+    "groupCall.connecting": "\u062C\u0627\u0631\u064D \u0627\u0644\u0627\u062A\u0635\u0627\u0644\u2026",
+    "groupCall.waitingLink": "\u0641\u064A \u0627\u0646\u062A\u0638\u0627\u0631 \u0631\u0627\u0628\u0637 \u0645\u0628\u0627\u0634\u0631\u2026",
+    "groupCall.legFailed": "\u062A\u0639\u0630\u0651\u0631 \u0627\u0644\u0627\u062A\u0635\u0627\u0644",
+    "groupCall.startedVoice": "\u0628\u062F\u0623 {name} \u0645\u0643\u0627\u0644\u0645\u0629 \u0635\u0648\u062A\u064A\u0629",
+    "groupCall.startedVideo": "\u0628\u062F\u0623 {name} \u0645\u0643\u0627\u0644\u0645\u0629 \u0641\u064A\u062F\u064A\u0648",
+    "groupCall.inCall": "{count} \u0641\u064A \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0629",
+    "groupCall.err.permission_denied": "\u062A\u0639\u0630\u0651\u0631 \u0628\u062F\u0621 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0629 - \u0627\u0644\u0648\u0635\u0648\u0644 \u0625\u0644\u0649 \u0627\u0644\u0645\u064A\u0643\u0631\u0648\u0641\u0648\u0646 \u0648\u0627\u0644\u0643\u0627\u0645\u064A\u0631\u0627 \u0645\u062D\u0638\u0648\u0631. \u0627\u0633\u0645\u062D \u0628\u0647 \u0644\u0647\u0630\u0627 \u0627\u0644\u0645\u0648\u0642\u0639 \u062B\u0645 \u0623\u0639\u062F \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629.",
+    "groupCall.err.device_not_found": "\u062A\u0639\u0630\u0651\u0631 \u0628\u062F\u0621 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0629 - \u0644\u0645 \u064A\u064F\u0639\u062B\u0631 \u0639\u0644\u0649 \u0645\u064A\u0643\u0631\u0648\u0641\u0648\u0646 \u0641\u064A \u0647\u0630\u0627 \u0627\u0644\u062C\u0647\u0627\u0632.",
+    "groupCall.err.device_busy": "\u062A\u0639\u0630\u0651\u0631 \u0628\u062F\u0621 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0629 - \u0627\u0644\u0645\u064A\u0643\u0631\u0648\u0641\u0648\u0646 \u0645\u0633\u062A\u062E\u062F\u064E\u0645 \u0645\u0646 \u062A\u0637\u0628\u064A\u0642 \u0622\u062E\u0631. \u0623\u063A\u0644\u0642\u0647 \u062B\u0645 \u0623\u0639\u062F \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629.",
+    "groupCall.err.media_failed": "\u062A\u0639\u0630\u0651\u0631 \u0628\u062F\u0621 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0629 - \u0644\u0645 \u064A\u0645\u0643\u0646 \u0641\u062A\u062D \u0627\u0644\u0645\u064A\u0643\u0631\u0648\u0641\u0648\u0646.",
+    "groupCall.err.call_in_progress": "\u0647\u0646\u0627\u0643 \u0645\u0643\u0627\u0644\u0645\u0629 \u062C\u0627\u0631\u064A\u0629 \u0628\u0627\u0644\u0641\u0639\u0644 \u0641\u064A \u0647\u0630\u0647 \u0627\u0644\u0645\u062C\u0645\u0648\u0639\u0629. \u0627\u0646\u0636\u0645 \u0625\u0644\u064A\u0647\u0627 \u0628\u062F\u0644 \u0628\u062F\u0621 \u0623\u062E\u0631\u0649.",
+    "groupCall.err.not_ready": "\u0623\u0643\u0651\u062F \u0631\u0645\u0632 \u0627\u0644\u0645\u062C\u0645\u0648\u0639\u0629 \u0642\u0628\u0644 \u0627\u0644\u0627\u062A\u0635\u0627\u0644.",
+    "groupCall.speaking": "{name} \u064A\u062A\u062D\u062F\u0651\u062B \u0627\u0644\u0622\u0646",
+    "groupCall.pin": "\u0639\u0631\u0636 {name} \u0628\u062D\u062C\u0645 \u0643\u0628\u064A\u0631",
+    "groupCall.unpin": "\u0627\u0644\u0639\u0648\u062F\u0629 \u0625\u0644\u0649 \u0627\u0644\u062C\u0645\u064A\u0639",
+    "groupCall.showEveryone": "\u0627\u0644\u062C\u0645\u064A\u0639"
   },
   "he": {
     "language.label": "\u05E9\u05E4\u05D4",
+    "language.suggest.text": "\u05D4\u05D3\u05E3 \u05D4\u05D6\u05D4 \u05D6\u05DE\u05D9\u05DF \u05D2\u05DD \u05D1\u05E2\u05D1\u05E8\u05D9\u05EA.",
+    "language.suggest.cta": "\u05DC\u05E7\u05E8\u05D9\u05D0\u05D4 \u05D1\u05E2\u05D1\u05E8\u05D9\u05EA",
+    "language.suggest.dismiss": "\u05E1\u05D2\u05D9\u05E8\u05D4",
     "community.title": "\u05D4\u05E6\u05D8\u05E8\u05E4\u05D5 \u05DC\u05E2\u05EA\u05D9\u05D3 \u05E9\u05DC \u05D4\u05E4\u05E8\u05D8\u05D9\u05D5\u05EA",
     "community.description": "SecureBit \u05D2\u05D3\u05DC \u05D1\u05D6\u05DB\u05D5\u05EA \u05D4\u05E7\u05D4\u05D9\u05DC\u05D4 \u05E9\u05DC\u05D5. \u05D4\u05E8\u05E2\u05D9\u05D5\u05E0\u05D5\u05EA \u05D5\u05D4\u05DE\u05E9\u05D5\u05D1 \u05E9\u05DC\u05DB\u05DD \u05DE\u05E2\u05E6\u05D1\u05D9\u05DD \u05D0\u05EA \u05E2\u05EA\u05D9\u05D3 \u05D4\u05EA\u05E7\u05E9\u05D5\u05E8\u05EA \u05D4\u05DE\u05D0\u05D5\u05D1\u05D8\u05D7\u05EA - \u05E0\u05D1\u05E0\u05D4 \u05D1\u05D2\u05DC\u05D5\u05D9, \u05E2\u05DD \u05D0\u05D9\u05DE\u05D5\u05EA ASN.1 \u05DE\u05DC\u05D0 \u05DE\u05E7\u05E6\u05D4 \u05DC\u05E7\u05E6\u05D4.",
     "community.github": "\u05DE\u05D0\u05D2\u05E8 GitHub",
@@ -8485,10 +8738,35 @@ var DICTIONARIES = {
     "offline.disconnect": "\u05E0\u05D9\u05EA\u05D5\u05E7",
     "offline.learnMore": "\u05DE\u05D9\u05D3\u05E2 \u05E0\u05D5\u05E1\u05E3",
     "pwa.installApp": "\u05D4\u05EA\u05E7\u05E0\u05EA \u05D4\u05D0\u05E4\u05DC\u05D9\u05E7\u05E6\u05D9\u05D4",
-    "chat.onWeb": "\u05D0\u05EA\u05DD \u05D1\u05D2\u05E8\u05E1\u05EA \u05D4\u05D5\u05D5\u05D1"
+    "chat.onWeb": "\u05D0\u05EA\u05DD \u05D1\u05D2\u05E8\u05E1\u05EA \u05D4\u05D5\u05D5\u05D1",
+    "groupCall.startVoice": "\u05D4\u05EA\u05D7\u05DC\u05EA \u05E9\u05D9\u05D7\u05D4 \u05E7\u05D5\u05DC\u05D9\u05EA \u05E7\u05D1\u05D5\u05E6\u05EA\u05D9\u05EA",
+    "groupCall.startVideo": "\u05D4\u05EA\u05D7\u05DC\u05EA \u05E9\u05D9\u05D7\u05EA \u05D5\u05D9\u05D3\u05D0\u05D5 \u05E7\u05D1\u05D5\u05E6\u05EA\u05D9\u05EA",
+    "groupCall.join": "\u05D4\u05E6\u05D8\u05E8\u05E4\u05D5\u05EA",
+    "groupCall.dismiss": "\u05DC\u05D0 \u05E2\u05DB\u05E9\u05D9\u05D5",
+    "groupCall.leave": "\u05D9\u05E6\u05D9\u05D0\u05D4 \u05DE\u05D4\u05E9\u05D9\u05D7\u05D4",
+    "groupCall.you": "\u05D0\u05EA/\u05D4",
+    "groupCall.connecting": "\u05DE\u05EA\u05D7\u05D1\u05E8\u2026",
+    "groupCall.waitingLink": "\u05DE\u05DE\u05EA\u05D9\u05DF \u05DC\u05E7\u05D9\u05E9\u05D5\u05E8 \u05D9\u05E9\u05D9\u05E8\u2026",
+    "groupCall.legFailed": "\u05D4\u05D4\u05EA\u05D7\u05D1\u05E8\u05D5\u05EA \u05E0\u05DB\u05E9\u05DC\u05D4",
+    "groupCall.startedVoice": "{name} \u05D4\u05EA\u05D7\u05D9\u05DC \u05E9\u05D9\u05D7\u05D4 \u05E7\u05D5\u05DC\u05D9\u05EA",
+    "groupCall.startedVideo": "{name} \u05D4\u05EA\u05D7\u05D9\u05DC \u05E9\u05D9\u05D7\u05EA \u05D5\u05D9\u05D3\u05D0\u05D5",
+    "groupCall.inCall": "{count} \u05D1\u05E9\u05D9\u05D7\u05D4",
+    "groupCall.err.permission_denied": "\u05D4\u05E9\u05D9\u05D7\u05D4 \u05DC\u05D0 \u05D4\u05EA\u05D7\u05D9\u05DC\u05D4 - \u05D4\u05D2\u05D9\u05E9\u05D4 \u05DC\u05DE\u05D9\u05E7\u05E8\u05D5\u05E4\u05D5\u05DF \u05D5\u05DC\u05DE\u05E6\u05DC\u05DE\u05D4 \u05D7\u05E1\u05D5\u05DE\u05D4. \u05D0\u05E4\u05E9\u05E8\u05D5 \u05D0\u05D5\u05EA\u05D4 \u05DC\u05D0\u05EA\u05E8 \u05D4\u05D6\u05D4 \u05D5\u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1.",
+    "groupCall.err.device_not_found": "\u05D4\u05E9\u05D9\u05D7\u05D4 \u05DC\u05D0 \u05D4\u05EA\u05D7\u05D9\u05DC\u05D4 - \u05DC\u05D0 \u05E0\u05DE\u05E6\u05D0 \u05DE\u05D9\u05E7\u05E8\u05D5\u05E4\u05D5\u05DF \u05D1\u05DE\u05DB\u05E9\u05D9\u05E8 \u05D4\u05D6\u05D4.",
+    "groupCall.err.device_busy": "\u05D4\u05E9\u05D9\u05D7\u05D4 \u05DC\u05D0 \u05D4\u05EA\u05D7\u05D9\u05DC\u05D4 - \u05D4\u05DE\u05D9\u05E7\u05E8\u05D5\u05E4\u05D5\u05DF \u05D1\u05E9\u05D9\u05DE\u05D5\u05E9 \u05D0\u05E4\u05DC\u05D9\u05E7\u05E6\u05D9\u05D4 \u05D0\u05D7\u05E8\u05EA. \u05E1\u05D2\u05E8\u05D5 \u05D0\u05D5\u05EA\u05D4 \u05D5\u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1.",
+    "groupCall.err.media_failed": "\u05D4\u05E9\u05D9\u05D7\u05D4 \u05DC\u05D0 \u05D4\u05EA\u05D7\u05D9\u05DC\u05D4 - \u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05D4\u05D9\u05D4 \u05DC\u05E4\u05EA\u05D5\u05D7 \u05D0\u05EA \u05D4\u05DE\u05D9\u05E7\u05E8\u05D5\u05E4\u05D5\u05DF.",
+    "groupCall.err.call_in_progress": "\u05DB\u05D1\u05E8 \u05DE\u05EA\u05E7\u05D9\u05D9\u05DE\u05EA \u05E9\u05D9\u05D7\u05D4 \u05D1\u05E7\u05D1\u05D5\u05E6\u05D4 \u05D4\u05D6\u05D5. \u05D4\u05E6\u05D8\u05E8\u05E4\u05D5 \u05D0\u05DC\u05D9\u05D4 \u05D1\u05DE\u05E7\u05D5\u05DD \u05DC\u05D4\u05EA\u05D7\u05D9\u05DC \u05D0\u05D7\u05EA \u05D7\u05D3\u05E9\u05D4.",
+    "groupCall.err.not_ready": "\u05D0\u05E9\u05E8\u05D5 \u05D0\u05EA \u05E7\u05D5\u05D3 \u05D4\u05E7\u05D1\u05D5\u05E6\u05D4 \u05DC\u05E4\u05E0\u05D9 \u05E9\u05D9\u05D7\u05D4.",
+    "groupCall.speaking": "{name} \u05DE\u05D3\u05D1\u05E8/\u05EA",
+    "groupCall.pin": "\u05D4\u05E6\u05D2\u05EA {name} \u05D1\u05D2\u05D3\u05D5\u05DC",
+    "groupCall.unpin": "\u05D7\u05D6\u05E8\u05D4 \u05DC\u05DB\u05D5\u05DC\u05DD",
+    "groupCall.showEveryone": "\u05DB\u05D5\u05DC\u05DD"
   },
   "fa": {
     "language.label": "\u0632\u0628\u0627\u0646",
+    "language.suggest.text": "\u0627\u06CC\u0646 \u0635\u0641\u062D\u0647 \u0628\u0647 \u0641\u0627\u0631\u0633\u06CC \u0647\u0645 \u062F\u0631 \u062F\u0633\u062A\u0631\u0633 \u0627\u0633\u062A.",
+    "language.suggest.cta": "\u062E\u0648\u0627\u0646\u062F\u0646 \u0628\u0647 \u0641\u0627\u0631\u0633\u06CC",
+    "language.suggest.dismiss": "\u0628\u0633\u062A\u0646",
     "community.title": "\u0628\u0647 \u0622\u06CC\u0646\u062F\u0647\u0654 \u062D\u0631\u06CC\u0645 \u062E\u0635\u0648\u0635\u06CC \u0628\u067E\u06CC\u0648\u0646\u062F\u06CC\u062F",
     "community.description": "\u200FSecureBit \u0628\u0647\u200C\u0644\u0637\u0641 \u062C\u0627\u0645\u0639\u0647\u200C\u0627\u0634 \u0631\u0634\u062F \u0645\u06CC\u200C\u06A9\u0646\u062F. \u0627\u06CC\u062F\u0647\u200C\u0647\u0627 \u0648 \u0628\u0627\u0632\u062E\u0648\u0631\u062F\u0647\u0627\u06CC \u0634\u0645\u0627 \u0622\u06CC\u0646\u062F\u0647\u0654 \u0627\u0631\u062A\u0628\u0627\u0637 \u0627\u0645\u0646 \u0631\u0627 \u0634\u06A9\u0644 \u0645\u06CC\u200C\u062F\u0647\u062F - \u0633\u0627\u062E\u062A\u0647\u200C\u0634\u062F\u0647 \u062F\u0631 \u0641\u0636\u0627\u06CC \u0628\u0627\u0632\u060C \u0628\u0627 \u0627\u0639\u062A\u0628\u0627\u0631\u0633\u0646\u062C\u06CC \u06A9\u0627\u0645\u0644 ASN.1 \u0627\u0632 \u06CC\u06A9 \u0633\u0631 \u062A\u0627 \u0633\u0631 \u062F\u06CC\u06AF\u0631.",
     "community.github": "\u0645\u062E\u0632\u0646 GitHub",
@@ -9234,10 +9512,35 @@ var DICTIONARIES = {
     "offline.disconnect": "\u0642\u0637\u0639 \u0627\u062A\u0635\u0627\u0644",
     "offline.learnMore": "\u0628\u06CC\u0634\u062A\u0631 \u0628\u062F\u0627\u0646\u06CC\u062F",
     "pwa.installApp": "\u0646\u0635\u0628 \u0628\u0631\u0646\u0627\u0645\u0647",
-    "chat.onWeb": "\u0634\u0645\u0627 \u0631\u0648\u06CC \u0646\u0633\u062E\u0647\u0654 \u0648\u0628 \u0647\u0633\u062A\u06CC\u062F"
+    "chat.onWeb": "\u0634\u0645\u0627 \u0631\u0648\u06CC \u0646\u0633\u062E\u0647\u0654 \u0648\u0628 \u0647\u0633\u062A\u06CC\u062F",
+    "groupCall.startVoice": "\u0634\u0631\u0648\u0639 \u062A\u0645\u0627\u0633 \u0635\u0648\u062A\u06CC \u06AF\u0631\u0648\u0647\u06CC",
+    "groupCall.startVideo": "\u0634\u0631\u0648\u0639 \u062A\u0645\u0627\u0633 \u062A\u0635\u0648\u06CC\u0631\u06CC \u06AF\u0631\u0648\u0647\u06CC",
+    "groupCall.join": "\u067E\u06CC\u0648\u0633\u062A\u0646",
+    "groupCall.dismiss": "\u0627\u0644\u0627\u0646 \u0646\u0647",
+    "groupCall.leave": "\u062E\u0631\u0648\u062C \u0627\u0632 \u062A\u0645\u0627\u0633",
+    "groupCall.you": "\u0634\u0645\u0627",
+    "groupCall.connecting": "\u062F\u0631 \u062D\u0627\u0644 \u0627\u062A\u0635\u0627\u0644\u2026",
+    "groupCall.waitingLink": "\u062F\u0631 \u0627\u0646\u062A\u0638\u0627\u0631 \u06CC\u06A9 \u067E\u06CC\u0648\u0646\u062F \u0645\u0633\u062A\u0642\u06CC\u0645\u2026",
+    "groupCall.legFailed": "\u0627\u062A\u0635\u0627\u0644 \u0628\u0631\u0642\u0631\u0627\u0631 \u0646\u0634\u062F",
+    "groupCall.startedVoice": "{name} \u06CC\u06A9 \u062A\u0645\u0627\u0633 \u0635\u0648\u062A\u06CC \u0622\u063A\u0627\u0632 \u06A9\u0631\u062F",
+    "groupCall.startedVideo": "{name} \u06CC\u06A9 \u062A\u0645\u0627\u0633 \u062A\u0635\u0648\u06CC\u0631\u06CC \u0622\u063A\u0627\u0632 \u06A9\u0631\u062F",
+    "groupCall.inCall": "{count} \u0646\u0641\u0631 \u062F\u0631 \u062A\u0645\u0627\u0633",
+    "groupCall.err.permission_denied": "\u062A\u0645\u0627\u0633 \u0622\u063A\u0627\u0632 \u0646\u0634\u062F - \u062F\u0633\u062A\u0631\u0633\u06CC \u0628\u0647 \u0645\u06CC\u06A9\u0631\u0648\u0641\u0648\u0646 \u0648 \u062F\u0648\u0631\u0628\u06CC\u0646 \u0645\u0633\u062F\u0648\u062F \u0627\u0633\u062A. \u0622\u0646 \u0631\u0627 \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0633\u0627\u06CC\u062A \u0645\u062C\u0627\u0632 \u06A9\u0646\u06CC\u062F \u0648 \u062F\u0648\u0628\u0627\u0631\u0647 \u062A\u0644\u0627\u0634 \u06A9\u0646\u06CC\u062F.",
+    "groupCall.err.device_not_found": "\u062A\u0645\u0627\u0633 \u0622\u063A\u0627\u0632 \u0646\u0634\u062F - \u0645\u06CC\u06A9\u0631\u0648\u0641\u0648\u0646\u06CC \u0631\u0648\u06CC \u0627\u06CC\u0646 \u062F\u0633\u062A\u06AF\u0627\u0647 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F.",
+    "groupCall.err.device_busy": "\u062A\u0645\u0627\u0633 \u0622\u063A\u0627\u0632 \u0646\u0634\u062F - \u0645\u06CC\u06A9\u0631\u0648\u0641\u0648\u0646 \u0634\u0645\u0627 \u062F\u0631 \u062D\u0627\u0644 \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u062A\u0648\u0633\u0637 \u0628\u0631\u0646\u0627\u0645\u0647 \u062F\u06CC\u06AF\u0631\u06CC \u0627\u0633\u062A. \u0622\u0646 \u0631\u0627 \u0628\u0628\u0646\u062F\u06CC\u062F \u0648 \u062F\u0648\u0628\u0627\u0631\u0647 \u062A\u0644\u0627\u0634 \u06A9\u0646\u06CC\u062F.",
+    "groupCall.err.media_failed": "\u062A\u0645\u0627\u0633 \u0622\u063A\u0627\u0632 \u0646\u0634\u062F - \u0645\u06CC\u06A9\u0631\u0648\u0641\u0648\u0646 \u0628\u0627\u0632 \u0646\u0634\u062F.",
+    "groupCall.err.call_in_progress": "\u0647\u0645\u06CC\u0646 \u062D\u0627\u0644\u0627 \u062A\u0645\u0627\u0633\u06CC \u062F\u0631 \u0627\u06CC\u0646 \u06AF\u0631\u0648\u0647 \u062F\u0631 \u062C\u0631\u06CC\u0627\u0646 \u0627\u0633\u062A. \u0628\u0647\u200C\u062C\u0627\u06CC \u0634\u0631\u0648\u0639 \u062A\u0645\u0627\u0633 \u062A\u0627\u0632\u0647\u060C \u0628\u0647 \u0622\u0646 \u0628\u067E\u06CC\u0648\u0646\u062F\u06CC\u062F.",
+    "groupCall.err.not_ready": "\u067E\u06CC\u0634 \u0627\u0632 \u062A\u0645\u0627\u0633\u060C \u06A9\u062F \u06AF\u0631\u0648\u0647 \u0631\u0627 \u062A\u0623\u06CC\u06CC\u062F \u06A9\u0646\u06CC\u062F.",
+    "groupCall.speaking": "{name} \u062F\u0631 \u062D\u0627\u0644 \u0635\u062D\u0628\u062A \u0627\u0633\u062A",
+    "groupCall.pin": "\u0646\u0645\u0627\u06CC\u0634 \u0628\u0632\u0631\u06AF {name}",
+    "groupCall.unpin": "\u0628\u0627\u0632\u06AF\u0634\u062A \u0628\u0647 \u0647\u0645\u0647",
+    "groupCall.showEveryone": "\u0647\u0645\u0647"
   },
   "ur": {
     "language.label": "\u0632\u0628\u0627\u0646",
+    "language.suggest.text": "\u06CC\u06C1 \u0635\u0641\u062D\u06C1 \u0627\u0631\u062F\u0648 \u0645\u06CC\u06BA \u0628\u06BE\u06CC \u062F\u0633\u062A\u06CC\u0627\u0628 \u06C1\u06D2\u06D4",
+    "language.suggest.cta": "\u0627\u0631\u062F\u0648 \u0645\u06CC\u06BA \u067E\u0691\u06BE\u06CC\u06BA",
+    "language.suggest.dismiss": "\u0628\u0646\u062F \u06A9\u0631\u06CC\u06BA",
     "community.title": "\u0646\u062C\u06CC\u062A \u06A9\u06D2 \u0645\u0633\u062A\u0642\u0628\u0644 \u0645\u06CC\u06BA \u0634\u0627\u0645\u0644 \u06C1\u0648\u06BA",
     "community.description": "\u200FSecureBit \u0627\u067E\u0646\u06CC \u0628\u0631\u0627\u062F\u0631\u06CC \u06A9\u06CC \u0628\u062F\u0648\u0644\u062A \u0628\u0691\u06BE\u062A\u0627 \u06C1\u06D2\u06D4 \u0622\u067E \u06A9\u06D2 \u062E\u06CC\u0627\u0644\u0627\u062A \u0627\u0648\u0631 \u0622\u0631\u0627\u0621 \u0645\u062D\u0641\u0648\u0638 \u0631\u0627\u0628\u0637\u06D2 \u06A9\u0627 \u0645\u0633\u062A\u0642\u0628\u0644 \u062A\u0634\u06A9\u06CC\u0644 \u062F\u06CC\u062A\u06D2 \u06C1\u06CC\u06BA - \u06A9\u06BE\u0644\u06D2 \u0639\u0627\u0645 \u0628\u0646\u0627\u06CC\u0627 \u06AF\u06CC\u0627\u060C \u0633\u0631\u06D2 \u0633\u06D2 \u0633\u0631\u06D2 \u062A\u06A9 \u0645\u06A9\u0645\u0644 ASN.1 \u062A\u0648\u062B\u06CC\u0642 \u06A9\u06D2 \u0633\u0627\u062A\u06BE\u06D4",
     "community.github": "\u200FGitHub \u0645\u062E\u0632\u0646",
@@ -9983,7 +10286,29 @@ var DICTIONARIES = {
     "offline.disconnect": "\u0645\u0646\u0642\u0637\u0639 \u06A9\u0631\u06CC\u06BA",
     "offline.learnMore": "\u0645\u0632\u06CC\u062F \u062C\u0627\u0646\u06CC\u06BA",
     "pwa.installApp": "\u0627\u06CC\u067E \u0646\u0635\u0628 \u06A9\u0631\u06CC\u06BA",
-    "chat.onWeb": "\u0622\u067E \u0648\u06CC\u0628 \u067E\u0631 \u06C1\u06CC\u06BA"
+    "chat.onWeb": "\u0622\u067E \u0648\u06CC\u0628 \u067E\u0631 \u06C1\u06CC\u06BA",
+    "groupCall.startVoice": "\u06AF\u0631\u0648\u067E \u0648\u0627\u0626\u0633 \u06A9\u0627\u0644 \u0634\u0631\u0648\u0639 \u06A9\u0631\u06CC\u06BA",
+    "groupCall.startVideo": "\u06AF\u0631\u0648\u067E \u0648\u06CC\u0688\u06CC\u0648 \u06A9\u0627\u0644 \u0634\u0631\u0648\u0639 \u06A9\u0631\u06CC\u06BA",
+    "groupCall.join": "\u0634\u0627\u0645\u0644 \u06C1\u0648\u06BA",
+    "groupCall.dismiss": "\u0627\u0628\u06BE\u06CC \u0646\u06C1\u06CC\u06BA",
+    "groupCall.leave": "\u06A9\u0627\u0644 \u0686\u06BE\u0648\u0691\u06CC\u06BA",
+    "groupCall.you": "\u0622\u067E",
+    "groupCall.connecting": "\u0645\u0646\u0633\u0644\u06A9 \u06C1\u0648 \u0631\u06C1\u0627 \u06C1\u06D2\u2026",
+    "groupCall.waitingLink": "\u0628\u0631\u0627\u06C1\u0650 \u0631\u0627\u0633\u062A \u0631\u0627\u0628\u0637\u06D2 \u06A9\u0627 \u0627\u0646\u062A\u0638\u0627\u0631\u2026",
+    "groupCall.legFailed": "\u0645\u0646\u0633\u0644\u06A9 \u0646\u06C1\u06CC\u06BA \u06C1\u0648 \u0633\u06A9\u0627",
+    "groupCall.startedVoice": "{name} \u0646\u06D2 \u0648\u0627\u0626\u0633 \u06A9\u0627\u0644 \u0634\u0631\u0648\u0639 \u06A9\u06CC",
+    "groupCall.startedVideo": "{name} \u0646\u06D2 \u0648\u06CC\u0688\u06CC\u0648 \u06A9\u0627\u0644 \u0634\u0631\u0648\u0639 \u06A9\u06CC",
+    "groupCall.inCall": "\u06A9\u0627\u0644 \u0645\u06CC\u06BA {count}",
+    "groupCall.err.permission_denied": "\u06A9\u0627\u0644 \u0634\u0631\u0648\u0639 \u0646\u06C1\u06CC\u06BA \u06C1\u0648 \u0633\u06A9\u06CC - \u0645\u0627\u0626\u06CC\u06A9\u0631\u0648\u0641\u0648\u0646 \u0627\u0648\u0631 \u06A9\u06CC\u0645\u0631\u06D2 \u062A\u06A9 \u0631\u0633\u0627\u0626\u06CC \u0628\u0646\u062F \u06C1\u06D2\u06D4 \u0627\u0633 \u0633\u0627\u0626\u0679 \u06A9\u06D2 \u0644\u06CC\u06D2 \u0627\u062C\u0627\u0632\u062A \u062F\u06CC\u06BA \u0627\u0648\u0631 \u062F\u0648\u0628\u0627\u0631\u06C1 \u06A9\u0648\u0634\u0634 \u06A9\u0631\u06CC\u06BA\u06D4",
+    "groupCall.err.device_not_found": "\u06A9\u0627\u0644 \u0634\u0631\u0648\u0639 \u0646\u06C1\u06CC\u06BA \u06C1\u0648 \u0633\u06A9\u06CC - \u0627\u0633 \u0688\u06CC\u0648\u0627\u0626\u0633 \u067E\u0631 \u06A9\u0648\u0626\u06CC \u0645\u0627\u0626\u06CC\u06A9\u0631\u0648\u0641\u0648\u0646 \u0646\u06C1\u06CC\u06BA \u0645\u0644\u0627\u06D4",
+    "groupCall.err.device_busy": "\u06A9\u0627\u0644 \u0634\u0631\u0648\u0639 \u0646\u06C1\u06CC\u06BA \u06C1\u0648 \u0633\u06A9\u06CC - \u0622\u067E \u06A9\u0627 \u0645\u0627\u0626\u06CC\u06A9\u0631\u0648\u0641\u0648\u0646 \u06A9\u0633\u06CC \u0627\u0648\u0631 \u0627\u06CC\u067E \u06A9\u06D2 \u0632\u06CC\u0631\u0650 \u0627\u0633\u062A\u0639\u0645\u0627\u0644 \u06C1\u06D2\u06D4 \u0627\u0633\u06D2 \u0628\u0646\u062F \u06A9\u0631 \u06A9\u06D2 \u062F\u0648\u0628\u0627\u0631\u06C1 \u06A9\u0648\u0634\u0634 \u06A9\u0631\u06CC\u06BA\u06D4",
+    "groupCall.err.media_failed": "\u06A9\u0627\u0644 \u0634\u0631\u0648\u0639 \u0646\u06C1\u06CC\u06BA \u06C1\u0648 \u0633\u06A9\u06CC - \u0645\u0627\u0626\u06CC\u06A9\u0631\u0648\u0641\u0648\u0646 \u0646\u06C1\u06CC\u06BA \u06A9\u06BE\u0644 \u0633\u06A9\u0627\u06D4",
+    "groupCall.err.call_in_progress": "\u0627\u0633 \u06AF\u0631\u0648\u067E \u0645\u06CC\u06BA \u067E\u06C1\u0644\u06D2 \u06C1\u06CC \u0627\u06CC\u06A9 \u06A9\u0627\u0644 \u062C\u0627\u0631\u06CC \u06C1\u06D2\u06D4 \u0646\u0626\u06CC \u0634\u0631\u0648\u0639 \u06A9\u0631\u0646\u06D2 \u06A9\u06D2 \u0628\u062C\u0627\u0626\u06D2 \u0627\u0633 \u0645\u06CC\u06BA \u0634\u0627\u0645\u0644 \u06C1\u0648\u06BA\u06D4",
+    "groupCall.err.not_ready": "\u06A9\u0627\u0644 \u0633\u06D2 \u067E\u06C1\u0644\u06D2 \u06AF\u0631\u0648\u067E \u06A9\u0648\u0688 \u06A9\u06CC \u062A\u0635\u062F\u06CC\u0642 \u06A9\u0631\u06CC\u06BA\u06D4",
+    "groupCall.speaking": "{name} \u0628\u0648\u0644 \u0631\u06C1\u06D2 \u06C1\u06CC\u06BA",
+    "groupCall.pin": "{name} \u06A9\u0648 \u0628\u0691\u0627 \u062F\u06A9\u06BE\u0627\u0626\u06CC\u06BA",
+    "groupCall.unpin": "\u0633\u0628 \u067E\u0631 \u0648\u0627\u067E\u0633 \u062C\u0627\u0626\u06CC\u06BA",
+    "groupCall.showEveryone": "\u0633\u0628"
   }
 };
 
@@ -10014,6 +10339,18 @@ function detectLocale({ pathname = "/", stored = null, languages = [] } = {}) {
 function isLocaleRoot(pathname) {
   return pathname === "/" || pathname === "/index.html";
 }
+function localeHref(code, pathname = "/") {
+  const current = localeFromPathname(pathname);
+  const rest = current ? String(pathname).slice(current.length + 1) : String(pathname);
+  const tail = rest.replace(/^\/+/, "");
+  return code === DEFAULT_LOCALE ? `/${tail}` : `/${code}/${tail}`;
+}
+function rememberLocale(code) {
+  try {
+    localStorage.setItem(STORAGE_KEY, code);
+  } catch (_) {
+  }
+}
 function storedLocale() {
   try {
     return localStorage.getItem(STORAGE_KEY);
@@ -10041,6 +10378,25 @@ function isRTL(code = currentLocale()) {
 }
 function direction(code = currentLocale()) {
   return isRTL(code) ? -1 : 1;
+}
+var SUGGEST_KEY = "securebit-locale-suggest-dismissed";
+function localeSuggestionDismissed() {
+  try {
+    return localStorage.getItem(SUGGEST_KEY) === "1";
+  } catch (_) {
+    return false;
+  }
+}
+function dismissLocaleSuggestion() {
+  try {
+    localStorage.setItem(SUGGEST_KEY, "1");
+  } catch (_) {
+  }
+}
+function suggestedLocale({ pathname = "/", languages = [], stored = null } = {}) {
+  const shown = localeFromPathname(pathname) || DEFAULT_LOCALE;
+  const preferred = SUPPORTED_LOCALES.includes(stored) && stored || localeFromLanguages(languages);
+  return preferred && preferred !== shown ? preferred : null;
 }
 function t(key, vars, locale = currentLocale()) {
   const template = DICTIONARIES[locale]?.[key] ?? DICTIONARIES[DEFAULT_LOCALE]?.[key] ?? key;
@@ -10396,7 +10752,24 @@ var GROUP_LIMITS = Object.freeze({
    */
   MAX_DESCRIPTOR_CHARS: 768,
   /** Binds an answer to the one dial attempt that asked for it. */
-  MESH_NONCE_BYTES: 16
+  MESH_NONCE_BYTES: 16,
+  /**
+   * A group call's identifier, in bytes.
+   *
+   * Random rather than derived, and long enough that two members who press
+   * "call" at the same instant cannot collide. Everything about a call is
+   * scoped to it: a `join` for one call says nothing about another, and a
+   * `leave` replayed from a finished call cannot end a later one.
+   */
+  CALL_ID_BYTES: 16
+});
+var CALL_ACTIONS = Object.freeze({
+  START: "start",
+  // I have opened a call and I am in it
+  JOIN: "join",
+  // I am joining the call already open
+  LEAVE: "leave"
+  // I have left; the call ends when nobody is left
 });
 var MESH_KINDS = Object.freeze({ OFFER: "moffer", ANSWER: "manswer" });
 var MEMBER_OPS = Object.freeze({
@@ -10851,6 +11224,55 @@ async function verifyLinkProbe(subtle, publicKey, fields, signature) {
     return false;
   }
 }
+function groupCallPayload({ groupId, epoch, callId, action, fp, seq, withVideo }) {
+  assertGroupId(groupId);
+  assertEpoch(epoch);
+  assertCallId(callId);
+  assertEpoch(seq);
+  assertFingerprint(fp);
+  if (action !== CALL_ACTIONS.START && action !== CALL_ACTIONS.JOIN && action !== CALL_ACTIONS.LEAVE) {
+    fail("unknown call action", "bad_call_action");
+  }
+  return lp(
+    "securebit/group/call/v1",
+    fromHex(groupId),
+    u32(epoch),
+    fromHex(callId),
+    action,
+    fromHex(fp),
+    u32(seq),
+    withVideo === true ? "v" : "a"
+  );
+}
+function assertCallId(callId) {
+  if (typeof callId !== "string" || callId.length !== GROUP_LIMITS.CALL_ID_BYTES * 2 || !/^[0-9a-f]+$/.test(callId)) {
+    fail("malformed call id", "bad_call_id");
+  }
+  return callId;
+}
+function newCallId() {
+  return toHex(randomBytes(GROUP_LIMITS.CALL_ID_BYTES));
+}
+async function signGroupCall(subtle, privateKey, fields) {
+  const sig = await subtle.sign({ name: "ECDSA", hash: "SHA-384" }, privateKey, groupCallPayload(fields));
+  return new Uint8Array(sig);
+}
+async function verifyGroupCall(subtle, publicKey, fields, signature) {
+  if (!(signature instanceof Uint8Array) || signature.length < GROUP_LIMITS.MIN_SIG_BYTES || signature.length > GROUP_LIMITS.MAX_SIG_BYTES) {
+    return false;
+  }
+  let payload;
+  try {
+    payload = groupCallPayload(fields);
+  } catch (_) {
+    return false;
+  }
+  try {
+    return await subtle.verify({ name: "ECDSA", hash: "SHA-384" }, publicKey, signature, payload);
+  } catch (_) {
+    return false;
+  }
+}
 
 // src/state/groupsStore.js
 var GROUP_ACTIONS = Object.freeze({
@@ -11137,7 +11559,10 @@ var GROUP_FRAMES = Object.freeze({
   MESH_ANSWER: "g_manswer",
   MESH_ABORT: "g_mabort",
   // "The pairwise chat this arrived on is me, member <fp>."
-  PROBE: "g_probe"
+  PROBE: "g_probe",
+  // Call control: who opened a call, who is in it, who has left. Media never
+  // travels here — see the call section below.
+  CALL: "g_call"
 });
 var GROUP_ENVELOPE = "g_env";
 var GROUP_FRAME_TYPES = Object.freeze(new Set(Object.values(GROUP_FRAMES)));
@@ -11247,6 +11672,9 @@ var GroupSession = class {
     this._meshSessions = /* @__PURE__ */ new Set();
     this._probed = /* @__PURE__ */ new Set();
     this._meshPass = null;
+    this.call = null;
+    this.callSeq = 0;
+    this._callSeen = /* @__PURE__ */ new Map();
   }
   // -----------------------------------------------------------------------
   // lifecycle
@@ -11291,6 +11719,8 @@ var GroupSession = class {
     this._meshDials.clear();
     this._meshFailures.clear();
     this._probed.clear();
+    this.call = null;
+    this._callSeen.clear();
     this.members.clear();
     this.sessionToFp.clear();
     this.transcript.clear();
@@ -11337,7 +11767,31 @@ var GroupSession = class {
     }));
   }
   _emitMembers() {
+    this._pruneCall();
     this._emit("members", { members: this._memberSnapshot(), epoch: this.epoch });
+  }
+  /**
+   * Drop anyone from the current call who is no longer a member.
+   *
+   * Membership can change under a call — the admin removes somebody, a roster
+   * for a new epoch arrives — and a participant list that outlives the roster
+   * would show a person in the call who is not in the group, which is exactly
+   * the kind of stale claim a group must not make about who can hear it.
+   */
+  _pruneCall() {
+    if (!this.call) return;
+    let changed = false;
+    for (const fp of [...this.call.participants]) {
+      if (!this.members.has(fp)) {
+        this.call.participants.delete(fp);
+        changed = true;
+      }
+    }
+    if (this.call.participants.size === 0) {
+      this.call = null;
+      changed = true;
+    }
+    if (changed) this._emit("call", { call: this.getCallSnapshot() });
   }
   // -----------------------------------------------------------------------
   // routing
@@ -12342,6 +12796,233 @@ var GroupSession = class {
     });
   }
   // -----------------------------------------------------------------------
+  // calls
+  // -----------------------------------------------------------------------
+  //
+  // WHAT TRAVELS HERE AND WHAT DOES NOT
+  // -----------------------------------
+  // Only the roster of a call: somebody opened one, somebody joined it,
+  // somebody left. No SDP, no ICE, no audio, no video. Media is carried by the
+  // pairwise sessions themselves — each member places an ordinary encrypted
+  // call to each other member over the link they already share, so a group
+  // call is N-1 of the 1:1 calls this app already makes, on transports that
+  // were already SAS-verified. There is no mixer, no conference server and no
+  // point at which two people's audio meets anywhere but on a device.
+  //
+  // That is why call control is separate from the media path. Control has to
+  // reach every member, including one who is currently reachable only through
+  // a relay; media can only flow where a direct link exists. Splitting them
+  // means a member with no direct link still SEES the call and can be dialled
+  // into it as the mesh completes, instead of silently missing it.
+  //
+  // WHY THESE FRAMES ARE SIGNED
+  // ---------------------------
+  // A relaying member carries call control for pairs that cannot reach each
+  // other. Unsigned, that member could add somebody to a call they never
+  // joined, or drop somebody who is in one, and nobody could tell it had
+  // happened. Signed with the group identity key, a relay can still refuse to
+  // carry a frame — the same availability cost relaying always has — but it
+  // cannot write one.
+  /** What the app renders. Null when there is no call. */
+  getCallSnapshot() {
+    if (!this.call) return null;
+    const starter = this.members.get(this.call.startedBy);
+    return {
+      callId: this.call.callId,
+      startedBy: this.call.startedBy,
+      startedByName: this.call.startedBy === this.selfFp ? "You" : starter?.name || "A member",
+      withVideo: this.call.withVideo,
+      startedAt: this.call.startedAt,
+      joined: this.call.joined,
+      participants: [...this.call.participants].map((fp) => {
+        const member = this.members.get(fp);
+        return {
+          fp,
+          name: fp === this.selfFp ? "You" : member?.name || "A member",
+          self: fp === this.selfFp,
+          sessionId: member?.sessionId || null,
+          state: member?.state || MEMBER_STATE.LOST
+        };
+      }).sort((a, b) => a.fp < b.fp ? -1 : a.fp > b.fp ? 1 : 0)
+    };
+  }
+  _emitCall() {
+    this._emit("call", { call: this.getCallSnapshot() });
+  }
+  _requireReady() {
+    if (this.phase !== GROUP_PHASE.READY || !this.sasConfirmed) {
+      throw new GroupSessionError("the group code has not been confirmed", "not_ready");
+    }
+  }
+  /** Sign and fan out one call-control frame. */
+  async _sendCallFrame(action, callId, withVideo) {
+    const seq = ++this.callSeq;
+    const sig = await signGroupCall(this.subtle, this.identity.keyPair.privateKey, {
+      groupId: this.groupId,
+      epoch: this.epoch,
+      callId,
+      action,
+      fp: this.selfFp,
+      seq,
+      withVideo
+    });
+    return this._broadcast({
+      type: GROUP_FRAMES.CALL,
+      gid: this.groupId,
+      epoch: this.epoch,
+      callId,
+      action,
+      fp: this.selfFp,
+      seq,
+      v: withVideo === true,
+      ts: Date.now(),
+      sig: toB64(sig)
+    });
+  }
+  /**
+   * Open a call and put ourselves in it.
+   *
+   * Refused while one is already running: joining the call that exists is what
+   * the user means, and a second concurrent call would split the group into two
+   * rooms that cannot hear each other.
+   */
+  async startCall({ withVideo = false, prepare = null } = {}) {
+    this._requireReady();
+    if (this.call) throw new GroupSessionError("a call is already running in this group", "call_in_progress");
+    const callId = newCallId();
+    this.call = {
+      callId,
+      startedBy: this.selfFp,
+      withVideo: withVideo === true,
+      startedAt: Date.now(),
+      participants: /* @__PURE__ */ new Set([this.selfFp]),
+      joined: true
+    };
+    this._emitCall();
+    this._scheduleMeshMaintain();
+    try {
+      if (typeof prepare === "function") await prepare(this.getCallSnapshot());
+      const { unreachable } = await this._sendCallFrame(CALL_ACTIONS.START, callId, this.call.withVideo);
+      return { callId, unreachable };
+    } catch (error) {
+      this.call = null;
+      this._emitCall();
+      throw error;
+    }
+  }
+  /** Join the call that is already running. */
+  async joinCall() {
+    this._requireReady();
+    if (!this.call) throw new GroupSessionError("there is no call to join", "no_call");
+    if (this.call.joined) return { callId: this.call.callId, unreachable: [] };
+    this.call.joined = true;
+    this.call.participants.add(this.selfFp);
+    this._emitCall();
+    this._scheduleMeshMaintain();
+    const { unreachable } = await this._sendCallFrame(CALL_ACTIONS.JOIN, this.call.callId, this.call.withVideo);
+    return { callId: this.call.callId, unreachable };
+  }
+  /**
+   * Leave the call.
+   *
+   * Leaving is always local first: the frame is best effort, because a member
+   * who cannot be reached must not be able to keep us in a call by being
+   * unreachable.
+   */
+  async leaveCall() {
+    if (!this.call) return;
+    const callId = this.call.callId;
+    const withVideo = this.call.withVideo;
+    this.call.joined = false;
+    this.call.participants.delete(this.selfFp);
+    if (this.call.participants.size === 0) this.call = null;
+    this._emitCall();
+    try {
+      await this._sendCallFrame(CALL_ACTIONS.LEAVE, callId, withVideo);
+    } catch (_) {
+    }
+  }
+  /**
+   * A member is gone (left the call, left the group, or was removed).
+   *
+   * A call with NOBODY in it is over. A call with only us in it is not: that
+   * is exactly the state every call is in for the seconds between opening it
+   * and the first person joining, and ending it there would hang up on
+   * somebody who is on their way in. Leaving is the user's decision, and
+   * leaveCall is the only thing that makes it.
+   */
+  _dropFromCall(fp) {
+    if (!this.call || !this.call.participants.has(fp)) return;
+    this.call.participants.delete(fp);
+    if (this.call.participants.size === 0) this.call = null;
+    this._emitCall();
+  }
+  async _onCall(frame) {
+    const epoch = assertEpoch(frame.epoch);
+    const seq = assertEpoch(frame.seq);
+    const senderFp = assertFingerprint(String(frame.fp || ""));
+    const callId = assertCallId(String(frame.callId || ""));
+    const action = String(frame.action || "");
+    const withVideo = frame.v === true;
+    if (senderFp === this.selfFp) return;
+    const member = this.members.get(senderFp);
+    if (!member || !member.publicKey) throw new GroupSessionError("call frame from a non-member", "not_a_member");
+    if (epoch !== this.epoch) throw new GroupSessionError("call frame from another epoch", "stale_epoch");
+    const seen = this._callSeen.get(senderFp);
+    if (seen !== void 0 && seq <= seen) return;
+    const ok = await verifyGroupCall(this.subtle, member.publicKey, {
+      groupId: this.groupId,
+      epoch,
+      callId,
+      action,
+      fp: senderFp,
+      seq,
+      withVideo
+    }, fromB64(String(frame.sig || ""), { max: GROUP_LIMITS.MAX_SIG_BYTES }));
+    if (!ok) throw new GroupSessionError("call frame signature did not verify", "bad_signature");
+    this._callSeen.set(senderFp, seq);
+    if (this.phase !== GROUP_PHASE.READY || !this.sasConfirmed) return;
+    switch (action) {
+      case CALL_ACTIONS.START: {
+        if (this.call && this.call.callId !== callId) {
+          if (callId >= this.call.callId) return;
+          this.call = null;
+        }
+        if (!this.call) {
+          this.call = {
+            callId,
+            startedBy: senderFp,
+            withVideo,
+            startedAt: Date.now(),
+            participants: /* @__PURE__ */ new Set([senderFp]),
+            joined: false
+          };
+        } else {
+          this.call.participants.add(senderFp);
+        }
+        this._emitCall();
+        this._scheduleMeshMaintain();
+        return;
+      }
+      case CALL_ACTIONS.JOIN: {
+        if (!this.call || this.call.callId !== callId) return;
+        if (this.call.participants.has(senderFp)) return;
+        this.call.participants.add(senderFp);
+        if (withVideo) this.call.withVideo = true;
+        this._emitCall();
+        this._scheduleMeshMaintain();
+        return;
+      }
+      case CALL_ACTIONS.LEAVE: {
+        if (!this.call || this.call.callId !== callId) return;
+        this._dropFromCall(senderFp);
+        return;
+      }
+      default:
+        return;
+    }
+  }
+  // -----------------------------------------------------------------------
   // inbound dispatch
   // -----------------------------------------------------------------------
   /**
@@ -12381,6 +13062,8 @@ var GroupSession = class {
         return this._onMeshAnswer(frame);
       case GROUP_FRAMES.MESH_ABORT:
         return this._onMeshAbort(frame);
+      case GROUP_FRAMES.CALL:
+        return this._onCall(frame);
       case GROUP_FRAMES.PROBE:
         return relayed ? void 0 : this._onProbe(sessionId, frame);
       case GROUP_FRAMES.INVITE:
@@ -12413,6 +13096,7 @@ var GroupSession = class {
     const member = this.members.get(fp);
     if (!member || fp === this.selfFp) return;
     this._emit("left", { fp, name: member.name });
+    this._dropFromCall(fp);
     if (!this.isAdmin && fp === this.adminFp) {
       this.members.delete(fp);
       for (const [sid, f] of [...this.sessionToFp]) if (f === fp) this.sessionToFp.delete(sid);
@@ -12759,6 +13443,122 @@ function spring(o) {
   };
 }
 
+// src/components/ui/LanguageSuggestion.jsx
+var LanguageSuggestion = () => {
+  const [target] = React.useState(() => {
+    if (typeof window === "undefined" || !window.location) return null;
+    if (localeSuggestionDismissed()) return null;
+    return suggestedLocale({
+      pathname: window.location.pathname || "/",
+      languages: window.navigator?.languages || [],
+      stored: storedLocale()
+    });
+  });
+  const [gone, setGone] = React.useState(false);
+  const [shown, setShown] = React.useState(false);
+  React.useEffect(() => {
+    if (!target) return void 0;
+    const id = setTimeout(() => setShown(true), 600);
+    return () => clearTimeout(id);
+  }, [target]);
+  if (!target || gone) return null;
+  const meta = LOCALE_META[target] || {};
+  const dir = meta.dir === "rtl" ? "rtl" : "ltr";
+  const pathname = typeof window !== "undefined" ? window.location.pathname : "/";
+  const href = localeHref(target, pathname);
+  const still = prefersReducedMotion();
+  const close = () => {
+    dismissLocaleSuggestion();
+    setGone(true);
+  };
+  const line = React.createElement("div", {
+    key: "line",
+    lang: meta.htmlLang || target,
+    dir,
+    style: { fontSize: "13px", lineHeight: 1.45, color: "#cfcfd4", textAlign: "start" }
+  }, t("language.suggest.text", null, target));
+  const link = React.createElement("a", {
+    key: "cta",
+    href,
+    hrefLang: meta.htmlLang || target,
+    lang: meta.htmlLang || target,
+    dir,
+    // Following the link is an explicit choice, so it is remembered — the bar has
+    // then done its job and will not be offered again.
+    onClick: () => {
+      rememberLocale(target);
+      dismissLocaleSuggestion();
+    },
+    style: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: "6px",
+      padding: "7px 12px",
+      borderRadius: "9px",
+      border: "1px solid rgba(240,137,42,0.30)",
+      background: "rgba(240,137,42,0.12)",
+      color: "#f0892a",
+      fontSize: "12.5px",
+      fontWeight: 600,
+      textDecoration: "none",
+      whiteSpace: "nowrap"
+    }
+  }, t("language.suggest.cta", null, target));
+  const dismiss = React.createElement("button", {
+    key: "dismiss",
+    type: "button",
+    onClick: close,
+    // Labelled in the offered language too: this button is for the same reader.
+    "aria-label": t("language.suggest.dismiss", null, target),
+    style: {
+      padding: "7px 10px",
+      borderRadius: "9px",
+      border: "1px solid rgba(255,255,255,0.07)",
+      background: "rgba(255,255,255,0.02)",
+      color: "#8a8a92",
+      font: "inherit",
+      fontSize: "12.5px",
+      fontWeight: 500,
+      cursor: "pointer",
+      whiteSpace: "nowrap"
+    }
+  }, t("language.suggest.dismiss", null, target));
+  return React.createElement("div", {
+    // A region rather than a dialog: it interrupts nothing and takes no focus.
+    role: "region",
+    "aria-label": t("language.label"),
+    style: {
+      // Bottom inline-start, because the install prompt owns the opposite corner.
+      position: "fixed",
+      bottom: "24px",
+      insetInlineStart: "24px",
+      zIndex: 50,
+      maxWidth: "min(340px, calc(100vw - 48px))",
+      display: "flex",
+      flexDirection: "column",
+      gap: "11px",
+      padding: "14px 16px",
+      borderRadius: "14px",
+      border: "1px solid rgba(255,255,255,0.08)",
+      background: "#161618",
+      boxShadow: "0 16px 40px rgba(0,0,0,0.5)",
+      opacity: shown ? 1 : 0,
+      transform: shown || still ? "none" : "translateY(10px)",
+      transition: still ? "opacity .2s linear" : "opacity .3s ease, transform .3s cubic-bezier(.2,.7,.3,1)",
+      // Invisible and untouchable until raised, so it cannot swallow a tap during
+      // the fade.
+      pointerEvents: shown ? "auto" : "none"
+    }
+  }, [
+    line,
+    React.createElement("div", {
+      key: "actions",
+      style: { display: "flex", alignItems: "center", gap: "8px" }
+    }, [link, dismiss])
+  ]);
+};
+window.LanguageSuggestion = LanguageSuggestion;
+
 // src/components/ui/GroupChat.jsx
 var h = (...args) => React.createElement(...args);
 var C = {
@@ -12782,7 +13582,10 @@ var ICON = {
   shield: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>',
   x: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
   plus: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
-  relay: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h4l3-7 4 14 3-7h2"/></svg>'
+  relay: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h4l3-7 4 14 3-7h2"/></svg>',
+  phone: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
+  exit: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h4"/><path d="m15 16 4-4-4-4"/><path d="M19 12H10"/></svg>',
+  video: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2.5"/></svg>'
 };
 var svg = (markup, extra = {}) => h("span", {
   style: { display: "grid", placeItems: "center", ...extra },
@@ -13387,7 +14190,10 @@ function GroupChatView({
   onRemoveMember,
   onAddMembers,
   isAdmin,
-  scrollRef
+  scrollRef,
+  onStartCall,
+  callActive,
+  callOverlay
 }) {
   const ready = group.phase === GROUP_PHASE.READY && group.sasConfirmed;
   const degraded = group.members.some((m) => m.state === MEMBER_STATE.PENDING);
@@ -13397,18 +14203,37 @@ function GroupChatView({
     onSend(input);
   };
   return h("div", {
-    style: { display: "flex", flexDirection: "column", height: "100%", minHeight: 0, background: C.bg }
+    style: {
+      position: "relative",
+      display: "flex",
+      flexDirection: "column",
+      height: "100%",
+      minHeight: 0,
+      background: C.bg
+    }
   }, [
+    // Responsive rules the inline styles cannot express. The group header had
+    // none, so on a phone the drawer hamburger — which is position:fixed at the
+    // top-left corner — sat directly on top of the group's avatar and name. The
+    // 1:1 header has always reserved that space; this is the same reservation,
+    // plus the safe-area strip an installed web view draws under.
+    h("style", {
+      key: "head-css",
+      dangerouslySetInnerHTML: {
+        __html: "@media (max-width:1023px){.sb-group-header{padding-inline-start:58px !important;gap:9px !important;}}@media (max-width:600px){.sb-group-header .sb-gh-label{display:none !important;}.sb-group-header .sb-gh-btn{padding:8px 10px !important;}}"
+      }
+    }),
     // header
     h("div", {
       key: "head",
+      className: "sb-group-header",
       style: {
         flex: "none",
         display: "flex",
         alignItems: "center",
         gap: "12px",
-        padding: "0 16px",
-        height: "64px",
+        padding: "var(--sb-safe-top, 0px) 16px 0",
+        minHeight: "calc(64px + var(--sb-safe-top, 0px))",
         borderBottom: `1px solid ${C.line}`
       }
     }, [
@@ -13443,18 +14268,60 @@ function GroupChatView({
           ready && group.sasCode ? h("span", { key: "code", dir: "ltr", style: { unicodeBidi: "isolate" } }, t("group.codeSuffix", { code: group.sasCode })) : ""
         ])
       ]),
+      // Calls are offered only once the group is usable: a call before the
+      // safety code is confirmed would be media on links nobody has
+      // authenticated as belonging to this group.
+      ready && onStartCall && h("button", {
+        key: "callvoice",
+        className: "sb-gh-btn",
+        onClick: () => onStartCall(false),
+        disabled: callActive,
+        title: t("groupCall.startVoice"),
+        "aria-label": t("groupCall.startVoice"),
+        style: {
+          ...btn(false),
+          flex: "none",
+          padding: "8px 10px",
+          opacity: callActive ? 0.4 : 1,
+          cursor: callActive ? "default" : "pointer"
+        }
+      }, svg(ICON.phone, { key: "i" })),
+      ready && onStartCall && h("button", {
+        key: "callvideo",
+        className: "sb-gh-btn",
+        onClick: () => onStartCall(true),
+        disabled: callActive,
+        title: t("groupCall.startVideo"),
+        "aria-label": t("groupCall.startVideo"),
+        style: {
+          ...btn(false),
+          flex: "none",
+          padding: "8px 10px",
+          opacity: callActive ? 0.4 : 1,
+          cursor: callActive ? "default" : "pointer"
+        }
+      }, svg(ICON.video, { key: "i" })),
       isAdmin && onAddMembers && group.members.length < GROUP_LIMITS.MAX_MEMBERS && h("button", {
         key: "add",
+        className: "sb-gh-btn",
         onClick: onAddMembers,
         title: t("group.inviteMore"),
-        style: { ...btn(false), padding: "8px 12px", fontSize: "12.5px" }
-      }, [svg(ICON.plus, { key: "i" }), t("group.add")]),
+        style: { ...btn(false), flex: "none", padding: "8px 12px", fontSize: "12.5px" }
+      }, [
+        svg(ICON.plus, { key: "i" }),
+        h("span", { key: "l", className: "sb-gh-label" }, t("group.add"))
+      ]),
       h("button", {
         key: "leave",
+        className: "sb-gh-btn",
         onClick: onLeave,
         title: t("group.leaveThis"),
-        style: { ...btn(false), padding: "8px 12px", fontSize: "12.5px", color: C.bad, borderColor: "rgba(229,114,122,0.3)" }
-      }, t("group.leave"))
+        "aria-label": t("group.leaveThis"),
+        style: { ...btn(false), flex: "none", padding: "8px 12px", fontSize: "12.5px", color: C.bad, borderColor: "rgba(229,114,122,0.3)" }
+      }, [
+        svg(ICON.exit, { key: "i" }),
+        h("span", { key: "l", className: "sb-gh-label" }, t("group.leave"))
+      ])
     ]),
     h(MemberStrip, { key: "strip", group, onRemove: onRemoveMember, isAdmin }),
     degraded && ready && h("div", {
@@ -13536,8 +14403,1359 @@ function GroupChatView({
           opacity: !ready || !input.trim() ? 0.4 : 1
         }
       }, svg(ICON.send))
+    ]),
+    // The group call covers the transcript when it is running and renders
+    // nothing when it is not — the same shape as the 1:1 call overlay.
+    callOverlay
+  ]);
+}
+
+// src/group/groupCallMedia.js
+var LEG_STATE = Object.freeze({
+  UNREACHABLE: "unreachable",
+  // no direct link yet — the mesh is still building one
+  CONNECTING: "connecting",
+  // a leg exists, media has not started flowing
+  ACTIVE: "active",
+  // audio (and video, if any) is flowing
+  FAILED: "failed"
+  // the leg was attempted and did not come up
+});
+var PHASE_TO_STATE = {
+  idle: LEG_STATE.CONNECTING,
+  outgoing: LEG_STATE.CONNECTING,
+  incoming: LEG_STATE.CONNECTING,
+  connecting: LEG_STATE.CONNECTING,
+  active: LEG_STATE.ACTIVE,
+  ended: LEG_STATE.FAILED
+};
+var SPEAKING = Object.freeze({ ON: 0.05, OFF: 0.025, HOLD_MS: 600, SAMPLE_MS: 120 });
+var FALLBACK_DIAL_MS = 8e3;
+function webAudioLevelMeter(context, stream) {
+  if (!context || !stream) return null;
+  let source;
+  try {
+    source = context.createMediaStreamSource(stream);
+  } catch (_) {
+    return null;
+  }
+  const analyser = context.createAnalyser();
+  analyser.fftSize = 512;
+  analyser.smoothingTimeConstant = 0.2;
+  source.connect(analyser);
+  const buffer = new Uint8Array(analyser.fftSize);
+  return {
+    read() {
+      analyser.getByteTimeDomainData(buffer);
+      let sum = 0;
+      for (let i = 0; i < buffer.length; i++) {
+        const v = (buffer[i] - 128) / 128;
+        sum += v * v;
+      }
+      return Math.sqrt(sum / buffer.length);
+    },
+    close() {
+      try {
+        source.disconnect();
+      } catch (_) {
+      }
+      try {
+        analyser.disconnect();
+      } catch (_) {
+      }
+    }
+  };
+}
+var GroupCallMedia = class {
+  /**
+   * @param {object} deps
+   * @param {(sessionId: string) => object|null} deps.getManager  pairwise manager by session id
+   * @param {(constraints: object) => Promise<MediaStream>} [deps.getUserMedia]
+   * @param {() => void} [deps.onChange]  called whenever the snapshot changes
+   * @param {(level: string, message: string, context?: object) => void} [deps.log]
+   */
+  constructor({
+    getManager,
+    getUserMedia = null,
+    createAudioSink = null,
+    createLevelMeter = null,
+    onChange = () => {
+    },
+    log = () => {
+    }
+  }) {
+    this._getManager = getManager;
+    this._getUserMedia = getUserMedia || ((constraints) => navigator.mediaDevices.getUserMedia(constraints));
+    this._createAudioSink = createAudioSink || (() => typeof Audio === "function" ? new Audio() : null);
+    this._createLevelMeter = createLevelMeter || ((stream) => webAudioLevelMeter(this._audioContext(), stream));
+    this._onChange = onChange;
+    this._log = log;
+    this.callId = null;
+    this.selfFp = "";
+    this.withVideo = false;
+    this.micEnabled = true;
+    this.cameraEnabled = false;
+    this.facingMode = "user";
+    this.error = null;
+    this.localStream = null;
+    this._legs = /* @__PURE__ */ new Map();
+    this._peers = [];
+    this._busy = false;
+    this._ctx = null;
+    this._selfMeter = null;
+    this.selfSpeaking = false;
+    this._selfQuietSince = 0;
+    this._levelTimer = null;
+  }
+  /**
+   * One AudioContext for the whole call, created on first use.
+   *
+   * A context per leg would be several audio graphs and several hardware
+   * callbacks for one conversation, and browsers cap how many a page may hold.
+   * It is resumed rather than assumed: a context created outside a gesture
+   * starts suspended, and a suspended context reads silence forever — which
+   * would look exactly like nobody ever speaking.
+   */
+  _audioContext() {
+    if (this._ctx) return this._ctx;
+    const Ctor = typeof AudioContext !== "undefined" ? AudioContext : typeof webkitAudioContext !== "undefined" ? webkitAudioContext : null;
+    if (!Ctor) return null;
+    try {
+      this._ctx = new Ctor();
+      if (this._ctx.state === "suspended") this._ctx.resume().catch(() => {
+      });
+    } catch (_) {
+      this._ctx = null;
+    }
+    return this._ctx;
+  }
+  get active() {
+    return this.callId !== null;
+  }
+  // -----------------------------------------------------------------------
+  // joining and leaving
+  // -----------------------------------------------------------------------
+  /**
+   * Capture, then start building legs.
+   *
+   * The capture comes FIRST and its failure aborts the join, because a call
+   * this device cannot speak into is not a call — and the failure has to be
+   * reported as a device problem (permission, no microphone, another app
+   * holding it) rather than left to look like the group failed to connect.
+   *
+   * CALL IT WITH NO PEERS to capture without connecting anything, then call
+   * setPeers once the group has been told you are in the call. That ordering
+   * is not cosmetic — see setPeers.
+   *
+   * @param {{callId: string, selfFp: string, withVideo?: boolean, peers?: object[]}} opts
+   */
+  async join({ callId, selfFp, withVideo = false, peers = [] }) {
+    if (this.callId === callId) {
+      this.setPeers(peers);
+      return;
+    }
+    if (this.callId) await this.leave();
+    this.callId = callId;
+    this.selfFp = selfFp;
+    this.withVideo = withVideo === true;
+    this.micEnabled = true;
+    this.cameraEnabled = this.withVideo;
+    this.error = null;
+    this._changed();
+    try {
+      this.localStream = await this._getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        video: this.withVideo ? { facingMode: this.facingMode, width: { ideal: 1280 }, height: { ideal: 720 } } : false
+      });
+    } catch (error) {
+      this.callId = null;
+      this.error = mediaErrorCode(error);
+      this._changed();
+      throw error;
+    }
+    this._selfMeter = this._createLevelMeter(this.localStream);
+    this._startLevelPolling();
+    this.setPeers(peers);
+  }
+  /**
+   * The participant list changed: reconcile the legs against it.
+   *
+   * Called whenever anything moves — somebody joins, somebody leaves, a member
+   * who was relayed gets a direct link. Idempotent, so the caller can run it
+   * on every group event without tracking what actually differs.
+   *
+   * ORDERING: the group must be told we are in the call BEFORE this runs.
+   * Attaching a leg can place an offer immediately, and an offer that arrives
+   * at a member who has not yet heard we joined lands on a session they do not
+   * yet know is a call leg — so they ring instead of answering, and the dialler
+   * sits at "connecting" for the rest of the call. Announcing first works
+   * because both the join frame and the offer travel the same ordered data
+   * channel, so the join cannot overtake it.
+   *
+   * @param {{fp: string, name: string, sessionId: string|null, self?: boolean}[]} peers
+   */
+  setPeers(peers) {
+    this._peers = Array.isArray(peers) ? peers : [];
+    if (!this.active) return;
+    const wanted = /* @__PURE__ */ new Map();
+    for (const peer of this._peers) {
+      if (!peer || !peer.fp || peer.fp === this.selfFp) continue;
+      wanted.set(peer.fp, peer);
+    }
+    for (const [fp, leg] of [...this._legs]) {
+      const peer = wanted.get(fp);
+      if (!peer || peer.sessionId !== leg.sessionId) this._detach(fp);
+    }
+    for (const [fp, peer] of wanted) {
+      const existing = this._legs.get(fp);
+      if (existing) {
+        if (existing.state === LEG_STATE.FAILED && this._weDial(fp)) this._dial(existing);
+        continue;
+      }
+      if (!peer.sessionId) continue;
+      this._attach(fp, peer);
+    }
+    this._changed();
+  }
+  /** Tear down every leg and release the capture. */
+  async leave() {
+    this._stopLevelPolling();
+    if (this._selfMeter) {
+      try {
+        this._selfMeter.close?.();
+      } catch (_) {
+      }
+      this._selfMeter = null;
+    }
+    this.selfSpeaking = false;
+    for (const fp of [...this._legs.keys()]) this._detach(fp);
+    if (this._ctx) {
+      try {
+        this._ctx.close?.();
+      } catch (_) {
+      }
+      this._ctx = null;
+    }
+    if (this.localStream) {
+      for (const track of this.localStream.getTracks()) {
+        try {
+          track.stop();
+        } catch (_) {
+        }
+      }
+    }
+    this.localStream = null;
+    this.callId = null;
+    this.selfFp = "";
+    this.withVideo = false;
+    this.cameraEnabled = false;
+    this.micEnabled = true;
+    this._peers = [];
+    this._changed();
+  }
+  // -----------------------------------------------------------------------
+  // legs
+  // -----------------------------------------------------------------------
+  /**
+   * Who places the call for this pair.
+   *
+   * Both members run this and get opposite answers, so exactly one offer is
+   * made. Comparing fingerprints rather than, say, join order means the answer
+   * does not depend on anything the two members might disagree about.
+   */
+  _weDial(peerFp) {
+    return this.selfFp < peerFp;
+  }
+  _attach(fp, peer) {
+    const manager = this._getManager(peer.sessionId);
+    if (!manager) return;
+    const leg = {
+      fp,
+      name: peer.name || "Member",
+      sessionId: peer.sessionId,
+      manager,
+      unsubscribe: null,
+      sink: this._createAudioSink(),
+      meter: null,
+      fallback: null,
+      speaking: false,
+      quietSince: 0,
+      state: LEG_STATE.CONNECTING,
+      quality: null,
+      hasVideo: false
+    };
+    if (leg.sink) {
+      leg.sink.autoplay = true;
+      leg.sink.muted = false;
+    }
+    this._legs.set(fp, leg);
+    try {
+      manager.setCallGroupContext(this.callId);
+    } catch (_) {
+    }
+    try {
+      manager.setExternalMediaStream(this.localStream);
+    } catch (_) {
+    }
+    if (typeof manager.addCallStateListener === "function") {
+      leg.unsubscribe = manager.addCallStateListener((state) => this._onLegState(fp, state));
+    }
+    this._onLegState(fp, manager.getCallState?.() || {});
+    if (this._weDial(fp)) {
+      this._dial(leg);
+      return;
+    }
+    leg.fallback = setTimeout(() => this._dialFallback(fp), FALLBACK_DIAL_MS);
+  }
+  _dialFallback(fp) {
+    const leg = this._legs.get(fp);
+    if (!leg || !this.active) return;
+    leg.fallback = null;
+    const phase = leg.manager.getCallState?.().phase || "idle";
+    if (phase !== "idle") return;
+    this._log("info", "group call leg was never dialled by the peer; dialling it", {});
+    Promise.resolve().then(() => leg.manager.startCall(this.withVideo)).catch(() => {
+      const live = this._legs.get(fp);
+      if (live === leg) {
+        live.state = LEG_STATE.FAILED;
+        this._changed();
+      }
+    });
+  }
+  /** Place this leg's call. */
+  _dial(leg) {
+    const phase = leg.manager.getCallState?.().phase || "idle";
+    if (phase !== "idle") return;
+    leg.state = LEG_STATE.CONNECTING;
+    Promise.resolve().then(() => leg.manager.startCall(this.withVideo)).catch((error) => {
+      this._log("warn", "group call leg could not be placed", {
+        errorType: error?.constructor?.name
+      });
+      const live = this._legs.get(leg.fp);
+      if (live === leg) {
+        live.state = LEG_STATE.FAILED;
+        this._changed();
+      }
+    });
+  }
+  _detach(fp) {
+    const leg = this._legs.get(fp);
+    if (!leg) return;
+    this._legs.delete(fp);
+    if (leg.fallback) {
+      clearTimeout(leg.fallback);
+      leg.fallback = null;
+    }
+    try {
+      leg.unsubscribe?.();
+    } catch (_) {
+    }
+    if (leg.sink) {
+      try {
+        leg.sink.pause?.();
+      } catch (_) {
+      }
+      try {
+        leg.sink.srcObject = null;
+      } catch (_) {
+      }
+    }
+    if (leg.meter) {
+      try {
+        leg.meter.close?.();
+      } catch (_) {
+      }
+      leg.meter = null;
+    }
+    try {
+      leg.manager.endCall?.();
+    } catch (_) {
+    }
+    try {
+      leg.manager.setExternalMediaStream?.(null);
+    } catch (_) {
+    }
+    try {
+      leg.manager.setCallGroupContext?.(null);
+    } catch (_) {
+    }
+  }
+  _onLegState(fp, state) {
+    const leg = this._legs.get(fp);
+    if (!leg) return;
+    const phase = state?.phase || "idle";
+    if (leg.fallback && phase !== "idle") {
+      clearTimeout(leg.fallback);
+      leg.fallback = null;
+    }
+    leg.state = PHASE_TO_STATE[phase] || LEG_STATE.CONNECTING;
+    leg.quality = state?.quality || null;
+    leg.hasVideo = state?.remoteHasVideo === true;
+    this._pumpAudio(leg);
+    this._changed();
+  }
+  /**
+   * Keep this leg's audio element pointed at its current inbound stream.
+   *
+   * The manager rebuilds that stream whenever its receivers change — a track
+   * arriving late, a camera being switched on — and hands back a NEW
+   * MediaStream each time so a consumer can tell. Reassigning here on every
+   * state change is what keeps a leg audible across those rebuilds; assigning
+   * once at attach time left the first seconds of some calls silent.
+   */
+  _pumpAudio(leg) {
+    if (!leg.sink) return;
+    let stream = null;
+    try {
+      stream = leg.manager.getRemoteMediaStream?.() || null;
+    } catch (_) {
+      return;
+    }
+    if (!stream || leg.sink.srcObject === stream) return;
+    try {
+      leg.sink.srcObject = stream;
+      const played = leg.sink.play?.();
+      if (played && played.catch) played.catch(() => {
+      });
+    } catch (_) {
+    }
+    if (leg.meter) {
+      try {
+        leg.meter.close?.();
+      } catch (_) {
+      }
+    }
+    leg.meter = this._createLevelMeter(stream);
+    leg.speaking = false;
+  }
+  // -----------------------------------------------------------------------
+  // who is speaking
+  // -----------------------------------------------------------------------
+  _startLevelPolling() {
+    if (this._levelTimer || typeof setInterval !== "function") return;
+    this._levelTimer = setInterval(() => this._sampleLevels(), SPEAKING.SAMPLE_MS);
+  }
+  _stopLevelPolling() {
+    if (this._levelTimer) {
+      clearInterval(this._levelTimer);
+      this._levelTimer = null;
+    }
+  }
+  /**
+   * Turn a level into a speaking flag, with hysteresis and a hold.
+   *
+   * `holder` is whatever object carries the flag — a leg, or this instance for
+   * our own microphone — so the same rule runs for everyone and the local tile
+   * cannot disagree with a remote one about what counts as talking.
+   */
+  _applyLevel(holder, key, quietKey, level, now) {
+    const speaking = holder[key] === true;
+    if (level >= SPEAKING.ON) {
+      holder[quietKey] = 0;
+      if (!speaking) {
+        holder[key] = true;
+        return true;
+      }
+      return false;
+    }
+    if (!speaking) return false;
+    if (level > SPEAKING.OFF) {
+      holder[quietKey] = 0;
+      return false;
+    }
+    if (!holder[quietKey]) {
+      holder[quietKey] = now;
+      return false;
+    }
+    if (now - holder[quietKey] >= SPEAKING.HOLD_MS) {
+      holder[key] = false;
+      return true;
+    }
+    return false;
+  }
+  _sampleLevels() {
+    if (!this.active) return;
+    const now = Date.now();
+    let changed = false;
+    const selfLevel = this.micEnabled && this._selfMeter ? safeRead(this._selfMeter) : 0;
+    if (this._applyLevel(this, "selfSpeaking", "_selfQuietSince", selfLevel, now)) changed = true;
+    for (const leg of this._legs.values()) {
+      const level = leg.meter ? safeRead(leg.meter) : 0;
+      if (this._applyLevel(leg, "speaking", "quietSince", level, now)) changed = true;
+    }
+    if (changed) this._changed();
+  }
+  // -----------------------------------------------------------------------
+  // controls — applied to every leg at once, because it is one call
+  // -----------------------------------------------------------------------
+  setMic(enabled) {
+    this.micEnabled = enabled !== false;
+    if (this.localStream) {
+      for (const track of this.localStream.getAudioTracks()) track.enabled = this.micEnabled;
+    }
+    if (!this.micEnabled) {
+      this.selfSpeaking = false;
+      this._selfQuietSince = 0;
+    }
+    for (const leg of this._legs.values()) {
+      try {
+        leg.manager.setMicEnabled?.(this.micEnabled);
+      } catch (_) {
+      }
+    }
+    this._changed();
+  }
+  toggleMic() {
+    this.setMic(!this.micEnabled);
+  }
+  /**
+   * Turn the camera on or off for the whole call.
+   *
+   * Turning it on when the call started as voice captures a camera track and
+   * adds it to every leg, each of which renegotiates its own connection. That
+   * is N-1 renegotiations for one button, which is the honest cost of having
+   * no server in the middle.
+   */
+  async setCamera(enabled) {
+    if (!this.active || this._busy) return;
+    if (enabled === false) {
+      this.cameraEnabled = false;
+      if (this.localStream) {
+        for (const track of this.localStream.getVideoTracks()) track.enabled = false;
+      }
+      for (const leg of this._legs.values()) {
+        try {
+          leg.manager.setCameraEnabled?.(false);
+        } catch (_) {
+        }
+      }
+      this._changed();
+      return;
+    }
+    const existing = this.localStream?.getVideoTracks?.() || [];
+    if (existing.length) {
+      for (const track of existing) track.enabled = true;
+      this.cameraEnabled = true;
+      this.withVideo = true;
+      this._changed();
+      return;
+    }
+    this._busy = true;
+    try {
+      const camera = await this._getUserMedia({
+        video: { facingMode: this.facingMode, width: { ideal: 1280 }, height: { ideal: 720 } }
+      });
+      const track = camera.getVideoTracks()[0];
+      if (!track) return;
+      this.localStream.addTrack(track);
+      this.cameraEnabled = true;
+      this.withVideo = true;
+      await Promise.allSettled([...this._legs.values()].map(
+        (leg) => Promise.resolve().then(() => leg.manager.addVideoTrack?.(track))
+      ));
+    } catch (error) {
+      this.error = mediaErrorCode(error);
+      this.cameraEnabled = false;
+    } finally {
+      this._busy = false;
+      this._changed();
+    }
+  }
+  async toggleCamera() {
+    await this.setCamera(!this.cameraEnabled);
+  }
+  /** Front/back camera. One capture, swapped into every leg without renegotiating. */
+  async flipCamera() {
+    if (!this.active || this._busy || !this.localStream) return;
+    const old = this.localStream.getVideoTracks()[0];
+    if (!old) return;
+    this._busy = true;
+    const previous = this.facingMode;
+    this.facingMode = this.facingMode === "user" ? "environment" : "user";
+    try {
+      const camera = await this._getUserMedia({ video: { facingMode: this.facingMode } });
+      const track = camera.getVideoTracks()[0];
+      if (!track) {
+        this.facingMode = previous;
+        return;
+      }
+      track.enabled = this.cameraEnabled;
+      this.localStream.removeTrack(old);
+      try {
+        old.stop();
+      } catch (_) {
+      }
+      this.localStream.addTrack(track);
+      await Promise.allSettled([...this._legs.values()].map(
+        (leg) => Promise.resolve().then(() => leg.manager.replaceVideoTrack?.(track))
+      ));
+    } catch (error) {
+      this.facingMode = previous;
+      this._log("warn", "group call camera flip failed", { errorType: error?.constructor?.name });
+    } finally {
+      this._busy = false;
+      this._changed();
+    }
+  }
+  // -----------------------------------------------------------------------
+  // what the UI reads
+  // -----------------------------------------------------------------------
+  getLocalStream() {
+    return this.localStream;
+  }
+  /** The inbound stream for one member, or null while their leg is coming up. */
+  getRemoteStream(fp) {
+    const leg = this._legs.get(fp);
+    if (!leg) return null;
+    try {
+      return leg.manager.getRemoteMediaStream?.() || null;
+    } catch (_) {
+      return null;
+    }
+  }
+  /**
+   * One call, as one object.
+   *
+   * Every participant appears, including the ones with no leg: a member who is
+   * in the call but reachable only through a relay is CONNECTING, not absent.
+   * Hiding them would make a mesh that is still building look like a member
+   * who declined.
+   */
+  snapshot() {
+    const peers = this._peers.filter((peer) => peer && peer.fp !== this.selfFp).map((peer) => {
+      const leg = this._legs.get(peer.fp);
+      return {
+        fp: peer.fp,
+        name: peer.name || "Member",
+        state: leg ? leg.state : LEG_STATE.UNREACHABLE,
+        quality: leg ? leg.quality : null,
+        hasVideo: leg ? leg.hasVideo : false,
+        speaking: leg ? leg.speaking === true : false
+      };
+    }).sort((a, b) => a.fp < b.fp ? -1 : a.fp > b.fp ? 1 : 0);
+    return {
+      active: this.active,
+      callId: this.callId,
+      withVideo: this.withVideo,
+      micEnabled: this.micEnabled,
+      cameraEnabled: this.cameraEnabled,
+      facingMode: this.facingMode,
+      error: this.error,
+      selfSpeaking: this.selfSpeaking,
+      peers,
+      connected: peers.filter((p) => p.state === LEG_STATE.ACTIVE).length
+    };
+  }
+  _changed() {
+    try {
+      this._onChange(this.snapshot());
+    } catch (_) {
+    }
+  }
+};
+function safeRead(meter) {
+  try {
+    return meter.read();
+  } catch (_) {
+    return 0;
+  }
+}
+function mediaErrorCode(error) {
+  const name = error?.name || "";
+  if (name === "NotAllowedError" || name === "SecurityError") return "permission_denied";
+  if (name === "NotFoundError" || name === "OverconstrainedError") return "device_not_found";
+  if (name === "NotReadableError" || name === "AbortError") return "device_busy";
+  return "media_failed";
+}
+
+// src/components/ui/callLayout.js
+var TILE_GAP = 10;
+var TILE_ASPECT = 16 / 9;
+var MIN_TILE_W = 150;
+function gridLayout(count, width, height, {
+  gap = TILE_GAP,
+  aspect = TILE_ASPECT,
+  minWidth = MIN_TILE_W
+} = {}) {
+  if (count <= 0) return { cols: 0, rows: 0, tileW: 0, tileH: 0 };
+  if (!(width > 0) || !(height > 0)) {
+    const cols = Math.min(count, count <= 2 ? count : Math.ceil(Math.sqrt(count)));
+    return { cols, rows: Math.ceil(count / cols), tileW: 0, tileH: 0 };
+  }
+  let best = { cols: 1, rows: count, tileW: 0, tileH: 0 };
+  for (let cols = 1; cols <= count; cols++) {
+    const rows = Math.ceil(count / cols);
+    const perColumn = (width - gap * (cols - 1)) / cols;
+    const perRow = (height - gap * (rows - 1)) / rows;
+    if (perColumn <= 0 || perRow <= 0) continue;
+    const tileW = Math.min(perColumn, perRow * aspect);
+    if (tileW > best.tileW) best = { cols, rows, tileW, tileH: tileW / aspect };
+  }
+  if (best.tileW < minWidth) {
+    best.tileW = minWidth;
+    best.tileH = minWidth / aspect;
+  }
+  return best;
+}
+function spotlightLayout(othersCount, width, height, {
+  gap = TILE_GAP,
+  aspect = TILE_ASPECT,
+  minThumb = 92,
+  maxThumb = 168
+} = {}) {
+  if (!(width > 0) || !(height > 0)) {
+    return { main: { w: 0, h: 0 }, stripH: 0, thumbW: 0 };
+  }
+  if (othersCount <= 0) {
+    const w = Math.min(width, height * aspect);
+    return { main: { w, h: w / aspect }, stripH: 0, thumbW: 0 };
+  }
+  const thumbW = Math.max(minThumb, Math.min(maxThumb, Math.round(height * 0.2 * aspect)));
+  const stripH = thumbW / aspect;
+  const mainH = height - stripH - gap;
+  const mainW = Math.min(width, mainH * aspect);
+  if (mainH <= 0 || mainW < thumbW * 2) {
+    return { main: { w: 0, h: 0 }, stripH: 0, thumbW: 0 };
+  }
+  return { main: { w: mainW, h: mainW / aspect }, stripH, thumbW };
+}
+
+// src/components/ui/GroupCallUI.jsx
+var h2 = (...args) => React.createElement(...args);
+var MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+var ICON2 = {
+  lock: '<path d="M7 11V7a5 5 0 0 1 10 0v4"/><rect x="4.5" y="11" width="15" height="9" rx="2.2"/>',
+  minimize: '<path d="M9 4v4a1 1 0 0 1-1 1H4M15 4v4a1 1 0 0 0 1 1h4M9 20v-4a1 1 0 0 0-1-1H4M15 20v-4a1 1 0 0 1 1-1h4"/>',
+  expand: '<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>',
+  users: '<path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19"/><circle cx="10" cy="8" r="3.2"/><path d="M20 19v-1.5a3.5 3.5 0 0 0-2.6-3.4"/><path d="M15.5 5.3a3.2 3.2 0 0 1 0 5.4"/>',
+  micOn: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/>',
+  micOff: '<path d="M9 9v-1a3 3 0 0 1 5.1-2.1M15 11v3a3 3 0 0 1-4.6 2.5"/><path d="M5 11a7 7 0 0 0 10.3 6.2M19 11a7 7 0 0 1-.4 2.3"/><path d="M12 18v3"/><path d="M3 3l18 18"/>',
+  camOn: '<path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2.5"/>',
+  camOff: '<path d="M16 16H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h2l2-2M11 6h2l7-3v14M2 2l20 20"/>',
+  grid: '<rect x="3" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6"/>',
+  flip: '<path d="M3 7h3l2-2h8l2 2h3v12H3z"/><path d="M9.5 13a2.5 2.5 0 0 1 5 0M14.5 13l-1.3-1.3M14.5 13l1.3-1.3"/>',
+  phone: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>',
+  phoneHangup: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" transform="rotate(135 12 12)"/>'
+};
+var svg2 = (inner, size, sw) => h2("span", {
+  style: { display: "grid", placeItems: "center", width: size + "px", height: size + "px" },
+  dangerouslySetInnerHTML: { __html: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>` }
+});
+var ctrlBase = {
+  width: "56px",
+  height: "56px",
+  borderRadius: "50%",
+  display: "grid",
+  placeItems: "center",
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgba(255,255,255,0.05)",
+  color: "#cfcfd4",
+  cursor: "pointer",
+  transition: "all .15s"
+};
+var dangerCtrl = { ...ctrlBase, background: "#e5484d", color: "#fff", border: "1px solid transparent" };
+var endBtn = {
+  width: "56px",
+  height: "56px",
+  borderRadius: "50%",
+  display: "grid",
+  placeItems: "center",
+  border: "none",
+  background: "#e5484d",
+  color: "#fff",
+  cursor: "pointer",
+  boxShadow: "0 8px 24px rgba(229,72,77,0.35)",
+  transition: "transform .15s"
+};
+var minimizeBtn = {
+  width: "36px",
+  height: "36px",
+  borderRadius: "9px",
+  display: "grid",
+  placeItems: "center",
+  border: "1px solid rgba(255,255,255,0.15)",
+  background: "rgba(0,0,0,0.35)",
+  color: "#fff",
+  cursor: "pointer",
+  transition: "all .15s"
+};
+var QUALITY = {
+  excellent: { bars: 4, color: "#3ecf8e" },
+  good: { bars: 3, color: "#3ecf8e" },
+  fair: { bars: 2, color: "#e3c84e" },
+  poor: { bars: 1, color: "#e5727a" }
+};
+function qualityBars(quality) {
+  const q = QUALITY[quality];
+  if (!q) return null;
+  return h2(
+    "span",
+    { key: "q", style: { display: "inline-flex", alignItems: "flex-end", gap: "2px", height: "12px" } },
+    [0, 1, 2, 3].map((i) => h2("span", {
+      key: i,
+      style: {
+        width: "2.5px",
+        height: 4 + i * 2.6 + "px",
+        borderRadius: "1px",
+        background: i < q.bars ? q.color : "rgba(255,255,255,0.18)"
+      }
+    }))
+  );
+}
+function initials(name) {
+  const words = String(name || "").trim().split(/\s+/).filter(Boolean);
+  return ((words[0]?.[0] || "") + (words[1]?.[0] || words[0]?.[1] || "")).toUpperCase() || "#";
+}
+var fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+function useMeasuredSize() {
+  const [size, setSize] = React.useState({ w: 0, h: 0 });
+  const [node, setNode] = React.useState(null);
+  React.useLayoutEffect(() => {
+    if (!node) return void 0;
+    const apply = () => setSize((prev) => prev.w === node.clientWidth && prev.h === node.clientHeight ? prev : { w: node.clientWidth, h: node.clientHeight });
+    apply();
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", apply);
+      return () => window.removeEventListener("resize", apply);
+    }
+    const observer = new ResizeObserver(apply);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [node]);
+  return [setNode, size];
+}
+function Tile({ peer, stream, self, localStream, cameraEnabled, speaking, tileW, tileH, onSelect, pinned, compact }) {
+  const videoRef = React.useRef(null);
+  const source = self ? localStream : stream;
+  const showVideo = self ? cameraEnabled : peer.hasVideo;
+  React.useEffect(() => {
+    const el = videoRef.current;
+    if (!el || !source) return;
+    if (el.srcObject !== source) {
+      el.muted = true;
+      el.srcObject = source;
+    }
+    const played = el.play && el.play();
+    if (played && played.catch) played.catch(() => {
+    });
+  });
+  const statusWord = self ? null : peer.state === LEG_STATE.ACTIVE ? null : peer.state === LEG_STATE.UNREACHABLE ? t("groupCall.waitingLink") : peer.state === LEG_STATE.FAILED ? t("groupCall.legFailed") : t("groupCall.connecting");
+  const avatarPx = Math.max(44, Math.min(148, Math.round((tileH || 180) * 0.42)));
+  return h2("div", {
+    // A tile is a control as well as a picture: clicking it spotlights that
+    // person. Given a role and a key handler rather than wrapped in a button,
+    // so a <video> is not nested inside interactive content.
+    role: onSelect ? "button" : void 0,
+    tabIndex: onSelect ? 0 : void 0,
+    onClick: onSelect,
+    onKeyDown: onSelect ? (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onSelect();
+      }
+    } : void 0,
+    title: pinned ? t("groupCall.unpin", { name: peer.name }) : onSelect ? t("groupCall.pin", { name: peer.name }) : speaking ? t("groupCall.speaking", { name: peer.name }) : peer.name,
+    style: {
+      cursor: onSelect ? "pointer" : "default",
+      position: "relative",
+      borderRadius: "14px",
+      overflow: "hidden",
+      background: "#141417",
+      border: speaking ? "2px solid #3ecf8e" : "2px solid rgba(255,255,255,0.08)",
+      boxShadow: speaking ? "0 0 0 3px rgba(62,207,142,0.16)" : "none",
+      transition: "border-color .12s ease, box-shadow .12s ease",
+      // Sized by the grid, which is the only thing that knows how much
+      // room there is. aspectRatio stays as the fallback for the first
+      // paint, before the container has been measured.
+      // Measured: an exact size. Unmeasured: a shape that is still a tile.
+      // The floor matters more than it looks — without a minimum a flex item
+      // can shrink to its own text, and one bad containing block turned the
+      // whole call into a cluster of label-sized rectangles. Measurement now
+      // makes the layout GOOD; it is no longer what makes it work at all.
+      flex: tileW ? "0 0 auto" : "1 1 260px",
+      minWidth: tileW ? void 0 : "200px",
+      width: tileW ? tileW + "px" : "auto",
+      height: tileH ? tileH + "px" : "auto",
+      aspectRatio: tileH ? void 0 : "16 / 9",
+      display: "grid",
+      placeItems: "center"
+    }
+  }, [
+    showVideo ? h2("video", {
+      key: "v",
+      ref: videoRef,
+      autoPlay: true,
+      muted: true,
+      playsInline: true,
+      style: {
+        position: "absolute",
+        inset: 0,
+        width: "100%",
+        height: "100%",
+        objectFit: "cover",
+        transform: self ? "scaleX(-1)" : "none",
+        background: "#0f0f11"
+      }
+    }) : h2("div", {
+      key: "av",
+      style: {
+        // Proportional to the tile: a fixed disc looks lost in a
+        // large tile and crowds a small one.
+        width: avatarPx + "px",
+        height: avatarPx + "px",
+        borderRadius: "50%",
+        display: "grid",
+        placeItems: "center",
+        background: "radial-gradient(circle at 35% 30%, #2a2a30, #161618)",
+        border: speaking ? "1.5px solid rgba(62,207,142,0.65)" : "1px solid rgba(255,255,255,0.1)",
+        color: speaking ? "#3ecf8e" : "#cfcfd4",
+        fontFamily: MONO,
+        fontSize: Math.round(avatarPx * 0.3) + "px",
+        fontWeight: 700,
+        transition: "color .12s ease, border-color .12s ease"
+      }
+    }, initials(peer.name)),
+    h2("div", {
+      key: "label",
+      style: {
+        position: "absolute",
+        insetInline: 0,
+        bottom: 0,
+        display: "flex",
+        alignItems: "center",
+        gap: compact ? "4px" : "7px",
+        padding: compact ? "4px 6px" : "8px 10px",
+        background: "linear-gradient(0deg, rgba(0,0,0,0.7), transparent)"
+      }
+    }, [
+      h2("span", {
+        key: "n",
+        style: {
+          flex: 1,
+          minWidth: 0,
+          fontSize: compact ? "10.5px" : "12.5px",
+          fontWeight: 700,
+          color: "#f4f4f6",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis"
+        }
+      }, peer.name),
+      speaking && h2("span", {
+        key: "sp",
+        style: { flex: "none", color: "#3ecf8e", display: "grid", placeItems: "center" }
+      }, svg2(ICON2.micOn, compact ? 11 : 13, 2)),
+      statusWord && !compact && h2("span", {
+        key: "s",
+        style: {
+          flex: "none",
+          fontFamily: MONO,
+          fontSize: "10.5px",
+          color: peer.state === LEG_STATE.FAILED ? "#e5727a" : "#9a9aa2"
+        }
+      }, statusWord),
+      !self && !compact && qualityBars(peer.quality)
     ])
   ]);
+}
+function GroupCallUI({
+  call,
+  media,
+  groupName,
+  localStream,
+  getRemoteStream,
+  onJoin,
+  onDismiss,
+  onLeave,
+  onToggleMic,
+  onToggleCamera,
+  onFlipCamera
+}) {
+  const [minimized, setMinimized] = React.useState(false);
+  const [seconds, setSeconds] = React.useState(0);
+  const [pinned, setPinned] = React.useState(null);
+  const [stageRef, stage] = useMeasuredSize();
+  const joined = !!call?.joined;
+  React.useEffect(() => {
+    if (!joined) {
+      setSeconds(0);
+      return void 0;
+    }
+    const started = Date.now();
+    const iv = setInterval(() => setSeconds(Math.floor((Date.now() - started) / 1e3)), 1e3);
+    return () => clearInterval(iv);
+  }, [joined, call?.callId]);
+  React.useEffect(() => {
+    if (!call) setMinimized(false);
+  }, [!call]);
+  const present = React.useMemo(
+    () => /* @__PURE__ */ new Set(["self", ...(media?.peers || []).map((p) => p.fp)]),
+    [media]
+  );
+  React.useEffect(() => {
+    if (pinned && !present.has(pinned)) setPinned(null);
+  }, [pinned, present]);
+  if (!call) return null;
+  const encBadge = h2("span", {
+    key: "enc",
+    style: { display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "11.5px", fontWeight: 600, color: "#3ecf8e" }
+  }, [svg2(ICON2.lock, 12, 2), t("call.encryptedShort")]);
+  if (!joined) {
+    return h2("div", {
+      style: {
+        position: "absolute",
+        inset: 0,
+        zIndex: 40,
+        display: "flex",
+        flexDirection: "column",
+        background: "radial-gradient(680px 460px at 50% 36%, rgba(240,137,42,0.08), transparent 70%), #0d0d0f",
+        animation: "sbExpand .2s ease"
+      }
+    }, [
+      h2(
+        "div",
+        { key: "top", style: { flex: "none", padding: "16px 18px" } },
+        h2(
+          "span",
+          { style: { display: "inline-flex", alignItems: "center", gap: "7px", fontSize: "12px", fontWeight: 600, color: "#3ecf8e" } },
+          [svg2(ICON2.lock, 13, 2), t("call.encrypted")]
+        )
+      ),
+      h2("div", { key: "mid", style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 24px", textAlign: "center" } }, [
+        h2("div", {
+          key: "av",
+          style: {
+            position: "relative",
+            width: "112px",
+            height: "112px",
+            marginBottom: "26px",
+            display: "grid",
+            placeItems: "center"
+          }
+        }, [
+          h2("span", { key: "p1", style: { position: "absolute", inset: 0, borderRadius: "50%", border: "1.5px solid rgba(240,137,42,0.5)", animation: "sbCallPulse 2s ease-out infinite" } }),
+          h2("span", { key: "p2", style: { position: "absolute", inset: 0, borderRadius: "50%", border: "1.5px solid rgba(240,137,42,0.4)", animation: "sbCallPulse 2s ease-out infinite", animationDelay: "1s" } }),
+          h2("div", {
+            key: "c",
+            style: {
+              width: "96px",
+              height: "96px",
+              borderRadius: "50%",
+              display: "grid",
+              placeItems: "center",
+              background: "radial-gradient(circle at 35% 30%, #2a2a30, #161618)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              color: "#8a8a92"
+            }
+          }, svg2(ICON2.users, 42, 1.6))
+        ]),
+        h2("div", { key: "n", style: { fontSize: "22px", fontWeight: 800, letterSpacing: "-0.4px", color: "#f4f4f6" } }, groupName),
+        h2(
+          "div",
+          { key: "s", style: { fontFamily: MONO, fontSize: "13.5px", color: "#9a9aa2", marginTop: "8px" } },
+          call.withVideo ? t("groupCall.startedVideo", { name: call.startedByName }) : t("groupCall.startedVoice", { name: call.startedByName })
+        ),
+        h2(
+          "div",
+          { key: "p", style: { fontSize: "12.5px", color: "#6b6b73", marginTop: "6px" } },
+          t("groupCall.inCall", { count: call.participants.length })
+        )
+      ]),
+      h2("div", { key: "ctrls", style: { flex: "none", display: "flex", justifyContent: "center", gap: "48px", padding: "24px 24px 40px" } }, [
+        h2("div", { key: "dec", style: { display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" } }, [
+          h2("button", { key: "b", onClick: onDismiss, title: t("groupCall.dismiss"), style: { ...endBtn, width: "62px", height: "62px" } }, svg2(ICON2.phoneHangup, 24, 1.9)),
+          h2("span", { key: "l", style: { fontFamily: MONO, fontSize: "10.5px", color: "#8a8a92" } }, t("groupCall.dismiss"))
+        ]),
+        h2("div", { key: "acc", style: { display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" } }, [
+          h2("button", {
+            key: "b",
+            onClick: onJoin,
+            title: t("groupCall.join"),
+            style: {
+              width: "62px",
+              height: "62px",
+              borderRadius: "50%",
+              display: "grid",
+              placeItems: "center",
+              border: "none",
+              background: "#3ecf8e",
+              color: "#06231a",
+              cursor: "pointer",
+              boxShadow: "0 8px 24px rgba(62,207,142,0.35)"
+            }
+          }, svg2(ICON2.phone, 24, 1.9)),
+          h2("span", { key: "l", style: { fontFamily: MONO, fontSize: "10.5px", color: "#8a8a92" } }, t("groupCall.join"))
+        ])
+      ])
+    ]);
+  }
+  const peers = media?.peers || [];
+  const selfTile = {
+    fp: "self",
+    name: t("groupCall.you"),
+    state: LEG_STATE.ACTIVE,
+    hasVideo: media?.cameraEnabled,
+    quality: null,
+    speaking: media?.selfSpeaking === true
+  };
+  if (minimized) {
+    const speakers = peers.filter((p) => p.speaking).map((p) => p.name);
+    const talking = speakers.length === 1 ? speakers[0] : speakers.length > 1 ? speakers.slice(0, 2).join(", ") : media?.selfSpeaking ? t("groupCall.you") : null;
+    return h2("div", {
+      style: {
+        position: "absolute",
+        bottom: "18px",
+        insetInlineEnd: "18px",
+        zIndex: 40,
+        width: "244px",
+        borderRadius: "14px",
+        overflow: "hidden",
+        background: "#161618",
+        border: "1px solid rgba(255,255,255,0.1)",
+        boxShadow: "0 18px 44px rgba(0,0,0,0.55)",
+        animation: "sbExpand .18s ease"
+      }
+    }, [
+      h2("div", { key: "bar", style: { display: "flex", alignItems: "center", gap: "11px", padding: "11px 12px" } }, [
+        h2("span", {
+          key: "ic",
+          style: {
+            flex: "none",
+            width: "34px",
+            height: "34px",
+            borderRadius: "9px",
+            display: "grid",
+            placeItems: "center",
+            background: "rgba(62,207,142,0.1)",
+            border: "1px solid rgba(62,207,142,0.25)",
+            color: "#3ecf8e"
+          }
+        }, svg2(ICON2.users, 16, 1.9)),
+        h2("div", { key: "tx", style: { flex: 1, minWidth: 0 } }, [
+          h2("div", { key: "n", style: { fontSize: "13px", fontWeight: 700, color: "#f4f4f6", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, groupName),
+          h2("div", {
+            key: "s",
+            style: {
+              fontFamily: MONO,
+              fontSize: "11px",
+              color: talking ? "#3ecf8e" : "#9a9aa2",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis"
+            }
+          }, talking ? t("groupCall.speaking", { name: talking }) : `${t("groupCall.inCall", { count: call.participants.length })} \xB7 ${fmt(seconds)}`)
+        ]),
+        h2("button", { key: "exp", onClick: () => setMinimized(false), title: t("call.expand"), style: { flex: "none", width: "32px", height: "32px", borderRadius: "8px", display: "grid", placeItems: "center", border: "none", background: "rgba(255,255,255,0.05)", color: "#cfcfd4", cursor: "pointer" } }, svg2(ICON2.expand, 15, 2)),
+        h2("button", { key: "end", onClick: onLeave, title: t("groupCall.leave"), style: { flex: "none", width: "32px", height: "32px", borderRadius: "8px", display: "grid", placeItems: "center", border: "none", background: "#e5484d", color: "#fff", cursor: "pointer" } }, svg2(ICON2.phoneHangup, 15, 2))
+      ])
+    ]);
+  }
+  const tiles = [selfTile, ...peers];
+  const tileFor = (id) => tiles.find((tile) => tile.fp === id) || null;
+  const spotlight = pinned ? tileFor(pinned) : null;
+  const others = spotlight ? tiles.filter((tile) => tile.fp !== spotlight.fp) : [];
+  const spot = spotlight ? spotlightLayout(others.length, stage.w, stage.h) : null;
+  const spotlit = spotlight && spot && spot.main.w > 0;
+  const layout = gridLayout(tiles.length, stage.w, stage.h);
+  const renderTile = (tile, extra = {}) => h2(Tile, {
+    key: tile.fp,
+    peer: tile,
+    self: tile.fp === "self",
+    speaking: tile.speaking === true,
+    localStream,
+    cameraEnabled: media?.cameraEnabled,
+    stream: tile.fp === "self" ? null : getRemoteStream(tile.fp),
+    ...extra
+  });
+  return h2("div", {
+    style: {
+      position: "absolute",
+      inset: 0,
+      zIndex: 40,
+      display: "flex",
+      flexDirection: "column",
+      background: "#0a0a0c",
+      animation: "sbExpand .2s ease"
+    }
+  }, [
+    h2("div", {
+      key: "top",
+      style: {
+        flex: "none",
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "space-between",
+        gap: "14px",
+        padding: "16px 18px 10px"
+      }
+    }, [
+      h2("div", { key: "l", style: { minWidth: 0 } }, [
+        h2("div", { key: "n", style: { fontSize: "17px", fontWeight: 800, letterSpacing: "-0.3px", color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, groupName),
+        h2("div", { key: "s", style: { display: "inline-flex", alignItems: "center", gap: "9px", marginTop: "4px" } }, [
+          h2("span", { key: "d", style: { fontFamily: MONO, fontSize: "12.5px", color: "#e8e8eb" } }, fmt(seconds)),
+          encBadge,
+          h2(
+            "span",
+            { key: "c", style: { fontSize: "11.5px", color: "#8a8a92" } },
+            t("groupCall.inCall", { count: call.participants.length })
+          )
+        ])
+      ]),
+      h2("div", { key: "r", style: { flex: "none", display: "flex", alignItems: "center", gap: "8px" } }, [
+        spotlit && h2("button", {
+          key: "grid",
+          onClick: () => setPinned(null),
+          title: t("groupCall.showEveryone"),
+          style: {
+            height: "36px",
+            padding: "0 12px",
+            borderRadius: "9px",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "7px",
+            border: "1px solid rgba(255,255,255,0.15)",
+            background: "rgba(0,0,0,0.35)",
+            color: "#fff",
+            cursor: "pointer",
+            fontFamily: "inherit",
+            fontSize: "12.5px",
+            fontWeight: 600
+          }
+        }, [svg2(ICON2.grid, 14, 2), t("groupCall.showEveryone")]),
+        h2("button", { key: "min", onClick: () => setMinimized(true), title: t("call.minimize"), style: minimizeBtn }, svg2(ICON2.minimize, 16, 2))
+      ])
+    ]),
+    media?.error && h2("div", {
+      key: "err",
+      style: {
+        flex: "none",
+        margin: "0 18px 10px",
+        padding: "9px 12px",
+        borderRadius: "10px",
+        background: "rgba(229,114,122,0.1)",
+        border: "1px solid rgba(229,114,122,0.28)",
+        color: "#e5727a",
+        fontSize: "12.5px",
+        lineHeight: 1.5
+      }
+    }, t(`groupCall.err.${media.error}`)),
+    // The stage is what gets measured, so it carries no padding of its own —
+    // padding would be counted as usable room and every tile would come out
+    // slightly too large for the space that is really there.
+    h2("div", {
+      key: "stage",
+      ref: stageRef,
+      className: "msc-scroll",
+      style: {
+        flex: 1,
+        minHeight: 0,
+        minWidth: 0,
+        overflow: "auto",
+        // Breathing room as MARGIN, not padding: clientWidth counts
+        // padding as usable space and every tile would come out that
+        // much too wide for the room actually available.
+        margin: "0 14px 6px",
+        // Flex, not grid. A grid with `justify-content: center` sizes its
+        // column to the content, so the row's `width: 100%` had nothing
+        // definite to resolve against and collapsed to the widest label —
+        // which is exactly what the broken screenshot showed. A flex
+        // container keeps a definite content box either way, so a row
+        // asking for the full width gets the full width.
+        // `safe center` centres it without the clipping plain centring
+        // causes once the content overflows: the first row stays
+        // reachable and the stage scrolls as normal.
+        display: "flex",
+        alignItems: "safe center",
+        justifyContent: "safe center"
+      }
+    }, spotlit ? h2("div", {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: TILE_GAP + "px",
+        width: "100%",
+        height: stage.h + "px",
+        minHeight: 0
+      }
+    }, [
+      h2("div", {
+        key: "main",
+        style: { flex: "none", display: "flex", justifyContent: "center", minHeight: 0 }
+      }, renderTile(spotlight, {
+        tileW: spot.main.w,
+        tileH: spot.main.h,
+        pinned: true,
+        onSelect: () => setPinned(null)
+      })),
+      others.length > 0 && h2("div", {
+        key: "strip",
+        className: "msc-scroll",
+        style: {
+          flex: "none",
+          height: spot.stripH + "px",
+          display: "flex",
+          gap: TILE_GAP + "px",
+          justifyContent: others.length > 4 ? "flex-start" : "center",
+          // The strip scrolls sideways rather than shrinking: past a
+          // handful of people, thumbnails that keep dividing stop
+          // being recognisable, which is the whole point of them.
+          overflowX: "auto",
+          overflowY: "hidden"
+        }
+      }, others.map((tile) => renderTile(tile, {
+        tileW: spot.thumbW,
+        tileH: spot.stripH,
+        compact: true,
+        onSelect: () => setPinned(tile.fp)
+      })))
+    ]) : h2("div", {
+      // Wrapping flex rather than a grid, for one reason: a call of three
+      // lays out two over one, and in a grid that lone tile is stuck in the
+      // first column with a hole beside it. Fixing the row width to exactly
+      // `cols` tiles makes the wrap land where the layout said it should,
+      // and a short last row centres itself.
+      style: {
+        display: "flex",
+        flexWrap: "wrap",
+        gap: TILE_GAP + "px",
+        justifyContent: "center",
+        alignContent: "center",
+        width: layout.tileW ? layout.cols * layout.tileW + (layout.cols - 1) * TILE_GAP + "px" : "100%"
+      }
+    }, tiles.map((tile) => renderTile(tile, {
+      tileW: layout.tileW,
+      tileH: layout.tileH,
+      onSelect: () => setPinned(tile.fp)
+    })))),
+    h2("div", {
+      key: "ctrls",
+      style: {
+        flex: "none",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "16px",
+        padding: "16px 20px calc(22px + var(--sb-safe-bottom, env(safe-area-inset-bottom, 0px)))",
+        background: "linear-gradient(0deg, rgba(0,0,0,0.6), transparent)"
+      }
+    }, [
+      h2(
+        "button",
+        { key: "mic", onClick: onToggleMic, title: t("call.mute"), style: media?.micEnabled ? ctrlBase : dangerCtrl },
+        svg2(media?.micEnabled ? ICON2.micOn : ICON2.micOff, 21, 1.9)
+      ),
+      h2(
+        "button",
+        { key: "cam", onClick: onToggleCamera, title: t("call.camera"), style: media?.cameraEnabled ? ctrlBase : dangerCtrl },
+        svg2(media?.cameraEnabled ? ICON2.camOn : ICON2.camOff, 21, 1.8)
+      ),
+      media?.cameraEnabled && h2("button", { key: "flip", onClick: onFlipCamera, title: t("call.flipCamera"), style: ctrlBase }, svg2(ICON2.flip, 21, 1.8)),
+      h2("button", { key: "end", onClick: onLeave, title: t("groupCall.leave"), style: endBtn }, svg2(ICON2.phoneHangup, 22, 1.9))
+    ])
+  ]);
+}
+if (typeof window !== "undefined") {
+  window.GroupCallUI = GroupCallUI;
 }
 
 // src/app.jsx
@@ -13832,6 +16050,7 @@ var MessageBody = ({ text }) => {
     )
   );
 };
+var SAS_CODE_LENGTH = 7;
 var GRAIN_URL = `url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='100'%20height='100'%3E%3Cfilter%20id='n'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.9'%20numOctaves='2'%20stitchTiles='stitch'/%3E%3C/filter%3E%3Crect%20width='100%25'%20height='100%25'%20filter='url(%23n)'/%3E%3C/svg%3E")`;
 var SB_MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
 var sbGenBars = (seed, n) => {
@@ -13851,7 +16070,7 @@ var sbFmtClock = (sec) => {
   return m + ":" + String(s).padStart(2, "0");
 };
 var VoicePlayer = ({ voice, isMe }) => {
-  const h2 = React.createElement;
+  const h3 = React.createElement;
   const [playing, setPlaying] = React.useState(false);
   const [progress, setProgress] = React.useState(0);
   const [playErr, setPlayErr] = React.useState(false);
@@ -13950,36 +16169,36 @@ var VoicePlayer = ({ voice, isMe }) => {
     let col;
     if (transferring) col = isMe ? "rgba(255,255,255,0.13)" : "rgba(255,255,255,0.1)";
     else col = played ? "#f0892a" : isMe ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.16)";
-    return h2("span", { key: i, style: { flex: "1 1 0", minWidth: 0, width: "3px", height: Math.round(6 + hgt * 22) + "px", borderRadius: "2px", background: col, transition: "background .12s" } });
+    return h3("span", { key: i, style: { flex: "1 1 0", minWidth: 0, width: "3px", height: Math.round(6 + hgt * 22) + "px", borderRadius: "2px", background: col, transition: "background .12s" } });
   });
-  const ring = transferring && h2("svg", { key: "ring", width: 50, height: 50, viewBox: "0 0 50 50", style: { position: "absolute", inset: 0, transform: "rotate(-90deg)" } }, [
-    h2("circle", { key: "bg", cx: 25, cy: 25, r: 23, fill: "none", stroke: "rgba(240,137,42,0.2)", strokeWidth: 2.5 }),
-    h2("circle", { key: "fg", cx: 25, cy: 25, r: 23, fill: "none", stroke: "#f0892a", strokeWidth: 2.5, strokeLinecap: "round", strokeDasharray: circ.toFixed(1), strokeDashoffset: (circ * (1 - pct / 100)).toFixed(1), style: { transition: "stroke-dashoffset .12s linear" } })
+  const ring = transferring && h3("svg", { key: "ring", width: 50, height: 50, viewBox: "0 0 50 50", style: { position: "absolute", inset: 0, transform: "rotate(-90deg)" } }, [
+    h3("circle", { key: "bg", cx: 25, cy: 25, r: 23, fill: "none", stroke: "rgba(240,137,42,0.2)", strokeWidth: 2.5 }),
+    h3("circle", { key: "fg", cx: 25, cy: 25, r: 23, fill: "none", stroke: "#f0892a", strokeWidth: 2.5, strokeLinecap: "round", strokeDasharray: circ.toFixed(1), strokeDashoffset: (circ * (1 - pct / 100)).toFixed(1), style: { transition: "stroke-dashoffset .12s linear" } })
   ]);
-  const icon = failed ? h2("i", { className: "fas fa-triangle-exclamation", style: { fontSize: "14px" } }) : transferring ? h2("svg", { width: 15, height: 15, viewBox: "0 0 24 24", fill: "currentColor", style: { opacity: 0.5 } }, h2("path", { d: "M8 5.2v13.6l11-6.8z" })) : playing ? h2("svg", { width: 16, height: 16, viewBox: "0 0 24 24", fill: "currentColor" }, [h2("rect", { key: "a", x: 6, y: 5, width: 4, height: 14, rx: 1.2 }), h2("rect", { key: "b", x: 14, y: 5, width: 4, height: 14, rx: 1.2 })]) : h2("svg", { width: 16, height: 16, viewBox: "0 0 24 24", fill: "currentColor" }, h2("path", { d: "M8 5.2v13.6l11-6.8z" }));
+  const icon = failed ? h3("i", { className: "fas fa-triangle-exclamation", style: { fontSize: "14px" } }) : transferring ? h3("svg", { width: 15, height: 15, viewBox: "0 0 24 24", fill: "currentColor", style: { opacity: 0.5 } }, h3("path", { d: "M8 5.2v13.6l11-6.8z" })) : playing ? h3("svg", { width: 16, height: 16, viewBox: "0 0 24 24", fill: "currentColor" }, [h3("rect", { key: "a", x: 6, y: 5, width: 4, height: 14, rx: 1.2 }), h3("rect", { key: "b", x: 14, y: 5, width: 4, height: 14, rx: 1.2 })]) : h3("svg", { width: 16, height: 16, viewBox: "0 0 24 24", fill: "currentColor" }, h3("path", { d: "M8 5.2v13.6l11-6.8z" }));
   const label2 = failed ? t("msg.failed") : transferring ? dir === "up" ? t("chat.uploading") : t("chat.downloading") : t("msg.voice");
   const timeText = transferring ? pct + "%" : sbFmtClock(playing || progress > 0 ? elapsed : dur);
-  return h2("div", { style: { display: "flex", alignItems: "center", gap: "13px", padding: "13px 15px 12px" } }, [
-    h2("div", { key: "pw", style: { position: "relative", flex: "none", width: "50px", height: "50px", display: "grid", placeItems: "center" } }, [
+  return h3("div", { style: { display: "flex", alignItems: "center", gap: "13px", padding: "13px 15px 12px" } }, [
+    h3("div", { key: "pw", style: { position: "relative", flex: "none", width: "50px", height: "50px", display: "grid", placeItems: "center" } }, [
       ring,
-      h2("button", {
+      h3("button", {
         key: "pb",
         onClick: toggle,
         title: transferring ? t("chat.transferring") : playing ? t("msg.pause") : t("msg.play"),
         style: { width: "42px", height: "42px", borderRadius: "50%", display: "grid", placeItems: "center", border: "none", background: failed ? "rgba(229,114,122,0.15)" : playBg, color: failed ? "#e5727a" : playColor, cursor: transferring || failed || !src ? "default" : "pointer", transition: "transform .15s cubic-bezier(.2,.7,.3,1)" }
       }, icon)
     ]),
-    h2("div", { key: "body", style: { flex: 1, minWidth: 0 } }, [
-      h2("div", { key: "wave", onClick: seek, style: { display: "flex", alignItems: "center", gap: "2px", height: "30px", cursor: transferring || failed || !src ? "default" : "pointer" } }, barEls),
-      h2("div", { key: "meta", style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "6px" } }, [
-        h2("span", { key: "t", style: { fontFamily: SB_MONO, fontSize: "10.5px", fontWeight: 500, color: transferring ? "#f0b072" : "#9a9aa2" } }, timeText),
-        h2("span", { key: "l", style: { fontFamily: SB_MONO, fontSize: "9.5px", fontWeight: 600, color: failed ? "#e5727a" : transferring ? "#f0892a" : "#56565e", textTransform: "uppercase", letterSpacing: "0.8px" } }, label2)
+    h3("div", { key: "body", style: { flex: 1, minWidth: 0 } }, [
+      h3("div", { key: "wave", onClick: seek, style: { display: "flex", alignItems: "center", gap: "2px", height: "30px", cursor: transferring || failed || !src ? "default" : "pointer" } }, barEls),
+      h3("div", { key: "meta", style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "6px" } }, [
+        h3("span", { key: "t", style: { fontFamily: SB_MONO, fontSize: "10.5px", fontWeight: 500, color: transferring ? "#f0b072" : "#9a9aa2" } }, timeText),
+        h3("span", { key: "l", style: { fontFamily: SB_MONO, fontSize: "9.5px", fontWeight: 600, color: failed ? "#e5727a" : transferring ? "#f0892a" : "#56565e", textTransform: "uppercase", letterSpacing: "0.8px" } }, label2)
       ])
     ])
   ]);
 };
 var VoiceRecorder = ({ onSend, onCancel }) => {
-  const h2 = React.createElement;
+  const h3 = React.createElement;
   const MAX_SECONDS = 300;
   const NBARS = 40;
   const [elapsed, setElapsed] = React.useState(0);
@@ -14229,41 +16448,41 @@ var VoiceRecorder = ({ onSend, onCancel }) => {
     };
   }, []);
   if (micError) {
-    return h2("div", { style: { display: "flex", alignItems: "center", gap: "12px" } }, [
-      h2("div", { key: "msg", style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "9px", height: "46px", padding: "0 16px", borderRadius: "13px", background: "rgba(229,72,72,0.06)", border: "1px solid rgba(229,72,72,0.22)", color: "#e5727a", fontSize: "13.5px" } }, [
-        h2("i", { key: "i", className: "fas fa-microphone-slash", style: { fontSize: "14px" } }),
+    return h3("div", { style: { display: "flex", alignItems: "center", gap: "12px" } }, [
+      h3("div", { key: "msg", style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "9px", height: "46px", padding: "0 16px", borderRadius: "13px", background: "rgba(229,72,72,0.06)", border: "1px solid rgba(229,72,72,0.22)", color: "#e5727a", fontSize: "13.5px" } }, [
+        h3("i", { key: "i", className: "fas fa-microphone-slash", style: { fontSize: "14px" } }),
         t("err.noAudio")
       ]),
-      h2(
+      h3(
         "button",
         { key: "x", onClick: onCancel, title: t("chatHdr.close"), style: { flex: "none", width: "46px", height: "46px", borderRadius: "50%", display: "grid", placeItems: "center", border: "none", background: "rgba(255,255,255,0.05)", color: "#9a9aa2", cursor: "pointer" } },
-        h2("i", { className: "fas fa-xmark", style: { fontSize: "16px" } })
+        h3("i", { className: "fas fa-xmark", style: { fontSize: "16px" } })
       )
     ]);
   }
-  const barEls = liveBars.map((hgt, i) => h2("span", { key: i, style: { flex: "none", width: "3px", height: Math.round(4 + hgt * 24) + "px", borderRadius: "2px", background: "#e5727a", opacity: 0.45 + hgt * 0.55 } }));
-  return h2("div", { style: { display: "flex", alignItems: "center", gap: "12px" } }, [
-    h2("button", {
+  const barEls = liveBars.map((hgt, i) => h3("span", { key: i, style: { flex: "none", width: "3px", height: Math.round(4 + hgt * 24) + "px", borderRadius: "2px", background: "#e5727a", opacity: 0.45 + hgt * 0.55 } }));
+  return h3("div", { style: { display: "flex", alignItems: "center", gap: "12px" } }, [
+    h3("button", {
       key: "cancel",
       onClick: () => finish(false),
       title: t("chat.discard"),
       style: { flex: "none", width: "42px", height: "42px", borderRadius: "12px", display: "grid", placeItems: "center", border: "none", background: "rgba(255,255,255,0.04)", color: "#9a9aa2", cursor: "pointer" }
-    }, h2("i", { className: "fas fa-trash-can", style: { fontSize: "15px" } })),
-    h2("div", { key: "bar", style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "11px", height: "46px", padding: "0 16px", borderRadius: "13px", background: "rgba(229,72,72,0.06)", border: "1px solid rgba(229,72,72,0.22)" } }, [
-      h2(
+    }, h3("i", { className: "fas fa-trash-can", style: { fontSize: "15px" } })),
+    h3("div", { key: "bar", style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "11px", height: "46px", padding: "0 16px", borderRadius: "13px", background: "rgba(229,72,72,0.06)", border: "1px solid rgba(229,72,72,0.22)" } }, [
+      h3(
         "span",
         { key: "dot", style: { position: "relative", flex: "none", width: "9px", height: "9px" } },
-        h2("span", { style: { position: "absolute", inset: 0, borderRadius: "50%", background: "#e5727a", animation: "vmRec 1.3s ease-in-out infinite" } })
+        h3("span", { style: { position: "absolute", inset: 0, borderRadius: "50%", background: "#e5727a", animation: "vmRec 1.3s ease-in-out infinite" } })
       ),
-      h2("span", { key: "time", style: { flex: "none", fontFamily: SB_MONO, fontSize: "13px", fontWeight: 600, color: "#f4f4f6", minWidth: "42px" } }, sbFmtClock(elapsed)),
-      h2("div", { key: "wave", style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "2px", height: "30px", overflow: "hidden" } }, barEls)
+      h3("span", { key: "time", style: { flex: "none", fontFamily: SB_MONO, fontSize: "13px", fontWeight: 600, color: "#f4f4f6", minWidth: "42px" } }, sbFmtClock(elapsed)),
+      h3("div", { key: "wave", style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "2px", height: "30px", overflow: "hidden" } }, barEls)
     ]),
-    h2("button", {
+    h3("button", {
       key: "send",
       onClick: () => finish(true),
       title: t("chat.sendVoice"),
       style: { flex: "none", width: "46px", height: "46px", borderRadius: "50%", display: "grid", placeItems: "center", border: "none", background: "#f0892a", color: "#1a0f04", cursor: "pointer", boxShadow: "0 8px 22px rgba(240,137,42,0.3)", transition: "transform .15s cubic-bezier(.2,.7,.3,1)" }
-    }, h2("svg", { width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, [h2("path", { key: "a", d: "M22 2L11 13" }), h2("path", { key: "b", d: "M22 2l-7 20-4-9-9-4 20-7z" })]))
+    }, h3("svg", { width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, [h3("path", { key: "a", d: "M22 2L11 13" }), h3("path", { key: "b", d: "M22 2l-7 20-4-9-9-4 20-7z" })]))
   ]);
 };
 var EnhancedChatMessage = ({ message, type, timestamp, mid, status, viewOnce, viewOnceTtl, expiresAt, expired, nowTick, canUnsend, onUnsend, onExpire, voice }) => {
@@ -14289,9 +16508,9 @@ var EnhancedChatMessage = ({ message, type, timestamp, mid, status, viewOnce, vi
   const remaining = typeof expiresAt === "number" ? Math.max(0, Math.ceil((expiresAt - (nowTick || Date.now())) / 1e3)) : null;
   const fmtRemaining = (sec) => {
     if (sec == null) return "";
-    const h2 = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+    const h3 = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
     const pad = (n) => String(n).padStart(2, "0");
-    return h2 > 0 ? h2 + ":" + pad(m) + ":" + pad(s) : m + ":" + pad(s);
+    return h3 > 0 ? h3 + ":" + pad(m) + ":" + pad(s) : m + ":" + pad(s);
   };
   const handleReveal = () => {
     if (revealed) return;
@@ -14580,10 +16799,10 @@ var EnhancedConnectionSetup = ({
     } catch (error) {
     }
   };
-  const h2 = React.createElement;
+  const h3 = React.createElement;
   const C_ORANGE = "#f0892a";
   const C_GREEN = "#3ecf8e";
-  const MONO = SB_MONO;
+  const MONO2 = SB_MONO;
   const encode = (data) => {
     try {
       const min = typeof data === "object" ? JSON.stringify(data) : data || "";
@@ -14655,7 +16874,7 @@ var EnhancedConnectionSetup = ({
       if (opts.fontSize) st.fontSize = opts.fontSize;
       if (opts.animation) st.animation = opts.animation;
       if (opts.style) Object.assign(st, opts.style);
-      return h2("i", { key: opts.key, className: `fas ${name}`, style: st });
+      return h3("i", { key: opts.key, className: `fas ${name}`, style: st });
     }
     const size = opts.fontSize ? parseFloat(opts.fontSize) : 16;
     const svgStyle = {};
@@ -14665,7 +16884,7 @@ var EnhancedConnectionSetup = ({
       svgStyle.transformBox = "fill-box";
     }
     if (opts.style) Object.assign(svgStyle, opts.style);
-    return h2("svg", {
+    return h3("svg", {
       key: opts.key,
       className: name,
       width: size,
@@ -14677,9 +16896,9 @@ var EnhancedConnectionSetup = ({
       strokeLinecap: "round",
       strokeLinejoin: "round",
       style: svgStyle
-    }, def.e.map((el, i) => h2(el[0], Object.assign({ key: i }, el[1]))));
+    }, def.e.map((el, i) => h3(el[0], Object.assign({ key: i }, el[1]))));
   };
-  const leftPanel = h2("div", {
+  const leftPanel = h3("div", {
     key: "left",
     className: "sb-start-left",
     style: {
@@ -14699,16 +16918,16 @@ var EnhancedConnectionSetup = ({
       background: "radial-gradient(900px 600px at 25% 18%, rgba(240,137,42,0.07), transparent 62%), radial-gradient(800px 700px at 80% 92%, rgba(62,207,142,0.06), transparent 60%), #0c0c0e"
     }
   }, [
-    h2(
+    h3(
       "div",
       { key: "herowrap", style: { flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", position: "relative", zIndex: 2 } },
-      h2("div", { key: "hero", style: { maxWidth: "560px" } }, [
-        h2("h1", { key: "h1", style: { margin: "0 0 14px", fontSize: "34px", fontWeight: 800, letterSpacing: "-1.1px", lineHeight: 1.1, color: "#f4f4f6" } }, [
+      h3("div", { key: "hero", style: { maxWidth: "560px" } }, [
+        h3("h1", { key: "h1", style: { margin: "0 0 14px", fontSize: "34px", fontWeight: 800, letterSpacing: "-1.1px", lineHeight: 1.1, color: "#f4f4f6" } }, [
           t("hero.headlineTop"),
-          h2("br", { key: "br" }),
+          h3("br", { key: "br" }),
           t("hero.headlineBottom")
         ]),
-        h2(
+        h3(
           "p",
           { key: "p", style: { margin: "0 0 38px", fontSize: "14.5px", lineHeight: 1.6, color: "#8a8a92", maxWidth: "390px" } },
           t("hero.subheading")
@@ -14720,8 +16939,8 @@ var EnhancedConnectionSetup = ({
         // v6.0 actually added. Motion is pure CSS (offset-path along the
         // same geometry the lines are drawn from), so there is no rAF loop
         // burning battery on a landing page and nothing to tear down.
-        h2("div", { key: "channel", style: { display: "flex", alignItems: "center", gap: "32px", flexWrap: "wrap" } }, [
-          h2("svg", {
+        h3("div", { key: "channel", style: { display: "flex", alignItems: "center", gap: "32px", flexWrap: "wrap" } }, [
+          h3("svg", {
             key: "svg",
             viewBox: "0 0 380 200",
             role: "img",
@@ -14731,217 +16950,217 @@ var EnhancedConnectionSetup = ({
             style: { display: "block", width: "100%", maxWidth: "380px", height: "auto", overflow: "visible" }
           }, [
             // the established 1:1 line
-            h2("line", { key: "l0", x1: 30, y1: 100, x2: 330, y2: 100, stroke: C_ORANGE, strokeWidth: 1.5, strokeOpacity: 0.75 }),
-            h2("circle", { key: "p0", r: 3.6, fill: "#f0a455", style: { offsetPath: "path('M30,100 L330,100')", animation: "sbTrav 2.8s linear infinite" } }),
+            h3("line", { key: "l0", x1: 30, y1: 100, x2: 330, y2: 100, stroke: C_ORANGE, strokeWidth: 1.5, strokeOpacity: 0.75 }),
+            h3("circle", { key: "p0", r: 3.6, fill: "#f0a455", style: { offsetPath: "path('M30,100 L330,100')", animation: "sbTrav 2.8s linear infinite" } }),
             // first peer joins
-            h2("g", { key: "g1", style: { animation: "sbIn1 14s linear infinite" } }, [
-              h2("line", { key: "a", x1: 30, y1: 100, x2: 250, y2: 26, stroke: C_ORANGE, strokeWidth: 1.4, strokeOpacity: 0.7 }),
-              h2("line", { key: "b", x1: 250, y1: 26, x2: 330, y2: 100, stroke: C_GREEN, strokeWidth: 1.2, strokeOpacity: 0.3 }),
-              h2("circle", { key: "p", r: 3.2, fill: "#f0a455", style: { offsetPath: "path('M30,100 L250,26')", animation: "sbTrav 3s linear .6s infinite" } }),
-              h2("circle", { key: "n", cx: 250, cy: 26, r: 5, fill: "#0c0c0e", stroke: "#6b6760", strokeWidth: 1.2 }),
-              h2("text", { key: "t", x: 250, y: 8, textAnchor: "middle", fontFamily: MONO, fontSize: 12, fill: "#8f8b84" }, "mara")
+            h3("g", { key: "g1", style: { animation: "sbIn1 14s linear infinite" } }, [
+              h3("line", { key: "a", x1: 30, y1: 100, x2: 250, y2: 26, stroke: C_ORANGE, strokeWidth: 1.4, strokeOpacity: 0.7 }),
+              h3("line", { key: "b", x1: 250, y1: 26, x2: 330, y2: 100, stroke: C_GREEN, strokeWidth: 1.2, strokeOpacity: 0.3 }),
+              h3("circle", { key: "p", r: 3.2, fill: "#f0a455", style: { offsetPath: "path('M30,100 L250,26')", animation: "sbTrav 3s linear .6s infinite" } }),
+              h3("circle", { key: "n", cx: 250, cy: 26, r: 5, fill: "#0c0c0e", stroke: "#6b6760", strokeWidth: 1.2 }),
+              h3("text", { key: "t", x: 250, y: 8, textAnchor: "middle", fontFamily: MONO2, fontSize: 12, fill: "#8f8b84" }, "mara")
             ]),
-            h2("circle", { key: "r1", cx: 250, cy: 26, r: 5, fill: "none", stroke: C_ORANGE, strokeOpacity: 0.6, style: { animation: "sbRing1 14s linear infinite" } }),
+            h3("circle", { key: "r1", cx: 250, cy: 26, r: 5, fill: "none", stroke: C_ORANGE, strokeOpacity: 0.6, style: { animation: "sbRing1 14s linear infinite" } }),
             // second peer joins, and the mesh closes
-            h2("g", { key: "g2", style: { animation: "sbIn2 14s linear infinite" } }, [
-              h2("line", { key: "a", x1: 30, y1: 100, x2: 250, y2: 174, stroke: C_ORANGE, strokeWidth: 1.4, strokeOpacity: 0.7 }),
-              h2("line", { key: "b", x1: 250, y1: 174, x2: 330, y2: 100, stroke: C_GREEN, strokeWidth: 1.2, strokeOpacity: 0.3 }),
-              h2("line", { key: "c", x1: 250, y1: 26, x2: 250, y2: 174, stroke: C_GREEN, strokeWidth: 1.2, strokeOpacity: 0.3 }),
-              h2("circle", { key: "p", r: 3.2, fill: "#f0a455", style: { offsetPath: "path('M30,100 L250,174')", animation: "sbTrav 3s linear .3s infinite" } }),
-              h2("circle", { key: "q", r: 2.8, fill: C_GREEN, style: { offsetPath: "path('M250,26 L250,174')", animation: "sbTrav 3.4s linear 1.2s infinite" } }),
-              h2("circle", { key: "n", cx: 250, cy: 174, r: 5, fill: "#0c0c0e", stroke: "#6b6760", strokeWidth: 1.2 }),
-              h2("text", { key: "t", x: 250, y: 194, textAnchor: "middle", fontFamily: MONO, fontSize: 12, fill: "#8f8b84" }, "tobi")
+            h3("g", { key: "g2", style: { animation: "sbIn2 14s linear infinite" } }, [
+              h3("line", { key: "a", x1: 30, y1: 100, x2: 250, y2: 174, stroke: C_ORANGE, strokeWidth: 1.4, strokeOpacity: 0.7 }),
+              h3("line", { key: "b", x1: 250, y1: 174, x2: 330, y2: 100, stroke: C_GREEN, strokeWidth: 1.2, strokeOpacity: 0.3 }),
+              h3("line", { key: "c", x1: 250, y1: 26, x2: 250, y2: 174, stroke: C_GREEN, strokeWidth: 1.2, strokeOpacity: 0.3 }),
+              h3("circle", { key: "p", r: 3.2, fill: "#f0a455", style: { offsetPath: "path('M30,100 L250,174')", animation: "sbTrav 3s linear .3s infinite" } }),
+              h3("circle", { key: "q", r: 2.8, fill: C_GREEN, style: { offsetPath: "path('M250,26 L250,174')", animation: "sbTrav 3.4s linear 1.2s infinite" } }),
+              h3("circle", { key: "n", cx: 250, cy: 174, r: 5, fill: "#0c0c0e", stroke: "#6b6760", strokeWidth: 1.2 }),
+              h3("text", { key: "t", x: 250, y: 194, textAnchor: "middle", fontFamily: MONO2, fontSize: 12, fill: "#8f8b84" }, "tobi")
             ]),
-            h2("circle", { key: "r2", cx: 250, cy: 174, r: 5, fill: "none", stroke: C_ORANGE, strokeOpacity: 0.6, style: { animation: "sbRing2 14s linear infinite" } }),
+            h3("circle", { key: "r2", cx: 250, cy: 174, r: 5, fill: "none", stroke: C_ORANGE, strokeOpacity: 0.6, style: { animation: "sbRing2 14s linear infinite" } }),
             // the two endpoints of the original line
-            h2("circle", { key: "pe", cx: 330, cy: 100, r: 5, fill: "#0c0c0e", stroke: "#6b6760", strokeWidth: 1.2 }),
-            h2("text", { key: "pt", x: 346, y: 104, fontFamily: MONO, fontSize: 12, fill: "#8f8b84" }, "peer"),
-            h2("circle", { key: "yh", cx: 30, cy: 100, r: 15, fill: C_ORANGE, fillOpacity: 0.09 }),
-            h2("circle", { key: "yc", cx: 30, cy: 100, r: 6, fill: C_ORANGE }),
-            h2("text", { key: "yt", x: 30, y: 126, textAnchor: "middle", fontFamily: MONO, fontSize: 12, fill: "#d8cfc1" }, t("mesh.you"))
+            h3("circle", { key: "pe", cx: 330, cy: 100, r: 5, fill: "#0c0c0e", stroke: "#6b6760", strokeWidth: 1.2 }),
+            h3("text", { key: "pt", x: 346, y: 104, fontFamily: MONO2, fontSize: 12, fill: "#8f8b84" }, "peer"),
+            h3("circle", { key: "yh", cx: 30, cy: 100, r: 15, fill: C_ORANGE, fillOpacity: 0.09 }),
+            h3("circle", { key: "yc", cx: 30, cy: 100, r: 6, fill: C_ORANGE }),
+            h3("text", { key: "yt", x: 30, y: 126, textAnchor: "middle", fontFamily: MONO2, fontSize: 12, fill: "#d8cfc1" }, t("mesh.you"))
           ]),
           // the log, timed to the same 14s loop as the nodes appearing
-          h2("div", { key: "log", style: { display: "flex", flexDirection: "column", gap: "12px", fontFamily: MONO, fontSize: "12px", color: "#85817b" } }, [
-            h2("div", { key: "r0", style: { animation: "sbRow0 14s linear infinite" } }, t("mesh.peer")),
-            h2("div", { key: "r1", style: { animation: "sbRow1 14s linear infinite" } }, t("mesh.joined2")),
-            h2("div", { key: "r2", style: { animation: "sbRow2 14s linear infinite" } }, t("mesh.joined3"))
+          h3("div", { key: "log", style: { display: "flex", flexDirection: "column", gap: "12px", fontFamily: MONO2, fontSize: "12px", color: "#85817b" } }, [
+            h3("div", { key: "r0", style: { animation: "sbRow0 14s linear infinite" } }, t("mesh.peer")),
+            h3("div", { key: "r1", style: { animation: "sbRow1 14s linear infinite" } }, t("mesh.joined2")),
+            h3("div", { key: "r2", style: { animation: "sbRow2 14s linear infinite" } }, t("mesh.joined3"))
           ])
         ])
       ])
     ),
-    h2(
+    h3(
       "div",
       { key: "badges", style: { position: "relative", zIndex: 2, display: "flex", flexWrap: "wrap", gap: "8px" } },
       ["ECDH P-384", "AES-256-GCM", t("sec.pfsShort")].map(
-        (label2) => h2("span", { key: label2, style: { display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 11px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.025)", fontFamily: MONO, fontSize: "11px", fontWeight: 500, color: "#9a9aa2" } }, [
-          h2("span", { key: "dot", style: { width: "5px", height: "5px", borderRadius: "50%", background: C_GREEN } }),
+        (label2) => h3("span", { key: label2, style: { display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 11px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.025)", fontFamily: MONO2, fontSize: "11px", fontWeight: 500, color: "#9a9aa2" } }, [
+          h3("span", { key: "dot", style: { width: "5px", height: "5px", borderRadius: "50%", background: C_GREEN } }),
           label2
         ])
       )
     )
   ]);
-  const segToggle = atIntro && h2("div", { key: "seg", style: { position: "relative", display: "flex", padding: "4px", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.07)", background: "#141416", marginBottom: "26px" } }, [
-    h2("div", { key: "ind", style: { position: "absolute", top: "4px", bottom: "4px", insetInlineStart: "4px", width: "calc(50% - 4px)", borderRadius: "9px", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.08)", transform: isCreate ? "translateX(0%)" : `translateX(${100 * DIR}%)`, transition: "transform .26s cubic-bezier(.3,.8,.3,1)" } }),
-    h2("button", { key: "c", className: "sb-seg-btn", onClick: () => setMode("create"), style: { position: "relative", zIndex: 1, flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "11px", border: "none", background: "transparent", color: isCreate ? "#f4f4f6" : "#7b7b83", fontFamily: "inherit", fontSize: "14px", fontWeight: 700, cursor: "pointer" } }, [fa("fa-plus", { key: "i" }), t("action.create")]),
-    h2("button", { key: "j", className: "sb-seg-btn", onClick: () => setMode("join"), style: { position: "relative", zIndex: 1, flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "11px", border: "none", background: "transparent", color: !isCreate ? "#f4f4f6" : "#7b7b83", fontFamily: "inherit", fontSize: "14px", fontWeight: 700, cursor: "pointer" } }, [fa("fa-link", { key: "i" }), t("action.join")])
+  const segToggle = atIntro && h3("div", { key: "seg", style: { position: "relative", display: "flex", padding: "4px", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.07)", background: "#141416", marginBottom: "26px" } }, [
+    h3("div", { key: "ind", style: { position: "absolute", top: "4px", bottom: "4px", insetInlineStart: "4px", width: "calc(50% - 4px)", borderRadius: "9px", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.08)", transform: isCreate ? "translateX(0%)" : `translateX(${100 * DIR}%)`, transition: "transform .26s cubic-bezier(.3,.8,.3,1)" } }),
+    h3("button", { key: "c", className: "sb-seg-btn", onClick: () => setMode("create"), style: { position: "relative", zIndex: 1, flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "11px", border: "none", background: "transparent", color: isCreate ? "#f4f4f6" : "#7b7b83", fontFamily: "inherit", fontSize: "14px", fontWeight: 700, cursor: "pointer" } }, [fa("fa-plus", { key: "i" }), t("action.create")]),
+    h3("button", { key: "j", className: "sb-seg-btn", onClick: () => setMode("join"), style: { position: "relative", zIndex: 1, flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "11px", border: "none", background: "transparent", color: !isCreate ? "#f4f4f6" : "#7b7b83", fontFamily: "inherit", fontSize: "14px", fontWeight: 700, cursor: "pointer" } }, [fa("fa-link", { key: "i" }), t("action.join")])
   ]);
-  const backButton = (key) => h2("button", { key: key || "back", className: "sb-soft-btn", onClick: resetToSelect, style: { display: "inline-flex", alignItems: "center", gap: "6px", marginBottom: "14px", paddingBlock: "6px", paddingInlineStart: "8px", paddingInlineEnd: "11px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "#9a9aa2", fontFamily: "inherit", fontSize: "12.5px", fontWeight: 600, cursor: "pointer" } }, [fa("fa-chevron-left", { key: "i" }), t("action.back")]);
-  const credBlock = h2("div", { key: "codeblock", style: { borderRadius: "13px", border: "1px solid rgba(255,255,255,0.08)", background: "#141416", overflow: "hidden", marginBottom: "16px" } }, [
-    h2("div", { key: "bar", style: { display: "flex", alignItems: "center", gap: "8px", padding: "9px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.2)" } }, [
-      h2("span", { key: "dot", style: { width: "7px", height: "7px", borderRadius: "50%", background: accent } }),
-      h2("span", { key: "tag", style: { fontFamily: MONO, fontSize: "10.5px", fontWeight: 600, color: "#8a8a92" } }, isCreate ? t("cred.offerTag") : t("cred.answerTag")),
-      h2("button", { key: "copy", onClick: copyCred, style: { marginInlineStart: "auto", padding: "4px 9px", borderRadius: "6px", border: `1px solid ${copied ? "rgba(62,207,142,0.4)" : "rgba(255,255,255,0.1)"}`, background: copied ? "rgba(62,207,142,0.1)" : "rgba(255,255,255,0.04)", color: copied ? C_GREEN : "#b3b3ba", fontFamily: "inherit", fontSize: "11px", fontWeight: 600, cursor: "pointer", transition: "all .14s" } }, copied ? t("action.copied") : t("action.copy"))
+  const backButton = (key) => h3("button", { key: key || "back", className: "sb-soft-btn", onClick: resetToSelect, style: { display: "inline-flex", alignItems: "center", gap: "6px", marginBottom: "14px", paddingBlock: "6px", paddingInlineStart: "8px", paddingInlineEnd: "11px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "#9a9aa2", fontFamily: "inherit", fontSize: "12.5px", fontWeight: 600, cursor: "pointer" } }, [fa("fa-chevron-left", { key: "i" }), t("action.back")]);
+  const credBlock = h3("div", { key: "codeblock", style: { borderRadius: "13px", border: "1px solid rgba(255,255,255,0.08)", background: "#141416", overflow: "hidden", marginBottom: "16px" } }, [
+    h3("div", { key: "bar", style: { display: "flex", alignItems: "center", gap: "8px", padding: "9px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.2)" } }, [
+      h3("span", { key: "dot", style: { width: "7px", height: "7px", borderRadius: "50%", background: accent } }),
+      h3("span", { key: "tag", style: { fontFamily: MONO2, fontSize: "10.5px", fontWeight: 600, color: "#8a8a92" } }, isCreate ? t("cred.offerTag") : t("cred.answerTag")),
+      h3("button", { key: "copy", onClick: copyCred, style: { marginInlineStart: "auto", padding: "4px 9px", borderRadius: "6px", border: `1px solid ${copied ? "rgba(62,207,142,0.4)" : "rgba(255,255,255,0.1)"}`, background: copied ? "rgba(62,207,142,0.1)" : "rgba(255,255,255,0.04)", color: copied ? C_GREEN : "#b3b3ba", fontFamily: "inherit", fontSize: "11px", fontWeight: 600, cursor: "pointer", transition: "all .14s" } }, copied ? t("action.copied") : t("action.copy"))
     ]),
     // The handshake code is sensitive — keep it blurred until the
     // user deliberately reveals it, underscoring that it must be
     // shared only over a channel they trust.
-    h2("div", { key: "codewrap", style: { position: "relative" } }, [
-      h2("div", { key: "code", className: "sb-sc", style: { fontFamily: MONO, fontSize: "11px", lineHeight: 1.55, color: "#c9ccd8", wordBreak: "break-all", padding: "11px 12px", maxHeight: "72px", overflowY: "auto", filter: codeRevealed ? "none" : "blur(6px)", userSelect: codeRevealed ? "text" : "none", transition: "filter .2s" } }, credCode),
-      !codeRevealed && h2("button", { key: "reveal", onClick: () => setCodeRevealed(true), style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", border: "none", background: "rgba(20,20,22,0.25)", color: "#cfcfd4", fontFamily: "inherit", fontSize: "12px", fontWeight: 600, cursor: "pointer" } }, [
+    h3("div", { key: "codewrap", style: { position: "relative" } }, [
+      h3("div", { key: "code", className: "sb-sc", style: { fontFamily: MONO2, fontSize: "11px", lineHeight: 1.55, color: "#c9ccd8", wordBreak: "break-all", padding: "11px 12px", maxHeight: "72px", overflowY: "auto", filter: codeRevealed ? "none" : "blur(6px)", userSelect: codeRevealed ? "text" : "none", transition: "filter .2s" } }, credCode),
+      !codeRevealed && h3("button", { key: "reveal", onClick: () => setCodeRevealed(true), style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", border: "none", background: "rgba(20,20,22,0.25)", color: "#cfcfd4", fontFamily: "inherit", fontSize: "12px", fontWeight: 600, cursor: "pointer" } }, [
         fa("fa-eye", { key: "i", fontSize: "15px" }),
         t("cred.reveal")
       ])
     ])
   ]);
-  const showQrButton = qrCodeUrl && h2("button", { key: "showqr", onClick: () => setQrModalOpen(true), style: { width: "100%", display: "flex", alignItems: "center", gap: "13px", padding: "15px 16px", borderRadius: "14px", border: `1px solid ${isCreate ? "rgba(240,137,42,0.3)" : "rgba(62,207,142,0.3)"}`, background: isCreate ? "rgba(240,137,42,0.06)" : "rgba(62,207,142,0.06)", color: "inherit", fontFamily: "inherit", cursor: "pointer", textAlign: "start", marginBottom: "14px" } }, [
-    h2("span", { key: "ic", style: { flex: "none", width: "42px", height: "42px", borderRadius: "12px", display: "grid", placeItems: "center", background: isCreate ? "rgba(240,137,42,0.12)" : "rgba(62,207,142,0.12)", border: `1px solid ${isCreate ? "rgba(240,137,42,0.28)" : "rgba(62,207,142,0.28)"}` } }, fa("fa-qrcode", { color: accent, fontSize: "18px" })),
-    h2("span", { key: "tx", style: { flex: 1 } }, [
-      h2("span", { key: "t", style: { display: "block", fontSize: "14.5px", fontWeight: 700, color: "#f4f4f6" } }, t("qr.showTitle")),
-      h2("span", { key: "s", style: { display: "block", fontSize: "12.5px", color: "#8a8a92", marginTop: "1px" } }, (qrFramesTotal || 0) > 1 ? t("qr.showSubtitleFrames", { frames: qrFramesTotal }) : t("qr.showSubtitle"))
+  const showQrButton = qrCodeUrl && h3("button", { key: "showqr", onClick: () => setQrModalOpen(true), style: { width: "100%", display: "flex", alignItems: "center", gap: "13px", padding: "15px 16px", borderRadius: "14px", border: `1px solid ${isCreate ? "rgba(240,137,42,0.3)" : "rgba(62,207,142,0.3)"}`, background: isCreate ? "rgba(240,137,42,0.06)" : "rgba(62,207,142,0.06)", color: "inherit", fontFamily: "inherit", cursor: "pointer", textAlign: "start", marginBottom: "14px" } }, [
+    h3("span", { key: "ic", style: { flex: "none", width: "42px", height: "42px", borderRadius: "12px", display: "grid", placeItems: "center", background: isCreate ? "rgba(240,137,42,0.12)" : "rgba(62,207,142,0.12)", border: `1px solid ${isCreate ? "rgba(240,137,42,0.28)" : "rgba(62,207,142,0.28)"}` } }, fa("fa-qrcode", { color: accent, fontSize: "18px" })),
+    h3("span", { key: "tx", style: { flex: 1 } }, [
+      h3("span", { key: "t", style: { display: "block", fontSize: "14.5px", fontWeight: 700, color: "#f4f4f6" } }, t("qr.showTitle")),
+      h3("span", { key: "s", style: { display: "block", fontSize: "12.5px", color: "#8a8a92", marginTop: "1px" } }, (qrFramesTotal || 0) > 1 ? t("qr.showSubtitleFrames", { frames: qrFramesTotal }) : t("qr.showSubtitle"))
     ]),
     fa("fa-chevron-right", { color: "#6b6b73" })
   ]);
   let inner;
   if (showVerification) {
     const verified = bothVerificationsConfirmed;
-    const cells = (verificationCode || "").split("").map((ch, i) => h2("div", { key: i, style: { flex: 1, maxWidth: "46px", aspectRatio: "0.82", display: "grid", placeItems: "center", borderRadius: "10px", border: "1px solid rgba(62,207,142,0.25)", background: "rgba(62,207,142,0.05)", fontFamily: MONO, fontSize: "22px", fontWeight: 700, color: C_GREEN } }, ch));
-    inner = h2("div", { key: "verify", style: { animation: "sbUp .3s ease" } }, [
+    const cells = (verificationCode || "").split("").map((ch, i) => h3("div", { key: i, style: { flex: 1, maxWidth: "46px", aspectRatio: "0.82", display: "grid", placeItems: "center", borderRadius: "10px", border: "1px solid rgba(62,207,142,0.25)", background: "rgba(62,207,142,0.05)", fontFamily: MONO2, fontSize: "22px", fontWeight: 700, color: C_GREEN } }, ch));
+    inner = h3("div", { key: "verify", style: { animation: "sbUp .3s ease" } }, [
       !verified && backButton("vback"),
-      h2("div", { key: "head", style: { display: "flex", alignItems: "center", gap: "11px", marginBottom: "8px" } }, [
-        h2("div", { key: "i", style: { width: "34px", height: "34px", flex: "none", borderRadius: "10px", display: "grid", placeItems: "center", background: "rgba(62,207,142,0.1)", border: "1px solid rgba(62,207,142,0.25)" } }, fa("fa-shield-alt", { color: C_GREEN })),
-        h2("h2", { key: "t", style: { margin: 0, fontSize: "21px", fontWeight: 800, letterSpacing: "-0.4px", color: "#f4f4f6" } }, t("verify.title"))
+      h3("div", { key: "head", style: { display: "flex", alignItems: "center", gap: "11px", marginBottom: "8px" } }, [
+        h3("div", { key: "i", style: { width: "34px", height: "34px", flex: "none", borderRadius: "10px", display: "grid", placeItems: "center", background: "rgba(62,207,142,0.1)", border: "1px solid rgba(62,207,142,0.25)" } }, fa("fa-shield-alt", { color: C_GREEN })),
+        h3("h2", { key: "t", style: { margin: 0, fontSize: "21px", fontWeight: 800, letterSpacing: "-0.4px", color: "#f4f4f6" } }, t("verify.title"))
       ]),
-      h2("p", { key: "sub", style: { margin: "0 0 18px", fontSize: "13.5px", lineHeight: 1.55, color: "#8a8a92" } }, t("verify.desc")),
-      h2("div", { key: "cells", dir: "ltr", style: { display: "flex", gap: "6px", justifyContent: "center", marginBottom: "20px", flexWrap: "wrap" } }, cells),
-      verified ? h2("div", { key: "ok", style: { display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "24px 16px", borderRadius: "16px", border: "1px solid rgba(62,207,142,0.25)", background: "rgba(62,207,142,0.06)", animation: "sbUp .3s ease" } }, [
-        h2("div", { key: "i", style: { width: "54px", height: "54px", borderRadius: "16px", display: "grid", placeItems: "center", background: "rgba(62,207,142,0.14)", border: "1px solid rgba(62,207,142,0.35)", marginBottom: "14px" } }, fa("fa-check", { color: C_GREEN, fontSize: "24px" })),
-        h2("div", { key: "t", style: { fontSize: "18px", fontWeight: 800, color: "#f4f4f6" } }, t("verify.verified")),
-        h2("div", { key: "s", style: { fontSize: "13.5px", color: "#8a8a92", marginTop: "5px" } }, t("verify.bothConfirmed"))
-      ]) : h2("div", { key: "form" }, [
-        h2("div", { key: "lbl", style: { fontSize: "12.5px", fontWeight: 600, color: "#9a9aa2", marginBottom: "8px" } }, t("verify.enterLabel")),
-        h2("input", { key: "in", dir: "ltr", value: sasInput, onChange: (e) => {
-          setSasInput(e.target.value.toUpperCase());
+      h3("p", { key: "sub", style: { margin: "0 0 18px", fontSize: "13.5px", lineHeight: 1.55, color: "#8a8a92" } }, t("verify.desc")),
+      h3("div", { key: "cells", dir: "ltr", style: { display: "flex", gap: "6px", justifyContent: "center", marginBottom: "20px", flexWrap: "wrap" } }, cells),
+      verified ? h3("div", { key: "ok", style: { display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "24px 16px", borderRadius: "16px", border: "1px solid rgba(62,207,142,0.25)", background: "rgba(62,207,142,0.06)", animation: "sbUp .3s ease" } }, [
+        h3("div", { key: "i", style: { width: "54px", height: "54px", borderRadius: "16px", display: "grid", placeItems: "center", background: "rgba(62,207,142,0.14)", border: "1px solid rgba(62,207,142,0.35)", marginBottom: "14px" } }, fa("fa-check", { color: C_GREEN, fontSize: "24px" })),
+        h3("div", { key: "t", style: { fontSize: "18px", fontWeight: 800, color: "#f4f4f6" } }, t("verify.verified")),
+        h3("div", { key: "s", style: { fontSize: "13.5px", color: "#8a8a92", marginTop: "5px" } }, t("verify.bothConfirmed"))
+      ]) : h3("div", { key: "form" }, [
+        h3("div", { key: "lbl", style: { fontSize: "12.5px", fontWeight: 600, color: "#9a9aa2", marginBottom: "8px" } }, t("verify.enterLabel")),
+        h3("input", { key: "in", dir: "ltr", value: sasInput, onChange: (e) => {
+          setSasInput(e.target.value.replace(/\D/g, "").slice(0, SAS_CODE_LENGTH));
           if (sasError) setSasError("");
-        }, disabled: localVerificationConfirmed, autoFocus: true, autoComplete: "off", spellCheck: false, placeholder: verificationCode ? t("verify.placeholder") : t("verify.waiting"), style: { width: "100%", textAlign: "center", letterSpacing: "6px", borderRadius: "12px", border: `1px solid ${sasInput.length ? canConfirm || localVerificationConfirmed ? "rgba(62,207,142,0.5)" : "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.08)"}`, background: "#141416", color: "#f4f4f6", fontFamily: MONO, fontSize: "20px", fontWeight: 700, padding: "14px", outline: "none", textTransform: "uppercase", marginBottom: sasError ? "8px" : "16px" } }),
-        sasError && h2("p", { key: "err", style: { color: "#e5727a", fontSize: "12.5px", margin: "0 0 16px" } }, sasError),
-        h2("div", { key: "status", style: { display: "flex", flexDirection: "column", gap: "8px", marginBottom: "16px" } }, [
-          h2("div", { key: "you", style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 14px", borderRadius: "11px", border: "1px solid rgba(255,255,255,0.06)", background: "#141416" } }, [
-            h2("span", { key: "l", style: { fontSize: "13px", color: "#cfcfd4", fontWeight: 600 } }, t("verify.yours")),
-            h2("span", { key: "v", style: { display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12.5px", fontWeight: 600, color: localVerificationConfirmed ? C_GREEN : "#7b7b83" } }, [fa(localVerificationConfirmed ? "fa-check-circle" : "fa-clock", { key: "i" }), localVerificationConfirmed ? t("verify.confirmed") : t("verify.pending")])
+        }, disabled: localVerificationConfirmed, autoFocus: true, autoComplete: "one-time-code", spellCheck: false, type: "text", inputMode: "numeric", pattern: "[0-9]*", maxLength: SAS_CODE_LENGTH, placeholder: verificationCode ? t("verify.placeholder") : t("verify.waiting"), style: { width: "100%", textAlign: "center", letterSpacing: "6px", borderRadius: "12px", border: `1px solid ${sasInput.length ? canConfirm || localVerificationConfirmed ? "rgba(62,207,142,0.5)" : "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.08)"}`, background: "#141416", color: "#f4f4f6", fontFamily: MONO2, fontSize: "20px", fontWeight: 700, padding: "14px", outline: "none", marginBottom: sasError ? "8px" : "16px" } }),
+        sasError && h3("p", { key: "err", style: { color: "#e5727a", fontSize: "12.5px", margin: "0 0 16px" } }, sasError),
+        h3("div", { key: "status", style: { display: "flex", flexDirection: "column", gap: "8px", marginBottom: "16px" } }, [
+          h3("div", { key: "you", style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 14px", borderRadius: "11px", border: "1px solid rgba(255,255,255,0.06)", background: "#141416" } }, [
+            h3("span", { key: "l", style: { fontSize: "13px", color: "#cfcfd4", fontWeight: 600 } }, t("verify.yours")),
+            h3("span", { key: "v", style: { display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12.5px", fontWeight: 600, color: localVerificationConfirmed ? C_GREEN : "#7b7b83" } }, [fa(localVerificationConfirmed ? "fa-check-circle" : "fa-clock", { key: "i" }), localVerificationConfirmed ? t("verify.confirmed") : t("verify.pending")])
           ]),
-          h2("div", { key: "peer", style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 14px", borderRadius: "11px", border: "1px solid rgba(255,255,255,0.06)", background: "#141416" } }, [
-            h2("span", { key: "l", style: { fontSize: "13px", color: "#cfcfd4", fontWeight: 600 } }, t("verify.peer")),
-            h2("span", { key: "v", style: { display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12.5px", fontWeight: 600, color: remoteVerificationConfirmed ? C_GREEN : "#7b7b83" } }, [fa(remoteVerificationConfirmed ? "fa-check-circle" : "fa-clock", { key: "i" }), remoteVerificationConfirmed ? t("verify.confirmed") : t("verify.pending")])
+          h3("div", { key: "peer", style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 14px", borderRadius: "11px", border: "1px solid rgba(255,255,255,0.06)", background: "#141416" } }, [
+            h3("span", { key: "l", style: { fontSize: "13px", color: "#cfcfd4", fontWeight: 600 } }, t("verify.peer")),
+            h3("span", { key: "v", style: { display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12.5px", fontWeight: 600, color: remoteVerificationConfirmed ? C_GREEN : "#7b7b83" } }, [fa(remoteVerificationConfirmed ? "fa-check-circle" : "fa-clock", { key: "i" }), remoteVerificationConfirmed ? t("verify.confirmed") : t("verify.pending")])
           ])
         ]),
-        h2("div", { key: "btns", style: { display: "flex", gap: "10px" } }, [
-          h2("button", { key: "ok", onClick: handleSasConfirm, disabled: !canConfirm, style: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "14px", borderRadius: "13px", border: "none", background: canConfirm ? C_GREEN : "rgba(255,255,255,0.05)", color: canConfirm ? "#08160e" : "#56565e", fontFamily: "inherit", fontSize: "14.5px", fontWeight: 700, cursor: canConfirm ? "pointer" : "not-allowed", boxShadow: canConfirm ? "0 8px 24px rgba(62,207,142,0.25)" : "none" } }, [fa(localVerificationConfirmed ? "fa-check-circle" : "fa-check", { key: "i" }), localVerificationConfirmed ? t("verify.confirmed") : t("verify.confirm")]),
-          h2("button", { key: "no", onClick: handleVerificationReject, style: { flex: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: "7px", padding: "14px 16px", borderRadius: "13px", border: "1px solid rgba(229,114,122,0.3)", background: "transparent", color: "#e5727a", fontFamily: "inherit", fontSize: "13.5px", fontWeight: 600, cursor: "pointer" } }, [fa("fa-times", { key: "i" }), t("verify.mismatch")])
+        h3("div", { key: "btns", style: { display: "flex", gap: "10px" } }, [
+          h3("button", { key: "ok", onClick: handleSasConfirm, disabled: !canConfirm, style: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "14px", borderRadius: "13px", border: "none", background: canConfirm ? C_GREEN : "rgba(255,255,255,0.05)", color: canConfirm ? "#08160e" : "#56565e", fontFamily: "inherit", fontSize: "14.5px", fontWeight: 700, cursor: canConfirm ? "pointer" : "not-allowed", boxShadow: canConfirm ? "0 8px 24px rgba(62,207,142,0.25)" : "none" } }, [fa(localVerificationConfirmed ? "fa-check-circle" : "fa-check", { key: "i" }), localVerificationConfirmed ? t("verify.confirmed") : t("verify.confirm")]),
+          h3("button", { key: "no", onClick: handleVerificationReject, style: { flex: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: "7px", padding: "14px 16px", borderRadius: "13px", border: "1px solid rgba(229,114,122,0.3)", background: "transparent", color: "#e5727a", fontFamily: "inherit", fontSize: "13.5px", fontWeight: 600, cursor: "pointer" } }, [fa("fa-times", { key: "i" }), t("verify.mismatch")])
         ])
       ])
     ]);
   } else if (isGenerating) {
     const genSteps = [t("handshake.step1"), t("handshake.step2"), t("handshake.step3")];
-    inner = h2("div", { key: "gen", style: { animation: "sbUp .28s ease" } }, [
-      h2("div", { key: "head", style: { display: "flex", alignItems: "center", gap: "13px", marginBottom: "22px" } }, [
-        h2("div", { key: "sp", style: { width: "44px", height: "44px", flex: "none", display: "grid", placeItems: "center" } }, fa("fa-circle-notch", { color: C_ORANGE, fontSize: "32px", animation: "sbSpin 1s linear infinite" })),
-        h2("div", { key: "tx" }, [
-          h2("h2", { key: "t", style: { margin: 0, fontSize: "20px", fontWeight: 800, letterSpacing: "-0.4px", color: "#f4f4f6" } }, isCreate ? t("handshake.securingTitle") : t("handshake.answerTitle")),
-          h2("p", { key: "s", style: { margin: "3px 0 0", fontSize: "13px", color: "#8a8a92" } }, t("handshake.securingDesc"))
+    inner = h3("div", { key: "gen", style: { animation: "sbUp .28s ease" } }, [
+      h3("div", { key: "head", style: { display: "flex", alignItems: "center", gap: "13px", marginBottom: "22px" } }, [
+        h3("div", { key: "sp", style: { width: "44px", height: "44px", flex: "none", display: "grid", placeItems: "center" } }, fa("fa-circle-notch", { color: C_ORANGE, fontSize: "32px", animation: "sbSpin 1s linear infinite" })),
+        h3("div", { key: "tx" }, [
+          h3("h2", { key: "t", style: { margin: 0, fontSize: "20px", fontWeight: 800, letterSpacing: "-0.4px", color: "#f4f4f6" } }, isCreate ? t("handshake.securingTitle") : t("handshake.answerTitle")),
+          h3("p", { key: "s", style: { margin: "3px 0 0", fontSize: "13px", color: "#8a8a92" } }, t("handshake.securingDesc"))
         ])
       ]),
-      h2(
+      h3(
         "div",
         { key: "steps", style: { display: "flex", flexDirection: "column", borderRadius: "13px", border: "1px solid rgba(255,255,255,0.07)", background: "#141416", overflow: "hidden" } },
         genSteps.map((label2, i) => {
           const done = genProgress > i;
           const active = genProgress === i;
-          return h2("div", { key: i, style: { display: "flex", alignItems: "center", gap: "12px", padding: "13px 15px", borderTop: i ? "1px solid rgba(255,255,255,0.05)" : "none", transition: "background .3s", background: done ? "rgba(62,207,142,0.04)" : "transparent" } }, [
-            h2(
+          return h3("div", { key: i, style: { display: "flex", alignItems: "center", gap: "12px", padding: "13px 15px", borderTop: i ? "1px solid rgba(255,255,255,0.05)" : "none", transition: "background .3s", background: done ? "rgba(62,207,142,0.04)" : "transparent" } }, [
+            h3(
               "div",
               { key: "d", style: { flex: "none", width: "20px", height: "20px", borderRadius: "50%", display: "grid", placeItems: "center", background: done ? "rgba(62,207,142,0.12)" : active ? "rgba(240,137,42,0.12)" : "rgba(255,255,255,0.04)", border: `1px solid ${done ? "rgba(62,207,142,0.3)" : active ? "rgba(240,137,42,0.3)" : "rgba(255,255,255,0.1)"}`, transition: "all .3s" } },
-              done ? fa("fa-check", { color: C_GREEN, fontSize: "11px" }) : h2("span", { style: { width: "6px", height: "6px", borderRadius: "50%", background: active ? C_ORANGE : "#56565e", animation: active ? "sbBlink 1s ease-in-out infinite" : "none" } })
+              done ? fa("fa-check", { color: C_GREEN, fontSize: "11px" }) : h3("span", { style: { width: "6px", height: "6px", borderRadius: "50%", background: active ? C_ORANGE : "#56565e", animation: active ? "sbBlink 1s ease-in-out infinite" : "none" } })
             ),
-            h2("span", { key: "l", style: { fontSize: "13.5px", color: done ? "#cfcfd4" : active ? "#e8e8eb" : "#6b6b73", transition: "color .3s" } }, label2)
+            h3("span", { key: "l", style: { fontSize: "13.5px", color: done ? "#cfcfd4" : active ? "#e8e8eb" : "#6b6b73", transition: "color .3s" } }, label2)
           ]);
         })
       )
     ]);
   } else if (isOfferCred || isAnswerCred) {
-    inner = h2("div", { key: "cred", style: { animation: "sbUp .3s ease" } }, [
+    inner = h3("div", { key: "cred", style: { animation: "sbUp .3s ease" } }, [
       backButton("cback"),
-      h2("h2", { key: "h", style: { margin: "0 0 6px", fontSize: "23px", fontWeight: 800, letterSpacing: "-0.5px", color: "#f4f4f6" } }, isCreate ? t("handshake.shareTitle") : t("handshake.sendAnswerTitle")),
-      h2("p", { key: "p", style: { margin: "0 0 18px", fontSize: "14px", lineHeight: 1.55, color: "#8a8a92" } }, isCreate ? t("handshake.shareDesc") : t("handshake.sendAnswerDesc")),
+      h3("h2", { key: "h", style: { margin: "0 0 6px", fontSize: "23px", fontWeight: 800, letterSpacing: "-0.5px", color: "#f4f4f6" } }, isCreate ? t("handshake.shareTitle") : t("handshake.sendAnswerTitle")),
+      h3("p", { key: "p", style: { margin: "0 0 18px", fontSize: "14px", lineHeight: 1.55, color: "#8a8a92" } }, isCreate ? t("handshake.shareDesc") : t("handshake.sendAnswerDesc")),
       showQrButton,
       credBlock,
-      isOfferCred && h2("div", { key: "offerextra", style: { marginTop: "4px" } }, [
-        h2("div", { key: "lbl", style: { fontSize: "12.5px", fontWeight: 600, color: "#9a9aa2", marginBottom: "8px" } }, t("handshake.thenReceive")),
-        h2(
+      isOfferCred && h3("div", { key: "offerextra", style: { marginTop: "4px" } }, [
+        h3("div", { key: "lbl", style: { fontSize: "12.5px", fontWeight: 600, color: "#9a9aa2", marginBottom: "8px" } }, t("handshake.thenReceive")),
+        h3(
           "div",
           { key: "ta", style: { borderRadius: "12px", border: `1px solid ${hasAnswer ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.07)"}`, background: "#141416", padding: "11px 14px", marginBottom: "10px" } },
-          h2("textarea", { dir: "ltr", value: answerInput, onChange: (e) => {
+          h3("textarea", { dir: "ltr", value: answerInput, onChange: (e) => {
             setAnswerInput(e.target.value);
             if (e.target.value.trim().length > 0 && typeof markAnswerCreated === "function") markAnswerCreated();
-          }, rows: 2, placeholder: t("handshake.pasteAnswerPlaceholder"), style: { width: "100%", resize: "none", border: "none", outline: "none", background: "transparent", color: "#d7d7db", fontFamily: MONO, fontSize: "12px", lineHeight: 1.55, minHeight: "44px" } })
+          }, rows: 2, placeholder: t("handshake.pasteAnswerPlaceholder"), style: { width: "100%", resize: "none", border: "none", outline: "none", background: "transparent", color: "#d7d7db", fontFamily: MONO2, fontSize: "12px", lineHeight: 1.55, minHeight: "44px" } })
         ),
-        h2("div", { key: "btns", style: { display: "flex", gap: "10px" } }, [
-          h2("button", { key: "scan", className: "sb-scan-btn", onClick: () => setShowQRScannerModal(true), style: { flex: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "14px 16px", borderRadius: "13px", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "#cfcfd4", fontFamily: "inherit", fontSize: "14px", fontWeight: 700, cursor: "pointer" } }, [fa("fa-camera", { key: "i" }), t("action.scan")]),
-          h2("button", { key: "est", onClick: onConnect, disabled: !hasAnswer, style: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "9px", padding: "14px", borderRadius: "13px", border: "none", background: hasAnswer ? C_ORANGE : "rgba(255,255,255,0.05)", color: hasAnswer ? "#1a0f04" : "#56565e", fontFamily: "inherit", fontSize: "14.5px", fontWeight: 700, cursor: hasAnswer ? "pointer" : "not-allowed", boxShadow: hasAnswer ? "0 8px 24px rgba(240,137,42,0.28)" : "none" } }, t("handshake.establish"))
+        h3("div", { key: "btns", style: { display: "flex", gap: "10px" } }, [
+          h3("button", { key: "scan", className: "sb-scan-btn", onClick: () => setShowQRScannerModal(true), style: { flex: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "14px 16px", borderRadius: "13px", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "#cfcfd4", fontFamily: "inherit", fontSize: "14px", fontWeight: 700, cursor: "pointer" } }, [fa("fa-camera", { key: "i" }), t("action.scan")]),
+          h3("button", { key: "est", onClick: onConnect, disabled: !hasAnswer, style: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "9px", padding: "14px", borderRadius: "13px", border: "none", background: hasAnswer ? C_ORANGE : "rgba(255,255,255,0.05)", color: hasAnswer ? "#1a0f04" : "#56565e", fontFamily: "inherit", fontSize: "14.5px", fontWeight: 700, cursor: hasAnswer ? "pointer" : "not-allowed", boxShadow: hasAnswer ? "0 8px 24px rgba(240,137,42,0.28)" : "none" } }, t("handshake.establish"))
         ])
       ]),
-      isAnswerCred && h2("div", { key: "answerextra", style: { marginTop: "4px", display: "flex", alignItems: "center", gap: "10px", padding: "12px 14px", borderRadius: "12px", border: "1px solid rgba(62,207,142,0.18)", background: "rgba(62,207,142,0.05)" } }, [
+      isAnswerCred && h3("div", { key: "answerextra", style: { marginTop: "4px", display: "flex", alignItems: "center", gap: "10px", padding: "12px 14px", borderRadius: "12px", border: "1px solid rgba(62,207,142,0.18)", background: "rgba(62,207,142,0.05)" } }, [
         fa("fa-circle-notch", { key: "i", color: C_GREEN, animation: "sbSpin 1.4s linear infinite" }),
-        h2("span", { key: "t", style: { fontSize: "13px", color: "#cfcfd4", fontWeight: 500 } }, t("handshake.answerSentNote"))
+        h3("span", { key: "t", style: { fontSize: "13px", color: "#cfcfd4", fontWeight: 500 } }, t("handshake.answerSentNote"))
       ])
     ]);
   } else if (isCreate) {
-    inner = h2("div", { key: "introC", style: { animation: "sbUp .28s ease" } }, [
-      h2("h2", { key: "h", style: { margin: "0 0 6px", fontSize: "23px", fontWeight: 800, letterSpacing: "-0.5px", color: "#f4f4f6" } }, t("intro.createTitle")),
-      h2("p", { key: "p", style: { margin: "0 0 22px", fontSize: "14px", lineHeight: 1.55, color: "#8a8a92" } }, t("intro.createDesc")),
-      h2("button", { key: "gen", className: "sb-gen-btn", onClick: () => {
+    inner = h3("div", { key: "introC", style: { animation: "sbUp .28s ease" } }, [
+      h3("h2", { key: "h", style: { margin: "0 0 6px", fontSize: "23px", fontWeight: 800, letterSpacing: "-0.5px", color: "#f4f4f6" } }, t("intro.createTitle")),
+      h3("p", { key: "p", style: { margin: "0 0 22px", fontSize: "14px", lineHeight: 1.55, color: "#8a8a92" } }, t("intro.createDesc")),
+      h3("button", { key: "gen", className: "sb-gen-btn", onClick: () => {
         requestNotificationPermissionOnInteraction();
         if (webrtcManagerRef.current) handleCreateOffer();
       }, style: { width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "9px", padding: "15px", borderRadius: "13px", border: "none", background: C_ORANGE, color: "#1a0f04", fontFamily: "inherit", fontSize: "15px", fontWeight: 700, cursor: "pointer", boxShadow: "0 8px 24px rgba(240,137,42,0.28)" } }, [fa("fa-bolt", { key: "i" }), t("intro.createCta")])
     ]);
   } else {
-    inner = h2("div", { key: "introJ", style: { animation: "sbUp .28s ease" } }, [
-      h2("h2", { key: "h", style: { margin: "0 0 6px", fontSize: "23px", fontWeight: 800, letterSpacing: "-0.5px", color: "#f4f4f6" } }, t("intro.joinTitle")),
-      h2("p", { key: "p", style: { margin: "0 0 16px", fontSize: "14px", lineHeight: 1.55, color: "#8a8a92" } }, "Scan your peer's QR with your camera, or paste their invitation code."),
-      h2("button", { key: "scan", className: "sb-scan-btn", onClick: () => {
+    inner = h3("div", { key: "introJ", style: { animation: "sbUp .28s ease" } }, [
+      h3("h2", { key: "h", style: { margin: "0 0 6px", fontSize: "23px", fontWeight: 800, letterSpacing: "-0.5px", color: "#f4f4f6" } }, t("intro.joinTitle")),
+      h3("p", { key: "p", style: { margin: "0 0 16px", fontSize: "14px", lineHeight: 1.55, color: "#8a8a92" } }, "Scan your peer's QR with your camera, or paste their invitation code."),
+      h3("button", { key: "scan", className: "sb-scan-btn", onClick: () => {
         requestNotificationPermissionOnInteraction();
         setShowQRScannerModal(true);
       }, style: { width: "100%", display: "flex", alignItems: "center", gap: "13px", padding: "15px 16px", borderRadius: "14px", border: "1px solid rgba(62,207,142,0.3)", background: "rgba(62,207,142,0.06)", color: "inherit", fontFamily: "inherit", cursor: "pointer", textAlign: "start", marginBottom: "14px" } }, [
-        h2("span", { key: "ic", style: { flex: "none", width: "42px", height: "42px", borderRadius: "12px", display: "grid", placeItems: "center", background: "rgba(62,207,142,0.12)", border: "1px solid rgba(62,207,142,0.28)" } }, fa("fa-camera", { color: C_GREEN, fontSize: "18px" })),
-        h2("span", { key: "tx", style: { flex: 1 } }, [
-          h2("span", { key: "t", style: { display: "block", fontSize: "14.5px", fontWeight: 700, color: "#f4f4f6" } }, t("intro.scanTitle")),
-          h2("span", { key: "s", style: { display: "block", fontSize: "12.5px", color: "#8a8a92", marginTop: "1px" } }, t("intro.scanSubtitle"))
+        h3("span", { key: "ic", style: { flex: "none", width: "42px", height: "42px", borderRadius: "12px", display: "grid", placeItems: "center", background: "rgba(62,207,142,0.12)", border: "1px solid rgba(62,207,142,0.28)" } }, fa("fa-camera", { color: C_GREEN, fontSize: "18px" })),
+        h3("span", { key: "tx", style: { flex: 1 } }, [
+          h3("span", { key: "t", style: { display: "block", fontSize: "14.5px", fontWeight: 700, color: "#f4f4f6" } }, t("intro.scanTitle")),
+          h3("span", { key: "s", style: { display: "block", fontSize: "12.5px", color: "#8a8a92", marginTop: "1px" } }, t("intro.scanSubtitle"))
         ]),
         fa("fa-chevron-right", { color: "#6b6b73" })
       ]),
-      h2("div", { key: "or", style: { display: "flex", alignItems: "center", gap: "12px", marginBottom: "14px" } }, [
-        h2("span", { key: "a", style: { flex: 1, height: "1px", background: "rgba(255,255,255,0.07)" } }),
-        h2("span", { key: "m", style: { fontSize: "11px", fontWeight: 600, color: "#56565e", textTransform: "uppercase", letterSpacing: "0.7px" } }, t("intro.orPasteCode")),
-        h2("span", { key: "b", style: { flex: 1, height: "1px", background: "rgba(255,255,255,0.07)" } })
+      h3("div", { key: "or", style: { display: "flex", alignItems: "center", gap: "12px", marginBottom: "14px" } }, [
+        h3("span", { key: "a", style: { flex: 1, height: "1px", background: "rgba(255,255,255,0.07)" } }),
+        h3("span", { key: "m", style: { fontSize: "11px", fontWeight: 600, color: "#56565e", textTransform: "uppercase", letterSpacing: "0.7px" } }, t("intro.orPasteCode")),
+        h3("span", { key: "b", style: { flex: 1, height: "1px", background: "rgba(255,255,255,0.07)" } })
       ]),
-      h2(
+      h3(
         "div",
         { key: "ta", style: { borderRadius: "13px", border: `1px solid ${hasInvite ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.07)"}`, background: "#141416", padding: "13px 15px", marginBottom: "12px" } },
-        h2("textarea", { dir: "ltr", value: offerInput, onChange: (e) => {
+        h3("textarea", { dir: "ltr", value: offerInput, onChange: (e) => {
           setOfferInput(e.target.value);
           if (e.target.value.trim().length > 0 && typeof markAnswerCreated === "function") markAnswerCreated();
-        }, rows: 3, placeholder: t("intro.pastePlaceholder"), style: { width: "100%", resize: "none", border: "none", outline: "none", background: "transparent", color: "#d7d7db", fontFamily: MONO, fontSize: "12.5px", lineHeight: 1.6, minHeight: "66px" } })
+        }, rows: 3, placeholder: t("intro.pastePlaceholder"), style: { width: "100%", resize: "none", border: "none", outline: "none", background: "transparent", color: "#d7d7db", fontFamily: MONO2, fontSize: "12.5px", lineHeight: 1.6, minHeight: "66px" } })
       ),
-      h2("button", { key: "connect", onClick: () => {
+      h3("button", { key: "connect", onClick: () => {
         requestNotificationPermissionOnInteraction();
         onCreateAnswer();
       }, disabled: !hasInvite || connectionStatus === "connecting", style: { width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "9px", padding: "14px", borderRadius: "13px", border: "none", background: hasInvite && connectionStatus !== "connecting" ? C_ORANGE : "rgba(255,255,255,0.05)", color: hasInvite && connectionStatus !== "connecting" ? "#1a0f04" : "#56565e", fontFamily: "inherit", fontSize: "15px", fontWeight: 700, cursor: hasInvite && connectionStatus !== "connecting" ? "pointer" : "not-allowed", boxShadow: hasInvite && connectionStatus !== "connecting" ? "0 8px 24px rgba(240,137,42,0.28)" : "none" } }, connectionStatus === "connecting" ? t("intro.connecting") : t("intro.connect"))
@@ -14969,53 +17188,53 @@ var EnhancedConnectionSetup = ({
     } catch (e) {
     }
   };
-  const platformsMenu = platformsOpen && h2("div", { key: "platmenu", className: "sb-platforms-menu", style: { position: "absolute", insetInlineStart: 0, bottom: "calc(100% + 10px)", width: "344px", maxWidth: "100%", borderRadius: "16px", border: "1px solid rgba(255,255,255,0.1)", background: "#161618", boxShadow: "0 24px 60px rgba(0,0,0,0.55)", overflow: "hidden", zIndex: 25, animation: "sbUp .2s ease" } }, [
-    h2("div", { key: "mh", style: { display: "flex", alignItems: "center", gap: "10px", padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" } }, [
-      h2("div", { key: "t", style: { flex: 1, lineHeight: 1.2 } }, [
-        h2("div", { key: "a", style: { fontSize: "14px", fontWeight: 800, color: "#f4f4f6" } }, t("dl.title")),
-        h2("div", { key: "b", style: { fontSize: "11.5px", color: "#7b7b83" } }, t("dl.free"))
+  const platformsMenu = platformsOpen && h3("div", { key: "platmenu", className: "sb-platforms-menu", style: { position: "absolute", insetInlineStart: 0, bottom: "calc(100% + 10px)", width: "344px", maxWidth: "100%", borderRadius: "16px", border: "1px solid rgba(255,255,255,0.1)", background: "#161618", boxShadow: "0 24px 60px rgba(0,0,0,0.55)", overflow: "hidden", zIndex: 25, animation: "sbUp .2s ease" } }, [
+    h3("div", { key: "mh", style: { display: "flex", alignItems: "center", gap: "10px", padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" } }, [
+      h3("div", { key: "t", style: { flex: 1, lineHeight: 1.2 } }, [
+        h3("div", { key: "a", style: { fontSize: "14px", fontWeight: 800, color: "#f4f4f6" } }, t("dl.title")),
+        h3("div", { key: "b", style: { fontSize: "11.5px", color: "#7b7b83" } }, t("dl.free"))
       ]),
-      h2("span", { key: "pill", style: { fontFamily: MONO, fontSize: "10px", fontWeight: 600, color: C_GREEN, padding: "3px 8px", borderRadius: "6px", background: "rgba(62,207,142,0.1)", border: "1px solid rgba(62,207,142,0.22)" } }, t("chat.onWeb"))
+      h3("span", { key: "pill", style: { fontFamily: MONO2, fontSize: "10px", fontWeight: 600, color: C_GREEN, padding: "3px 8px", borderRadius: "6px", background: "rgba(62,207,142,0.1)", border: "1px solid rgba(62,207,142,0.22)" } }, t("chat.onWeb"))
     ]),
-    h2(
+    h3(
       "div",
       { key: "rec", style: { padding: "12px 12px 6px" } },
-      h2("button", { key: "b", onClick: () => dlLink(DOWNLOADS[detectedOS].url), style: { width: "100%", display: "flex", alignItems: "center", gap: "12px", padding: "13px 14px", borderRadius: "12px", border: "1px solid rgba(240,137,42,0.4)", background: "rgba(240,137,42,0.08)", color: "inherit", fontFamily: "inherit", cursor: "pointer", textAlign: "start" } }, [
-        h2("span", { key: "ic", style: { flex: "none", display: "grid", placeItems: "center", width: "38px", height: "38px", borderRadius: "11px", background: "rgba(240,137,42,0.14)", border: "1px solid rgba(240,137,42,0.3)", color: C_ORANGE } }, h2("i", { className: DOWNLOADS[detectedOS].icon, style: { fontSize: "17px" } })),
-        h2("span", { key: "tx", style: { flex: 1, minWidth: 0 } }, [
-          h2("span", { key: "n", style: { display: "block", fontSize: "13.5px", fontWeight: 700, color: "#f4f4f6" } }, DOWNLOADS[detectedOS].name),
-          h2("span", { key: "f", style: { display: "block", fontSize: "11px", color: "#f0b072", marginTop: "1px" } }, `Recommended for this device \xB7 ${DOWNLOADS[detectedOS].format}`)
+      h3("button", { key: "b", onClick: () => dlLink(DOWNLOADS[detectedOS].url), style: { width: "100%", display: "flex", alignItems: "center", gap: "12px", padding: "13px 14px", borderRadius: "12px", border: "1px solid rgba(240,137,42,0.4)", background: "rgba(240,137,42,0.08)", color: "inherit", fontFamily: "inherit", cursor: "pointer", textAlign: "start" } }, [
+        h3("span", { key: "ic", style: { flex: "none", display: "grid", placeItems: "center", width: "38px", height: "38px", borderRadius: "11px", background: "rgba(240,137,42,0.14)", border: "1px solid rgba(240,137,42,0.3)", color: C_ORANGE } }, h3("i", { className: DOWNLOADS[detectedOS].icon, style: { fontSize: "17px" } })),
+        h3("span", { key: "tx", style: { flex: 1, minWidth: 0 } }, [
+          h3("span", { key: "n", style: { display: "block", fontSize: "13.5px", fontWeight: 700, color: "#f4f4f6" } }, DOWNLOADS[detectedOS].name),
+          h3("span", { key: "f", style: { display: "block", fontSize: "11px", color: "#f0b072", marginTop: "1px" } }, `Recommended for this device \xB7 ${DOWNLOADS[detectedOS].format}`)
         ]),
         fa("fa-download", { color: C_ORANGE })
       ])
     ),
-    h2(
+    h3(
       "div",
       { key: "others", style: { padding: "0 12px 8px", display: "flex", flexDirection: "column", gap: "2px" } },
-      otherOS.map((k) => h2("button", { key: k, onClick: () => dlLink(DOWNLOADS[k].url), style: { width: "100%", display: "flex", alignItems: "center", gap: "12px", padding: "11px 14px", borderRadius: "11px", border: "none", background: "transparent", color: "inherit", fontFamily: "inherit", cursor: "pointer", textAlign: "start" } }, [
-        h2("span", { key: "ic", style: { flex: "none", display: "grid", placeItems: "center", width: "34px", height: "34px", borderRadius: "10px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#cfcfd4" } }, h2("i", { className: DOWNLOADS[k].icon, style: { fontSize: "15px" } })),
-        h2("span", { key: "tx", style: { flex: 1, minWidth: 0 } }, [
-          h2("span", { key: "n", style: { display: "block", fontSize: "13px", fontWeight: 600, color: "#e8e8eb" } }, DOWNLOADS[k].name),
-          h2("span", { key: "f", style: { display: "block", fontSize: "11px", color: "#7b7b83", marginTop: "1px" } }, DOWNLOADS[k].format)
+      otherOS.map((k) => h3("button", { key: k, onClick: () => dlLink(DOWNLOADS[k].url), style: { width: "100%", display: "flex", alignItems: "center", gap: "12px", padding: "11px 14px", borderRadius: "11px", border: "none", background: "transparent", color: "inherit", fontFamily: "inherit", cursor: "pointer", textAlign: "start" } }, [
+        h3("span", { key: "ic", style: { flex: "none", display: "grid", placeItems: "center", width: "34px", height: "34px", borderRadius: "10px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#cfcfd4" } }, h3("i", { className: DOWNLOADS[k].icon, style: { fontSize: "15px" } })),
+        h3("span", { key: "tx", style: { flex: 1, minWidth: 0 } }, [
+          h3("span", { key: "n", style: { display: "block", fontSize: "13px", fontWeight: 600, color: "#e8e8eb" } }, DOWNLOADS[k].name),
+          h3("span", { key: "f", style: { display: "block", fontSize: "11px", color: "#7b7b83", marginTop: "1px" } }, DOWNLOADS[k].format)
         ]),
         fa("fa-download", { color: "#8a8a92" })
       ]))
     ),
-    h2("div", { key: "soon", style: { display: "flex", alignItems: "center", gap: "9px", padding: "12px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.015)" } }, [
+    h3("div", { key: "soon", style: { display: "flex", alignItems: "center", gap: "9px", padding: "12px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.015)" } }, [
       fa("fa-clock", { key: "i", color: "#6b6b73" }),
-      h2("span", { key: "t", style: { fontSize: "11.5px", lineHeight: 1.45, color: "#7b7b83" } }, t("dl.soon"))
+      h3("span", { key: "t", style: { fontSize: "11.5px", lineHeight: 1.45, color: "#7b7b83" } }, t("dl.soon"))
     ])
   ]);
-  const footer = h2("div", { key: "footer", className: "sb-conn-footer", style: { position: "relative", marginTop: "30px", paddingTop: "18px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" } }, [
-    h2("button", { key: "dl", onClick: () => setPlatformsOpen((v) => !v), style: { display: "inline-flex", alignItems: "center", gap: "9px", paddingBlock: "8px", paddingInlineStart: "9px", paddingInlineEnd: "13px", borderRadius: "10px", border: `1px solid ${platformsOpen ? "rgba(240,137,42,0.4)" : "rgba(255,255,255,0.08)"}`, background: platformsOpen ? "rgba(240,137,42,0.06)" : "rgba(255,255,255,0.02)", color: "inherit", fontFamily: "inherit", cursor: "pointer", transition: "all .15s" } }, [
+  const footer = h3("div", { key: "footer", className: "sb-conn-footer", style: { position: "relative", marginTop: "30px", paddingTop: "18px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" } }, [
+    h3("button", { key: "dl", onClick: () => setPlatformsOpen((v) => !v), style: { display: "inline-flex", alignItems: "center", gap: "9px", paddingBlock: "8px", paddingInlineStart: "9px", paddingInlineEnd: "13px", borderRadius: "10px", border: `1px solid ${platformsOpen ? "rgba(240,137,42,0.4)" : "rgba(255,255,255,0.08)"}`, background: platformsOpen ? "rgba(240,137,42,0.06)" : "rgba(255,255,255,0.02)", color: "inherit", fontFamily: "inherit", cursor: "pointer", transition: "all .15s" } }, [
       fa("fa-download", { key: "i", color: C_ORANGE }),
-      h2("span", { key: "t", style: { fontSize: "12.5px", fontWeight: 700, color: "#e8e8eb" } }, t("action.downloadDesktop")),
+      h3("span", { key: "t", style: { fontSize: "12.5px", fontWeight: 700, color: "#e8e8eb" } }, t("action.downloadDesktop")),
       fa("fa-chevron-down", { key: "c", color: "#6b6b73", style: { fontSize: "11px", transform: platformsOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform .2s" } })
     ]),
-    h2("button", { key: "settings", className: "sb-link", onClick: () => setShowIceSettings && setShowIceSettings(true), style: { display: "inline-flex", alignItems: "center", gap: "7px", background: "none", border: "none", color: "#8a8a92", fontFamily: "inherit", fontSize: "12.5px", fontWeight: 600, cursor: "pointer" } }, [fa("fa-sliders-h", { key: "i" }), t("action.advancedSettings")]),
+    h3("button", { key: "settings", className: "sb-link", onClick: () => setShowIceSettings && setShowIceSettings(true), style: { display: "inline-flex", alignItems: "center", gap: "7px", background: "none", border: "none", color: "#8a8a92", fontFamily: "inherit", fontSize: "12.5px", fontWeight: 600, cursor: "pointer" } }, [fa("fa-sliders-h", { key: "i" }), t("action.advancedSettings")]),
     platformsMenu
   ]);
-  const settingsOverlay = showIceSettings && typeof window !== "undefined" && window.IceServerSettings ? h2(window.IceServerSettings, {
+  const settingsOverlay = showIceSettings && typeof window !== "undefined" && window.IceServerSettings ? h3(window.IceServerSettings, {
     key: "ice-settings",
     isOpen: true,
     embedded: true,
@@ -15030,12 +17249,12 @@ var EnhancedConnectionSetup = ({
     onApply: handleApplyIceSettings,
     onForget: handleForgetIceSettings
   }) : null;
-  const rightPanel = h2("div", { key: "right", style: compact ? { flex: 1, minWidth: 0, width: "100%", position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", height: "100%" } : { flex: "0.95 1 460px", minWidth: "min(100%, 320px)", position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", height: "100vh" } }, [
-    h2(
+  const rightPanel = h3("div", { key: "right", style: compact ? { flex: 1, minWidth: 0, width: "100%", position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", height: "100%" } : { flex: "0.95 1 460px", minWidth: "min(100%, 320px)", position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", height: "100vh" } }, [
+    h3(
       "div",
       { key: "scroll", className: "custom-scrollbar", style: { flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", padding: "42px 44px" } },
-      h2("div", { style: { maxWidth: "430px", width: "100%", margin: "auto" } }, [
-        h2("div", { key: "kicker", style: { fontFamily: MONO, fontSize: "11px", fontWeight: 600, color: "#6b6b73", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "10px" } }, kicker),
+      h3("div", { style: { maxWidth: "430px", width: "100%", margin: "auto" } }, [
+        h3("div", { key: "kicker", style: { fontFamily: MONO2, fontSize: "11px", fontWeight: 600, color: "#6b6b73", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "10px" } }, kicker),
         segToggle,
         inner,
         footer
@@ -15043,51 +17262,51 @@ var EnhancedConnectionSetup = ({
     ),
     settingsOverlay
   ]);
-  const qrModal = qrModalOpen && qrCodeUrl && h2(
+  const qrModal = qrModalOpen && qrCodeUrl && h3(
     "div",
     { key: "qrmodal", onClick: () => setQrModalOpen(false), style: { position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: "32px", background: "rgba(6,6,8,0.82)", backdropFilter: "blur(10px)", animation: "sbUp .2s ease" } },
-    h2("div", { onClick: (e) => e.stopPropagation(), style: { width: "100%", maxWidth: "460px", borderRadius: "22px", border: "1px solid rgba(255,255,255,0.1)", background: "#111113", boxShadow: "0 30px 90px rgba(0,0,0,0.6)", overflow: "hidden" } }, [
-      h2("div", { key: "head", style: { display: "flex", alignItems: "center", gap: "11px", padding: "18px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" } }, [
-        h2("span", { key: "d", style: { width: "9px", height: "9px", borderRadius: "50%", background: accent } }),
-        h2("div", { key: "tx", style: { flex: 1, lineHeight: 1.2 } }, [
-          h2("div", { key: "t", style: { fontSize: "15.5px", fontWeight: 800, color: "#f4f4f6" } }, isCreate ? t("handshake.shareTitle") : t("handshake.sendAnswerTitle")),
-          h2("div", { key: "s", style: { fontSize: "12px", color: "#7b7b83" } }, `${isCreate ? "offer" : "answer"} \xB7 one-time`)
+    h3("div", { onClick: (e) => e.stopPropagation(), style: { width: "100%", maxWidth: "460px", borderRadius: "22px", border: "1px solid rgba(255,255,255,0.1)", background: "#111113", boxShadow: "0 30px 90px rgba(0,0,0,0.6)", overflow: "hidden" } }, [
+      h3("div", { key: "head", style: { display: "flex", alignItems: "center", gap: "11px", padding: "18px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" } }, [
+        h3("span", { key: "d", style: { width: "9px", height: "9px", borderRadius: "50%", background: accent } }),
+        h3("div", { key: "tx", style: { flex: 1, lineHeight: 1.2 } }, [
+          h3("div", { key: "t", style: { fontSize: "15.5px", fontWeight: 800, color: "#f4f4f6" } }, isCreate ? t("handshake.shareTitle") : t("handshake.sendAnswerTitle")),
+          h3("div", { key: "s", style: { fontSize: "12px", color: "#7b7b83" } }, `${isCreate ? "offer" : "answer"} \xB7 one-time`)
         ]),
-        h2("button", { key: "x", onClick: () => setQrModalOpen(false), style: { width: "32px", height: "32px", display: "grid", placeItems: "center", borderRadius: "9px", border: "none", background: "rgba(255,255,255,0.05)", color: "#9a9aa2", cursor: "pointer" } }, fa("fa-times"))
+        h3("button", { key: "x", onClick: () => setQrModalOpen(false), style: { width: "32px", height: "32px", display: "grid", placeItems: "center", borderRadius: "9px", border: "none", background: "rgba(255,255,255,0.05)", color: "#9a9aa2", cursor: "pointer" } }, fa("fa-times"))
       ]),
-      h2("div", { key: "body", style: { padding: "22px 24px 24px" } }, [
-        h2(
+      h3("div", { key: "body", style: { padding: "22px 24px 24px" } }, [
+        h3(
           "div",
           { key: "qr", style: { position: "relative", width: "100%", aspectRatio: "1", borderRadius: "18px", overflow: "hidden", background: "#fff", padding: "18px", display: "grid", placeItems: "center" } },
-          h2("img", { src: qrCodeUrl, alt: t("chatHdr.qrCode"), style: { width: "100%", height: "100%", objectFit: "contain", display: "block" } })
+          h3("img", { src: qrCodeUrl, alt: t("chatHdr.qrCode"), style: { width: "100%", height: "100%", objectFit: "contain", display: "block" } })
         ),
-        h2("div", { key: "ctrls", style: { display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", marginTop: "18px" } }, [
-          (qrFramesTotal || 0) >= 1 && h2("div", { key: "frame", style: { display: "flex", alignItems: "center", gap: "9px" } }, [
-            h2("span", { key: "l", style: { fontFamily: MONO, fontSize: "12px", fontWeight: 600, color: "#9a9aa2" } }, `Frame ${Math.max(1, qrFrameIndex || 1)} / ${qrFramesTotal || 1}`),
-            h2("div", { key: "dots", style: { display: "flex", gap: "5px" } }, Array.from({ length: qrFramesTotal || 1 }, (_, i) => h2("span", { key: i, style: { width: "7px", height: "7px", borderRadius: "50%", background: i + 1 === (qrFrameIndex || 1) ? accent : "rgba(255,255,255,0.14)", transition: "background .25s" } })))
+        h3("div", { key: "ctrls", style: { display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", marginTop: "18px" } }, [
+          (qrFramesTotal || 0) >= 1 && h3("div", { key: "frame", style: { display: "flex", alignItems: "center", gap: "9px" } }, [
+            h3("span", { key: "l", style: { fontFamily: MONO2, fontSize: "12px", fontWeight: 600, color: "#9a9aa2" } }, `Frame ${Math.max(1, qrFrameIndex || 1)} / ${qrFramesTotal || 1}`),
+            h3("div", { key: "dots", style: { display: "flex", gap: "5px" } }, Array.from({ length: qrFramesTotal || 1 }, (_, i) => h3("span", { key: i, style: { width: "7px", height: "7px", borderRadius: "50%", background: i + 1 === (qrFrameIndex || 1) ? accent : "rgba(255,255,255,0.14)", transition: "background .25s" } })))
           ]),
-          (qrFramesTotal || 0) > 1 && h2("div", { key: "nav", style: { display: "flex", alignItems: "center", gap: "6px" } }, [
-            h2("button", { key: "prev", onClick: prevQrFrame, style: { width: "40px", height: "36px", display: "grid", placeItems: "center", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "#cfcfd4", cursor: "pointer" } }, fa("fa-chevron-left")),
-            h2("button", { key: "auto", onClick: toggleQrManualMode, style: { display: "inline-flex", alignItems: "center", gap: "7px", padding: "9px 18px", borderRadius: "10px", border: `1px solid ${qrManualMode ? "rgba(255,255,255,0.1)" : "rgba(240,137,42,0.45)"}`, background: qrManualMode ? "rgba(255,255,255,0.04)" : "rgba(240,137,42,0.08)", color: qrManualMode ? "#9a9aa2" : C_ORANGE, fontFamily: "inherit", fontSize: "13px", fontWeight: 600, cursor: "pointer" } }, qrManualMode ? "Manual" : "Auto"),
-            h2("button", { key: "next", onClick: nextQrFrame, style: { width: "40px", height: "36px", display: "grid", placeItems: "center", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "#cfcfd4", cursor: "pointer" } }, fa("fa-chevron-right"))
+          (qrFramesTotal || 0) > 1 && h3("div", { key: "nav", style: { display: "flex", alignItems: "center", gap: "6px" } }, [
+            h3("button", { key: "prev", onClick: prevQrFrame, style: { width: "40px", height: "36px", display: "grid", placeItems: "center", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "#cfcfd4", cursor: "pointer" } }, fa("fa-chevron-left")),
+            h3("button", { key: "auto", onClick: toggleQrManualMode, style: { display: "inline-flex", alignItems: "center", gap: "7px", padding: "9px 18px", borderRadius: "10px", border: `1px solid ${qrManualMode ? "rgba(255,255,255,0.1)" : "rgba(240,137,42,0.45)"}`, background: qrManualMode ? "rgba(255,255,255,0.04)" : "rgba(240,137,42,0.08)", color: qrManualMode ? "#9a9aa2" : C_ORANGE, fontFamily: "inherit", fontSize: "13px", fontWeight: 600, cursor: "pointer" } }, qrManualMode ? "Manual" : "Auto"),
+            h3("button", { key: "next", onClick: nextQrFrame, style: { width: "40px", height: "36px", display: "grid", placeItems: "center", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "#cfcfd4", cursor: "pointer" } }, fa("fa-chevron-right"))
           ]),
-          h2("p", { key: "hint", style: { margin: "2px 0 0", textAlign: "center", fontSize: "12px", lineHeight: 1.5, color: "#6b6b73" } }, (qrFramesTotal || 0) > 1 ? t("handshake.qrHintFrames", { frames: qrFramesTotal }) : t("handshake.qrHint"))
+          h3("p", { key: "hint", style: { margin: "2px 0 0", textAlign: "center", fontSize: "12px", lineHeight: 1.5, color: "#6b6b73" } }, (qrFramesTotal || 0) > 1 ? t("handshake.qrHintFrames", { frames: qrFramesTotal }) : t("handshake.qrHint"))
         ])
       ])
     ])
   );
-  const hero = h2("div", { key: "hero", style: { display: "flex", flexWrap: "wrap", minHeight: "100vh", width: "100%", background: "#0f0f11", color: "#e8e8eb" } }, [leftPanel, rightPanel]);
-  const uniqueSection = atIntro && h2(UniqueFeatureSlider, { key: "unique-features-slider" });
-  const partnersSection = atIntro && h2(BecomePartner, { key: "become-partner" });
-  const roadmapSection = atIntro && h2(Roadmap, { key: "roadmap" });
-  const communitySection = atIntro && h2(CommunityCTA, { key: "community-cta" });
-  const keyframeStyle = h2("style", { key: "kf", dangerouslySetInnerHTML: {
+  const hero = h3("div", { key: "hero", style: { display: "flex", flexWrap: "wrap", minHeight: "100vh", width: "100%", background: "#0f0f11", color: "#e8e8eb" } }, [leftPanel, rightPanel]);
+  const uniqueSection = atIntro && h3(UniqueFeatureSlider, { key: "unique-features-slider" });
+  const partnersSection = atIntro && h3(BecomePartner, { key: "become-partner" });
+  const roadmapSection = atIntro && h3(Roadmap, { key: "roadmap" });
+  const communitySection = atIntro && h3(CommunityCTA, { key: "community-cta" });
+  const keyframeStyle = h3("style", { key: "kf", dangerouslySetInnerHTML: {
     __html: '@keyframes sbFlowR{0%{left:4%;opacity:0}12%{opacity:1}88%{opacity:1}100%{left:96%;opacity:0}}@keyframes sbFlowL{0%{left:96%;opacity:0}12%{opacity:1}88%{opacity:1}100%{left:4%;opacity:0}}@keyframes sbPulse{0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.5}50%{transform:translate(-50%,-50%) scale(1.5);opacity:0}}@keyframes sbSpin{to{transform:rotate(360deg)}}@keyframes sbUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes sbNode{0%,100%{box-shadow:0 0 0 0 rgba(62,207,142,0)}50%{box-shadow:0 0 0 6px rgba(62,207,142,.06)}}@keyframes sbScan{0%{top:8%}100%{top:88%}}@keyframes sbBlink{0%,100%{opacity:1}50%{opacity:.35}}@keyframes sbTrav{0%{offset-distance:0%;opacity:0}15%{opacity:1}80%{opacity:1}100%{offset-distance:100%;opacity:0}}@keyframes sbRing1{0%,24%{r:5;opacity:0}26%{opacity:.8}34%{r:22;opacity:0}100%{r:22;opacity:0}}@keyframes sbRing2{0%,54%{r:5;opacity:0}56%{opacity:.8}64%{r:22;opacity:0}100%{r:22;opacity:0}}@keyframes sbIn1{0%,24%{opacity:0}27%{opacity:1}100%{opacity:1}}@keyframes sbIn2{0%,54%{opacity:0}57%{opacity:1}100%{opacity:1}}@keyframes sbRow0{0%,4%{opacity:0;transform:translateY(4px)}8%{opacity:1;transform:none}100%{opacity:1;transform:none}}@keyframes sbRow1{0%,25%{opacity:0;transform:translateY(4px)}29%{opacity:1;transform:none}100%{opacity:1;transform:none}}@keyframes sbRow2{0%,55%{opacity:0;transform:translateY(4px)}59%{opacity:1;transform:none}100%{opacity:1;transform:none}}@media (prefers-reduced-motion: reduce){.sb-start [style*="sbTrav"],.sb-start [style*="sbRing"]{animation:none!important;opacity:0!important}.sb-start [style*="sbIn1"],.sb-start [style*="sbIn2"],.sb-start [style*="sbRow0"],.sb-start [style*="sbRow1"],.sb-start [style*="sbRow2"]{animation:none!important;opacity:1!important;transform:none!important}}'
   } });
   if (compact) {
-    return h2("div", { className: "sb-start", style: { flex: 1, minHeight: 0, width: "100%", display: "flex", flexDirection: "column", background: "#0f0f11", color: "#e8e8eb" } }, [keyframeStyle, rightPanel, qrModal]);
+    return h3("div", { className: "sb-start", style: { flex: 1, minHeight: 0, width: "100%", display: "flex", flexDirection: "column", background: "#0f0f11", color: "#e8e8eb" } }, [keyframeStyle, rightPanel, qrModal]);
   }
-  return h2("div", { className: "sb-start", style: { width: "100%" } }, [keyframeStyle, hero, uniqueSection, partnersSection, roadmapSection, communitySection, qrModal]);
+  return h3("div", { className: "sb-start", style: { width: "100%" } }, [keyframeStyle, hero, uniqueSection, partnersSection, roadmapSection, communitySection, qrModal]);
 };
 var createScrollToBottomFunction = (chatMessagesRef) => {
   return () => {
@@ -15122,7 +17341,7 @@ var runSecurityReport = async (webrtcManager) => {
     alert("Security verification in progress\u2026\nPlease wait for real-time cryptographic verification to complete.");
     return;
   }
-  const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+  const MONO2 = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   const accent = securityData.color === "orange" ? "#f0892a" : securityData.color === "yellow" ? "#e3c84e" : securityData.color === "red" ? "#e5727a" : "#3ecf8e";
   const accentRGB = securityData.color === "orange" ? "240,137,42" : securityData.color === "yellow" ? "227,200,78" : securityData.color === "red" ? "229,114,122" : "62,207,142";
@@ -15160,7 +17379,7 @@ var runSecurityReport = async (webrtcManager) => {
                         <span style="flex:none; width:34px; height:34px; border-radius:9px; display:grid; place-items:center; background:${iconBg}; border:1px solid ${iconBorder};">${passed ? checkIcon : xIcon}</span>
                         <div style="flex:1; min-width:0;">
                             <div style="font-size:14.5px; font-weight:700; letter-spacing:-0.2px; color:${titleColor}; margin-bottom:3px;">${esc(testTitle(k))}</div>
-                            <div style="font-family:${MONO}; font-size:11.5px; line-height:1.45; color:#8a8a92;">${esc(desc)}</div>
+                            <div style="font-family:${MONO2}; font-size:11.5px; line-height:1.45; color:#8a8a92;">${esc(desc)}</div>
                         </div>
                     </div>`;
   }).join("");
@@ -15182,19 +17401,19 @@ var runSecurityReport = async (webrtcManager) => {
                         </svg>
                         <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;">
                           <span style="font-size:30px; font-weight:800; letter-spacing:-1px; color:#f4f4f6; line-height:1;">${score}</span>
-                          <span style="font-family:${MONO}; font-size:10px; font-weight:600; color:#6b6b73; text-transform:uppercase; letter-spacing:1px; margin-top:4px;">/ 100 pts</span>
+                          <span style="font-family:${MONO2}; font-size:10px; font-weight:600; color:#6b6b73; text-transform:uppercase; letter-spacing:1px; margin-top:4px;">/ 100 pts</span>
                         </div>
                       </div>
                       <div style="flex:1; min-width:240px;">
-                        <div style="font-family:${MONO}; font-size:11px; font-weight:600; color:#6b6b73; text-transform:uppercase; letter-spacing:1.6px; margin-bottom:10px;">${t("report.title")}</div>
+                        <div style="font-family:${MONO2}; font-size:11px; font-weight:600; color:#6b6b73; text-transform:uppercase; letter-spacing:1.6px; margin-bottom:10px;">${t("report.title")}</div>
                         <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap;">
                           <h2 style="margin:0; font-size:26px; font-weight:800; letter-spacing:-0.7px; color:#f4f4f6;">Security level: ${esc(level)}</h2>
-                          <span style="display:inline-flex; align-items:center; gap:8px; padding:6px 12px; border-radius:9px; background:rgba(${accentRGB},0.12); border:1px solid rgba(${accentRGB},0.3); font-family:${MONO}; font-size:11px; font-weight:700; color:${accent}; text-transform:uppercase; letter-spacing:0.6px;"><span style="width:7px; height:7px; border-radius:50%; background:${accent}; animation:svPulse 2s ease-in-out infinite;"></span>${t("report.active")}</span>
+                          <span style="display:inline-flex; align-items:center; gap:8px; padding:6px 12px; border-radius:9px; background:rgba(${accentRGB},0.12); border:1px solid rgba(${accentRGB},0.3); font-family:${MONO2}; font-size:11px; font-weight:700; color:${accent}; text-transform:uppercase; letter-spacing:0.6px;"><span style="width:7px; height:7px; border-radius:50%; background:${accent}; animation:svPulse 2s ease-in-out infinite;"></span>${t("report.active")}</span>
                         </div>
                         <div style="display:flex; gap:28px; flex-wrap:wrap;">
-                          <div><div style="font-family:${MONO}; font-size:10px; font-weight:600; color:#56565e; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">${t("report.testsPassed")}</div><div style="font-size:15px; font-weight:700; color:#e8e8eb;"><span style="color:${accent};">${passedCount}</span> / ${totalCount}</div></div>
-                          <div><div style="font-family:${MONO}; font-size:10px; font-weight:600; color:#56565e; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">${t("report.verifiedAt")}</div><div style="font-family:${MONO}; font-size:15px; font-weight:600; color:#e8e8eb;">${esc(verifiedAt)}</div></div>
-                          <div><div style="font-family:${MONO}; font-size:10px; font-weight:600; color:#56565e; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">${t("report.source")}</div><div style="font-size:15px; font-weight:600; color:#e8e8eb;">${isReal ? t("sec.realTests") : t("sec.simulatedData")}</div></div>
+                          <div><div style="font-family:${MONO2}; font-size:10px; font-weight:600; color:#56565e; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">${t("report.testsPassed")}</div><div style="font-size:15px; font-weight:700; color:#e8e8eb;"><span style="color:${accent};">${passedCount}</span> / ${totalCount}</div></div>
+                          <div><div style="font-family:${MONO2}; font-size:10px; font-weight:600; color:#56565e; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">${t("report.verifiedAt")}</div><div style="font-family:${MONO2}; font-size:15px; font-weight:600; color:#e8e8eb;">${esc(verifiedAt)}</div></div>
+                          <div><div style="font-family:${MONO2}; font-size:10px; font-weight:600; color:#56565e; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">${t("report.source")}</div><div style="font-size:15px; font-weight:600; color:#e8e8eb;">${isReal ? t("sec.realTests") : t("sec.simulatedData")}</div></div>
                         </div>
                       </div>
                       <button class="sv-rerun" type="button" style="flex:none; display:inline-flex; align-items:center; gap:9px; padding:12px 18px; border-radius:11px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.025); color:#cfcfd4; font-family:'Manrope',sans-serif; font-size:14px; font-weight:700; cursor:pointer; transition:all .2s;">
@@ -15236,7 +17455,7 @@ var runSecurityReport = async (webrtcManager) => {
   document.body.appendChild(modal);
 };
 var SecureBitChatHeader = ({ status, onDisconnect, webrtcManager, title, isOffline, peerPresence, onRenameTitle }) => {
-  const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+  const MONO2 = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
   const [showNetwork, setShowNetwork] = React.useState(false);
   const [sec, setSec] = React.useState(null);
   const [editingName, setEditingName] = React.useState(false);
@@ -15309,7 +17528,7 @@ var SecureBitChatHeader = ({ status, onDisconnect, webrtcManager, title, isOffli
     React.createElement("i", { key: "i", className: "fas fa-shield-halved", style: { color: accent, fontSize: "13px" } }),
     React.createElement("span", { key: "l", className: "sb-sec-label", style: { fontSize: "13px", fontWeight: 600, color: "#e8e8eb" } }, sec ? secLevelLabel(sec.level) || t("chatHdr.secure") : t("chatHdr.secure")),
     React.createElement("span", { key: "d", className: "sb-sec-div", style: { width: "1px", height: "13px", background: "rgba(255,255,255,0.12)" } }),
-    React.createElement("span", { key: "s", className: "sb-sec-score", style: { fontFamily: MONO, fontSize: "11.5px", fontWeight: 500, color: "#8a8a92" } }, scoreLabel),
+    React.createElement("span", { key: "s", className: "sb-sec-score", style: { fontFamily: MONO2, fontSize: "11.5px", fontWeight: 500, color: "#8a8a92" } }, scoreLabel),
     React.createElement("button", {
       key: "c",
       type: "button",
@@ -15328,9 +17547,13 @@ var SecureBitChatHeader = ({ status, onDisconnect, webrtcManager, title, isOffli
     )
   } });
   const header = React.createElement("header", {
+    // --sb-safe-top is the iOS status-bar strip the installed web view draws
+    // under (0 in a browser tab). It is added to BOTH the padding and the
+    // height so the 64px of header content is untouched and only the
+    // translucent bar grows upward to meet the top edge of the screen.
     key: "hdr",
     className: "sb-chat-header",
-    style: { flex: "none", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "24px", padding: "0 20px", height: "64px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(18,18,20,0.72)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }
+    style: { flex: "none", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "24px", padding: "var(--sb-safe-top, 0px) 20px var(--sb-bar-extra, 0px)", minHeight: "calc(var(--sb-bar-h, 64px) + var(--sb-safe-top, 0px) + var(--sb-bar-extra, 0px))", boxSizing: "border-box", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(18,18,20,0.72)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }
   }, [
     headerResponsiveCss,
     // The SecureBit brand/logo lives in the left rail; this header identifies the
@@ -15405,7 +17628,7 @@ var SecureBitChatHeader = ({ status, onDisconnect, webrtcManager, title, isOffli
     style: { flex: "none", padding: "13px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(18,18,20,0.72)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }
   }, React.createElement(
     "div",
-    { style: { maxWidth: "1000px", margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: "14px", fontFamily: MONO } },
+    { style: { maxWidth: "1000px", margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: "14px", fontFamily: MONO2 } },
     [
       [t("sec.transport"), "WebRTC \xB7 DTLS"],
       [t("sec.cipher"), "AES-256-GCM"],
@@ -15541,7 +17764,7 @@ var EnhancedChatInterface = ({
     const hasDataChannel = webrtcManager.dataChannel && webrtcManager.dataChannel.readyState === "open";
     return connected && verified && hasDataChannel;
   };
-  const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+  const MONO2 = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
   const fmtShort = (s) => {
     if (!s) return "";
     if (s >= 86400 && s % 86400 === 0) return s / 86400 + "d";
@@ -15570,7 +17793,7 @@ var EnhancedChatInterface = ({
     border: "1px solid " + (sel ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.07)"),
     background: sel ? "rgba(255,255,255,0.07)" : "transparent",
     color: sel ? "#fff" : "#8a8a92",
-    fontFamily: MONO,
+    fontFamily: MONO2,
     fontSize: "12px",
     fontWeight: 500,
     cursor: "pointer",
@@ -15642,13 +17865,13 @@ var EnhancedChatInterface = ({
         systemMessages.map((m, i) => React.createElement("div", { key: "s" + i, style: { display: "flex", gap: "11px", padding: "6px 0", borderTop: i === 0 ? "none" : "1px solid rgba(255,255,255,0.04)" } }, [
           React.createElement("span", { key: "d", style: { flex: "none", width: "5px", height: "5px", borderRadius: "50%", background: "#3ecf8e", marginTop: "7px", opacity: 0.6 } }),
           React.createElement("span", { key: "t", style: { flex: 1, fontSize: "12.5px", color: "#9a9aa2", lineHeight: 1.5, wordBreak: "break-word" } }, String(m.message || "").trim()),
-          React.createElement("span", { key: "tm", style: { flex: "none", fontFamily: MONO, fontSize: "10.5px", color: "#56565e" } }, fmtT(m.timestamp))
+          React.createElement("span", { key: "tm", style: { flex: "none", fontFamily: MONO2, fontSize: "10.5px", color: "#56565e" } }, fmtT(m.timestamp))
         ]))
       ),
       keyFingerprint && React.createElement("div", { key: "sn", style: { display: "flex", alignItems: "center", gap: "9px", padding: "10px 12px", borderRadius: "9px", background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)" } }, [
         React.createElement("i", { key: "i", className: "fas fa-lock", style: { color: "#8a8a92", fontSize: "12px" } }),
         React.createElement("span", { key: "l", style: { fontSize: "11.5px", color: "#8a8a92" } }, t("sas.safetyNumber")),
-        React.createElement("span", { key: "v", style: { fontFamily: MONO, fontSize: "12px", color: "#cfcfd4", letterSpacing: "0.8px", fontWeight: 500, wordBreak: "break-all" } }, keyFingerprint)
+        React.createElement("span", { key: "v", style: { fontFamily: MONO2, fontSize: "12px", color: "#cfcfd4", letterSpacing: "0.8px", fontWeight: 500, wordBreak: "break-all" } }, keyFingerprint)
       ])
     ])
   ]);
@@ -15787,14 +18010,14 @@ var EnhancedChatInterface = ({
         maxLength: 2e3,
         placeholder: codeMode ? t("flow.pasteOrWrite") : t("chat.placeholder"),
         className: "sb-textarea",
-        style: { width: "100%", minHeight: codeMode ? "120px" : "22px", maxHeight: "240px", resize: "none", border: "none", outline: "none", background: "transparent", color: "#e8e8eb", fontFamily: codeMode ? MONO : "inherit", fontSize: codeMode ? "13px" : "14.5px", lineHeight: 1.55, padding: "6px 0" }
+        style: { width: "100%", minHeight: codeMode ? "120px" : "22px", maxHeight: "240px", resize: "none", border: "none", outline: "none", background: "transparent", color: "#e8e8eb", fontFamily: codeMode ? MONO2 : "inherit", fontSize: codeMode ? "13px" : "14.5px", lineHeight: 1.55, padding: "6px 0" }
       }),
       React.createElement("div", { key: "foot", style: { display: "flex", alignItems: "center", gap: "12px", marginTop: "3px" } }, [
         React.createElement("span", { key: "enc", style: { display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "11px", color: "#56565e" } }, [
           React.createElement("i", { key: "i", className: "fas fa-lock", style: { color: "#3ecf8e", fontSize: "10px" } }),
           t("chat.encryptedOnDevice")
         ]),
-        React.createElement("span", { key: "cnt", style: { fontFamily: MONO, fontSize: "10.5px", color: "#56565e", marginInlineStart: "auto" } }, (messageInput ? messageInput.length : 0) + "/2000")
+        React.createElement("span", { key: "cnt", style: { fontFamily: MONO2, fontSize: "10.5px", color: "#56565e", marginInlineStart: "auto" } }, (messageInput ? messageInput.length : 0) + "/2000")
       ])
     ])
   ].concat(trailingButtons));
@@ -15865,7 +18088,7 @@ var SB_SVG = {
   burger: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>'
 };
 var SessionsSidebar = ({ chats, groups = [], collapsed, drawerOpen, onToggleCollapse, onSelect, onSelectGroup, onNewChat, onNewGroup, onRename, onCloseDrawer, myStatus, onSetStatus }) => {
-  const h2 = React.createElement;
+  const h3 = React.createElement;
   const [editingId, setEditingId] = React.useState(null);
   const [draft, setDraft] = React.useState("");
   const [presenceOpen, setPresenceOpen] = React.useState(false);
@@ -16016,7 +18239,7 @@ var SessionsSidebar = ({ chats, groups = [], collapsed, drawerOpen, onToggleColl
       setEditingId(null);
     }
   };
-  const renameInput = (extra = {}) => h2("input", {
+  const renameInput = (extra = {}) => h3("input", {
     autoFocus: true,
     value: draft,
     onChange: (e) => setDraft(e.target.value),
@@ -16025,49 +18248,49 @@ var SessionsSidebar = ({ chats, groups = [], collapsed, drawerOpen, onToggleColl
     onClick: (e) => e.stopPropagation(),
     style: Object.assign({ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(240,137,42,0.5)", borderRadius: "6px", color: "#f4f4f6", fontFamily: "inherit", fontSize: "14px", fontWeight: 700, padding: "2px 6px", outline: "none" }, extra)
   });
-  const icon = (svg2, style) => h2("span", { style: Object.assign({ display: "grid", placeItems: "center" }, style || {}), dangerouslySetInnerHTML: { __html: svg2 } });
-  const avatar = (c, size, ring) => h2("div", {
+  const icon = (svg3, style) => h3("span", { style: Object.assign({ display: "grid", placeItems: "center" }, style || {}), dangerouslySetInnerHTML: { __html: svg3 } });
+  const avatar = (c, size, ring) => h3("div", {
     style: { position: "relative", flex: "none", width: size + "px", height: size + "px", borderRadius: (size >= 44 ? 12 : 11) + "px", display: "grid", placeItems: "center", background: c.active ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255," + (c.active ? "0.14" : "0.07") + ")", fontSize: "13px", fontWeight: 700, letterSpacing: "-0.3px", color: c.active ? "#f4f4f6" : "#9a9aa2" }
-  }, [c.mono, h2("span", { key: "dot", style: { position: "absolute", insetInlineEnd: "-2px", bottom: "-2px", width: "11px", height: "11px", borderRadius: "50%", background: c.dot, border: "2px solid " + ring } })]);
-  const expandedRow = (c) => h2("div", {
+  }, [c.mono, h3("span", { key: "dot", style: { position: "absolute", insetInlineEnd: "-2px", bottom: "-2px", width: "11px", height: "11px", borderRadius: "50%", background: c.dot, border: "2px solid " + ring } })]);
+  const expandedRow = (c) => h3("div", {
     key: c.id,
     onClick: () => onSelect(c.id),
     style: { position: "relative", display: "flex", alignItems: "center", gap: "12px", padding: "11px 12px", marginBottom: "4px", borderRadius: "11px", background: c.active ? "#161618" : "transparent", border: "1px solid " + (c.active ? "rgba(255,255,255,0.08)" : "transparent"), cursor: "pointer" }
   }, [
-    c.active && h2("span", { key: "bar", style: { position: "absolute", insetInlineStart: 0, top: "12px", bottom: "12px", width: "3px", borderStartEndRadius: "3px", borderEndEndRadius: "3px", background: "#f0892a" } }),
+    c.active && h3("span", { key: "bar", style: { position: "absolute", insetInlineStart: 0, top: "12px", bottom: "12px", width: "3px", borderStartEndRadius: "3px", borderEndEndRadius: "3px", background: "#f0892a" } }),
     avatar(c, 38, c.active ? "#161618" : "#0c0c0e"),
-    h2("div", { key: "body", style: { flex: 1, minWidth: 0 } }, [
-      h2("div", { key: "top", style: { display: "flex", alignItems: "center", gap: "7px" } }, [
-        editingId === c.id ? renameInput() : h2("span", {
+    h3("div", { key: "body", style: { flex: 1, minWidth: 0 } }, [
+      h3("div", { key: "top", style: { display: "flex", alignItems: "center", gap: "7px" } }, [
+        editingId === c.id ? renameInput() : h3("span", {
           key: "name",
           onDoubleClick: startEdit(c),
           title: t("chat.renameHint"),
           style: { flex: 1, minWidth: 0, fontSize: "14px", fontWeight: c.active ? 700 : 600, letterSpacing: "-0.2px", color: c.active ? "#f4f4f6" : "#cfcfd4", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }
         }, c.name),
-        c.unread && editingId !== c.id && h2("span", { key: "u", style: { flex: "none", minWidth: "18px", height: "18px", padding: "0 5px", borderRadius: "9px", display: "grid", placeItems: "center", background: "#f0892a", color: "#1a0f04", fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 700 } }, c.unread)
+        c.unread && editingId !== c.id && h3("span", { key: "u", style: { flex: "none", minWidth: "18px", height: "18px", padding: "0 5px", borderRadius: "9px", display: "grid", placeItems: "center", background: "#f0892a", color: "#1a0f04", fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 700 } }, c.unread)
       ]),
-      h2("div", { key: "prev", style: { fontSize: "12px", color: c.active ? "#8a8a92" : "#6b6b73", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.preview)
+      h3("div", { key: "prev", style: { fontSize: "12px", color: c.active ? "#8a8a92" : "#6b6b73", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.preview)
     ])
   ]);
-  const dockItem = (c) => h2("div", { key: c.id, style: { position: "relative" } }, [
-    c.active && h2("span", { key: "bar", style: { position: "absolute", insetInlineStart: "-13px", top: "9px", bottom: "9px", width: "3px", borderStartEndRadius: "3px", borderEndEndRadius: "3px", background: "#f0892a" } }),
-    h2("div", {
+  const dockItem = (c) => h3("div", { key: c.id, style: { position: "relative" } }, [
+    c.active && h3("span", { key: "bar", style: { position: "absolute", insetInlineStart: "-13px", top: "9px", bottom: "9px", width: "3px", borderStartEndRadius: "3px", borderEndEndRadius: "3px", background: "#f0892a" } }),
+    h3("div", {
       key: "tile",
       onClick: () => onSelect(c.id),
       title: c.name,
       style: { position: "relative", width: "44px", height: "44px", borderRadius: "12px", display: "grid", placeItems: "center", cursor: "pointer", background: c.active ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255," + (c.active ? "0.14" : "0.07") + ")", fontSize: "13px", fontWeight: 700, letterSpacing: "-0.3px", color: c.active ? "#f4f4f6" : "#9a9aa2" }
     }, [
       c.mono,
-      h2("span", { key: "dot", style: { position: "absolute", insetInlineEnd: "-2px", bottom: "-2px", width: "11px", height: "11px", borderRadius: "50%", background: c.dot, border: "2.5px solid #0c0c0e" } }),
-      c.unread && h2("span", { key: "u", style: { position: "absolute", insetInlineStart: "-5px", top: "-5px", minWidth: "17px", height: "17px", padding: "0 4px", borderRadius: "9px", display: "grid", placeItems: "center", background: "#f0892a", color: "#1a0f04", fontFamily: "'JetBrains Mono',monospace", fontSize: "9.5px", fontWeight: 700, border: "2px solid #0c0c0e" } }, c.unread)
+      h3("span", { key: "dot", style: { position: "absolute", insetInlineEnd: "-2px", bottom: "-2px", width: "11px", height: "11px", borderRadius: "50%", background: c.dot, border: "2.5px solid #0c0c0e" } }),
+      c.unread && h3("span", { key: "u", style: { position: "absolute", insetInlineStart: "-5px", top: "-5px", minWidth: "17px", height: "17px", padding: "0 4px", borderRadius: "9px", display: "grid", placeItems: "center", background: "#f0892a", color: "#1a0f04", fontFamily: "'JetBrains Mono',monospace", fontSize: "9.5px", fontWeight: 700, border: "2px solid #0c0c0e" } }, c.unread)
     ])
   ]);
-  const brandMark = (size) => h2(
+  const brandMark = (size) => h3(
     "div",
     { style: { width: size + "px", height: size + "px", flex: "none", display: "grid", placeItems: "center" } },
-    h2("img", { src: "/logo/securebit-mark.svg", alt: "SecureBit", style: { width: "100%", height: "100%", objectFit: "contain", display: "block" } })
+    h3("img", { src: "/logo/securebit-mark.svg", alt: "SecureBit", style: { width: "100%", height: "100%", objectFit: "contain", display: "block" } })
   );
-  const collapseBtn = (svg2, title) => h2("button", { className: "sb-collapse-btn", onClick: onToggleCollapse, title, style: { width: "30px", height: "30px", borderRadius: "8px", display: "grid", placeItems: "center", border: "1px solid rgba(255,255,255,0.07)", background: "transparent", color: "#8a8a92", cursor: "pointer" }, dangerouslySetInnerHTML: { __html: svg2 } });
+  const collapseBtn = (svg3, title) => h3("button", { className: "sb-collapse-btn", onClick: onToggleCollapse, title, style: { width: "30px", height: "30px", borderRadius: "8px", display: "grid", placeItems: "center", border: "1px solid rgba(255,255,255,0.07)", background: "transparent", color: "#8a8a92", cursor: "pointer" }, dangerouslySetInnerHTML: { __html: svg3 } });
   const myMeta = MY_STATUS_OPTIONS.find((o) => o.key === myStatus) || MY_STATUS_OPTIONS[0];
   const PRES_SVG = {
     user: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20v-1.5a4 4 0 0 0-4-4h-4a4 4 0 0 0-4 4V20"/><circle cx="12" cy="8" r="3.6"/></svg>',
@@ -16075,12 +18298,12 @@ var SessionsSidebar = ({ chats, groups = [], collapsed, drawerOpen, onToggleColl
     chevUp: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b6b73" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>',
     lock: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11V7a5 5 0 0 1 10 0v4"/><rect x="4.5" y="11" width="15" height="9" rx="2.2"/></svg>'
   };
-  const presenceMenu = (pos) => presenceOpen ? h2("div", {
+  const presenceMenu = (pos) => presenceOpen ? h3("div", {
     key: "pmenu",
     style: Object.assign({ position: "absolute", zIndex: 30, borderRadius: "14px", background: "#161618", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 16px 40px rgba(0,0,0,0.55)", padding: "6px" }, pos)
   }, [
-    h2("div", { key: "h", style: { padding: "9px 10px 7px", fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 600, color: "#56565e", textTransform: "uppercase", letterSpacing: "1.2px" } }, t("chat.setStatus")),
-    ...MY_STATUS_OPTIONS.map((o) => h2("button", {
+    h3("div", { key: "h", style: { padding: "9px 10px 7px", fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 600, color: "#56565e", textTransform: "uppercase", letterSpacing: "1.2px" } }, t("chat.setStatus")),
+    ...MY_STATUS_OPTIONS.map((o) => h3("button", {
       key: o.key,
       onClick: () => {
         onSetStatus(o.key);
@@ -16088,108 +18311,108 @@ var SessionsSidebar = ({ chats, groups = [], collapsed, drawerOpen, onToggleColl
       },
       style: { width: "100%", display: "flex", alignItems: "center", gap: "11px", padding: "9px 10px", borderRadius: "9px", border: "none", background: "transparent", cursor: "pointer", textAlign: "start" }
     }, [
-      h2("span", { key: "d", style: { flex: "none", width: "10px", height: "10px", borderRadius: "50%", background: o.dot } }),
-      h2("span", { key: "t", style: { flex: 1, minWidth: 0 } }, [
-        h2("span", { key: "w", style: { display: "block", fontSize: "13.5px", fontWeight: 600, color: "#e8e8eb" } }, o.word),
-        h2("span", { key: "de", style: { display: "block", fontSize: "11.5px", color: "#6b6b73" } }, o.desc)
+      h3("span", { key: "d", style: { flex: "none", width: "10px", height: "10px", borderRadius: "50%", background: o.dot } }),
+      h3("span", { key: "t", style: { flex: 1, minWidth: 0 } }, [
+        h3("span", { key: "w", style: { display: "block", fontSize: "13.5px", fontWeight: 600, color: "#e8e8eb" } }, o.word),
+        h3("span", { key: "de", style: { display: "block", fontSize: "11.5px", color: "#6b6b73" } }, o.desc)
       ]),
-      o.key === myStatus && h2("span", { key: "c", style: { flex: "none", display: "grid", placeItems: "center" }, dangerouslySetInnerHTML: { __html: PRES_SVG.check } })
+      o.key === myStatus && h3("span", { key: "c", style: { flex: "none", display: "grid", placeItems: "center" }, dangerouslySetInnerHTML: { __html: PRES_SVG.check } })
     ])),
-    h2("div", { key: "note", style: { display: "flex", alignItems: "flex-start", gap: "8px", margin: "6px 6px 4px", padding: "9px 10px", borderRadius: "9px", background: "rgba(62,207,142,0.06)", border: "1px solid rgba(62,207,142,0.16)" } }, [
-      h2("span", { key: "i", style: { flex: "none", marginTop: "1px", display: "grid" }, dangerouslySetInnerHTML: { __html: PRES_SVG.lock } }),
-      h2("span", { key: "t", style: { fontSize: "11px", lineHeight: 1.45, color: "#8a8a92" } }, t("chat.peersOnly"))
+    h3("div", { key: "note", style: { display: "flex", alignItems: "flex-start", gap: "8px", margin: "6px 6px 4px", padding: "9px 10px", borderRadius: "9px", background: "rgba(62,207,142,0.06)", border: "1px solid rgba(62,207,142,0.16)" } }, [
+      h3("span", { key: "i", style: { flex: "none", marginTop: "1px", display: "grid" }, dangerouslySetInnerHTML: { __html: PRES_SVG.lock } }),
+      h3("span", { key: "t", style: { fontSize: "11px", lineHeight: 1.45, color: "#8a8a92" } }, t("chat.peersOnly"))
     ])
   ]) : null;
-  const presencePanelExpanded = h2("div", { key: "you", style: { flex: "none", position: "relative", marginTop: "10px", borderTop: "1px solid rgba(255,255,255,0.06)", padding: "10px 12px 12px" } }, [
+  const presencePanelExpanded = h3("div", { key: "you", style: { flex: "none", position: "relative", marginTop: "10px", borderTop: "1px solid rgba(255,255,255,0.06)", padding: "10px 12px 12px" } }, [
     presenceMenu({ left: "12px", right: "12px", bottom: "64px" }),
-    h2("button", { key: "btn", onClick: () => setPresenceOpen((v) => !v), style: { width: "100%", display: "flex", alignItems: "center", gap: "11px", padding: "7px 8px", borderRadius: "11px", border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)", cursor: "pointer" } }, [
-      h2("div", { key: "av", style: { position: "relative", flex: "none", width: "36px", height: "36px", borderRadius: "10px", display: "grid", placeItems: "center", background: "rgba(240,137,42,0.12)", border: "1px solid rgba(240,137,42,0.24)", color: "#f0892a" } }, [
-        h2("span", { key: "i", style: { display: "grid" }, dangerouslySetInnerHTML: { __html: PRES_SVG.user } }),
-        h2("span", { key: "dot", style: { position: "absolute", insetInlineEnd: "-2px", bottom: "-2px", width: "11px", height: "11px", borderRadius: "50%", background: myMeta.dot, border: "2px solid #0c0c0e" } })
+    h3("button", { key: "btn", onClick: () => setPresenceOpen((v) => !v), style: { width: "100%", display: "flex", alignItems: "center", gap: "11px", padding: "7px 8px", borderRadius: "11px", border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)", cursor: "pointer" } }, [
+      h3("div", { key: "av", style: { position: "relative", flex: "none", width: "36px", height: "36px", borderRadius: "10px", display: "grid", placeItems: "center", background: "rgba(240,137,42,0.12)", border: "1px solid rgba(240,137,42,0.24)", color: "#f0892a" } }, [
+        h3("span", { key: "i", style: { display: "grid" }, dangerouslySetInnerHTML: { __html: PRES_SVG.user } }),
+        h3("span", { key: "dot", style: { position: "absolute", insetInlineEnd: "-2px", bottom: "-2px", width: "11px", height: "11px", borderRadius: "50%", background: myMeta.dot, border: "2px solid #0c0c0e" } })
       ]),
-      h2("div", { key: "tx", style: { flex: 1, minWidth: 0, textAlign: "start" } }, [
-        h2("div", { key: "y", style: { fontSize: "13.5px", fontWeight: 700, color: "#f4f4f6" } }, t("chatHdr.you")),
-        h2("div", { key: "w", style: { fontSize: "12px", color: "#8a8a92" } }, myMeta.word)
+      h3("div", { key: "tx", style: { flex: 1, minWidth: 0, textAlign: "start" } }, [
+        h3("div", { key: "y", style: { fontSize: "13.5px", fontWeight: 700, color: "#f4f4f6" } }, t("chatHdr.you")),
+        h3("div", { key: "w", style: { fontSize: "12px", color: "#8a8a92" } }, myMeta.word)
       ]),
-      h2("span", { key: "ch", style: { display: "grid", placeItems: "center" }, dangerouslySetInnerHTML: { __html: PRES_SVG.chevUp } })
+      h3("span", { key: "ch", style: { display: "grid", placeItems: "center" }, dangerouslySetInnerHTML: { __html: PRES_SVG.chevUp } })
     ])
   ]);
-  const presencePanelCollapsed = h2("div", { key: "you", style: { flex: "none", position: "relative", display: "flex", flexDirection: "column", alignItems: "center", padding: "0 0 13px" } }, [
+  const presencePanelCollapsed = h3("div", { key: "you", style: { flex: "none", position: "relative", display: "flex", flexDirection: "column", alignItems: "center", padding: "0 0 13px" } }, [
     presenceMenu({ insetInlineStart: "60px", bottom: "8px", width: "248px" }),
-    h2("button", { key: "btn", onClick: () => setPresenceOpen((v) => !v), title: t("chat.yourStatusPrefix") + myMeta.word, style: { position: "relative", width: "44px", height: "44px", borderRadius: "12px", display: "grid", placeItems: "center", cursor: "pointer", background: "rgba(240,137,42,0.12)", border: "1px solid rgba(240,137,42,0.24)", color: "#f0892a" } }, [
-      h2("span", { key: "i", style: { display: "grid" }, dangerouslySetInnerHTML: { __html: PRES_SVG.user } }),
-      h2("span", { key: "dot", style: { position: "absolute", insetInlineEnd: "-2px", bottom: "-2px", width: "12px", height: "12px", borderRadius: "50%", background: myMeta.dot, border: "2.5px solid #0c0c0e" } })
+    h3("button", { key: "btn", onClick: () => setPresenceOpen((v) => !v), title: t("chat.yourStatusPrefix") + myMeta.word, style: { position: "relative", width: "44px", height: "44px", borderRadius: "12px", display: "grid", placeItems: "center", cursor: "pointer", background: "rgba(240,137,42,0.12)", border: "1px solid rgba(240,137,42,0.24)", color: "#f0892a" } }, [
+      h3("span", { key: "i", style: { display: "grid" }, dangerouslySetInnerHTML: { __html: PRES_SVG.user } }),
+      h3("span", { key: "dot", style: { position: "absolute", insetInlineEnd: "-2px", bottom: "-2px", width: "12px", height: "12px", borderRadius: "50%", background: myMeta.dot, border: "2.5px solid #0c0c0e" } })
     ])
   ]);
   const expandedInner = [
-    h2("div", { key: "head", style: { flex: "none", display: "flex", alignItems: "center", justifyContent: "space-between", paddingBlock: 0, paddingInlineStart: "16px", paddingInlineEnd: "12px", height: "64px", borderBottom: "1px solid rgba(255,255,255,0.06)" } }, [
-      h2("div", { key: "brand", style: { display: "flex", alignItems: "center", gap: "10px" } }, [brandMark(30), h2("span", { key: "t", style: { fontSize: "15px", fontWeight: 800, letterSpacing: "-0.3px", color: "#f4f4f6" } }, "SecureBit")]),
+    h3("div", { key: "head", style: { flex: "none", display: "flex", alignItems: "center", justifyContent: "space-between", paddingBlock: 0, paddingInlineStart: "16px", paddingInlineEnd: "12px", height: "var(--sb-bar-h, 64px)", borderBottom: "1px solid rgba(255,255,255,0.06)" } }, [
+      h3("div", { key: "brand", style: { display: "flex", alignItems: "center", gap: "10px" } }, [brandMark(30), h3("span", { key: "t", style: { fontSize: "15px", fontWeight: 800, letterSpacing: "-0.3px", color: "#f4f4f6" } }, "SecureBit")]),
       collapseBtn(SB_SVG.chevL, t("chat.collapse"))
     ]),
-    h2("div", { key: "label", style: { flex: "none", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 16px 9px" } }, [
-      h2("span", { key: "l", style: { fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 600, color: "#56565e", textTransform: "uppercase", letterSpacing: "1.3px" } }, t("chatHdr.chats")),
-      h2("span", { key: "c", style: { fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 600, color: "#6b6b73" } }, String(chats.length))
+    h3("div", { key: "label", style: { flex: "none", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 16px 9px" } }, [
+      h3("span", { key: "l", style: { fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 600, color: "#56565e", textTransform: "uppercase", letterSpacing: "1.3px" } }, t("chatHdr.chats")),
+      h3("span", { key: "c", style: { fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 600, color: "#6b6b73" } }, String(chats.length))
     ]),
-    h2("div", { key: "list", className: "msc-scroll", style: { flex: 1, overflowY: "auto", padding: "0 10px" } }, [
+    h3("div", { key: "list", className: "msc-scroll", style: { flex: 1, overflowY: "auto", padding: "0 10px" } }, [
       ...chats.map(expandedRow),
-      h2("div", { key: "gh", style: { marginTop: "14px", padding: "0 2px 6px", display: "flex", alignItems: "baseline", justifyContent: "space-between" } }, [
-        h2("span", { key: "l", style: { fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 600, color: "#56565e", textTransform: "uppercase", letterSpacing: "1.3px" } }, t("chat.groupChats")),
-        h2("button", {
+      h3("div", { key: "gh", style: { marginTop: "14px", padding: "0 2px 6px", display: "flex", alignItems: "baseline", justifyContent: "space-between" } }, [
+        h3("span", { key: "l", style: { fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 600, color: "#56565e", textTransform: "uppercase", letterSpacing: "1.3px" } }, t("chat.groupChats")),
+        h3("button", {
           key: "add",
           onClick: onNewGroup,
           title: t("chat.newGroup"),
           style: { border: "none", background: "transparent", color: "#f0892a", cursor: "pointer", fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.9px", padding: 0 }
         }, t("chatHdr.newChat"))
       ]),
-      ...groups.length === 0 ? [h2("div", { key: "gph", onClick: onNewGroup, title: t("chat.createGroup"), style: { display: "flex", alignItems: "center", gap: "12px", padding: "11px 12px", borderRadius: "11px", background: "transparent", border: "1px dashed rgba(255,255,255,0.09)", cursor: "pointer" } }, [
-        h2("div", { key: "i", style: { flex: "none", width: "38px", height: "38px", borderRadius: "11px", display: "grid", placeItems: "center", background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", color: "#56565e" }, dangerouslySetInnerHTML: { __html: SB_SVG.users } }),
-        h2("div", { key: "b", style: { flex: 1, minWidth: 0 } }, [
-          h2("div", { key: "t", style: { fontSize: "14px", fontWeight: 600, color: "#8a8a92" } }, t("chat.newGroup")),
-          h2("div", { key: "s", style: { fontSize: "11.5px", color: "#56565e" } }, t("chat.meshHint"))
+      ...groups.length === 0 ? [h3("div", { key: "gph", onClick: onNewGroup, title: t("chat.createGroup"), style: { display: "flex", alignItems: "center", gap: "12px", padding: "11px 12px", borderRadius: "11px", background: "transparent", border: "1px dashed rgba(255,255,255,0.09)", cursor: "pointer" } }, [
+        h3("div", { key: "i", style: { flex: "none", width: "38px", height: "38px", borderRadius: "11px", display: "grid", placeItems: "center", background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", color: "#56565e" }, dangerouslySetInnerHTML: { __html: SB_SVG.users } }),
+        h3("div", { key: "b", style: { flex: 1, minWidth: 0 } }, [
+          h3("div", { key: "t", style: { fontSize: "14px", fontWeight: 600, color: "#8a8a92" } }, t("chat.newGroup")),
+          h3("div", { key: "s", style: { fontSize: "11.5px", color: "#56565e" } }, t("chat.meshHint"))
         ])
-      ])] : groups.map((g) => h2("div", {
+      ])] : groups.map((g) => h3("div", {
         key: g.id,
         onClick: () => onSelectGroup(g.id),
         style: { position: "relative", display: "flex", alignItems: "center", gap: "12px", padding: "11px 12px", marginBottom: "4px", borderRadius: "11px", background: g.active ? "#161618" : "transparent", border: "1px solid " + (g.active ? "rgba(255,255,255,0.08)" : "transparent"), cursor: "pointer" }
       }, [
-        g.active && h2("span", { key: "bar", style: { position: "absolute", insetInlineStart: 0, top: "12px", bottom: "12px", width: "3px", borderStartEndRadius: "3px", borderEndEndRadius: "3px", background: "#f0892a" } }),
+        g.active && h3("span", { key: "bar", style: { position: "absolute", insetInlineStart: 0, top: "12px", bottom: "12px", width: "3px", borderStartEndRadius: "3px", borderEndEndRadius: "3px", background: "#f0892a" } }),
         avatar(g, 38, g.active ? "#161618" : "#0c0c0e"),
-        h2("div", { key: "body", style: { flex: 1, minWidth: 0 } }, [
-          h2("div", { key: "top", style: { display: "flex", alignItems: "center", gap: "7px" } }, [
-            h2("span", { key: "n", style: { flex: 1, minWidth: 0, fontSize: "14px", fontWeight: g.active ? 700 : 600, letterSpacing: "-0.2px", color: g.active ? "#f4f4f6" : "#cfcfd4", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, g.name),
-            g.unread && h2("span", { key: "u", style: { flex: "none", minWidth: "18px", height: "18px", padding: "0 5px", borderRadius: "9px", display: "grid", placeItems: "center", background: "#f0892a", color: "#1a0f04", fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 700 } }, g.unread)
+        h3("div", { key: "body", style: { flex: 1, minWidth: 0 } }, [
+          h3("div", { key: "top", style: { display: "flex", alignItems: "center", gap: "7px" } }, [
+            h3("span", { key: "n", style: { flex: 1, minWidth: 0, fontSize: "14px", fontWeight: g.active ? 700 : 600, letterSpacing: "-0.2px", color: g.active ? "#f4f4f6" : "#cfcfd4", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, g.name),
+            g.unread && h3("span", { key: "u", style: { flex: "none", minWidth: "18px", height: "18px", padding: "0 5px", borderRadius: "9px", display: "grid", placeItems: "center", background: "#f0892a", color: "#1a0f04", fontFamily: "'JetBrains Mono',monospace", fontSize: "10px", fontWeight: 700 } }, g.unread)
           ]),
-          h2("div", { key: "prev", style: { fontSize: "12px", color: g.active ? "#8a8a92" : "#6b6b73", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, g.preview)
+          h3("div", { key: "prev", style: { fontSize: "12px", color: g.active ? "#8a8a92" : "#6b6b73", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, g.preview)
         ])
       ]))
     ]),
-    h2("div", { key: "new", style: { flex: "none", padding: "12px" } }, h2("button", {
+    h3("div", { key: "new", style: { flex: "none", padding: "12px" } }, h3("button", {
       onClick: onNewChat,
       style: { width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "9px", padding: "12px", borderRadius: "11px", border: "none", background: "#f0892a", color: "#1a0f04", fontFamily: "inherit", fontSize: "14px", fontWeight: 700, cursor: "pointer", boxShadow: "0 8px 24px rgba(240,137,42,0.28)" }
     }, [icon(SB_SVG.plus, { key: "p" }), t("chat.newChat")])),
     presencePanelExpanded
   ];
   const collapsedInner = [
-    h2("div", { key: "head", style: { flex: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", padding: "13px 0", width: "100%", borderBottom: "1px solid rgba(255,255,255,0.06)" } }, [brandMark(32), collapseBtn(SB_SVG.chevR, t("chatHdr.expand"))]),
-    h2("div", { key: "list", className: "msc-scroll", style: { flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", padding: "14px 0", width: "100%" } }, [
+    h3("div", { key: "head", style: { flex: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", padding: "13px 0", width: "100%", borderBottom: "1px solid rgba(255,255,255,0.06)" } }, [brandMark(32), collapseBtn(SB_SVG.chevR, t("chatHdr.expand"))]),
+    h3("div", { key: "list", className: "msc-scroll", style: { flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", padding: "14px 0", width: "100%" } }, [
       ...chats.map(dockItem),
-      h2("div", { key: "sep", style: { width: "30px", height: "1px", background: "rgba(255,255,255,0.07)", margin: "2px 0" } }),
-      ...groups.map((g) => h2("div", { key: g.id, style: { position: "relative" } }, [
-        g.active && h2("span", { key: "bar", style: { position: "absolute", insetInlineStart: "-13px", top: "9px", bottom: "9px", width: "3px", borderStartEndRadius: "3px", borderEndEndRadius: "3px", background: "#f0892a" } }),
-        h2("div", {
+      h3("div", { key: "sep", style: { width: "30px", height: "1px", background: "rgba(255,255,255,0.07)", margin: "2px 0" } }),
+      ...groups.map((g) => h3("div", { key: g.id, style: { position: "relative" } }, [
+        g.active && h3("span", { key: "bar", style: { position: "absolute", insetInlineStart: "-13px", top: "9px", bottom: "9px", width: "3px", borderStartEndRadius: "3px", borderEndEndRadius: "3px", background: "#f0892a" } }),
+        h3("div", {
           key: "tile",
           onClick: () => onSelectGroup(g.id),
           title: g.name + " \u2014 " + g.headerSub,
           style: { position: "relative", width: "44px", height: "44px", borderRadius: "12px", display: "grid", placeItems: "center", cursor: "pointer", background: g.active ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255," + (g.active ? "0.14" : "0.07") + ")", fontSize: "13px", fontWeight: 700, letterSpacing: "-0.3px", color: g.active ? "#f4f4f6" : "#9a9aa2" }
         }, [
           g.mono,
-          h2("span", { key: "dot", style: { position: "absolute", insetInlineEnd: "-2px", bottom: "-2px", width: "11px", height: "11px", borderRadius: "50%", background: g.dot, border: "2.5px solid #0c0c0e" } }),
-          g.unread && h2("span", { key: "u", style: { position: "absolute", insetInlineStart: "-5px", top: "-5px", minWidth: "17px", height: "17px", padding: "0 4px", borderRadius: "9px", display: "grid", placeItems: "center", background: "#f0892a", color: "#1a0f04", fontFamily: "'JetBrains Mono',monospace", fontSize: "9.5px", fontWeight: 700, border: "2px solid #0c0c0e" } }, g.unread)
+          h3("span", { key: "dot", style: { position: "absolute", insetInlineEnd: "-2px", bottom: "-2px", width: "11px", height: "11px", borderRadius: "50%", background: g.dot, border: "2.5px solid #0c0c0e" } }),
+          g.unread && h3("span", { key: "u", style: { position: "absolute", insetInlineStart: "-5px", top: "-5px", minWidth: "17px", height: "17px", padding: "0 4px", borderRadius: "9px", display: "grid", placeItems: "center", background: "#f0892a", color: "#1a0f04", fontFamily: "'JetBrains Mono',monospace", fontSize: "9.5px", fontWeight: 700, border: "2px solid #0c0c0e" } }, g.unread)
         ])
       ])),
-      h2("div", { key: "gph", onClick: onNewGroup, title: t("chat.newGroup"), style: { position: "relative", width: "44px", height: "44px", borderRadius: "12px", display: "grid", placeItems: "center", cursor: "pointer", background: "transparent", border: "1px dashed rgba(255,255,255,0.1)", color: "#56565e" }, dangerouslySetInnerHTML: { __html: SB_SVG.users } })
+      h3("div", { key: "gph", onClick: onNewGroup, title: t("chat.newGroup"), style: { position: "relative", width: "44px", height: "44px", borderRadius: "12px", display: "grid", placeItems: "center", cursor: "pointer", background: "transparent", border: "1px dashed rgba(255,255,255,0.1)", color: "#56565e" }, dangerouslySetInnerHTML: { __html: SB_SVG.users } })
     ]),
-    h2("div", { key: "new", style: { flex: "none", padding: "13px 0" } }, h2("button", {
+    h3("div", { key: "new", style: { flex: "none", padding: "13px 0" } }, h3("button", {
       onClick: onNewChat,
       title: t("chat.newChat"),
       style: { width: "44px", height: "44px", borderRadius: "12px", display: "grid", placeItems: "center", border: "none", background: "#f0892a", color: "#1a0f04", cursor: "pointer", boxShadow: "0 8px 24px rgba(240,137,42,0.28)" },
@@ -16198,17 +18421,17 @@ var SessionsSidebar = ({ chats, groups = [], collapsed, drawerOpen, onToggleColl
     presencePanelCollapsed
   ];
   const railWidth = collapsed ? "72px" : "292px";
-  const railStyle = { flex: "none", width: railWidth, display: "flex", flexDirection: "column", alignItems: collapsed ? "center" : "stretch", background: "#0c0c0e", borderInlineEnd: "1px solid rgba(255,255,255,0.06)" };
+  const railStyle = { flex: "none", width: railWidth, display: "flex", flexDirection: "column", alignItems: collapsed ? "center" : "stretch", paddingTop: "var(--sb-safe-top, 0px)", background: "#0c0c0e", borderInlineEnd: "1px solid rgba(255,255,255,0.06)" };
   const inner = collapsed ? collapsedInner : expandedInner;
-  return h2(React.Fragment, null, [
+  return h3(React.Fragment, null, [
     // Responsive behaviour (inline styles can't express media queries).
-    h2("style", { key: "css", dangerouslySetInnerHTML: { __html: "@media (max-width:1023px){.sb-rail{display:none !important;}.sb-burger{display:grid !important;}}@media (min-width:1024px){.sb-drawer-overlay{display:none !important;}}.sb-mobile-drawer .sb-collapse-btn{display:none !important;}html,body{background:#0f0f11 !important;overscroll-behavior:none;}.sb-app-shell{height:var(--sb-vh,100dvh) !important;min-height:0 !important;overflow:hidden;}.sb-chat-header{position:sticky;top:0;z-index:20;}.sb-app-col{height:100% !important;min-height:0 !important;}.chat-container{height:100% !important;min-height:0 !important;}.sb-scroll{min-height:0 !important;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}@media (max-width:768px){textarea,input,select{font-size:16px !important;}}@media (max-width:768px){.sb-rename-btn{display:none !important;}}" } }),
+    h3("style", { key: "css", dangerouslySetInnerHTML: { __html: "@media (max-width:1023px){.sb-rail{display:none !important;}.sb-burger{display:grid !important;}}@media (min-width:1024px){.sb-drawer-overlay{display:none !important;}}.sb-mobile-drawer .sb-collapse-btn{display:none !important;}html,body{background:#0f0f11 !important;overscroll-behavior:none;}.sb-app-shell{height:var(--sb-vh,100dvh) !important;min-height:0 !important;overflow:hidden;}.sb-chat-header{position:sticky;top:0;z-index:20;}.sb-app-col{height:100% !important;min-height:0 !important;}.chat-container{height:100% !important;min-height:0 !important;}.sb-scroll{min-height:0 !important;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}@media (max-width:768px){textarea,input,select{font-size:16px !important;}}@media (max-width:768px){.sb-rename-btn{display:none !important;}}" } }),
     // Desktop rail
-    h2("aside", { key: "rail", className: "sb-rail", style: railStyle }, inner),
+    h3("aside", { key: "rail", className: "sb-rail", style: railStyle }, inner),
     // Mobile drawer overlay. `touch-action: pan-y` hands vertical
     // scrolling back to the browser and keeps the horizontal axis for
     // us, so the chat list still scrolls with the drawer open.
-    h2("div", {
+    h3("div", {
       key: "drawer",
       className: "sb-drawer-overlay",
       ref: scrimRef,
@@ -16218,11 +18441,11 @@ var SessionsSidebar = ({ chats, groups = [], collapsed, drawerOpen, onToggleColl
       onPointerUp: drawerUp,
       onPointerCancel: drawerUp,
       style: { position: "fixed", inset: 0, zIndex: 60, background: "rgba(6,6,8,0.6)", backdropFilter: "blur(0px)", WebkitBackdropFilter: "blur(0px)", opacity: 0, display: drawerMounted ? "block" : "none", touchAction: "pan-y", willChange: "opacity" }
-    }, h2("aside", { className: "sb-mobile-drawer", ref: panelRef, onClick: (e) => e.stopPropagation(), style: { position: "absolute", insetInlineStart: 0, top: 0, bottom: 0, width: "min(292px, 86vw)", display: "flex", flexDirection: "column", background: "#0c0c0e", borderInlineEnd: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 0 60px rgba(0,0,0,0.6)", touchAction: "pan-y", willChange: "transform" } }, [
+    }, h3("aside", { className: "sb-mobile-drawer", ref: panelRef, onClick: (e) => e.stopPropagation(), style: { position: "absolute", insetInlineStart: 0, top: 0, bottom: 0, width: "min(292px, 86vw)", display: "flex", flexDirection: "column", paddingTop: "var(--sb-safe-top, 0px)", background: "#0c0c0e", borderInlineEnd: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 0 60px rgba(0,0,0,0.6)", touchAction: "pan-y", willChange: "transform" } }, [
       // Explicit close button — the drawer's own header only has a
       // "collapse" chevron (a desktop-rail action), so on mobile there was
       // no obvious way to dismiss it. This X closes the drawer reliably.
-      h2("button", { key: "x", onClick: onCloseDrawer, title: t("chat.closeMenu"), "aria-label": t("chat.closeMenu"), style: { position: "absolute", top: "15px", insetInlineEnd: "13px", zIndex: 2, width: "34px", height: "34px", borderRadius: "9px", display: "grid", placeItems: "center", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", color: "#cfcfd4", cursor: "pointer" } }, h2("i", { className: "fas fa-xmark", style: { fontSize: "16px" } })),
+      h3("button", { key: "x", onClick: onCloseDrawer, title: t("chat.closeMenu"), "aria-label": t("chat.closeMenu"), style: { position: "absolute", top: "calc(15px + var(--sb-safe-top, 0px))", insetInlineEnd: "13px", zIndex: 2, width: "34px", height: "34px", borderRadius: "9px", display: "grid", placeItems: "center", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", color: "#cfcfd4", cursor: "pointer" } }, h3("i", { className: "fas fa-xmark", style: { fontSize: "16px" } })),
       expandedInner
     ]))
   ]);
@@ -16251,6 +18474,11 @@ var EnhancedSecureP2PChat = () => {
   const [groupError, setGroupError] = React.useState(null);
   const [showAddMembers, setShowAddMembers] = React.useState(false);
   const groupScrollRef = React.useRef(null);
+  const [groupCallState, setGroupCallState] = React.useState({});
+  const [groupCallMediaState, setGroupCallMediaState] = React.useState({});
+  const groupCallMediaRef = React.useRef(/* @__PURE__ */ new Map());
+  const [dismissedCalls, setDismissedCalls] = React.useState({});
+  const announcedCallsRef = React.useRef(/* @__PURE__ */ new Set());
   const meshLinksRef = React.useRef(/* @__PURE__ */ new Map());
   const lastUnreachableRef = React.useRef(/* @__PURE__ */ new Map());
   const sendGroupFrame = React.useMemo(() => createGroupSender({
@@ -16272,6 +18500,7 @@ var EnhancedSecureP2PChat = () => {
         break;
       case "members":
         groupsDispatch({ type: GROUP_ACTIONS.SET_MEMBERS, id: gid, members: payload.members, epoch: payload.epoch });
+        syncGroupCallMediaRef.current(gid, null);
         break;
       case "roster":
         groupsDispatch({ type: GROUP_ACTIONS.RENAME, id: gid, name: payload.name });
@@ -16283,6 +18512,17 @@ var EnhancedSecureP2PChat = () => {
         break;
       case "confirmed":
         groupsDispatch({ type: GROUP_ACTIONS.CONFIRM_SAS, id: gid });
+        break;
+      case "call":
+        setGroupCallState((current) => ({ ...current, [gid]: payload.call }));
+        syncGroupCallMediaRef.current(gid, payload.call);
+        if (payload.call && !payload.call.joined && gid !== activeGroupIdRef.current) {
+          const token = `${gid}:${payload.call.callId}`;
+          if (!announcedCallsRef.current.has(token)) {
+            announcedCallsRef.current.add(token);
+            groupsDispatch({ type: GROUP_ACTIONS.INCREMENT_UNREAD, id: gid });
+          }
+        }
         break;
       case "message":
         groupsDispatch({
@@ -16506,10 +18746,10 @@ var EnhancedSecureP2PChat = () => {
     const root = document.documentElement;
     let lastH = -1, lastInset = "";
     const applyHeight = () => {
-      const h2 = Math.round(vv ? vv.height : window.innerHeight || 0);
-      if (h2 && h2 !== lastH) {
-        lastH = h2;
-        root.style.setProperty("--sb-vh", h2 + "px");
+      const h3 = Math.round(vv ? vv.height : window.innerHeight || 0);
+      if (h3 && h3 !== lastH) {
+        lastH = h3;
+        root.style.setProperty("--sb-vh", h3 + "px");
       }
     };
     const applyInset = () => {
@@ -17265,6 +19505,7 @@ var EnhancedSecureP2PChat = () => {
     setSidebarDrawerOpen(false);
   }, []);
   const handleNewChat = React.useCallback(() => {
+    groupsDispatch({ type: GROUP_ACTIONS.SET_ACTIVE_GROUP, id: null });
     createSessionRef.current({ role: "offer" });
     setSidebarDrawerOpen(false);
   }, []);
@@ -17498,6 +19739,22 @@ var EnhancedSecureP2PChat = () => {
   }, []);
   const destroyGroup = React.useCallback((gid, { announce = true } = {}) => {
     const runtime = groupRuntimesRef.current.get(gid);
+    const media = groupCallMediaRef.current.get(gid);
+    if (media) {
+      groupCallMediaRef.current.delete(gid);
+      media.leave().catch(() => {
+      });
+    }
+    setGroupCallState((current) => {
+      const next = { ...current };
+      delete next[gid];
+      return next;
+    });
+    setGroupCallMediaState((current) => {
+      const next = { ...current };
+      delete next[gid];
+      return next;
+    });
     groupRuntimesRef.current.delete(gid);
     lastUnreachableRef.current.delete(gid);
     groupsDispatch({ type: GROUP_ACTIONS.REMOVE_GROUP, id: gid });
@@ -17582,6 +19839,138 @@ var EnhancedSecureP2PChat = () => {
       groupsDispatch({ type: GROUP_ACTIONS.SET_ERROR, id: gid, error: error?.code || "remove_failed" });
     }
   }, []);
+  const syncGroupCallMedia = React.useCallback((gid, callOrNull) => {
+    const media = groupCallMediaRef.current.get(gid);
+    if (!media) return;
+    const runtime = groupRuntimesRef.current.get(gid);
+    const call = callOrNull !== null ? callOrNull : runtime?.getCallSnapshot?.() || null;
+    if (!call || !call.joined || call.callId !== media.callId) {
+      groupCallMediaRef.current.delete(gid);
+      media.leave().catch(() => {
+      });
+      setGroupCallMediaState((current) => {
+        const next = { ...current };
+        delete next[gid];
+        return next;
+      });
+      return;
+    }
+    media.setPeers(call.participants);
+  }, []);
+  const syncGroupCallMediaRef = React.useRef(syncGroupCallMedia);
+  syncGroupCallMediaRef.current = syncGroupCallMedia;
+  const openGroupCallMedia = React.useCallback(async (gid, call) => {
+    const existing = groupCallMediaRef.current.get(gid);
+    if (existing && existing.callId === call.callId) {
+      existing.setPeers(call.participants);
+      return existing;
+    }
+    if (existing) {
+      groupCallMediaRef.current.delete(gid);
+      await existing.leave().catch(() => {
+      });
+    }
+    const media = new GroupCallMedia({
+      getManager: (sessionId) => managersRef.current.get(sessionId) || meshLinksRef.current.get(sessionId)?.manager || null,
+      onChange: (snapshot) => {
+        setGroupCallMediaState((current) => ({ ...current, [gid]: snapshot }));
+      }
+    });
+    groupCallMediaRef.current.set(gid, media);
+    await media.join({
+      callId: call.callId,
+      selfFp: groupsState.groups[gid]?.selfFp || groupRuntimesRef.current.get(gid)?.selfFp || "",
+      withVideo: call.withVideo,
+      peers: []
+      // legs are connected after the announcement
+    });
+    return media;
+  }, [groupsState]);
+  const handleStartGroupCall = React.useCallback(async (withVideo) => {
+    const gid = activeGroupIdRef.current;
+    const runtime = gid && groupRuntimesRef.current.get(gid);
+    if (!runtime) return;
+    try {
+      await runtime.startCall({
+        withVideo,
+        prepare: (call) => openGroupCallMedia(gid, call)
+      });
+    } catch (error) {
+      const media = groupCallMediaRef.current.get(gid);
+      if (media) {
+        groupCallMediaRef.current.delete(gid);
+        media.leave().catch(() => {
+        });
+      }
+      const code = error?.code || "media_failed";
+      groupsDispatch({
+        type: GROUP_ACTIONS.ADD_MESSAGE,
+        id: gid,
+        message: buildGroupMessage(
+          code === "call_in_progress" ? t("groupCall.err.call_in_progress") : code === "not_ready" ? t("groupCall.err.not_ready") : t(`groupCall.err.${mediaErrorCode(error)}`),
+          "system"
+        )
+      });
+    }
+  }, [openGroupCallMedia]);
+  const handleJoinGroupCall = React.useCallback(async () => {
+    const gid = activeGroupIdRef.current;
+    const runtime = gid && groupRuntimesRef.current.get(gid);
+    const call = runtime?.getCallSnapshot?.();
+    if (!runtime || !call) return;
+    try {
+      const media = await openGroupCallMedia(gid, { ...call, joined: true });
+      await runtime.joinCall();
+      media.setPeers(runtime.getCallSnapshot()?.participants || []);
+    } catch (error) {
+      const media = groupCallMediaRef.current.get(gid);
+      if (media) {
+        groupCallMediaRef.current.delete(gid);
+        media.leave().catch(() => {
+        });
+      }
+      groupsDispatch({
+        type: GROUP_ACTIONS.ADD_MESSAGE,
+        id: gid,
+        message: buildGroupMessage(t(`groupCall.err.${mediaErrorCode(error)}`), "system")
+      });
+    }
+  }, [openGroupCallMedia]);
+  const handleDismissGroupCall = React.useCallback(() => {
+    const gid = activeGroupIdRef.current;
+    const call = gid && groupRuntimesRef.current.get(gid)?.getCallSnapshot?.();
+    if (!call) return;
+    setDismissedCalls((current) => ({ ...current, [gid]: call.callId }));
+  }, []);
+  const handleLeaveGroupCall = React.useCallback(async () => {
+    const gid = activeGroupIdRef.current;
+    if (!gid) return;
+    const media = groupCallMediaRef.current.get(gid);
+    if (media) {
+      groupCallMediaRef.current.delete(gid);
+      setGroupCallMediaState((current) => {
+        const next = { ...current };
+        delete next[gid];
+        return next;
+      });
+      await media.leave().catch(() => {
+      });
+    }
+    try {
+      await groupRuntimesRef.current.get(gid)?.leaveCall();
+    } catch (_) {
+    }
+  }, []);
+  const activeGroupMedia = React.useCallback(() => activeGroupIdRef.current ? groupCallMediaRef.current.get(activeGroupIdRef.current) : null, []);
+  const handleGroupCallMic = React.useCallback(() => {
+    activeGroupMedia()?.toggleMic();
+  }, [activeGroupMedia]);
+  const handleGroupCallCamera = React.useCallback(() => {
+    activeGroupMedia()?.toggleCamera();
+  }, [activeGroupMedia]);
+  const handleGroupCallFlip = React.useCallback(() => {
+    activeGroupMedia()?.flipCamera();
+  }, [activeGroupMedia]);
   React.useEffect(() => {
     if (!activeGroupId) return;
     groupsDispatch({ type: GROUP_ACTIONS.CLEAR_UNREAD, id: activeGroupId });
@@ -17591,6 +19980,11 @@ var EnhancedSecureP2PChat = () => {
     if (el) el.scrollTop = el.scrollHeight;
   }, [activeGroup && activeGroup.messages.length]);
   React.useEffect(() => () => {
+    for (const media of groupCallMediaRef.current.values()) {
+      media.leave().catch(() => {
+      });
+    }
+    groupCallMediaRef.current.clear();
     for (const runtime of groupRuntimesRef.current.values()) {
       try {
         runtime.destroy();
@@ -19109,7 +21503,7 @@ var EnhancedSecureP2PChat = () => {
         key: "burger",
         className: "sb-burger",
         onClick: () => setSidebarDrawerOpen(true),
-        style: { display: "none", position: "fixed", top: "13px", insetInlineStart: "13px", zIndex: 55, width: "38px", height: "38px", borderRadius: "10px", placeItems: "center", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(18,18,20,0.9)", color: "#cfcfd4", cursor: "pointer" },
+        style: { display: "none", position: "fixed", top: "calc(13px + var(--sb-safe-top, 0px))", insetInlineStart: "13px", zIndex: 55, width: "38px", height: "38px", borderRadius: "10px", placeItems: "center", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(18,18,20,0.9)", color: "#cfcfd4", cursor: "pointer" },
         dangerouslySetInnerHTML: { __html: SB_SVG.burger }
       }),
       React.createElement("div", {
@@ -19230,7 +21624,7 @@ var EnhancedSecureP2PChat = () => {
       key: "sb-burger",
       className: "sb-burger",
       onClick: () => setSidebarDrawerOpen(true),
-      style: { display: "none", position: "fixed", top: "13px", insetInlineStart: "13px", zIndex: 55, width: "38px", height: "38px", borderRadius: "10px", placeItems: "center", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(18,18,20,0.9)", color: "#cfcfd4", cursor: "pointer" },
+      style: { display: "none", position: "fixed", top: "calc(13px + var(--sb-safe-top, 0px))", insetInlineStart: "13px", zIndex: 55, width: "38px", height: "38px", borderRadius: "10px", placeItems: "center", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(18,18,20,0.9)", color: "#cfcfd4", cursor: "pointer" },
       dangerouslySetInnerHTML: { __html: SB_SVG.burger }
     }),
     React.createElement("div", {
@@ -19254,6 +21648,10 @@ var EnhancedSecureP2PChat = () => {
         // sessionManager removed - all features enabled by default
         webrtcManager: webrtcManagerRef.current
       }),
+      // Offered, never forced: the visitor's language decides what this
+      // bar says, and only a click on it changes the URL. Landing only,
+      // for the same reason as the switcher — following it navigates.
+      !isConnectedAndVerified && !showSidebar && React.createElement(LanguageSuggestion, { key: "lang-suggest" }),
       // A group takes the whole column when it is the active conversation.
       // It renders its own header and composer, so none of the 1:1 chrome
       // (which is bound to a single webrtcManager) applies.
@@ -19269,7 +21667,32 @@ var EnhancedSecureP2PChat = () => {
         onRemoveMember: handleRemoveGroupMember,
         onAddMembers: () => setShowAddMembers(true),
         isAdmin: activeGroup.isAdmin,
-        scrollRef: groupScrollRef
+        scrollRef: groupScrollRef,
+        onStartCall: handleStartGroupCall,
+        callActive: !!groupCallState[activeGroup.id],
+        // The overlay renders nothing when there is no call, and a
+        // dismissed ring is treated as no call for this device only —
+        // the call itself carries on for whoever is in it.
+        callOverlay: (() => {
+          const call = groupCallState[activeGroup.id] || null;
+          if (!call) return null;
+          if (!call.joined && dismissedCalls[activeGroup.id] === call.callId) return null;
+          const media = groupCallMediaState[activeGroup.id] || null;
+          return React.createElement(GroupCallUI, {
+            key: "group-call",
+            call,
+            media,
+            groupName: activeGroup.name,
+            localStream: groupCallMediaRef.current.get(activeGroup.id)?.getLocalStream() || null,
+            getRemoteStream: (fp) => groupCallMediaRef.current.get(activeGroup.id)?.getRemoteStream(fp) || null,
+            onJoin: handleJoinGroupCall,
+            onDismiss: handleDismissGroupCall,
+            onLeave: handleLeaveGroupCall,
+            onToggleMic: handleGroupCallMic,
+            onToggleCamera: handleGroupCallCamera,
+            onFlipCamera: handleGroupCallFlip
+          });
+        })()
       })),
       !activeGroup && React.createElement(
         "main",

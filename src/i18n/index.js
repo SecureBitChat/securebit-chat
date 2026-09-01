@@ -149,6 +149,29 @@ export function direction(code = currentLocale()) {
 export const LTR_TEXT = { dir: 'ltr', style: { unicodeBidi: 'isolate', textAlign: 'start' } };
 
 /**
+ * The suggestion is an offer, and an offer that keeps coming back after it was turned
+ * down is an ad. One dismissal is remembered for good; storage can be unavailable, in
+ * which case the bar simply comes back — a worse experience, never a broken one.
+ */
+const SUGGEST_KEY = 'securebit-locale-suggest-dismissed';
+
+export function localeSuggestionDismissed() {
+    try {
+        return localStorage.getItem(SUGGEST_KEY) === '1';
+    } catch (_) {
+        return false;
+    }
+}
+
+export function dismissLocaleSuggestion() {
+    try {
+        localStorage.setItem(SUGGEST_KEY, '1');
+    } catch (_) {
+        // Nothing to do: the bar reappears next visit, which is not worth an exception.
+    }
+}
+
+/**
  * A locale the visitor would probably rather read, when it is not the one they are on.
  * Used to offer a link, never to redirect: an automatic redirect sends Googlebot —
  * which crawls from one place — to a single locale and leaves the rest unindexed.

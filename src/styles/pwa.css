@@ -28,30 +28,94 @@
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* PWA Specific Layout Adjustments */
-.pwa-installed {
-    /* Adjustments for when app is installed as PWA */
+/* Status-bar inset for the installed app.
+ *
+ * Installed on iOS, the web view runs edge-to-edge: `viewport-fit=cover` plus
+ * `apple-mobile-web-app-status-bar-style: black-translucent` put our own pixels
+ * under the clock and the notch. Every bar pinned to the top of the screen has
+ * to gutter itself out of that strip, or it reads as if it is sliding under the
+ * status bar. In a browser tab the inset is 0 — the browser chrome already
+ * reserves the space — so one variable covers both cases and the bars can use
+ * it unconditionally.
+ *
+ * The previous version of this file padded `body` instead. That is the wrong
+ * element twice over: the landing header is `position: fixed`, which ignores an
+ * ancestor's padding entirely, and the chat shell is sized to the visual
+ * viewport (`height: var(--sb-vh)`), so padding above it pushed the composer
+ * off the bottom by exactly the inset. It also hung the rule on a `.header`
+ * class that no component has ever carried.
+ */
+:root {
+    --sb-safe-top: 0px;
+    /* Extra painted height below the content row, installed only. The blurred
+       surface has to reach past the wordmark, not stop level with it — a bar that
+       ends on its own contents reads as a strip laid over the page rather than as
+       the top of the app. It is deliberately NOT part of --sb-bar-h: the row stays
+       the height it is, so this deepens the background without moving the logo. */
+    --sb-bar-extra: 0px;
+    /* Height of a top bar's content row, NOT counting the status-bar strip above
+       it. Installed, the strip already separates the bar from the top of the
+       screen, so the bar itself does not need its full browser-tab height — this
+       is the same split iOS uses for a navigation bar (44pt of content sitting on
+       a 59pt safe area) and it is what keeps the total from reading as a slab. */
+    --sb-bar-h: 64px;
 }
 
-.pwa-installed .header {
-    /* Adjust header for PWA mode */
-    padding-top: env(safe-area-inset-top);
-}
-
-.pwa-browser {
-    /* Adjustments for browser mode */
-}
-
-/* iOS PWA Status Bar */
-@supports (-webkit-touch-callout: none) {
-    .pwa-installed {
-        padding-top: env(safe-area-inset-top);
+/* The 3px optical trim.
+ *
+ * env(safe-area-inset-top) is a few points taller than the status bar it
+ * describes: 59px of inset for roughly 54px of clock and island. Handing the bar
+ * all of it leaves a sliver of blurred nothing above the wordmark, which is what
+ * makes the installed header read as deeper than the browser one.
+ *
+ * The trim cannot be a plain subtraction, because the surplus is not universal.
+ * On an iPhone SE the inset IS the status bar height (20px for 20px), and on
+ * Android standalone it is 0 — subtracting 3px from either puts the wordmark
+ * under the clock, or opens a gap where none belongs. So take the 3px only where
+ * there are 3px to take: max() refuses to go below 20px, and min() refuses to
+ * exceed the inset itself. 59 becomes 56, 47 becomes 44, 20 stays 20, 0 stays 0.
+ *
+ * It is spelled out twice rather than composed from a second variable: a custom
+ * property is substituted where it is DECLARED, so a --sb-safe-top defined once
+ * on :root would keep the root's inset even after body redefined the input.
+ */
+@media (display-mode: standalone) {
+    :root {
+        --sb-safe-top: min(env(safe-area-inset-top, 0px), max(20px, env(safe-area-inset-top, 0px) - 3px));
+        --sb-bar-h: 56px;
+        --sb-bar-extra: 7px;
     }
-    
-    .pwa-installed .header {
-        padding-top: calc(env(safe-area-inset-top) + 1rem);
-    }
+
+    /* The bar must WRAP its contents, never be clipped by them.
+     *
+     * components.css pins .header-minimal to a fixed 56px on a phone. With the
+     * global box-sizing:border-box, a status-bar inset added as padding does not
+     * grow that box — it is subtracted from the inside, and the brand row is left
+     * hanging below the painted, blurred surface with the bar's bottom edge drawn
+     * above the logo. That is the same failure at three different padding values,
+     * which is why raising the logo and deepening the background both looked like
+     * they did nothing: the box could not grow to show either.
+     *
+     * An auto height cannot clip. The bar becomes inset + --sb-bar-h + --sb-bar-extra
+     * by construction, whatever those resolve to on the device — so the background
+     * always reaches past the wordmark and the numbers above are free to be tuned.
+     *
+     * pwa.css is the last stylesheet in the document, so this wins the tie with the
+     * max-width rule on equal specificity without needing !important. The browser
+     * keeps its fixed 56px bar untouched.
+     */
+    .header-minimal { height: auto; }
 }
+
+/* iOS before 16.4 does not match (display-mode: standalone); install-prompt.js
+   sets .pwa-installed from navigator.standalone, which is the older signal. */
+body.pwa-installed {
+    --sb-safe-top: min(env(safe-area-inset-top, 0px), max(20px, env(safe-area-inset-top, 0px) - 3px));
+    --sb-bar-h: 56px;
+    --sb-bar-extra: 7px;
+}
+
+body.pwa-installed .header-minimal { height: auto; }
 
 /* PWA Splash Screen Styles */
 .pwa-splash {
@@ -194,110 +258,6 @@
     
     .pwa-safe-area-top {
         padding-top: max(16px, env(safe-area-inset-top));
-    }
-}
-
-/* PWA Install Promotion Banner */
-.pwa-install-banner {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: linear-gradient(135deg, #ff6b35, #f7941d);
-    color: white;
-    padding: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    transform: translateY(100%);
-    transition: transform 0.3s ease-out;
-    z-index: 1000;
-}
-
-.pwa-install-banner.show {
-    transform: translateY(0);
-}
-
-.pwa-install-banner .content {
-    flex: 1;
-    display: flex;
-    align-items: center;
-}
-
-.pwa-install-banner .icon {
-    width: 48px;
-    height: 48px;
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-inline-end: 16px;
-}
-
-.pwa-install-banner .text {
-    flex: 1;
-}
-
-.pwa-install-banner .title {
-    font-weight: 600;
-    font-size: 16px;
-    margin-bottom: 4px;
-}
-
-.pwa-install-banner .subtitle {
-    font-size: 14px;
-    opacity: 0.9;
-}
-
-.pwa-install-banner .actions {
-    display: flex;
-    gap: 12px;
-}
-
-.pwa-install-banner button {
-    padding: 8px 16px;
-    border-radius: 8px;
-    font-weight: 500;
-    font-size: 14px;
-    transition: all 0.2s ease;
-    border: none;
-    cursor: pointer;
-}
-
-.pwa-install-banner .install-btn {
-    background: white;
-    color: #ff6b35;
-}
-
-.pwa-install-banner .install-btn:hover {
-    transform: scale(1.05);
-}
-
-.pwa-install-banner .dismiss-btn {
-    background: transparent;
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-}
-
-.pwa-install-banner .dismiss-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-/* PWA Responsive Adjustments */
-@media (max-width: 768px) {
-    .pwa-install-banner {
-        padding: 12px;
-    }
-    
-    .pwa-install-banner .actions {
-        flex-direction: column;
-        gap: 8px;
-    }
-    
-    .pwa-install-banner button {
-        font-size: 12px;
-        padding: 6px 12px;
     }
 }
 

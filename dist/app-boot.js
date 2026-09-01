@@ -4413,6 +4413,9 @@ var LOCALE_META = {
 var DICTIONARIES = {
   "en": {
     "language.label": "Language",
+    "language.suggest.text": "This page is also available in English.",
+    "language.suggest.cta": "Read in English",
+    "language.suggest.dismiss": "Dismiss",
     "community.title": "Join the future of privacy",
     "community.description": "SecureBit grows thanks to its community. Your ideas and feedback shape the future of secure communication - built in the open, with complete ASN.1 validation end-to-end.",
     "community.github": "GitHub Repository",
@@ -5158,10 +5161,35 @@ var DICTIONARIES = {
     "offline.disconnect": "Disconnect",
     "offline.learnMore": "Learn more",
     "pwa.installApp": "Install App",
-    "chat.onWeb": "You're on Web"
+    "chat.onWeb": "You're on Web",
+    "groupCall.startVoice": "Start a group voice call",
+    "groupCall.startVideo": "Start a group video call",
+    "groupCall.join": "Join",
+    "groupCall.dismiss": "Not now",
+    "groupCall.leave": "Leave call",
+    "groupCall.you": "You",
+    "groupCall.connecting": "Connecting\u2026",
+    "groupCall.waitingLink": "Waiting for a direct link\u2026",
+    "groupCall.legFailed": "Could not connect",
+    "groupCall.startedVoice": "{name} started a voice call",
+    "groupCall.startedVideo": "{name} started a video call",
+    "groupCall.inCall": "{count} in the call",
+    "groupCall.err.permission_denied": "The call could not start - microphone and camera access is blocked. Allow it for this site, then try again.",
+    "groupCall.err.device_not_found": "The call could not start - no microphone was found on this device.",
+    "groupCall.err.device_busy": "The call could not start - your microphone is in use by another app. Close it and try again.",
+    "groupCall.err.media_failed": "The call could not start - the microphone could not be opened.",
+    "groupCall.err.call_in_progress": "A call is already running in this group. Join it instead of starting another.",
+    "groupCall.err.not_ready": "Confirm the group code before calling.",
+    "groupCall.speaking": "{name} is speaking",
+    "groupCall.pin": "Show {name} large",
+    "groupCall.unpin": "Back to everyone",
+    "groupCall.showEveryone": "Everyone"
   },
   "de": {
     "language.label": "Sprache",
+    "language.suggest.text": "Diese Seite gibt es auch auf Deutsch.",
+    "language.suggest.cta": "Auf Deutsch lesen",
+    "language.suggest.dismiss": "Schlie\xDFen",
     "community.title": "Gestalten Sie die Zukunft der Privatsph\xE4re mit",
     "community.description": "SecureBit w\xE4chst durch seine Community. Ihre Ideen und Ihr Feedback pr\xE4gen die Zukunft sicherer Kommunikation - offen entwickelt, mit vollst\xE4ndiger ASN.1-Validierung von Ende zu Ende.",
     "community.github": "GitHub-Repository",
@@ -5907,10 +5935,35 @@ var DICTIONARIES = {
     "offline.disconnect": "Trennen",
     "offline.learnMore": "Mehr erfahren",
     "pwa.installApp": "App installieren",
-    "chat.onWeb": "Sie nutzen die Web-Version"
+    "chat.onWeb": "Sie nutzen die Web-Version",
+    "groupCall.startVoice": "Gruppen-Sprachanruf starten",
+    "groupCall.startVideo": "Gruppen-Videoanruf starten",
+    "groupCall.join": "Beitreten",
+    "groupCall.dismiss": "Jetzt nicht",
+    "groupCall.leave": "Anruf verlassen",
+    "groupCall.you": "Du",
+    "groupCall.connecting": "Verbinden\u2026",
+    "groupCall.waitingLink": "Warten auf eine direkte Verbindung\u2026",
+    "groupCall.legFailed": "Verbindung fehlgeschlagen",
+    "groupCall.startedVoice": "{name} hat einen Sprachanruf gestartet",
+    "groupCall.startedVideo": "{name} hat einen Videoanruf gestartet",
+    "groupCall.inCall": "{count} im Anruf",
+    "groupCall.err.permission_denied": "Der Anruf konnte nicht starten - der Zugriff auf Mikrofon und Kamera ist blockiert. Erlaube ihn f\xFCr diese Seite und versuche es erneut.",
+    "groupCall.err.device_not_found": "Der Anruf konnte nicht starten - auf diesem Ger\xE4t wurde kein Mikrofon gefunden.",
+    "groupCall.err.device_busy": "Der Anruf konnte nicht starten - dein Mikrofon wird von einer anderen App verwendet. Schlie\xDFe sie und versuche es erneut.",
+    "groupCall.err.media_failed": "Der Anruf konnte nicht starten - das Mikrofon lie\xDF sich nicht \xF6ffnen.",
+    "groupCall.err.call_in_progress": "In dieser Gruppe l\xE4uft bereits ein Anruf. Tritt ihm bei, statt einen neuen zu starten.",
+    "groupCall.err.not_ready": "Best\xE4tige zuerst den Gruppencode, bevor du anrufst.",
+    "groupCall.speaking": "{name} spricht",
+    "groupCall.pin": "{name} gro\xDF anzeigen",
+    "groupCall.unpin": "Zur\xFCck zu allen",
+    "groupCall.showEveryone": "Alle"
   },
   "fr": {
     "language.label": "Langue",
+    "language.suggest.text": "Cette page est aussi disponible en fran\xE7ais.",
+    "language.suggest.cta": "Lire en fran\xE7ais",
+    "language.suggest.dismiss": "Fermer",
     "community.title": "Construisez l'avenir de la vie priv\xE9e",
     "community.description": "SecureBit grandit gr\xE2ce \xE0 sa communaut\xE9. Vos id\xE9es et vos retours fa\xE7onnent l'avenir des communications s\xE9curis\xE9es, d\xE9velopp\xE9es \xE0 ciel ouvert, avec une validation ASN.1 compl\xE8te de bout en bout.",
     "community.github": "D\xE9p\xF4t GitHub",
@@ -6656,10 +6709,35 @@ var DICTIONARIES = {
     "offline.disconnect": "Se d\xE9connecter",
     "offline.learnMore": "En savoir plus",
     "pwa.installApp": "Installer l'application",
-    "chat.onWeb": "Vous \xEAtes sur la version web"
+    "chat.onWeb": "Vous \xEAtes sur la version web",
+    "groupCall.startVoice": "D\xE9marrer un appel vocal de groupe",
+    "groupCall.startVideo": "D\xE9marrer un appel vid\xE9o de groupe",
+    "groupCall.join": "Rejoindre",
+    "groupCall.dismiss": "Pas maintenant",
+    "groupCall.leave": "Quitter l'appel",
+    "groupCall.you": "Vous",
+    "groupCall.connecting": "Connexion\u2026",
+    "groupCall.waitingLink": "En attente d'un lien direct\u2026",
+    "groupCall.legFailed": "Connexion impossible",
+    "groupCall.startedVoice": "{name} a d\xE9marr\xE9 un appel vocal",
+    "groupCall.startedVideo": "{name} a d\xE9marr\xE9 un appel vid\xE9o",
+    "groupCall.inCall": "{count} dans l'appel",
+    "groupCall.err.permission_denied": "L'appel n'a pas pu d\xE9marrer - l'acc\xE8s au micro et \xE0 la cam\xE9ra est bloqu\xE9. Autorisez-le pour ce site, puis r\xE9essayez.",
+    "groupCall.err.device_not_found": "L'appel n'a pas pu d\xE9marrer - aucun micro n'a \xE9t\xE9 trouv\xE9 sur cet appareil.",
+    "groupCall.err.device_busy": "L'appel n'a pas pu d\xE9marrer - votre micro est utilis\xE9 par une autre application. Fermez-la et r\xE9essayez.",
+    "groupCall.err.media_failed": "L'appel n'a pas pu d\xE9marrer - le micro n'a pas pu \xEAtre ouvert.",
+    "groupCall.err.call_in_progress": "Un appel est d\xE9j\xE0 en cours dans ce groupe. Rejoignez-le plut\xF4t que d'en d\xE9marrer un autre.",
+    "groupCall.err.not_ready": "Confirmez le code du groupe avant d'appeler.",
+    "groupCall.speaking": "{name} parle",
+    "groupCall.pin": "Afficher {name} en grand",
+    "groupCall.unpin": "Revenir \xE0 tous",
+    "groupCall.showEveryone": "Tout le monde"
   },
   "es": {
     "language.label": "Idioma",
+    "language.suggest.text": "Esta p\xE1gina tambi\xE9n est\xE1 disponible en espa\xF1ol.",
+    "language.suggest.cta": "Leer en espa\xF1ol",
+    "language.suggest.dismiss": "Cerrar",
     "community.title": "Construye el futuro de la privacidad",
     "community.description": "SecureBit crece gracias a su comunidad. Tus ideas y comentarios dan forma al futuro de la comunicaci\xF3n segura, desarrollada de forma abierta y con validaci\xF3n ASN.1 completa de extremo a extremo.",
     "community.github": "Repositorio en GitHub",
@@ -7405,10 +7483,35 @@ var DICTIONARIES = {
     "offline.disconnect": "Desconectar",
     "offline.learnMore": "M\xE1s informaci\xF3n",
     "pwa.installApp": "Instalar la app",
-    "chat.onWeb": "Est\xE1s en la versi\xF3n web"
+    "chat.onWeb": "Est\xE1s en la versi\xF3n web",
+    "groupCall.startVoice": "Iniciar llamada de voz grupal",
+    "groupCall.startVideo": "Iniciar videollamada grupal",
+    "groupCall.join": "Unirse",
+    "groupCall.dismiss": "Ahora no",
+    "groupCall.leave": "Salir de la llamada",
+    "groupCall.you": "T\xFA",
+    "groupCall.connecting": "Conectando\u2026",
+    "groupCall.waitingLink": "Esperando un enlace directo\u2026",
+    "groupCall.legFailed": "No se pudo conectar",
+    "groupCall.startedVoice": "{name} inici\xF3 una llamada de voz",
+    "groupCall.startedVideo": "{name} inici\xF3 una videollamada",
+    "groupCall.inCall": "{count} en la llamada",
+    "groupCall.err.permission_denied": "La llamada no pudo iniciarse - el acceso al micr\xF3fono y a la c\xE1mara est\xE1 bloqueado. Perm\xEDtelo para este sitio e int\xE9ntalo de nuevo.",
+    "groupCall.err.device_not_found": "La llamada no pudo iniciarse - no se encontr\xF3 ning\xFAn micr\xF3fono en este dispositivo.",
+    "groupCall.err.device_busy": "La llamada no pudo iniciarse - otra aplicaci\xF3n est\xE1 usando tu micr\xF3fono. Ci\xE9rrala e int\xE9ntalo de nuevo.",
+    "groupCall.err.media_failed": "La llamada no pudo iniciarse - no se pudo abrir el micr\xF3fono.",
+    "groupCall.err.call_in_progress": "Ya hay una llamada en este grupo. \xDAnete en lugar de iniciar otra.",
+    "groupCall.err.not_ready": "Confirma el c\xF3digo del grupo antes de llamar.",
+    "groupCall.speaking": "{name} est\xE1 hablando",
+    "groupCall.pin": "Ver a {name} en grande",
+    "groupCall.unpin": "Volver a todos",
+    "groupCall.showEveryone": "Todos"
   },
   "uk": {
     "language.label": "\u041C\u043E\u0432\u0430",
+    "language.suggest.text": "\u0426\u044F \u0441\u0442\u043E\u0440\u0456\u043D\u043A\u0430 \u0442\u0430\u043A\u043E\u0436 \u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430 \u0443\u043A\u0440\u0430\u0457\u043D\u0441\u044C\u043A\u043E\u044E.",
+    "language.suggest.cta": "\u0427\u0438\u0442\u0430\u0442\u0438 \u0443\u043A\u0440\u0430\u0457\u043D\u0441\u044C\u043A\u043E\u044E",
+    "language.suggest.dismiss": "\u0417\u0430\u043A\u0440\u0438\u0442\u0438",
     "community.title": "\u0414\u043E\u043B\u0443\u0447\u0430\u0439\u0442\u0435\u0441\u044F \u0434\u043E \u043C\u0430\u0439\u0431\u0443\u0442\u043D\u044C\u043E\u0433\u043E \u043F\u0440\u0438\u0432\u0430\u0442\u043D\u043E\u0441\u0442\u0456",
     "community.description": "SecureBit \u0440\u043E\u0441\u0442\u0435 \u0437\u0430\u0432\u0434\u044F\u043A\u0438 \u0441\u0432\u043E\u0457\u0439 \u0441\u043F\u0456\u043B\u044C\u043D\u043E\u0442\u0456. \u0412\u0430\u0448\u0456 \u0456\u0434\u0435\u0457 \u0442\u0430 \u0432\u0456\u0434\u0433\u0443\u043A\u0438 \u0444\u043E\u0440\u043C\u0443\u044E\u0442\u044C \u043C\u0430\u0439\u0431\u0443\u0442\u043D\u0454 \u0437\u0430\u0445\u0438\u0449\u0435\u043D\u043E\u0433\u043E \u0441\u043F\u0456\u043B\u043A\u0443\u0432\u0430\u043D\u043D\u044F - \u0440\u043E\u0437\u0440\u043E\u0431\u043A\u0430 \u0432\u0435\u0434\u0435\u0442\u044C\u0441\u044F \u0432\u0456\u0434\u043A\u0440\u0438\u0442\u043E, \u0437 \u043F\u043E\u0432\u043D\u043E\u044E \u0432\u0430\u043B\u0456\u0434\u0430\u0446\u0456\u0454\u044E ASN.1 \u043D\u0430 \u0432\u0441\u044C\u043E\u043C\u0443 \u0448\u043B\u044F\u0445\u0443.",
     "community.github": "\u0420\u0435\u043F\u043E\u0437\u0438\u0442\u043E\u0440\u0456\u0439 \u043D\u0430 GitHub",
@@ -8154,10 +8257,35 @@ var DICTIONARIES = {
     "offline.disconnect": "\u0412\u0456\u0434'\u0454\u0434\u043D\u0430\u0442\u0438\u0441\u044F",
     "offline.learnMore": "\u0414\u043E\u043A\u043B\u0430\u0434\u043D\u0456\u0448\u0435",
     "pwa.installApp": "\u0412\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u0438 \u0437\u0430\u0441\u0442\u043E\u0441\u0443\u043D\u043E\u043A",
-    "chat.onWeb": "\u0412\u0438 \u0443 \u0432\u0435\u0431\u0432\u0435\u0440\u0441\u0456\u0457"
+    "chat.onWeb": "\u0412\u0438 \u0443 \u0432\u0435\u0431\u0432\u0435\u0440\u0441\u0456\u0457",
+    "groupCall.startVoice": "\u041F\u043E\u0447\u0430\u0442\u0438 \u0433\u0440\u0443\u043F\u043E\u0432\u0438\u0439 \u0433\u043E\u043B\u043E\u0441\u043E\u0432\u0438\u0439 \u0434\u0437\u0432\u0456\u043D\u043E\u043A",
+    "groupCall.startVideo": "\u041F\u043E\u0447\u0430\u0442\u0438 \u0433\u0440\u0443\u043F\u043E\u0432\u0438\u0439 \u0432\u0456\u0434\u0435\u043E\u0434\u0437\u0432\u0456\u043D\u043E\u043A",
+    "groupCall.join": "\u041F\u0440\u0438\u0454\u0434\u043D\u0430\u0442\u0438\u0441\u044F",
+    "groupCall.dismiss": "\u041D\u0435 \u0437\u0430\u0440\u0430\u0437",
+    "groupCall.leave": "\u0412\u0438\u0439\u0442\u0438 \u0437 \u0434\u0437\u0432\u0456\u043D\u043A\u0430",
+    "groupCall.you": "\u0412\u0438",
+    "groupCall.connecting": "\u0417'\u0454\u0434\u043D\u0430\u043D\u043D\u044F\u2026",
+    "groupCall.waitingLink": "\u041E\u0447\u0456\u043A\u0443\u0432\u0430\u043D\u043D\u044F \u043F\u0440\u044F\u043C\u043E\u0433\u043E \u0437'\u0454\u0434\u043D\u0430\u043D\u043D\u044F\u2026",
+    "groupCall.legFailed": "\u041D\u0435 \u0432\u0434\u0430\u043B\u043E\u0441\u044F \u0437'\u0454\u0434\u043D\u0430\u0442\u0438\u0441\u044F",
+    "groupCall.startedVoice": "{name} \u043F\u043E\u0447\u0430\u0432 \u0433\u043E\u043B\u043E\u0441\u043E\u0432\u0438\u0439 \u0434\u0437\u0432\u0456\u043D\u043E\u043A",
+    "groupCall.startedVideo": "{name} \u043F\u043E\u0447\u0430\u0432 \u0432\u0456\u0434\u0435\u043E\u0434\u0437\u0432\u0456\u043D\u043E\u043A",
+    "groupCall.inCall": "{count} \u0443 \u0434\u0437\u0432\u0456\u043D\u043A\u0443",
+    "groupCall.err.permission_denied": "\u0414\u0437\u0432\u0456\u043D\u043E\u043A \u043D\u0435 \u043F\u043E\u0447\u0430\u0432\u0441\u044F - \u0434\u043E\u0441\u0442\u0443\u043F \u0434\u043E \u043C\u0456\u043A\u0440\u043E\u0444\u043E\u043D\u0430 \u0439 \u043A\u0430\u043C\u0435\u0440\u0438 \u0437\u0430\u0431\u043B\u043E\u043A\u043E\u0432\u0430\u043D\u043E. \u0414\u043E\u0437\u0432\u043E\u043B\u044C\u0442\u0435 \u0439\u043E\u0433\u043E \u0434\u043B\u044F \u0446\u044C\u043E\u0433\u043E \u0441\u0430\u0439\u0442\u0443 \u0439 \u0441\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0449\u0435 \u0440\u0430\u0437.",
+    "groupCall.err.device_not_found": "\u0414\u0437\u0432\u0456\u043D\u043E\u043A \u043D\u0435 \u043F\u043E\u0447\u0430\u0432\u0441\u044F - \u043D\u0430 \u0446\u044C\u043E\u043C\u0443 \u043F\u0440\u0438\u0441\u0442\u0440\u043E\u0457 \u043D\u0435 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u043E \u043C\u0456\u043A\u0440\u043E\u0444\u043E\u043D\u0430.",
+    "groupCall.err.device_busy": "\u0414\u0437\u0432\u0456\u043D\u043E\u043A \u043D\u0435 \u043F\u043E\u0447\u0430\u0432\u0441\u044F - \u043C\u0456\u043A\u0440\u043E\u0444\u043E\u043D \u0437\u0430\u0439\u043D\u044F\u0442\u0438\u0439 \u0456\u043D\u0448\u0438\u043C \u0437\u0430\u0441\u0442\u043E\u0441\u0443\u043D\u043A\u043E\u043C. \u0417\u0430\u043A\u0440\u0438\u0439\u0442\u0435 \u0439\u043E\u0433\u043E \u0439 \u0441\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0449\u0435 \u0440\u0430\u0437.",
+    "groupCall.err.media_failed": "\u0414\u0437\u0432\u0456\u043D\u043E\u043A \u043D\u0435 \u043F\u043E\u0447\u0430\u0432\u0441\u044F - \u043D\u0435 \u0432\u0434\u0430\u043B\u043E\u0441\u044F \u0432\u0456\u0434\u043A\u0440\u0438\u0442\u0438 \u043C\u0456\u043A\u0440\u043E\u0444\u043E\u043D.",
+    "groupCall.err.call_in_progress": "\u0423 \u0446\u0456\u0439 \u0433\u0440\u0443\u043F\u0456 \u0432\u0436\u0435 \u0442\u0440\u0438\u0432\u0430\u0454 \u0434\u0437\u0432\u0456\u043D\u043E\u043A. \u041F\u0440\u0438\u0454\u0434\u043D\u0430\u0439\u0442\u0435\u0441\u044F \u0434\u043E \u043D\u044C\u043E\u0433\u043E, \u0430 \u043D\u0435 \u043F\u043E\u0447\u0438\u043D\u0430\u0439\u0442\u0435 \u043D\u043E\u0432\u0438\u0439.",
+    "groupCall.err.not_ready": "\u0421\u043F\u0435\u0440\u0448\u0443 \u043F\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u044C\u0442\u0435 \u043A\u043E\u0434 \u0433\u0440\u0443\u043F\u0438.",
+    "groupCall.speaking": "{name} \u0433\u043E\u0432\u043E\u0440\u0438\u0442\u044C",
+    "groupCall.pin": "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u0438 {name} \u0432\u0435\u043B\u0438\u043A\u0438\u043C",
+    "groupCall.unpin": "\u041F\u043E\u0432\u0435\u0440\u043D\u0443\u0442\u0438\u0441\u044F \u0434\u043E \u0432\u0441\u0456\u0445",
+    "groupCall.showEveryone": "\u0423\u0441\u0456"
   },
   "ru": {
     "language.label": "\u042F\u0437\u044B\u043A",
+    "language.suggest.text": "\u042D\u0442\u0430 \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0430 \u0442\u0430\u043A\u0436\u0435 \u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430 \u043D\u0430 \u0440\u0443\u0441\u0441\u043A\u043E\u043C.",
+    "language.suggest.cta": "\u0427\u0438\u0442\u0430\u0442\u044C \u043F\u043E-\u0440\u0443\u0441\u0441\u043A\u0438",
+    "language.suggest.dismiss": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C",
     "community.title": "\u041F\u0440\u0438\u0441\u043E\u0435\u0434\u0438\u043D\u044F\u0439\u0442\u0435\u0441\u044C \u043A \u0431\u0443\u0434\u0443\u0449\u0435\u043C\u0443 \u043F\u0440\u0438\u0432\u0430\u0442\u043D\u043E\u0441\u0442\u0438",
     "community.description": "SecureBit \u0440\u0430\u0441\u0442\u0451\u0442 \u0431\u043B\u0430\u0433\u043E\u0434\u0430\u0440\u044F \u0441\u043E\u043E\u0431\u0449\u0435\u0441\u0442\u0432\u0443. \u0412\u0430\u0448\u0438 \u0438\u0434\u0435\u0438 \u0438 \u043E\u0442\u0437\u044B\u0432\u044B \u0444\u043E\u0440\u043C\u0438\u0440\u0443\u044E\u0442 \u0431\u0443\u0434\u0443\u0449\u0435\u0435 \u0437\u0430\u0449\u0438\u0449\u0451\u043D\u043D\u043E\u0433\u043E \u043E\u0431\u0449\u0435\u043D\u0438\u044F - \u0440\u0430\u0437\u0440\u0430\u0431\u043E\u0442\u043A\u0430 \u0432\u0435\u0434\u0451\u0442\u0441\u044F \u043E\u0442\u043A\u0440\u044B\u0442\u043E, \u0441 \u043F\u043E\u043B\u043D\u043E\u0439 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u043E\u0439 ASN.1 \u043D\u0430 \u0432\u0441\u0451\u043C \u043F\u0443\u0442\u0438.",
     "community.github": "\u0420\u0435\u043F\u043E\u0437\u0438\u0442\u043E\u0440\u0438\u0439 \u043D\u0430 GitHub",
@@ -8903,10 +9031,35 @@ var DICTIONARIES = {
     "offline.disconnect": "\u041E\u0442\u043A\u043B\u044E\u0447\u0438\u0442\u044C\u0441\u044F",
     "offline.learnMore": "\u041F\u043E\u0434\u0440\u043E\u0431\u043D\u0435\u0435",
     "pwa.installApp": "\u0423\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435",
-    "chat.onWeb": "\u0412\u044B \u0432 \u0432\u0435\u0431-\u0432\u0435\u0440\u0441\u0438\u0438"
+    "chat.onWeb": "\u0412\u044B \u0432 \u0432\u0435\u0431-\u0432\u0435\u0440\u0441\u0438\u0438",
+    "groupCall.startVoice": "\u041D\u0430\u0447\u0430\u0442\u044C \u0433\u0440\u0443\u043F\u043F\u043E\u0432\u043E\u0439 \u0433\u043E\u043B\u043E\u0441\u043E\u0432\u043E\u0439 \u0437\u0432\u043E\u043D\u043E\u043A",
+    "groupCall.startVideo": "\u041D\u0430\u0447\u0430\u0442\u044C \u0433\u0440\u0443\u043F\u043F\u043E\u0432\u043E\u0439 \u0432\u0438\u0434\u0435\u043E\u0437\u0432\u043E\u043D\u043E\u043A",
+    "groupCall.join": "\u041F\u0440\u0438\u0441\u043E\u0435\u0434\u0438\u043D\u0438\u0442\u044C\u0441\u044F",
+    "groupCall.dismiss": "\u041D\u0435 \u0441\u0435\u0439\u0447\u0430\u0441",
+    "groupCall.leave": "\u0412\u044B\u0439\u0442\u0438 \u0438\u0437 \u0437\u0432\u043E\u043D\u043A\u0430",
+    "groupCall.you": "\u0412\u044B",
+    "groupCall.connecting": "\u0421\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435\u2026",
+    "groupCall.waitingLink": "\u041E\u0436\u0438\u0434\u0430\u043D\u0438\u0435 \u043F\u0440\u044F\u043C\u043E\u0433\u043E \u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u044F\u2026",
+    "groupCall.legFailed": "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043E\u0435\u0434\u0438\u043D\u0438\u0442\u044C\u0441\u044F",
+    "groupCall.startedVoice": "{name} \u043D\u0430\u0447\u0430\u043B \u0433\u043E\u043B\u043E\u0441\u043E\u0432\u043E\u0439 \u0437\u0432\u043E\u043D\u043E\u043A",
+    "groupCall.startedVideo": "{name} \u043D\u0430\u0447\u0430\u043B \u0432\u0438\u0434\u0435\u043E\u0437\u0432\u043E\u043D\u043E\u043A",
+    "groupCall.inCall": "{count} \u0432 \u0437\u0432\u043E\u043D\u043A\u0435",
+    "groupCall.err.permission_denied": "\u0417\u0432\u043E\u043D\u043E\u043A \u043D\u0435 \u043D\u0430\u0447\u0430\u043B\u0441\u044F - \u0434\u043E\u0441\u0442\u0443\u043F \u043A \u043C\u0438\u043A\u0440\u043E\u0444\u043E\u043D\u0443 \u0438 \u043A\u0430\u043C\u0435\u0440\u0435 \u0437\u0430\u0431\u043B\u043E\u043A\u0438\u0440\u043E\u0432\u0430\u043D. \u0420\u0430\u0437\u0440\u0435\u0448\u0438\u0442\u0435 \u0435\u0433\u043E \u0434\u043B\u044F \u044D\u0442\u043E\u0433\u043E \u0441\u0430\u0439\u0442\u0430 \u0438 \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0441\u043D\u043E\u0432\u0430.",
+    "groupCall.err.device_not_found": "\u0417\u0432\u043E\u043D\u043E\u043A \u043D\u0435 \u043D\u0430\u0447\u0430\u043B\u0441\u044F - \u043D\u0430 \u044D\u0442\u043E\u043C \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u0435 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D \u043C\u0438\u043A\u0440\u043E\u0444\u043E\u043D.",
+    "groupCall.err.device_busy": "\u0417\u0432\u043E\u043D\u043E\u043A \u043D\u0435 \u043D\u0430\u0447\u0430\u043B\u0441\u044F - \u043C\u0438\u043A\u0440\u043E\u0444\u043E\u043D \u0437\u0430\u043D\u044F\u0442 \u0434\u0440\u0443\u0433\u0438\u043C \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435\u043C. \u0417\u0430\u043A\u0440\u043E\u0439\u0442\u0435 \u0435\u0433\u043E \u0438 \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0441\u043D\u043E\u0432\u0430.",
+    "groupCall.err.media_failed": "\u0417\u0432\u043E\u043D\u043E\u043A \u043D\u0435 \u043D\u0430\u0447\u0430\u043B\u0441\u044F - \u043D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u043C\u0438\u043A\u0440\u043E\u0444\u043E\u043D.",
+    "groupCall.err.call_in_progress": "\u0412 \u044D\u0442\u043E\u0439 \u0433\u0440\u0443\u043F\u043F\u0435 \u0443\u0436\u0435 \u0438\u0434\u0451\u0442 \u0437\u0432\u043E\u043D\u043E\u043A. \u041F\u0440\u0438\u0441\u043E\u0435\u0434\u0438\u043D\u0438\u0442\u0435\u0441\u044C \u043A \u043D\u0435\u043C\u0443, \u0430 \u043D\u0435 \u043D\u0430\u0447\u0438\u043D\u0430\u0439\u0442\u0435 \u043D\u043E\u0432\u044B\u0439.",
+    "groupCall.err.not_ready": "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u0435 \u043A\u043E\u0434 \u0433\u0440\u0443\u043F\u043F\u044B.",
+    "groupCall.speaking": "{name} \u0433\u043E\u0432\u043E\u0440\u0438\u0442",
+    "groupCall.pin": "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C {name} \u043A\u0440\u0443\u043F\u043D\u043E",
+    "groupCall.unpin": "\u0412\u0435\u0440\u043D\u0443\u0442\u044C\u0441\u044F \u043A\u043E \u0432\u0441\u0435\u043C",
+    "groupCall.showEveryone": "\u0412\u0441\u0435"
   },
   "zh": {
     "language.label": "\u8BED\u8A00",
+    "language.suggest.text": "\u672C\u9875\u9762\u4E5F\u6709\u7B80\u4F53\u4E2D\u6587\u7248\u672C\u3002",
+    "language.suggest.cta": "\u9605\u8BFB\u7B80\u4F53\u4E2D\u6587",
+    "language.suggest.dismiss": "\u5173\u95ED",
     "community.title": "\u4E00\u8D77\u6784\u7B51\u9690\u79C1\u7684\u672A\u6765",
     "community.description": "SecureBit \u56E0\u793E\u533A\u800C\u6210\u957F\u3002\u4F60\u7684\u60F3\u6CD5\u4E0E\u53CD\u9988\u5851\u9020\u7740\u5B89\u5168\u901A\u8BAF\u7684\u672A\u6765 \u2014\u2014 \u5F00\u653E\u5F00\u53D1\uFF0C\u5168\u7A0B\u5B8C\u6574\u7684 ASN.1 \u6821\u9A8C\u3002",
     "community.github": "GitHub \u4ED3\u5E93",
@@ -9652,10 +9805,35 @@ var DICTIONARIES = {
     "offline.disconnect": "\u65AD\u5F00\u8FDE\u63A5",
     "offline.learnMore": "\u4E86\u89E3\u66F4\u591A",
     "pwa.installApp": "\u5B89\u88C5\u5E94\u7528",
-    "chat.onWeb": "\u4F60\u6B63\u5728\u4F7F\u7528\u7F51\u9875\u7248"
+    "chat.onWeb": "\u4F60\u6B63\u5728\u4F7F\u7528\u7F51\u9875\u7248",
+    "groupCall.startVoice": "\u53D1\u8D77\u7FA4\u7EC4\u8BED\u97F3\u901A\u8BDD",
+    "groupCall.startVideo": "\u53D1\u8D77\u7FA4\u7EC4\u89C6\u9891\u901A\u8BDD",
+    "groupCall.join": "\u52A0\u5165",
+    "groupCall.dismiss": "\u6682\u4E0D\u52A0\u5165",
+    "groupCall.leave": "\u79BB\u5F00\u901A\u8BDD",
+    "groupCall.you": "\u4F60",
+    "groupCall.connecting": "\u8FDE\u63A5\u4E2D\u2026",
+    "groupCall.waitingLink": "\u6B63\u5728\u7B49\u5F85\u76F4\u8FDE\u2026",
+    "groupCall.legFailed": "\u65E0\u6CD5\u8FDE\u63A5",
+    "groupCall.startedVoice": "{name} \u53D1\u8D77\u4E86\u8BED\u97F3\u901A\u8BDD",
+    "groupCall.startedVideo": "{name} \u53D1\u8D77\u4E86\u89C6\u9891\u901A\u8BDD",
+    "groupCall.inCall": "{count} \u4EBA\u5728\u901A\u8BDD\u4E2D",
+    "groupCall.err.permission_denied": "\u901A\u8BDD\u65E0\u6CD5\u5F00\u59CB - \u9EA6\u514B\u98CE\u548C\u6444\u50CF\u5934\u6743\u9650\u88AB\u62D2\u7EDD\u3002\u8BF7\u4E3A\u672C\u7AD9\u70B9\u5141\u8BB8\u540E\u91CD\u8BD5\u3002",
+    "groupCall.err.device_not_found": "\u901A\u8BDD\u65E0\u6CD5\u5F00\u59CB - \u6B64\u8BBE\u5907\u4E0A\u672A\u627E\u5230\u9EA6\u514B\u98CE\u3002",
+    "groupCall.err.device_busy": "\u901A\u8BDD\u65E0\u6CD5\u5F00\u59CB - \u9EA6\u514B\u98CE\u6B63\u88AB\u5176\u4ED6\u5E94\u7528\u5360\u7528\u3002\u8BF7\u5173\u95ED\u540E\u91CD\u8BD5\u3002",
+    "groupCall.err.media_failed": "\u901A\u8BDD\u65E0\u6CD5\u5F00\u59CB - \u65E0\u6CD5\u6253\u5F00\u9EA6\u514B\u98CE\u3002",
+    "groupCall.err.call_in_progress": "\u8BE5\u7FA4\u7EC4\u5DF2\u6709\u901A\u8BDD\u6B63\u5728\u8FDB\u884C\u3002\u8BF7\u52A0\u5165\uFF0C\u800C\u4E0D\u662F\u53E6\u5F00\u4E00\u4E2A\u3002",
+    "groupCall.err.not_ready": "\u8BF7\u5148\u786E\u8BA4\u7FA4\u7EC4\u5B89\u5168\u7801\u518D\u901A\u8BDD\u3002",
+    "groupCall.speaking": "{name} \u6B63\u5728\u8BB2\u8BDD",
+    "groupCall.pin": "\u653E\u5927\u663E\u793A {name}",
+    "groupCall.unpin": "\u8FD4\u56DE\u6240\u6709\u4EBA",
+    "groupCall.showEveryone": "\u6240\u6709\u4EBA"
   },
   "ko": {
     "language.label": "\uC5B8\uC5B4",
+    "language.suggest.text": "\uC774 \uD398\uC774\uC9C0\uB294 \uD55C\uAD6D\uC5B4\uB85C\uB3C4 \uBCFC \uC218 \uC788\uC2B5\uB2C8\uB2E4.",
+    "language.suggest.cta": "\uD55C\uAD6D\uC5B4\uB85C \uBCF4\uAE30",
+    "language.suggest.dismiss": "\uB2EB\uAE30",
     "community.title": "\uD504\uB77C\uC774\uBC84\uC2DC\uC758 \uBBF8\uB798\uB97C \uD568\uAED8 \uB9CC\uB4ED\uB2C8\uB2E4",
     "community.description": "SecureBit\uC740 \uCEE4\uBBA4\uB2C8\uD2F0 \uB355\uBD84\uC5D0 \uC790\uB78D\uB2C8\uB2E4. \uC5EC\uB7EC\uBD84\uC758 \uC544\uC774\uB514\uC5B4\uC640 \uC758\uACAC\uC774 \uC548\uC804\uD55C \uC18C\uD1B5\uC758 \uBBF8\uB798\uB97C \uB9CC\uB4ED\uB2C8\uB2E4 - \uBAA8\uB4E0 \uACFC\uC815\uC774 \uACF5\uAC1C\uB418\uC5B4 \uC788\uACE0, \uC804 \uAD6C\uAC04\uC5D0\uC11C ASN.1 \uAC80\uC99D\uC744 \uC218\uD589\uD569\uB2C8\uB2E4.",
     "community.github": "GitHub \uC800\uC7A5\uC18C",
@@ -10401,10 +10579,35 @@ var DICTIONARIES = {
     "offline.disconnect": "\uC5F0\uACB0 \uB04A\uAE30",
     "offline.learnMore": "\uC790\uC138\uD788 \uBCF4\uAE30",
     "pwa.installApp": "\uC571 \uC124\uCE58",
-    "chat.onWeb": "\uC6F9 \uBC84\uC804\uC744 \uC4F0\uACE0 \uC788\uC2B5\uB2C8\uB2E4"
+    "chat.onWeb": "\uC6F9 \uBC84\uC804\uC744 \uC4F0\uACE0 \uC788\uC2B5\uB2C8\uB2E4",
+    "groupCall.startVoice": "\uADF8\uB8F9 \uC74C\uC131 \uD1B5\uD654 \uC2DC\uC791",
+    "groupCall.startVideo": "\uADF8\uB8F9 \uC601\uC0C1 \uD1B5\uD654 \uC2DC\uC791",
+    "groupCall.join": "\uCC38\uC5EC",
+    "groupCall.dismiss": "\uB098\uC911\uC5D0",
+    "groupCall.leave": "\uD1B5\uD654 \uB098\uAC00\uAE30",
+    "groupCall.you": "\uB098",
+    "groupCall.connecting": "\uC5F0\uACB0 \uC911\u2026",
+    "groupCall.waitingLink": "\uC9C1\uC811 \uC5F0\uACB0\uC744 \uAE30\uB2E4\uB9AC\uB294 \uC911\u2026",
+    "groupCall.legFailed": "\uC5F0\uACB0\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4",
+    "groupCall.startedVoice": "{name} \uB2D8\uC774 \uC74C\uC131 \uD1B5\uD654\uB97C \uC2DC\uC791\uD588\uC2B5\uB2C8\uB2E4",
+    "groupCall.startedVideo": "{name} \uB2D8\uC774 \uC601\uC0C1 \uD1B5\uD654\uB97C \uC2DC\uC791\uD588\uC2B5\uB2C8\uB2E4",
+    "groupCall.inCall": "\uD1B5\uD654 \uC911 {count}\uBA85",
+    "groupCall.err.permission_denied": "\uD1B5\uD654\uB97C \uC2DC\uC791\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4 - \uB9C8\uC774\uD06C\uC640 \uCE74\uBA54\uB77C \uC811\uADFC\uC774 \uCC28\uB2E8\uB418\uC5B4 \uC788\uC2B5\uB2C8\uB2E4. \uC774 \uC0AC\uC774\uD2B8\uC5D0 \uD5C8\uC6A9\uD55C \uB4A4 \uB2E4\uC2DC \uC2DC\uB3C4\uD558\uC138\uC694.",
+    "groupCall.err.device_not_found": "\uD1B5\uD654\uB97C \uC2DC\uC791\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4 - \uC774 \uAE30\uAE30\uC5D0\uC11C \uB9C8\uC774\uD06C\uB97C \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.",
+    "groupCall.err.device_busy": "\uD1B5\uD654\uB97C \uC2DC\uC791\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4 - \uB9C8\uC774\uD06C\uB97C \uB2E4\uB978 \uC571\uC774 \uC0AC\uC6A9 \uC911\uC785\uB2C8\uB2E4. \uC885\uB8CC\uD55C \uB4A4 \uB2E4\uC2DC \uC2DC\uB3C4\uD558\uC138\uC694.",
+    "groupCall.err.media_failed": "\uD1B5\uD654\uB97C \uC2DC\uC791\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4 - \uB9C8\uC774\uD06C\uB97C \uC5F4\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.",
+    "groupCall.err.call_in_progress": "\uC774 \uADF8\uB8F9\uC5D0\uC11C \uC774\uBBF8 \uD1B5\uD654\uAC00 \uC9C4\uD589 \uC911\uC785\uB2C8\uB2E4. \uC0C8\uB85C \uC2DC\uC791\uD558\uC9C0 \uB9D0\uACE0 \uCC38\uC5EC\uD558\uC138\uC694.",
+    "groupCall.err.not_ready": "\uD1B5\uD654\uD558\uAE30 \uC804\uC5D0 \uADF8\uB8F9 \uCF54\uB4DC\uB97C \uD655\uC778\uD558\uC138\uC694.",
+    "groupCall.speaking": "{name} \uB2D8\uC774 \uB9D0\uD558\uB294 \uC911",
+    "groupCall.pin": "{name} \uD06C\uAC8C \uBCF4\uAE30",
+    "groupCall.unpin": "\uC804\uCCB4 \uBCF4\uAE30\uB85C \uB3CC\uC544\uAC00\uAE30",
+    "groupCall.showEveryone": "\uC804\uCCB4"
   },
   "hi": {
     "language.label": "\u092D\u093E\u0937\u093E",
+    "language.suggest.text": "\u092F\u0939 \u092A\u0943\u0937\u094D\u0920 \u0939\u093F\u0928\u094D\u0926\u0940 \u092E\u0947\u0902 \u092D\u0940 \u0909\u092A\u0932\u092C\u094D\u0927 \u0939\u0948\u0964",
+    "language.suggest.cta": "\u0939\u093F\u0928\u094D\u0926\u0940 \u092E\u0947\u0902 \u092A\u0922\u093C\u0947\u0902",
+    "language.suggest.dismiss": "\u092C\u0902\u0926 \u0915\u0930\u0947\u0902",
     "community.title": "\u0928\u093F\u091C\u0924\u093E \u0915\u0947 \u092D\u0935\u093F\u0937\u094D\u092F \u092E\u0947\u0902 \u0936\u093E\u092E\u093F\u0932 \u0939\u094B\u0902",
     "community.description": "SecureBit \u0905\u092A\u0928\u0947 \u0938\u092E\u0941\u0926\u093E\u092F \u0938\u0947 \u092C\u0922\u093C\u0924\u093E \u0939\u0948\u0964 \u0906\u092A\u0915\u0947 \u0935\u093F\u091A\u093E\u0930 \u0914\u0930 \u0938\u0941\u091D\u093E\u0935 \u0938\u0941\u0930\u0915\u094D\u0937\u093F\u0924 \u0938\u0902\u0935\u093E\u0926 \u0915\u093E \u092D\u0935\u093F\u0937\u094D\u092F \u0917\u0922\u093C\u0924\u0947 \u0939\u0948\u0902 - \u0916\u0941\u0932\u0947 \u092E\u0947\u0902 \u092C\u0928\u093E, \u0914\u0930 \u092A\u0942\u0930\u0947 \u0930\u093E\u0938\u094D\u0924\u0947 \u092A\u0942\u0930\u0940 ASN.1 \u091C\u093E\u0901\u091A \u0915\u0947 \u0938\u093E\u0925\u0964",
     "community.github": "GitHub \u0930\u093F\u092A\u0949\u091C\u093C\u093F\u091F\u0930\u0940",
@@ -11150,10 +11353,35 @@ var DICTIONARIES = {
     "offline.disconnect": "\u091C\u0941\u0921\u093C\u093E\u0935 \u0924\u094B\u0921\u093C\u0947\u0902",
     "offline.learnMore": "\u0914\u0930 \u091C\u093E\u0928\u0947\u0902",
     "pwa.installApp": "\u0910\u092A \u0907\u0902\u0938\u094D\u091F\u0949\u0932 \u0915\u0930\u0947\u0902",
-    "chat.onWeb": "\u0906\u092A \u0935\u0947\u092C \u0938\u0902\u0938\u094D\u0915\u0930\u0923 \u092A\u0930 \u0939\u0948\u0902"
+    "chat.onWeb": "\u0906\u092A \u0935\u0947\u092C \u0938\u0902\u0938\u094D\u0915\u0930\u0923 \u092A\u0930 \u0939\u0948\u0902",
+    "groupCall.startVoice": "\u0938\u092E\u0942\u0939 \u0935\u0949\u0907\u0938 \u0915\u0949\u0932 \u0936\u0941\u0930\u0942 \u0915\u0930\u0947\u0902",
+    "groupCall.startVideo": "\u0938\u092E\u0942\u0939 \u0935\u0940\u0921\u093F\u092F\u094B \u0915\u0949\u0932 \u0936\u0941\u0930\u0942 \u0915\u0930\u0947\u0902",
+    "groupCall.join": "\u0936\u093E\u092E\u093F\u0932 \u0939\u094B\u0902",
+    "groupCall.dismiss": "\u0905\u092D\u0940 \u0928\u0939\u0940\u0902",
+    "groupCall.leave": "\u0915\u0949\u0932 \u091B\u094B\u0921\u093C\u0947\u0902",
+    "groupCall.you": "\u0906\u092A",
+    "groupCall.connecting": "\u091C\u0941\u0921\u093C \u0930\u0939\u093E \u0939\u0948\u2026",
+    "groupCall.waitingLink": "\u0938\u0940\u0927\u0947 \u0932\u093F\u0902\u0915 \u0915\u0940 \u092A\u094D\u0930\u0924\u0940\u0915\u094D\u0937\u093E\u2026",
+    "groupCall.legFailed": "\u0915\u0928\u0947\u0915\u094D\u091F \u0928\u0939\u0940\u0902 \u0939\u094B \u0938\u0915\u093E",
+    "groupCall.startedVoice": "{name} \u0928\u0947 \u0935\u0949\u0907\u0938 \u0915\u0949\u0932 \u0936\u0941\u0930\u0942 \u0915\u0940",
+    "groupCall.startedVideo": "{name} \u0928\u0947 \u0935\u0940\u0921\u093F\u092F\u094B \u0915\u0949\u0932 \u0936\u0941\u0930\u0942 \u0915\u0940",
+    "groupCall.inCall": "\u0915\u0949\u0932 \u092E\u0947\u0902 {count}",
+    "groupCall.err.permission_denied": "\u0915\u0949\u0932 \u0936\u0941\u0930\u0942 \u0928\u0939\u0940\u0902 \u0939\u094B \u0938\u0915\u0940 - \u092E\u093E\u0907\u0915\u094D\u0930\u094B\u092B\u093C\u094B\u0928 \u0914\u0930 \u0915\u0948\u092E\u0930\u0947 \u0915\u0940 \u0905\u0928\u0941\u092E\u0924\u093F \u0905\u0935\u0930\u0941\u0926\u094D\u0927 \u0939\u0948\u0964 \u0907\u0938 \u0938\u093E\u0907\u091F \u0915\u0947 \u0932\u093F\u090F \u0905\u0928\u0941\u092E\u0924\u093F \u0926\u0947\u0902 \u0914\u0930 \u092B\u093F\u0930 \u0915\u094B\u0936\u093F\u0936 \u0915\u0930\u0947\u0902\u0964",
+    "groupCall.err.device_not_found": "\u0915\u0949\u0932 \u0936\u0941\u0930\u0942 \u0928\u0939\u0940\u0902 \u0939\u094B \u0938\u0915\u0940 - \u0907\u0938 \u0921\u093F\u0935\u093E\u0907\u0938 \u092A\u0930 \u0915\u094B\u0908 \u092E\u093E\u0907\u0915\u094D\u0930\u094B\u092B\u093C\u094B\u0928 \u0928\u0939\u0940\u0902 \u092E\u093F\u0932\u093E\u0964",
+    "groupCall.err.device_busy": "\u0915\u0949\u0932 \u0936\u0941\u0930\u0942 \u0928\u0939\u0940\u0902 \u0939\u094B \u0938\u0915\u0940 - \u0906\u092A\u0915\u093E \u092E\u093E\u0907\u0915\u094D\u0930\u094B\u092B\u093C\u094B\u0928 \u0915\u093F\u0938\u0940 \u0905\u0928\u094D\u092F \u0910\u092A \u0915\u0947 \u0909\u092A\u092F\u094B\u0917 \u092E\u0947\u0902 \u0939\u0948\u0964 \u0909\u0938\u0947 \u092C\u0902\u0926 \u0915\u0930\u0915\u0947 \u092B\u093F\u0930 \u0915\u094B\u0936\u093F\u0936 \u0915\u0930\u0947\u0902\u0964",
+    "groupCall.err.media_failed": "\u0915\u0949\u0932 \u0936\u0941\u0930\u0942 \u0928\u0939\u0940\u0902 \u0939\u094B \u0938\u0915\u0940 - \u092E\u093E\u0907\u0915\u094D\u0930\u094B\u092B\u093C\u094B\u0928 \u0928\u0939\u0940\u0902 \u0916\u0941\u0932 \u0938\u0915\u093E\u0964",
+    "groupCall.err.call_in_progress": "\u0907\u0938 \u0938\u092E\u0942\u0939 \u092E\u0947\u0902 \u092A\u0939\u0932\u0947 \u0938\u0947 \u090F\u0915 \u0915\u0949\u0932 \u091A\u0932 \u0930\u0939\u0940 \u0939\u0948\u0964 \u0928\u0908 \u0936\u0941\u0930\u0942 \u0915\u0930\u0928\u0947 \u0915\u0947 \u092C\u091C\u093E\u092F \u0909\u0938\u092E\u0947\u0902 \u0936\u093E\u092E\u093F\u0932 \u0939\u094B\u0902\u0964",
+    "groupCall.err.not_ready": "\u0915\u0949\u0932 \u0915\u0930\u0928\u0947 \u0938\u0947 \u092A\u0939\u0932\u0947 \u0938\u092E\u0942\u0939 \u0915\u094B\u0921 \u0915\u0940 \u092A\u0941\u0937\u094D\u091F\u093F \u0915\u0930\u0947\u0902\u0964",
+    "groupCall.speaking": "{name} \u092C\u094B\u0932 \u0930\u0939\u0947 \u0939\u0948\u0902",
+    "groupCall.pin": "{name} \u0915\u094B \u092C\u0921\u093C\u093E \u0926\u093F\u0916\u093E\u090F\u0901",
+    "groupCall.unpin": "\u0938\u092D\u0940 \u092A\u0930 \u0932\u094C\u091F\u0947\u0902",
+    "groupCall.showEveryone": "\u0938\u092D\u0940"
   },
   "ar": {
     "language.label": "\u0627\u0644\u0644\u063A\u0629",
+    "language.suggest.text": "\u0647\u0630\u0647 \u0627\u0644\u0635\u0641\u062D\u0629 \u0645\u062A\u0648\u0641\u0631\u0629 \u0623\u064A\u0636\u064B\u0627 \u0628\u0627\u0644\u0639\u0631\u0628\u064A\u0629.",
+    "language.suggest.cta": "\u0627\u0642\u0631\u0623 \u0628\u0627\u0644\u0639\u0631\u0628\u064A\u0629",
+    "language.suggest.dismiss": "\u0625\u063A\u0644\u0627\u0642",
     "community.title": "\u0627\u0646\u0636\u0645\u0651 \u0625\u0644\u0649 \u0645\u0633\u062A\u0642\u0628\u0644 \u0627\u0644\u062E\u0635\u0648\u0635\u064A\u0629",
     "community.description": "\u064A\u0646\u0645\u0648 SecureBit \u0628\u0641\u0636\u0644 \u0645\u062C\u062A\u0645\u0639\u0647. \u0623\u0641\u0643\u0627\u0631\u0643\u0645 \u0648\u0645\u0644\u0627\u062D\u0638\u0627\u062A\u0643\u0645 \u0647\u064A \u0645\u0627 \u064A\u0635\u0648\u063A \u0645\u0633\u062A\u0642\u0628\u0644 \u0627\u0644\u062A\u0648\u0627\u0635\u0644 \u0627\u0644\u0622\u0645\u0646 - \u0645\u0628\u0646\u064A\u0651 \u0641\u064A \u0627\u0644\u0639\u0644\u0646\u060C \u0645\u0639 \u062A\u062D\u0642\u0651\u0642 ASN.1 \u0643\u0627\u0645\u0644 \u0645\u0646 \u0637\u0631\u0641 \u0625\u0644\u0649 \u0637\u0631\u0641.",
     "community.github": "\u0645\u0633\u062A\u0648\u062F\u0639 GitHub",
@@ -11899,10 +12127,35 @@ var DICTIONARIES = {
     "offline.disconnect": "\u0642\u0637\u0639 \u0627\u0644\u0627\u062A\u0635\u0627\u0644",
     "offline.learnMore": "\u0627\u0639\u0631\u0641 \u0627\u0644\u0645\u0632\u064A\u062F",
     "pwa.installApp": "\u062B\u0628\u0651\u062A \u0627\u0644\u062A\u0637\u0628\u064A\u0642",
-    "chat.onWeb": "\u0623\u0646\u062A \u0639\u0644\u0649 \u0627\u0644\u0648\u064A\u0628"
+    "chat.onWeb": "\u0623\u0646\u062A \u0639\u0644\u0649 \u0627\u0644\u0648\u064A\u0628",
+    "groupCall.startVoice": "\u0628\u062F\u0621 \u0645\u0643\u0627\u0644\u0645\u0629 \u0635\u0648\u062A\u064A\u0629 \u062C\u0645\u0627\u0639\u064A\u0629",
+    "groupCall.startVideo": "\u0628\u062F\u0621 \u0645\u0643\u0627\u0644\u0645\u0629 \u0641\u064A\u062F\u064A\u0648 \u062C\u0645\u0627\u0639\u064A\u0629",
+    "groupCall.join": "\u0627\u0646\u0636\u0645\u0627\u0645",
+    "groupCall.dismiss": "\u0644\u064A\u0633 \u0627\u0644\u0622\u0646",
+    "groupCall.leave": "\u0645\u063A\u0627\u062F\u0631\u0629 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0629",
+    "groupCall.you": "\u0623\u0646\u062A",
+    "groupCall.connecting": "\u062C\u0627\u0631\u064D \u0627\u0644\u0627\u062A\u0635\u0627\u0644\u2026",
+    "groupCall.waitingLink": "\u0641\u064A \u0627\u0646\u062A\u0638\u0627\u0631 \u0631\u0627\u0628\u0637 \u0645\u0628\u0627\u0634\u0631\u2026",
+    "groupCall.legFailed": "\u062A\u0639\u0630\u0651\u0631 \u0627\u0644\u0627\u062A\u0635\u0627\u0644",
+    "groupCall.startedVoice": "\u0628\u062F\u0623 {name} \u0645\u0643\u0627\u0644\u0645\u0629 \u0635\u0648\u062A\u064A\u0629",
+    "groupCall.startedVideo": "\u0628\u062F\u0623 {name} \u0645\u0643\u0627\u0644\u0645\u0629 \u0641\u064A\u062F\u064A\u0648",
+    "groupCall.inCall": "{count} \u0641\u064A \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0629",
+    "groupCall.err.permission_denied": "\u062A\u0639\u0630\u0651\u0631 \u0628\u062F\u0621 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0629 - \u0627\u0644\u0648\u0635\u0648\u0644 \u0625\u0644\u0649 \u0627\u0644\u0645\u064A\u0643\u0631\u0648\u0641\u0648\u0646 \u0648\u0627\u0644\u0643\u0627\u0645\u064A\u0631\u0627 \u0645\u062D\u0638\u0648\u0631. \u0627\u0633\u0645\u062D \u0628\u0647 \u0644\u0647\u0630\u0627 \u0627\u0644\u0645\u0648\u0642\u0639 \u062B\u0645 \u0623\u0639\u062F \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629.",
+    "groupCall.err.device_not_found": "\u062A\u0639\u0630\u0651\u0631 \u0628\u062F\u0621 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0629 - \u0644\u0645 \u064A\u064F\u0639\u062B\u0631 \u0639\u0644\u0649 \u0645\u064A\u0643\u0631\u0648\u0641\u0648\u0646 \u0641\u064A \u0647\u0630\u0627 \u0627\u0644\u062C\u0647\u0627\u0632.",
+    "groupCall.err.device_busy": "\u062A\u0639\u0630\u0651\u0631 \u0628\u062F\u0621 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0629 - \u0627\u0644\u0645\u064A\u0643\u0631\u0648\u0641\u0648\u0646 \u0645\u0633\u062A\u062E\u062F\u064E\u0645 \u0645\u0646 \u062A\u0637\u0628\u064A\u0642 \u0622\u062E\u0631. \u0623\u063A\u0644\u0642\u0647 \u062B\u0645 \u0623\u0639\u062F \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629.",
+    "groupCall.err.media_failed": "\u062A\u0639\u0630\u0651\u0631 \u0628\u062F\u0621 \u0627\u0644\u0645\u0643\u0627\u0644\u0645\u0629 - \u0644\u0645 \u064A\u0645\u0643\u0646 \u0641\u062A\u062D \u0627\u0644\u0645\u064A\u0643\u0631\u0648\u0641\u0648\u0646.",
+    "groupCall.err.call_in_progress": "\u0647\u0646\u0627\u0643 \u0645\u0643\u0627\u0644\u0645\u0629 \u062C\u0627\u0631\u064A\u0629 \u0628\u0627\u0644\u0641\u0639\u0644 \u0641\u064A \u0647\u0630\u0647 \u0627\u0644\u0645\u062C\u0645\u0648\u0639\u0629. \u0627\u0646\u0636\u0645 \u0625\u0644\u064A\u0647\u0627 \u0628\u062F\u0644 \u0628\u062F\u0621 \u0623\u062E\u0631\u0649.",
+    "groupCall.err.not_ready": "\u0623\u0643\u0651\u062F \u0631\u0645\u0632 \u0627\u0644\u0645\u062C\u0645\u0648\u0639\u0629 \u0642\u0628\u0644 \u0627\u0644\u0627\u062A\u0635\u0627\u0644.",
+    "groupCall.speaking": "{name} \u064A\u062A\u062D\u062F\u0651\u062B \u0627\u0644\u0622\u0646",
+    "groupCall.pin": "\u0639\u0631\u0636 {name} \u0628\u062D\u062C\u0645 \u0643\u0628\u064A\u0631",
+    "groupCall.unpin": "\u0627\u0644\u0639\u0648\u062F\u0629 \u0625\u0644\u0649 \u0627\u0644\u062C\u0645\u064A\u0639",
+    "groupCall.showEveryone": "\u0627\u0644\u062C\u0645\u064A\u0639"
   },
   "he": {
     "language.label": "\u05E9\u05E4\u05D4",
+    "language.suggest.text": "\u05D4\u05D3\u05E3 \u05D4\u05D6\u05D4 \u05D6\u05DE\u05D9\u05DF \u05D2\u05DD \u05D1\u05E2\u05D1\u05E8\u05D9\u05EA.",
+    "language.suggest.cta": "\u05DC\u05E7\u05E8\u05D9\u05D0\u05D4 \u05D1\u05E2\u05D1\u05E8\u05D9\u05EA",
+    "language.suggest.dismiss": "\u05E1\u05D2\u05D9\u05E8\u05D4",
     "community.title": "\u05D4\u05E6\u05D8\u05E8\u05E4\u05D5 \u05DC\u05E2\u05EA\u05D9\u05D3 \u05E9\u05DC \u05D4\u05E4\u05E8\u05D8\u05D9\u05D5\u05EA",
     "community.description": "SecureBit \u05D2\u05D3\u05DC \u05D1\u05D6\u05DB\u05D5\u05EA \u05D4\u05E7\u05D4\u05D9\u05DC\u05D4 \u05E9\u05DC\u05D5. \u05D4\u05E8\u05E2\u05D9\u05D5\u05E0\u05D5\u05EA \u05D5\u05D4\u05DE\u05E9\u05D5\u05D1 \u05E9\u05DC\u05DB\u05DD \u05DE\u05E2\u05E6\u05D1\u05D9\u05DD \u05D0\u05EA \u05E2\u05EA\u05D9\u05D3 \u05D4\u05EA\u05E7\u05E9\u05D5\u05E8\u05EA \u05D4\u05DE\u05D0\u05D5\u05D1\u05D8\u05D7\u05EA - \u05E0\u05D1\u05E0\u05D4 \u05D1\u05D2\u05DC\u05D5\u05D9, \u05E2\u05DD \u05D0\u05D9\u05DE\u05D5\u05EA ASN.1 \u05DE\u05DC\u05D0 \u05DE\u05E7\u05E6\u05D4 \u05DC\u05E7\u05E6\u05D4.",
     "community.github": "\u05DE\u05D0\u05D2\u05E8 GitHub",
@@ -12648,10 +12901,35 @@ var DICTIONARIES = {
     "offline.disconnect": "\u05E0\u05D9\u05EA\u05D5\u05E7",
     "offline.learnMore": "\u05DE\u05D9\u05D3\u05E2 \u05E0\u05D5\u05E1\u05E3",
     "pwa.installApp": "\u05D4\u05EA\u05E7\u05E0\u05EA \u05D4\u05D0\u05E4\u05DC\u05D9\u05E7\u05E6\u05D9\u05D4",
-    "chat.onWeb": "\u05D0\u05EA\u05DD \u05D1\u05D2\u05E8\u05E1\u05EA \u05D4\u05D5\u05D5\u05D1"
+    "chat.onWeb": "\u05D0\u05EA\u05DD \u05D1\u05D2\u05E8\u05E1\u05EA \u05D4\u05D5\u05D5\u05D1",
+    "groupCall.startVoice": "\u05D4\u05EA\u05D7\u05DC\u05EA \u05E9\u05D9\u05D7\u05D4 \u05E7\u05D5\u05DC\u05D9\u05EA \u05E7\u05D1\u05D5\u05E6\u05EA\u05D9\u05EA",
+    "groupCall.startVideo": "\u05D4\u05EA\u05D7\u05DC\u05EA \u05E9\u05D9\u05D7\u05EA \u05D5\u05D9\u05D3\u05D0\u05D5 \u05E7\u05D1\u05D5\u05E6\u05EA\u05D9\u05EA",
+    "groupCall.join": "\u05D4\u05E6\u05D8\u05E8\u05E4\u05D5\u05EA",
+    "groupCall.dismiss": "\u05DC\u05D0 \u05E2\u05DB\u05E9\u05D9\u05D5",
+    "groupCall.leave": "\u05D9\u05E6\u05D9\u05D0\u05D4 \u05DE\u05D4\u05E9\u05D9\u05D7\u05D4",
+    "groupCall.you": "\u05D0\u05EA/\u05D4",
+    "groupCall.connecting": "\u05DE\u05EA\u05D7\u05D1\u05E8\u2026",
+    "groupCall.waitingLink": "\u05DE\u05DE\u05EA\u05D9\u05DF \u05DC\u05E7\u05D9\u05E9\u05D5\u05E8 \u05D9\u05E9\u05D9\u05E8\u2026",
+    "groupCall.legFailed": "\u05D4\u05D4\u05EA\u05D7\u05D1\u05E8\u05D5\u05EA \u05E0\u05DB\u05E9\u05DC\u05D4",
+    "groupCall.startedVoice": "{name} \u05D4\u05EA\u05D7\u05D9\u05DC \u05E9\u05D9\u05D7\u05D4 \u05E7\u05D5\u05DC\u05D9\u05EA",
+    "groupCall.startedVideo": "{name} \u05D4\u05EA\u05D7\u05D9\u05DC \u05E9\u05D9\u05D7\u05EA \u05D5\u05D9\u05D3\u05D0\u05D5",
+    "groupCall.inCall": "{count} \u05D1\u05E9\u05D9\u05D7\u05D4",
+    "groupCall.err.permission_denied": "\u05D4\u05E9\u05D9\u05D7\u05D4 \u05DC\u05D0 \u05D4\u05EA\u05D7\u05D9\u05DC\u05D4 - \u05D4\u05D2\u05D9\u05E9\u05D4 \u05DC\u05DE\u05D9\u05E7\u05E8\u05D5\u05E4\u05D5\u05DF \u05D5\u05DC\u05DE\u05E6\u05DC\u05DE\u05D4 \u05D7\u05E1\u05D5\u05DE\u05D4. \u05D0\u05E4\u05E9\u05E8\u05D5 \u05D0\u05D5\u05EA\u05D4 \u05DC\u05D0\u05EA\u05E8 \u05D4\u05D6\u05D4 \u05D5\u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1.",
+    "groupCall.err.device_not_found": "\u05D4\u05E9\u05D9\u05D7\u05D4 \u05DC\u05D0 \u05D4\u05EA\u05D7\u05D9\u05DC\u05D4 - \u05DC\u05D0 \u05E0\u05DE\u05E6\u05D0 \u05DE\u05D9\u05E7\u05E8\u05D5\u05E4\u05D5\u05DF \u05D1\u05DE\u05DB\u05E9\u05D9\u05E8 \u05D4\u05D6\u05D4.",
+    "groupCall.err.device_busy": "\u05D4\u05E9\u05D9\u05D7\u05D4 \u05DC\u05D0 \u05D4\u05EA\u05D7\u05D9\u05DC\u05D4 - \u05D4\u05DE\u05D9\u05E7\u05E8\u05D5\u05E4\u05D5\u05DF \u05D1\u05E9\u05D9\u05DE\u05D5\u05E9 \u05D0\u05E4\u05DC\u05D9\u05E7\u05E6\u05D9\u05D4 \u05D0\u05D7\u05E8\u05EA. \u05E1\u05D2\u05E8\u05D5 \u05D0\u05D5\u05EA\u05D4 \u05D5\u05E0\u05E1\u05D5 \u05E9\u05D5\u05D1.",
+    "groupCall.err.media_failed": "\u05D4\u05E9\u05D9\u05D7\u05D4 \u05DC\u05D0 \u05D4\u05EA\u05D7\u05D9\u05DC\u05D4 - \u05DC\u05D0 \u05E0\u05D9\u05EA\u05DF \u05D4\u05D9\u05D4 \u05DC\u05E4\u05EA\u05D5\u05D7 \u05D0\u05EA \u05D4\u05DE\u05D9\u05E7\u05E8\u05D5\u05E4\u05D5\u05DF.",
+    "groupCall.err.call_in_progress": "\u05DB\u05D1\u05E8 \u05DE\u05EA\u05E7\u05D9\u05D9\u05DE\u05EA \u05E9\u05D9\u05D7\u05D4 \u05D1\u05E7\u05D1\u05D5\u05E6\u05D4 \u05D4\u05D6\u05D5. \u05D4\u05E6\u05D8\u05E8\u05E4\u05D5 \u05D0\u05DC\u05D9\u05D4 \u05D1\u05DE\u05E7\u05D5\u05DD \u05DC\u05D4\u05EA\u05D7\u05D9\u05DC \u05D0\u05D7\u05EA \u05D7\u05D3\u05E9\u05D4.",
+    "groupCall.err.not_ready": "\u05D0\u05E9\u05E8\u05D5 \u05D0\u05EA \u05E7\u05D5\u05D3 \u05D4\u05E7\u05D1\u05D5\u05E6\u05D4 \u05DC\u05E4\u05E0\u05D9 \u05E9\u05D9\u05D7\u05D4.",
+    "groupCall.speaking": "{name} \u05DE\u05D3\u05D1\u05E8/\u05EA",
+    "groupCall.pin": "\u05D4\u05E6\u05D2\u05EA {name} \u05D1\u05D2\u05D3\u05D5\u05DC",
+    "groupCall.unpin": "\u05D7\u05D6\u05E8\u05D4 \u05DC\u05DB\u05D5\u05DC\u05DD",
+    "groupCall.showEveryone": "\u05DB\u05D5\u05DC\u05DD"
   },
   "fa": {
     "language.label": "\u0632\u0628\u0627\u0646",
+    "language.suggest.text": "\u0627\u06CC\u0646 \u0635\u0641\u062D\u0647 \u0628\u0647 \u0641\u0627\u0631\u0633\u06CC \u0647\u0645 \u062F\u0631 \u062F\u0633\u062A\u0631\u0633 \u0627\u0633\u062A.",
+    "language.suggest.cta": "\u062E\u0648\u0627\u0646\u062F\u0646 \u0628\u0647 \u0641\u0627\u0631\u0633\u06CC",
+    "language.suggest.dismiss": "\u0628\u0633\u062A\u0646",
     "community.title": "\u0628\u0647 \u0622\u06CC\u0646\u062F\u0647\u0654 \u062D\u0631\u06CC\u0645 \u062E\u0635\u0648\u0635\u06CC \u0628\u067E\u06CC\u0648\u0646\u062F\u06CC\u062F",
     "community.description": "\u200FSecureBit \u0628\u0647\u200C\u0644\u0637\u0641 \u062C\u0627\u0645\u0639\u0647\u200C\u0627\u0634 \u0631\u0634\u062F \u0645\u06CC\u200C\u06A9\u0646\u062F. \u0627\u06CC\u062F\u0647\u200C\u0647\u0627 \u0648 \u0628\u0627\u0632\u062E\u0648\u0631\u062F\u0647\u0627\u06CC \u0634\u0645\u0627 \u0622\u06CC\u0646\u062F\u0647\u0654 \u0627\u0631\u062A\u0628\u0627\u0637 \u0627\u0645\u0646 \u0631\u0627 \u0634\u06A9\u0644 \u0645\u06CC\u200C\u062F\u0647\u062F - \u0633\u0627\u062E\u062A\u0647\u200C\u0634\u062F\u0647 \u062F\u0631 \u0641\u0636\u0627\u06CC \u0628\u0627\u0632\u060C \u0628\u0627 \u0627\u0639\u062A\u0628\u0627\u0631\u0633\u0646\u062C\u06CC \u06A9\u0627\u0645\u0644 ASN.1 \u0627\u0632 \u06CC\u06A9 \u0633\u0631 \u062A\u0627 \u0633\u0631 \u062F\u06CC\u06AF\u0631.",
     "community.github": "\u0645\u062E\u0632\u0646 GitHub",
@@ -13397,10 +13675,35 @@ var DICTIONARIES = {
     "offline.disconnect": "\u0642\u0637\u0639 \u0627\u062A\u0635\u0627\u0644",
     "offline.learnMore": "\u0628\u06CC\u0634\u062A\u0631 \u0628\u062F\u0627\u0646\u06CC\u062F",
     "pwa.installApp": "\u0646\u0635\u0628 \u0628\u0631\u0646\u0627\u0645\u0647",
-    "chat.onWeb": "\u0634\u0645\u0627 \u0631\u0648\u06CC \u0646\u0633\u062E\u0647\u0654 \u0648\u0628 \u0647\u0633\u062A\u06CC\u062F"
+    "chat.onWeb": "\u0634\u0645\u0627 \u0631\u0648\u06CC \u0646\u0633\u062E\u0647\u0654 \u0648\u0628 \u0647\u0633\u062A\u06CC\u062F",
+    "groupCall.startVoice": "\u0634\u0631\u0648\u0639 \u062A\u0645\u0627\u0633 \u0635\u0648\u062A\u06CC \u06AF\u0631\u0648\u0647\u06CC",
+    "groupCall.startVideo": "\u0634\u0631\u0648\u0639 \u062A\u0645\u0627\u0633 \u062A\u0635\u0648\u06CC\u0631\u06CC \u06AF\u0631\u0648\u0647\u06CC",
+    "groupCall.join": "\u067E\u06CC\u0648\u0633\u062A\u0646",
+    "groupCall.dismiss": "\u0627\u0644\u0627\u0646 \u0646\u0647",
+    "groupCall.leave": "\u062E\u0631\u0648\u062C \u0627\u0632 \u062A\u0645\u0627\u0633",
+    "groupCall.you": "\u0634\u0645\u0627",
+    "groupCall.connecting": "\u062F\u0631 \u062D\u0627\u0644 \u0627\u062A\u0635\u0627\u0644\u2026",
+    "groupCall.waitingLink": "\u062F\u0631 \u0627\u0646\u062A\u0638\u0627\u0631 \u06CC\u06A9 \u067E\u06CC\u0648\u0646\u062F \u0645\u0633\u062A\u0642\u06CC\u0645\u2026",
+    "groupCall.legFailed": "\u0627\u062A\u0635\u0627\u0644 \u0628\u0631\u0642\u0631\u0627\u0631 \u0646\u0634\u062F",
+    "groupCall.startedVoice": "{name} \u06CC\u06A9 \u062A\u0645\u0627\u0633 \u0635\u0648\u062A\u06CC \u0622\u063A\u0627\u0632 \u06A9\u0631\u062F",
+    "groupCall.startedVideo": "{name} \u06CC\u06A9 \u062A\u0645\u0627\u0633 \u062A\u0635\u0648\u06CC\u0631\u06CC \u0622\u063A\u0627\u0632 \u06A9\u0631\u062F",
+    "groupCall.inCall": "{count} \u0646\u0641\u0631 \u062F\u0631 \u062A\u0645\u0627\u0633",
+    "groupCall.err.permission_denied": "\u062A\u0645\u0627\u0633 \u0622\u063A\u0627\u0632 \u0646\u0634\u062F - \u062F\u0633\u062A\u0631\u0633\u06CC \u0628\u0647 \u0645\u06CC\u06A9\u0631\u0648\u0641\u0648\u0646 \u0648 \u062F\u0648\u0631\u0628\u06CC\u0646 \u0645\u0633\u062F\u0648\u062F \u0627\u0633\u062A. \u0622\u0646 \u0631\u0627 \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0633\u0627\u06CC\u062A \u0645\u062C\u0627\u0632 \u06A9\u0646\u06CC\u062F \u0648 \u062F\u0648\u0628\u0627\u0631\u0647 \u062A\u0644\u0627\u0634 \u06A9\u0646\u06CC\u062F.",
+    "groupCall.err.device_not_found": "\u062A\u0645\u0627\u0633 \u0622\u063A\u0627\u0632 \u0646\u0634\u062F - \u0645\u06CC\u06A9\u0631\u0648\u0641\u0648\u0646\u06CC \u0631\u0648\u06CC \u0627\u06CC\u0646 \u062F\u0633\u062A\u06AF\u0627\u0647 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F.",
+    "groupCall.err.device_busy": "\u062A\u0645\u0627\u0633 \u0622\u063A\u0627\u0632 \u0646\u0634\u062F - \u0645\u06CC\u06A9\u0631\u0648\u0641\u0648\u0646 \u0634\u0645\u0627 \u062F\u0631 \u062D\u0627\u0644 \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u062A\u0648\u0633\u0637 \u0628\u0631\u0646\u0627\u0645\u0647 \u062F\u06CC\u06AF\u0631\u06CC \u0627\u0633\u062A. \u0622\u0646 \u0631\u0627 \u0628\u0628\u0646\u062F\u06CC\u062F \u0648 \u062F\u0648\u0628\u0627\u0631\u0647 \u062A\u0644\u0627\u0634 \u06A9\u0646\u06CC\u062F.",
+    "groupCall.err.media_failed": "\u062A\u0645\u0627\u0633 \u0622\u063A\u0627\u0632 \u0646\u0634\u062F - \u0645\u06CC\u06A9\u0631\u0648\u0641\u0648\u0646 \u0628\u0627\u0632 \u0646\u0634\u062F.",
+    "groupCall.err.call_in_progress": "\u0647\u0645\u06CC\u0646 \u062D\u0627\u0644\u0627 \u062A\u0645\u0627\u0633\u06CC \u062F\u0631 \u0627\u06CC\u0646 \u06AF\u0631\u0648\u0647 \u062F\u0631 \u062C\u0631\u06CC\u0627\u0646 \u0627\u0633\u062A. \u0628\u0647\u200C\u062C\u0627\u06CC \u0634\u0631\u0648\u0639 \u062A\u0645\u0627\u0633 \u062A\u0627\u0632\u0647\u060C \u0628\u0647 \u0622\u0646 \u0628\u067E\u06CC\u0648\u0646\u062F\u06CC\u062F.",
+    "groupCall.err.not_ready": "\u067E\u06CC\u0634 \u0627\u0632 \u062A\u0645\u0627\u0633\u060C \u06A9\u062F \u06AF\u0631\u0648\u0647 \u0631\u0627 \u062A\u0623\u06CC\u06CC\u062F \u06A9\u0646\u06CC\u062F.",
+    "groupCall.speaking": "{name} \u062F\u0631 \u062D\u0627\u0644 \u0635\u062D\u0628\u062A \u0627\u0633\u062A",
+    "groupCall.pin": "\u0646\u0645\u0627\u06CC\u0634 \u0628\u0632\u0631\u06AF {name}",
+    "groupCall.unpin": "\u0628\u0627\u0632\u06AF\u0634\u062A \u0628\u0647 \u0647\u0645\u0647",
+    "groupCall.showEveryone": "\u0647\u0645\u0647"
   },
   "ur": {
     "language.label": "\u0632\u0628\u0627\u0646",
+    "language.suggest.text": "\u06CC\u06C1 \u0635\u0641\u062D\u06C1 \u0627\u0631\u062F\u0648 \u0645\u06CC\u06BA \u0628\u06BE\u06CC \u062F\u0633\u062A\u06CC\u0627\u0628 \u06C1\u06D2\u06D4",
+    "language.suggest.cta": "\u0627\u0631\u062F\u0648 \u0645\u06CC\u06BA \u067E\u0691\u06BE\u06CC\u06BA",
+    "language.suggest.dismiss": "\u0628\u0646\u062F \u06A9\u0631\u06CC\u06BA",
     "community.title": "\u0646\u062C\u06CC\u062A \u06A9\u06D2 \u0645\u0633\u062A\u0642\u0628\u0644 \u0645\u06CC\u06BA \u0634\u0627\u0645\u0644 \u06C1\u0648\u06BA",
     "community.description": "\u200FSecureBit \u0627\u067E\u0646\u06CC \u0628\u0631\u0627\u062F\u0631\u06CC \u06A9\u06CC \u0628\u062F\u0648\u0644\u062A \u0628\u0691\u06BE\u062A\u0627 \u06C1\u06D2\u06D4 \u0622\u067E \u06A9\u06D2 \u062E\u06CC\u0627\u0644\u0627\u062A \u0627\u0648\u0631 \u0622\u0631\u0627\u0621 \u0645\u062D\u0641\u0648\u0638 \u0631\u0627\u0628\u0637\u06D2 \u06A9\u0627 \u0645\u0633\u062A\u0642\u0628\u0644 \u062A\u0634\u06A9\u06CC\u0644 \u062F\u06CC\u062A\u06D2 \u06C1\u06CC\u06BA - \u06A9\u06BE\u0644\u06D2 \u0639\u0627\u0645 \u0628\u0646\u0627\u06CC\u0627 \u06AF\u06CC\u0627\u060C \u0633\u0631\u06D2 \u0633\u06D2 \u0633\u0631\u06D2 \u062A\u06A9 \u0645\u06A9\u0645\u0644 ASN.1 \u062A\u0648\u062B\u06CC\u0642 \u06A9\u06D2 \u0633\u0627\u062A\u06BE\u06D4",
     "community.github": "\u200FGitHub \u0645\u062E\u0632\u0646",
@@ -14146,7 +14449,29 @@ var DICTIONARIES = {
     "offline.disconnect": "\u0645\u0646\u0642\u0637\u0639 \u06A9\u0631\u06CC\u06BA",
     "offline.learnMore": "\u0645\u0632\u06CC\u062F \u062C\u0627\u0646\u06CC\u06BA",
     "pwa.installApp": "\u0627\u06CC\u067E \u0646\u0635\u0628 \u06A9\u0631\u06CC\u06BA",
-    "chat.onWeb": "\u0622\u067E \u0648\u06CC\u0628 \u067E\u0631 \u06C1\u06CC\u06BA"
+    "chat.onWeb": "\u0622\u067E \u0648\u06CC\u0628 \u067E\u0631 \u06C1\u06CC\u06BA",
+    "groupCall.startVoice": "\u06AF\u0631\u0648\u067E \u0648\u0627\u0626\u0633 \u06A9\u0627\u0644 \u0634\u0631\u0648\u0639 \u06A9\u0631\u06CC\u06BA",
+    "groupCall.startVideo": "\u06AF\u0631\u0648\u067E \u0648\u06CC\u0688\u06CC\u0648 \u06A9\u0627\u0644 \u0634\u0631\u0648\u0639 \u06A9\u0631\u06CC\u06BA",
+    "groupCall.join": "\u0634\u0627\u0645\u0644 \u06C1\u0648\u06BA",
+    "groupCall.dismiss": "\u0627\u0628\u06BE\u06CC \u0646\u06C1\u06CC\u06BA",
+    "groupCall.leave": "\u06A9\u0627\u0644 \u0686\u06BE\u0648\u0691\u06CC\u06BA",
+    "groupCall.you": "\u0622\u067E",
+    "groupCall.connecting": "\u0645\u0646\u0633\u0644\u06A9 \u06C1\u0648 \u0631\u06C1\u0627 \u06C1\u06D2\u2026",
+    "groupCall.waitingLink": "\u0628\u0631\u0627\u06C1\u0650 \u0631\u0627\u0633\u062A \u0631\u0627\u0628\u0637\u06D2 \u06A9\u0627 \u0627\u0646\u062A\u0638\u0627\u0631\u2026",
+    "groupCall.legFailed": "\u0645\u0646\u0633\u0644\u06A9 \u0646\u06C1\u06CC\u06BA \u06C1\u0648 \u0633\u06A9\u0627",
+    "groupCall.startedVoice": "{name} \u0646\u06D2 \u0648\u0627\u0626\u0633 \u06A9\u0627\u0644 \u0634\u0631\u0648\u0639 \u06A9\u06CC",
+    "groupCall.startedVideo": "{name} \u0646\u06D2 \u0648\u06CC\u0688\u06CC\u0648 \u06A9\u0627\u0644 \u0634\u0631\u0648\u0639 \u06A9\u06CC",
+    "groupCall.inCall": "\u06A9\u0627\u0644 \u0645\u06CC\u06BA {count}",
+    "groupCall.err.permission_denied": "\u06A9\u0627\u0644 \u0634\u0631\u0648\u0639 \u0646\u06C1\u06CC\u06BA \u06C1\u0648 \u0633\u06A9\u06CC - \u0645\u0627\u0626\u06CC\u06A9\u0631\u0648\u0641\u0648\u0646 \u0627\u0648\u0631 \u06A9\u06CC\u0645\u0631\u06D2 \u062A\u06A9 \u0631\u0633\u0627\u0626\u06CC \u0628\u0646\u062F \u06C1\u06D2\u06D4 \u0627\u0633 \u0633\u0627\u0626\u0679 \u06A9\u06D2 \u0644\u06CC\u06D2 \u0627\u062C\u0627\u0632\u062A \u062F\u06CC\u06BA \u0627\u0648\u0631 \u062F\u0648\u0628\u0627\u0631\u06C1 \u06A9\u0648\u0634\u0634 \u06A9\u0631\u06CC\u06BA\u06D4",
+    "groupCall.err.device_not_found": "\u06A9\u0627\u0644 \u0634\u0631\u0648\u0639 \u0646\u06C1\u06CC\u06BA \u06C1\u0648 \u0633\u06A9\u06CC - \u0627\u0633 \u0688\u06CC\u0648\u0627\u0626\u0633 \u067E\u0631 \u06A9\u0648\u0626\u06CC \u0645\u0627\u0626\u06CC\u06A9\u0631\u0648\u0641\u0648\u0646 \u0646\u06C1\u06CC\u06BA \u0645\u0644\u0627\u06D4",
+    "groupCall.err.device_busy": "\u06A9\u0627\u0644 \u0634\u0631\u0648\u0639 \u0646\u06C1\u06CC\u06BA \u06C1\u0648 \u0633\u06A9\u06CC - \u0622\u067E \u06A9\u0627 \u0645\u0627\u0626\u06CC\u06A9\u0631\u0648\u0641\u0648\u0646 \u06A9\u0633\u06CC \u0627\u0648\u0631 \u0627\u06CC\u067E \u06A9\u06D2 \u0632\u06CC\u0631\u0650 \u0627\u0633\u062A\u0639\u0645\u0627\u0644 \u06C1\u06D2\u06D4 \u0627\u0633\u06D2 \u0628\u0646\u062F \u06A9\u0631 \u06A9\u06D2 \u062F\u0648\u0628\u0627\u0631\u06C1 \u06A9\u0648\u0634\u0634 \u06A9\u0631\u06CC\u06BA\u06D4",
+    "groupCall.err.media_failed": "\u06A9\u0627\u0644 \u0634\u0631\u0648\u0639 \u0646\u06C1\u06CC\u06BA \u06C1\u0648 \u0633\u06A9\u06CC - \u0645\u0627\u0626\u06CC\u06A9\u0631\u0648\u0641\u0648\u0646 \u0646\u06C1\u06CC\u06BA \u06A9\u06BE\u0644 \u0633\u06A9\u0627\u06D4",
+    "groupCall.err.call_in_progress": "\u0627\u0633 \u06AF\u0631\u0648\u067E \u0645\u06CC\u06BA \u067E\u06C1\u0644\u06D2 \u06C1\u06CC \u0627\u06CC\u06A9 \u06A9\u0627\u0644 \u062C\u0627\u0631\u06CC \u06C1\u06D2\u06D4 \u0646\u0626\u06CC \u0634\u0631\u0648\u0639 \u06A9\u0631\u0646\u06D2 \u06A9\u06D2 \u0628\u062C\u0627\u0626\u06D2 \u0627\u0633 \u0645\u06CC\u06BA \u0634\u0627\u0645\u0644 \u06C1\u0648\u06BA\u06D4",
+    "groupCall.err.not_ready": "\u06A9\u0627\u0644 \u0633\u06D2 \u067E\u06C1\u0644\u06D2 \u06AF\u0631\u0648\u067E \u06A9\u0648\u0688 \u06A9\u06CC \u062A\u0635\u062F\u06CC\u0642 \u06A9\u0631\u06CC\u06BA\u06D4",
+    "groupCall.speaking": "{name} \u0628\u0648\u0644 \u0631\u06C1\u06D2 \u06C1\u06CC\u06BA",
+    "groupCall.pin": "{name} \u06A9\u0648 \u0628\u0691\u0627 \u062F\u06A9\u06BE\u0627\u0626\u06CC\u06BA",
+    "groupCall.unpin": "\u0633\u0628 \u067E\u0631 \u0648\u0627\u067E\u0633 \u062C\u0627\u0626\u06CC\u06BA",
+    "groupCall.showEveryone": "\u0633\u0628"
   }
 };
 
@@ -18486,6 +18811,8 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       callId: null,
       quality: null,
       // 'excellent'|'good'|'fair'|'poor'|null — link quality for the UI
+      groupCallId: null,
+      // set while this call is one leg of a group call
       error: null
     };
     this.localMediaStream = null;
@@ -18496,6 +18823,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     this._callVideoSender = null;
     this._callFacingMode = "user";
     this._adaptationController = null;
+    this._callGroupContext = null;
+    this._externalMediaStream = null;
+    this._callStateListeners = /* @__PURE__ */ new Set();
     this.keyRotationInterval = null;
     this.lastKeyRotation = Date.now();
     this.currentKeyVersion = 0;
@@ -29219,6 +29549,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       }
       this._callAudioSender = null;
       this._callVideoSender = null;
+      this._callGroupContext = null;
+      this._externalMediaStream = null;
+      this._callStateListeners?.clear?.();
       this.intentionalDisconnect = true;
       window.EnhancedSecureCryptoUtils.secureLog.log("info", "Starting intentional disconnect");
       this.sendDisconnectNotification();
@@ -29740,6 +30073,57 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   getCallState() {
     return { ...this.callState };
   }
+  /**
+   * Subscribe to call-state changes without taking the onCallStateChanged slot.
+   * @param {(state: object) => void} listener
+   * @returns {() => void} unsubscribe
+   */
+  addCallStateListener(listener) {
+    if (typeof listener !== "function") return () => {
+    };
+    this._callStateListeners.add(listener);
+    return () => this._callStateListeners.delete(listener);
+  }
+  removeCallStateListener(listener) {
+    this._callStateListeners.delete(listener);
+  }
+  /**
+   * Mark this session as one leg of a group call, or clear it.
+   *
+   * While set, an inbound call offer is answered without ringing. That is safe
+   * only because of who sets it: the group-call controller, and only while the
+   * local user is in that group's call. Nothing on the wire can set it, so a
+   * peer cannot cause this session to open a microphone on its own.
+   *
+   * @param {string|null} groupCallId
+   */
+  setCallGroupContext(groupCallId) {
+    this._callGroupContext = typeof groupCallId === "string" && groupCallId ? groupCallId : null;
+    this._updateCallState({});
+    if (this._callGroupContext && this._pendingCallOffer && this.callState.phase === "incoming") {
+      this.acceptCall().catch((error) => {
+        this._secureLog("warn", "\u26A0\uFE0F Failed to answer a group call leg that was already ringing", {
+          errorType: error?.constructor?.name
+        });
+      });
+    }
+  }
+  /**
+   * Use a capture owned by somebody else for the next call on this session.
+   *
+   * The group-call controller captures the microphone and camera ONCE and
+   * hands the same stream to every leg. This manager attaches its tracks and
+   * must never stop them: the other legs are still sending them.
+   *
+   * @param {MediaStream|null} stream
+   */
+  setExternalMediaStream(stream) {
+    this._externalMediaStream = stream || null;
+  }
+  /** True when the live capture belongs to somebody else. */
+  _usingExternalMedia() {
+    return !!this._externalMediaStream && this.localMediaStream === this._externalMediaStream;
+  }
   getRemoteMediaStream() {
     return this.remoteMediaStream;
   }
@@ -29779,13 +30163,19 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     }, 1200);
   }
   _updateCallState(patch) {
-    this.callState = { ...this.callState, ...patch };
+    this.callState = { ...this.callState, ...patch, groupCallId: this._callGroupContext };
     const snapshot = this.getCallState();
     if (snapshot.phase === "active") this._startAdaptation();
     else if (snapshot.phase === "idle") this._stopAdaptation();
     try {
       this.onCallStateChanged?.(snapshot);
     } catch (_) {
+    }
+    for (const listener of this._callStateListeners) {
+      try {
+        listener(snapshot);
+      } catch (_) {
+      }
     }
     if (typeof document !== "undefined") {
       try {
@@ -29813,7 +30203,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     return { facingMode: this._callFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } };
   }
   async _acquireLocalMedia(withVideo) {
-    const stream = await navigator.mediaDevices.getUserMedia({
+    const stream = this._externalMediaStream || await navigator.mediaDevices.getUserMedia({
       audio: this._audioConstraints(),
       video: withVideo ? this._videoConstraints() : false
     });
@@ -29835,7 +30225,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
   // Fully release the mic/camera — only on session disconnect, not between calls.
   _stopLocalMediaPermanently() {
     try {
-      if (this.localMediaStream) {
+      if (this.localMediaStream && !this._usingExternalMedia()) {
         for (const t2 of this.localMediaStream.getTracks()) {
           try {
             t2.stop();
@@ -30011,6 +30401,9 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       remoteHasVideo: !!data.withVideo,
       error: null
     });
+    if (this._callGroupContext) {
+      await this.acceptCall();
+    }
   }
   async _answerCallOffer(data, renegotiation = false) {
     await this.peerConnection.setRemoteDescription({ type: "offer", sdp: data.sdp });
@@ -30078,7 +30471,7 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
     this._stopAdaptation();
     const pc = this.peerConnection;
     try {
-      if (this.localMediaStream) {
+      if (this.localMediaStream && !this._usingExternalMedia()) {
         for (const track of this.localMediaStream.getTracks()) {
           try {
             track.stop();
@@ -30150,16 +30543,43 @@ var EnhancedSecureWebRTCManager = class _EnhancedSecureWebRTCManager {
       const camStream = await navigator.mediaDevices.getUserMedia({ video: this._videoConstraints() });
       const videoTrack = camStream.getVideoTracks()[0];
       if (!videoTrack) return;
-      this.localMediaStream.addTrack(videoTrack);
-      if (this._callVideoSender) await this._callVideoSender.replaceTrack(videoTrack);
-      else this._callVideoSender = this.peerConnection.addTrack(videoTrack, this.localMediaStream);
-      this._applyCallCodecPrefs();
-      this._updateCallState({ cameraEnabled: true, withVideo: true });
-      await this._renegotiateCall();
+      await this.addVideoTrack(videoTrack);
     } catch (error) {
       this._secureLog("error", "\u274C upgradeToVideo failed", { errorType: error?.constructor?.name });
       this._updateCallState({ cameraEnabled: false, error: "camera_failed" });
     }
+  }
+  /**
+   * Put an already-captured camera track on this call and renegotiate.
+   *
+   * Split out of upgradeToVideo so a group call can capture its camera once
+   * and add the SAME track to every leg — N captures of one camera is both
+   * wasteful and, on several devices, simply not permitted.
+   *
+   * @param {MediaStreamTrack} videoTrack
+   */
+  async addVideoTrack(videoTrack) {
+    if (!videoTrack || !this.localMediaStream || !this.peerConnection) return;
+    if (!this.localMediaStream.getVideoTracks().includes(videoTrack)) {
+      this.localMediaStream.addTrack(videoTrack);
+    }
+    if (this._callVideoSender) await this._callVideoSender.replaceTrack(videoTrack);
+    else this._callVideoSender = this.peerConnection.addTrack(videoTrack, this.localMediaStream);
+    this._applyCallCodecPrefs();
+    this._updateCallState({ cameraEnabled: true, withVideo: true });
+    await this._renegotiateCall();
+  }
+  /**
+   * Swap the outgoing camera track without renegotiating.
+   *
+   * The group's camera flip captures one new track and hands it to every leg;
+   * replaceTrack keeps the transceiver, so no leg has to renegotiate for it.
+   *
+   * @param {MediaStreamTrack} videoTrack
+   */
+  async replaceVideoTrack(videoTrack) {
+    if (!videoTrack || !this._callVideoSender) return;
+    await this._callVideoSender.replaceTrack(videoTrack);
   }
   // Flip between front/back cameras without renegotiation (replaceTrack).
   async switchCamera() {
@@ -31264,7 +31684,7 @@ var SecureMasterKeyManager = class {
 var import_NotificationIntegration = __toESM(require_NotificationIntegration());
 
 // package.json
-var version = "6.4.0";
+var version = "6.6.6";
 
 // src/components/ui/LanguageSwitcher.jsx
 var LanguageSwitcher = () => {
@@ -31815,8 +32235,9 @@ Right-click or Ctrl+click to disconnect`,
   }, []);
   const GLASS = "blur(20px) saturate(180%)";
   const MATERIALISE = "background .25s ease, backdrop-filter .25s ease, -webkit-backdrop-filter .25s ease, border-color .25s ease";
-  const overlay = { position: "fixed", top: 0, left: 0, right: 0 };
-  const headerStyle = onLanding ? scrolled ? { ...overlay, background: "rgba(15,15,17,0.72)", backdropFilter: GLASS, WebkitBackdropFilter: GLASS, borderBottom: "1px solid rgba(255,255,255,0.06)", transition: MATERIALISE } : { ...overlay, background: "transparent", backdropFilter: "blur(0px) saturate(100%)", WebkitBackdropFilter: "blur(0px) saturate(100%)", borderBottom: "1px solid transparent", transition: MATERIALISE } : { background: "rgba(18,18,20,0.72)", backdropFilter: GLASS, WebkitBackdropFilter: GLASS, borderBottom: "1px solid rgba(255,255,255,0.06)" };
+  const safeTop = { paddingTop: "var(--sb-safe-top, 0px)", paddingBottom: "var(--sb-bar-extra, 0px)" };
+  const overlay = { position: "fixed", top: 0, left: 0, right: 0, ...safeTop };
+  const headerStyle = onLanding ? scrolled ? { ...overlay, background: "rgba(15,15,17,0.72)", backdropFilter: GLASS, WebkitBackdropFilter: GLASS, borderBottom: "1px solid rgba(255,255,255,0.06)", transition: MATERIALISE } : { ...overlay, background: "transparent", backdropFilter: "blur(0px) saturate(100%)", WebkitBackdropFilter: "blur(0px) saturate(100%)", borderBottom: "1px solid transparent", transition: MATERIALISE } : { ...safeTop, background: "rgba(18,18,20,0.72)", backdropFilter: GLASS, WebkitBackdropFilter: GLASS, borderBottom: "1px solid rgba(255,255,255,0.06)" };
   return React.createElement("header", {
     className: onLanding ? "header-minimal z-50" : "header-minimal sticky top-0 z-50",
     style: headerStyle
@@ -31829,7 +32250,7 @@ Right-click or Ctrl+click to disconnect`,
       React.createElement("div", {
         key: "content",
         className: "flex items-center justify-between",
-        style: { height: "64px", gap: "16px" }
+        style: { height: "var(--sb-bar-h, 64px)", gap: "16px" }
       }, [
         // Left: logo + wordmark
         React.createElement("div", { key: "left", style: { display: "flex", alignItems: "center", gap: "12px", minWidth: 0 } }, [
@@ -33584,6 +34005,7 @@ var CallUIComponent = ({ webrtcManager, peerTitle }) => {
     if (phase === "idle") setMinimized(false);
   }, [phase]);
   if (!active || phase === "idle" || phase === "ended") return null;
+  if (call.groupCallId) return null;
   const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
   const ringing = phase === "outgoing" || phase === "connecting";
   const callStatus = phase === "outgoing" ? t("call.ringing") : phase === "connecting" ? t("call.connecting") : phase === "active" ? fmt(seconds) : t("call.ringing");

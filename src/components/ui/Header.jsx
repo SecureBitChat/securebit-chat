@@ -546,12 +546,18 @@ const EnhancedMinimalHeader = ({
     // animated together so the bar *materialises* on scroll rather than fading in.
     const GLASS = 'blur(20px) saturate(180%)';
     const MATERIALISE = 'background .25s ease, backdrop-filter .25s ease, -webkit-backdrop-filter .25s ease, border-color .25s ease';
-    const overlay = { position: 'fixed', top: 0, left: 0, right: 0 };
+    // Installed on iOS the web view starts at the physical top of the screen, so a
+    // bar pinned to top:0 sits under the clock and the notch. --sb-safe-top is that
+    // strip (src/styles/pwa.css) and 0 in a browser tab, so it can be added
+    // unconditionally: the bar grows by the inset and its contents clear the status
+    // bar, while the translucent background still reaches the top edge.
+    const safeTop = { paddingTop: 'var(--sb-safe-top, 0px)', paddingBottom: 'var(--sb-bar-extra, 0px)' };
+    const overlay = { position: 'fixed', top: 0, left: 0, right: 0, ...safeTop };
     const headerStyle = onLanding
         ? (scrolled
             ? { ...overlay, background: 'rgba(15,15,17,0.72)', backdropFilter: GLASS, WebkitBackdropFilter: GLASS, borderBottom: '1px solid rgba(255,255,255,0.06)', transition: MATERIALISE }
             : { ...overlay, background: 'transparent', backdropFilter: 'blur(0px) saturate(100%)', WebkitBackdropFilter: 'blur(0px) saturate(100%)', borderBottom: '1px solid transparent', transition: MATERIALISE })
-        : { background: 'rgba(18,18,20,0.72)', backdropFilter: GLASS, WebkitBackdropFilter: GLASS, borderBottom: '1px solid rgba(255,255,255,0.06)' };
+        : { ...safeTop, background: 'rgba(18,18,20,0.72)', backdropFilter: GLASS, WebkitBackdropFilter: GLASS, borderBottom: '1px solid rgba(255,255,255,0.06)' };
 
     return React.createElement('header', {
         className: onLanding ? 'header-minimal z-50' : 'header-minimal sticky top-0 z-50',
@@ -565,7 +571,7 @@ const EnhancedMinimalHeader = ({
             React.createElement('div', {
                 key: 'content',
                 className: 'flex items-center justify-between',
-                style: { height: '64px', gap: '16px' }
+                style: { height: 'var(--sb-bar-h, 64px)', gap: '16px' }
             }, [
                 // Left: logo + wordmark
                 React.createElement('div', { key: 'left', style: { display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 } }, [
