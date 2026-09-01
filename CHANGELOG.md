@@ -1,6 +1,6 @@
 # Changelog
 
-## v6.6.6 — Group calls
+## v6.7.0 — Group calls
 
 Groups can call now. Press the handset in a group's header for voice, the camera
 for video, and everyone in the group gets a ring. Whoever joins appears as a tile

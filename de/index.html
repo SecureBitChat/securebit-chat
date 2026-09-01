@@ -30,7 +30,7 @@
 
     <!-- PWA Manifest -->
 <link rel="manifest" href="/de/manifest.json">
-<link rel="icon" type="image/x-icon" href="/logo/favicon.ico?v=1788237895492">
+<link rel="icon" type="image/x-icon" href="/logo/favicon.ico?v=1788239352576">
 
 <!-- PWA Meta Tags -->
 <meta name="mobile-web-app-capable" content="yes">
@@ -96,7 +96,7 @@
     <link rel="apple-touch-startup-image" media="screen and (device-width: 744px) and (device-height: 1133px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/logo/splash/splash_screens/8.3__iPad_Mini_portrait.png">
     
 <!-- Apple Touch Icons -->
-<link rel="apple-touch-icon" href="/logo/icon-180x180.png?v=1788237895492">
+<link rel="apple-touch-icon" href="/logo/icon-180x180.png?v=1788239352576">
 <link rel="apple-touch-icon" sizes="57x57" href="/logo/icon-57x57.png">
 <link rel="apple-touch-icon" sizes="60x60" href="/logo/icon-60x60.png">
 <link rel="apple-touch-icon" sizes="72x72" href="/logo/icon-72x72.png">
@@ -105,7 +105,7 @@
 <link rel="apple-touch-icon" sizes="120x120" href="/logo/icon-120x120.png">
 <link rel="apple-touch-icon" sizes="144x144" href="/logo/icon-144x144.png">
 <link rel="apple-touch-icon" sizes="152x152" href="/logo/icon-152x152.png">
-<link rel="apple-touch-icon" sizes="180x180" href="/logo/icon-180x180.png?v=1788237895492">
+<link rel="apple-touch-icon" sizes="180x180" href="/logo/icon-180x180.png?v=1788239352576">
 
 <!-- Microsoft Tiles -->
 <meta name="msapplication-TileColor" content="#ff6b35">
@@ -222,7 +222,7 @@
     <!-- Render-blocking JS is deferred: classic deferred scripts and module scripts
          both execute in document order after parsing, so React still runs before the
          app modules below, but the parser / first paint is no longer blocked. -->
-    <script defer src="/config/ice-servers.js?v=1788237895492"></script>
+    <script defer src="/config/ice-servers.js?v=1788239352576"></script>
     <script defer src="/libs/react/react.production.min.js"></script>
     <script defer src="/libs/react-dom/react-dom.production.min.js"></script>
     <!-- Prism syntax highlighting (vendored, offline). Tokenizes code as TEXT only —
@@ -230,8 +230,8 @@
          Its CSS is loaded async via load-async-css.js (not paint-critical). -->
     <script defer src="/libs/prism/prism.js"></script>
     <!-- Critical, paint-defining CSS stays render-blocking (avoids FOUC / layout shift). -->
-    <link rel="stylesheet" href="/assets/tailwind.css?v=1788237895492">
-    <link rel="icon" type="image/x-icon" href="/logo/favicon.ico?v=1788237895492">
+    <link rel="stylesheet" href="/assets/tailwind.css?v=1788239352576">
+    <link rel="icon" type="image/x-icon" href="/logo/favicon.ico?v=1788239352576">
     <!-- Preload only the fonts needed for first paint. fa-solid covers the bulk of UI
          icons; fa-regular/fa-brands are loaded on demand by their CSS (rarely on the
          first screen). Inter latin 400/700 cover body text and headings/buttons. -->
@@ -239,38 +239,38 @@
     <link rel="preload" href="/assets/fonts/inter/files/inter-latin-400.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/assets/fonts/inter/files/inter-latin-700.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="/assets/fonts/inter/inter.css">
-    <link rel="stylesheet" href="/src/styles/main.css?v=1788237895492">
-    <link rel="stylesheet" href="/src/styles/animations.css?v=1788237895492">
-    <link rel="stylesheet" href="/src/styles/components.css?v=1788237895492">
+    <link rel="stylesheet" href="/src/styles/main.css?v=1788239352576">
+    <link rel="stylesheet" href="/src/styles/animations.css?v=1788239352576">
+    <link rel="stylesheet" href="/src/styles/components.css?v=1788239352576">
     <!-- Loads after components.css on purpose: press feedback, material weight,
          size-specific tracking and the reduced-motion / -transparency / -contrast
          answers all need to settle arguments with the sheets above on source order. -->
-    <link rel="stylesheet" href="/src/styles/apple-motion.css?v=1788237895492">
+    <link rel="stylesheet" href="/src/styles/apple-motion.css?v=1788239352576">
     <!-- Last of the hand-written sheets: the mirroring rules must win over anything
          above them, and they only ever apply under [dir="rtl"]. -->
-    <link rel="stylesheet" href="/src/styles/rtl.css?v=1788237895492">
+    <link rel="stylesheet" href="/src/styles/rtl.css?v=1788239352576">
     <!-- Non-critical CSS (FontAwesome ~102KB, Prism) loaded async — no longer blocks paint. -->
-    <script defer src="/src/scripts/load-async-css.js?v=1788237895492"></script>
+    <script defer src="/src/scripts/load-async-css.js?v=1788239352576"></script>
     <noscript>
         <link rel="stylesheet" href="/assets/fontawesome/css/all.min.css">
         <link rel="stylesheet" href="/libs/prism/prism.css">
     </noscript>
-    <script defer src="/src/scripts/fa-check.js?v=1788237895492"></script>
+    <script defer src="/src/scripts/fa-check.js?v=1788239352576"></script>
     <!-- Update Manager - система принудительного обновления -->
-    <script defer src="/src/utils/updateManager.js?v=1788237895492"></script>
-    <script type="module" src="/src/components/UpdateChecker.jsx?v=1788237895492"></script>
-    <script type="module" src="/dist/qr-local.js?v=1788237895492"></script>
-    <script type="module" src="/src/components/QRScanner.js?v=1788237895492"></script>
+    <script defer src="/src/utils/updateManager.js?v=1788239352576"></script>
+    <script type="module" src="/src/components/UpdateChecker.jsx?v=1788239352576"></script>
+    <script type="module" src="/dist/qr-local.js?v=1788239352576"></script>
+    <script type="module" src="/src/components/QRScanner.js?v=1788239352576"></script>
 </head>
 <body>
     <div id="root"></div>
-    <script type="module" src="/dist/app-boot.js?v=1788237895492"></script>
-    <script type="module" src="/dist/app.js?v=1788237895492"></script>
+    <script type="module" src="/dist/app-boot.js?v=1788239352576"></script>
+    <script type="module" src="/dist/app.js?v=1788239352576"></script>
 
-<script defer src="/src/scripts/pwa-register.js?v=1788237895492"></script>
-<script src="/src/pwa/install-prompt.js?v=1788237895492" type="module"></script>
-<script src="/src/pwa/pwa-manager.js?v=1788237895492" type="module"></script>
-<script defer src="/src/scripts/pwa-offline-test.js?v=1788237895492"></script>
-<link rel="stylesheet" href="/src/styles/pwa.css?v=1788237895492">
+<script defer src="/src/scripts/pwa-register.js?v=1788239352576"></script>
+<script src="/src/pwa/install-prompt.js?v=1788239352576" type="module"></script>
+<script src="/src/pwa/pwa-manager.js?v=1788239352576" type="module"></script>
+<script defer src="/src/scripts/pwa-offline-test.js?v=1788239352576"></script>
+<link rel="stylesheet" href="/src/styles/pwa.css?v=1788239352576">
 </body>
 </html>

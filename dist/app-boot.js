@@ -31684,7 +31684,7 @@ var SecureMasterKeyManager = class {
 var import_NotificationIntegration = __toESM(require_NotificationIntegration());
 
 // package.json
-var version = "6.6.6";
+var version = "6.7.0";
 
 // src/components/ui/LanguageSwitcher.jsx
 var LanguageSwitcher = () => {
