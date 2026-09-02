@@ -1,5 +1,20 @@
 # Changelog
 
+## v6.7.2 — Desktop 1.0.1
+
+Download links point at desktop 1.0.1, which is the first build that works on
+Linux at all.
+
+1.0.0 could not open a channel there. WebKitGTK is built with WebRTC compiled
+out — its own configuration ties `ENABLE_WEB_RTC` to `ENABLE_EXPERIMENTAL_FEATURES`,
+which release builds turn off — so `RTCPeerConnection` was not a variable that
+existed, on any distribution, in any package format. The desktop client now
+carries its own WebRTC in Rust and presents the browser's API shape to the page,
+so the connection code stays the same one this repository shares with it.
+
+Calls are not available on the Linux desktop yet and it says so; they are
+unaffected on macOS, Windows and here in the browser.
+
 ## v6.7.1 — Download links for desktop 1.0.0
 
 The desktop client reached 1.0.0, and the buttons on this site now point at it.

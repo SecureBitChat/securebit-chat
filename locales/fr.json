@@ -876,7 +876,8 @@
     "desktop.sec.coverOn": "Trafic de couverture actif : trames factices aléatoires (32-128 o toutes les 15-30 s) sur le canal à ratchet",
     "desktop.sec.coverOff": "Le générateur de trafic de couverture ne tourne pas",
     "desktop.sec.coverUnsupported": "Le trafic de couverture exige une session Double Ratchet (le pair utilise une version plus ancienne)",
-    "desktop.tagline": "La liberté de bout en bout"
+    "desktop.tagline": "La liberté de bout en bout",
+    "desktop.callsNotHere": "Les appels ne sont pas encore disponibles dans cette version. Les messages, les fichiers et les discussions de groupe fonctionnent normalement."
   },
   "manifest": {
     "name": "SecureBit.chat - Messagerie privée et chiffrée",

@@ -876,7 +876,8 @@
     "desktop.sec.coverOn": "掩护流量已启用：在棘轮通道上发送随机伪帧（每 15-30 秒 32-128 字节）",
     "desktop.sec.coverOff": "掩护流量生成器未运行",
     "desktop.sec.coverUnsupported": "掩护流量需要 Double Ratchet 会话（对方使用较旧版本）",
-    "desktop.tagline": "端到端的自由"
+    "desktop.tagline": "端到端的自由",
+    "desktop.callsNotHere": "此版本暂不支持通话。消息、文件和群聊一切正常。"
   },
   "manifest": {
     "name": "SecureBit.chat - 私密的端到端加密通讯工具",

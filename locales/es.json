@@ -881,6 +881,7 @@
     "desktop.sec.coverOn": "Tráfico de cobertura activo: tramas falsas aleatorias (32-128 B cada 15-30 s) en el canal con ratchet",
     "desktop.sec.coverOff": "El generador de tráfico de cobertura no está en marcha",
     "desktop.sec.coverUnsupported": "El tráfico de cobertura requiere una sesión Double Ratchet (el par usa una versión anterior)",
-    "desktop.tagline": "Libertad de extremo a extremo"
+    "desktop.tagline": "Libertad de extremo a extremo",
+    "desktop.callsNotHere": "Las llamadas aún no están disponibles en esta versión. Los mensajes, los archivos y los chats grupales funcionan con normalidad."
   }
 }

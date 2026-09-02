@@ -876,6 +876,7 @@
     "desktop.sec.coverOn": "Cover traffic active: random fake frames (32-128 B every 15-30 s) on the ratcheted channel",
     "desktop.sec.coverOff": "The cover traffic generator is not running",
     "desktop.sec.coverUnsupported": "Cover traffic needs a Double Ratchet session (the peer is on an older release)",
-    "desktop.tagline": "End-to-end freedom"
+    "desktop.tagline": "End-to-end freedom",
+    "desktop.callsNotHere": "Calls are not available in this build yet. Messages, files and group chats work as usual."
   }
 }

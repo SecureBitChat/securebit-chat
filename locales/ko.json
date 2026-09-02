@@ -876,7 +876,8 @@
     "desktop.sec.coverOn": "위장 트래픽 작동 중: 래칫 채널에 무작위 더미 프레임 (15-30초마다 32-128 B)",
     "desktop.sec.coverOff": "위장 트래픽 생성기가 실행되고 있지 않습니다",
     "desktop.sec.coverUnsupported": "위장 트래픽에는 Double Ratchet 세션이 필요합니다 (상대가 구버전입니다)",
-    "desktop.tagline": "종단 간 자유"
+    "desktop.tagline": "종단 간 자유",
+    "desktop.callsNotHere": "이 빌드에서는 아직 통화를 사용할 수 없습니다. 메시지, 파일, 그룹 채팅은 평소대로 작동합니다."
   },
   "manifest": {
     "name": "SecureBit.chat - 종단 간 암호화 비공개 메신저",

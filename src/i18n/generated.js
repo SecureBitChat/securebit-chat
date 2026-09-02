@@ -944,7 +944,8 @@ export const DICTIONARIES = {
         "desktop.sec.coverOn": "Cover traffic active: random fake frames (32-128 B every 15-30 s) on the ratcheted channel",
         "desktop.sec.coverOff": "The cover traffic generator is not running",
         "desktop.sec.coverUnsupported": "Cover traffic needs a Double Ratchet session (the peer is on an older release)",
-        "desktop.tagline": "End-to-end freedom"
+        "desktop.tagline": "End-to-end freedom",
+        "desktop.callsNotHere": "Calls are not available in this build yet. Messages, files and group chats work as usual."
     },
     "de": {
         "language.label": "Sprache",
@@ -1793,7 +1794,8 @@ export const DICTIONARIES = {
         "desktop.sec.coverOn": "Verdeckter Verkehr aktiv: zufällige Scheinframes (32-128 B alle 15-30 s) auf dem Ratchet-Kanal",
         "desktop.sec.coverOff": "Der Generator für verdeckten Verkehr läuft nicht",
         "desktop.sec.coverUnsupported": "Verdeckter Verkehr braucht eine Double-Ratchet-Sitzung (die Gegenstelle nutzt eine ältere Version)",
-        "desktop.tagline": "Ende-zu-Ende-Freiheit"
+        "desktop.tagline": "Ende-zu-Ende-Freiheit",
+        "desktop.callsNotHere": "Anrufe sind in dieser Version noch nicht verfügbar. Nachrichten, Dateien und Gruppenchats funktionieren wie gewohnt."
     },
     "fr": {
         "language.label": "Langue",
@@ -2642,7 +2644,8 @@ export const DICTIONARIES = {
         "desktop.sec.coverOn": "Trafic de couverture actif : trames factices aléatoires (32-128 o toutes les 15-30 s) sur le canal à ratchet",
         "desktop.sec.coverOff": "Le générateur de trafic de couverture ne tourne pas",
         "desktop.sec.coverUnsupported": "Le trafic de couverture exige une session Double Ratchet (le pair utilise une version plus ancienne)",
-        "desktop.tagline": "La liberté de bout en bout"
+        "desktop.tagline": "La liberté de bout en bout",
+        "desktop.callsNotHere": "Les appels ne sont pas encore disponibles dans cette version. Les messages, les fichiers et les discussions de groupe fonctionnent normalement."
     },
     "es": {
         "language.label": "Idioma",
@@ -3491,7 +3494,8 @@ export const DICTIONARIES = {
         "desktop.sec.coverOn": "Tráfico de cobertura activo: tramas falsas aleatorias (32-128 B cada 15-30 s) en el canal con ratchet",
         "desktop.sec.coverOff": "El generador de tráfico de cobertura no está en marcha",
         "desktop.sec.coverUnsupported": "El tráfico de cobertura requiere una sesión Double Ratchet (el par usa una versión anterior)",
-        "desktop.tagline": "Libertad de extremo a extremo"
+        "desktop.tagline": "Libertad de extremo a extremo",
+        "desktop.callsNotHere": "Las llamadas aún no están disponibles en esta versión. Los mensajes, los archivos y los chats grupales funcionan con normalidad."
     },
     "uk": {
         "language.label": "Мова",
@@ -4340,7 +4344,8 @@ export const DICTIONARIES = {
         "desktop.sec.coverOn": "Прикриваючий трафік активний: випадкові фальшиві кадри (32-128 Б кожні 15-30 с) у каналі з ратчетом",
         "desktop.sec.coverOff": "Генератор прикриваючого трафіку не працює",
         "desktop.sec.coverUnsupported": "Прикриваючий трафік потребує сеансу Double Ratchet (у співрозмовника старіша версія)",
-        "desktop.tagline": "Наскрізна свобода"
+        "desktop.tagline": "Наскрізна свобода",
+        "desktop.callsNotHere": "Дзвінки в цій збірці поки недоступні. Повідомлення, файли та групові чати працюють як звичайно."
     },
     "ru": {
         "language.label": "Язык",
@@ -5189,7 +5194,8 @@ export const DICTIONARIES = {
         "desktop.sec.coverOn": "Прикрывающий трафик активен: случайные фальшивые кадры (32-128 Б каждые 15-30 с) в канале с рэтчетом",
         "desktop.sec.coverOff": "Генератор прикрывающего трафика не работает",
         "desktop.sec.coverUnsupported": "Прикрывающему трафику нужен сеанс Double Ratchet (у собеседника версия постарше)",
-        "desktop.tagline": "Сквозная свобода"
+        "desktop.tagline": "Сквозная свобода",
+        "desktop.callsNotHere": "Звонки в этой сборке пока недоступны. Сообщения, файлы и групповые чаты работают как обычно."
     },
     "zh": {
         "language.label": "语言",
@@ -6038,7 +6044,8 @@ export const DICTIONARIES = {
         "desktop.sec.coverOn": "掩护流量已启用：在棘轮通道上发送随机伪帧（每 15-30 秒 32-128 字节）",
         "desktop.sec.coverOff": "掩护流量生成器未运行",
         "desktop.sec.coverUnsupported": "掩护流量需要 Double Ratchet 会话（对方使用较旧版本）",
-        "desktop.tagline": "端到端的自由"
+        "desktop.tagline": "端到端的自由",
+        "desktop.callsNotHere": "此版本暂不支持通话。消息、文件和群聊一切正常。"
     },
     "ko": {
         "language.label": "언어",
@@ -6887,7 +6894,8 @@ export const DICTIONARIES = {
         "desktop.sec.coverOn": "위장 트래픽 작동 중: 래칫 채널에 무작위 더미 프레임 (15-30초마다 32-128 B)",
         "desktop.sec.coverOff": "위장 트래픽 생성기가 실행되고 있지 않습니다",
         "desktop.sec.coverUnsupported": "위장 트래픽에는 Double Ratchet 세션이 필요합니다 (상대가 구버전입니다)",
-        "desktop.tagline": "종단 간 자유"
+        "desktop.tagline": "종단 간 자유",
+        "desktop.callsNotHere": "이 빌드에서는 아직 통화를 사용할 수 없습니다. 메시지, 파일, 그룹 채팅은 평소대로 작동합니다."
     },
     "hi": {
         "language.label": "भाषा",
@@ -7736,7 +7744,8 @@ export const DICTIONARIES = {
         "desktop.sec.coverOn": "आवरण ट्रैफ़िक सक्रिय: रैचेट चैनल पर यादृच्छिक नकली फ़्रेम (हर 15-30 सेकंड में 32-128 B)",
         "desktop.sec.coverOff": "आवरण ट्रैफ़िक जनरेटर नहीं चल रहा",
         "desktop.sec.coverUnsupported": "आवरण ट्रैफ़िक के लिए Double Ratchet सत्र चाहिए (साथी पुराने संस्करण पर है)",
-        "desktop.tagline": "सिरे से सिरे तक आज़ादी"
+        "desktop.tagline": "सिरे से सिरे तक आज़ादी",
+        "desktop.callsNotHere": "इस बिल्ड में कॉल अभी उपलब्ध नहीं हैं। संदेश, फ़ाइलें और समूह चैट सामान्य रूप से काम करते हैं।"
     },
     "ar": {
         "language.label": "اللغة",
@@ -8585,7 +8594,8 @@ export const DICTIONARIES = {
         "desktop.sec.coverOn": "حركة التمويه نشطة: إطارات وهمية عشوائية (32-128 بايت كل 15-30 ثانية) على قناة الراتشيت",
         "desktop.sec.coverOff": "مولّد حركة التمويه لا يعمل",
         "desktop.sec.coverUnsupported": "تحتاج حركة التمويه إلى جلسة Double Ratchet (الطرف الآخر على إصدار أقدم)",
-        "desktop.tagline": "حرية من طرف إلى طرف"
+        "desktop.tagline": "حرية من طرف إلى طرف",
+        "desktop.callsNotHere": "المكالمات غير متاحة بعد في هذه النسخة. الرسائل والملفات والدردشات الجماعية تعمل كالمعتاد."
     },
     "he": {
         "language.label": "שפה",
@@ -9434,7 +9444,8 @@ export const DICTIONARIES = {
         "desktop.sec.coverOn": "תעבורת הסוואה פעילה: מסגרות מזויפות אקראיות (32-128 בתים כל 15-30 שניות) בערוץ הראצ׳ט",
         "desktop.sec.coverOff": "מחולל תעבורת ההסוואה אינו פועל",
         "desktop.sec.coverUnsupported": "תעבורת הסוואה מחייבת הפעלת Double Ratchet (הצד השני בגרסה ישנה יותר)",
-        "desktop.tagline": "חופש מקצה לקצה"
+        "desktop.tagline": "חופש מקצה לקצה",
+        "desktop.callsNotHere": "שיחות אינן זמינות עדיין בגרסה זו. הודעות, קבצים וצ׳אטים קבוצתיים פועלים כרגיל."
     },
     "fa": {
         "language.label": "زبان",
@@ -10283,7 +10294,8 @@ export const DICTIONARIES = {
         "desktop.sec.coverOn": "ترافیک پوششی فعال است: قاب‌های ساختگی تصادفی (۳۲ تا ۱۲۸ بایت هر ۱۵ تا ۳۰ ثانیه) روی کانال رچت",
         "desktop.sec.coverOff": "مولد ترافیک پوششی در حال اجرا نیست",
         "desktop.sec.coverUnsupported": "ترافیک پوششی به نشست Double Ratchet نیاز دارد (طرف مقابل نسخهٔ قدیمی‌تری دارد)",
-        "desktop.tagline": "آزادی سرتاسری"
+        "desktop.tagline": "آزادی سرتاسری",
+        "desktop.callsNotHere": "تماس‌ها هنوز در این نسخه در دسترس نیستند. پیام‌ها، فایل‌ها و گفت‌وگوهای گروهی طبق معمول کار می‌کنند."
     },
     "ur": {
         "language.label": "زبان",
@@ -11132,6 +11144,7 @@ export const DICTIONARIES = {
         "desktop.sec.coverOn": "کور ٹریفک فعال: ریچٹ چینل پر بے ترتیب جعلی فریم (ہر 15-30 سیکنڈ میں 32-128 B)",
         "desktop.sec.coverOff": "کور ٹریفک جنریٹر نہیں چل رہا",
         "desktop.sec.coverUnsupported": "کور ٹریفک کے لیے Double Ratchet سیشن درکار ہے (ساتھی پرانے ورژن پر ہے)",
-        "desktop.tagline": "سرے سے سرے تک آزادی"
+        "desktop.tagline": "سرے سے سرے تک آزادی",
+        "desktop.callsNotHere": "اس بلڈ میں کالیں ابھی دستیاب نہیں ہیں۔ پیغامات، فائلیں اور گروپ چیٹس معمول کے مطابق کام کرتی ہیں۔"
     }
 };

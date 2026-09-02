@@ -881,6 +881,7 @@
     "desktop.sec.coverOn": "Verdeckter Verkehr aktiv: zufällige Scheinframes (32-128 B alle 15-30 s) auf dem Ratchet-Kanal",
     "desktop.sec.coverOff": "Der Generator für verdeckten Verkehr läuft nicht",
     "desktop.sec.coverUnsupported": "Verdeckter Verkehr braucht eine Double-Ratchet-Sitzung (die Gegenstelle nutzt eine ältere Version)",
-    "desktop.tagline": "Ende-zu-Ende-Freiheit"
+    "desktop.tagline": "Ende-zu-Ende-Freiheit",
+    "desktop.callsNotHere": "Anrufe sind in dieser Version noch nicht verfügbar. Nachrichten, Dateien und Gruppenchats funktionieren wie gewohnt."
   }
 }

@@ -1680,7 +1680,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     // /download/v0.3.0/SecureBit.Chat_0.1.0_x64-setup.exe, a file that never
                     // existed, and the download 404s. A pinned tag keeps serving a real
                     // installer instead.
-                    const SB_DESKTOP_VERSION = '1.0.0';
+                    const SB_DESKTOP_VERSION = '1.0.1';
                     const SB_DESKTOP_RELEASE = `https://github.com/SecureBitChat/securebit-desktop/releases/download/v${SB_DESKTOP_VERSION}`;
                     const DOWNLOADS = {
                         mac: { name: 'macOS', format: '.dmg · Apple Silicon & Intel', icon: 'fab fa-apple', url: `${SB_DESKTOP_RELEASE}/SecureBit.Chat_${SB_DESKTOP_VERSION}_x64.dmg` },
