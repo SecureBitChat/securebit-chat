@@ -21,3 +21,6 @@ assets/screenshots
 # full-size marketing captures stay out of the image, which is what the rule
 # above was for.
 !assets/screenshots/desktop-*.png
+# The Snap Store badge is served from this origin so the page makes no
+# third-party request; it has to actually ship for that to be true.
+!assets/badges/*.svg

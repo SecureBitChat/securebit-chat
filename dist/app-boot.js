@@ -34078,7 +34078,41 @@ var CommunityCTA = () => {
     React.createElement("div", {
       key: "btns",
       style: { display: "flex", gap: "14px", justifyContent: "center", flexWrap: "wrap" }
-    }, [githubBtn, feedbackBtn])
+    }, [githubBtn, feedbackBtn]),
+    // Snap Store, bottom right.
+    //
+    // Served from this origin, not snapcraft.io. The site's CSP is
+    // `img-src 'self' data:` and would block a hotlink anyway, but the
+    // reason to keep it that way is the product's own claim: fetching a
+    // badge from someone else's server hands them the address of every
+    // visitor to a page that promises no servers are involved.
+    React.createElement("div", {
+      key: "snap",
+      style: {
+        display: "flex",
+        justifyContent: isMobile ? "center" : "flex-end",
+        marginTop: "28px"
+      }
+    }, React.createElement("a", {
+      href: "https://snapcraft.io/securebit-chat",
+      target: "_blank",
+      rel: "noopener noreferrer",
+      "aria-label": "Get it from the Snap Store",
+      style: { display: "inline-flex", opacity: 0.9, transition: "opacity .2s" },
+      onMouseEnter: (e) => {
+        e.currentTarget.style.opacity = 1;
+      },
+      onMouseLeave: (e) => {
+        e.currentTarget.style.opacity = 0.9;
+      }
+    }, React.createElement("img", {
+      src: "/assets/badges/snap-store.svg",
+      alt: "Get it from the Snap Store",
+      width: 182,
+      height: 56,
+      loading: "lazy",
+      style: { display: "block" }
+    })))
   ]);
   return React.createElement("section", {
     style: {
