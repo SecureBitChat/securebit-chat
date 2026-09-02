@@ -11,7 +11,7 @@ let DYNAMIC_CACHE = 'securebit-pwa-dynamic-v4.7.56';
 // Build stamp — rewritten by scripts/post-build.js on every release so this file's
 // bytes change each deploy. That is what makes the browser detect a new Service Worker,
 // reinstall it, drop stale caches and (via controllerchange) prompt the page to update.
-const SW_BUILD_VERSION = '1788239352576';
+const SW_BUILD_VERSION = '1788320423892';
 
 // Locale subdirectories, rewritten by scripts/build-i18n.js. Each localized page is a
 // separate document at its own URL, so the shell has to be cached and served per

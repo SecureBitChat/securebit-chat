@@ -148,8 +148,23 @@ for (const code of site.locales) {
         }
     }
 
+    // These dictionaries are the SHARED source for two clients: this one and the
+    // Tauri desktop client, which lives in a separate repository and is not
+    // scanned here. Its keys are therefore unused *by this scan* and always
+    // will be — that is the cost of one dictionary rather than two drifting
+    // ones, not a defect to fix by deleting them.
+    //
+    // The exemption is deliberately narrow: the `desktop.` prefix, plus the
+    // message-lifetime labels below by exact name. Anything else that stops
+    // being used still fails, which is the point of the check.
+    const CONSUMED_BY_DESKTOP = new Set([
+        'msg.after5s', 'msg.after15s', 'msg.after30s', 'msg.after1m',
+        'msg.sec30', 'msg.min5', 'msg.hour1',
+    ]);
+    const belongsToDesktop = (key) => key.startsWith('desktop.') || CONSUMED_BY_DESKTOP.has(key);
+
     const defined = new Set(Object.keys(JSON.parse(read(`locales/${site.defaultLocale}.json`)).ui || {}));
-    const isUsed = (key) => used.has(key) || patterns.some((re) => re.test(key));
+    const isUsed = (key) => used.has(key) || belongsToDesktop(key) || patterns.some((re) => re.test(key));
     const missing = [...used].filter((key) => !defined.has(key)).sort();
     const unused = [...defined].filter((key) => !isUsed(key)).sort();
 
@@ -158,6 +173,13 @@ for (const code of site.locales) {
     assert.deepEqual(unused, [],
         `these keys are defined but never used — remove them rather than have them translated`);
     assert.ok(used.size > 0, 'the scan found no t() calls at all, which means it is not scanning anything');
+    // If the desktop client ever stops sharing these dictionaries, the exemption
+    // above turns into a hiding place for dead strings. This fails when that
+    // day comes, instead of letting them accumulate unnoticed.
+    assert.ok(
+        [...defined].some(belongsToDesktop),
+        'no desktop-owned keys are defined any more — drop CONSUMED_BY_DESKTOP and the desktop. exemption'
+    );
     assert.ok(patterns.length > 0, 'no template-literal keys were found — the dynamic-key scan is not working');
 }
 
