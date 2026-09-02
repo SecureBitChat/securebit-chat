@@ -1,5 +1,26 @@
 # Changelog
 
+## v6.7.1 — Download links for desktop 1.0.0
+
+The desktop client reached 1.0.0, and the buttons on this site now point at it.
+
+The version was written in two places: the compact table in `src/app.jsx` and the
+grid in `src/components/ui/DownloadApps.jsx`. Only one of them was bumped, so
+half the buttons pointed at a tag whose filenames no longer exist — the link
+still looked valid and downloaded nothing. That is the exact failure
+`tests/desktop-download-links.test.mjs` was written for after it happened twice
+before, and it caught this one: every generated URL is fetched during the test,
+so a link that leads nowhere fails the build rather than the visitor.
+
+Worth saying plainly, because it is the part that is easy to get wrong: the page
+loads the bundles in `dist/`, not the `.jsx` sources. Editing a source and
+deploying without rebuilding changes nothing that anyone sees.
+
+The translation scan also learns that these dictionaries feed two clients. The
+desktop client lives in a separate repository, so its `desktop.*` keys can never
+turn up in a scan of this `src/` — they were being reported as dead strings to
+delete. The exemption is narrow on purpose: any other unused key still fails.
+
 ## v6.7.0 — Group calls
 
 Groups can call now. Press the handset in a group's header for voice, the camera
