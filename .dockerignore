@@ -14,3 +14,10 @@ fly.toml
 **/*.map
 # Marketing screenshots are referenced only from the README, not served by the app.
 assets/screenshots
+# ...with one exception. The desktop client's store screenshots ARE fetched from
+# this domain: its AppStream metainfo names them by URL, and both Flathub's
+# reviewers and the store listing load them over HTTPS. Excluded, they 404 and
+# the submission is rejected. Only the desktop-* set ships; the README's
+# full-size marketing captures stay out of the image, which is what the rule
+# above was for.
+!assets/screenshots/desktop-*.png
