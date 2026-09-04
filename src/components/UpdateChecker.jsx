@@ -149,7 +149,7 @@ const UpdateChecker = ({ children, onUpdateAvailable, debug = false }) => {
             key: 'update-modal',
             style: {
                 position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: '24px', background: 'rgba(8,8,10,0.55)', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)',
+                padding: '24px', background: 'rgba(var(--sb-scrim-rgb), 0.55)', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)',
                 animation: 'unFade .3s ease', fontFamily: SANS
             }
         }, [
@@ -163,39 +163,39 @@ const UpdateChecker = ({ children, onUpdateAvailable, debug = false }) => {
                 key: 'card',
                 style: {
                     position: 'relative', width: '440px', maxWidth: 'calc(100vw - 48px)', borderRadius: '22px',
-                    background: '#121214', border: '1px solid rgba(255,255,255,0.08)', padding: '36px 32px 28px',
-                    textAlign: 'center', boxShadow: '0 30px 70px rgba(0,0,0,0.6)', animation: 'unPop .32s cubic-bezier(.2,.7,.3,1)'
+                    background: 'var(--sb-bg)', border: '1px solid rgba(var(--sb-ink), 0.08)', padding: '36px 32px 28px',
+                    textAlign: 'center', boxShadow: '0 30px 70px rgba(var(--sb-shadow-rgb), calc(0.6 * var(--sb-shadow-k)))', animation: 'unPop .32s cubic-bezier(.2,.7,.3,1)'
                 }
             }, [
                 // spinning update icon
                 React.createElement('div', {
                     key: 'icon',
-                    style: { display: 'inline-flex', width: '64px', height: '64px', borderRadius: '50%', alignItems: 'center', justifyContent: 'center', background: 'rgba(240,137,42,0.12)', border: '1px solid rgba(240,137,42,0.3)', marginBottom: '20px' }
+                    style: { display: 'inline-flex', width: '64px', height: '64px', borderRadius: '50%', alignItems: 'center', justifyContent: 'center', background: 'rgba(var(--sb-orange-rgb), 0.12)', border: '1px solid rgba(var(--sb-orange-rgb), 0.3)', marginBottom: '20px' }
                 }, React.createElement('svg', {
-                    width: 28, height: 28, viewBox: '0 0 24 24', fill: 'none', stroke: '#f0892a', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round',
+                    width: 28, height: 28, viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--sb-orange-solid)', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round',
                     style: { animation: 'unSpin 6s linear infinite' },
                     dangerouslySetInnerHTML: { __html: '<path d="M21 8a8.5 8.5 0 0 0-15.6-2.5M3 4v4h4"/><path d="M3 16a8.5 8.5 0 0 0 15.6 2.5M21 20v-4h-4"/>' }
                 })),
 
-                React.createElement('h2', { key: 'title', style: { margin: '0 0 9px', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.7px', color: '#f4f4f6' } }, t('update.title')),
-                React.createElement('p', { key: 'sub', style: { margin: '0 0 24px', fontSize: '14.5px', lineHeight: 1.55, color: '#9a9aa2' } }, t('update.desc')),
+                React.createElement('h2', { key: 'title', style: { margin: '0 0 9px', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.7px', color: 'var(--sb-text-1)' } }, t('update.title')),
+                React.createElement('p', { key: 'sub', style: { margin: '0 0 24px', fontSize: '14.5px', lineHeight: 1.55, color: 'var(--sb-text-6)' } }, t('update.desc')),
 
                 // version comparison
                 React.createElement('div', {
                     key: 'vbox',
-                    style: { borderRadius: '14px', background: '#0c0c0e', border: '1px solid rgba(255,255,255,0.06)', padding: '16px 18px', marginBottom: '24px', textAlign: 'start' }
+                    style: { borderRadius: '14px', background: 'var(--sb-bg-deep)', border: '1px solid rgba(var(--sb-ink), 0.06)', padding: '16px 18px', marginBottom: '24px', textAlign: 'start' }
                 }, [
                     React.createElement('div', { key: 'cur', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', padding: '5px 0' } }, [
-                        React.createElement('span', { key: 'l', style: { fontSize: '13.5px', fontWeight: 500, color: '#8a8a92' } }, t('update.currentVersion')),
-                        React.createElement('span', { key: 'v', style: { fontFamily: MONO, fontSize: '13px', fontWeight: 500, color: '#9a9aa2', whiteSpace: 'nowrap' } }, formatVersion(updateState.currentVersion))
+                        React.createElement('span', { key: 'l', style: { fontSize: '13.5px', fontWeight: 500, color: 'var(--sb-text-7)' } }, t('update.currentVersion')),
+                        React.createElement('span', { key: 'v', style: { fontFamily: MONO, fontSize: '13px', fontWeight: 500, color: 'var(--sb-text-6)', whiteSpace: 'nowrap' } }, formatVersion(updateState.currentVersion))
                     ]),
-                    React.createElement('div', { key: 'sep', style: { height: '1px', background: 'rgba(255,255,255,0.05)', margin: '4px 0' } }),
+                    React.createElement('div', { key: 'sep', style: { height: '1px', background: 'rgba(var(--sb-ink), 0.05)', margin: '4px 0' } }),
                     React.createElement('div', { key: 'new', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', padding: '5px 0' } }, [
-                        React.createElement('span', { key: 'l', style: { display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13.5px', fontWeight: 600, color: '#e8e8eb' } }, [
-                            React.createElement('span', { key: 'd', style: { width: '6px', height: '6px', borderRadius: '50%', background: '#f0892a' } }),
+                        React.createElement('span', { key: 'l', style: { display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13.5px', fontWeight: 600, color: 'var(--sb-text-2)' } }, [
+                            React.createElement('span', { key: 'd', style: { width: '6px', height: '6px', borderRadius: '50%', background: 'var(--sb-orange-solid)' } }),
                             t('update.newVersion')
                         ]),
-                        React.createElement('span', { key: 'v', style: { fontFamily: MONO, fontSize: '13px', fontWeight: 700, color: '#f0892a', whiteSpace: 'nowrap' } }, formatVersion(updateState.newVersion))
+                        React.createElement('span', { key: 'v', style: { fontFamily: MONO, fontSize: '13px', fontWeight: 700, color: 'var(--sb-orange)', whiteSpace: 'nowrap' } }, formatVersion(updateState.newVersion))
                     ])
                 ]),
 
@@ -204,17 +204,17 @@ const UpdateChecker = ({ children, onUpdateAvailable, debug = false }) => {
                     ? React.createElement('div', { key: 'progress' }, [
                         React.createElement('div', {
                             key: 'bar',
-                            style: { width: '100%', height: '8px', borderRadius: '99px', background: '#0c0c0e', border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden', marginBottom: '10px' }
-                        }, React.createElement('div', { key: 'fill', style: { height: '100%', width: `${updateState.progress}%`, background: 'linear-gradient(90deg,#3ecf8e,#f0892a)', transition: 'width .3s ease' } })),
-                        React.createElement('p', { key: 't', style: { margin: 0, fontFamily: MONO, fontSize: '12px', color: '#8a8a92' } }, `Updating… ${updateState.progress}%`)
+                            style: { width: '100%', height: '8px', borderRadius: '99px', background: 'var(--sb-bg-deep)', border: '1px solid rgba(var(--sb-ink), 0.06)', overflow: 'hidden', marginBottom: '10px' }
+                        }, React.createElement('div', { key: 'fill', style: { height: '100%', width: `${updateState.progress}%`, background: 'linear-gradient(90deg,var(--sb-green),var(--sb-orange))', transition: 'width .3s ease' } })),
+                        React.createElement('p', { key: 't', style: { margin: 0, fontFamily: MONO, fontSize: '12px', color: 'var(--sb-text-7)' } }, `Updating… ${updateState.progress}%`)
                     ])
                     : React.createElement('div', { key: 'actions', style: { display: 'flex', alignItems: 'center', gap: '12px' } }, [
                         React.createElement('button', {
                             key: 'update',
                             onClick: handleForceUpdate,
-                            style: { flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '15px 20px', borderRadius: '13px', border: 'none', background: '#f0892a', color: '#1a0f04', fontFamily: 'inherit', fontSize: '15.5px', fontWeight: 700, letterSpacing: '-0.2px', cursor: 'pointer', boxShadow: '0 8px 24px rgba(240,137,42,0.28)', transition: 'all .2s cubic-bezier(.2,.7,.3,1)' },
-                            onMouseEnter: (e) => { e.currentTarget.style.background = '#ff9637'; e.currentTarget.style.transform = 'translateY(-2px)'; },
-                            onMouseLeave: (e) => { e.currentTarget.style.background = '#f0892a'; e.currentTarget.style.transform = 'none'; }
+                            style: { flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '15px 20px', borderRadius: '13px', border: 'none', background: 'var(--sb-orange-solid)', color: 'var(--sb-on-accent)', fontFamily: 'inherit', fontSize: '15.5px', fontWeight: 700, letterSpacing: '-0.2px', cursor: 'pointer', boxShadow: '0 8px 24px rgba(var(--sb-orange-rgb), 0.28)', transition: 'all .2s cubic-bezier(.2,.7,.3,1)' },
+                            onMouseEnter: (e) => { e.currentTarget.style.background = 'var(--sb-orange-hi)'; e.currentTarget.style.transform = 'translateY(-2px)'; },
+                            onMouseLeave: (e) => { e.currentTarget.style.background = 'var(--sb-orange)'; e.currentTarget.style.transform = 'none'; }
                         }, [
                             React.createElement('svg', { key: 'i', width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.1, strokeLinecap: 'round', strokeLinejoin: 'round', dangerouslySetInnerHTML: { __html: '<path d="M12 3v11"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M5 20h14"/>' } }),
                             t('update.now')
@@ -223,9 +223,9 @@ const UpdateChecker = ({ children, onUpdateAvailable, debug = false }) => {
                             key: 'later',
                             onClick: handleCloseModal,
                             title: t('update.later'),
-                            style: { flex: 'none', width: '50px', height: '50px', borderRadius: '13px', display: 'grid', placeItems: 'center', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.025)', color: '#9a9aa2', cursor: 'pointer', transition: 'all .18s cubic-bezier(.2,.7,.3,1)' },
-                            onMouseEnter: (e) => { e.currentTarget.style.color = '#e5727a'; e.currentTarget.style.borderColor = 'rgba(229,114,122,0.4)'; },
-                            onMouseLeave: (e) => { e.currentTarget.style.color = '#9a9aa2'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }
+                            style: { flex: 'none', width: '50px', height: '50px', borderRadius: '13px', display: 'grid', placeItems: 'center', border: '1px solid rgba(var(--sb-ink), 0.1)', background: 'rgba(var(--sb-ink), 0.025)', color: 'var(--sb-text-6)', cursor: 'pointer', transition: 'all .18s cubic-bezier(.2,.7,.3,1)' },
+                            onMouseEnter: (e) => { e.currentTarget.style.color = 'var(--sb-red)'; e.currentTarget.style.borderColor = 'rgba(var(--sb-red-rgb), 0.4)'; },
+                            onMouseLeave: (e) => { e.currentTarget.style.color = 'var(--sb-text-6)'; e.currentTarget.style.borderColor = 'rgba(var(--sb-ink), 0.1)'; }
                         }, React.createElement('svg', { width: 17, height: 17, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.1, strokeLinecap: 'round', strokeLinejoin: 'round', dangerouslySetInnerHTML: { __html: '<path d="M6 6l12 12M18 6L6 18"/>' } }))
                     ])
             ])

@@ -7,7 +7,7 @@
 /* PWA Update Banner */
 #pwa-update-banner {
     backdrop-filter: blur(10px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(var(--sb-ink), 0.1);
     animation: slideDown 0.3s ease-out;
 }
 
@@ -25,18 +25,25 @@
 /* PWA Notifications */
 .pwa-notification {
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(var(--sb-ink), 0.1);
 }
 
 /* Status-bar inset for the installed app.
  *
- * Installed on iOS, the web view runs edge-to-edge: `viewport-fit=cover` plus
- * `apple-mobile-web-app-status-bar-style: black-translucent` put our own pixels
- * under the clock and the notch. Every bar pinned to the top of the screen has
- * to gutter itself out of that strip, or it reads as if it is sliding under the
- * status bar. In a browser tab the inset is 0 — the browser chrome already
- * reserves the space — so one variable covers both cases and the bars can use
- * it unconditionally.
+ * This was written for `apple-mobile-web-app-status-bar-style: black-translucent`,
+ * which ran the web view edge-to-edge and put our own pixels under the clock and the
+ * notch, so every bar pinned to the top had to gutter itself out of that strip or it
+ * read as sliding under the status bar. The status bar style is now `default` — under
+ * black-translucent iOS always drew the clock in white, which is unreadable once the
+ * page can be light, and the meta is read once at launch so nothing could fix it after
+ * the fact. See the comment on that tag in templates/index.template.html.
+ *
+ * None of the machinery below changes as a result, and that is the point of deriving it
+ * from env() rather than from a constant: with `default` the system reserves the strip
+ * itself, so env(safe-area-inset-top) reports 0 in standalone and --sb-safe-top
+ * collapses to 0 — the same value a browser tab already gave it. If the style is ever
+ * put back, the insets come back with it and the bars gutter themselves again.
+ * The bottom inset (the home indicator) is unaffected and still needs viewport-fit=cover.
  *
  * The previous version of this file padded `body` instead. That is the wrong
  * element twice over: the landing header is `position: fixed`, which ignores an
@@ -124,7 +131,7 @@ body.pwa-installed .header-minimal { height: auto; }
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+    background: linear-gradient(135deg, var(--sb-legacy-panel) 0%, var(--sb-legacy-splash) 100%);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -174,7 +181,7 @@ body.pwa-installed .header-minimal { height: auto; }
 }
 
 .pwa-splash .subtitle {
-    color: #9ca3af;
+    color: var(--sb-legacy-gray);
     font-size: 14px;
     margin-bottom: 32px;
 }
@@ -264,7 +271,7 @@ body.pwa-installed .header-minimal { height: auto; }
 /* PWA Dark Mode Support */
 @media (prefers-color-scheme: dark) {
     .pwa-notification {
-        border-color: rgba(255, 255, 255, 0.1);
+        border-color: rgba(var(--sb-ink), 0.1);
     }
 }
 

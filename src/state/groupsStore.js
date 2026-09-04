@@ -321,11 +321,11 @@ export function groupSub(group) {
 export function groupDot(group) {
     switch (group.phase) {
         case GROUP_PHASE.READY:
-            return linkedCount(group) < group.members.length ? '#e3b341' : '#3ecf8e';
+            return linkedCount(group) < group.members.length ? 'var(--sb-yellow-2-solid)' : 'var(--sb-green-solid)';
         case GROUP_PHASE.FAILED:
-            return '#e5727a';
+            return 'var(--sb-red-solid)';
         default:
-            return '#e3b341';
+            return 'var(--sb-yellow-2-solid)';
     }
 }
 

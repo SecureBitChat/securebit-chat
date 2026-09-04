@@ -1,5 +1,13 @@
 # Changelog
 
+## v6.8.0 — Light theme
+
+Added a light theme. The switch is in the header next to the language menu, with three
+settings: follow the system, light, or dark. Your choice is remembered.
+
+Installing on Android now installs the app itself, rather than putting a shortcut on the
+home screen that opened in a browser tab.
+
 ## v6.7.3 — Faster loading, and pages search engines can actually read
 
 Loading got a lot lighter. The bundles used to carry all thirteen translations at once,

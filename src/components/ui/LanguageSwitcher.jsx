@@ -50,9 +50,9 @@ const LanguageSwitcher = () => {
         style: {
             display: 'flex', alignItems: 'center', gap: '6px',
             padding: '7px 10px', borderRadius: '9px',
-            border: '1px solid rgba(255,255,255,0.07)',
-            background: open ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)',
-            color: '#cfcfd4', font: 'inherit', fontSize: '12.5px', fontWeight: 600,
+            border: '1px solid rgba(var(--sb-ink), 0.07)',
+            background: open ? 'rgba(var(--sb-ink), 0.06)' : 'rgba(var(--sb-ink), 0.02)',
+            color: 'var(--sb-text-4)', font: 'inherit', fontSize: '12.5px', fontWeight: 600,
             cursor: 'pointer', transition: 'background .15s, color .15s',
         },
     }, [
@@ -77,8 +77,8 @@ const LanguageSwitcher = () => {
             position: 'absolute', top: 'calc(100% + 6px)', insetInlineEnd: 0, zIndex: 60,
             display: open ? 'block' : 'none',
             minWidth: '170px', padding: '5px', borderRadius: '11px',
-            border: '1px solid rgba(255,255,255,0.08)', background: '#161618',
-            boxShadow: '0 14px 34px rgba(0,0,0,0.45)',
+            border: '1px solid rgba(var(--sb-ink), 0.08)', background: 'var(--sb-surface)',
+            boxShadow: '0 14px 34px rgba(var(--sb-shadow-rgb), calc(0.45 * var(--sb-shadow-k)))',
             // Thirteen languages is taller than a phone in landscape. Cap it and scroll
             // rather than let the list run off the bottom, where the last few entries
             // would be unreachable.
@@ -104,14 +104,14 @@ const LanguageSwitcher = () => {
             padding: '8px 10px', borderRadius: '8px',
             fontSize: '13px',
             fontWeight: link.isCurrent ? 600 : 500,
-            color: link.isCurrent ? '#e8e8eb' : '#9a9aa2',
-            background: link.isCurrent ? 'rgba(255,255,255,0.06)' : 'transparent',
+            color: link.isCurrent ? 'var(--sb-text-2)' : 'var(--sb-text-6)',
+            background: link.isCurrent ? 'rgba(var(--sb-ink), 0.06)' : 'transparent',
             textDecoration: 'none', whiteSpace: 'nowrap',
         },
     }, [
         React.createElement('span', {
             key: 'a',
-            style: { fontSize: '11px', fontWeight: 700, letterSpacing: '0.4px', color: '#6b6b73', width: '22px', flex: 'none', textAlign: 'start' },
+            style: { fontSize: '11px', fontWeight: 700, letterSpacing: '0.4px', color: 'var(--sb-text-9)', width: '22px', flex: 'none', textAlign: 'start' },
         }, link.abbr),
         React.createElement('span', { key: 'n' }, link.label),
     ])));

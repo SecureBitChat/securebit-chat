@@ -40,26 +40,26 @@ const svg = (inner, size, sw) => h('span', {
 
 const ctrlBase = {
     width: '56px', height: '56px', borderRadius: '50%', display: 'grid', placeItems: 'center',
-    border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)',
-    color: '#cfcfd4', cursor: 'pointer', transition: 'all .15s',
+    border: '1px solid rgba(var(--sb-ink), 0.1)', background: 'rgba(var(--sb-ink), 0.05)',
+    color: 'var(--sb-text-4)', cursor: 'pointer', transition: 'all .15s',
 };
-const dangerCtrl = { ...ctrlBase, background: '#e5484d', color: '#fff', border: '1px solid transparent' };
+const dangerCtrl = { ...ctrlBase, background: 'var(--sb-red-strong-solid)', color: '#fff', border: '1px solid transparent' };
 const endBtn = {
     width: '56px', height: '56px', borderRadius: '50%', display: 'grid', placeItems: 'center',
-    border: 'none', background: '#e5484d', color: '#fff', cursor: 'pointer',
-    boxShadow: '0 8px 24px rgba(229,72,77,0.35)', transition: 'transform .15s',
+    border: 'none', background: 'var(--sb-red-strong-solid)', color: '#fff', cursor: 'pointer',
+    boxShadow: '0 8px 24px rgba(var(--sb-red-strong-rgb), 0.35)', transition: 'transform .15s',
 };
 const minimizeBtn = {
     width: '36px', height: '36px', borderRadius: '9px', display: 'grid', placeItems: 'center',
-    border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.35)',
+    border: '1px solid rgba(var(--sb-ink), 0.15)', background: 'rgba(0,0,0,0.35)',
     color: '#fff', cursor: 'pointer', transition: 'all .15s',
 };
 
 const QUALITY = {
-    excellent: { bars: 4, color: '#3ecf8e' },
-    good: { bars: 3, color: '#3ecf8e' },
-    fair: { bars: 2, color: '#e3c84e' },
-    poor: { bars: 1, color: '#e5727a' },
+    excellent: { bars: 4, color: 'var(--sb-green)' },
+    good: { bars: 3, color: 'var(--sb-green)' },
+    fair: { bars: 2, color: 'var(--sb-yellow)' },
+    poor: { bars: 1, color: 'var(--sb-red)' },
 };
 
 function qualityBars(quality) {
@@ -70,7 +70,7 @@ function qualityBars(quality) {
             key: i,
             style: {
                 width: '2.5px', height: (4 + i * 2.6) + 'px', borderRadius: '1px',
-                background: i < q.bars ? q.color : 'rgba(255,255,255,0.18)',
+                background: i < q.bars ? q.color : 'rgba(var(--sb-ink), 0.18)',
             },
         })));
 }
@@ -180,9 +180,9 @@ function Tile({ peer, stream, self, localStream, cameraEnabled, speaking, tileW,
                 : (speaking ? t('groupCall.speaking', { name: peer.name }) : peer.name),
         style: {
             cursor: onSelect ? 'pointer' : 'default',
-            position: 'relative', borderRadius: '14px', overflow: 'hidden', background: '#141417',
-            border: speaking ? '2px solid #3ecf8e' : '2px solid rgba(255,255,255,0.08)',
-            boxShadow: speaking ? '0 0 0 3px rgba(62,207,142,0.16)' : 'none',
+            position: 'relative', borderRadius: '14px', overflow: 'hidden', background: 'var(--sb-surface)',
+            border: speaking ? '2px solid var(--sb-green-solid)' : '2px solid rgba(var(--sb-ink), 0.08)',
+            boxShadow: speaking ? '0 0 0 3px rgba(var(--sb-green-rgb), 0.16)' : 'none',
             transition: 'border-color .12s ease, box-shadow .12s ease',
             // Sized by the grid, which is the only thing that knows how much
             // room there is. aspectRatio stays as the fallback for the first
@@ -205,7 +205,7 @@ function Tile({ peer, stream, self, localStream, cameraEnabled, speaking, tileW,
                 key: 'v', ref: videoRef, autoPlay: true, muted: true, playsInline: true,
                 style: {
                     position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
-                    transform: self ? 'scaleX(-1)' : 'none', background: '#0f0f11',
+                    transform: self ? 'scaleX(-1)' : 'none', background: 'var(--sb-bg)',
                 },
             })
             : h('div', {
@@ -215,9 +215,9 @@ function Tile({ peer, stream, self, localStream, cameraEnabled, speaking, tileW,
                     // large tile and crowds a small one.
                     width: avatarPx + 'px', height: avatarPx + 'px',
                     borderRadius: '50%', display: 'grid', placeItems: 'center',
-                    background: 'radial-gradient(circle at 35% 30%, #2a2a30, #161618)',
-                    border: speaking ? '1.5px solid rgba(62,207,142,0.65)' : '1px solid rgba(255,255,255,0.1)',
-                    color: speaking ? '#3ecf8e' : '#cfcfd4',
+                    background: 'radial-gradient(circle at 35% 30%, var(--sb-surface-4), var(--sb-surface))',
+                    border: speaking ? '1.5px solid rgba(var(--sb-green-rgb), 0.65)' : '1px solid rgba(var(--sb-ink), 0.1)',
+                    color: speaking ? 'var(--sb-green)' : 'var(--sb-text-4)',
                     fontFamily: MONO, fontSize: Math.round(avatarPx * 0.3) + 'px', fontWeight: 700,
                     transition: 'color .12s ease, border-color .12s ease',
                 },
@@ -233,18 +233,18 @@ function Tile({ peer, stream, self, localStream, cameraEnabled, speaking, tileW,
             h('span', {
                 key: 'n',
                 style: {
-                    flex: 1, minWidth: 0, fontSize: compact ? '10.5px' : '12.5px', fontWeight: 700, color: '#f4f4f6',
+                    flex: 1, minWidth: 0, fontSize: compact ? '10.5px' : '12.5px', fontWeight: 700, color: 'var(--sb-text-1)',
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 },
             }, peer.name),
             speaking && h('span', {
-                key: 'sp', style: { flex: 'none', color: '#3ecf8e', display: 'grid', placeItems: 'center' },
+                key: 'sp', style: { flex: 'none', color: 'var(--sb-green)', display: 'grid', placeItems: 'center' },
             }, svg(ICON.micOn, compact ? 11 : 13, 2)),
             (statusWord && !compact) && h('span', {
                 key: 's',
                 style: {
                     flex: 'none', fontFamily: MONO, fontSize: '10.5px',
-                    color: peer.state === LEG_STATE.FAILED ? '#e5727a' : '#9a9aa2',
+                    color: peer.state === LEG_STATE.FAILED ? 'var(--sb-red)' : 'var(--sb-text-6)',
                 },
             }, statusWord),
             (!self && !compact) && qualityBars(peer.quality),
@@ -300,7 +300,7 @@ export function GroupCallUI({
 
     const encBadge = h('span', {
         key: 'enc',
-        style: { display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11.5px', fontWeight: 600, color: '#3ecf8e' },
+        style: { display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11.5px', fontWeight: 600, color: 'var(--sb-green)' },
     }, [svg(ICON.lock, 12, 2), t('call.encryptedShort')]);
 
     // ── somebody is calling the group and we have not joined ─────────────────
@@ -308,12 +308,12 @@ export function GroupCallUI({
         return h('div', {
             style: {
                 position: 'absolute', inset: 0, zIndex: 40, display: 'flex', flexDirection: 'column',
-                background: 'radial-gradient(680px 460px at 50% 36%, rgba(240,137,42,0.08), transparent 70%), #0d0d0f',
+                background: 'radial-gradient(680px 460px at 50% 36%, rgba(var(--sb-orange-rgb), 0.08), transparent 70%), var(--sb-bg-deep)',
                 animation: 'sbExpand .2s ease',
             },
         }, [
             h('div', { key: 'top', style: { flex: 'none', padding: '16px 18px' } },
-                h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '12px', fontWeight: 600, color: '#3ecf8e' } },
+                h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '12px', fontWeight: 600, color: 'var(--sb-green)' } },
                     [svg(ICON.lock, 13, 2), t('call.encrypted')])),
             h('div', { key: 'mid', style: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 24px', textAlign: 'center' } }, [
                 h('div', {
@@ -323,40 +323,40 @@ export function GroupCallUI({
                         display: 'grid', placeItems: 'center',
                     },
                 }, [
-                    h('span', { key: 'p1', style: { position: 'absolute', inset: 0, borderRadius: '50%', border: '1.5px solid rgba(240,137,42,0.5)', animation: 'sbCallPulse 2s ease-out infinite' } }),
-                    h('span', { key: 'p2', style: { position: 'absolute', inset: 0, borderRadius: '50%', border: '1.5px solid rgba(240,137,42,0.4)', animation: 'sbCallPulse 2s ease-out infinite', animationDelay: '1s' } }),
+                    h('span', { key: 'p1', style: { position: 'absolute', inset: 0, borderRadius: '50%', border: '1.5px solid rgba(var(--sb-orange-rgb), 0.5)', animation: 'sbCallPulse 2s ease-out infinite' } }),
+                    h('span', { key: 'p2', style: { position: 'absolute', inset: 0, borderRadius: '50%', border: '1.5px solid rgba(var(--sb-orange-rgb), 0.4)', animation: 'sbCallPulse 2s ease-out infinite', animationDelay: '1s' } }),
                     h('div', {
                         key: 'c',
                         style: {
                             width: '96px', height: '96px', borderRadius: '50%', display: 'grid', placeItems: 'center',
-                            background: 'radial-gradient(circle at 35% 30%, #2a2a30, #161618)',
-                            border: '1px solid rgba(255,255,255,0.1)', color: '#8a8a92',
+                            background: 'radial-gradient(circle at 35% 30%, var(--sb-surface-4), var(--sb-surface))',
+                            border: '1px solid rgba(var(--sb-ink), 0.1)', color: 'var(--sb-text-7)',
                         },
                     }, svg(ICON.users, 42, 1.6)),
                 ]),
-                h('div', { key: 'n', style: { fontSize: '22px', fontWeight: 800, letterSpacing: '-0.4px', color: '#f4f4f6' } }, groupName),
-                h('div', { key: 's', style: { fontFamily: MONO, fontSize: '13.5px', color: '#9a9aa2', marginTop: '8px' } },
+                h('div', { key: 'n', style: { fontSize: '22px', fontWeight: 800, letterSpacing: '-0.4px', color: 'var(--sb-text-1)' } }, groupName),
+                h('div', { key: 's', style: { fontFamily: MONO, fontSize: '13.5px', color: 'var(--sb-text-6)', marginTop: '8px' } },
                     call.withVideo
                         ? t('groupCall.startedVideo', { name: call.startedByName })
                         : t('groupCall.startedVoice', { name: call.startedByName })),
-                h('div', { key: 'p', style: { fontSize: '12.5px', color: '#6b6b73', marginTop: '6px' } },
+                h('div', { key: 'p', style: { fontSize: '12.5px', color: 'var(--sb-text-9)', marginTop: '6px' } },
                     t('groupCall.inCall', { count: call.participants.length })),
             ]),
             h('div', { key: 'ctrls', style: { flex: 'none', display: 'flex', justifyContent: 'center', gap: '48px', padding: '24px 24px 40px' } }, [
                 h('div', { key: 'dec', style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' } }, [
                     h('button', { key: 'b', onClick: onDismiss, title: t('groupCall.dismiss'), style: { ...endBtn, width: '62px', height: '62px' } }, svg(ICON.phoneHangup, 24, 1.9)),
-                    h('span', { key: 'l', style: { fontFamily: MONO, fontSize: '10.5px', color: '#8a8a92' } }, t('groupCall.dismiss')),
+                    h('span', { key: 'l', style: { fontFamily: MONO, fontSize: '10.5px', color: 'var(--sb-text-7)' } }, t('groupCall.dismiss')),
                 ]),
                 h('div', { key: 'acc', style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' } }, [
                     h('button', {
                         key: 'b', onClick: onJoin, title: t('groupCall.join'),
                         style: {
                             width: '62px', height: '62px', borderRadius: '50%', display: 'grid', placeItems: 'center',
-                            border: 'none', background: '#3ecf8e', color: '#06231a', cursor: 'pointer',
-                            boxShadow: '0 8px 24px rgba(62,207,142,0.35)',
+                            border: 'none', background: 'var(--sb-green-solid)', color: 'var(--sb-on-green)', cursor: 'pointer',
+                            boxShadow: '0 8px 24px rgba(var(--sb-green-rgb), 0.35)',
                         },
                     }, svg(ICON.phone, 24, 1.9)),
-                    h('span', { key: 'l', style: { fontFamily: MONO, fontSize: '10.5px', color: '#8a8a92' } }, t('groupCall.join')),
+                    h('span', { key: 'l', style: { fontFamily: MONO, fontSize: '10.5px', color: 'var(--sb-text-7)' } }, t('groupCall.join')),
                 ]),
             ]),
         ]);
@@ -379,8 +379,8 @@ export function GroupCallUI({
         return h('div', {
             style: {
                 position: 'absolute', bottom: '18px', insetInlineEnd: '18px', zIndex: 40, width: '244px',
-                borderRadius: '14px', overflow: 'hidden', background: '#161618',
-                border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 18px 44px rgba(0,0,0,0.55)',
+                borderRadius: '14px', overflow: 'hidden', background: 'var(--sb-surface)',
+                border: '1px solid rgba(var(--sb-ink), 0.1)', boxShadow: '0 18px 44px rgba(var(--sb-shadow-rgb), calc(0.55 * var(--sb-shadow-k)))',
                 animation: 'sbExpand .18s ease',
             },
         }, [
@@ -389,24 +389,24 @@ export function GroupCallUI({
                     key: 'ic',
                     style: {
                         flex: 'none', width: '34px', height: '34px', borderRadius: '9px', display: 'grid',
-                        placeItems: 'center', background: 'rgba(62,207,142,0.1)',
-                        border: '1px solid rgba(62,207,142,0.25)', color: '#3ecf8e',
+                        placeItems: 'center', background: 'rgba(var(--sb-green-rgb), 0.1)',
+                        border: '1px solid rgba(var(--sb-green-rgb), 0.25)', color: 'var(--sb-green)',
                     },
                 }, svg(ICON.users, 16, 1.9)),
                 h('div', { key: 'tx', style: { flex: 1, minWidth: 0 } }, [
-                    h('div', { key: 'n', style: { fontSize: '13px', fontWeight: 700, color: '#f4f4f6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, groupName),
+                    h('div', { key: 'n', style: { fontSize: '13px', fontWeight: 700, color: 'var(--sb-text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, groupName),
                     h('div', {
                         key: 's',
                         style: {
-                            fontFamily: MONO, fontSize: '11px', color: talking ? '#3ecf8e' : '#9a9aa2',
+                            fontFamily: MONO, fontSize: '11px', color: talking ? 'var(--sb-green)' : 'var(--sb-text-6)',
                             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                         },
                     }, talking
                         ? t('groupCall.speaking', { name: talking })
                         : `${t('groupCall.inCall', { count: call.participants.length })} · ${fmt(seconds)}`),
                 ]),
-                h('button', { key: 'exp', onClick: () => setMinimized(false), title: t('call.expand'), style: { flex: 'none', width: '32px', height: '32px', borderRadius: '8px', display: 'grid', placeItems: 'center', border: 'none', background: 'rgba(255,255,255,0.05)', color: '#cfcfd4', cursor: 'pointer' } }, svg(ICON.expand, 15, 2)),
-                h('button', { key: 'end', onClick: onLeave, title: t('groupCall.leave'), style: { flex: 'none', width: '32px', height: '32px', borderRadius: '8px', display: 'grid', placeItems: 'center', border: 'none', background: '#e5484d', color: '#fff', cursor: 'pointer' } }, svg(ICON.phoneHangup, 15, 2)),
+                h('button', { key: 'exp', onClick: () => setMinimized(false), title: t('call.expand'), style: { flex: 'none', width: '32px', height: '32px', borderRadius: '8px', display: 'grid', placeItems: 'center', border: 'none', background: 'rgba(var(--sb-ink), 0.05)', color: 'var(--sb-text-4)', cursor: 'pointer' } }, svg(ICON.expand, 15, 2)),
+                h('button', { key: 'end', onClick: onLeave, title: t('groupCall.leave'), style: { flex: 'none', width: '32px', height: '32px', borderRadius: '8px', display: 'grid', placeItems: 'center', border: 'none', background: 'var(--sb-red-strong-solid)', color: '#fff', cursor: 'pointer' } }, svg(ICON.phoneHangup, 15, 2)),
             ]),
         ]);
     }
@@ -436,7 +436,7 @@ export function GroupCallUI({
     return h('div', {
         style: {
             position: 'absolute', inset: 0, zIndex: 40, display: 'flex', flexDirection: 'column',
-            background: '#0a0a0c', animation: 'sbExpand .2s ease',
+            background: 'var(--sb-bg-deepest)', animation: 'sbExpand .2s ease',
         },
     }, [
         h('div', {
@@ -449,9 +449,9 @@ export function GroupCallUI({
             h('div', { key: 'l', style: { minWidth: 0 } }, [
                 h('div', { key: 'n', style: { fontSize: '17px', fontWeight: 800, letterSpacing: '-0.3px', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, groupName),
                 h('div', { key: 's', style: { display: 'inline-flex', alignItems: 'center', gap: '9px', marginTop: '4px' } }, [
-                    h('span', { key: 'd', style: { fontFamily: MONO, fontSize: '12.5px', color: '#e8e8eb' } }, fmt(seconds)),
+                    h('span', { key: 'd', style: { fontFamily: MONO, fontSize: '12.5px', color: 'var(--sb-text-2)' } }, fmt(seconds)),
                     encBadge,
-                    h('span', { key: 'c', style: { fontSize: '11.5px', color: '#8a8a92' } },
+                    h('span', { key: 'c', style: { fontSize: '11.5px', color: 'var(--sb-text-7)' } },
                         t('groupCall.inCall', { count: call.participants.length })),
                 ]),
             ]),
@@ -460,7 +460,7 @@ export function GroupCallUI({
                     key: 'grid', onClick: () => setPinned(null), title: t('groupCall.showEveryone'),
                     style: {
                         height: '36px', padding: '0 12px', borderRadius: '9px', display: 'inline-flex',
-                        alignItems: 'center', gap: '7px', border: '1px solid rgba(255,255,255,0.15)',
+                        alignItems: 'center', gap: '7px', border: '1px solid rgba(var(--sb-ink), 0.15)',
                         background: 'rgba(0,0,0,0.35)', color: '#fff', cursor: 'pointer',
                         fontFamily: 'inherit', fontSize: '12.5px', fontWeight: 600,
                     },
@@ -473,8 +473,8 @@ export function GroupCallUI({
             key: 'err',
             style: {
                 flex: 'none', margin: '0 18px 10px', padding: '9px 12px', borderRadius: '10px',
-                background: 'rgba(229,114,122,0.1)', border: '1px solid rgba(229,114,122,0.28)',
-                color: '#e5727a', fontSize: '12.5px', lineHeight: 1.5,
+                background: 'rgba(var(--sb-red-rgb), 0.1)', border: '1px solid rgba(var(--sb-red-rgb), 0.28)',
+                color: 'var(--sb-red)', fontSize: '12.5px', lineHeight: 1.5,
             },
         }, t(`groupCall.err.${media.error}`)),
 

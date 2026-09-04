@@ -17,7 +17,9 @@ const CommunityCTA = () => {
         };
     }, []);
 
-    const ACCENT = '#f0892a';
+    const ACCENT = 'var(--sb-orange)';
+    // Fill form: brand colour in both themes. See app.jsx.
+    const ACCENT_SOLID = 'var(--sb-orange-solid)';
     const SANS = "'Manrope', system-ui, -apple-system, sans-serif";
 
     const githubUrl = 'https://github.com/SecureBitChat/securebit-chat/';
@@ -30,13 +32,13 @@ const CommunityCTA = () => {
         rel: 'noopener noreferrer',
         style: {
             display: 'inline-flex', alignItems: 'center', gap: '11px', padding: '15px 26px',
-            borderRadius: '13px', background: ACCENT, color: '#1a0f04', textDecoration: 'none',
+            borderRadius: '13px', background: ACCENT_SOLID, color: 'var(--sb-on-accent)', textDecoration: 'none',
             fontSize: '15.5px', fontWeight: 700, letterSpacing: '-0.2px',
-            boxShadow: '0 8px 24px rgba(240,137,42,0.28)', whiteSpace: 'nowrap',
+            boxShadow: '0 8px 24px rgba(var(--sb-orange-rgb), 0.28)', whiteSpace: 'nowrap',
             transition: 'all .2s cubic-bezier(.2,.7,.3,1)'
         },
-        onMouseEnter: (e) => { e.currentTarget.style.background = '#ff9637'; e.currentTarget.style.transform = 'translateY(-2px)'; },
-        onMouseLeave: (e) => { e.currentTarget.style.background = ACCENT; e.currentTarget.style.transform = 'none'; }
+        onMouseEnter: (e) => { e.currentTarget.style.background = 'var(--sb-orange-hi)'; e.currentTarget.style.transform = 'translateY(-2px)'; },
+        onMouseLeave: (e) => { e.currentTarget.style.background = ACCENT_SOLID; e.currentTarget.style.transform = 'none'; }
     }, [
         React.createElement('svg', {
             key: 'i', width: 20, height: 20, viewBox: '0 0 24 24', fill: 'currentColor',
@@ -51,13 +53,13 @@ const CommunityCTA = () => {
         rel: 'noopener noreferrer',
         style: {
             display: 'inline-flex', alignItems: 'center', gap: '11px', padding: '15px 26px',
-            borderRadius: '13px', background: 'rgba(255,255,255,0.03)', color: '#e8e8eb', textDecoration: 'none',
+            borderRadius: '13px', background: 'rgba(var(--sb-ink), 0.03)', color: 'var(--sb-text-2)', textDecoration: 'none',
             fontSize: '15.5px', fontWeight: 700, letterSpacing: '-0.2px',
-            border: '1px solid rgba(255,255,255,0.1)', whiteSpace: 'nowrap',
+            border: '1px solid rgba(var(--sb-ink), 0.1)', whiteSpace: 'nowrap',
             transition: 'all .2s cubic-bezier(.2,.7,.3,1)'
         },
-        onMouseEnter: (e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.24)'; e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; },
-        onMouseLeave: (e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }
+        onMouseEnter: (e) => { e.currentTarget.style.borderColor = 'rgba(var(--sb-ink), 0.24)'; e.currentTarget.style.background = 'rgba(var(--sb-ink), 0.06)'; },
+        onMouseLeave: (e) => { e.currentTarget.style.borderColor = 'rgba(var(--sb-ink), 0.1)'; e.currentTarget.style.background = 'rgba(var(--sb-ink), 0.03)'; }
     }, [
         React.createElement('svg', {
             key: 'i', width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
@@ -72,16 +74,16 @@ const CommunityCTA = () => {
         style: {
             position: 'relative', overflow: 'hidden', maxWidth: '860px', width: '100%',
             borderRadius: '24px',
-            background: 'radial-gradient(700px 360px at 50% 0%, rgba(240,137,42,0.1), transparent 65%), #121214',
-            border: '1px solid rgba(255,255,255,0.07)',
+            background: 'radial-gradient(700px 360px at 50% 0%, rgba(var(--sb-orange-rgb), 0.1), transparent 65%), var(--sb-bg)',
+            border: '1px solid rgba(var(--sb-ink), 0.07)',
             padding: isMobile ? '40px 24px 36px' : '56px 56px 48px',
-            textAlign: 'center', boxShadow: '0 24px 60px rgba(0,0,0,0.4)'
+            textAlign: 'center', boxShadow: '0 24px 60px rgba(var(--sb-shadow-rgb), calc(0.4 * var(--sb-shadow-k)))'
         }
     }, [
         // hairline accent
         React.createElement('div', {
             key: 'hairline',
-            style: { position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: '180px', height: '1px', background: 'linear-gradient(90deg, transparent, rgba(240,137,42,0.7), transparent)' }
+            style: { position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: '180px', height: '1px', background: 'linear-gradient(90deg, transparent, rgba(var(--sb-orange-rgb), 0.7), transparent)' }
         }),
         // brand mark (same SVG as the header — no border or background)
         React.createElement('img', {
@@ -93,12 +95,12 @@ const CommunityCTA = () => {
         // title
         React.createElement('h2', {
             key: 'title',
-            style: { margin: '0 0 16px', fontSize: isMobile ? '28px' : '36px', fontWeight: 800, letterSpacing: '-1px', lineHeight: 1.05, color: '#f4f4f6' }
+            style: { margin: '0 0 16px', fontSize: isMobile ? '28px' : '36px', fontWeight: 800, letterSpacing: '-1px', lineHeight: 1.05, color: 'var(--sb-text-1)' }
         }, t('community.title')),
         // description
         React.createElement('p', {
             key: 'desc',
-            style: { margin: '0 auto 32px', maxWidth: '560px', fontSize: '16px', lineHeight: 1.65, color: '#9a9aa2' }
+            style: { margin: '0 auto 32px', maxWidth: '560px', fontSize: '16px', lineHeight: 1.65, color: 'var(--sb-text-6)' }
         }, t('community.description')),
         // buttons
         React.createElement('div', {
@@ -140,7 +142,7 @@ const CommunityCTA = () => {
     return React.createElement('section', {
         style: {
             width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: '#0f0f11', fontFamily: SANS,
+            background: 'var(--sb-bg)', fontFamily: SANS,
             padding: isMobile ? '48px 18px' : '64px 48px'
         }
     }, [

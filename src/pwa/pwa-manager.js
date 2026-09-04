@@ -248,12 +248,12 @@ class PWAOfflineManager {
         // Clean pill matching the app's design language (no emoji, no FontAwesome,
         // proper SVG close wired via a real listener — the old inline onclick was
         // blocked by the CSP anyway).
-        const PILL = "display:inline-flex; align-items:center; gap:10px; padding:9px 14px; border-radius:11px; background:#161618; box-shadow:0 12px 30px rgba(0,0,0,0.45); font-family:'Manrope',system-ui,-apple-system,sans-serif; font-size:13px; font-weight:600; color:#e8e8eb;";
+        const PILL = "display:inline-flex; align-items:center; gap:10px; padding:9px 14px; border-radius:11px; background:var(--sb-surface); box-shadow:0 12px 30px rgba(var(--sb-shadow-rgb), calc(0.45 * var(--sb-shadow-k))); font-family:'Manrope',system-ui,-apple-system,sans-serif; font-size:13px; font-weight:600; color:var(--sb-text-2);";
 
         if (isOnline) {
             this.offlineIndicator.innerHTML =
-                `<div style="${PILL} border:1px solid rgba(62,207,142,0.3);">
-                    <span style="width:8px; height:8px; border-radius:50%; background:#3ecf8e; box-shadow:0 0 8px rgba(62,207,142,0.6);"></span>
+                `<div style="${PILL} border:1px solid rgba(var(--sb-green-rgb), 0.3);">
+                    <span style="width:8px; height:8px; border-radius:50%; background:var(--sb-green-solid); box-shadow:0 0 8px rgba(var(--sb-green-rgb), 0.6);"></span>
                     <span>${t('offline.backOnline')}</span>
                 </div>`;
             this.offlineIndicator.classList.remove('hidden');
@@ -264,18 +264,18 @@ class PWAOfflineManager {
             }, 3000);
         } else {
             this.offlineIndicator.innerHTML =
-                `<div style="${PILL} border:1px solid rgba(227,179,65,0.32);">
-                    <span style="width:8px; height:8px; border-radius:50%; background:#e3b341;"></span>
+                `<div style="${PILL} border:1px solid rgba(var(--sb-yellow-2-rgb), 0.32);">
+                    <span style="width:8px; height:8px; border-radius:50%; background:var(--sb-yellow-2-solid);"></span>
                     <span>${t('offline.mode')}</span>
-                    <button class="oi-close" type="button" aria-label="${t('offline.dismiss')}" style="margin-inline-start:4px; width:22px; height:22px; padding:0; display:grid; place-items:center; border:none; background:transparent; color:#8a8a92; cursor:pointer; border-radius:6px; transition:color .15s ease;">
+                    <button class="oi-close" type="button" aria-label="${t('offline.dismiss')}" style="margin-inline-start:4px; width:22px; height:22px; padding:0; display:grid; place-items:center; border:none; background:transparent; color:var(--sb-text-7); cursor:pointer; border-radius:6px; transition:color .15s ease;">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M6 6l12 12M18 6L6 18"/></svg>
                     </button>
                 </div>`;
             this.offlineIndicator.classList.remove('hidden');
             const closeBtn = this.offlineIndicator.querySelector('.oi-close');
             if (closeBtn) {
-                closeBtn.addEventListener('mouseenter', () => { closeBtn.style.color = '#e8e8eb'; });
-                closeBtn.addEventListener('mouseleave', () => { closeBtn.style.color = '#8a8a92'; });
+                closeBtn.addEventListener('mouseenter', () => { closeBtn.style.color = 'var(--sb-text-2)'; });
+                closeBtn.addEventListener('mouseleave', () => { closeBtn.style.color = 'var(--sb-text-7)'; });
                 closeBtn.addEventListener('click', () => this.offlineIndicator.classList.add('hidden'));
             }
         }
@@ -361,46 +361,46 @@ class PWAOfflineManager {
 
         const guidance = document.createElement('div');
         guidance.id = 'pwa-offline-modal';
-        guidance.style.cssText = "position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; padding:24px; background:rgba(8,8,10,0.55); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); animation:omFade .3s ease; font-family:'Manrope',system-ui,-apple-system,sans-serif;";
+        guidance.style.cssText = "position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; padding:24px; background:rgba(var(--sb-scrim-rgb), 0.55); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); animation:omFade .3s ease; font-family:'Manrope',system-ui,-apple-system,sans-serif;";
 
         const feature = (bg, bd, stroke, sw, icon, text) => `
             <div style="display:flex; align-items:center; gap:13px;">
                 <span style="flex:none; width:34px; height:34px; border-radius:9px; display:grid; place-items:center; background:${bg}; border:1px solid ${bd};"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${icon}</svg></span>
-                <span style="font-size:14.5px; color:#e8e8eb;">${text}</span>
+                <span style="font-size:14.5px; color:var(--sb-text-2);">${text}</span>
             </div>`;
 
         const card = (bg, bd, stroke, icon, title, desc) => `
-            <div style="display:flex; align-items:flex-start; gap:13px; padding:14px 16px; border-radius:13px; background:#161618; border:1px solid rgba(255,255,255,0.06);">
+            <div style="display:flex; align-items:flex-start; gap:13px; padding:14px 16px; border-radius:13px; background:var(--sb-surface); border:1px solid rgba(var(--sb-ink), 0.06);">
                 <span style="flex:none; width:36px; height:36px; border-radius:10px; display:grid; place-items:center; background:${bg}; border:1px solid ${bd};"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${icon}</svg></span>
-                <div><div style="font-size:14.5px; font-weight:700; color:#f4f4f6; margin-bottom:2px;">${title}</div><div style="font-size:13px; line-height:1.5; color:#8a8a92;">${desc}</div></div>
+                <div><div style="font-size:14.5px; font-weight:700; color:var(--sb-text-1); margin-bottom:2px;">${title}</div><div style="font-size:13px; line-height:1.5; color:var(--sb-text-7);">${desc}</div></div>
             </div>`;
 
-        const GREEN_BG = 'rgba(62,207,142,0.12)', GREEN_BD = 'rgba(62,207,142,0.24)';
-        const ORANGE_BG = 'rgba(240,137,42,0.12)', ORANGE_BD = 'rgba(240,137,42,0.24)';
+        const GREEN_BG = 'rgba(var(--sb-green-rgb), 0.12)', GREEN_BD = 'rgba(var(--sb-green-rgb), 0.24)';
+        const ORANGE_BG = 'rgba(var(--sb-orange-rgb), 0.12)', ORANGE_BD = 'rgba(var(--sb-orange-rgb), 0.24)';
 
         const mainHTML = `
             <div style="animation:omSwap .26s cubic-bezier(.2,.7,.3,1);">
                 <div style="text-align:center; margin-bottom:22px;">
-                    <div style="display:inline-flex; width:64px; height:64px; border-radius:50%; align-items:center; justify-content:center; background:rgba(227,179,65,0.12); border:1px solid rgba(227,179,65,0.3); margin-bottom:18px;">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#e3b341" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.8a15 15 0 0 1 20 0"/><path d="M5 12.5a11 11 0 0 1 14 0"/><path d="M8.5 16.3a6 6 0 0 1 7 0"/><path d="M12 20h.01"/><path d="M2 2l20 20"/></svg>
+                    <div style="display:inline-flex; width:64px; height:64px; border-radius:50%; align-items:center; justify-content:center; background:rgba(var(--sb-yellow-2-rgb), 0.12); border:1px solid rgba(var(--sb-yellow-2-rgb), 0.3); margin-bottom:18px;">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--sb-yellow-2-solid)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.8a15 15 0 0 1 20 0"/><path d="M5 12.5a11 11 0 0 1 14 0"/><path d="M8.5 16.3a6 6 0 0 1 7 0"/><path d="M12 20h.01"/><path d="M2 2l20 20"/></svg>
                     </div>
-                    <h3 style="margin:0 0 10px; font-size:24px; font-weight:800; letter-spacing:-0.6px; color:#f4f4f6;">${t('offline.lostTitle')}</h3>
-                    <p style="margin:0 auto; max-width:380px; font-size:14px; line-height:1.55; color:#9a9aa2;">${t('offline.lostDesc')}</p>
+                    <h3 style="margin:0 0 10px; font-size:24px; font-weight:800; letter-spacing:-0.6px; color:var(--sb-text-1);">${t('offline.lostTitle')}</h3>
+                    <p style="margin:0 auto; max-width:380px; font-size:14px; line-height:1.55; color:var(--sb-text-6);">${t('offline.lostDesc')}</p>
                 </div>
                 <div style="display:flex; flex-direction:column; gap:14px; margin-bottom:24px; padding:0 6px;">
-                    ${feature(GREEN_BG, GREEN_BD, '#3ecf8e', '2.3', '<path d="M5 13l4 4 10-11"/>', t('offline.point1'))}
-                    ${feature(GREEN_BG, GREEN_BD, '#3ecf8e', '1.9', '<path d="M12 3l8 4v5c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V7l8-4z"/>', t('offline.point2'))}
-                    ${feature(ORANGE_BG, ORANGE_BD, '#f0892a', '1.9', '<path d="M21 8a8.5 8.5 0 0 0-15.6-2.5M3 4v4h4"/><path d="M3 16a8.5 8.5 0 0 0 15.6 2.5M21 20v-4h-4"/>', t('offline.point3'))}
+                    ${feature(GREEN_BG, GREEN_BD, 'var(--sb-green)', '2.3', '<path d="M5 13l4 4 10-11"/>', t('offline.point1'))}
+                    ${feature(GREEN_BG, GREEN_BD, 'var(--sb-green)', '1.9', '<path d="M12 3l8 4v5c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V7l8-4z"/>', t('offline.point2'))}
+                    ${feature(ORANGE_BG, ORANGE_BD, 'var(--sb-orange)', '1.9', '<path d="M21 8a8.5 8.5 0 0 0-15.6-2.5M3 4v4h4"/><path d="M3 16a8.5 8.5 0 0 0 15.6 2.5M21 20v-4h-4"/>', t('offline.point3'))}
                 </div>
                 <div style="display:flex; flex-direction:column; gap:11px;">
                     <div style="display:flex; gap:12px;">
-                        <button class="om-continue" type="button" style="flex:1; padding:14px 18px; border-radius:13px; border:none; background:#f0892a; color:#1a0f04; font-family:inherit; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 8px 24px rgba(240,137,42,0.28); transition:all .2s cubic-bezier(.2,.7,.3,1);">${t('offline.continue')}</button>
-                        <button class="om-disconnect" type="button" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:9px; padding:14px 18px; border-radius:13px; border:1px solid rgba(229,114,122,0.3); background:rgba(229,114,122,0.08); color:#e5727a; font-family:inherit; font-size:15px; font-weight:700; cursor:pointer; transition:all .2s cubic-bezier(.2,.7,.3,1);">
+                        <button class="om-continue" type="button" style="flex:1; padding:14px 18px; border-radius:13px; border:none; background:var(--sb-orange-solid); color:var(--sb-on-accent); font-family:inherit; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 8px 24px rgba(var(--sb-orange-rgb), 0.28); transition:all .2s cubic-bezier(.2,.7,.3,1);">${t('offline.continue')}</button>
+                        <button class="om-disconnect" type="button" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:9px; padding:14px 18px; border-radius:13px; border:1px solid rgba(var(--sb-red-rgb), 0.3); background:rgba(var(--sb-red-rgb), 0.08); color:var(--sb-red); font-family:inherit; font-size:15px; font-weight:700; cursor:pointer; transition:all .2s cubic-bezier(.2,.7,.3,1);">
                             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M12 4v8"/><path d="M7 7a8 8 0 1 0 10 0"/></svg>
                             ${t('offline.disconnect')}
                         </button>
                     </div>
-                    <button class="om-learn" type="button" style="width:100%; display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:12px 18px; border-radius:13px; border:none; background:transparent; color:#9a9aa2; font-family:inherit; font-size:14px; font-weight:600; cursor:pointer; transition:color .18s cubic-bezier(.2,.7,.3,1);">
+                    <button class="om-learn" type="button" style="width:100%; display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:12px 18px; border-radius:13px; border:none; background:transparent; color:var(--sb-text-6); font-family:inherit; font-size:14px; font-weight:600; cursor:pointer; transition:color .18s cubic-bezier(.2,.7,.3,1);">
                         ${t('offline.learnMore')}
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" class="sb-mirror-rtl" style="pointer-events:none;"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
                     </button>
@@ -410,28 +410,28 @@ class PWAOfflineManager {
         const detailsHTML = `
             <div style="animation:omSwap .26s cubic-bezier(.2,.7,.3,1);">
                 <div style="display:flex; align-items:center; gap:12px; margin-bottom:18px;">
-                    <button class="om-back" type="button" title="Back" style="flex:none; width:34px; height:34px; border-radius:10px; display:grid; place-items:center; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.025); color:#cfcfd4; cursor:pointer; transition:all .18s cubic-bezier(.2,.7,.3,1);">
+                    <button class="om-back" type="button" title="Back" style="flex:none; width:34px; height:34px; border-radius:10px; display:grid; place-items:center; border:1px solid rgba(var(--sb-ink), 0.1); background:rgba(var(--sb-ink), 0.025); color:var(--sb-text-4); cursor:pointer; transition:all .18s cubic-bezier(.2,.7,.3,1);">
                         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" class="sb-mirror-rtl" style="pointer-events:none;"><path d="M15 6l-6 6 6 6"/></svg>
                     </button>
-                    <h3 style="margin:0; font-size:20px; font-weight:800; letter-spacing:-0.5px; color:#f4f4f6;">${t('offline.restoredTitle')}</h3>
+                    <h3 style="margin:0; font-size:20px; font-weight:800; letter-spacing:-0.5px; color:var(--sb-text-1);">${t('offline.restoredTitle')}</h3>
                 </div>
-                <p style="margin:0 0 20px; font-size:14px; line-height:1.6; color:#9a9aa2;">${t('offline.restoredDesc')}</p>
+                <p style="margin:0 0 20px; font-size:14px; line-height:1.6; color:var(--sb-text-6);">${t('offline.restoredDesc')}</p>
                 <div style="display:flex; flex-direction:column; gap:11px; margin-bottom:22px;">
-                    ${card(GREEN_BG, GREEN_BD, '#3ecf8e', '<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/>', t('offline.r1Title'), t('offline.r1Desc'))}
-                    ${card(GREEN_BG, GREEN_BD, '#3ecf8e', '<path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M12 18v-6M9.5 14.5L12 12l2.5 2.5"/>', t('offline.r2Title'), t('offline.r2Desc'))}
-                    ${card(GREEN_BG, GREEN_BD, '#3ecf8e', '<path d="M12 3v12"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M5 20h14"/>', t('offline.r3Title'), t('offline.r3Desc'))}
-                    ${card(ORANGE_BG, ORANGE_BD, '#f0892a', '<path d="M12 3l8 4v5c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V7l8-4z"/><path d="M9.2 12.2l2 2 3.6-3.8"/>', t('offline.r4Title'), t('offline.r4Desc'))}
+                    ${card(GREEN_BG, GREEN_BD, 'var(--sb-green)', '<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/>', t('offline.r1Title'), t('offline.r1Desc'))}
+                    ${card(GREEN_BG, GREEN_BD, 'var(--sb-green)', '<path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M12 18v-6M9.5 14.5L12 12l2.5 2.5"/>', t('offline.r2Title'), t('offline.r2Desc'))}
+                    ${card(GREEN_BG, GREEN_BD, 'var(--sb-green)', '<path d="M12 3v12"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M5 20h14"/>', t('offline.r3Title'), t('offline.r3Desc'))}
+                    ${card(ORANGE_BG, ORANGE_BD, 'var(--sb-orange)', '<path d="M12 3l8 4v5c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V7l8-4z"/><path d="M9.2 12.2l2 2 3.6-3.8"/>', t('offline.r4Title'), t('offline.r4Desc'))}
                 </div>
-                <button class="om-gotit" type="button" style="width:100%; padding:14px 18px; border-radius:13px; border:none; background:#f0892a; color:#1a0f04; font-family:inherit; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 8px 24px rgba(240,137,42,0.28); transition:all .2s cubic-bezier(.2,.7,.3,1);">${t('offline.gotIt')}</button>
+                <button class="om-gotit" type="button" style="width:100%; padding:14px 18px; border-radius:13px; border:none; background:var(--sb-orange-solid); color:var(--sb-on-accent); font-family:inherit; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 8px 24px rgba(var(--sb-orange-rgb), 0.28); transition:all .2s cubic-bezier(.2,.7,.3,1);">${t('offline.gotIt')}</button>
             </div>`;
 
         const cardWrap = document.createElement('div');
-        cardWrap.style.cssText = "position:relative; z-index:2; width:470px; max-width:calc(100vw - 48px); border-radius:22px; background:#121214; border:1px solid rgba(255,255,255,0.08); padding:34px 30px 26px; box-shadow:0 30px 70px rgba(0,0,0,0.6); animation:omPop .32s cubic-bezier(.2,.7,.3,1);";
+        cardWrap.style.cssText = "position:relative; z-index:2; width:470px; max-width:calc(100vw - 48px); border-radius:22px; background:var(--sb-bg); border:1px solid rgba(var(--sb-ink), 0.08); padding:34px 30px 26px; box-shadow:0 30px 70px rgba(var(--sb-shadow-rgb), calc(0.6 * var(--sb-shadow-k))); animation:omPop .32s cubic-bezier(.2,.7,.3,1);";
         guidance.appendChild(cardWrap);
 
         const hoverLift = (btn) => {
-            btn.addEventListener('mouseenter', () => { btn.style.background = '#ff9637'; btn.style.transform = 'translateY(-2px)'; });
-            btn.addEventListener('mouseleave', () => { btn.style.background = '#f0892a'; btn.style.transform = 'none'; });
+            btn.addEventListener('mouseenter', () => { btn.style.background = 'var(--sb-orange-hi)'; btn.style.transform = 'translateY(-2px)'; });
+            btn.addEventListener('mouseleave', () => { btn.style.background = 'var(--sb-orange)'; btn.style.transform = 'none'; });
         };
         const close = () => guidance.remove();
 
@@ -442,8 +442,8 @@ class PWAOfflineManager {
             cont.addEventListener('click', close);
 
             const disc = cardWrap.querySelector('.om-disconnect');
-            disc.addEventListener('mouseenter', () => { disc.style.background = 'rgba(229,114,122,0.14)'; disc.style.borderColor = 'rgba(229,114,122,0.5)'; });
-            disc.addEventListener('mouseleave', () => { disc.style.background = 'rgba(229,114,122,0.08)'; disc.style.borderColor = 'rgba(229,114,122,0.3)'; });
+            disc.addEventListener('mouseenter', () => { disc.style.background = 'rgba(var(--sb-red-rgb), 0.14)'; disc.style.borderColor = 'rgba(var(--sb-red-rgb), 0.5)'; });
+            disc.addEventListener('mouseleave', () => { disc.style.background = 'rgba(var(--sb-red-rgb), 0.08)'; disc.style.borderColor = 'rgba(var(--sb-red-rgb), 0.3)'; });
             disc.addEventListener('click', () => {
                 try {
                     if (window.webrtcManager && typeof window.webrtcManager.disconnect === 'function') {
@@ -454,16 +454,16 @@ class PWAOfflineManager {
             });
 
             const learn = cardWrap.querySelector('.om-learn');
-            learn.addEventListener('mouseenter', () => { learn.style.color = '#f0892a'; });
-            learn.addEventListener('mouseleave', () => { learn.style.color = '#9a9aa2'; });
+            learn.addEventListener('mouseenter', () => { learn.style.color = 'var(--sb-orange)'; });
+            learn.addEventListener('mouseleave', () => { learn.style.color = 'var(--sb-text-6)'; });
             learn.addEventListener('click', renderDetails);
         };
 
         const renderDetails = () => {
             cardWrap.innerHTML = detailsHTML;
             const back = cardWrap.querySelector('.om-back');
-            back.addEventListener('mouseenter', () => { back.style.color = '#f0892a'; back.style.borderColor = 'rgba(240,137,42,0.45)'; });
-            back.addEventListener('mouseleave', () => { back.style.color = '#cfcfd4'; back.style.borderColor = 'rgba(255,255,255,0.1)'; });
+            back.addEventListener('mouseenter', () => { back.style.color = 'var(--sb-orange)'; back.style.borderColor = 'rgba(var(--sb-orange-rgb), 0.45)'; });
+            back.addEventListener('mouseleave', () => { back.style.color = 'var(--sb-text-4)'; back.style.borderColor = 'rgba(var(--sb-ink), 0.1)'; });
             back.addEventListener('click', renderMain);
 
             const gotit = cardWrap.querySelector('.om-gotit');

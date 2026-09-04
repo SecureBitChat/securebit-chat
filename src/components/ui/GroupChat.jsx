@@ -15,18 +15,18 @@ import { GROUP_LIMITS } from '../../group/groupCrypto.js';
 const h = (...args) => React.createElement(...args);
 
 const C = {
-    bg: '#0c0c0e',
-    panel: '#141417',
-    panel2: '#1b1b1f',
-    line: 'rgba(255,255,255,0.07)',
-    line2: 'rgba(255,255,255,0.13)',
-    ink: '#f4f4f6',
-    ink2: '#a7a7b0',
-    ink3: '#6b6b73',
-    accent: '#f0892a',
-    good: '#3ecf8e',
-    warn: '#e3b341',
-    bad: '#e5727a',
+    bg: 'var(--sb-bg-deep)',
+    panel: 'var(--sb-surface)',
+    panel2: 'var(--sb-surface-2)',
+    line: 'rgba(var(--sb-ink), 0.07)',
+    line2: 'rgba(var(--sb-ink), 0.13)',
+    ink: 'var(--sb-text-1)',
+    ink2: 'var(--sb-text-5b)',
+    ink3: 'var(--sb-text-9)',
+    accent: 'var(--sb-orange)',
+    good: 'var(--sb-green)',
+    warn: 'var(--sb-yellow-2)',
+    bad: 'var(--sb-red)',
     mono: "'JetBrains Mono', ui-monospace, monospace",
 };
 
@@ -53,18 +53,18 @@ const btn = (accent = false) => ({
     fontFamily: 'inherit', fontSize: '14px', fontWeight: 700,
     border: accent ? 'none' : `1px solid ${C.line2}`,
     background: accent ? C.accent : 'transparent',
-    color: accent ? '#1a0f04' : C.ink2,
+    color: accent ? 'var(--sb-on-accent)' : C.ink2,
 });
 
 const overlay = {
     position: 'fixed', inset: 0, zIndex: 90, display: 'grid', placeItems: 'center',
-    background: 'rgba(5,5,7,0.72)', backdropFilter: 'blur(6px)', padding: '20px',
+    background: 'rgba(var(--sb-scrim-rgb), 0.72)', backdropFilter: 'blur(6px)', padding: '20px',
 };
 
 const card = {
     width: '100%', maxWidth: '440px', background: C.panel, border: `1px solid ${C.line}`,
     borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px',
-    boxShadow: '0 24px 60px rgba(0,0,0,0.5)',
+    boxShadow: '0 24px 60px rgba(var(--sb-shadow-rgb), calc(0.5 * var(--sb-shadow-k)))',
 };
 
 /** Trim a string so its UTF-8 encoding fits `max` bytes, never mid-character. */
@@ -167,7 +167,7 @@ export function GroupSasModal({ group, onConfirm, onCancel }) {
                     key: 'code',
                     style: {
                         padding: '22px 16px', textAlign: 'center', borderRadius: '12px',
-                        background: 'rgba(240,137,42,0.09)', border: '1px solid rgba(240,137,42,0.3)',
+                        background: 'rgba(var(--sb-orange-rgb), 0.09)', border: '1px solid rgba(var(--sb-orange-rgb), 0.3)',
                     },
                 }, h('span', {
                     // Everyone in the group compares these digits against each other's
@@ -191,7 +191,7 @@ export function GroupSasModal({ group, onConfirm, onCancel }) {
                 key: 'warn',
                 style: {
                     margin: 0, padding: '11px 13px', borderRadius: '9px', fontSize: '12.5px', lineHeight: 1.55,
-                    background: 'rgba(229,114,122,0.09)', border: '1px solid rgba(229,114,122,0.26)', color: '#f0a6ab',
+                    background: 'rgba(var(--sb-red-rgb), 0.09)', border: '1px solid rgba(var(--sb-red-rgb), 0.26)', color: 'var(--sb-red-soft)',
                 },
             }, failed
                 ? t('group.errNothingSent')
@@ -284,8 +284,8 @@ export function CreateGroupModal({ candidates, relayOnly, onCreate, onCancel }) 
                             style: {
                                 display: 'flex', alignItems: 'center', gap: '11px', padding: '10px 12px',
                                 borderRadius: '10px', cursor: full ? 'not-allowed' : 'pointer', textAlign: 'start',
-                                background: on ? 'rgba(240,137,42,0.1)' : 'transparent',
-                                border: `1px solid ${on ? 'rgba(240,137,42,0.32)' : C.line}`,
+                                background: on ? 'rgba(var(--sb-orange-rgb), 0.1)' : 'transparent',
+                                border: `1px solid ${on ? 'rgba(var(--sb-orange-rgb), 0.32)' : C.line}`,
                                 opacity: full ? 0.4 : 1, fontFamily: 'inherit',
                             },
                         }, [
@@ -318,7 +318,7 @@ export function CreateGroupModal({ candidates, relayOnly, onCreate, onCancel }) 
                 key: 'ip',
                 style: {
                     margin: 0, padding: '11px 13px', borderRadius: '9px', fontSize: '12.5px', lineHeight: 1.55,
-                    background: 'rgba(227,179,65,0.08)', border: '1px solid rgba(227,179,65,0.26)', color: '#e3b341',
+                    background: 'rgba(var(--sb-yellow-2-rgb), 0.08)', border: '1px solid rgba(var(--sb-yellow-2-rgb), 0.26)', color: 'var(--sb-yellow-2)',
                 },
             }, t('group.relayOnlyOff')),
 
@@ -412,8 +412,8 @@ export function AddMembersModal({ candidates, remaining, onAdd, onCancel }) {
                         style: {
                             display: 'flex', alignItems: 'center', gap: '11px', padding: '10px 12px',
                             borderRadius: '10px', cursor: full ? 'not-allowed' : 'pointer', textAlign: 'start',
-                            background: on ? 'rgba(240,137,42,0.1)' : 'transparent',
-                            border: `1px solid ${on ? 'rgba(240,137,42,0.32)' : C.line}`,
+                            background: on ? 'rgba(var(--sb-orange-rgb), 0.1)' : 'transparent',
+                            border: `1px solid ${on ? 'rgba(var(--sb-orange-rgb), 0.32)' : C.line}`,
                             opacity: full ? 0.4 : 1, fontFamily: 'inherit',
                         },
                     }, [
@@ -521,7 +521,7 @@ function MemberStrip({ group, onRemove, isAdmin }) {
                 // fact that a dropped connection does not change — but the chip
                 // says plainly that nothing sent now reaches them.
                 background: lost ? 'transparent' : C.panel2,
-                border: `1px solid ${lost ? 'rgba(229,114,122,0.3)' : C.line}`,
+                border: `1px solid ${lost ? 'rgba(var(--sb-red-rgb), 0.3)' : C.line}`,
                 fontSize: '12.5px', color: self ? C.ink : (lost ? C.ink3 : C.ink2),
                 opacity: lost ? 0.75 : 1,
             },
@@ -570,8 +570,8 @@ function Bubble({ msg }) {
             key: 'b',
             style: {
                 padding: '9px 13px', borderRadius: mine ? '13px 13px 4px 13px' : '13px 13px 13px 4px',
-                background: mine ? 'rgba(240,137,42,0.14)' : C.panel2,
-                border: `1px solid ${mine ? 'rgba(240,137,42,0.26)' : C.line}`,
+                background: mine ? 'rgba(var(--sb-orange-rgb), 0.14)' : C.panel2,
+                border: `1px solid ${mine ? 'rgba(var(--sb-orange-rgb), 0.26)' : C.line}`,
                 color: C.ink, fontSize: '14.5px', lineHeight: 1.5, wordBreak: 'break-word', whiteSpace: 'pre-wrap',
             },
         }, msg.message),
@@ -643,8 +643,8 @@ export function GroupChatView({
                 key: 'av',
                 style: {
                     flex: 'none', width: '38px', height: '38px', borderRadius: '11px', display: 'grid',
-                    placeItems: 'center', background: 'rgba(240,137,42,0.12)',
-                    border: '1px solid rgba(240,137,42,0.24)', color: C.accent,
+                    placeItems: 'center', background: 'rgba(var(--sb-orange-rgb), 0.12)',
+                    border: '1px solid rgba(var(--sb-orange-rgb), 0.24)', color: C.accent,
                     fontFamily: C.mono, fontSize: '12px', fontWeight: 700,
                 },
             }, groupInitials(group.name)),
@@ -693,7 +693,7 @@ export function GroupChatView({
             h('button', {
                 key: 'leave', className: 'sb-gh-btn', onClick: onLeave, title: t('group.leaveThis'),
                 'aria-label': t('group.leaveThis'),
-                style: { ...btn(false), flex: 'none', padding: '8px 12px', fontSize: '12.5px', color: C.bad, borderColor: 'rgba(229,114,122,0.3)' },
+                style: { ...btn(false), flex: 'none', padding: '8px 12px', fontSize: '12.5px', color: C.bad, borderColor: 'rgba(var(--sb-red-rgb), 0.3)' },
             }, [
                 svg(ICON.exit, { key: 'i' }),
                 h('span', { key: 'l', className: 'sb-gh-label' }, t('group.leave')),
@@ -706,7 +706,7 @@ export function GroupChatView({
             key: 'relay-note',
             style: {
                 flex: 'none', padding: '8px 16px', fontSize: '12px', lineHeight: 1.5, color: C.warn,
-                background: 'rgba(227,179,65,0.08)', borderBottom: `1px solid ${C.line}`,
+                background: 'rgba(var(--sb-yellow-2-rgb), 0.08)', borderBottom: `1px solid ${C.line}`,
             },
         }, t('group.relayNote')),
 

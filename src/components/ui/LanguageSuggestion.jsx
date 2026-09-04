@@ -72,7 +72,7 @@ const LanguageSuggestion = () => {
         key: 'line',
         lang: meta.htmlLang || target,
         dir,
-        style: { fontSize: '13px', lineHeight: 1.45, color: '#cfcfd4', textAlign: 'start' },
+        style: { fontSize: '13px', lineHeight: 1.45, color: 'var(--sb-text-4)', textAlign: 'start' },
     }, t('language.suggest.text', null, target));
 
     const link = React.createElement('a', {
@@ -87,8 +87,8 @@ const LanguageSuggestion = () => {
         style: {
             display: 'inline-flex', alignItems: 'center', gap: '6px',
             padding: '7px 12px', borderRadius: '9px',
-            border: '1px solid rgba(240,137,42,0.30)', background: 'rgba(240,137,42,0.12)',
-            color: '#f0892a', fontSize: '12.5px', fontWeight: 600,
+            border: '1px solid rgba(var(--sb-orange-rgb), 0.30)', background: 'rgba(var(--sb-orange-rgb), 0.12)',
+            color: 'var(--sb-orange)', fontSize: '12.5px', fontWeight: 600,
             textDecoration: 'none', whiteSpace: 'nowrap',
         },
     }, t('language.suggest.cta', null, target));
@@ -101,8 +101,8 @@ const LanguageSuggestion = () => {
         'aria-label': t('language.suggest.dismiss', null, target),
         style: {
             padding: '7px 10px', borderRadius: '9px',
-            border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)',
-            color: '#8a8a92', font: 'inherit', fontSize: '12.5px', fontWeight: 500,
+            border: '1px solid rgba(var(--sb-ink), 0.07)', background: 'rgba(var(--sb-ink), 0.02)',
+            color: 'var(--sb-text-7)', font: 'inherit', fontSize: '12.5px', fontWeight: 500,
             cursor: 'pointer', whiteSpace: 'nowrap',
         },
     }, t('language.suggest.dismiss', null, target));
@@ -117,8 +117,8 @@ const LanguageSuggestion = () => {
             maxWidth: 'min(340px, calc(100vw - 48px))',
             display: 'flex', flexDirection: 'column', gap: '11px',
             padding: '14px 16px', borderRadius: '14px',
-            border: '1px solid rgba(255,255,255,0.08)', background: '#161618',
-            boxShadow: '0 16px 40px rgba(0,0,0,0.5)',
+            border: '1px solid rgba(var(--sb-ink), 0.08)', background: 'var(--sb-surface)',
+            boxShadow: '0 16px 40px rgba(var(--sb-shadow-rgb), calc(0.5 * var(--sb-shadow-k)))',
             opacity: shown ? 1 : 0,
             transform: shown || still ? 'none' : 'translateY(10px)',
             transition: still ? 'opacity .2s linear' : 'opacity .3s ease, transform .3s cubic-bezier(.2,.7,.3,1)',

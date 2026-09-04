@@ -100,18 +100,33 @@ class PWAInstallPrompt {
         });
     }
 
+    // Called both by our own listener and by pwa-install-capture.js, which owns
+    // the event whenever it fired before this module was evaluated.
+    adoptInstallEvent(event) {
+        this.deferredPrompt = event;
+
+        if (this.checkInstallationStatus()) {
+            return;
+        }
+
+        if (!this.isInstalled && this.shouldShowPrompt()) {
+            setTimeout(() => this.showInstallOptions(), 1000);
+        }
+    }
+
     setupEventListeners() {
+        // If the capture script already caught it, take it now — the event does
+        // not fire a second time for this page load.
+        if (window.__pwaInstallEvent) {
+            this.adoptInstallEvent(window.__pwaInstallEvent);
+        }
+
         window.addEventListener('beforeinstallprompt', (event) => {
-            // Don't prevent default - let browser show its own banner
-            this.deferredPrompt = event;
-
-            if (this.checkInstallationStatus()) {
-                return; 
-            }
-
-            if (!this.isInstalled && this.shouldShowPrompt()) {
-                setTimeout(() => this.showInstallOptions(), 1000);
-            }
+            // preventDefault() is what keeps the event usable. Let Chrome run its
+            // default action and the stashed event is spent: prompt() rejects and
+            // the install button silently degrades to a manual how-to.
+            event.preventDefault();
+            this.adoptInstallEvent(event);
         });
 
         window.addEventListener('appinstalled', () => {
@@ -166,10 +181,10 @@ class PWAInstallPrompt {
 
         this.installButton.innerHTML = `
         <div style="position:relative; display:inline-flex;">
-            <button class="close-btn" type="button" title="${t('pwa.dismiss')}" aria-label="${t('pwa.dismiss')}" style="position:absolute; top:-11px; inset-inline-end:-11px; z-index:3; width:28px; height:28px; padding:0; border-radius:50%; display:grid; place-items:center; border:1px solid rgba(255,255,255,0.1); background:#1a1a1d; color:#9a9aa2; cursor:pointer; transition:all .18s cubic-bezier(.2,.7,.3,1);">
+            <button class="close-btn" type="button" title="${t('pwa.dismiss')}" aria-label="${t('pwa.dismiss')}" style="position:absolute; top:-11px; inset-inline-end:-11px; z-index:3; width:28px; height:28px; padding:0; border-radius:50%; display:grid; place-items:center; border:1px solid rgba(var(--sb-ink), 0.1); background:var(--sb-surface-2); color:var(--sb-text-6); cursor:pointer; transition:all .18s cubic-bezier(.2,.7,.3,1);">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M6 6l12 12M18 6L6 18"/></svg>
             </button>
-            <button class="install-pill" type="button" style="display:inline-flex; align-items:center; gap:11px; padding-block:15px; padding-inline-start:22px; padding-inline-end:26px; border-radius:15px; border:none; background:#f0892a; color:#1a0f04; font-family:inherit; font-size:16px; font-weight:700; letter-spacing:-0.2px; cursor:pointer; box-shadow:0 10px 30px rgba(240,137,42,0.32); transition:all .2s cubic-bezier(.2,.7,.3,1);">
+            <button class="install-pill" type="button" style="display:inline-flex; align-items:center; gap:11px; padding-block:15px; padding-inline-start:22px; padding-inline-end:26px; border-radius:15px; border:none; background:var(--sb-orange-solid); color:var(--sb-on-accent); font-family:inherit; font-size:16px; font-weight:700; letter-spacing:-0.2px; cursor:pointer; box-shadow:0 10px 30px rgba(var(--sb-orange-rgb), 0.32); transition:all .2s cubic-bezier(.2,.7,.3,1);">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M12 3v11"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M5 20h14"/></svg>
                 ${t('pwa.installApp')}
             </button>
@@ -177,12 +192,12 @@ class PWAInstallPrompt {
         `;
 
         const pill = this.installButton.querySelector('.install-pill');
-        pill.addEventListener('mouseenter', () => { pill.style.background = '#ff9637'; pill.style.transform = 'translateY(-2px)'; });
-        pill.addEventListener('mouseleave', () => { pill.style.background = '#f0892a'; pill.style.transform = 'none'; });
+        pill.addEventListener('mouseenter', () => { pill.style.background = 'var(--sb-orange-hi)'; pill.style.transform = 'translateY(-2px)'; });
+        pill.addEventListener('mouseleave', () => { pill.style.background = 'var(--sb-orange)'; pill.style.transform = 'none'; });
 
         const closeBtn = this.installButton.querySelector('.close-btn');
-        closeBtn.addEventListener('mouseenter', () => { closeBtn.style.color = '#e5727a'; closeBtn.style.borderColor = 'rgba(229,114,122,0.4)'; closeBtn.style.background = '#201416'; });
-        closeBtn.addEventListener('mouseleave', () => { closeBtn.style.color = '#9a9aa2'; closeBtn.style.borderColor = 'rgba(255,255,255,0.1)'; closeBtn.style.background = '#1a1a1d'; });
+        closeBtn.addEventListener('mouseenter', () => { closeBtn.style.color = 'var(--sb-red)'; closeBtn.style.borderColor = 'rgba(var(--sb-red-rgb), 0.4)'; closeBtn.style.background = 'var(--sb-surface-warm)'; });
+        closeBtn.addEventListener('mouseleave', () => { closeBtn.style.color = 'var(--sb-text-6)'; closeBtn.style.borderColor = 'rgba(var(--sb-ink), 0.1)'; closeBtn.style.background = 'var(--sb-surface-2)'; });
 
         this.installButton.addEventListener('click', (e) => {
             if (!e.target.closest('.close-btn')) {
@@ -221,19 +236,19 @@ class PWAInstallPrompt {
                 : "transition:transform .44s cubic-bezier(.2,.7,.3,1), opacity .3s ease;");
 
         this.installBanner.innerHTML = `
-            <div style="max-width:520px; margin-inline:auto; border-radius:20px; background:#121214; border:1px solid rgba(255,255,255,0.08); padding:18px; box-shadow:0 20px 50px rgba(0,0,0,0.55);">
+            <div style="max-width:520px; margin-inline:auto; border-radius:20px; background:var(--sb-bg); border:1px solid rgba(var(--sb-ink), 0.08); padding:18px; box-shadow:0 20px 50px rgba(var(--sb-shadow-rgb), calc(0.55 * var(--sb-shadow-k)));">
                 <div style="display:flex; align-items:center; gap:14px; margin-bottom:16px;">
-                    <div style="flex:none; width:44px; height:44px; border-radius:12px; display:grid; place-items:center; background:rgba(240,137,42,0.12); border:1px solid rgba(240,137,42,0.28);">
-                        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#f0892a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M5 20h14"/></svg>
+                    <div style="flex:none; width:44px; height:44px; border-radius:12px; display:grid; place-items:center; background:rgba(var(--sb-orange-rgb), 0.12); border:1px solid rgba(var(--sb-orange-rgb), 0.28);">
+                        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="var(--sb-orange-solid)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M5 20h14"/></svg>
                     </div>
                     <div style="flex:1; min-width:0;">
-                        <div style="font-size:15.5px; font-weight:800; letter-spacing:-0.3px; color:#f4f4f6; margin-bottom:3px;">${t('pwa.bannerTitle')}</div>
-                        <div style="font-size:13px; line-height:1.45; color:#8a8a92;">${t('pwa.bannerDesc')}</div>
+                        <div style="font-size:15.5px; font-weight:800; letter-spacing:-0.3px; color:var(--sb-text-1); margin-bottom:3px;">${t('pwa.bannerTitle')}</div>
+                        <div style="font-size:13px; line-height:1.45; color:var(--sb-text-7);">${t('pwa.bannerDesc')}</div>
                     </div>
                 </div>
                 <div style="display:flex; gap:10px;">
-                    <button class="install-btn" type="button" data-action="install" style="flex:1; padding:13px 20px; border-radius:13px; border:none; background:#f0892a; color:#1a0f04; font-family:inherit; font-size:15px; font-weight:700; letter-spacing:-0.2px; cursor:pointer; transition:background .2s cubic-bezier(.2,.7,.3,1);">${t('pwa.install')}</button>
-                    <button class="close-btn" type="button" data-action="close" style="flex:none; padding:13px 18px; border-radius:13px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.03); color:#9a9aa2; font-family:inherit; font-size:15px; font-weight:700; cursor:pointer; transition:all .2s cubic-bezier(.2,.7,.3,1);">${t('pwa.dismiss')}</button>
+                    <button class="install-btn" type="button" data-action="install" style="flex:1; padding:13px 20px; border-radius:13px; border:none; background:var(--sb-orange-solid); color:var(--sb-on-accent); font-family:inherit; font-size:15px; font-weight:700; letter-spacing:-0.2px; cursor:pointer; transition:background .2s cubic-bezier(.2,.7,.3,1);">${t('pwa.install')}</button>
+                    <button class="close-btn" type="button" data-action="close" style="flex:none; padding:13px 18px; border-radius:13px; border:1px solid rgba(var(--sb-ink), 0.1); background:rgba(var(--sb-ink), 0.03); color:var(--sb-text-6); font-family:inherit; font-size:15px; font-weight:700; cursor:pointer; transition:all .2s cubic-bezier(.2,.7,.3,1);">${t('pwa.dismiss')}</button>
                 </div>
             </div>
         `;
@@ -339,23 +354,34 @@ class PWAInstallPrompt {
             return;
         }
 
-        try {
-            
-            const result = await this.deferredPrompt.prompt();
+        const prompt = this.deferredPrompt;
+        // Clear first: prompt() may only be called once per event, and a second
+        // click while the sheet is open would otherwise throw.
+        this.deferredPrompt = null;
+        window.__pwaInstallEvent = null;
 
-            if (result.outcome === 'accepted') {
-                this.isInstalled = true; 
+        try {
+            // Chrome resolves prompt() with the choice; older implementations
+            // resolve it with nothing and expose userChoice instead.
+            const result = (await prompt.prompt()) || (await prompt.userChoice);
+            const outcome = result && result.outcome;
+
+            if (outcome === 'accepted') {
+                this.isInstalled = true;
                 this.hideInstallPrompts();
                 this.saveInstallPreference('accepted', true);
                 this.saveInstallPreference('installed', true);
-            } else {
+            } else if (outcome === 'dismissed') {
                 this.handleInstallDismissal();
             }
 
-            this.deferredPrompt = null;
-
         } catch (error) {
             console.error('❌ Install prompt failed:', error);
+            // A rejected prompt() has not been consumed — Chrome rejects it for a
+            // missing user gesture too — so put the event back rather than
+            // stranding the button on the manual guide for the rest of the visit.
+            this.deferredPrompt = prompt;
+            window.__pwaInstallEvent = prompt;
             this.showFallbackInstructions();
         }
     }
@@ -366,28 +392,28 @@ class PWAInstallPrompt {
         // strings baked in English, which a thirteen-locale site cannot ship.
         const modal = document.createElement('div');
         modal.id = 'pwa-ios-install';
-        modal.style.cssText = "position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; padding:24px; background:rgba(8,8,10,0.55); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); animation:igFade .3s ease; font-family:'Manrope',system-ui,-apple-system,sans-serif;";
+        modal.style.cssText = "position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; padding:24px; background:rgba(var(--sb-scrim-rgb), 0.55); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); animation:igFade .3s ease; font-family:'Manrope',system-ui,-apple-system,sans-serif;";
 
         const step = (n, title, hint, delay) => `
-            <div style="display:flex; align-items:flex-start; gap:14px; padding:14px 16px; border-radius:13px; background:#161618; border:1px solid rgba(255,255,255,0.06); animation:igRow ${delay} cubic-bezier(.2,.7,.3,1);">
-                <div style="flex:none; width:26px; height:26px; border-radius:9px; display:grid; place-items:center; background:rgba(240,137,42,0.12); border:1px solid rgba(240,137,42,0.28); font-size:13px; font-weight:800; color:#f0892a;">${n}</div>
+            <div style="display:flex; align-items:flex-start; gap:14px; padding:14px 16px; border-radius:13px; background:var(--sb-surface); border:1px solid rgba(var(--sb-ink), 0.06); animation:igRow ${delay} cubic-bezier(.2,.7,.3,1);">
+                <div style="flex:none; width:26px; height:26px; border-radius:9px; display:grid; place-items:center; background:rgba(var(--sb-orange-rgb), 0.12); border:1px solid rgba(var(--sb-orange-rgb), 0.28); font-size:13px; font-weight:800; color:var(--sb-orange);">${n}</div>
                 <div style="flex:1; min-width:0;">
-                    <div style="font-size:14.5px; font-weight:700; color:#f4f4f6; margin-bottom:2px;">${title}</div>
-                    <div style="font-size:13px; line-height:1.45; color:#8a8a92;">${hint}</div>
+                    <div style="font-size:14.5px; font-weight:700; color:var(--sb-text-1); margin-bottom:2px;">${title}</div>
+                    <div style="font-size:13px; line-height:1.45; color:var(--sb-text-7);">${hint}</div>
                 </div>
             </div>`;
 
         modal.innerHTML = `
-            <div style="position:relative; z-index:2; width:440px; max-width:calc(100vw - 48px); border-radius:22px; background:#121214; border:1px solid rgba(255,255,255,0.08); padding:34px 30px 26px; box-shadow:0 30px 70px rgba(0,0,0,0.6); animation:igPop .32s cubic-bezier(.2,.7,.3,1);">
-                <button class="close-x" type="button" title="${t('pwa.close')}" aria-label="${t('pwa.close')}" style="position:absolute; top:18px; inset-inline-end:18px; width:30px; height:30px; padding:0; border-radius:9px; display:grid; place-items:center; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.02); color:#8a8a92; cursor:pointer; transition:all .18s cubic-bezier(.2,.7,.3,1);">
+            <div style="position:relative; z-index:2; width:440px; max-width:calc(100vw - 48px); border-radius:22px; background:var(--sb-bg); border:1px solid rgba(var(--sb-ink), 0.08); padding:34px 30px 26px; box-shadow:0 30px 70px rgba(var(--sb-shadow-rgb), calc(0.6 * var(--sb-shadow-k))); animation:igPop .32s cubic-bezier(.2,.7,.3,1);">
+                <button class="close-x" type="button" title="${t('pwa.close')}" aria-label="${t('pwa.close')}" style="position:absolute; top:18px; inset-inline-end:18px; width:30px; height:30px; padding:0; border-radius:9px; display:grid; place-items:center; border:1px solid rgba(var(--sb-ink), 0.08); background:rgba(var(--sb-ink), 0.02); color:var(--sb-text-7); cursor:pointer; transition:all .18s cubic-bezier(.2,.7,.3,1);">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M6 6l12 12M18 6L6 18"/></svg>
                 </button>
 
                 <div style="text-align:center; margin-bottom:22px;">
-                    <div style="display:inline-flex; width:60px; height:60px; border-radius:16px; align-items:center; justify-content:center; background:rgba(240,137,42,0.12); border:1px solid rgba(240,137,42,0.3); margin-bottom:18px;">
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#f0892a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M8.5 7.5L12 4l3.5 3.5"/><path d="M6 11H5a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7a1 1 0 0 0-1-1h-1"/></svg>
+                    <div style="display:inline-flex; width:60px; height:60px; border-radius:16px; align-items:center; justify-content:center; background:rgba(var(--sb-orange-rgb), 0.12); border:1px solid rgba(var(--sb-orange-rgb), 0.3); margin-bottom:18px;">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--sb-orange-solid)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M8.5 7.5L12 4l3.5 3.5"/><path d="M6 11H5a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7a1 1 0 0 0-1-1h-1"/></svg>
                     </div>
-                    <h3 style="margin:0; font-size:23px; font-weight:800; letter-spacing:-0.6px; color:#f4f4f6;">${t('pwa.iosTitle')}</h3>
+                    <h3 style="margin:0; font-size:23px; font-weight:800; letter-spacing:-0.6px; color:var(--sb-text-1);">${t('pwa.iosTitle')}</h3>
                 </div>
 
                 <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:22px;">
@@ -396,13 +422,13 @@ class PWAInstallPrompt {
                     ${step(3, t('pwa.iosStep3'), t('pwa.iosStep3Hint'), '.5s')}
                 </div>
 
-                <button class="got-it" type="button" style="width:100%; padding:14px 20px; border-radius:13px; border:none; background:#f0892a; color:#1a0f04; font-family:inherit; font-size:15px; font-weight:700; cursor:pointer; transition:background .2s cubic-bezier(.2,.7,.3,1);">${t('pwa.gotIt')}</button>
+                <button class="got-it" type="button" style="width:100%; padding:14px 20px; border-radius:13px; border:none; background:var(--sb-orange-solid); color:var(--sb-on-accent); font-family:inherit; font-size:15px; font-weight:700; cursor:pointer; transition:background .2s cubic-bezier(.2,.7,.3,1);">${t('pwa.gotIt')}</button>
             </div>
         `;
 
         const closeX = modal.querySelector('.close-x');
-        closeX.addEventListener('mouseenter', () => { closeX.style.color = '#e5727a'; closeX.style.borderColor = 'rgba(229,114,122,0.4)'; });
-        closeX.addEventListener('mouseleave', () => { closeX.style.color = '#8a8a92'; closeX.style.borderColor = 'rgba(255,255,255,0.08)'; });
+        closeX.addEventListener('mouseenter', () => { closeX.style.color = 'var(--sb-red)'; closeX.style.borderColor = 'rgba(var(--sb-red-rgb), 0.4)'; });
+        closeX.addEventListener('mouseleave', () => { closeX.style.color = 'var(--sb-text-7)'; closeX.style.borderColor = 'rgba(var(--sb-ink), 0.08)'; });
 
         const gotIt = modal.querySelector('.got-it');
 
@@ -441,7 +467,7 @@ class PWAInstallPrompt {
         // (Install Guide.dc.html). Styling is inline so it tracks the design.
         const modal = document.createElement('div');
         modal.id = 'pwa-install-guide';
-        modal.style.cssText = "position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; padding:24px; background:rgba(8,8,10,0.55); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); animation:igFade .3s ease; font-family:'Manrope',system-ui,-apple-system,sans-serif;";
+        modal.style.cssText = "position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; padding:24px; background:rgba(var(--sb-scrim-rgb), 0.55); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); animation:igFade .3s ease; font-family:'Manrope',system-ui,-apple-system,sans-serif;";
 
         const rowIcon = {
             chromeEdge: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/><path d="M12 12v4M10 14l2 2 2-2"/>',
@@ -450,47 +476,55 @@ class PWAInstallPrompt {
         };
 
         const row = (icon, title, desc, delay, nowrap) => `
-            <div style="display:flex; align-items:center; gap:14px; padding:14px 16px; border-radius:13px; background:#161618; border:1px solid rgba(255,255,255,0.06); animation:igRow ${delay} cubic-bezier(.2,.7,.3,1);">
-                <div style="flex:none; width:40px; height:40px; border-radius:11px; display:grid; place-items:center; background:rgba(240,137,42,0.1); border:1px solid rgba(240,137,42,0.22);">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f0892a" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${icon}</svg>
+            <div style="display:flex; align-items:center; gap:14px; padding:14px 16px; border-radius:13px; background:var(--sb-surface); border:1px solid rgba(var(--sb-ink), 0.06); animation:igRow ${delay} cubic-bezier(.2,.7,.3,1);">
+                <div style="flex:none; width:40px; height:40px; border-radius:11px; display:grid; place-items:center; background:rgba(var(--sb-orange-rgb), 0.1); border:1px solid rgba(var(--sb-orange-rgb), 0.22);">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sb-orange-solid)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${icon}</svg>
                 </div>
                 <div style="flex:1; min-width:0;">
-                    <div style="font-size:14.5px; font-weight:700; color:#f4f4f6; margin-bottom:2px;">${title}</div>
-                    <div style="font-size:13px; color:#8a8a92;${nowrap ? ' white-space:nowrap;' : ''}">${desc}</div>
+                    <div style="font-size:14.5px; font-weight:700; color:var(--sb-text-1); margin-bottom:2px;">${title}</div>
+                    <div style="font-size:13px; color:var(--sb-text-7);${nowrap ? ' white-space:nowrap;' : ''}">${desc}</div>
                 </div>
             </div>`;
 
+        const isAndroid = /Android/i.test(navigator.userAgent);
+
         modal.innerHTML = `
-            <div style="position:relative; z-index:2; width:480px; max-width:calc(100vw - 48px); border-radius:22px; background:#121214; border:1px solid rgba(255,255,255,0.08); padding:34px 30px 26px; box-shadow:0 30px 70px rgba(0,0,0,0.6); animation:igPop .32s cubic-bezier(.2,.7,.3,1);">
-                <button class="close-x" type="button" title="${t('pwa.close')}" aria-label="${t('pwa.close')}" style="position:absolute; top:18px; inset-inline-end:18px; width:30px; height:30px; padding:0; border-radius:9px; display:grid; place-items:center; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.02); color:#8a8a92; cursor:pointer; transition:all .18s cubic-bezier(.2,.7,.3,1);">
+            <div style="position:relative; z-index:2; width:480px; max-width:calc(100vw - 48px); border-radius:22px; background:var(--sb-bg); border:1px solid rgba(var(--sb-ink), 0.08); padding:34px 30px 26px; box-shadow:0 30px 70px rgba(var(--sb-shadow-rgb), calc(0.6 * var(--sb-shadow-k))); animation:igPop .32s cubic-bezier(.2,.7,.3,1);">
+                <button class="close-x" type="button" title="${t('pwa.close')}" aria-label="${t('pwa.close')}" style="position:absolute; top:18px; inset-inline-end:18px; width:30px; height:30px; padding:0; border-radius:9px; display:grid; place-items:center; border:1px solid rgba(var(--sb-ink), 0.08); background:rgba(var(--sb-ink), 0.02); color:var(--sb-text-7); cursor:pointer; transition:all .18s cubic-bezier(.2,.7,.3,1);">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M6 6l12 12M18 6L6 18"/></svg>
                 </button>
 
                 <div style="text-align:center; margin-bottom:24px;">
-                    <div style="display:inline-flex; width:60px; height:60px; border-radius:16px; align-items:center; justify-content:center; background:rgba(240,137,42,0.12); border:1px solid rgba(240,137,42,0.3); margin-bottom:18px;">
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#f0892a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M5 20h14"/></svg>
+                    <div style="display:inline-flex; width:60px; height:60px; border-radius:16px; align-items:center; justify-content:center; background:rgba(var(--sb-orange-rgb), 0.12); border:1px solid rgba(var(--sb-orange-rgb), 0.3); margin-bottom:18px;">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--sb-orange-solid)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M5 20h14"/></svg>
                     </div>
-                    <h3 style="margin:0 0 10px; font-size:24px; font-weight:800; letter-spacing:-0.6px; color:#f4f4f6;">${t('pwa.genericTitle')}</h3>
-                    <p style="margin:0 auto; max-width:380px; font-size:14px; line-height:1.55; color:#9a9aa2;">${t('pwa.genericDesc')}</p>
+                    <h3 style="margin:0 0 10px; font-size:24px; font-weight:800; letter-spacing:-0.6px; color:var(--sb-text-1);">${t('pwa.genericTitle')}</h3>
+                    <p style="margin:0 auto; max-width:380px; font-size:14px; line-height:1.55; color:var(--sb-text-6);">${t('pwa.genericDesc')}</p>
                 </div>
 
                 <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:22px;">
-                    ${row(rowIcon.chromeEdge, 'Chrome / Edge', 'Click the install icon in the address bar', '.34s', false)}
-                    ${row(rowIcon.firefox, 'Firefox', 'Add a bookmark to your home screen', '.42s', false)}
-                    ${row(rowIcon.safari, 'Safari', 'Share &rarr; Add to Home Screen', '.5s', true)}
+                    ${isAndroid
+                        // A phone has no address bar to click an install icon in, and
+                        // telling an Android user to "add a bookmark" is what got them
+                        // a browser shortcut instead of an app in the first place.
+                        ? row(rowIcon.chromeEdge, 'Chrome', t('pwa.androidChromeHint'), '.34s', false) +
+                          row(rowIcon.firefox, 'Firefox / Samsung Internet', t('pwa.androidOtherHint'), '.42s', false)
+                        : row(rowIcon.chromeEdge, 'Chrome / Edge', 'Click the install icon in the address bar', '.34s', false) +
+                          row(rowIcon.firefox, 'Firefox', 'Add a bookmark to your home screen', '.42s', false) +
+                          row(rowIcon.safari, 'Safari', 'Share &rarr; Add to Home Screen', '.5s', true)}
                 </div>
 
-                <button class="got-it" type="button" style="width:100%; padding:14px 20px; border-radius:13px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.03); color:#e8e8eb; font-family:inherit; font-size:15px; font-weight:700; cursor:pointer; transition:all .2s cubic-bezier(.2,.7,.3,1);">${t('pwa.gotIt')}</button>
+                <button class="got-it" type="button" style="width:100%; padding:14px 20px; border-radius:13px; border:1px solid rgba(var(--sb-ink), 0.1); background:rgba(var(--sb-ink), 0.03); color:var(--sb-text-2); font-family:inherit; font-size:15px; font-weight:700; cursor:pointer; transition:all .2s cubic-bezier(.2,.7,.3,1);">${t('pwa.gotIt')}</button>
             </div>
         `;
 
         const closeX = modal.querySelector('.close-x');
-        closeX.addEventListener('mouseenter', () => { closeX.style.color = '#e5727a'; closeX.style.borderColor = 'rgba(229,114,122,0.4)'; });
-        closeX.addEventListener('mouseleave', () => { closeX.style.color = '#8a8a92'; closeX.style.borderColor = 'rgba(255,255,255,0.08)'; });
+        closeX.addEventListener('mouseenter', () => { closeX.style.color = 'var(--sb-red)'; closeX.style.borderColor = 'rgba(var(--sb-red-rgb), 0.4)'; });
+        closeX.addEventListener('mouseleave', () => { closeX.style.color = 'var(--sb-text-7)'; closeX.style.borderColor = 'rgba(var(--sb-ink), 0.08)'; });
 
         const gotIt = modal.querySelector('.got-it');
-        gotIt.addEventListener('mouseenter', () => { gotIt.style.borderColor = 'rgba(255,255,255,0.22)'; gotIt.style.background = 'rgba(255,255,255,0.06)'; });
-        gotIt.addEventListener('mouseleave', () => { gotIt.style.borderColor = 'rgba(255,255,255,0.1)'; gotIt.style.background = 'rgba(255,255,255,0.03)'; });
+        gotIt.addEventListener('mouseenter', () => { gotIt.style.borderColor = 'rgba(var(--sb-ink), 0.22)'; gotIt.style.background = 'rgba(var(--sb-ink), 0.06)'; });
+        gotIt.addEventListener('mouseleave', () => { gotIt.style.borderColor = 'rgba(var(--sb-ink), 0.1)'; gotIt.style.background = 'rgba(var(--sb-ink), 0.03)'; });
 
         const close = () => modal.remove();
         closeX.addEventListener('click', close);
@@ -514,7 +548,7 @@ class PWAInstallPrompt {
         notification.style.cssText =
             "position:fixed; top:calc(16px + var(--sb-safe-top, 0px)); inset-inline-end:16px; inset-inline-start:auto; max-width:min(360px, calc(100vw - 32px)); z-index:9999; " +
             "font-family:'Manrope',system-ui,-apple-system,sans-serif; " +
-            "border-radius:15px; background:#121214; border:1px solid rgba(62,207,142,0.28); padding:15px 17px; box-shadow:0 20px 50px rgba(0,0,0,0.55); " +
+            "border-radius:15px; background:var(--sb-bg); border:1px solid rgba(var(--sb-green-rgb), 0.28); padding:15px 17px; box-shadow:0 20px 50px rgba(var(--sb-shadow-rgb), calc(0.55 * var(--sb-shadow-k))); " +
             "transform:translateX(calc(100% + 24px)); opacity:0; " +
             (prefersReducedMotion()
                 ? "transition:opacity .2s linear;"
@@ -522,12 +556,12 @@ class PWAInstallPrompt {
 
         notification.innerHTML = `
             <div style="display:flex; align-items:center; gap:13px;">
-                <div style="flex:none; width:36px; height:36px; border-radius:11px; display:grid; place-items:center; background:rgba(62,207,142,0.12); border:1px solid rgba(62,207,142,0.28);">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                <div style="flex:none; width:36px; height:36px; border-radius:11px; display:grid; place-items:center; background:rgba(var(--sb-green-rgb), 0.12); border:1px solid rgba(var(--sb-green-rgb), 0.28);">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--sb-green-solid)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
                 </div>
                 <div style="flex:1; min-width:0;">
-                    <div style="font-size:14.5px; font-weight:800; letter-spacing:-0.2px; color:#f4f4f6; margin-bottom:2px;">${t('pwa.installedTitle')}</div>
-                    <div style="font-size:12.5px; line-height:1.4; color:#8a8a92;">${successText}</div>
+                    <div style="font-size:14.5px; font-weight:800; letter-spacing:-0.2px; color:var(--sb-text-1); margin-bottom:2px;">${t('pwa.installedTitle')}</div>
+                    <div style="font-size:12.5px; line-height:1.4; color:var(--sb-text-7);">${successText}</div>
                 </div>
             </div>
         `;

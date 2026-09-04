@@ -11,7 +11,7 @@ let DYNAMIC_CACHE = 'securebit-pwa-dynamic-v4.7.56';
 // Build stamp — rewritten by scripts/post-build.js on every release so this file's
 // bytes change each deploy. That is what makes the browser detect a new Service Worker,
 // reinstall it, drop stale caches and (via controllerchange) prompt the page to update.
-const SW_BUILD_VERSION = '1788496655816';
+const SW_BUILD_VERSION = '1788557187846';
 
 // Locale subdirectories, rewritten by scripts/build-i18n.js. Each localized page is a
 // separate document at its own URL, so the shell has to be cached and served per
@@ -84,8 +84,12 @@ const STATIC_ASSETS = [
     // PWA components only
     '/src/pwa/pwa-manager.js',
     '/src/pwa/install-prompt.js',
+    '/src/scripts/pwa-install-capture.js',
     '/src/scripts/pwa-register.js',
     '/src/scripts/pwa-offline-test.js',
+    // Blocking in <head> and decides the theme before first paint, so an offline load
+    // that misses it paints dark and then corrects itself once the network returns.
+    '/src/scripts/theme-boot.js',
 
     // The install prompt is precached and imports these at runtime; without them it
     // would fail to load offline, which is exactly when it is most likely to be shown.
@@ -139,8 +143,10 @@ const CACHEABLE_PATHS = new Set([
     '/logo/favicon.ico',
     '/src/pwa/pwa-manager.js',
     '/src/pwa/install-prompt.js',
+    '/src/scripts/pwa-install-capture.js',
     '/src/scripts/pwa-register.js',
     '/src/scripts/pwa-offline-test.js',
+    '/src/scripts/theme-boot.js',
     '/src/i18n/index.js',
     '/src/i18n/generated.js',
     ...SW_DICTS,

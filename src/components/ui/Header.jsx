@@ -5,6 +5,7 @@ import { t } from '../../i18n/index.js';
 // instead of embedding the whole manifest.
 import { version as packageVersion } from '../../../package.json';
 import { LanguageSwitcher } from './LanguageSwitcher.jsx';
+import { ThemeSwitcher } from './ThemeSwitcher.jsx';
 
 const APP_VERSION = `v${packageVersion}`;
 
@@ -362,7 +363,7 @@ const EnhancedMinimalHeader = ({
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.8);
+            background: rgba(var(--sb-scrim-rgb), 0.8);
             z-index: 10000;
             display: flex;
             align-items: center;
@@ -372,15 +373,15 @@ const EnhancedMinimalHeader = ({
         
         const content = document.createElement('div');
         content.style.cssText = `
-            background: #1a1a1a;
-            color: #fff;
+            background: var(--sb-legacy-panel);
+            color: var(--sb-text-1);
             padding: 20px;
             border-radius: 8px;
             max-width: 80%;
             max-height: 80%;
             overflow-y: auto;
             white-space: pre-line;
-            border: 1px solid #333;
+            border: 1px solid var(--sb-surface-5);
         `;
         
         content.textContent = message;
@@ -516,12 +517,15 @@ const EnhancedMinimalHeader = ({
     // ============================================
 
     const secColor = displaySecurityLevel
-        ? (displaySecurityLevel.color === 'green' ? '#3ecf8e' : displaySecurityLevel.color === 'orange' ? '#f0892a' : displaySecurityLevel.color === 'yellow' ? '#e3c84e' : '#e5727a')
-        : '#3ecf8e';
-    const dotColor = isConnected ? '#3ecf8e'
-        : (['connecting', 'verifying', 'retrying', 'reconnecting'].includes(status) ? '#e3c84e'
-        : (status === 'failed' ? '#e5727a' : '#6b6b73'));
-    const dotGlow = dotColor === '#3ecf8e' ? 'rgba(62,207,142,0.16)' : dotColor === '#e3c84e' ? 'rgba(227,200,78,0.16)' : dotColor === '#e5727a' ? 'rgba(229,114,122,0.16)' : 'rgba(107,107,115,0.16)';
+        ? (displaySecurityLevel.color === 'green' ? 'var(--sb-green)' : displaySecurityLevel.color === 'orange' ? 'var(--sb-orange)' : displaySecurityLevel.color === 'yellow' ? 'var(--sb-yellow)' : 'var(--sb-red)')
+        : 'var(--sb-green)';
+    // The dot is a mark, not a label, so it takes the -solid accents: the brand colour
+    // in both themes. The text-safe accents darken on a light ground, which is right for
+    // a word and wrong for a 7px circle.
+    const dotColor = isConnected ? 'var(--sb-green-solid)'
+        : (['connecting', 'verifying', 'retrying', 'reconnecting'].includes(status) ? 'var(--sb-yellow-solid)'
+        : (status === 'failed' ? 'var(--sb-red-solid)' : 'var(--sb-text-9)'));
+    const dotGlow = dotColor === 'var(--sb-green-solid)' ? 'rgba(var(--sb-green-rgb), 0.16)' : dotColor === 'var(--sb-yellow-solid)' ? 'rgba(var(--sb-yellow-rgb), 0.16)' : dotColor === 'var(--sb-red-solid)' ? 'rgba(var(--sb-red-rgb), 0.16)' : 'rgba(var(--sb-text-9-rgb), 0.16)';
     const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
 
     // On the landing / setup view (no verified connection) the new Start Secure
@@ -555,9 +559,9 @@ const EnhancedMinimalHeader = ({
     const overlay = { position: 'fixed', top: 0, left: 0, right: 0, ...safeTop };
     const headerStyle = onLanding
         ? (scrolled
-            ? { ...overlay, background: 'rgba(15,15,17,0.72)', backdropFilter: GLASS, WebkitBackdropFilter: GLASS, borderBottom: '1px solid rgba(255,255,255,0.06)', transition: MATERIALISE }
+            ? { ...overlay, background: 'rgba(var(--sb-bg-rgb), 0.72)', backdropFilter: GLASS, WebkitBackdropFilter: GLASS, borderBottom: '1px solid rgba(var(--sb-ink), 0.06)', transition: MATERIALISE }
             : { ...overlay, background: 'transparent', backdropFilter: 'blur(0px) saturate(100%)', WebkitBackdropFilter: 'blur(0px) saturate(100%)', borderBottom: '1px solid transparent', transition: MATERIALISE })
-        : { ...safeTop, background: 'rgba(18,18,20,0.72)', backdropFilter: GLASS, WebkitBackdropFilter: GLASS, borderBottom: '1px solid rgba(255,255,255,0.06)' };
+        : { ...safeTop, background: 'rgba(var(--sb-bg-rgb), 0.72)', backdropFilter: GLASS, WebkitBackdropFilter: GLASS, borderBottom: '1px solid rgba(var(--sb-ink), 0.06)' };
 
     return React.createElement('header', {
         className: onLanding ? 'header-minimal z-50' : 'header-minimal sticky top-0 z-50',
@@ -580,10 +584,10 @@ const EnhancedMinimalHeader = ({
                     ),
                     React.createElement('div', { key: 'txt', style: { lineHeight: 1.2, minWidth: 0 } }, [
                         React.createElement('div', { key: 'r1', style: { display: 'flex', alignItems: 'baseline', gap: '7px' } }, [
-                            React.createElement('span', { key: 'n', style: { fontSize: '16px', fontWeight: 800, letterSpacing: '-0.3px', color: '#e8e8eb' } }, 'SecureBit'),
-                            React.createElement('span', { key: 'v', style: { fontFamily: MONO, fontSize: '10px', fontWeight: 500, color: '#56565e' } }, APP_VERSION)
+                            React.createElement('span', { key: 'n', style: { fontSize: '16px', fontWeight: 800, letterSpacing: '-0.3px', color: 'var(--sb-text-2)' } }, 'SecureBit'),
+                            React.createElement('span', { key: 'v', style: { fontFamily: MONO, fontSize: '10px', fontWeight: 500, color: 'var(--sb-text-faint)' } }, APP_VERSION)
                         ]),
-                        React.createElement('div', { key: 'r2', className: 'hidden sm:block', style: { fontSize: '11px', color: '#6b6b73', fontWeight: 500 } }, t('hdr.tagline'))
+                        React.createElement('div', { key: 'r2', className: 'hidden sm:block', style: { fontSize: '11px', color: 'var(--sb-text-9)', fontWeight: 500 } }, t('hdr.tagline'))
                     ])
                 ]),
                 // Right: controls
@@ -592,33 +596,38 @@ const EnhancedMinimalHeader = ({
                     // tear down an live peer connection if offered inside the chat.
                     onLanding && React.createElement(LanguageSwitcher, { key: 'lang' }),
 
+                    // Landing only, alongside the language switcher: the connected
+                    // header has no room left, and the preference survives the move
+                    // into the chat regardless of where it was set.
+                    onLanding && React.createElement(ThemeSwitcher, { key: 'theme' }),
+
                     !onLanding && React.createElement('button', {
                         key: 'net', type: 'button',
                         onClick: () => window.dispatchEvent(new CustomEvent('securebit:open-network-settings')),
                         title: t('hdr.netSettingsTitle'), 'aria-label': t('hdr.netSettings'),
                         className: 'sb-disconnect',
-                        style: { display: 'grid', placeItems: 'center', width: '38px', height: '38px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)', color: '#9a9aa2', cursor: 'pointer', transition: 'all .15s' }
+                        style: { display: 'grid', placeItems: 'center', width: '38px', height: '38px', borderRadius: '9px', border: '1px solid rgba(var(--sb-ink), 0.07)', background: 'rgba(var(--sb-ink), 0.02)', color: 'var(--sb-text-6)', cursor: 'pointer', transition: 'all .15s' }
                     }, React.createElement('i', { className: 'fas fa-network-wired', style: { fontSize: '13px' } })),
 
                     (!onLanding && displaySecurityLevel) && React.createElement('div', {
                         key: 'sec', onClick: handleSecurityClick,
                         onContextMenu: (e) => { e.preventDefault(); if (typeof onDisconnect === 'function') onDisconnect(); },
                         title: securityDetails.tooltip, className: 'sb-secpill',
-                        style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 12px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)', cursor: 'pointer' }
+                        style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 12px', borderRadius: '9px', border: '1px solid rgba(var(--sb-ink), 0.07)', background: 'rgba(var(--sb-ink), 0.02)', cursor: 'pointer' }
                     }, [
                         React.createElement('i', { key: 'i', className: 'fas fa-shield-halved', style: { fontSize: '13px', color: secColor } }),
-                        React.createElement('span', { key: 'l', className: 'hidden sm:inline', style: { fontSize: '12.5px', fontWeight: 600, color: '#e8e8eb' } }, (t(`secLevel.${displaySecurityLevel.level}`) === `secLevel.${displaySecurityLevel.level}` ? String(displaySecurityLevel.level) : t(`secLevel.${displaySecurityLevel.level}`))),
-                        React.createElement('span', { key: 's', style: { fontFamily: MONO, fontSize: '11.5px', color: '#8a8a92' } }, displaySecurityLevel.score + '%')
+                        React.createElement('span', { key: 'l', className: 'hidden sm:inline', style: { fontSize: '12.5px', fontWeight: 600, color: 'var(--sb-text-2)' } }, (t(`secLevel.${displaySecurityLevel.level}`) === `secLevel.${displaySecurityLevel.level}` ? String(displaySecurityLevel.level) : t(`secLevel.${displaySecurityLevel.level}`))),
+                        React.createElement('span', { key: 's', style: { fontFamily: MONO, fontSize: '11.5px', color: 'var(--sb-text-7)' } }, displaySecurityLevel.score + '%')
                     ]),
 
-                    !onLanding && React.createElement('div', { key: 'status', style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 13px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' } }, [
+                    !onLanding && React.createElement('div', { key: 'status', style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 13px', borderRadius: '9px', border: '1px solid rgba(var(--sb-ink), 0.07)', background: 'rgba(var(--sb-ink), 0.02)' } }, [
                         React.createElement('span', { key: 'dot', style: { width: '7px', height: '7px', borderRadius: '50%', background: dotColor, boxShadow: '0 0 0 3px ' + dotGlow } }),
-                        React.createElement('span', { key: 't', className: 'hidden sm:inline', style: { fontSize: '13px', fontWeight: 600, color: '#cfcfd4' } }, config.text)
+                        React.createElement('span', { key: 't', className: 'hidden sm:inline', style: { fontSize: '13px', fontWeight: 600, color: 'var(--sb-text-4)' } }, config.text)
                     ]),
 
                     isConnected && React.createElement('button', {
                         key: 'dc', onClick: onDisconnect, className: 'sb-disconnect',
-                        style: { display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 14px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#9a9aa2', fontFamily: 'inherit', fontSize: '13px', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }
+                        style: { display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 14px', borderRadius: '9px', border: '1px solid rgba(var(--sb-ink), 0.08)', background: 'transparent', color: 'var(--sb-text-6)', fontFamily: 'inherit', fontSize: '13px', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' }
                     }, [
                         React.createElement('i', { key: 'i', className: 'fas fa-power-off', style: { fontSize: '12px' } }),
                         React.createElement('span', { key: 't', className: 'sb-hide-sm' }, t('hdr.disconnect'))

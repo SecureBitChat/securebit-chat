@@ -36,6 +36,10 @@ const SHEETS = [
     // icons stop arriving a beat after the text.
     'assets/fontawesome/css/subset.css',
     'assets/fonts/inter/inter.css',
+    // First of the hand-written sheets: it declares the custom properties every other
+    // sheet and every inline style in the app reads, so it has to be in the cascade
+    // before anything that uses one.
+    'src/styles/theme.css',
     'src/styles/main.css',
     'src/styles/animations.css',
     'src/styles/components.css',

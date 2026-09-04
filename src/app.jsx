@@ -184,12 +184,12 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                         : React.createElement('code', null, highlightCode(code));
                     return React.createElement('div', {
                         className: "my-1 rounded-lg overflow-hidden",
-                        style: { backgroundColor: '#1b1c1b', border: '0 solid #e5e7eb' }
+                        style: { backgroundColor: 'var(--sb-legacy-1)', border: '0 solid var(--sb-text-3)' }
                     }, [
                         React.createElement('div', {
                             key: 'hdr',
                             className: "flex items-center justify-between px-3 py-1.5",
-                            style: { backgroundColor: '#222322', border: '0 solid #e5e7eb' }
+                            style: { backgroundColor: 'var(--sb-legacy-2)', border: '0 solid var(--sb-text-3)' }
                         }, [
                             React.createElement('span', {
                                 key: 'lang',
@@ -271,7 +271,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     const picker = (options, current, onPick) =>
                         React.createElement('div', {
                             className: "absolute end-0 z-50 min-w-[180px] max-w-[78vw] rounded-xl shadow-2xl overflow-hidden",
-                            style: { backgroundColor: '#1f201f', border: '0 solid #e5e7eb', bottom: '100%', marginBottom: '8px' }
+                            style: { backgroundColor: 'var(--sb-legacy-3)', border: '0 solid var(--sb-text-3)', bottom: '100%', marginBottom: '8px' }
                         }, options.map(opt => pickerItem(opt, current, onPick)));
 
                     const labelBtn = (key, { active, icon, label, title, onClick }) =>
@@ -679,20 +679,20 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
 
                     const elapsed = progress * dur;
                     const circ = 2 * Math.PI * 23;
-                    const playBg = isMe ? '#f0892a' : 'rgba(240,137,42,0.14)';
-                    const playColor = isMe ? '#1a0f04' : '#f0892a';
+                    const playBg = isMe ? 'var(--sb-orange-solid)' : 'rgba(var(--sb-orange-rgb), 0.14)';
+                    const playColor = isMe ? 'var(--sb-on-accent)' : 'var(--sb-orange)';
 
                     const barEls = bars.map((hgt, i) => {
                         const played = (i + 0.5) / bars.length <= progress;
                         let col;
-                        if (transferring) col = isMe ? 'rgba(255,255,255,0.13)' : 'rgba(255,255,255,0.1)';
-                        else col = played ? '#f0892a' : (isMe ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.16)');
+                        if (transferring) col = isMe ? 'rgba(var(--sb-ink), 0.13)' : 'rgba(var(--sb-ink), 0.1)';
+                        else col = played ? 'var(--sb-orange-solid)' : (isMe ? 'rgba(var(--sb-ink), 0.22)' : 'rgba(var(--sb-ink), 0.16)');
                         return h('span', { key: i, style: { flex: '1 1 0', minWidth: 0, width: '3px', height: Math.round(6 + hgt * 22) + 'px', borderRadius: '2px', background: col, transition: 'background .12s' } });
                     });
 
                     const ring = transferring && h('svg', { key: 'ring', width: 50, height: 50, viewBox: '0 0 50 50', style: { position: 'absolute', inset: 0, transform: 'rotate(-90deg)' } }, [
-                        h('circle', { key: 'bg', cx: 25, cy: 25, r: 23, fill: 'none', stroke: 'rgba(240,137,42,0.2)', strokeWidth: 2.5 }),
-                        h('circle', { key: 'fg', cx: 25, cy: 25, r: 23, fill: 'none', stroke: '#f0892a', strokeWidth: 2.5, strokeLinecap: 'round', strokeDasharray: circ.toFixed(1), strokeDashoffset: (circ * (1 - pct / 100)).toFixed(1), style: { transition: 'stroke-dashoffset .12s linear' } })
+                        h('circle', { key: 'bg', cx: 25, cy: 25, r: 23, fill: 'none', stroke: 'rgba(var(--sb-orange-rgb), 0.2)', strokeWidth: 2.5 }),
+                        h('circle', { key: 'fg', cx: 25, cy: 25, r: 23, fill: 'none', stroke: 'var(--sb-orange-solid)', strokeWidth: 2.5, strokeLinecap: 'round', strokeDasharray: circ.toFixed(1), strokeDashoffset: (circ * (1 - pct / 100)).toFixed(1), style: { transition: 'stroke-dashoffset .12s linear' } })
                     ]);
 
                     const icon = failed
@@ -711,14 +711,14 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                             ring,
                             h('button', {
                                 key: 'pb', onClick: toggle, title: transferring ? t('chat.transferring') : (playing ? t('msg.pause') : t('msg.play')),
-                                style: { width: '42px', height: '42px', borderRadius: '50%', display: 'grid', placeItems: 'center', border: 'none', background: failed ? 'rgba(229,114,122,0.15)' : playBg, color: failed ? '#e5727a' : playColor, cursor: (transferring || failed || !src) ? 'default' : 'pointer', transition: 'transform .15s cubic-bezier(.2,.7,.3,1)' }
+                                style: { width: '42px', height: '42px', borderRadius: '50%', display: 'grid', placeItems: 'center', border: 'none', background: failed ? 'rgba(var(--sb-red-rgb), 0.15)' : playBg, color: failed ? 'var(--sb-red)' : playColor, cursor: (transferring || failed || !src) ? 'default' : 'pointer', transition: 'transform .15s cubic-bezier(.2,.7,.3,1)' }
                             }, icon)
                         ]),
                         h('div', { key: 'body', style: { flex: 1, minWidth: 0 } }, [
                             h('div', { key: 'wave', onClick: seek, style: { display: 'flex', alignItems: 'center', gap: '2px', height: '30px', cursor: (transferring || failed || !src) ? 'default' : 'pointer' } }, barEls),
                             h('div', { key: 'meta', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px' } }, [
-                                h('span', { key: 't', style: { fontFamily: SB_MONO, fontSize: '10.5px', fontWeight: 500, color: transferring ? '#f0b072' : '#9a9aa2' } }, timeText),
-                                h('span', { key: 'l', style: { fontFamily: SB_MONO, fontSize: '9.5px', fontWeight: 600, color: failed ? '#e5727a' : (transferring ? '#f0892a' : '#56565e'), textTransform: 'uppercase', letterSpacing: '0.8px' } }, label)
+                                h('span', { key: 't', style: { fontFamily: SB_MONO, fontSize: '10.5px', fontWeight: 500, color: transferring ? 'var(--sb-orange-3)' : 'var(--sb-text-6)' } }, timeText),
+                                h('span', { key: 'l', style: { fontFamily: SB_MONO, fontSize: '9.5px', fontWeight: 600, color: failed ? 'var(--sb-red)' : (transferring ? 'var(--sb-orange)' : 'var(--sb-text-faint)'), textTransform: 'uppercase', letterSpacing: '0.8px' } }, label)
                             ])
                         ])
                     ]);
@@ -924,31 +924,31 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
 
                     if (micError) {
                         return h('div', { style: { display: 'flex', alignItems: 'center', gap: '12px' } }, [
-                            h('div', { key: 'msg', style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '9px', height: '46px', padding: '0 16px', borderRadius: '13px', background: 'rgba(229,72,72,0.06)', border: '1px solid rgba(229,72,72,0.22)', color: '#e5727a', fontSize: '13.5px' } }, [
+                            h('div', { key: 'msg', style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '9px', height: '46px', padding: '0 16px', borderRadius: '13px', background: 'rgba(var(--sb-red-strong-rgb), 0.06)', border: '1px solid rgba(var(--sb-red-strong-rgb), 0.22)', color: 'var(--sb-red)', fontSize: '13.5px' } }, [
                                 h('i', { key: 'i', className: 'fas fa-microphone-slash', style: { fontSize: '14px' } }),
                                 t('err.noAudio')
                             ]),
-                            h('button', { key: 'x', onClick: onCancel, title: t('chatHdr.close'), style: { flex: 'none', width: '46px', height: '46px', borderRadius: '50%', display: 'grid', placeItems: 'center', border: 'none', background: 'rgba(255,255,255,0.05)', color: '#9a9aa2', cursor: 'pointer' } },
+                            h('button', { key: 'x', onClick: onCancel, title: t('chatHdr.close'), style: { flex: 'none', width: '46px', height: '46px', borderRadius: '50%', display: 'grid', placeItems: 'center', border: 'none', background: 'rgba(var(--sb-ink), 0.05)', color: 'var(--sb-text-6)', cursor: 'pointer' } },
                                 h('i', { className: 'fas fa-xmark', style: { fontSize: '16px' } }))
                         ]);
                     }
 
-                    const barEls = liveBars.map((hgt, i) => h('span', { key: i, style: { flex: 'none', width: '3px', height: Math.round(4 + hgt * 24) + 'px', borderRadius: '2px', background: '#e5727a', opacity: (0.45 + hgt * 0.55) } }));
+                    const barEls = liveBars.map((hgt, i) => h('span', { key: i, style: { flex: 'none', width: '3px', height: Math.round(4 + hgt * 24) + 'px', borderRadius: '2px', background: 'var(--sb-red-solid)', opacity: (0.45 + hgt * 0.55) } }));
 
                     return h('div', { style: { display: 'flex', alignItems: 'center', gap: '12px' } }, [
                         h('button', {
                             key: 'cancel', onClick: () => finish(false), title: t('chat.discard'),
-                            style: { flex: 'none', width: '42px', height: '42px', borderRadius: '12px', display: 'grid', placeItems: 'center', border: 'none', background: 'rgba(255,255,255,0.04)', color: '#9a9aa2', cursor: 'pointer' }
+                            style: { flex: 'none', width: '42px', height: '42px', borderRadius: '12px', display: 'grid', placeItems: 'center', border: 'none', background: 'rgba(var(--sb-ink), 0.04)', color: 'var(--sb-text-6)', cursor: 'pointer' }
                         }, h('i', { className: 'fas fa-trash-can', style: { fontSize: '15px' } })),
-                        h('div', { key: 'bar', style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '11px', height: '46px', padding: '0 16px', borderRadius: '13px', background: 'rgba(229,72,72,0.06)', border: '1px solid rgba(229,72,72,0.22)' } }, [
+                        h('div', { key: 'bar', style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '11px', height: '46px', padding: '0 16px', borderRadius: '13px', background: 'rgba(var(--sb-red-strong-rgb), 0.06)', border: '1px solid rgba(var(--sb-red-strong-rgb), 0.22)' } }, [
                             h('span', { key: 'dot', style: { position: 'relative', flex: 'none', width: '9px', height: '9px' } },
-                                h('span', { style: { position: 'absolute', inset: 0, borderRadius: '50%', background: '#e5727a', animation: 'vmRec 1.3s ease-in-out infinite' } })),
-                            h('span', { key: 'time', style: { flex: 'none', fontFamily: SB_MONO, fontSize: '13px', fontWeight: 600, color: '#f4f4f6', minWidth: '42px' } }, sbFmtClock(elapsed)),
+                                h('span', { style: { position: 'absolute', inset: 0, borderRadius: '50%', background: 'var(--sb-red-solid)', animation: 'vmRec 1.3s ease-in-out infinite' } })),
+                            h('span', { key: 'time', style: { flex: 'none', fontFamily: SB_MONO, fontSize: '13px', fontWeight: 600, color: 'var(--sb-text-1)', minWidth: '42px' } }, sbFmtClock(elapsed)),
                             h('div', { key: 'wave', style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '2px', height: '30px', overflow: 'hidden' } }, barEls)
                         ]),
                         h('button', {
                             key: 'send', onClick: () => finish(true), title: t('chat.sendVoice'),
-                            style: { flex: 'none', width: '46px', height: '46px', borderRadius: '50%', display: 'grid', placeItems: 'center', border: 'none', background: '#f0892a', color: '#1a0f04', cursor: 'pointer', boxShadow: '0 8px 22px rgba(240,137,42,0.3)', transition: 'transform .15s cubic-bezier(.2,.7,.3,1)' }
+                            style: { flex: 'none', width: '46px', height: '46px', borderRadius: '50%', display: 'grid', placeItems: 'center', border: 'none', background: 'var(--sb-orange-solid)', color: 'var(--sb-on-accent)', cursor: 'pointer', boxShadow: '0 8px 22px rgba(var(--sb-orange-rgb), 0.3)', transition: 'transform .15s cubic-bezier(.2,.7,.3,1)' }
                         }, h('svg', { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }, [h('path', { key: 'a', d: 'M22 2L11 13' }), h('path', { key: 'b', d: 'M22 2l-7 20-4-9-9-4 20-7z' })]))
                     ]);
                 };
@@ -969,7 +969,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                         const isNotice = type === 'notice';
                         return React.createElement('div', { className: 'message-slide', style: { display: 'flex', justifyContent: 'center', margin: '4px 0' } },
                             React.createElement('div', {
-                                style: { maxWidth: '80%', padding: '8px 14px', borderRadius: '10px', border: '1px solid ' + (isNotice ? 'rgba(62,207,142,0.25)' : 'rgba(240,137,42,0.22)'), background: isNotice ? 'rgba(62,207,142,0.08)' : 'rgba(240,137,42,0.08)', color: isNotice ? '#8fe0bb' : '#e8b27a', fontSize: '12.5px', textAlign: 'center', lineHeight: 1.5 }
+                                style: { maxWidth: '80%', padding: '8px 14px', borderRadius: '10px', border: '1px solid ' + (isNotice ? 'rgba(var(--sb-green-rgb), 0.25)' : 'rgba(var(--sb-orange-rgb), 0.22)'), background: isNotice ? 'rgba(var(--sb-green-rgb), 0.08)' : 'rgba(var(--sb-orange-rgb), 0.08)', color: isNotice ? 'var(--sb-green-soft)' : 'var(--sb-orange-4)', fontSize: '12.5px', textAlign: 'center', lineHeight: 1.5 }
                             }, message)
                         );
                     }
@@ -996,8 +996,8 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     };
 
                     const radius = isMe ? '14px 14px 4px 14px' : '14px 14px 14px 4px';
-                    const border = isMe ? '1px solid rgba(255,255,255,0.10)' : '1px solid rgba(255,255,255,0.06)';
-                    const bg = isMe ? '#26262b' : '#161618';
+                    const border = isMe ? '1px solid rgba(var(--sb-ink), 0.10)' : '1px solid rgba(var(--sb-ink), 0.06)';
+                    const bg = isMe ? 'var(--sb-surface-3)' : 'var(--sb-surface)';
 
                     // Expired tombstone (disappearing / view-once) — content already wiped.
                     const isExpired = expired === true || (typeof expiresAt === 'number' && (nowTick || Date.now()) >= expiresAt);
@@ -1006,9 +1006,9 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                             className: 'message-slide',
                             style: { display: 'flex', width: '100%', justifyContent: isMe ? 'flex-end' : 'flex-start' }
                         }, React.createElement('div', { style: { maxWidth: '74%', minWidth: '170px' } },
-                            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '9px', padding: '12px 15px', borderRadius: radius, border: '1px dashed rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.018)' } }, [
-                                React.createElement('i', { key: 'i', className: 'fas fa-clock', style: { color: '#6b6b73', fontSize: '13px' } }),
-                                React.createElement('span', { key: 't', style: { fontSize: '13px', color: '#6b6b73', fontStyle: 'italic' } }, t('chat.expired'))
+                            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '9px', padding: '12px 15px', borderRadius: radius, border: '1px dashed rgba(var(--sb-ink), 0.1)', background: 'rgba(var(--sb-ink), 0.018)' } }, [
+                                React.createElement('i', { key: 'i', className: 'fas fa-clock', style: { color: 'var(--sb-text-9)', fontSize: '13px' } }),
+                                React.createElement('span', { key: 't', style: { fontSize: '13px', color: 'var(--sb-text-9)', fontStyle: 'italic' } }, t('chat.expired'))
                             ])
                         ));
                     }
@@ -1022,52 +1022,52 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                             onClick: handleReveal,
                             style: { position: 'relative', cursor: 'pointer', padding: '12px 15px 10px', overflow: 'hidden' }
                         }, [
-                            React.createElement('div', { key: 'blur', style: { fontSize: '14.5px', lineHeight: 1.55, color: '#b3b3ba', filter: 'blur(7px)', userSelect: 'none', pointerEvents: 'none', wordBreak: 'break-word', minHeight: '22px' } }, message),
+                            React.createElement('div', { key: 'blur', style: { fontSize: '14.5px', lineHeight: 1.55, color: 'var(--sb-text-5)', filter: 'blur(7px)', userSelect: 'none', pointerEvents: 'none', wordBreak: 'break-word', minHeight: '22px' } }, message),
                             React.createElement('div', { key: 'grain', style: { position: 'absolute', inset: 0, backgroundImage: GRAIN_URL, backgroundSize: '90px', opacity: 0.18, mixBlendMode: 'screen', pointerEvents: 'none' } }),
                             React.createElement('div', { key: 'lbl', style: { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', pointerEvents: 'none' } }, [
-                                React.createElement('i', { key: 'i', className: 'fas fa-eye-slash', style: { color: '#e8e8eb', fontSize: '13px' } }),
-                                React.createElement('span', { key: 't', style: { fontSize: '12px', fontWeight: 600, color: '#e8e8eb', textShadow: '0 1px 5px rgba(0,0,0,0.75)' } }, t('chat.viewOnceTap'))
+                                React.createElement('i', { key: 'i', className: 'fas fa-eye-slash', style: { color: 'var(--sb-text-2)', fontSize: '13px' } }),
+                                React.createElement('span', { key: 't', style: { fontSize: '12px', fontWeight: 600, color: 'var(--sb-text-2)', textShadow: '0 1px 5px rgba(0,0,0,0.75)' } }, t('chat.viewOnceTap'))
                             ])
                         ]);
                     } else {
-                        body = React.createElement('div', { key: 'body', style: { padding: '12px 15px 10px', color: '#e9e9ec' } },
+                        body = React.createElement('div', { key: 'body', style: { padding: '12px 15px 10px', color: 'var(--sb-text-2)' } },
                             React.createElement(MessageBody, { text: message })
                         );
                     }
 
                     const metaLeft = [
-                        React.createElement('span', { key: 'time', style: { fontFamily: SB_MONO, fontSize: '10.5px', color: '#6b6b73' } }, formatTime(timestamp))
+                        React.createElement('span', { key: 'time', style: { fontFamily: SB_MONO, fontSize: '10.5px', color: 'var(--sb-text-9)' } }, formatTime(timestamp))
                     ];
                     // WhatsApp-style delivery state on our own messages.
                     if (isMe) {
                         const stCfg = ({
-                            sending: { icon: 'fa-clock', color: '#6b6b73', label: t('chat.sending') },
-                            sent: { icon: 'fa-check', color: '#8a8a92', label: t('msg.sent') },
+                            sending: { icon: 'fa-clock', color: 'var(--sb-text-9)', label: t('chat.sending') },
+                            sent: { icon: 'fa-check', color: 'var(--sb-text-7)', label: t('msg.sent') },
                             // Two GREY ticks = delivered to the peer's device but not yet read.
-                            delivered: { icon: 'fa-check-double', color: '#8a8a92', label: t('chat.delivered') },
+                            delivered: { icon: 'fa-check-double', color: 'var(--sb-text-7)', label: t('chat.delivered') },
                             // Two GREEN ticks = the peer actually opened the chat and read it.
-                            read: { icon: 'fa-check-double', color: '#3ecf8e', label: t('msg.read') },
-                            failed: { icon: 'fa-triangle-exclamation', color: '#e5727a', label: t('chat.notSent') }
-                        })[status || 'sent'] || { icon: 'fa-check', color: '#8a8a92', label: t('msg.sent') };
+                            read: { icon: 'fa-check-double', color: 'var(--sb-green)', label: t('msg.read') },
+                            failed: { icon: 'fa-triangle-exclamation', color: 'var(--sb-red)', label: t('chat.notSent') }
+                        })[status || 'sent'] || { icon: 'fa-check', color: 'var(--sb-text-7)', label: t('msg.sent') };
                         metaLeft.push(React.createElement('span', {
                             key: 'dlv', title: stCfg.label,
                             style: { display: 'inline-flex', alignItems: 'center', color: stCfg.color }
                         }, React.createElement('i', { className: 'fas ' + stCfg.icon, style: { fontSize: '10.5px' } })));
                     }
                     if (isViewOnce && revealed) {
-                        metaLeft.push(React.createElement('span', { key: 'vo', style: { display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: 600, color: '#8a8a92' } }, [
-                            React.createElement('span', { key: 'd', style: { width: '4px', height: '4px', borderRadius: '50%', background: '#8a8a92' } }),
+                        metaLeft.push(React.createElement('span', { key: 'vo', style: { display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: 600, color: 'var(--sb-text-7)' } }, [
+                            React.createElement('span', { key: 'd', style: { width: '4px', height: '4px', borderRadius: '50%', background: 'var(--sb-text-7)' } }),
                             t('chat.viewedOnce')
                         ]));
                     } else if (remaining !== null) {
-                        metaLeft.push(React.createElement('span', { key: 'ttl', style: { display: 'inline-flex', alignItems: 'center', gap: '4px', fontFamily: SB_MONO, fontSize: '10.5px', fontWeight: 500, color: '#f0892a' } }, [
+                        metaLeft.push(React.createElement('span', { key: 'ttl', style: { display: 'inline-flex', alignItems: 'center', gap: '4px', fontFamily: SB_MONO, fontSize: '10.5px', fontWeight: 500, color: 'var(--sb-orange)' } }, [
                             React.createElement('i', { key: 'i', className: 'fas fa-clock', style: { fontSize: '10px' } }),
                             fmtRemaining(remaining)
                         ]));
                     }
 
                     const metaRight = [];
-                    metaRight.push(React.createElement('span', { key: 'status', style: { display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '10.5px', fontWeight: 600, color: '#3ecf8e', flex: 'none' } }, [
+                    metaRight.push(React.createElement('span', { key: 'status', style: { display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '10.5px', fontWeight: 600, color: 'var(--sb-green)', flex: 'none' } }, [
                         React.createElement('i', { key: 'i', className: encrypted ? 'fas fa-lock' : 'fas fa-lock-open', style: { fontSize: '10px' } }),
                         encrypted ? t('chat.encrypted') : t('chat.decrypted')
                     ]));
@@ -1076,7 +1076,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                         metaRight.push(React.createElement('button', {
                             key: 'unsend', onClick: () => onUnsend && onUnsend(mid), title: t('chat.deleteForEveryone'),
                             className: 'sb-unsend',
-                            style: { background: 'none', border: 'none', cursor: 'pointer', color: '#56565e', fontSize: '11px', padding: 0, lineHeight: 1 }
+                            style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--sb-text-faint)', fontSize: '11px', padding: 0, lineHeight: 1 }
                         }, React.createElement('i', { className: 'fas fa-trash-can' })));
                     }
 
@@ -1323,8 +1323,15 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     // app's real crypto handlers. Icons use FontAwesome (house style).
                     // ──────────────────────────────────────────────────────────────
                     const h = React.createElement;
-                    const C_ORANGE = '#f0892a';
-                    const C_GREEN = '#3ecf8e';
+                    const C_ORANGE = 'var(--sb-orange)';
+                    const C_GREEN = 'var(--sb-green)';
+                    // The same two accents as a fill rather than as text. A button's
+                    // background and a diagram's strokes are marks: they stay the brand
+                    // colour in both themes, because the ink on them is near-black either
+                    // way. C_ORANGE / C_GREEN above darken in the light theme so accent
+                    // *text* clears 4.5:1 on white, which a fill must not inherit.
+                    const C_ORANGE_SOLID = 'var(--sb-orange-solid)';
+                    const C_GREEN_SOLID = 'var(--sb-green-solid)';
                     const MONO = SB_MONO;
 
                     const encode = (data) => {
@@ -1436,16 +1443,16 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                             minHeight: '100vh', boxSizing: 'border-box',
                             padding: '46px', display: 'flex', flexDirection: 'column',
                             justifyContent: 'space-between', gap: '36px',
-                            borderInlineEnd: '1px solid rgba(255,255,255,0.06)',
-                            background: 'radial-gradient(900px 600px at 25% 18%, rgba(240,137,42,0.07), transparent 62%), radial-gradient(800px 700px at 80% 92%, rgba(62,207,142,0.06), transparent 60%), #0c0c0e'
+                            borderInlineEnd: '1px solid rgba(var(--sb-ink), 0.06)',
+                            background: 'radial-gradient(900px 600px at 25% 18%, rgba(var(--sb-orange-rgb), 0.07), transparent 62%), radial-gradient(800px 700px at 80% 92%, rgba(var(--sb-green-rgb), 0.06), transparent 60%), var(--sb-bg-deep)'
                         }
                     }, [
                         h('div', { key: 'herowrap', style: { flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative', zIndex: 2 } },
                         h('div', { key: 'hero', style: { maxWidth: '560px' } }, [
-                            h('h1', { key: 'h1', style: { margin: '0 0 14px', fontSize: '34px', fontWeight: 800, letterSpacing: '-1.1px', lineHeight: 1.1, color: '#f4f4f6' } }, [
+                            h('h1', { key: 'h1', style: { margin: '0 0 14px', fontSize: '34px', fontWeight: 800, letterSpacing: '-1.1px', lineHeight: 1.1, color: 'var(--sb-text-1)' } }, [
                                 t('hero.headlineTop'), h('br', { key: 'br' }), t('hero.headlineBottom')
                             ]),
-                            h('p', { key: 'p', style: { margin: '0 0 38px', fontSize: '14.5px', lineHeight: 1.6, color: '#8a8a92', maxWidth: '390px' } },
+                            h('p', { key: 'p', style: { margin: '0 0 38px', fontSize: '14.5px', lineHeight: 1.6, color: 'var(--sb-text-7)', maxWidth: '390px' } },
                                 t('hero.subheading')),
                             // P2P / mesh animation.
                             //
@@ -1465,41 +1472,41 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                                     style: { display: 'block', width: '100%', maxWidth: '380px', height: 'auto', overflow: 'visible' }
                                 }, [
                                     // the established 1:1 line
-                                    h('line', { key: 'l0', x1: 30, y1: 100, x2: 330, y2: 100, stroke: C_ORANGE, strokeWidth: 1.5, strokeOpacity: 0.75 }),
-                                    h('circle', { key: 'p0', r: 3.6, fill: '#f0a455', style: { offsetPath: "path('M30,100 L330,100')", animation: 'sbTrav 2.8s linear infinite' } }),
+                                    h('line', { key: 'l0', x1: 30, y1: 100, x2: 330, y2: 100, stroke: C_ORANGE_SOLID, strokeWidth: 1.5, strokeOpacity: 0.75 }),
+                                    h('circle', { key: 'p0', r: 3.6, fill: 'var(--sb-orange-2)', style: { offsetPath: "path('M30,100 L330,100')", animation: 'sbTrav 2.8s linear infinite' } }),
 
                                     // first peer joins
                                     h('g', { key: 'g1', style: { animation: 'sbIn1 14s linear infinite' } }, [
-                                        h('line', { key: 'a', x1: 30, y1: 100, x2: 250, y2: 26, stroke: C_ORANGE, strokeWidth: 1.4, strokeOpacity: 0.7 }),
-                                        h('line', { key: 'b', x1: 250, y1: 26, x2: 330, y2: 100, stroke: C_GREEN, strokeWidth: 1.2, strokeOpacity: 0.3 }),
-                                        h('circle', { key: 'p', r: 3.2, fill: '#f0a455', style: { offsetPath: "path('M30,100 L250,26')", animation: 'sbTrav 3s linear .6s infinite' } }),
-                                        h('circle', { key: 'n', cx: 250, cy: 26, r: 5, fill: '#0c0c0e', stroke: '#6b6760', strokeWidth: 1.2 }),
-                                        h('text', { key: 't', x: 250, y: 8, textAnchor: 'middle', fontFamily: MONO, fontSize: 12, fill: '#8f8b84' }, 'mara')
+                                        h('line', { key: 'a', x1: 30, y1: 100, x2: 250, y2: 26, stroke: C_ORANGE_SOLID, strokeWidth: 1.4, strokeOpacity: 0.7 }),
+                                        h('line', { key: 'b', x1: 250, y1: 26, x2: 330, y2: 100, stroke: C_GREEN_SOLID, strokeWidth: 1.2, strokeOpacity: 0.3 }),
+                                        h('circle', { key: 'p', r: 3.2, fill: 'var(--sb-orange-2)', style: { offsetPath: "path('M30,100 L250,26')", animation: 'sbTrav 3s linear .6s infinite' } }),
+                                        h('circle', { key: 'n', cx: 250, cy: 26, r: 5, fill: 'var(--sb-bg-deep)', stroke: 'var(--sb-diag-stroke)', strokeWidth: 1.2 }),
+                                        h('text', { key: 't', x: 250, y: 8, textAnchor: 'middle', fontFamily: MONO, fontSize: 12, fill: 'var(--sb-diag-label)' }, 'mara')
                                     ]),
-                                    h('circle', { key: 'r1', cx: 250, cy: 26, r: 5, fill: 'none', stroke: C_ORANGE, strokeOpacity: 0.6, style: { animation: 'sbRing1 14s linear infinite' } }),
+                                    h('circle', { key: 'r1', cx: 250, cy: 26, r: 5, fill: 'none', stroke: C_ORANGE_SOLID, strokeOpacity: 0.6, style: { animation: 'sbRing1 14s linear infinite' } }),
 
                                     // second peer joins, and the mesh closes
                                     h('g', { key: 'g2', style: { animation: 'sbIn2 14s linear infinite' } }, [
-                                        h('line', { key: 'a', x1: 30, y1: 100, x2: 250, y2: 174, stroke: C_ORANGE, strokeWidth: 1.4, strokeOpacity: 0.7 }),
-                                        h('line', { key: 'b', x1: 250, y1: 174, x2: 330, y2: 100, stroke: C_GREEN, strokeWidth: 1.2, strokeOpacity: 0.3 }),
-                                        h('line', { key: 'c', x1: 250, y1: 26, x2: 250, y2: 174, stroke: C_GREEN, strokeWidth: 1.2, strokeOpacity: 0.3 }),
-                                        h('circle', { key: 'p', r: 3.2, fill: '#f0a455', style: { offsetPath: "path('M30,100 L250,174')", animation: 'sbTrav 3s linear .3s infinite' } }),
-                                        h('circle', { key: 'q', r: 2.8, fill: C_GREEN, style: { offsetPath: "path('M250,26 L250,174')", animation: 'sbTrav 3.4s linear 1.2s infinite' } }),
-                                        h('circle', { key: 'n', cx: 250, cy: 174, r: 5, fill: '#0c0c0e', stroke: '#6b6760', strokeWidth: 1.2 }),
-                                        h('text', { key: 't', x: 250, y: 194, textAnchor: 'middle', fontFamily: MONO, fontSize: 12, fill: '#8f8b84' }, 'tobi')
+                                        h('line', { key: 'a', x1: 30, y1: 100, x2: 250, y2: 174, stroke: C_ORANGE_SOLID, strokeWidth: 1.4, strokeOpacity: 0.7 }),
+                                        h('line', { key: 'b', x1: 250, y1: 174, x2: 330, y2: 100, stroke: C_GREEN_SOLID, strokeWidth: 1.2, strokeOpacity: 0.3 }),
+                                        h('line', { key: 'c', x1: 250, y1: 26, x2: 250, y2: 174, stroke: C_GREEN_SOLID, strokeWidth: 1.2, strokeOpacity: 0.3 }),
+                                        h('circle', { key: 'p', r: 3.2, fill: 'var(--sb-orange-2)', style: { offsetPath: "path('M30,100 L250,174')", animation: 'sbTrav 3s linear .3s infinite' } }),
+                                        h('circle', { key: 'q', r: 2.8, fill: C_GREEN_SOLID, style: { offsetPath: "path('M250,26 L250,174')", animation: 'sbTrav 3.4s linear 1.2s infinite' } }),
+                                        h('circle', { key: 'n', cx: 250, cy: 174, r: 5, fill: 'var(--sb-bg-deep)', stroke: 'var(--sb-diag-stroke)', strokeWidth: 1.2 }),
+                                        h('text', { key: 't', x: 250, y: 194, textAnchor: 'middle', fontFamily: MONO, fontSize: 12, fill: 'var(--sb-diag-label)' }, 'tobi')
                                     ]),
-                                    h('circle', { key: 'r2', cx: 250, cy: 174, r: 5, fill: 'none', stroke: C_ORANGE, strokeOpacity: 0.6, style: { animation: 'sbRing2 14s linear infinite' } }),
+                                    h('circle', { key: 'r2', cx: 250, cy: 174, r: 5, fill: 'none', stroke: C_ORANGE_SOLID, strokeOpacity: 0.6, style: { animation: 'sbRing2 14s linear infinite' } }),
 
                                     // the two endpoints of the original line
-                                    h('circle', { key: 'pe', cx: 330, cy: 100, r: 5, fill: '#0c0c0e', stroke: '#6b6760', strokeWidth: 1.2 }),
-                                    h('text', { key: 'pt', x: 346, y: 104, fontFamily: MONO, fontSize: 12, fill: '#8f8b84' }, 'peer'),
-                                    h('circle', { key: 'yh', cx: 30, cy: 100, r: 15, fill: C_ORANGE, fillOpacity: 0.09 }),
-                                    h('circle', { key: 'yc', cx: 30, cy: 100, r: 6, fill: C_ORANGE }),
-                                    h('text', { key: 'yt', x: 30, y: 126, textAnchor: 'middle', fontFamily: MONO, fontSize: 12, fill: '#d8cfc1' }, t('mesh.you'))
+                                    h('circle', { key: 'pe', cx: 330, cy: 100, r: 5, fill: 'var(--sb-bg-deep)', stroke: 'var(--sb-diag-stroke)', strokeWidth: 1.2 }),
+                                    h('text', { key: 'pt', x: 346, y: 104, fontFamily: MONO, fontSize: 12, fill: 'var(--sb-diag-label)' }, 'peer'),
+                                    h('circle', { key: 'yh', cx: 30, cy: 100, r: 15, fill: C_ORANGE_SOLID, fillOpacity: 0.09 }),
+                                    h('circle', { key: 'yc', cx: 30, cy: 100, r: 6, fill: C_ORANGE_SOLID }),
+                                    h('text', { key: 'yt', x: 30, y: 126, textAnchor: 'middle', fontFamily: MONO, fontSize: 12, fill: 'var(--sb-diag-text)' }, t('mesh.you'))
                                 ]),
 
                                 // the log, timed to the same 14s loop as the nodes appearing
-                                h('div', { key: 'log', style: { display: 'flex', flexDirection: 'column', gap: '12px', fontFamily: MONO, fontSize: '12px', color: '#85817b' } }, [
+                                h('div', { key: 'log', style: { display: 'flex', flexDirection: 'column', gap: '12px', fontFamily: MONO, fontSize: '12px', color: 'var(--sb-diag-dim)' } }, [
                                     h('div', { key: 'r0', style: { animation: 'sbRow0 14s linear infinite' } }, t('mesh.peer')),
                                     h('div', { key: 'r1', style: { animation: 'sbRow1 14s linear infinite' } }, t('mesh.joined2')),
                                     h('div', { key: 'r2', style: { animation: 'sbRow2 14s linear infinite' } }, t('mesh.joined3'))
@@ -1508,8 +1515,8 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                         ])),
                         h('div', { key: 'badges', style: { position: 'relative', zIndex: 2, display: 'flex', flexWrap: 'wrap', gap: '8px' } },
                             ['ECDH P-384', 'AES-256-GCM', t('sec.pfsShort')].map((label) =>
-                                h('span', { key: label, style: { display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 11px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.025)', fontFamily: MONO, fontSize: '11px', fontWeight: 500, color: '#9a9aa2' } }, [
-                                    h('span', { key: 'dot', style: { width: '5px', height: '5px', borderRadius: '50%', background: C_GREEN } }),
+                                h('span', { key: label, style: { display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 11px', borderRadius: '8px', border: '1px solid rgba(var(--sb-ink), 0.07)', background: 'rgba(var(--sb-ink), 0.025)', fontFamily: MONO, fontSize: '11px', fontWeight: 500, color: 'var(--sb-text-6)' } }, [
+                                    h('span', { key: 'dot', style: { width: '5px', height: '5px', borderRadius: '50%', background: C_GREEN_SOLID } }),
                                     label
                                 ])
                             )
@@ -1517,78 +1524,78 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     ]);
 
                     // ── RIGHT PANEL · flow body (varies by step) ──
-                    const segToggle = atIntro && h('div', { key: 'seg', style: { position: 'relative', display: 'flex', padding: '4px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.07)', background: '#141416', marginBottom: '26px' } }, [
-                        h('div', { key: 'ind', style: { position: 'absolute', top: '4px', bottom: '4px', insetInlineStart: '4px', width: 'calc(50% - 4px)', borderRadius: '9px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.08)', transform: isCreate ? 'translateX(0%)' : `translateX(${100 * DIR}%)`, transition: 'transform .26s cubic-bezier(.3,.8,.3,1)' } }),
-                        h('button', { key: 'c', className: 'sb-seg-btn', onClick: () => setMode('create'), style: { position: 'relative', zIndex: 1, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '11px', border: 'none', background: 'transparent', color: isCreate ? '#f4f4f6' : '#7b7b83', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, cursor: 'pointer' } }, [fa('fa-plus', { key: 'i' }), t('action.create')]),
-                        h('button', { key: 'j', className: 'sb-seg-btn', onClick: () => setMode('join'), style: { position: 'relative', zIndex: 1, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '11px', border: 'none', background: 'transparent', color: !isCreate ? '#f4f4f6' : '#7b7b83', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, cursor: 'pointer' } }, [fa('fa-link', { key: 'i' }), t('action.join')])
+                    const segToggle = atIntro && h('div', { key: 'seg', style: { position: 'relative', display: 'flex', padding: '4px', borderRadius: '12px', border: '1px solid rgba(var(--sb-ink), 0.07)', background: 'var(--sb-surface)', marginBottom: '26px' } }, [
+                        h('div', { key: 'ind', style: { position: 'absolute', top: '4px', bottom: '4px', insetInlineStart: '4px', width: 'calc(50% - 4px)', borderRadius: '9px', background: 'rgba(var(--sb-ink), 0.07)', border: '1px solid rgba(var(--sb-ink), 0.08)', transform: isCreate ? 'translateX(0%)' : `translateX(${100 * DIR}%)`, transition: 'transform .26s cubic-bezier(.3,.8,.3,1)' } }),
+                        h('button', { key: 'c', className: 'sb-seg-btn', onClick: () => setMode('create'), style: { position: 'relative', zIndex: 1, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '11px', border: 'none', background: 'transparent', color: isCreate ? 'var(--sb-text-1)' : 'var(--sb-text-8)', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, cursor: 'pointer' } }, [fa('fa-plus', { key: 'i' }), t('action.create')]),
+                        h('button', { key: 'j', className: 'sb-seg-btn', onClick: () => setMode('join'), style: { position: 'relative', zIndex: 1, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '11px', border: 'none', background: 'transparent', color: !isCreate ? 'var(--sb-text-1)' : 'var(--sb-text-8)', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, cursor: 'pointer' } }, [fa('fa-link', { key: 'i' }), t('action.join')])
                     ]);
 
-                    const backButton = (key) => h('button', { key: key || 'back', className: 'sb-soft-btn', onClick: resetToSelect, style: { display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '14px', paddingBlock: '6px', paddingInlineStart: '8px', paddingInlineEnd: '11px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#9a9aa2', fontFamily: 'inherit', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' } }, [fa('fa-chevron-left', { key: 'i' }), t('action.back')]);
+                    const backButton = (key) => h('button', { key: key || 'back', className: 'sb-soft-btn', onClick: resetToSelect, style: { display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '14px', paddingBlock: '6px', paddingInlineStart: '8px', paddingInlineEnd: '11px', borderRadius: '8px', border: '1px solid rgba(var(--sb-ink), 0.08)', background: 'transparent', color: 'var(--sb-text-6)', fontFamily: 'inherit', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' } }, [fa('fa-chevron-left', { key: 'i' }), t('action.back')]);
 
                     // credential code block (offer/answer text fallback + copy)
-                    const credBlock = h('div', { key: 'codeblock', style: { borderRadius: '13px', border: '1px solid rgba(255,255,255,0.08)', background: '#141416', overflow: 'hidden', marginBottom: '16px' } }, [
-                        h('div', { key: 'bar', style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.2)' } }, [
+                    const credBlock = h('div', { key: 'codeblock', style: { borderRadius: '13px', border: '1px solid rgba(var(--sb-ink), 0.08)', background: 'var(--sb-surface)', overflow: 'hidden', marginBottom: '16px' } }, [
+                        h('div', { key: 'bar', style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 12px', borderBottom: '1px solid rgba(var(--sb-ink), 0.06)', background: 'rgba(0,0,0,0.2)' } }, [
                             h('span', { key: 'dot', style: { width: '7px', height: '7px', borderRadius: '50%', background: accent } }),
-                            h('span', { key: 'tag', style: { fontFamily: MONO, fontSize: '10.5px', fontWeight: 600, color: '#8a8a92' } }, isCreate ? t('cred.offerTag') : t('cred.answerTag')),
-                            h('button', { key: 'copy', onClick: copyCred, style: { marginInlineStart: 'auto', padding: '4px 9px', borderRadius: '6px', border: `1px solid ${copied ? 'rgba(62,207,142,0.4)' : 'rgba(255,255,255,0.1)'}`, background: copied ? 'rgba(62,207,142,0.1)' : 'rgba(255,255,255,0.04)', color: copied ? C_GREEN : '#b3b3ba', fontFamily: 'inherit', fontSize: '11px', fontWeight: 600, cursor: 'pointer', transition: 'all .14s' } }, copied ? t('action.copied') : t('action.copy'))
+                            h('span', { key: 'tag', style: { fontFamily: MONO, fontSize: '10.5px', fontWeight: 600, color: 'var(--sb-text-7)' } }, isCreate ? t('cred.offerTag') : t('cred.answerTag')),
+                            h('button', { key: 'copy', onClick: copyCred, style: { marginInlineStart: 'auto', padding: '4px 9px', borderRadius: '6px', border: `1px solid ${copied ? 'rgba(var(--sb-green-rgb), 0.4)' : 'rgba(var(--sb-ink), 0.1)'}`, background: copied ? 'rgba(var(--sb-green-rgb), 0.1)' : 'rgba(var(--sb-ink), 0.04)', color: copied ? C_GREEN : 'var(--sb-text-5)', fontFamily: 'inherit', fontSize: '11px', fontWeight: 600, cursor: 'pointer', transition: 'all .14s' } }, copied ? t('action.copied') : t('action.copy'))
                         ]),
                         // The handshake code is sensitive — keep it blurred until the
                         // user deliberately reveals it, underscoring that it must be
                         // shared only over a channel they trust.
                         h('div', { key: 'codewrap', style: { position: 'relative' } }, [
-                            h('div', { key: 'code', className: 'sb-sc', style: { fontFamily: MONO, fontSize: '11px', lineHeight: 1.55, color: '#c9ccd8', wordBreak: 'break-all', padding: '11px 12px', maxHeight: '72px', overflowY: 'auto', filter: codeRevealed ? 'none' : 'blur(6px)', userSelect: codeRevealed ? 'text' : 'none', transition: 'filter .2s' } }, credCode),
-                            !codeRevealed && h('button', { key: 'reveal', onClick: () => setCodeRevealed(true), style: { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', border: 'none', background: 'rgba(20,20,22,0.25)', color: '#cfcfd4', fontFamily: 'inherit', fontSize: '12px', fontWeight: 600, cursor: 'pointer' } }, [
+                            h('div', { key: 'code', className: 'sb-sc', style: { fontFamily: MONO, fontSize: '11px', lineHeight: 1.55, color: 'var(--sb-text-code)', wordBreak: 'break-all', padding: '11px 12px', maxHeight: '72px', overflowY: 'auto', filter: codeRevealed ? 'none' : 'blur(6px)', userSelect: codeRevealed ? 'text' : 'none', transition: 'filter .2s' } }, credCode),
+                            !codeRevealed && h('button', { key: 'reveal', onClick: () => setCodeRevealed(true), style: { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', border: 'none', background: 'rgba(var(--sb-surface-rgb), 0.25)', color: 'var(--sb-text-4)', fontFamily: 'inherit', fontSize: '12px', fontWeight: 600, cursor: 'pointer' } }, [
                                 fa('fa-eye', { key: 'i', fontSize: '15px' }),
                                 t('cred.reveal')
                             ])
                         ])
                     ]);
 
-                    const showQrButton = qrCodeUrl && h('button', { key: 'showqr', onClick: () => setQrModalOpen(true), style: { width: '100%', display: 'flex', alignItems: 'center', gap: '13px', padding: '15px 16px', borderRadius: '14px', border: `1px solid ${isCreate ? 'rgba(240,137,42,0.3)' : 'rgba(62,207,142,0.3)'}`, background: isCreate ? 'rgba(240,137,42,0.06)' : 'rgba(62,207,142,0.06)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'start', marginBottom: '14px' } }, [
-                        h('span', { key: 'ic', style: { flex: 'none', width: '42px', height: '42px', borderRadius: '12px', display: 'grid', placeItems: 'center', background: isCreate ? 'rgba(240,137,42,0.12)' : 'rgba(62,207,142,0.12)', border: `1px solid ${isCreate ? 'rgba(240,137,42,0.28)' : 'rgba(62,207,142,0.28)'}` } }, fa('fa-qrcode', { color: accent, fontSize: '18px' })),
+                    const showQrButton = qrCodeUrl && h('button', { key: 'showqr', onClick: () => setQrModalOpen(true), style: { width: '100%', display: 'flex', alignItems: 'center', gap: '13px', padding: '15px 16px', borderRadius: '14px', border: `1px solid ${isCreate ? 'rgba(var(--sb-orange-rgb), 0.3)' : 'rgba(var(--sb-green-rgb), 0.3)'}`, background: isCreate ? 'rgba(var(--sb-orange-rgb), 0.06)' : 'rgba(var(--sb-green-rgb), 0.06)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'start', marginBottom: '14px' } }, [
+                        h('span', { key: 'ic', style: { flex: 'none', width: '42px', height: '42px', borderRadius: '12px', display: 'grid', placeItems: 'center', background: isCreate ? 'rgba(var(--sb-orange-rgb), 0.12)' : 'rgba(var(--sb-green-rgb), 0.12)', border: `1px solid ${isCreate ? 'rgba(var(--sb-orange-rgb), 0.28)' : 'rgba(var(--sb-green-rgb), 0.28)'}` } }, fa('fa-qrcode', { color: accent, fontSize: '18px' })),
                         h('span', { key: 'tx', style: { flex: 1 } }, [
-                            h('span', { key: 't', style: { display: 'block', fontSize: '14.5px', fontWeight: 700, color: '#f4f4f6' } }, t('qr.showTitle')),
-                            h('span', { key: 's', style: { display: 'block', fontSize: '12.5px', color: '#8a8a92', marginTop: '1px' } }, (qrFramesTotal || 0) > 1 ? t('qr.showSubtitleFrames', { frames: qrFramesTotal }) : t('qr.showSubtitle'))
+                            h('span', { key: 't', style: { display: 'block', fontSize: '14.5px', fontWeight: 700, color: 'var(--sb-text-1)' } }, t('qr.showTitle')),
+                            h('span', { key: 's', style: { display: 'block', fontSize: '12.5px', color: 'var(--sb-text-7)', marginTop: '1px' } }, (qrFramesTotal || 0) > 1 ? t('qr.showSubtitleFrames', { frames: qrFramesTotal }) : t('qr.showSubtitle'))
                         ]),
-                        fa('fa-chevron-right', { color: '#6b6b73' })
+                        fa('fa-chevron-right', { color: 'var(--sb-text-9)' })
                     ]);
 
                     let inner;
                     if (showVerification) {
                         const verified = bothVerificationsConfirmed;
                         const cells = (verificationCode || '').split('').map((ch, i) =>
-                            h('div', { key: i, style: { flex: 1, maxWidth: '46px', aspectRatio: '0.82', display: 'grid', placeItems: 'center', borderRadius: '10px', border: '1px solid rgba(62,207,142,0.25)', background: 'rgba(62,207,142,0.05)', fontFamily: MONO, fontSize: '22px', fontWeight: 700, color: C_GREEN } }, ch));
+                            h('div', { key: i, style: { flex: 1, maxWidth: '46px', aspectRatio: '0.82', display: 'grid', placeItems: 'center', borderRadius: '10px', border: '1px solid rgba(var(--sb-green-rgb), 0.25)', background: 'rgba(var(--sb-green-rgb), 0.05)', fontFamily: MONO, fontSize: '22px', fontWeight: 700, color: C_GREEN } }, ch));
                         inner = h('div', { key: 'verify', style: { animation: 'sbUp .3s ease' } }, [
                             !verified && backButton('vback'),
                             h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', gap: '11px', marginBottom: '8px' } }, [
-                                h('div', { key: 'i', style: { width: '34px', height: '34px', flex: 'none', borderRadius: '10px', display: 'grid', placeItems: 'center', background: 'rgba(62,207,142,0.1)', border: '1px solid rgba(62,207,142,0.25)' } }, fa('fa-shield-alt', { color: C_GREEN })),
-                                h('h2', { key: 't', style: { margin: 0, fontSize: '21px', fontWeight: 800, letterSpacing: '-0.4px', color: '#f4f4f6' } }, t('verify.title'))
+                                h('div', { key: 'i', style: { width: '34px', height: '34px', flex: 'none', borderRadius: '10px', display: 'grid', placeItems: 'center', background: 'rgba(var(--sb-green-rgb), 0.1)', border: '1px solid rgba(var(--sb-green-rgb), 0.25)' } }, fa('fa-shield-alt', { color: C_GREEN })),
+                                h('h2', { key: 't', style: { margin: 0, fontSize: '21px', fontWeight: 800, letterSpacing: '-0.4px', color: 'var(--sb-text-1)' } }, t('verify.title'))
                             ]),
-                            h('p', { key: 'sub', style: { margin: '0 0 18px', fontSize: '13.5px', lineHeight: 1.55, color: '#8a8a92' } }, t('verify.desc')),
+                            h('p', { key: 'sub', style: { margin: '0 0 18px', fontSize: '13.5px', lineHeight: 1.55, color: 'var(--sb-text-7)' } }, t('verify.desc')),
                             h('div', { key: 'cells', dir: 'ltr', style: { display: 'flex', gap: '6px', justifyContent: 'center', marginBottom: '20px', flexWrap: 'wrap' } }, cells),
                             verified
-                                ? h('div', { key: 'ok', style: { display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '24px 16px', borderRadius: '16px', border: '1px solid rgba(62,207,142,0.25)', background: 'rgba(62,207,142,0.06)', animation: 'sbUp .3s ease' } }, [
-                                    h('div', { key: 'i', style: { width: '54px', height: '54px', borderRadius: '16px', display: 'grid', placeItems: 'center', background: 'rgba(62,207,142,0.14)', border: '1px solid rgba(62,207,142,0.35)', marginBottom: '14px' } }, fa('fa-check', { color: C_GREEN, fontSize: '24px' })),
-                                    h('div', { key: 't', style: { fontSize: '18px', fontWeight: 800, color: '#f4f4f6' } }, t('verify.verified')),
-                                    h('div', { key: 's', style: { fontSize: '13.5px', color: '#8a8a92', marginTop: '5px' } }, t('verify.bothConfirmed'))
+                                ? h('div', { key: 'ok', style: { display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '24px 16px', borderRadius: '16px', border: '1px solid rgba(var(--sb-green-rgb), 0.25)', background: 'rgba(var(--sb-green-rgb), 0.06)', animation: 'sbUp .3s ease' } }, [
+                                    h('div', { key: 'i', style: { width: '54px', height: '54px', borderRadius: '16px', display: 'grid', placeItems: 'center', background: 'rgba(var(--sb-green-rgb), 0.14)', border: '1px solid rgba(var(--sb-green-rgb), 0.35)', marginBottom: '14px' } }, fa('fa-check', { color: C_GREEN, fontSize: '24px' })),
+                                    h('div', { key: 't', style: { fontSize: '18px', fontWeight: 800, color: 'var(--sb-text-1)' } }, t('verify.verified')),
+                                    h('div', { key: 's', style: { fontSize: '13.5px', color: 'var(--sb-text-7)', marginTop: '5px' } }, t('verify.bothConfirmed'))
                                 ])
                                 : h('div', { key: 'form' }, [
-                                    h('div', { key: 'lbl', style: { fontSize: '12.5px', fontWeight: 600, color: '#9a9aa2', marginBottom: '8px' } }, t('verify.enterLabel')),
-                                    h('input', { key: 'in', dir: 'ltr', value: sasInput, onChange: (e) => { setSasInput(e.target.value.replace(/\D/g, '').slice(0, SAS_CODE_LENGTH)); if (sasError) setSasError(''); }, disabled: localVerificationConfirmed, autoFocus: true, autoComplete: 'one-time-code', spellCheck: false, type: 'text', inputMode: 'numeric', pattern: '[0-9]*', maxLength: SAS_CODE_LENGTH, placeholder: verificationCode ? t('verify.placeholder') : t('verify.waiting'), style: { width: '100%', textAlign: 'center', letterSpacing: '6px', borderRadius: '12px', border: `1px solid ${sasInput.length ? (canConfirm || localVerificationConfirmed ? 'rgba(62,207,142,0.5)' : 'rgba(255,255,255,0.14)') : 'rgba(255,255,255,0.08)'}`, background: '#141416', color: '#f4f4f6', fontFamily: MONO, fontSize: '20px', fontWeight: 700, padding: '14px', outline: 'none', marginBottom: sasError ? '8px' : '16px' } }),
-                                    sasError && h('p', { key: 'err', style: { color: '#e5727a', fontSize: '12.5px', margin: '0 0 16px' } }, sasError),
+                                    h('div', { key: 'lbl', style: { fontSize: '12.5px', fontWeight: 600, color: 'var(--sb-text-6)', marginBottom: '8px' } }, t('verify.enterLabel')),
+                                    h('input', { key: 'in', dir: 'ltr', value: sasInput, onChange: (e) => { setSasInput(e.target.value.replace(/\D/g, '').slice(0, SAS_CODE_LENGTH)); if (sasError) setSasError(''); }, disabled: localVerificationConfirmed, autoFocus: true, autoComplete: 'one-time-code', spellCheck: false, type: 'text', inputMode: 'numeric', pattern: '[0-9]*', maxLength: SAS_CODE_LENGTH, placeholder: verificationCode ? t('verify.placeholder') : t('verify.waiting'), style: { width: '100%', textAlign: 'center', letterSpacing: '6px', borderRadius: '12px', border: `1px solid ${sasInput.length ? (canConfirm || localVerificationConfirmed ? 'rgba(var(--sb-green-rgb), 0.5)' : 'rgba(var(--sb-ink), 0.14)') : 'rgba(var(--sb-ink), 0.08)'}`, background: 'var(--sb-surface)', color: 'var(--sb-text-1)', fontFamily: MONO, fontSize: '20px', fontWeight: 700, padding: '14px', outline: 'none', marginBottom: sasError ? '8px' : '16px' } }),
+                                    sasError && h('p', { key: 'err', style: { color: 'var(--sb-red)', fontSize: '12.5px', margin: '0 0 16px' } }, sasError),
                                     h('div', { key: 'status', style: { display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' } }, [
-                                        h('div', { key: 'you', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderRadius: '11px', border: '1px solid rgba(255,255,255,0.06)', background: '#141416' } }, [
-                                            h('span', { key: 'l', style: { fontSize: '13px', color: '#cfcfd4', fontWeight: 600 } }, t('verify.yours')),
-                                            h('span', { key: 'v', style: { display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: localVerificationConfirmed ? C_GREEN : '#7b7b83' } }, [fa(localVerificationConfirmed ? 'fa-check-circle' : 'fa-clock', { key: 'i' }), localVerificationConfirmed ? t('verify.confirmed') : t('verify.pending')])
+                                        h('div', { key: 'you', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderRadius: '11px', border: '1px solid rgba(var(--sb-ink), 0.06)', background: 'var(--sb-surface)' } }, [
+                                            h('span', { key: 'l', style: { fontSize: '13px', color: 'var(--sb-text-4)', fontWeight: 600 } }, t('verify.yours')),
+                                            h('span', { key: 'v', style: { display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: localVerificationConfirmed ? C_GREEN : 'var(--sb-text-8)' } }, [fa(localVerificationConfirmed ? 'fa-check-circle' : 'fa-clock', { key: 'i' }), localVerificationConfirmed ? t('verify.confirmed') : t('verify.pending')])
                                         ]),
-                                        h('div', { key: 'peer', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderRadius: '11px', border: '1px solid rgba(255,255,255,0.06)', background: '#141416' } }, [
-                                            h('span', { key: 'l', style: { fontSize: '13px', color: '#cfcfd4', fontWeight: 600 } }, t('verify.peer')),
-                                            h('span', { key: 'v', style: { display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: remoteVerificationConfirmed ? C_GREEN : '#7b7b83' } }, [fa(remoteVerificationConfirmed ? 'fa-check-circle' : 'fa-clock', { key: 'i' }), remoteVerificationConfirmed ? t('verify.confirmed') : t('verify.pending')])
+                                        h('div', { key: 'peer', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderRadius: '11px', border: '1px solid rgba(var(--sb-ink), 0.06)', background: 'var(--sb-surface)' } }, [
+                                            h('span', { key: 'l', style: { fontSize: '13px', color: 'var(--sb-text-4)', fontWeight: 600 } }, t('verify.peer')),
+                                            h('span', { key: 'v', style: { display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: remoteVerificationConfirmed ? C_GREEN : 'var(--sb-text-8)' } }, [fa(remoteVerificationConfirmed ? 'fa-check-circle' : 'fa-clock', { key: 'i' }), remoteVerificationConfirmed ? t('verify.confirmed') : t('verify.pending')])
                                         ])
                                     ]),
                                     h('div', { key: 'btns', style: { display: 'flex', gap: '10px' } }, [
-                                        h('button', { key: 'ok', onClick: handleSasConfirm, disabled: !canConfirm, style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', borderRadius: '13px', border: 'none', background: canConfirm ? C_GREEN : 'rgba(255,255,255,0.05)', color: canConfirm ? '#08160e' : '#56565e', fontFamily: 'inherit', fontSize: '14.5px', fontWeight: 700, cursor: canConfirm ? 'pointer' : 'not-allowed', boxShadow: canConfirm ? '0 8px 24px rgba(62,207,142,0.25)' : 'none' } }, [fa(localVerificationConfirmed ? 'fa-check-circle' : 'fa-check', { key: 'i' }), localVerificationConfirmed ? t('verify.confirmed') : t('verify.confirm')]),
-                                        h('button', { key: 'no', onClick: handleVerificationReject, style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', padding: '14px 16px', borderRadius: '13px', border: '1px solid rgba(229,114,122,0.3)', background: 'transparent', color: '#e5727a', fontFamily: 'inherit', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' } }, [fa('fa-times', { key: 'i' }), t('verify.mismatch')])
+                                        h('button', { key: 'ok', onClick: handleSasConfirm, disabled: !canConfirm, style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', borderRadius: '13px', border: 'none', background: canConfirm ? C_GREEN_SOLID : 'rgba(var(--sb-ink), 0.05)', color: canConfirm ? 'var(--sb-on-green-2)' : 'var(--sb-text-faint)', fontFamily: 'inherit', fontSize: '14.5px', fontWeight: 700, cursor: canConfirm ? 'pointer' : 'not-allowed', boxShadow: canConfirm ? '0 8px 24px rgba(var(--sb-green-rgb), 0.25)' : 'none' } }, [fa(localVerificationConfirmed ? 'fa-check-circle' : 'fa-check', { key: 'i' }), localVerificationConfirmed ? t('verify.confirmed') : t('verify.confirm')]),
+                                        h('button', { key: 'no', onClick: handleVerificationReject, style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', padding: '14px 16px', borderRadius: '13px', border: '1px solid rgba(var(--sb-red-rgb), 0.3)', background: 'transparent', color: 'var(--sb-red)', fontFamily: 'inherit', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' } }, [fa('fa-times', { key: 'i' }), t('verify.mismatch')])
                                     ])
                                 ])
                         ]);
@@ -1598,20 +1605,20 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                             h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', gap: '13px', marginBottom: '22px' } }, [
                                 h('div', { key: 'sp', style: { width: '44px', height: '44px', flex: 'none', display: 'grid', placeItems: 'center' } }, fa('fa-circle-notch', { color: C_ORANGE, fontSize: '32px', animation: 'sbSpin 1s linear infinite' })),
                                 h('div', { key: 'tx' }, [
-                                    h('h2', { key: 't', style: { margin: 0, fontSize: '20px', fontWeight: 800, letterSpacing: '-0.4px', color: '#f4f4f6' } }, isCreate ? t('handshake.securingTitle') : t('handshake.answerTitle')),
-                                    h('p', { key: 's', style: { margin: '3px 0 0', fontSize: '13px', color: '#8a8a92' } }, t('handshake.securingDesc'))
+                                    h('h2', { key: 't', style: { margin: 0, fontSize: '20px', fontWeight: 800, letterSpacing: '-0.4px', color: 'var(--sb-text-1)' } }, isCreate ? t('handshake.securingTitle') : t('handshake.answerTitle')),
+                                    h('p', { key: 's', style: { margin: '3px 0 0', fontSize: '13px', color: 'var(--sb-text-7)' } }, t('handshake.securingDesc'))
                                 ])
                             ]),
-                            h('div', { key: 'steps', style: { display: 'flex', flexDirection: 'column', borderRadius: '13px', border: '1px solid rgba(255,255,255,0.07)', background: '#141416', overflow: 'hidden' } },
+                            h('div', { key: 'steps', style: { display: 'flex', flexDirection: 'column', borderRadius: '13px', border: '1px solid rgba(var(--sb-ink), 0.07)', background: 'var(--sb-surface)', overflow: 'hidden' } },
                                 genSteps.map((label, i) => {
                                     const done = genProgress > i;
                                     const active = genProgress === i;
-                                    return h('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: '12px', padding: '13px 15px', borderTop: i ? '1px solid rgba(255,255,255,0.05)' : 'none', transition: 'background .3s', background: done ? 'rgba(62,207,142,0.04)' : 'transparent' } }, [
-                                        h('div', { key: 'd', style: { flex: 'none', width: '20px', height: '20px', borderRadius: '50%', display: 'grid', placeItems: 'center', background: done ? 'rgba(62,207,142,0.12)' : (active ? 'rgba(240,137,42,0.12)' : 'rgba(255,255,255,0.04)'), border: `1px solid ${done ? 'rgba(62,207,142,0.3)' : (active ? 'rgba(240,137,42,0.3)' : 'rgba(255,255,255,0.1)')}`, transition: 'all .3s' } },
+                                    return h('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: '12px', padding: '13px 15px', borderTop: i ? '1px solid rgba(var(--sb-ink), 0.05)' : 'none', transition: 'background .3s', background: done ? 'rgba(var(--sb-green-rgb), 0.04)' : 'transparent' } }, [
+                                        h('div', { key: 'd', style: { flex: 'none', width: '20px', height: '20px', borderRadius: '50%', display: 'grid', placeItems: 'center', background: done ? 'rgba(var(--sb-green-rgb), 0.12)' : (active ? 'rgba(var(--sb-orange-rgb), 0.12)' : 'rgba(var(--sb-ink), 0.04)'), border: `1px solid ${done ? 'rgba(var(--sb-green-rgb), 0.3)' : (active ? 'rgba(var(--sb-orange-rgb), 0.3)' : 'rgba(var(--sb-ink), 0.1)')}`, transition: 'all .3s' } },
                                             done
                                                 ? fa('fa-check', { color: C_GREEN, fontSize: '11px' })
-                                                : h('span', { style: { width: '6px', height: '6px', borderRadius: '50%', background: active ? C_ORANGE : '#56565e', animation: active ? 'sbBlink 1s ease-in-out infinite' : 'none' } })),
-                                        h('span', { key: 'l', style: { fontSize: '13.5px', color: done ? '#cfcfd4' : (active ? '#e8e8eb' : '#6b6b73'), transition: 'color .3s' } }, label)
+                                                : h('span', { style: { width: '6px', height: '6px', borderRadius: '50%', background: active ? C_ORANGE_SOLID : 'var(--sb-text-faint)', animation: active ? 'sbBlink 1s ease-in-out infinite' : 'none' } })),
+                                        h('span', { key: 'l', style: { fontSize: '13.5px', color: done ? 'var(--sb-text-4)' : (active ? 'var(--sb-text-2)' : 'var(--sb-text-9)'), transition: 'color .3s' } }, label)
                                     ]);
                                 })
                             )
@@ -1619,52 +1626,52 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     } else if (isOfferCred || isAnswerCred) {
                         inner = h('div', { key: 'cred', style: { animation: 'sbUp .3s ease' } }, [
                             backButton('cback'),
-                            h('h2', { key: 'h', style: { margin: '0 0 6px', fontSize: '23px', fontWeight: 800, letterSpacing: '-0.5px', color: '#f4f4f6' } }, isCreate ? t('handshake.shareTitle') : t('handshake.sendAnswerTitle')),
-                            h('p', { key: 'p', style: { margin: '0 0 18px', fontSize: '14px', lineHeight: 1.55, color: '#8a8a92' } }, isCreate ? t('handshake.shareDesc') : t('handshake.sendAnswerDesc')),
+                            h('h2', { key: 'h', style: { margin: '0 0 6px', fontSize: '23px', fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--sb-text-1)' } }, isCreate ? t('handshake.shareTitle') : t('handshake.sendAnswerTitle')),
+                            h('p', { key: 'p', style: { margin: '0 0 18px', fontSize: '14px', lineHeight: 1.55, color: 'var(--sb-text-7)' } }, isCreate ? t('handshake.shareDesc') : t('handshake.sendAnswerDesc')),
                             showQrButton,
                             credBlock,
                             isOfferCred && h('div', { key: 'offerextra', style: { marginTop: '4px' } }, [
-                                h('div', { key: 'lbl', style: { fontSize: '12.5px', fontWeight: 600, color: '#9a9aa2', marginBottom: '8px' } }, t('handshake.thenReceive')),
-                                h('div', { key: 'ta', style: { borderRadius: '12px', border: `1px solid ${hasAnswer ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.07)'}`, background: '#141416', padding: '11px 14px', marginBottom: '10px' } },
-                                    h('textarea', { dir: 'ltr', value: answerInput, onChange: (e) => { setAnswerInput(e.target.value); if (e.target.value.trim().length > 0 && typeof markAnswerCreated === 'function') markAnswerCreated(); }, rows: 2, placeholder: t('handshake.pasteAnswerPlaceholder'), style: { width: '100%', resize: 'none', border: 'none', outline: 'none', background: 'transparent', color: '#d7d7db', fontFamily: MONO, fontSize: '12px', lineHeight: 1.55, minHeight: '44px' } })),
+                                h('div', { key: 'lbl', style: { fontSize: '12.5px', fontWeight: 600, color: 'var(--sb-text-6)', marginBottom: '8px' } }, t('handshake.thenReceive')),
+                                h('div', { key: 'ta', style: { borderRadius: '12px', border: `1px solid ${hasAnswer ? 'rgba(var(--sb-ink), 0.18)' : 'rgba(var(--sb-ink), 0.07)'}`, background: 'var(--sb-surface)', padding: '11px 14px', marginBottom: '10px' } },
+                                    h('textarea', { dir: 'ltr', value: answerInput, onChange: (e) => { setAnswerInput(e.target.value); if (e.target.value.trim().length > 0 && typeof markAnswerCreated === 'function') markAnswerCreated(); }, rows: 2, placeholder: t('handshake.pasteAnswerPlaceholder'), style: { width: '100%', resize: 'none', border: 'none', outline: 'none', background: 'transparent', color: 'var(--sb-text-3)', fontFamily: MONO, fontSize: '12px', lineHeight: 1.55, minHeight: '44px' } })),
                                 h('div', { key: 'btns', style: { display: 'flex', gap: '10px' } }, [
-                                    h('button', { key: 'scan', className: 'sb-scan-btn', onClick: () => setShowQRScannerModal(true), style: { flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px 16px', borderRadius: '13px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#cfcfd4', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, cursor: 'pointer' } }, [fa('fa-camera', { key: 'i' }), t('action.scan')]),
-                                    h('button', { key: 'est', onClick: onConnect, disabled: !hasAnswer, style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '14px', borderRadius: '13px', border: 'none', background: hasAnswer ? C_ORANGE : 'rgba(255,255,255,0.05)', color: hasAnswer ? '#1a0f04' : '#56565e', fontFamily: 'inherit', fontSize: '14.5px', fontWeight: 700, cursor: hasAnswer ? 'pointer' : 'not-allowed', boxShadow: hasAnswer ? '0 8px 24px rgba(240,137,42,0.28)' : 'none' } }, t('handshake.establish'))
+                                    h('button', { key: 'scan', className: 'sb-scan-btn', onClick: () => setShowQRScannerModal(true), style: { flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px 16px', borderRadius: '13px', border: '1px solid rgba(var(--sb-ink), 0.1)', background: 'rgba(var(--sb-ink), 0.04)', color: 'var(--sb-text-4)', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, cursor: 'pointer' } }, [fa('fa-camera', { key: 'i' }), t('action.scan')]),
+                                    h('button', { key: 'est', onClick: onConnect, disabled: !hasAnswer, style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '14px', borderRadius: '13px', border: 'none', background: hasAnswer ? C_ORANGE_SOLID : 'rgba(var(--sb-ink), 0.05)', color: hasAnswer ? 'var(--sb-on-accent)' : 'var(--sb-text-faint)', fontFamily: 'inherit', fontSize: '14.5px', fontWeight: 700, cursor: hasAnswer ? 'pointer' : 'not-allowed', boxShadow: hasAnswer ? '0 8px 24px rgba(var(--sb-orange-rgb), 0.28)' : 'none' } }, t('handshake.establish'))
                                 ])
                             ]),
-                            isAnswerCred && h('div', { key: 'answerextra', style: { marginTop: '4px', display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', borderRadius: '12px', border: '1px solid rgba(62,207,142,0.18)', background: 'rgba(62,207,142,0.05)' } }, [
+                            isAnswerCred && h('div', { key: 'answerextra', style: { marginTop: '4px', display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', borderRadius: '12px', border: '1px solid rgba(var(--sb-green-rgb), 0.18)', background: 'rgba(var(--sb-green-rgb), 0.05)' } }, [
                                 fa('fa-circle-notch', { key: 'i', color: C_GREEN, animation: 'sbSpin 1.4s linear infinite' }),
-                                h('span', { key: 't', style: { fontSize: '13px', color: '#cfcfd4', fontWeight: 500 } }, t('handshake.answerSentNote'))
+                                h('span', { key: 't', style: { fontSize: '13px', color: 'var(--sb-text-4)', fontWeight: 500 } }, t('handshake.answerSentNote'))
                             ])
                         ]);
                     } else if (isCreate) {
                         // CREATE intro
                         inner = h('div', { key: 'introC', style: { animation: 'sbUp .28s ease' } }, [
-                            h('h2', { key: 'h', style: { margin: '0 0 6px', fontSize: '23px', fontWeight: 800, letterSpacing: '-0.5px', color: '#f4f4f6' } }, t('intro.createTitle')),
-                            h('p', { key: 'p', style: { margin: '0 0 22px', fontSize: '14px', lineHeight: 1.55, color: '#8a8a92' } }, t('intro.createDesc')),
-                            h('button', { key: 'gen', className: 'sb-gen-btn', onClick: () => { requestNotificationPermissionOnInteraction(); if (webrtcManagerRef.current) handleCreateOffer(); }, style: { width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '15px', borderRadius: '13px', border: 'none', background: C_ORANGE, color: '#1a0f04', fontFamily: 'inherit', fontSize: '15px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 8px 24px rgba(240,137,42,0.28)' } }, [fa('fa-bolt', { key: 'i' }), t('intro.createCta')])
+                            h('h2', { key: 'h', style: { margin: '0 0 6px', fontSize: '23px', fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--sb-text-1)' } }, t('intro.createTitle')),
+                            h('p', { key: 'p', style: { margin: '0 0 22px', fontSize: '14px', lineHeight: 1.55, color: 'var(--sb-text-7)' } }, t('intro.createDesc')),
+                            h('button', { key: 'gen', className: 'sb-gen-btn', onClick: () => { requestNotificationPermissionOnInteraction(); if (webrtcManagerRef.current) handleCreateOffer(); }, style: { width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '15px', borderRadius: '13px', border: 'none', background: C_ORANGE_SOLID, color: 'var(--sb-on-accent)', fontFamily: 'inherit', fontSize: '15px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 8px 24px rgba(var(--sb-orange-rgb), 0.28)' } }, [fa('fa-bolt', { key: 'i' }), t('intro.createCta')])
                         ]);
                     } else {
                         // JOIN intro
                         inner = h('div', { key: 'introJ', style: { animation: 'sbUp .28s ease' } }, [
-                            h('h2', { key: 'h', style: { margin: '0 0 6px', fontSize: '23px', fontWeight: 800, letterSpacing: '-0.5px', color: '#f4f4f6' } }, t('intro.joinTitle')),
-                            h('p', { key: 'p', style: { margin: '0 0 16px', fontSize: '14px', lineHeight: 1.55, color: '#8a8a92' } }, "Scan your peer's QR with your camera, or paste their invitation code."),
-                            h('button', { key: 'scan', className: 'sb-scan-btn', onClick: () => { requestNotificationPermissionOnInteraction(); setShowQRScannerModal(true); }, style: { width: '100%', display: 'flex', alignItems: 'center', gap: '13px', padding: '15px 16px', borderRadius: '14px', border: '1px solid rgba(62,207,142,0.3)', background: 'rgba(62,207,142,0.06)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'start', marginBottom: '14px' } }, [
-                                h('span', { key: 'ic', style: { flex: 'none', width: '42px', height: '42px', borderRadius: '12px', display: 'grid', placeItems: 'center', background: 'rgba(62,207,142,0.12)', border: '1px solid rgba(62,207,142,0.28)' } }, fa('fa-camera', { color: C_GREEN, fontSize: '18px' })),
+                            h('h2', { key: 'h', style: { margin: '0 0 6px', fontSize: '23px', fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--sb-text-1)' } }, t('intro.joinTitle')),
+                            h('p', { key: 'p', style: { margin: '0 0 16px', fontSize: '14px', lineHeight: 1.55, color: 'var(--sb-text-7)' } }, "Scan your peer's QR with your camera, or paste their invitation code."),
+                            h('button', { key: 'scan', className: 'sb-scan-btn', onClick: () => { requestNotificationPermissionOnInteraction(); setShowQRScannerModal(true); }, style: { width: '100%', display: 'flex', alignItems: 'center', gap: '13px', padding: '15px 16px', borderRadius: '14px', border: '1px solid rgba(var(--sb-green-rgb), 0.3)', background: 'rgba(var(--sb-green-rgb), 0.06)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'start', marginBottom: '14px' } }, [
+                                h('span', { key: 'ic', style: { flex: 'none', width: '42px', height: '42px', borderRadius: '12px', display: 'grid', placeItems: 'center', background: 'rgba(var(--sb-green-rgb), 0.12)', border: '1px solid rgba(var(--sb-green-rgb), 0.28)' } }, fa('fa-camera', { color: C_GREEN, fontSize: '18px' })),
                                 h('span', { key: 'tx', style: { flex: 1 } }, [
-                                    h('span', { key: 't', style: { display: 'block', fontSize: '14.5px', fontWeight: 700, color: '#f4f4f6' } }, t('intro.scanTitle')),
-                                    h('span', { key: 's', style: { display: 'block', fontSize: '12.5px', color: '#8a8a92', marginTop: '1px' } }, t('intro.scanSubtitle'))
+                                    h('span', { key: 't', style: { display: 'block', fontSize: '14.5px', fontWeight: 700, color: 'var(--sb-text-1)' } }, t('intro.scanTitle')),
+                                    h('span', { key: 's', style: { display: 'block', fontSize: '12.5px', color: 'var(--sb-text-7)', marginTop: '1px' } }, t('intro.scanSubtitle'))
                                 ]),
-                                fa('fa-chevron-right', { color: '#6b6b73' })
+                                fa('fa-chevron-right', { color: 'var(--sb-text-9)' })
                             ]),
                             h('div', { key: 'or', style: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' } }, [
-                                h('span', { key: 'a', style: { flex: 1, height: '1px', background: 'rgba(255,255,255,0.07)' } }),
-                                h('span', { key: 'm', style: { fontSize: '11px', fontWeight: 600, color: '#56565e', textTransform: 'uppercase', letterSpacing: '0.7px' } }, t('intro.orPasteCode')),
-                                h('span', { key: 'b', style: { flex: 1, height: '1px', background: 'rgba(255,255,255,0.07)' } })
+                                h('span', { key: 'a', style: { flex: 1, height: '1px', background: 'rgba(var(--sb-ink), 0.07)' } }),
+                                h('span', { key: 'm', style: { fontSize: '11px', fontWeight: 600, color: 'var(--sb-text-faint)', textTransform: 'uppercase', letterSpacing: '0.7px' } }, t('intro.orPasteCode')),
+                                h('span', { key: 'b', style: { flex: 1, height: '1px', background: 'rgba(var(--sb-ink), 0.07)' } })
                             ]),
-                            h('div', { key: 'ta', style: { borderRadius: '13px', border: `1px solid ${hasInvite ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.07)'}`, background: '#141416', padding: '13px 15px', marginBottom: '12px' } },
-                                h('textarea', { dir: 'ltr', value: offerInput, onChange: (e) => { setOfferInput(e.target.value); if (e.target.value.trim().length > 0 && typeof markAnswerCreated === 'function') markAnswerCreated(); }, rows: 3, placeholder: t('intro.pastePlaceholder'), style: { width: '100%', resize: 'none', border: 'none', outline: 'none', background: 'transparent', color: '#d7d7db', fontFamily: MONO, fontSize: '12.5px', lineHeight: 1.6, minHeight: '66px' } })),
-                            h('button', { key: 'connect', onClick: () => { requestNotificationPermissionOnInteraction(); onCreateAnswer(); }, disabled: !hasInvite || connectionStatus === 'connecting', style: { width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '14px', borderRadius: '13px', border: 'none', background: (hasInvite && connectionStatus !== 'connecting') ? C_ORANGE : 'rgba(255,255,255,0.05)', color: (hasInvite && connectionStatus !== 'connecting') ? '#1a0f04' : '#56565e', fontFamily: 'inherit', fontSize: '15px', fontWeight: 700, cursor: (hasInvite && connectionStatus !== 'connecting') ? 'pointer' : 'not-allowed', boxShadow: (hasInvite && connectionStatus !== 'connecting') ? '0 8px 24px rgba(240,137,42,0.28)' : 'none' } }, connectionStatus === 'connecting' ? t('intro.connecting') : t('intro.connect'))
+                            h('div', { key: 'ta', style: { borderRadius: '13px', border: `1px solid ${hasInvite ? 'rgba(var(--sb-ink), 0.18)' : 'rgba(var(--sb-ink), 0.07)'}`, background: 'var(--sb-surface)', padding: '13px 15px', marginBottom: '12px' } },
+                                h('textarea', { dir: 'ltr', value: offerInput, onChange: (e) => { setOfferInput(e.target.value); if (e.target.value.trim().length > 0 && typeof markAnswerCreated === 'function') markAnswerCreated(); }, rows: 3, placeholder: t('intro.pastePlaceholder'), style: { width: '100%', resize: 'none', border: 'none', outline: 'none', background: 'transparent', color: 'var(--sb-text-3)', fontFamily: MONO, fontSize: '12.5px', lineHeight: 1.6, minHeight: '66px' } })),
+                            h('button', { key: 'connect', onClick: () => { requestNotificationPermissionOnInteraction(); onCreateAnswer(); }, disabled: !hasInvite || connectionStatus === 'connecting', style: { width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '14px', borderRadius: '13px', border: 'none', background: (hasInvite && connectionStatus !== 'connecting') ? C_ORANGE_SOLID : 'rgba(var(--sb-ink), 0.05)', color: (hasInvite && connectionStatus !== 'connecting') ? 'var(--sb-on-accent)' : 'var(--sb-text-faint)', fontFamily: 'inherit', fontSize: '15px', fontWeight: 700, cursor: (hasInvite && connectionStatus !== 'connecting') ? 'pointer' : 'not-allowed', boxShadow: (hasInvite && connectionStatus !== 'connecting') ? '0 8px 24px rgba(var(--sb-orange-rgb), 0.28)' : 'none' } }, connectionStatus === 'connecting' ? t('intro.connecting') : t('intro.connect'))
                         ]);
                     }
 
@@ -1698,45 +1705,45 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     const otherOS = ['mac', 'win', 'linux'].filter((k) => k !== detectedOS);
                     const dlLink = (url) => { try { window.open(url, '_blank', 'noopener'); } catch (e) {} };
 
-                    const platformsMenu = platformsOpen && h('div', { key: 'platmenu', className: 'sb-platforms-menu', style: { position: 'absolute', insetInlineStart: 0, bottom: 'calc(100% + 10px)', width: '344px', maxWidth: '100%', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', background: '#161618', boxShadow: '0 24px 60px rgba(0,0,0,0.55)', overflow: 'hidden', zIndex: 25, animation: 'sbUp .2s ease' } }, [
-                        h('div', { key: 'mh', style: { display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' } }, [
+                    const platformsMenu = platformsOpen && h('div', { key: 'platmenu', className: 'sb-platforms-menu', style: { position: 'absolute', insetInlineStart: 0, bottom: 'calc(100% + 10px)', width: '344px', maxWidth: '100%', borderRadius: '16px', border: '1px solid rgba(var(--sb-ink), 0.1)', background: 'var(--sb-surface)', boxShadow: '0 24px 60px rgba(var(--sb-shadow-rgb), calc(0.55 * var(--sb-shadow-k)))', overflow: 'hidden', zIndex: 25, animation: 'sbUp .2s ease' } }, [
+                        h('div', { key: 'mh', style: { display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px', borderBottom: '1px solid rgba(var(--sb-ink), 0.06)' } }, [
                             h('div', { key: 't', style: { flex: 1, lineHeight: 1.2 } }, [
-                                h('div', { key: 'a', style: { fontSize: '14px', fontWeight: 800, color: '#f4f4f6' } }, t('dl.title')),
-                                h('div', { key: 'b', style: { fontSize: '11.5px', color: '#7b7b83' } }, t('dl.free'))
+                                h('div', { key: 'a', style: { fontSize: '14px', fontWeight: 800, color: 'var(--sb-text-1)' } }, t('dl.title')),
+                                h('div', { key: 'b', style: { fontSize: '11.5px', color: 'var(--sb-text-8)' } }, t('dl.free'))
                             ]),
-                            h('span', { key: 'pill', style: { fontFamily: MONO, fontSize: '10px', fontWeight: 600, color: C_GREEN, padding: '3px 8px', borderRadius: '6px', background: 'rgba(62,207,142,0.1)', border: '1px solid rgba(62,207,142,0.22)' } }, t('chat.onWeb'))
+                            h('span', { key: 'pill', style: { fontFamily: MONO, fontSize: '10px', fontWeight: 600, color: C_GREEN, padding: '3px 8px', borderRadius: '6px', background: 'rgba(var(--sb-green-rgb), 0.1)', border: '1px solid rgba(var(--sb-green-rgb), 0.22)' } }, t('chat.onWeb'))
                         ]),
                         h('div', { key: 'rec', style: { padding: '12px 12px 6px' } },
-                            h('button', { key: 'b', onClick: () => dlLink(DOWNLOADS[detectedOS].url), style: { width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '13px 14px', borderRadius: '12px', border: '1px solid rgba(240,137,42,0.4)', background: 'rgba(240,137,42,0.08)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'start' } }, [
-                                h('span', { key: 'ic', style: { flex: 'none', display: 'grid', placeItems: 'center', width: '38px', height: '38px', borderRadius: '11px', background: 'rgba(240,137,42,0.14)', border: '1px solid rgba(240,137,42,0.3)', color: C_ORANGE } }, h('i', { className: DOWNLOADS[detectedOS].icon, style: { fontSize: '17px' } })),
+                            h('button', { key: 'b', onClick: () => dlLink(DOWNLOADS[detectedOS].url), style: { width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '13px 14px', borderRadius: '12px', border: '1px solid rgba(var(--sb-orange-rgb), 0.4)', background: 'rgba(var(--sb-orange-rgb), 0.08)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'start' } }, [
+                                h('span', { key: 'ic', style: { flex: 'none', display: 'grid', placeItems: 'center', width: '38px', height: '38px', borderRadius: '11px', background: 'rgba(var(--sb-orange-rgb), 0.14)', border: '1px solid rgba(var(--sb-orange-rgb), 0.3)', color: C_ORANGE } }, h('i', { className: DOWNLOADS[detectedOS].icon, style: { fontSize: '17px' } })),
                                 h('span', { key: 'tx', style: { flex: 1, minWidth: 0 } }, [
-                                    h('span', { key: 'n', style: { display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#f4f4f6' } }, DOWNLOADS[detectedOS].name),
-                                    h('span', { key: 'f', style: { display: 'block', fontSize: '11px', color: '#f0b072', marginTop: '1px' } }, `Recommended for this device · ${DOWNLOADS[detectedOS].format}`)
+                                    h('span', { key: 'n', style: { display: 'block', fontSize: '13.5px', fontWeight: 700, color: 'var(--sb-text-1)' } }, DOWNLOADS[detectedOS].name),
+                                    h('span', { key: 'f', style: { display: 'block', fontSize: '11px', color: 'var(--sb-orange-3)', marginTop: '1px' } }, `Recommended for this device · ${DOWNLOADS[detectedOS].format}`)
                                 ]),
                                 fa('fa-download', { color: C_ORANGE })
                             ])),
                         h('div', { key: 'others', style: { padding: '0 12px 8px', display: 'flex', flexDirection: 'column', gap: '2px' } },
                             otherOS.map((k) => h('button', { key: k, onClick: () => dlLink(DOWNLOADS[k].url), style: { width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 14px', borderRadius: '11px', border: 'none', background: 'transparent', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'start' } }, [
-                                h('span', { key: 'ic', style: { flex: 'none', display: 'grid', placeItems: 'center', width: '34px', height: '34px', borderRadius: '10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#cfcfd4' } }, h('i', { className: DOWNLOADS[k].icon, style: { fontSize: '15px' } })),
+                                h('span', { key: 'ic', style: { flex: 'none', display: 'grid', placeItems: 'center', width: '34px', height: '34px', borderRadius: '10px', background: 'rgba(var(--sb-ink), 0.04)', border: '1px solid rgba(var(--sb-ink), 0.08)', color: 'var(--sb-text-4)' } }, h('i', { className: DOWNLOADS[k].icon, style: { fontSize: '15px' } })),
                                 h('span', { key: 'tx', style: { flex: 1, minWidth: 0 } }, [
-                                    h('span', { key: 'n', style: { display: 'block', fontSize: '13px', fontWeight: 600, color: '#e8e8eb' } }, DOWNLOADS[k].name),
-                                    h('span', { key: 'f', style: { display: 'block', fontSize: '11px', color: '#7b7b83', marginTop: '1px' } }, DOWNLOADS[k].format)
+                                    h('span', { key: 'n', style: { display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--sb-text-2)' } }, DOWNLOADS[k].name),
+                                    h('span', { key: 'f', style: { display: 'block', fontSize: '11px', color: 'var(--sb-text-8)', marginTop: '1px' } }, DOWNLOADS[k].format)
                                 ]),
-                                fa('fa-download', { color: '#8a8a92' })
+                                fa('fa-download', { color: 'var(--sb-text-7)' })
                             ]))),
-                        h('div', { key: 'soon', style: { display: 'flex', alignItems: 'center', gap: '9px', padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.015)' } }, [
-                            fa('fa-clock', { key: 'i', color: '#6b6b73' }),
-                            h('span', { key: 't', style: { fontSize: '11.5px', lineHeight: 1.45, color: '#7b7b83' } }, t('dl.soon'))
+                        h('div', { key: 'soon', style: { display: 'flex', alignItems: 'center', gap: '9px', padding: '12px 16px', borderTop: '1px solid rgba(var(--sb-ink), 0.06)', background: 'rgba(var(--sb-ink), 0.015)' } }, [
+                            fa('fa-clock', { key: 'i', color: 'var(--sb-text-9)' }),
+                            h('span', { key: 't', style: { fontSize: '11.5px', lineHeight: 1.45, color: 'var(--sb-text-8)' } }, t('dl.soon'))
                         ])
                     ]);
 
-                    const footer = h('div', { key: 'footer', className: 'sb-conn-footer', style: { position: 'relative', marginTop: '30px', paddingTop: '18px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' } }, [
-                        h('button', { key: 'dl', onClick: () => setPlatformsOpen((v) => !v), style: { display: 'inline-flex', alignItems: 'center', gap: '9px', paddingBlock: '8px', paddingInlineStart: '9px', paddingInlineEnd: '13px', borderRadius: '10px', border: `1px solid ${platformsOpen ? 'rgba(240,137,42,0.4)' : 'rgba(255,255,255,0.08)'}`, background: platformsOpen ? 'rgba(240,137,42,0.06)' : 'rgba(255,255,255,0.02)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', transition: 'all .15s' } }, [
+                    const footer = h('div', { key: 'footer', className: 'sb-conn-footer', style: { position: 'relative', marginTop: '30px', paddingTop: '18px', borderTop: '1px solid rgba(var(--sb-ink), 0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' } }, [
+                        h('button', { key: 'dl', onClick: () => setPlatformsOpen((v) => !v), style: { display: 'inline-flex', alignItems: 'center', gap: '9px', paddingBlock: '8px', paddingInlineStart: '9px', paddingInlineEnd: '13px', borderRadius: '10px', border: `1px solid ${platformsOpen ? 'rgba(var(--sb-orange-rgb), 0.4)' : 'rgba(var(--sb-ink), 0.08)'}`, background: platformsOpen ? 'rgba(var(--sb-orange-rgb), 0.06)' : 'rgba(var(--sb-ink), 0.02)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', transition: 'all .15s' } }, [
                             fa('fa-download', { key: 'i', color: C_ORANGE }),
-                            h('span', { key: 't', style: { fontSize: '12.5px', fontWeight: 700, color: '#e8e8eb' } }, t('action.downloadDesktop')),
-                            fa('fa-chevron-down', { key: 'c', color: '#6b6b73', style: { fontSize: '11px', transform: platformsOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s' } })
+                            h('span', { key: 't', style: { fontSize: '12.5px', fontWeight: 700, color: 'var(--sb-text-2)' } }, t('action.downloadDesktop')),
+                            fa('fa-chevron-down', { key: 'c', color: 'var(--sb-text-9)', style: { fontSize: '11px', transform: platformsOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s' } })
                         ]),
-                        h('button', { key: 'settings', className: 'sb-link', onClick: () => setShowIceSettings && setShowIceSettings(true), style: { display: 'inline-flex', alignItems: 'center', gap: '7px', background: 'none', border: 'none', color: '#8a8a92', fontFamily: 'inherit', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' } }, [fa('fa-sliders-h', { key: 'i' }), t('action.advancedSettings')]),
+                        h('button', { key: 'settings', className: 'sb-link', onClick: () => setShowIceSettings && setShowIceSettings(true), style: { display: 'inline-flex', alignItems: 'center', gap: '7px', background: 'none', border: 'none', color: 'var(--sb-text-7)', fontFamily: 'inherit', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' } }, [fa('fa-sliders-h', { key: 'i' }), t('action.advancedSettings')]),
                         platformsMenu
                     ]);
 
@@ -1765,7 +1772,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                         : { flex: '0.95 1 460px', minWidth: 'min(100%, 320px)', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100vh' } }, [
                         h('div', { key: 'scroll', className: 'custom-scrollbar', style: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', padding: '42px 44px' } },
                             h('div', { style: { maxWidth: '430px', width: '100%', margin: 'auto' } }, [
-                                h('div', { key: 'kicker', style: { fontFamily: MONO, fontSize: '11px', fontWeight: 600, color: '#6b6b73', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px' } }, kicker),
+                                h('div', { key: 'kicker', style: { fontFamily: MONO, fontSize: '11px', fontWeight: 600, color: 'var(--sb-text-9)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px' } }, kicker),
                                 segToggle,
                                 inner,
                                 footer
@@ -1774,36 +1781,36 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     ]);
 
                     // ── QR display modal (real qrCodeUrl + frame controls) ──
-                    const qrModal = (qrModalOpen && qrCodeUrl) && h('div', { key: 'qrmodal', onClick: () => setQrModalOpen(false), style: { position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px', background: 'rgba(6,6,8,0.82)', backdropFilter: 'blur(10px)', animation: 'sbUp .2s ease' } },
-                        h('div', { onClick: (e) => e.stopPropagation(), style: { width: '100%', maxWidth: '460px', borderRadius: '22px', border: '1px solid rgba(255,255,255,0.1)', background: '#111113', boxShadow: '0 30px 90px rgba(0,0,0,0.6)', overflow: 'hidden' } }, [
-                            h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', gap: '11px', padding: '18px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' } }, [
+                    const qrModal = (qrModalOpen && qrCodeUrl) && h('div', { key: 'qrmodal', onClick: () => setQrModalOpen(false), style: { position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px', background: 'rgba(var(--sb-scrim-rgb), 0.82)', backdropFilter: 'blur(10px)', animation: 'sbUp .2s ease' } },
+                        h('div', { onClick: (e) => e.stopPropagation(), style: { width: '100%', maxWidth: '460px', borderRadius: '22px', border: '1px solid rgba(var(--sb-ink), 0.1)', background: 'var(--sb-bg)', boxShadow: '0 30px 90px rgba(var(--sb-shadow-rgb), calc(0.6 * var(--sb-shadow-k)))', overflow: 'hidden' } }, [
+                            h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', gap: '11px', padding: '18px 20px', borderBottom: '1px solid rgba(var(--sb-ink), 0.06)' } }, [
                                 h('span', { key: 'd', style: { width: '9px', height: '9px', borderRadius: '50%', background: accent } }),
                                 h('div', { key: 'tx', style: { flex: 1, lineHeight: 1.2 } }, [
-                                    h('div', { key: 't', style: { fontSize: '15.5px', fontWeight: 800, color: '#f4f4f6' } }, isCreate ? t('handshake.shareTitle') : t('handshake.sendAnswerTitle')),
-                                    h('div', { key: 's', style: { fontSize: '12px', color: '#7b7b83' } }, `${isCreate ? 'offer' : 'answer'} · one-time`)
+                                    h('div', { key: 't', style: { fontSize: '15.5px', fontWeight: 800, color: 'var(--sb-text-1)' } }, isCreate ? t('handshake.shareTitle') : t('handshake.sendAnswerTitle')),
+                                    h('div', { key: 's', style: { fontSize: '12px', color: 'var(--sb-text-8)' } }, `${isCreate ? 'offer' : 'answer'} · one-time`)
                                 ]),
-                                h('button', { key: 'x', onClick: () => setQrModalOpen(false), style: { width: '32px', height: '32px', display: 'grid', placeItems: 'center', borderRadius: '9px', border: 'none', background: 'rgba(255,255,255,0.05)', color: '#9a9aa2', cursor: 'pointer' } }, fa('fa-times'))
+                                h('button', { key: 'x', onClick: () => setQrModalOpen(false), style: { width: '32px', height: '32px', display: 'grid', placeItems: 'center', borderRadius: '9px', border: 'none', background: 'rgba(var(--sb-ink), 0.05)', color: 'var(--sb-text-6)', cursor: 'pointer' } }, fa('fa-times'))
                             ]),
                             h('div', { key: 'body', style: { padding: '22px 24px 24px' } }, [
                                 h('div', { key: 'qr', style: { position: 'relative', width: '100%', aspectRatio: '1', borderRadius: '18px', overflow: 'hidden', background: '#fff', padding: '18px', display: 'grid', placeItems: 'center' } },
                                     h('img', { src: qrCodeUrl, alt: t('chatHdr.qrCode'), style: { width: '100%', height: '100%', objectFit: 'contain', display: 'block' } })),
                                 h('div', { key: 'ctrls', style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginTop: '18px' } }, [
                                     (qrFramesTotal || 0) >= 1 && h('div', { key: 'frame', style: { display: 'flex', alignItems: 'center', gap: '9px' } }, [
-                                        h('span', { key: 'l', style: { fontFamily: MONO, fontSize: '12px', fontWeight: 600, color: '#9a9aa2' } }, `Frame ${Math.max(1, qrFrameIndex || 1)} / ${qrFramesTotal || 1}`),
-                                        h('div', { key: 'dots', style: { display: 'flex', gap: '5px' } }, Array.from({ length: qrFramesTotal || 1 }, (_, i) => h('span', { key: i, style: { width: '7px', height: '7px', borderRadius: '50%', background: (i + 1) === (qrFrameIndex || 1) ? accent : 'rgba(255,255,255,0.14)', transition: 'background .25s' } })))
+                                        h('span', { key: 'l', style: { fontFamily: MONO, fontSize: '12px', fontWeight: 600, color: 'var(--sb-text-6)' } }, `Frame ${Math.max(1, qrFrameIndex || 1)} / ${qrFramesTotal || 1}`),
+                                        h('div', { key: 'dots', style: { display: 'flex', gap: '5px' } }, Array.from({ length: qrFramesTotal || 1 }, (_, i) => h('span', { key: i, style: { width: '7px', height: '7px', borderRadius: '50%', background: (i + 1) === (qrFrameIndex || 1) ? accent : 'rgba(var(--sb-ink), 0.14)', transition: 'background .25s' } })))
                                     ]),
                                     (qrFramesTotal || 0) > 1 && h('div', { key: 'nav', style: { display: 'flex', alignItems: 'center', gap: '6px' } }, [
-                                        h('button', { key: 'prev', onClick: prevQrFrame, style: { width: '40px', height: '36px', display: 'grid', placeItems: 'center', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#cfcfd4', cursor: 'pointer' } }, fa('fa-chevron-left')),
-                                        h('button', { key: 'auto', onClick: toggleQrManualMode, style: { display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '9px 18px', borderRadius: '10px', border: `1px solid ${qrManualMode ? 'rgba(255,255,255,0.1)' : 'rgba(240,137,42,0.45)'}`, background: qrManualMode ? 'rgba(255,255,255,0.04)' : 'rgba(240,137,42,0.08)', color: qrManualMode ? '#9a9aa2' : C_ORANGE, fontFamily: 'inherit', fontSize: '13px', fontWeight: 600, cursor: 'pointer' } }, qrManualMode ? 'Manual' : 'Auto'),
-                                        h('button', { key: 'next', onClick: nextQrFrame, style: { width: '40px', height: '36px', display: 'grid', placeItems: 'center', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#cfcfd4', cursor: 'pointer' } }, fa('fa-chevron-right'))
+                                        h('button', { key: 'prev', onClick: prevQrFrame, style: { width: '40px', height: '36px', display: 'grid', placeItems: 'center', borderRadius: '10px', border: '1px solid rgba(var(--sb-ink), 0.1)', background: 'rgba(var(--sb-ink), 0.04)', color: 'var(--sb-text-4)', cursor: 'pointer' } }, fa('fa-chevron-left')),
+                                        h('button', { key: 'auto', onClick: toggleQrManualMode, style: { display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '9px 18px', borderRadius: '10px', border: `1px solid ${qrManualMode ? 'rgba(var(--sb-ink), 0.1)' : 'rgba(var(--sb-orange-rgb), 0.45)'}`, background: qrManualMode ? 'rgba(var(--sb-ink), 0.04)' : 'rgba(var(--sb-orange-rgb), 0.08)', color: qrManualMode ? 'var(--sb-text-6)' : C_ORANGE, fontFamily: 'inherit', fontSize: '13px', fontWeight: 600, cursor: 'pointer' } }, qrManualMode ? 'Manual' : 'Auto'),
+                                        h('button', { key: 'next', onClick: nextQrFrame, style: { width: '40px', height: '36px', display: 'grid', placeItems: 'center', borderRadius: '10px', border: '1px solid rgba(var(--sb-ink), 0.1)', background: 'rgba(var(--sb-ink), 0.04)', color: 'var(--sb-text-4)', cursor: 'pointer' } }, fa('fa-chevron-right'))
                                     ]),
-                                    h('p', { key: 'hint', style: { margin: '2px 0 0', textAlign: 'center', fontSize: '12px', lineHeight: 1.5, color: '#6b6b73' } }, (qrFramesTotal || 0) > 1 ? t('handshake.qrHintFrames', { frames: qrFramesTotal }) : t('handshake.qrHint'))
+                                    h('p', { key: 'hint', style: { margin: '2px 0 0', textAlign: 'center', fontSize: '12px', lineHeight: 1.5, color: 'var(--sb-text-9)' } }, (qrFramesTotal || 0) > 1 ? t('handshake.qrHintFrames', { frames: qrFramesTotal }) : t('handshake.qrHint'))
                                 ])
                             ])
                         ])
                     );
 
-                    const hero = h('div', { key: 'hero', style: { display: 'flex', flexWrap: 'wrap', minHeight: '100vh', width: '100%', background: '#0f0f11', color: '#e8e8eb' } }, [leftPanel, rightPanel]);
+                    const hero = h('div', { key: 'hero', style: { display: 'flex', flexWrap: 'wrap', minHeight: '100vh', width: '100%', background: 'var(--sb-bg)', color: 'var(--sb-text-2)' } }, [leftPanel, rightPanel]);
 
                     // Full-bleed dark bands — match the design mockups (not clamped to max-w-4xl).
                     const uniqueSection = atIntro && h(UniqueFeatureSlider, { key: 'unique-features-slider' });
@@ -1819,7 +1826,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                         '@keyframes sbPulse{0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.5}50%{transform:translate(-50%,-50%) scale(1.5);opacity:0}}' +
                         '@keyframes sbSpin{to{transform:rotate(360deg)}}' +
                         '@keyframes sbUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}' +
-                        '@keyframes sbNode{0%,100%{box-shadow:0 0 0 0 rgba(62,207,142,0)}50%{box-shadow:0 0 0 6px rgba(62,207,142,.06)}}' +
+                        '@keyframes sbNode{0%,100%{box-shadow:0 0 0 0 rgba(var(--sb-green-rgb), 0)}50%{box-shadow:0 0 0 6px rgba(var(--sb-green-rgb), .06)}}' +
                         '@keyframes sbScan{0%{top:8%}100%{top:88%}}' +
                         '@keyframes sbBlink{0%,100%{opacity:1}50%{opacity:.35}}' +
                         // P2P / mesh animation (left panel). One 14s loop: the direct line is
@@ -1851,7 +1858,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     // Embedded in the chat column (additional session): just the create/connect
                     // card filling the area — no hero, no marketing landing.
                     if (compact) {
-                        return h('div', { className: 'sb-start', style: { flex: 1, minHeight: 0, width: '100%', display: 'flex', flexDirection: 'column', background: '#0f0f11', color: '#e8e8eb' } }, [keyframeStyle, rightPanel, qrModal]);
+                        return h('div', { className: 'sb-start', style: { flex: 1, minHeight: 0, width: '100%', display: 'flex', flexDirection: 'column', background: 'var(--sb-bg)', color: 'var(--sb-text-2)' } }, [keyframeStyle, rightPanel, qrModal]);
                     }
 
                     return h('div', { className: 'sb-start', style: { width: '100%' } }, [keyframeStyle, hero, uniqueSection, partnersSection, roadmapSection, communitySection, qrModal]);
@@ -1902,14 +1909,21 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                 // driven by the real cryptographic results in securityData.
                 const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
                 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-                const accent = securityData.color === 'orange' ? '#f0892a'
-                    : securityData.color === 'yellow' ? '#e3c84e'
-                    : securityData.color === 'red' ? '#e5727a'
-                    : '#3ecf8e';
-                const accentRGB = securityData.color === 'orange' ? '240,137,42'
-                    : securityData.color === 'yellow' ? '227,200,78'
-                    : securityData.color === 'red' ? '229,114,122'
-                    : '62,207,142';
+                // Two forms again: `accent` is read as text, `accentSolid` is drawn — the
+                // progress ring, the badge fill, the icon strokes. Only the first darkens
+                // in the light theme.
+                const accentSolid = securityData.color === 'orange' ? 'var(--sb-orange-solid)'
+                    : securityData.color === 'yellow' ? 'var(--sb-yellow-solid)'
+                    : securityData.color === 'red' ? 'var(--sb-red-solid)'
+                    : 'var(--sb-green-solid)';
+                const accent = securityData.color === 'orange' ? 'var(--sb-orange)'
+                    : securityData.color === 'yellow' ? 'var(--sb-yellow)'
+                    : securityData.color === 'red' ? 'var(--sb-red)'
+                    : 'var(--sb-green)';
+                const accentRGB = securityData.color === 'orange' ? 'var(--sb-orange-rgb)'
+                    : securityData.color === 'yellow' ? 'var(--sb-yellow-rgb)'
+                    : securityData.color === 'red' ? 'var(--sb-red-rgb)'
+                    : 'var(--sb-green-rgb)';
                 const score = Math.max(0, Math.min(100, Math.round(securityData.score || 0)));
                 const circ = 2 * Math.PI * 56;
                 const dashArray = `${(circ * Math.min(1, score / 100)).toFixed(1)} ${circ.toFixed(1)}`;
@@ -1932,8 +1946,8 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     return s.charAt(0).toUpperCase() + s.slice(1);
                 };
 
-                const checkIcon = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11"/></svg>`;
-                const xIcon = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#e5727a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>`;
+                const checkIcon = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--sb-green-solid)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11"/></svg>`;
+                const xIcon = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--sb-red-solid)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>`;
                 const testsHTML = entries.map(([k, r], i) => {
                     const passed = !!(r && r.passed);
                     const raw = (r && r.details) || (passed ? t('sec.testPassed') : t('sec.testFailed'));
@@ -1941,62 +1955,62 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     // which leaves anything not yet translated readable rather than blank.
                     const looked = t(`secDetail.${raw}`);
                     const desc = looked === `secDetail.${raw}` ? raw : looked;
-                    const bg = passed ? '#161618' : '#121214';
-                    const border = passed ? 'rgba(62,207,142,0.16)' : 'rgba(229,114,122,0.18)';
-                    const iconBg = passed ? 'rgba(62,207,142,0.12)' : 'rgba(229,114,122,0.1)';
-                    const iconBorder = passed ? 'rgba(62,207,142,0.26)' : 'rgba(229,114,122,0.24)';
-                    const titleColor = passed ? '#f4f4f6' : '#cfcfd4';
+                    const bg = passed ? 'var(--sb-surface)' : 'var(--sb-bg)';
+                    const border = passed ? 'rgba(var(--sb-green-rgb), 0.16)' : 'rgba(var(--sb-red-rgb), 0.18)';
+                    const iconBg = passed ? 'rgba(var(--sb-green-rgb), 0.12)' : 'rgba(var(--sb-red-rgb), 0.1)';
+                    const iconBorder = passed ? 'rgba(var(--sb-green-rgb), 0.26)' : 'rgba(var(--sb-red-rgb), 0.24)';
+                    const titleColor = passed ? 'var(--sb-text-1)' : 'var(--sb-text-4)';
                     return `<div style="display:flex; align-items:flex-start; gap:13px; padding:16px 18px; border-radius:14px; background:${bg}; border:1px solid ${border}; animation:svIn .3s cubic-bezier(.2,.7,.3,1) both; animation-delay:${(i * 0.04).toFixed(2)}s;">
                         <span style="flex:none; width:34px; height:34px; border-radius:9px; display:grid; place-items:center; background:${iconBg}; border:1px solid ${iconBorder};">${passed ? checkIcon : xIcon}</span>
                         <div style="flex:1; min-width:0;">
                             <div style="font-size:14.5px; font-weight:700; letter-spacing:-0.2px; color:${titleColor}; margin-bottom:3px;">${esc(testTitle(k))}</div>
-                            <div style="font-family:${MONO}; font-size:11.5px; line-height:1.45; color:#8a8a92;">${esc(desc)}</div>
+                            <div style="font-family:${MONO}; font-size:11.5px; line-height:1.45; color:var(--sb-text-7);">${esc(desc)}</div>
                         </div>
                     </div>`;
                 }).join('');
 
                 const modal = document.createElement('div');
                 modal.id = 'sb-security-report';
-                modal.style.cssText = "position:fixed; inset:0; z-index:10000; display:flex; align-items:center; justify-content:center; padding:24px; background:rgba(8,8,10,0.62); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); font-family:'Manrope',system-ui,-apple-system,sans-serif; overflow:auto;";
+                modal.style.cssText = "position:fixed; inset:0; z-index:10000; display:flex; align-items:center; justify-content:center; padding:24px; background:rgba(var(--sb-scrim-rgb), 0.62); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); font-family:'Manrope',system-ui,-apple-system,sans-serif; overflow:auto;";
                 modal.innerHTML = `
                   <style>@keyframes svIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes svPulse{0%,100%{opacity:1}50%{opacity:.4}}</style>
-                  <div style="position:relative; max-width:960px; width:100%; border-radius:20px; background:radial-gradient(1100px 640px at 50% -6%, rgba(${accentRGB},0.05), transparent 62%), #0f0f11; border:1px solid rgba(255,255,255,0.08); color:#e8e8eb; padding:30px; box-shadow:0 30px 70px rgba(0,0,0,0.55); animation:svIn .3s cubic-bezier(.2,.7,.3,1); max-height:calc(100vh - 48px); overflow:auto;">
-                    <button class="sv-close" type="button" title="${t('chat.close')}" style="position:absolute; top:16px; inset-inline-end:16px; width:32px; height:32px; border-radius:9px; display:grid; place-items:center; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.02); color:#8a8a92; cursor:pointer; z-index:2;">
+                  <div style="position:relative; max-width:960px; width:100%; border-radius:20px; background:radial-gradient(1100px 640px at 50% -6%, rgba(${accentRGB},0.05), transparent 62%), var(--sb-bg); border:1px solid rgba(var(--sb-ink), 0.08); color:var(--sb-text-2); padding:30px; box-shadow:0 30px 70px rgba(var(--sb-shadow-rgb), calc(0.55 * var(--sb-shadow-k))); animation:svIn .3s cubic-bezier(.2,.7,.3,1); max-height:calc(100vh - 48px); overflow:auto;">
+                    <button class="sv-close" type="button" title="${t('chat.close')}" style="position:absolute; top:16px; inset-inline-end:16px; width:32px; height:32px; border-radius:9px; display:grid; place-items:center; border:1px solid rgba(var(--sb-ink), 0.08); background:rgba(var(--sb-ink), 0.02); color:var(--sb-text-7); cursor:pointer; z-index:2;">
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M6 6l12 12M18 6L6 18"/></svg>
                     </button>
-                    <div style="position:relative; overflow:hidden; border-radius:18px; background:#141416; border:1px solid rgba(255,255,255,0.07); padding:28px 30px; display:flex; align-items:center; gap:30px; flex-wrap:wrap; margin-bottom:20px;">
+                    <div style="position:relative; overflow:hidden; border-radius:18px; background:var(--sb-surface); border:1px solid rgba(var(--sb-ink), 0.07); padding:28px 30px; display:flex; align-items:center; gap:30px; flex-wrap:wrap; margin-bottom:20px;">
                       <div style="position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg, transparent, rgba(${accentRGB},0.6), transparent);"></div>
                       <div style="position:relative; flex:none; width:128px; height:128px;">
                         <svg width="128" height="128" viewBox="0 0 128 128" style="transform:rotate(-90deg);">
-                          <circle cx="64" cy="64" r="56" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="9"/>
-                          <circle cx="64" cy="64" r="56" fill="none" stroke="${accent}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${dashArray}"/>
+                          <circle cx="64" cy="64" r="56" fill="none" stroke="rgba(var(--sb-ink), 0.06)" stroke-width="9"/>
+                          <circle cx="64" cy="64" r="56" fill="none" stroke="${accentSolid}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${dashArray}"/>
                         </svg>
                         <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;">
-                          <span style="font-size:30px; font-weight:800; letter-spacing:-1px; color:#f4f4f6; line-height:1;">${score}</span>
-                          <span style="font-family:${MONO}; font-size:10px; font-weight:600; color:#6b6b73; text-transform:uppercase; letter-spacing:1px; margin-top:4px;">/ 100 pts</span>
+                          <span style="font-size:30px; font-weight:800; letter-spacing:-1px; color:var(--sb-text-1); line-height:1;">${score}</span>
+                          <span style="font-family:${MONO}; font-size:10px; font-weight:600; color:var(--sb-text-9); text-transform:uppercase; letter-spacing:1px; margin-top:4px;">/ 100 pts</span>
                         </div>
                       </div>
                       <div style="flex:1; min-width:240px;">
-                        <div style="font-family:${MONO}; font-size:11px; font-weight:600; color:#6b6b73; text-transform:uppercase; letter-spacing:1.6px; margin-bottom:10px;">${t('report.title')}</div>
+                        <div style="font-family:${MONO}; font-size:11px; font-weight:600; color:var(--sb-text-9); text-transform:uppercase; letter-spacing:1.6px; margin-bottom:10px;">${t('report.title')}</div>
                         <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap;">
-                          <h2 style="margin:0; font-size:26px; font-weight:800; letter-spacing:-0.7px; color:#f4f4f6;">Security level: ${esc(level)}</h2>
-                          <span style="display:inline-flex; align-items:center; gap:8px; padding:6px 12px; border-radius:9px; background:rgba(${accentRGB},0.12); border:1px solid rgba(${accentRGB},0.3); font-family:${MONO}; font-size:11px; font-weight:700; color:${accent}; text-transform:uppercase; letter-spacing:0.6px;"><span style="width:7px; height:7px; border-radius:50%; background:${accent}; animation:svPulse 2s ease-in-out infinite;"></span>${t('report.active')}</span>
+                          <h2 style="margin:0; font-size:26px; font-weight:800; letter-spacing:-0.7px; color:var(--sb-text-1);">Security level: ${esc(level)}</h2>
+                          <span style="display:inline-flex; align-items:center; gap:8px; padding:6px 12px; border-radius:9px; background:rgba(${accentRGB},0.12); border:1px solid rgba(${accentRGB},0.3); font-family:${MONO}; font-size:11px; font-weight:700; color:${accent}; text-transform:uppercase; letter-spacing:0.6px;"><span style="width:7px; height:7px; border-radius:50%; background:${accentSolid}; animation:svPulse 2s ease-in-out infinite;"></span>${t('report.active')}</span>
                         </div>
                         <div style="display:flex; gap:28px; flex-wrap:wrap;">
-                          <div><div style="font-family:${MONO}; font-size:10px; font-weight:600; color:#56565e; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">${t('report.testsPassed')}</div><div style="font-size:15px; font-weight:700; color:#e8e8eb;"><span style="color:${accent};">${passedCount}</span> / ${totalCount}</div></div>
-                          <div><div style="font-family:${MONO}; font-size:10px; font-weight:600; color:#56565e; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">${t('report.verifiedAt')}</div><div style="font-family:${MONO}; font-size:15px; font-weight:600; color:#e8e8eb;">${esc(verifiedAt)}</div></div>
-                          <div><div style="font-family:${MONO}; font-size:10px; font-weight:600; color:#56565e; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">${t('report.source')}</div><div style="font-size:15px; font-weight:600; color:#e8e8eb;">${isReal ? t('sec.realTests') : t('sec.simulatedData')}</div></div>
+                          <div><div style="font-family:${MONO}; font-size:10px; font-weight:600; color:var(--sb-text-faint); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">${t('report.testsPassed')}</div><div style="font-size:15px; font-weight:700; color:var(--sb-text-2);"><span style="color:${accent};">${passedCount}</span> / ${totalCount}</div></div>
+                          <div><div style="font-family:${MONO}; font-size:10px; font-weight:600; color:var(--sb-text-faint); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">${t('report.verifiedAt')}</div><div style="font-family:${MONO}; font-size:15px; font-weight:600; color:var(--sb-text-2);">${esc(verifiedAt)}</div></div>
+                          <div><div style="font-family:${MONO}; font-size:10px; font-weight:600; color:var(--sb-text-faint); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">${t('report.source')}</div><div style="font-size:15px; font-weight:600; color:var(--sb-text-2);">${isReal ? t('sec.realTests') : t('sec.simulatedData')}</div></div>
                         </div>
                       </div>
-                      <button class="sv-rerun" type="button" style="flex:none; display:inline-flex; align-items:center; gap:9px; padding:12px 18px; border-radius:11px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.025); color:#cfcfd4; font-family:'Manrope',sans-serif; font-size:14px; font-weight:700; cursor:pointer; transition:all .2s;">
+                      <button class="sv-rerun" type="button" style="flex:none; display:inline-flex; align-items:center; gap:9px; padding:12px 18px; border-radius:11px; border:1px solid rgba(var(--sb-ink), 0.1); background:rgba(var(--sb-ink), 0.025); color:var(--sb-text-4); font-family:'Manrope',sans-serif; font-size:14px; font-weight:700; cursor:pointer; transition:all .2s;">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
                         Re-run
                       </button>
                     </div>
                     <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(248px, 1fr)); gap:12px;">${testsHTML}</div>
                     <div style="display:flex; align-items:center; gap:12px; margin-top:18px; padding:16px 20px; border-radius:14px; background:rgba(${accentRGB},0.06); border:1px solid rgba(${accentRGB},0.18);">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${accent}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M12 3l8 4v5c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V7l8-4z"/><path d="M9.2 12.2l2 2 3.6-3.8"/></svg>
-                      <span style="font-size:14px; font-weight:600; color:#e8e8eb;">${isReal ? t('sec.realTimeNote') : t('sec.simulatedWarning')}</span>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${accentSolid}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M12 3l8 4v5c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V7l8-4z"/><path d="M9.2 12.2l2 2 3.6-3.8"/></svg>
+                      <span style="font-size:14px; font-weight:600; color:var(--sb-text-2);">${isReal ? t('sec.realTimeNote') : t('sec.simulatedWarning')}</span>
                     </div>
                   </div>`;
 
@@ -2006,8 +2020,8 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                 modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
                 document.addEventListener('keydown', onKey);
                 const rerun = modal.querySelector('.sv-rerun');
-                rerun.addEventListener('mouseenter', () => { rerun.style.borderColor = 'rgba(240,137,42,0.45)'; rerun.style.color = '#f0892a'; });
-                rerun.addEventListener('mouseleave', () => { rerun.style.borderColor = 'rgba(255,255,255,0.1)'; rerun.style.color = '#cfcfd4'; });
+                rerun.addEventListener('mouseenter', () => { rerun.style.borderColor = 'rgba(var(--sb-orange-rgb), 0.45)'; rerun.style.color = 'var(--sb-orange)'; });
+                rerun.addEventListener('mouseleave', () => { rerun.style.borderColor = 'rgba(var(--sb-ink), 0.1)'; rerun.style.color = 'var(--sb-text-4)'; });
                 rerun.addEventListener('click', () => { close(); runSecurityReport(webrtcManager); });
                 document.body.appendChild(modal);
             };
@@ -2047,15 +2061,16 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                 const onlineConnected = status === 'connected' || status === 'verified';
                 const dropped = status === 'disconnected' || status === 'peer_disconnected';
                 const connected = onlineConnected && !isOffline;
-                const connDot = (isOffline || dropped) ? '#e5727a' : (onlineConnected ? '#3ecf8e' : '#e3c84e');
+                // Dots are marks: the brand accents, not the text-safe ones that darken on white.
+                const connDot = (isOffline || dropped) ? 'var(--sb-red-solid)' : (onlineConnected ? 'var(--sb-green-solid)' : 'var(--sb-yellow-solid)');
                 const connLabel = isOffline
                     ? t('chat.offline')
                     : (onlineConnected ? t('status.connected')
                         : (status === 'peer_disconnected' ? t('status.peerDisconnected')
                             : (status === 'disconnected' ? t('chat.disconnected') : t('status.connecting'))));
-                const connGlow = (isOffline || dropped) ? '0 0 0 3px rgba(229,114,122,0.16)' : (onlineConnected ? '0 0 0 3px rgba(62,207,142,0.16)' : '0 0 0 3px rgba(227,200,78,0.16)');
+                const connGlow = (isOffline || dropped) ? '0 0 0 3px rgba(var(--sb-red-rgb), 0.16)' : (onlineConnected ? '0 0 0 3px rgba(var(--sb-green-rgb), 0.16)' : '0 0 0 3px rgba(var(--sb-yellow-rgb), 0.16)');
                 // The avatar dot + subtitle reflect the PEER's advertised availability while connected.
-                const peerDot = (onlineConnected && !isOffline) ? (PRESENCE_DOT[peerPresence] || '#3ecf8e') : connDot;
+                const peerDot = (onlineConnected && !isOffline) ? (PRESENCE_DOT[peerPresence] || 'var(--sb-green-solid)') : connDot;
                 const peerPresenceWord = (onlineConnected && !isOffline && peerPresence) ? (PRESENCE_WORD[peerPresence] || null) : null;
                 const startRename = () => { setNameDraft(title || ''); setEditingName(true); };
                 const commitRename = () => { if (typeof onRenameTitle === 'function') onRenameTitle(nameDraft); setEditingName(false); };
@@ -2072,29 +2087,29 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                 };
                 const scoreLabel = (passed != null && total) ? (passed + '/' + total) : (sec ? (sec.score + '%') : '—');
                 const accent = sec
-                    ? (sec.color === 'green' ? '#3ecf8e' : sec.color === 'orange' ? '#f0892a' : sec.color === 'yellow' ? '#e3c84e' : '#e5727a')
-                    : '#3ecf8e';
+                    ? (sec.color === 'green' ? 'var(--sb-green)' : sec.color === 'orange' ? 'var(--sb-orange)' : sec.color === 'yellow' ? 'var(--sb-yellow)' : 'var(--sb-red)')
+                    : 'var(--sb-green)';
 
                 const secBtn = React.createElement('div', {
                     key: 'sec', title: t('sas.runVerification'),
                     onClick: () => runSecurityReport(webrtcManager),
                     className: 'sb-secpill',
-                    style: { display: 'flex', alignItems: 'center', gap: '9px', padding: '7px 13px', borderRadius: '9px', border: '1px solid ' + (showNetwork ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.07)'), background: showNetwork ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.02)', cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s' }
+                    style: { display: 'flex', alignItems: 'center', gap: '9px', padding: '7px 13px', borderRadius: '9px', border: '1px solid ' + (showNetwork ? 'rgba(var(--sb-ink), 0.16)' : 'rgba(var(--sb-ink), 0.07)'), background: showNetwork ? 'rgba(var(--sb-ink), 0.05)' : 'rgba(var(--sb-ink), 0.02)', cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s' }
                 }, [
                     React.createElement('i', { key: 'i', className: 'fas fa-shield-halved', style: { color: accent, fontSize: '13px' } }),
-                    React.createElement('span', { key: 'l', className: 'sb-sec-label', style: { fontSize: '13px', fontWeight: 600, color: '#e8e8eb' } }, sec ? (secLevelLabel(sec.level) || t('chatHdr.secure')) : t('chatHdr.secure')),
-                    React.createElement('span', { key: 'd', className: 'sb-sec-div', style: { width: '1px', height: '13px', background: 'rgba(255,255,255,0.12)' } }),
-                    React.createElement('span', { key: 's', className: 'sb-sec-score', style: { fontFamily: MONO, fontSize: '11.5px', fontWeight: 500, color: '#8a8a92' } }, scoreLabel),
+                    React.createElement('span', { key: 'l', className: 'sb-sec-label', style: { fontSize: '13px', fontWeight: 600, color: 'var(--sb-text-2)' } }, sec ? (secLevelLabel(sec.level) || t('chatHdr.secure')) : t('chatHdr.secure')),
+                    React.createElement('span', { key: 'd', className: 'sb-sec-div', style: { width: '1px', height: '13px', background: 'rgba(var(--sb-ink), 0.12)' } }),
+                    React.createElement('span', { key: 's', className: 'sb-sec-score', style: { fontFamily: MONO, fontSize: '11.5px', fontWeight: 500, color: 'var(--sb-text-7)' } }, scoreLabel),
                     React.createElement('button', {
                         key: 'c', type: 'button', title: t('sec.panelTitle'),
                         onClick: (e) => { e.stopPropagation(); setShowNetwork(v => !v); },
                         style: { background: 'none', border: 'none', padding: 0, margin: 0, cursor: 'pointer', display: 'grid', placeItems: 'center' }
-                    }, React.createElement('i', { className: 'fas fa-chevron-down', style: { color: '#6b6b73', fontSize: '11px', transform: showNetwork ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s' } }))
+                    }, React.createElement('i', { className: 'fas fa-chevron-down', style: { color: 'var(--sb-text-9)', fontSize: '11px', transform: showNetwork ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s' } }))
                 ]);
 
                 const headerResponsiveCss = React.createElement('style', { key: 'hdr-css', dangerouslySetInnerHTML: { __html:
                     // Encrypted call buttons — green hover per the design.
-                    '.sb-call-btn:not(.sb-call-off):hover{border-color:rgba(62,207,142,0.45) !important;color:#3ecf8e !important;background:rgba(62,207,142,0.07) !important;}' +
+                    '.sb-call-btn:not(.sb-call-off):hover{border-color:rgba(var(--sb-green-rgb), 0.45) !important;color:var(--sb-green) !important;background:rgba(var(--sb-green-rgb), 0.07) !important;}' +
                     // Mobile: leave room for the drawer hamburger and shed non-essential header
                     // chrome so avatar + name + status + call/Disconnect fit a narrow screen.
                     '@media (max-width:768px){' +
@@ -2106,7 +2121,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     '.sb-chat-header .sb-conn{padding:9px !important;}' +
                     '.sb-chat-header .sb-hdr-sub{display:none !important;}' +
                     // Disconnect: compact icon-only square, red-tinted, matching the call buttons.
-                    '.sb-chat-header .sb-disconnect{width:40px !important;height:40px !important;padding:0 !important;gap:0 !important;justify-content:center !important;border-radius:9px !important;color:#e5727a !important;border-color:rgba(229,114,122,0.28) !important;}' +
+                    '.sb-chat-header .sb-disconnect{width:40px !important;height:40px !important;padding:0 !important;gap:0 !important;justify-content:center !important;border-radius:9px !important;color:var(--sb-red) !important;border-color:rgba(var(--sb-red-rgb), 0.28) !important;}' +
                     '}' +
                     // Composer mode chips: one horizontally-scrollable row instead of wrapping
                     // to two ugly rows on narrow screens.
@@ -2124,30 +2139,30 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     // under (0 in a browser tab). It is added to BOTH the padding and the
                     // height so the 64px of header content is untouched and only the
                     // translucent bar grows upward to meet the top edge of the screen.
-                    key: 'hdr', className: 'sb-chat-header', style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px', padding: 'var(--sb-safe-top, 0px) 20px var(--sb-bar-extra, 0px)', minHeight: 'calc(var(--sb-bar-h, 64px) + var(--sb-safe-top, 0px) + var(--sb-bar-extra, 0px))', boxSizing: 'border-box', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(18,18,20,0.72)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }
+                    key: 'hdr', className: 'sb-chat-header', style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px', padding: 'var(--sb-safe-top, 0px) 20px var(--sb-bar-extra, 0px)', minHeight: 'calc(var(--sb-bar-h, 64px) + var(--sb-safe-top, 0px) + var(--sb-bar-extra, 0px))', boxSizing: 'border-box', borderBottom: '1px solid rgba(var(--sb-ink), 0.06)', background: 'rgba(var(--sb-bg-rgb), 0.72)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }
                 }, [
                     headerResponsiveCss,
                     // The SecureBit brand/logo lives in the left rail; this header identifies the
                     // ACTIVE conversation — avatar monogram + local label + connection status.
                     React.createElement('div', { key: 'left', style: { display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 } }, [
-                        React.createElement('div', { key: 'avatar', style: { position: 'relative', flex: 'none', width: '36px', height: '36px', borderRadius: '10px', display: 'grid', placeItems: 'center', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', fontSize: '13px', fontWeight: 700, letterSpacing: '-0.3px', color: '#e8e8eb' } }, [
+                        React.createElement('div', { key: 'avatar', style: { position: 'relative', flex: 'none', width: '36px', height: '36px', borderRadius: '10px', display: 'grid', placeItems: 'center', background: 'rgba(var(--sb-ink), 0.05)', border: '1px solid rgba(var(--sb-ink), 0.09)', fontSize: '13px', fontWeight: 700, letterSpacing: '-0.3px', color: 'var(--sb-text-2)' } }, [
                             monoInitials(title || t('chatHdr.chat')),
-                            React.createElement('span', { key: 'dot', style: { position: 'absolute', insetInlineEnd: '-2px', bottom: '-2px', width: '11px', height: '11px', borderRadius: '50%', background: peerDot, border: '2px solid #121214' } })
+                            React.createElement('span', { key: 'dot', style: { position: 'absolute', insetInlineEnd: '-2px', bottom: '-2px', width: '11px', height: '11px', borderRadius: '50%', background: peerDot, border: '2px solid var(--sb-bg)' } })
                         ]),
                         editingName
                             ? React.createElement('div', { key: 'edit', style: { display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 } }, [
                                 React.createElement('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: '6px' } }, [
-                                    React.createElement('input', { key: 'in', autoFocus: true, value: nameDraft, maxLength: 32, placeholder: t('chat.nameThis'), onChange: (e) => setNameDraft(e.target.value), onKeyDown: renameKey, onBlur: commitRename, style: { width: '210px', padding: '5px 10px', borderRadius: '8px', border: '1px solid rgba(240,137,42,0.55)', background: '#0f0f11', color: '#f4f4f6', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, outline: 'none' } }),
-                                    React.createElement('button', { key: 'ok', onMouseDown: (e) => e.preventDefault(), onClick: commitRename, title: t('chatHdr.save'), style: { flex: 'none', width: '28px', height: '28px', borderRadius: '8px', display: 'grid', placeItems: 'center', border: 'none', background: '#f0892a', color: '#1a0f04', cursor: 'pointer' } }, React.createElement('i', { className: 'fas fa-check', style: { fontSize: '12px' } }))
+                                    React.createElement('input', { key: 'in', autoFocus: true, value: nameDraft, maxLength: 32, placeholder: t('chat.nameThis'), onChange: (e) => setNameDraft(e.target.value), onKeyDown: renameKey, onBlur: commitRename, style: { width: '210px', padding: '5px 10px', borderRadius: '8px', border: '1px solid rgba(var(--sb-orange-rgb), 0.55)', background: 'var(--sb-bg)', color: 'var(--sb-text-1)', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, outline: 'none' } }),
+                                    React.createElement('button', { key: 'ok', onMouseDown: (e) => e.preventDefault(), onClick: commitRename, title: t('chatHdr.save'), style: { flex: 'none', width: '28px', height: '28px', borderRadius: '8px', display: 'grid', placeItems: 'center', border: 'none', background: 'var(--sb-orange-solid)', color: 'var(--sb-on-accent)', cursor: 'pointer' } }, React.createElement('i', { className: 'fas fa-check', style: { fontSize: '12px' } }))
                                 ]),
-                                React.createElement('div', { key: 'hint', style: { fontSize: '11px', color: '#56565e' } }, t('chat.localLabel'))
+                                React.createElement('div', { key: 'hint', style: { fontSize: '11px', color: 'var(--sb-text-faint)' } }, t('chat.localLabel'))
                             ])
                             : React.createElement('div', { key: 'txt', style: { lineHeight: 1.2, minWidth: 0 } }, [
                                 React.createElement('div', { key: 'r1', style: { display: 'flex', alignItems: 'center', gap: '7px' } }, [
-                                    React.createElement('span', { key: 'n', style: { fontSize: '15px', fontWeight: 800, letterSpacing: '-0.3px', color: '#f4f4f6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, title || t('chat.secureChat')),
-                                    React.createElement('button', { key: 'edit', className: 'sb-rename-btn', onClick: startRename, title: t('chat.rename'), style: { flex: 'none', width: '24px', height: '24px', borderRadius: '7px', display: 'grid', placeItems: 'center', border: 'none', background: 'transparent', color: '#56565e', cursor: 'pointer' } }, React.createElement('i', { className: 'fas fa-pen', style: { fontSize: '11px' } }))
+                                    React.createElement('span', { key: 'n', style: { fontSize: '15px', fontWeight: 800, letterSpacing: '-0.3px', color: 'var(--sb-text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, title || t('chat.secureChat')),
+                                    React.createElement('button', { key: 'edit', className: 'sb-rename-btn', onClick: startRename, title: t('chat.rename'), style: { flex: 'none', width: '24px', height: '24px', borderRadius: '7px', display: 'grid', placeItems: 'center', border: 'none', background: 'transparent', color: 'var(--sb-text-faint)', cursor: 'pointer' } }, React.createElement('i', { className: 'fas fa-pen', style: { fontSize: '11px' } }))
                                 ]),
-                                React.createElement('div', { key: 'r2', className: 'sb-hdr-sub', style: { fontSize: '11px', color: '#6b6b73', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, isOffline ? t('chat.noNetwork') : (status === 'reconnecting' ? t('flow.restoring') : (peerPresenceWord || (onlineConnected ? t('chatHdr.p2pSub') : (status === 'peer_disconnected' ? t('status.peerDisconnected') : (status === 'disconnected' ? t('chat.disconnected') : t('status.connecting')))))))
+                                React.createElement('div', { key: 'r2', className: 'sb-hdr-sub', style: { fontSize: '11px', color: 'var(--sb-text-9)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, isOffline ? t('chat.noNetwork') : (status === 'reconnecting' ? t('flow.restoring') : (peerPresenceWord || (onlineConnected ? t('chatHdr.p2pSub') : (status === 'peer_disconnected' ? t('status.peerDisconnected') : (status === 'disconnected' ? t('chat.disconnected') : t('status.connecting')))))))
                             ])
                     ]),
                     secBtn,
@@ -2167,8 +2182,8 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                             // green hover (via the .sb-call-btn CSS rule below).
                             const callBtnStyle = {
                                 width: '40px', height: '40px', borderRadius: '9px', display: 'grid', placeItems: 'center',
-                                border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)',
-                                color: callReady ? '#9a9aa2' : '#3f3f47', cursor: callReady ? 'pointer' : 'not-allowed', transition: 'all .15s'
+                                border: '1px solid rgba(var(--sb-ink), 0.08)', background: 'rgba(var(--sb-ink), 0.02)',
+                                color: callReady ? 'var(--sb-text-6)' : 'var(--sb-surface-5)', cursor: callReady ? 'pointer' : 'not-allowed', transition: 'all .15s'
                             };
                             const PHONE_SVG = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
                             const VIDEO_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2.5"/></svg>';
@@ -2177,11 +2192,11 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                                 React.createElement('button', { key: 'call-video', className: callReady ? 'sb-call-btn' : 'sb-call-btn sb-call-off', disabled: !callReady, onClick: () => startCall(true), title: callReady ? t('chat.startVideoCall') : t('chat.verifyForCalls'), style: callBtnStyle, dangerouslySetInnerHTML: { __html: VIDEO_SVG } })
                             ];
                         })()),
-                        React.createElement('div', { key: 'conn', className: 'sb-conn', style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 13px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' } }, [
+                        React.createElement('div', { key: 'conn', className: 'sb-conn', style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 13px', borderRadius: '9px', border: '1px solid rgba(var(--sb-ink), 0.07)', background: 'rgba(var(--sb-ink), 0.02)' } }, [
                             React.createElement('span', { key: 'dot', style: { flex: 'none', width: '7px', height: '7px', borderRadius: '50%', background: connDot, boxShadow: connGlow } }),
-                            React.createElement('span', { key: 't', className: 'sb-conn-text', style: { fontSize: '13px', fontWeight: 600, color: '#cfcfd4' } }, connLabel)
+                            React.createElement('span', { key: 't', className: 'sb-conn-text', style: { fontSize: '13px', fontWeight: 600, color: 'var(--sb-text-4)' } }, connLabel)
                         ]),
-                        React.createElement('button', { key: 'dc', onClick: onDisconnect, className: 'sb-disconnect', style: { display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 14px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#9a9aa2', fontFamily: 'inherit', fontSize: '13px', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' } }, [
+                        React.createElement('button', { key: 'dc', onClick: onDisconnect, className: 'sb-disconnect', style: { display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 14px', borderRadius: '9px', border: '1px solid rgba(var(--sb-ink), 0.08)', background: 'transparent', color: 'var(--sb-text-6)', fontFamily: 'inherit', fontSize: '13px', fontWeight: 600, cursor: 'pointer', transition: 'all .15s' } }, [
                             React.createElement('i', { key: 'i', className: 'fas fa-power-off', style: { fontSize: '12px' } }),
                             React.createElement('span', { key: 't', className: 'sb-hide-sm' }, t('hdr.disconnect'))
                         ])
@@ -2189,7 +2204,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                 ]);
 
                 const netPanel = showNetwork && React.createElement('div', {
-                    key: 'net', style: { flex: 'none', padding: '13px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(18,18,20,0.72)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }
+                    key: 'net', style: { flex: 'none', padding: '13px 20px', borderBottom: '1px solid rgba(var(--sb-ink), 0.06)', background: 'rgba(var(--sb-bg-rgb), 0.72)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }
                 }, React.createElement('div', { style: { maxWidth: '1000px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: '14px', fontFamily: MONO } },
                     [
                         [t('sec.transport'), 'WebRTC · DTLS'],
@@ -2197,8 +2212,8 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                         [t('sec.keyExchange'), 'ECDH P-384'],
                         [t('sec.security'), scoreLabel + (sec ? (' · ' + sec.score + '%') : '')]
                     ].map(([k, v], i) => React.createElement('div', { key: 'nf' + i }, [
-                        React.createElement('div', { key: 'k', style: { fontSize: '10px', color: '#6b6b73', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '4px' } }, k),
-                        React.createElement('div', { key: 'v', style: { fontSize: '12.5px', color: i === 3 ? accent : '#cfcfd4', fontWeight: 500 } }, v)
+                        React.createElement('div', { key: 'k', style: { fontSize: '10px', color: 'var(--sb-text-9)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '4px' } }, k),
+                        React.createElement('div', { key: 'v', style: { fontSize: '12.5px', color: i === 3 ? accent : 'var(--sb-text-4)', fontWeight: 500 } }, v)
                     ]))
                 ));
 
@@ -2341,16 +2356,16 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
             };
             const chipStyle = (active) => ({
                 display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 11px', borderRadius: '8px',
-                border: '1px solid ' + (active ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.07)'),
-                background: active ? 'rgba(255,255,255,0.06)' : 'transparent',
-                color: active ? '#fff' : '#9a9aa2',
+                border: '1px solid ' + (active ? 'rgba(var(--sb-ink), 0.18)' : 'rgba(var(--sb-ink), 0.07)'),
+                background: active ? 'rgba(var(--sb-ink), 0.06)' : 'transparent',
+                color: active ? '#fff' : 'var(--sb-text-6)',
                 fontFamily: 'inherit', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', transition: 'all .15s'
             });
             const optStyle = (sel) => ({
                 padding: '6px 12px', borderRadius: '8px',
-                border: '1px solid ' + (sel ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)'),
-                background: sel ? 'rgba(255,255,255,0.07)' : 'transparent',
-                color: sel ? '#fff' : '#8a8a92',
+                border: '1px solid ' + (sel ? 'rgba(var(--sb-ink), 0.22)' : 'rgba(var(--sb-ink), 0.07)'),
+                background: sel ? 'rgba(var(--sb-ink), 0.07)' : 'transparent',
+                color: sel ? '#fff' : 'var(--sb-text-7)',
                 fontFamily: MONO, fontSize: '12px', fontWeight: 500, cursor: 'pointer', transition: 'all .14s'
             });
 
@@ -2391,33 +2406,33 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
             // ---- handshake / connection log card ----
             const handshakeCard = (isVerified || systemMessages.length > 0) && React.createElement('div', {
                 key: 'handshake',
-                style: { border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', background: '#161618', overflow: 'hidden' }
+                style: { border: '1px solid rgba(var(--sb-ink), 0.07)', borderRadius: '12px', background: 'var(--sb-surface)', overflow: 'hidden' }
             }, [
                 React.createElement('button', {
                     key: 'hs-btn', onClick: () => setShowHandshake(v => !v),
                     style: { width: '100%', display: 'flex', alignItems: 'center', gap: '13px', padding: '14px 16px', background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', textAlign: 'start', fontFamily: 'inherit' }
                 }, [
                     React.createElement('div', { key: 'ic', style: { flex: 'none', width: '30px', height: '30px', display: 'grid', placeItems: 'center' } },
-                        React.createElement('i', { className: 'fas fa-check', style: { color: '#3ecf8e', fontSize: '16px' } })
+                        React.createElement('i', { className: 'fas fa-check', style: { color: 'var(--sb-green)', fontSize: '16px' } })
                     ),
                     React.createElement('div', { key: 'tx', style: { flex: 1, minWidth: 0 } }, [
-                        React.createElement('div', { key: 't1', style: { fontSize: '13.5px', fontWeight: 600, color: '#e8e8eb', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, t('flow.channelEstablished')),
-                        React.createElement('div', { key: 't2', style: { fontSize: '12px', color: '#7b7b83', marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, t('sas.verified') + (systemMessages.length ? (' · ' + systemMessages.length + (systemMessages.length === 1 ? ' event' : ' events')) : ''))
+                        React.createElement('div', { key: 't1', style: { fontSize: '13.5px', fontWeight: 600, color: 'var(--sb-text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, t('flow.channelEstablished')),
+                        React.createElement('div', { key: 't2', style: { fontSize: '12px', color: 'var(--sb-text-8)', marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, t('sas.verified') + (systemMessages.length ? (' · ' + systemMessages.length + (systemMessages.length === 1 ? ' event' : ' events')) : ''))
                     ]),
-                    React.createElement('i', { key: 'chev', className: 'fas fa-chevron-down', style: { flex: 'none', color: '#6b6b73', fontSize: '13px', transform: showHandshake ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s' } })
+                    React.createElement('i', { key: 'chev', className: 'fas fa-chevron-down', style: { flex: 'none', color: 'var(--sb-text-9)', fontSize: '13px', transform: showHandshake ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s' } })
                 ]),
                 showHandshake && React.createElement('div', { key: 'hs-body', style: { paddingTop: '2px', paddingBottom: '14px', paddingInlineStart: '59px', paddingInlineEnd: '16px' } }, [
                     systemMessages.length > 0 && React.createElement('div', { key: 'steps', className: 'sb-scroll', style: { marginBottom: '12px', maxHeight: '220px', overflowY: 'auto', paddingInlineEnd: '6px' } },
-                        systemMessages.map((m, i) => React.createElement('div', { key: 's' + i, style: { display: 'flex', gap: '11px', padding: '6px 0', borderTop: i === 0 ? 'none' : '1px solid rgba(255,255,255,0.04)' } }, [
-                            React.createElement('span', { key: 'd', style: { flex: 'none', width: '5px', height: '5px', borderRadius: '50%', background: '#3ecf8e', marginTop: '7px', opacity: 0.6 } }),
-                            React.createElement('span', { key: 't', style: { flex: 1, fontSize: '12.5px', color: '#9a9aa2', lineHeight: 1.5, wordBreak: 'break-word' } }, String(m.message || '').trim()),
-                            React.createElement('span', { key: 'tm', style: { flex: 'none', fontFamily: MONO, fontSize: '10.5px', color: '#56565e' } }, fmtT(m.timestamp))
+                        systemMessages.map((m, i) => React.createElement('div', { key: 's' + i, style: { display: 'flex', gap: '11px', padding: '6px 0', borderTop: i === 0 ? 'none' : '1px solid rgba(var(--sb-ink), 0.04)' } }, [
+                            React.createElement('span', { key: 'd', style: { flex: 'none', width: '5px', height: '5px', borderRadius: '50%', background: 'var(--sb-green-solid)', marginTop: '7px', opacity: 0.6 } }),
+                            React.createElement('span', { key: 't', style: { flex: 1, fontSize: '12.5px', color: 'var(--sb-text-6)', lineHeight: 1.5, wordBreak: 'break-word' } }, String(m.message || '').trim()),
+                            React.createElement('span', { key: 'tm', style: { flex: 'none', fontFamily: MONO, fontSize: '10.5px', color: 'var(--sb-text-faint)' } }, fmtT(m.timestamp))
                         ]))
                     ),
-                    keyFingerprint && React.createElement('div', { key: 'sn', style: { display: 'flex', alignItems: 'center', gap: '9px', padding: '10px 12px', borderRadius: '9px', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' } }, [
-                        React.createElement('i', { key: 'i', className: 'fas fa-lock', style: { color: '#8a8a92', fontSize: '12px' } }),
-                        React.createElement('span', { key: 'l', style: { fontSize: '11.5px', color: '#8a8a92' } }, t('sas.safetyNumber')),
-                        React.createElement('span', { key: 'v', style: { fontFamily: MONO, fontSize: '12px', color: '#cfcfd4', letterSpacing: '0.8px', fontWeight: 500, wordBreak: 'break-all' } }, keyFingerprint)
+                    keyFingerprint && React.createElement('div', { key: 'sn', style: { display: 'flex', alignItems: 'center', gap: '9px', padding: '10px 12px', borderRadius: '9px', background: 'rgba(var(--sb-ink), 0.025)', border: '1px solid rgba(var(--sb-ink), 0.06)' } }, [
+                        React.createElement('i', { key: 'i', className: 'fas fa-lock', style: { color: 'var(--sb-text-7)', fontSize: '12px' } }),
+                        React.createElement('span', { key: 'l', style: { fontSize: '11.5px', color: 'var(--sb-text-7)' } }, t('sas.safetyNumber')),
+                        React.createElement('span', { key: 'v', style: { fontFamily: MONO, fontSize: '12px', color: 'var(--sb-text-4)', letterSpacing: '0.8px', fontWeight: 500, wordBreak: 'break-all' } }, keyFingerprint)
                     ])
                 ])
             ]);
@@ -2426,8 +2441,8 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
             const emptyState = React.createElement('div', { key: 'empty', style: { display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, minHeight: '40vh' } },
                 React.createElement('div', { style: { textAlign: 'center', maxWidth: '420px' } }, [
                     React.createElement('img', { key: 'ic', src: '/logo/securebit-mark.svg', alt: 'SecureBit', style: { width: '60px', height: '60px', objectFit: 'contain', display: 'block', margin: '0 auto 16px' } }),
-                    React.createElement('h3', { key: 't', style: { fontSize: '17px', fontWeight: 700, color: '#e8e8eb', margin: '0 0 6px' } }, t('flow.channelReady')),
-                    React.createElement('p', { key: 'p', style: { fontSize: '13px', color: '#7b7b83', margin: 0 } }, t('chat.e2eeNote'))
+                    React.createElement('h3', { key: 't', style: { fontSize: '17px', fontWeight: 700, color: 'var(--sb-text-2)', margin: '0 0 6px' } }, t('flow.channelReady')),
+                    React.createElement('p', { key: 'p', style: { fontSize: '13px', color: 'var(--sb-text-8)', margin: 0 } }, t('chat.e2eeNote'))
                 ])
             );
 
@@ -2461,20 +2476,20 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
             ));
 
             // ---- option rows ----
-            const timerRow = showTimer && React.createElement('div', { key: 'timer-row', style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', padding: '10px 12px', marginBottom: '10px', borderRadius: '11px', border: '1px solid rgba(255,255,255,0.07)', background: '#161618' } },
-                [React.createElement('span', { key: 'lbl', style: { fontSize: '12px', color: '#8a8a92', fontWeight: 600, marginInlineEnd: '4px' } }, t('chat.disappearAfter'))].concat(
+            const timerRow = showTimer && React.createElement('div', { key: 'timer-row', style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', padding: '10px 12px', marginBottom: '10px', borderRadius: '11px', border: '1px solid rgba(var(--sb-ink), 0.07)', background: 'var(--sb-surface)' } },
+                [React.createElement('span', { key: 'lbl', style: { fontSize: '12px', color: 'var(--sb-text-7)', fontWeight: 600, marginInlineEnd: '4px' } }, t('chat.disappearAfter'))].concat(
                     timerDefs.map((d) => React.createElement('button', { key: 'td' + d.v, onClick: () => pickTimer(d.v), style: optStyle(disappearTtl === d.v) }, d.label))
                 )
             );
-            const onceRow = showOnce && React.createElement('div', { key: 'once-row', style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', padding: '10px 12px', marginBottom: '10px', borderRadius: '11px', border: '1px solid rgba(255,255,255,0.07)', background: '#161618' } },
-                [React.createElement('span', { key: 'lbl', style: { fontSize: '12px', color: '#8a8a92', fontWeight: 600, marginInlineEnd: '4px' } }, t('chat.visibleFor'))].concat(
+            const onceRow = showOnce && React.createElement('div', { key: 'once-row', style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', padding: '10px 12px', marginBottom: '10px', borderRadius: '11px', border: '1px solid rgba(var(--sb-ink), 0.07)', background: 'var(--sb-surface)' } },
+                [React.createElement('span', { key: 'lbl', style: { fontSize: '12px', color: 'var(--sb-text-7)', fontWeight: 600, marginInlineEnd: '4px' } }, t('chat.visibleFor'))].concat(
                     onceDefs.map((d) => React.createElement('button', { key: 'od' + d.v, onClick: () => pickOnce(d.v), style: optStyle(onceSelected === d.v) }, d.label))
                 )
             );
 
             // ---- file transfer panel ----
             const filePanel = showFileTransfer && React.createElement('div', { key: 'file-panel', style: { marginBottom: '10px' } },
-                React.createElement(window.FileTransferComponent || (() => React.createElement('div', { style: { padding: '16px', textAlign: 'center', color: '#e5727a' } }, 'FileTransferComponent not loaded')), {
+                React.createElement(window.FileTransferComponent || (() => React.createElement('div', { style: { padding: '16px', textAlign: 'center', color: 'var(--sb-red)' } }, 'FileTransferComponent not loaded')), {
                     webrtcManager: webrtcManager,
                     isConnected: isFileTransferReady(),
                     pendingIncomingFiles: pendingIncomingFiles,
@@ -2508,20 +2523,20 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
             ]);
 
             // ---- code-mode header strip ----
-            const codeStrip = codeMode && React.createElement('div', { key: 'code-strip', style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 14px', border: '1px solid rgba(255,255,255,0.08)', borderBottom: 'none', borderRadius: '14px 14px 0 0', background: '#161618' } }, [
-                React.createElement('i', { key: 'i', className: 'fas fa-code', style: { color: '#8a8a92', fontSize: '12px' } }),
-                React.createElement('span', { key: 's', style: { fontSize: '11.5px', fontWeight: 600, color: '#8a8a92' } }, t('chat.codeHint')),
-                React.createElement('button', { key: 'c', onClick: () => setCodeMode(false), className: 'sb-link', style: { marginInlineStart: 'auto', background: 'none', border: 'none', color: '#6b6b73', cursor: 'pointer', fontSize: '11.5px', fontFamily: 'inherit', fontWeight: 600 } }, t('chat.close'))
+            const codeStrip = codeMode && React.createElement('div', { key: 'code-strip', style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 14px', border: '1px solid rgba(var(--sb-ink), 0.08)', borderBottom: 'none', borderRadius: '14px 14px 0 0', background: 'var(--sb-surface)' } }, [
+                React.createElement('i', { key: 'i', className: 'fas fa-code', style: { color: 'var(--sb-text-7)', fontSize: '12px' } }),
+                React.createElement('span', { key: 's', style: { fontSize: '11.5px', fontWeight: 600, color: 'var(--sb-text-7)' } }, t('chat.codeHint')),
+                React.createElement('button', { key: 'c', onClick: () => setCodeMode(false), className: 'sb-link', style: { marginInlineStart: 'auto', background: 'none', border: 'none', color: 'var(--sb-text-9)', cursor: 'pointer', fontSize: '11.5px', fontFamily: 'inherit', fontWeight: 600 } }, t('chat.close'))
             ]);
 
             // ---- input row ----
             const sendBtn = React.createElement('button', {
                 key: 'send', onClick: onSendMessage, disabled: !hasText, title: t('chat.send'), className: 'sb-send',
-                style: { flex: 'none', width: '44px', height: '44px', borderRadius: '11px', border: 'none', display: 'grid', placeItems: 'center', cursor: hasText ? 'pointer' : 'default', background: hasText ? '#f0892a' : 'rgba(255,255,255,0.05)', color: hasText ? '#1a0f04' : '#56565e', transition: 'all .15s' }
+                style: { flex: 'none', width: '44px', height: '44px', borderRadius: '11px', border: 'none', display: 'grid', placeItems: 'center', cursor: hasText ? 'pointer' : 'default', background: hasText ? 'var(--sb-orange-solid)' : 'rgba(var(--sb-ink), 0.05)', color: hasText ? 'var(--sb-on-accent)' : 'var(--sb-text-faint)', transition: 'all .15s' }
             }, React.createElement('i', { className: 'fas fa-paper-plane sb-mirror-rtl', style: { fontSize: '15px' } }));
             const micBtn = React.createElement('button', {
                 key: 'mic', onClick: () => setIsRecording(true), title: t('chat.recordVoice'), className: 'sb-send',
-                style: { flex: 'none', width: '44px', height: '44px', borderRadius: '50%', border: 'none', display: 'grid', placeItems: 'center', cursor: 'pointer', background: '#f0892a', color: '#1a0f04', boxShadow: '0 8px 22px rgba(240,137,42,0.3)', transition: 'transform .15s cubic-bezier(.2,.7,.3,1)' }
+                style: { flex: 'none', width: '44px', height: '44px', borderRadius: '50%', border: 'none', display: 'grid', placeItems: 'center', cursor: 'pointer', background: 'var(--sb-orange-solid)', color: 'var(--sb-on-accent)', boxShadow: '0 8px 22px rgba(var(--sb-orange-rgb), 0.3)', transition: 'transform .15s cubic-bezier(.2,.7,.3,1)' }
             }, React.createElement('svg', { width: 19, height: 19, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.9, strokeLinecap: 'round', strokeLinejoin: 'round' }, [
                 React.createElement('rect', { key: 'a', x: 9, y: 3, width: 6, height: 11, rx: 3 }),
                 React.createElement('path', { key: 'b', d: 'M5 11a7 7 0 0 0 14 0' }),
@@ -2535,7 +2550,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
 
             const inputRow = React.createElement('div', {
                 key: 'input',
-                style: { display: 'flex', alignItems: 'flex-end', gap: '11px', paddingBlock: '11px', paddingInlineStart: '16px', paddingInlineEnd: '11px', border: '1px solid ' + (hasText ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)'), background: '#161618', borderRadius: codeMode ? '0 0 14px 14px' : '14px', transition: 'border .15s' }
+                style: { display: 'flex', alignItems: 'flex-end', gap: '11px', paddingBlock: '11px', paddingInlineStart: '16px', paddingInlineEnd: '11px', border: '1px solid ' + (hasText ? 'rgba(var(--sb-ink), 0.18)' : 'rgba(var(--sb-ink), 0.08)'), background: 'var(--sb-surface)', borderRadius: codeMode ? '0 0 14px 14px' : '14px', transition: 'border .15s' }
             }, [
                 React.createElement('div', { key: 'ta-wrap', style: { flex: 1, minWidth: 0 } }, [
                     React.createElement('textarea', {
@@ -2548,14 +2563,14 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                         maxLength: 2000,
                         placeholder: codeMode ? t('flow.pasteOrWrite') : t('chat.placeholder'),
                         className: 'sb-textarea',
-                        style: { width: '100%', minHeight: codeMode ? '120px' : '22px', maxHeight: '240px', resize: 'none', border: 'none', outline: 'none', background: 'transparent', color: '#e8e8eb', fontFamily: codeMode ? MONO : 'inherit', fontSize: codeMode ? '13px' : '14.5px', lineHeight: 1.55, padding: '6px 0' }
+                        style: { width: '100%', minHeight: codeMode ? '120px' : '22px', maxHeight: '240px', resize: 'none', border: 'none', outline: 'none', background: 'transparent', color: 'var(--sb-text-2)', fontFamily: codeMode ? MONO : 'inherit', fontSize: codeMode ? '13px' : '14.5px', lineHeight: 1.55, padding: '6px 0' }
                     }),
                     React.createElement('div', { key: 'foot', style: { display: 'flex', alignItems: 'center', gap: '12px', marginTop: '3px' } }, [
-                        React.createElement('span', { key: 'enc', style: { display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: '#56565e' } }, [
-                            React.createElement('i', { key: 'i', className: 'fas fa-lock', style: { color: '#3ecf8e', fontSize: '10px' } }),
+                        React.createElement('span', { key: 'enc', style: { display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: 'var(--sb-text-faint)' } }, [
+                            React.createElement('i', { key: 'i', className: 'fas fa-lock', style: { color: 'var(--sb-green)', fontSize: '10px' } }),
                             t('chat.encryptedOnDevice')
                         ]),
-                        React.createElement('span', { key: 'cnt', style: { fontFamily: MONO, fontSize: '10.5px', color: '#56565e', marginInlineStart: 'auto' } }, (messageInput ? messageInput.length : 0) + '/2000')
+                        React.createElement('span', { key: 'cnt', style: { fontFamily: MONO, fontSize: '10.5px', color: 'var(--sb-text-faint)', marginInlineStart: 'auto' } }, (messageInput ? messageInput.length : 0) + '/2000')
                     ])
                 ])
             ].concat(trailingButtons));
@@ -2569,7 +2584,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                 })
             );
 
-            const composer = React.createElement('footer', { key: 'composer', style: { flex: 'none', padding: '12px 20px calc(18px + var(--sb-safe-bottom, env(safe-area-inset-bottom, 0px)))', background: '#0f0f11', borderTop: '1px solid rgba(255,255,255,0.05)' } },
+            const composer = React.createElement('footer', { key: 'composer', style: { flex: 'none', padding: '12px 20px calc(18px + var(--sb-safe-bottom, env(safe-area-inset-bottom, 0px)))', background: 'var(--sb-bg)', borderTop: '1px solid rgba(var(--sb-ink), 0.05)' } },
                 React.createElement('div', { style: { maxWidth: '1000px', margin: '0 auto' } },
                     isRecording
                         ? [recordingBar]
@@ -2579,7 +2594,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
 
             const scrollBtn = showScrollButton && React.createElement('button', {
                 key: 'scrollbtn', onClick: handleScrollToBottom,
-                style: { position: 'fixed', insetInlineEnd: '24px', bottom: '150px', width: '44px', height: '44px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.1)', background: '#26262b', color: '#cfcfd4', display: 'grid', placeItems: 'center', cursor: 'pointer', zIndex: 50, boxShadow: '0 6px 20px rgba(0,0,0,0.4)' }
+                style: { position: 'fixed', insetInlineEnd: '24px', bottom: '150px', width: '44px', height: '44px', borderRadius: '50%', border: '1px solid rgba(var(--sb-ink), 0.1)', background: 'var(--sb-surface-3)', color: 'var(--sb-text-4)', display: 'grid', placeItems: 'center', cursor: 'pointer', zIndex: 50, boxShadow: '0 6px 20px rgba(var(--sb-shadow-rgb), calc(0.4 * var(--sb-shadow-k)))' }
             }, React.createElement('i', { className: 'fas fa-arrow-down', style: { fontSize: '15px' } }));
 
             const chatHeader = React.createElement(SecureBitChatHeader, {
@@ -2595,7 +2610,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
 
             return React.createElement('div', {
                 className: 'chat-container',
-                style: { position: 'relative', display: 'flex', flexDirection: 'column', height: '100vh', background: '#0f0f11', color: '#e8e8eb' }
+                style: { position: 'relative', display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--sb-bg)', color: 'var(--sb-text-2)' }
             }, [chatHeader, messagesArea, scrollBtn, composer, callOverlay]);
         };
         
@@ -2804,21 +2819,21 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                         onKeyDown: editKey,
                         onBlur: commitEdit,
                         onClick: (e) => e.stopPropagation(),
-                        style: Object.assign({ width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(240,137,42,0.5)', borderRadius: '6px', color: '#f4f4f6', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, padding: '2px 6px', outline: 'none' }, extra)
+                        style: Object.assign({ width: '100%', background: 'rgba(var(--sb-ink), 0.06)', border: '1px solid rgba(var(--sb-orange-rgb), 0.5)', borderRadius: '6px', color: 'var(--sb-text-1)', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, padding: '2px 6px', outline: 'none' }, extra)
                     });
                     const icon = (svg, style) => h('span', { style: Object.assign({ display: 'grid', placeItems: 'center' }, style || {}), dangerouslySetInnerHTML: { __html: svg } });
                     const avatar = (c, size, ring) => h('div', {
-                        style: { position: 'relative', flex: 'none', width: size + 'px', height: size + 'px', borderRadius: (size >= 44 ? 12 : 11) + 'px', display: 'grid', placeItems: 'center', background: c.active ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,' + (c.active ? '0.14' : '0.07') + ')', fontSize: '13px', fontWeight: 700, letterSpacing: '-0.3px', color: c.active ? '#f4f4f6' : '#9a9aa2' }
+                        style: { position: 'relative', flex: 'none', width: size + 'px', height: size + 'px', borderRadius: (size >= 44 ? 12 : 11) + 'px', display: 'grid', placeItems: 'center', background: c.active ? 'rgba(var(--sb-ink), 0.06)' : 'rgba(var(--sb-ink), 0.035)', border: '1px solid rgba(var(--sb-ink), ' + (c.active ? '0.14' : '0.07') + ')', fontSize: '13px', fontWeight: 700, letterSpacing: '-0.3px', color: c.active ? 'var(--sb-text-1)' : 'var(--sb-text-6)' }
                     }, [c.mono, h('span', { key: 'dot', style: { position: 'absolute', insetInlineEnd: '-2px', bottom: '-2px', width: '11px', height: '11px', borderRadius: '50%', background: c.dot, border: '2px solid ' + ring } })]);
 
                     // ---- Expanded list row ----
                     const expandedRow = (c) => h('div', {
                         key: c.id,
                         onClick: () => onSelect(c.id),
-                        style: { position: 'relative', display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 12px', marginBottom: '4px', borderRadius: '11px', background: c.active ? '#161618' : 'transparent', border: '1px solid ' + (c.active ? 'rgba(255,255,255,0.08)' : 'transparent'), cursor: 'pointer' }
+                        style: { position: 'relative', display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 12px', marginBottom: '4px', borderRadius: '11px', background: c.active ? 'var(--sb-surface)' : 'transparent', border: '1px solid ' + (c.active ? 'rgba(var(--sb-ink), 0.08)' : 'transparent'), cursor: 'pointer' }
                     }, [
-                        c.active && h('span', { key: 'bar', style: { position: 'absolute', insetInlineStart: 0, top: '12px', bottom: '12px', width: '3px', borderStartEndRadius: '3px', borderEndEndRadius: '3px', background: '#f0892a' } }),
-                        avatar(c, 38, c.active ? '#161618' : '#0c0c0e'),
+                        c.active && h('span', { key: 'bar', style: { position: 'absolute', insetInlineStart: 0, top: '12px', bottom: '12px', width: '3px', borderStartEndRadius: '3px', borderEndEndRadius: '3px', background: 'var(--sb-orange-solid)' } }),
+                        avatar(c, 38, c.active ? 'var(--sb-surface)' : 'var(--sb-bg-deep)'),
                         h('div', { key: 'body', style: { flex: 1, minWidth: 0 } }, [
                             h('div', { key: 'top', style: { display: 'flex', alignItems: 'center', gap: '7px' } }, [
                                 editingId === c.id
@@ -2827,26 +2842,26 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                                         key: 'name',
                                         onDoubleClick: startEdit(c),
                                         title: t('chat.renameHint'),
-                                        style: { flex: 1, minWidth: 0, fontSize: '14px', fontWeight: c.active ? 700 : 600, letterSpacing: '-0.2px', color: c.active ? '#f4f4f6' : '#cfcfd4', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
+                                        style: { flex: 1, minWidth: 0, fontSize: '14px', fontWeight: c.active ? 700 : 600, letterSpacing: '-0.2px', color: c.active ? 'var(--sb-text-1)' : 'var(--sb-text-4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
                                     }, c.name),
-                                c.unread && editingId !== c.id && h('span', { key: 'u', style: { flex: 'none', minWidth: '18px', height: '18px', padding: '0 5px', borderRadius: '9px', display: 'grid', placeItems: 'center', background: '#f0892a', color: '#1a0f04', fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 700 } }, c.unread)
+                                c.unread && editingId !== c.id && h('span', { key: 'u', style: { flex: 'none', minWidth: '18px', height: '18px', padding: '0 5px', borderRadius: '9px', display: 'grid', placeItems: 'center', background: 'var(--sb-orange-solid)', color: 'var(--sb-on-accent)', fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 700 } }, c.unread)
                             ]),
-                            h('div', { key: 'prev', style: { fontSize: '12px', color: c.active ? '#8a8a92' : '#6b6b73', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, c.preview)
+                            h('div', { key: 'prev', style: { fontSize: '12px', color: c.active ? 'var(--sb-text-7)' : 'var(--sb-text-9)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, c.preview)
                         ])
                     ]);
 
                     // ---- Collapsed dock item ----
                     const dockItem = (c) => h('div', { key: c.id, style: { position: 'relative' } }, [
-                        c.active && h('span', { key: 'bar', style: { position: 'absolute', insetInlineStart: '-13px', top: '9px', bottom: '9px', width: '3px', borderStartEndRadius: '3px', borderEndEndRadius: '3px', background: '#f0892a' } }),
+                        c.active && h('span', { key: 'bar', style: { position: 'absolute', insetInlineStart: '-13px', top: '9px', bottom: '9px', width: '3px', borderStartEndRadius: '3px', borderEndEndRadius: '3px', background: 'var(--sb-orange-solid)' } }),
                         h('div', {
                             key: 'tile',
                             onClick: () => onSelect(c.id),
                             title: c.name,
-                            style: { position: 'relative', width: '44px', height: '44px', borderRadius: '12px', display: 'grid', placeItems: 'center', cursor: 'pointer', background: c.active ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,' + (c.active ? '0.14' : '0.07') + ')', fontSize: '13px', fontWeight: 700, letterSpacing: '-0.3px', color: c.active ? '#f4f4f6' : '#9a9aa2' }
+                            style: { position: 'relative', width: '44px', height: '44px', borderRadius: '12px', display: 'grid', placeItems: 'center', cursor: 'pointer', background: c.active ? 'rgba(var(--sb-ink), 0.06)' : 'rgba(var(--sb-ink), 0.03)', border: '1px solid rgba(var(--sb-ink), ' + (c.active ? '0.14' : '0.07') + ')', fontSize: '13px', fontWeight: 700, letterSpacing: '-0.3px', color: c.active ? 'var(--sb-text-1)' : 'var(--sb-text-6)' }
                         }, [
                             c.mono,
-                            h('span', { key: 'dot', style: { position: 'absolute', insetInlineEnd: '-2px', bottom: '-2px', width: '11px', height: '11px', borderRadius: '50%', background: c.dot, border: '2.5px solid #0c0c0e' } }),
-                            c.unread && h('span', { key: 'u', style: { position: 'absolute', insetInlineStart: '-5px', top: '-5px', minWidth: '17px', height: '17px', padding: '0 4px', borderRadius: '9px', display: 'grid', placeItems: 'center', background: '#f0892a', color: '#1a0f04', fontFamily: "'JetBrains Mono',monospace", fontSize: '9.5px', fontWeight: 700, border: '2px solid #0c0c0e' } }, c.unread)
+                            h('span', { key: 'dot', style: { position: 'absolute', insetInlineEnd: '-2px', bottom: '-2px', width: '11px', height: '11px', borderRadius: '50%', background: c.dot, border: '2.5px solid var(--sb-bg-deep)' } }),
+                            c.unread && h('span', { key: 'u', style: { position: 'absolute', insetInlineStart: '-5px', top: '-5px', minWidth: '17px', height: '17px', padding: '0 4px', borderRadius: '9px', display: 'grid', placeItems: 'center', background: 'var(--sb-orange-solid)', color: 'var(--sb-on-accent)', fontFamily: "'JetBrains Mono',monospace", fontSize: '9.5px', fontWeight: 700, border: '2px solid var(--sb-bg-deep)' } }, c.unread)
                         ])
                     ]);
 
@@ -2854,22 +2869,22 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     // transparent background — no black tile.
                     const brandMark = (size) => h('div', { style: { width: size + 'px', height: size + 'px', flex: 'none', display: 'grid', placeItems: 'center' } },
                         h('img', { src: '/logo/securebit-mark.svg', alt: 'SecureBit', style: { width: '100%', height: '100%', objectFit: 'contain', display: 'block' } }));
-                    const collapseBtn = (svg, title) => h('button', { className: 'sb-collapse-btn', onClick: onToggleCollapse, title, style: { width: '30px', height: '30px', borderRadius: '8px', display: 'grid', placeItems: 'center', border: '1px solid rgba(255,255,255,0.07)', background: 'transparent', color: '#8a8a92', cursor: 'pointer' }, dangerouslySetInnerHTML: { __html: svg } });
+                    const collapseBtn = (svg, title) => h('button', { className: 'sb-collapse-btn', onClick: onToggleCollapse, title, style: { width: '30px', height: '30px', borderRadius: '8px', display: 'grid', placeItems: 'center', border: '1px solid rgba(var(--sb-ink), 0.07)', background: 'transparent', color: 'var(--sb-text-7)', cursor: 'pointer' }, dangerouslySetInnerHTML: { __html: svg } });
 
                     // ---- Expanded rail content ----
                     // ---- Presence ("You" status) panel ----
                     const myMeta = MY_STATUS_OPTIONS.find((o) => o.key === myStatus) || MY_STATUS_OPTIONS[0];
                     const PRES_SVG = {
                         user: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20v-1.5a4 4 0 0 0-4-4h-4a4 4 0 0 0-4 4V20"/><circle cx="12" cy="8" r="3.6"/></svg>',
-                        check: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f0892a" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11"/></svg>',
-                        chevUp: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b6b73" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>',
-                        lock: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11V7a5 5 0 0 1 10 0v4"/><rect x="4.5" y="11" width="15" height="9" rx="2.2"/></svg>'
+                        check: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--sb-orange-solid)" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11"/></svg>',
+                        chevUp: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sb-text-9)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>',
+                        lock: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--sb-green-solid)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11V7a5 5 0 0 1 10 0v4"/><rect x="4.5" y="11" width="15" height="9" rx="2.2"/></svg>'
                     };
                     const presenceMenu = (pos) => (presenceOpen ? h('div', {
                         key: 'pmenu',
-                        style: Object.assign({ position: 'absolute', zIndex: 30, borderRadius: '14px', background: '#161618', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 16px 40px rgba(0,0,0,0.55)', padding: '6px' }, pos)
+                        style: Object.assign({ position: 'absolute', zIndex: 30, borderRadius: '14px', background: 'var(--sb-surface)', border: '1px solid rgba(var(--sb-ink), 0.1)', boxShadow: '0 16px 40px rgba(var(--sb-shadow-rgb), calc(0.55 * var(--sb-shadow-k)))', padding: '6px' }, pos)
                     }, [
-                        h('div', { key: 'h', style: { padding: '9px 10px 7px', fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 600, color: '#56565e', textTransform: 'uppercase', letterSpacing: '1.2px' } }, t('chat.setStatus')),
+                        h('div', { key: 'h', style: { padding: '9px 10px 7px', fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 600, color: 'var(--sb-text-faint)', textTransform: 'uppercase', letterSpacing: '1.2px' } }, t('chat.setStatus')),
                         ...MY_STATUS_OPTIONS.map((o) => h('button', {
                             key: o.key,
                             onClick: () => { onSetStatus(o.key); setPresenceOpen(false); },
@@ -2877,115 +2892,115 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                         }, [
                             h('span', { key: 'd', style: { flex: 'none', width: '10px', height: '10px', borderRadius: '50%', background: o.dot } }),
                             h('span', { key: 't', style: { flex: 1, minWidth: 0 } }, [
-                                h('span', { key: 'w', style: { display: 'block', fontSize: '13.5px', fontWeight: 600, color: '#e8e8eb' } }, o.word),
-                                h('span', { key: 'de', style: { display: 'block', fontSize: '11.5px', color: '#6b6b73' } }, o.desc)
+                                h('span', { key: 'w', style: { display: 'block', fontSize: '13.5px', fontWeight: 600, color: 'var(--sb-text-2)' } }, o.word),
+                                h('span', { key: 'de', style: { display: 'block', fontSize: '11.5px', color: 'var(--sb-text-9)' } }, o.desc)
                             ]),
                             o.key === myStatus && h('span', { key: 'c', style: { flex: 'none', display: 'grid', placeItems: 'center' }, dangerouslySetInnerHTML: { __html: PRES_SVG.check } })
                         ])),
-                        h('div', { key: 'note', style: { display: 'flex', alignItems: 'flex-start', gap: '8px', margin: '6px 6px 4px', padding: '9px 10px', borderRadius: '9px', background: 'rgba(62,207,142,0.06)', border: '1px solid rgba(62,207,142,0.16)' } }, [
+                        h('div', { key: 'note', style: { display: 'flex', alignItems: 'flex-start', gap: '8px', margin: '6px 6px 4px', padding: '9px 10px', borderRadius: '9px', background: 'rgba(var(--sb-green-rgb), 0.06)', border: '1px solid rgba(var(--sb-green-rgb), 0.16)' } }, [
                             h('span', { key: 'i', style: { flex: 'none', marginTop: '1px', display: 'grid' }, dangerouslySetInnerHTML: { __html: PRES_SVG.lock } }),
-                            h('span', { key: 't', style: { fontSize: '11px', lineHeight: 1.45, color: '#8a8a92' } }, t('chat.peersOnly'))
+                            h('span', { key: 't', style: { fontSize: '11px', lineHeight: 1.45, color: 'var(--sb-text-7)' } }, t('chat.peersOnly'))
                         ])
                     ]) : null);
-                    const presencePanelExpanded = h('div', { key: 'you', style: { flex: 'none', position: 'relative', marginTop: '10px', borderTop: '1px solid rgba(255,255,255,0.06)', padding: '10px 12px 12px' } }, [
+                    const presencePanelExpanded = h('div', { key: 'you', style: { flex: 'none', position: 'relative', marginTop: '10px', borderTop: '1px solid rgba(var(--sb-ink), 0.06)', padding: '10px 12px 12px' } }, [
                         presenceMenu({ left: '12px', right: '12px', bottom: '64px' }),
-                        h('button', { key: 'btn', onClick: () => setPresenceOpen((v) => !v), style: { width: '100%', display: 'flex', alignItems: 'center', gap: '11px', padding: '7px 8px', borderRadius: '11px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', cursor: 'pointer' } }, [
-                            h('div', { key: 'av', style: { position: 'relative', flex: 'none', width: '36px', height: '36px', borderRadius: '10px', display: 'grid', placeItems: 'center', background: 'rgba(240,137,42,0.12)', border: '1px solid rgba(240,137,42,0.24)', color: '#f0892a' } }, [
+                        h('button', { key: 'btn', onClick: () => setPresenceOpen((v) => !v), style: { width: '100%', display: 'flex', alignItems: 'center', gap: '11px', padding: '7px 8px', borderRadius: '11px', border: '1px solid rgba(var(--sb-ink), 0.06)', background: 'rgba(var(--sb-ink), 0.02)', cursor: 'pointer' } }, [
+                            h('div', { key: 'av', style: { position: 'relative', flex: 'none', width: '36px', height: '36px', borderRadius: '10px', display: 'grid', placeItems: 'center', background: 'rgba(var(--sb-orange-rgb), 0.12)', border: '1px solid rgba(var(--sb-orange-rgb), 0.24)', color: 'var(--sb-orange)' } }, [
                                 h('span', { key: 'i', style: { display: 'grid' }, dangerouslySetInnerHTML: { __html: PRES_SVG.user } }),
-                                h('span', { key: 'dot', style: { position: 'absolute', insetInlineEnd: '-2px', bottom: '-2px', width: '11px', height: '11px', borderRadius: '50%', background: myMeta.dot, border: '2px solid #0c0c0e' } })
+                                h('span', { key: 'dot', style: { position: 'absolute', insetInlineEnd: '-2px', bottom: '-2px', width: '11px', height: '11px', borderRadius: '50%', background: myMeta.dot, border: '2px solid var(--sb-bg-deep)' } })
                             ]),
                             h('div', { key: 'tx', style: { flex: 1, minWidth: 0, textAlign: 'start' } }, [
-                                h('div', { key: 'y', style: { fontSize: '13.5px', fontWeight: 700, color: '#f4f4f6' } }, t('chatHdr.you')),
-                                h('div', { key: 'w', style: { fontSize: '12px', color: '#8a8a92' } }, myMeta.word)
+                                h('div', { key: 'y', style: { fontSize: '13.5px', fontWeight: 700, color: 'var(--sb-text-1)' } }, t('chatHdr.you')),
+                                h('div', { key: 'w', style: { fontSize: '12px', color: 'var(--sb-text-7)' } }, myMeta.word)
                             ]),
                             h('span', { key: 'ch', style: { display: 'grid', placeItems: 'center' }, dangerouslySetInnerHTML: { __html: PRES_SVG.chevUp } })
                         ])
                     ]);
                     const presencePanelCollapsed = h('div', { key: 'you', style: { flex: 'none', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 0 13px' } }, [
                         presenceMenu({ insetInlineStart: '60px', bottom: '8px', width: '248px' }),
-                        h('button', { key: 'btn', onClick: () => setPresenceOpen((v) => !v), title: t('chat.yourStatusPrefix') + myMeta.word, style: { position: 'relative', width: '44px', height: '44px', borderRadius: '12px', display: 'grid', placeItems: 'center', cursor: 'pointer', background: 'rgba(240,137,42,0.12)', border: '1px solid rgba(240,137,42,0.24)', color: '#f0892a' } }, [
+                        h('button', { key: 'btn', onClick: () => setPresenceOpen((v) => !v), title: t('chat.yourStatusPrefix') + myMeta.word, style: { position: 'relative', width: '44px', height: '44px', borderRadius: '12px', display: 'grid', placeItems: 'center', cursor: 'pointer', background: 'rgba(var(--sb-orange-rgb), 0.12)', border: '1px solid rgba(var(--sb-orange-rgb), 0.24)', color: 'var(--sb-orange)' } }, [
                             h('span', { key: 'i', style: { display: 'grid' }, dangerouslySetInnerHTML: { __html: PRES_SVG.user } }),
-                            h('span', { key: 'dot', style: { position: 'absolute', insetInlineEnd: '-2px', bottom: '-2px', width: '12px', height: '12px', borderRadius: '50%', background: myMeta.dot, border: '2.5px solid #0c0c0e' } })
+                            h('span', { key: 'dot', style: { position: 'absolute', insetInlineEnd: '-2px', bottom: '-2px', width: '12px', height: '12px', borderRadius: '50%', background: myMeta.dot, border: '2.5px solid var(--sb-bg-deep)' } })
                         ])
                     ]);
 
                     const expandedInner = [
-                        h('div', { key: 'head', style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBlock: 0, paddingInlineStart: '16px', paddingInlineEnd: '12px', height: 'var(--sb-bar-h, 64px)', borderBottom: '1px solid rgba(255,255,255,0.06)' } }, [
-                            h('div', { key: 'brand', style: { display: 'flex', alignItems: 'center', gap: '10px' } }, [brandMark(30), h('span', { key: 't', style: { fontSize: '15px', fontWeight: 800, letterSpacing: '-0.3px', color: '#f4f4f6' } }, 'SecureBit')]),
+                        h('div', { key: 'head', style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBlock: 0, paddingInlineStart: '16px', paddingInlineEnd: '12px', height: 'var(--sb-bar-h, 64px)', borderBottom: '1px solid rgba(var(--sb-ink), 0.06)' } }, [
+                            h('div', { key: 'brand', style: { display: 'flex', alignItems: 'center', gap: '10px' } }, [brandMark(30), h('span', { key: 't', style: { fontSize: '15px', fontWeight: 800, letterSpacing: '-0.3px', color: 'var(--sb-text-1)' } }, 'SecureBit')]),
                             collapseBtn(SB_SVG.chevL, t('chat.collapse'))
                         ]),
                         h('div', { key: 'label', style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 16px 9px' } }, [
-                            h('span', { key: 'l', style: { fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 600, color: '#56565e', textTransform: 'uppercase', letterSpacing: '1.3px' } }, t('chatHdr.chats')),
-                            h('span', { key: 'c', style: { fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 600, color: '#6b6b73' } }, String(chats.length))
+                            h('span', { key: 'l', style: { fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 600, color: 'var(--sb-text-faint)', textTransform: 'uppercase', letterSpacing: '1.3px' } }, t('chatHdr.chats')),
+                            h('span', { key: 'c', style: { fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 600, color: 'var(--sb-text-9)' } }, String(chats.length))
                         ]),
                         h('div', { key: 'list', className: 'msc-scroll', style: { flex: 1, overflowY: 'auto', padding: '0 10px' } }, [
                             ...chats.map(expandedRow),
                             h('div', { key: 'gh', style: { marginTop: '14px', padding: '0 2px 6px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' } }, [
-                                h('span', { key: 'l', style: { fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 600, color: '#56565e', textTransform: 'uppercase', letterSpacing: '1.3px' } }, t('chat.groupChats')),
+                                h('span', { key: 'l', style: { fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 600, color: 'var(--sb-text-faint)', textTransform: 'uppercase', letterSpacing: '1.3px' } }, t('chat.groupChats')),
                                 h('button', {
                                     key: 'add', onClick: onNewGroup, title: t('chat.newGroup'),
-                                    style: { border: 'none', background: 'transparent', color: '#f0892a', cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.9px', padding: 0 }
+                                    style: { border: 'none', background: 'transparent', color: 'var(--sb-orange)', cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.9px', padding: 0 }
                                 }, t('chatHdr.newChat'))
                             ]),
                             ...(groups.length === 0
-                                ? [h('div', { key: 'gph', onClick: onNewGroup, title: t('chat.createGroup'), style: { display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 12px', borderRadius: '11px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.09)', cursor: 'pointer' } }, [
-                                    h('div', { key: 'i', style: { flex: 'none', width: '38px', height: '38px', borderRadius: '11px', display: 'grid', placeItems: 'center', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', color: '#56565e' }, dangerouslySetInnerHTML: { __html: SB_SVG.users } }),
+                                ? [h('div', { key: 'gph', onClick: onNewGroup, title: t('chat.createGroup'), style: { display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 12px', borderRadius: '11px', background: 'transparent', border: '1px dashed rgba(var(--sb-ink), 0.09)', cursor: 'pointer' } }, [
+                                    h('div', { key: 'i', style: { flex: 'none', width: '38px', height: '38px', borderRadius: '11px', display: 'grid', placeItems: 'center', background: 'rgba(var(--sb-ink), 0.025)', border: '1px solid rgba(var(--sb-ink), 0.06)', color: 'var(--sb-text-faint)' }, dangerouslySetInnerHTML: { __html: SB_SVG.users } }),
                                     h('div', { key: 'b', style: { flex: 1, minWidth: 0 } }, [
-                                        h('div', { key: 't', style: { fontSize: '14px', fontWeight: 600, color: '#8a8a92' } }, t('chat.newGroup')),
-                                        h('div', { key: 's', style: { fontSize: '11.5px', color: '#56565e' } }, t('chat.meshHint'))
+                                        h('div', { key: 't', style: { fontSize: '14px', fontWeight: 600, color: 'var(--sb-text-7)' } }, t('chat.newGroup')),
+                                        h('div', { key: 's', style: { fontSize: '11.5px', color: 'var(--sb-text-faint)' } }, t('chat.meshHint'))
                                     ])
                                 ])]
                                 : groups.map((g) => h('div', {
                                     key: g.id,
                                     onClick: () => onSelectGroup(g.id),
-                                    style: { position: 'relative', display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 12px', marginBottom: '4px', borderRadius: '11px', background: g.active ? '#161618' : 'transparent', border: '1px solid ' + (g.active ? 'rgba(255,255,255,0.08)' : 'transparent'), cursor: 'pointer' }
+                                    style: { position: 'relative', display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 12px', marginBottom: '4px', borderRadius: '11px', background: g.active ? 'var(--sb-surface)' : 'transparent', border: '1px solid ' + (g.active ? 'rgba(var(--sb-ink), 0.08)' : 'transparent'), cursor: 'pointer' }
                                 }, [
-                                    g.active && h('span', { key: 'bar', style: { position: 'absolute', insetInlineStart: 0, top: '12px', bottom: '12px', width: '3px', borderStartEndRadius: '3px', borderEndEndRadius: '3px', background: '#f0892a' } }),
-                                    avatar(g, 38, g.active ? '#161618' : '#0c0c0e'),
+                                    g.active && h('span', { key: 'bar', style: { position: 'absolute', insetInlineStart: 0, top: '12px', bottom: '12px', width: '3px', borderStartEndRadius: '3px', borderEndEndRadius: '3px', background: 'var(--sb-orange-solid)' } }),
+                                    avatar(g, 38, g.active ? 'var(--sb-surface)' : 'var(--sb-bg-deep)'),
                                     h('div', { key: 'body', style: { flex: 1, minWidth: 0 } }, [
                                         h('div', { key: 'top', style: { display: 'flex', alignItems: 'center', gap: '7px' } }, [
-                                            h('span', { key: 'n', style: { flex: 1, minWidth: 0, fontSize: '14px', fontWeight: g.active ? 700 : 600, letterSpacing: '-0.2px', color: g.active ? '#f4f4f6' : '#cfcfd4', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, g.name),
-                                            g.unread && h('span', { key: 'u', style: { flex: 'none', minWidth: '18px', height: '18px', padding: '0 5px', borderRadius: '9px', display: 'grid', placeItems: 'center', background: '#f0892a', color: '#1a0f04', fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 700 } }, g.unread)
+                                            h('span', { key: 'n', style: { flex: 1, minWidth: 0, fontSize: '14px', fontWeight: g.active ? 700 : 600, letterSpacing: '-0.2px', color: g.active ? 'var(--sb-text-1)' : 'var(--sb-text-4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, g.name),
+                                            g.unread && h('span', { key: 'u', style: { flex: 'none', minWidth: '18px', height: '18px', padding: '0 5px', borderRadius: '9px', display: 'grid', placeItems: 'center', background: 'var(--sb-orange-solid)', color: 'var(--sb-on-accent)', fontFamily: "'JetBrains Mono',monospace", fontSize: '10px', fontWeight: 700 } }, g.unread)
                                         ]),
-                                        h('div', { key: 'prev', style: { fontSize: '12px', color: g.active ? '#8a8a92' : '#6b6b73', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, g.preview)
+                                        h('div', { key: 'prev', style: { fontSize: '12px', color: g.active ? 'var(--sb-text-7)' : 'var(--sb-text-9)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, g.preview)
                                     ])
                                 ])))
                         ]),
                         h('div', { key: 'new', style: { flex: 'none', padding: '12px' } }, h('button', {
                             onClick: onNewChat,
-                            style: { width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '12px', borderRadius: '11px', border: 'none', background: '#f0892a', color: '#1a0f04', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 8px 24px rgba(240,137,42,0.28)' }
+                            style: { width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '12px', borderRadius: '11px', border: 'none', background: 'var(--sb-orange-solid)', color: 'var(--sb-on-accent)', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 8px 24px rgba(var(--sb-orange-rgb), 0.28)' }
                         }, [icon(SB_SVG.plus, { key: 'p' }), t('chat.newChat')])),
                         presencePanelExpanded
                     ];
 
                     // ---- Collapsed dock content ----
                     const collapsedInner = [
-                        h('div', { key: 'head', style: { flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '13px 0', width: '100%', borderBottom: '1px solid rgba(255,255,255,0.06)' } }, [brandMark(32), collapseBtn(SB_SVG.chevR, t('chatHdr.expand'))]),
+                        h('div', { key: 'head', style: { flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '13px 0', width: '100%', borderBottom: '1px solid rgba(var(--sb-ink), 0.06)' } }, [brandMark(32), collapseBtn(SB_SVG.chevR, t('chatHdr.expand'))]),
                         h('div', { key: 'list', className: 'msc-scroll', style: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '14px 0', width: '100%' } }, [
                             ...chats.map(dockItem),
-                            h('div', { key: 'sep', style: { width: '30px', height: '1px', background: 'rgba(255,255,255,0.07)', margin: '2px 0' } }),
+                            h('div', { key: 'sep', style: { width: '30px', height: '1px', background: 'rgba(var(--sb-ink), 0.07)', margin: '2px 0' } }),
                             ...groups.map((g) => h('div', { key: g.id, style: { position: 'relative' } }, [
-                                g.active && h('span', { key: 'bar', style: { position: 'absolute', insetInlineStart: '-13px', top: '9px', bottom: '9px', width: '3px', borderStartEndRadius: '3px', borderEndEndRadius: '3px', background: '#f0892a' } }),
+                                g.active && h('span', { key: 'bar', style: { position: 'absolute', insetInlineStart: '-13px', top: '9px', bottom: '9px', width: '3px', borderStartEndRadius: '3px', borderEndEndRadius: '3px', background: 'var(--sb-orange-solid)' } }),
                                 h('div', {
                                     key: 'tile', onClick: () => onSelectGroup(g.id), title: g.name + ' — ' + g.headerSub,
-                                    style: { position: 'relative', width: '44px', height: '44px', borderRadius: '12px', display: 'grid', placeItems: 'center', cursor: 'pointer', background: g.active ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,' + (g.active ? '0.14' : '0.07') + ')', fontSize: '13px', fontWeight: 700, letterSpacing: '-0.3px', color: g.active ? '#f4f4f6' : '#9a9aa2' }
+                                    style: { position: 'relative', width: '44px', height: '44px', borderRadius: '12px', display: 'grid', placeItems: 'center', cursor: 'pointer', background: g.active ? 'rgba(var(--sb-ink), 0.06)' : 'rgba(var(--sb-ink), 0.03)', border: '1px solid rgba(var(--sb-ink), ' + (g.active ? '0.14' : '0.07') + ')', fontSize: '13px', fontWeight: 700, letterSpacing: '-0.3px', color: g.active ? 'var(--sb-text-1)' : 'var(--sb-text-6)' }
                                 }, [
                                     g.mono,
-                                    h('span', { key: 'dot', style: { position: 'absolute', insetInlineEnd: '-2px', bottom: '-2px', width: '11px', height: '11px', borderRadius: '50%', background: g.dot, border: '2.5px solid #0c0c0e' } }),
-                                    g.unread && h('span', { key: 'u', style: { position: 'absolute', insetInlineStart: '-5px', top: '-5px', minWidth: '17px', height: '17px', padding: '0 4px', borderRadius: '9px', display: 'grid', placeItems: 'center', background: '#f0892a', color: '#1a0f04', fontFamily: "'JetBrains Mono',monospace", fontSize: '9.5px', fontWeight: 700, border: '2px solid #0c0c0e' } }, g.unread)
+                                    h('span', { key: 'dot', style: { position: 'absolute', insetInlineEnd: '-2px', bottom: '-2px', width: '11px', height: '11px', borderRadius: '50%', background: g.dot, border: '2.5px solid var(--sb-bg-deep)' } }),
+                                    g.unread && h('span', { key: 'u', style: { position: 'absolute', insetInlineStart: '-5px', top: '-5px', minWidth: '17px', height: '17px', padding: '0 4px', borderRadius: '9px', display: 'grid', placeItems: 'center', background: 'var(--sb-orange-solid)', color: 'var(--sb-on-accent)', fontFamily: "'JetBrains Mono',monospace", fontSize: '9.5px', fontWeight: 700, border: '2px solid var(--sb-bg-deep)' } }, g.unread)
                                 ])
                             ])),
-                            h('div', { key: 'gph', onClick: onNewGroup, title: t('chat.newGroup'), style: { position: 'relative', width: '44px', height: '44px', borderRadius: '12px', display: 'grid', placeItems: 'center', cursor: 'pointer', background: 'transparent', border: '1px dashed rgba(255,255,255,0.1)', color: '#56565e' }, dangerouslySetInnerHTML: { __html: SB_SVG.users } })
+                            h('div', { key: 'gph', onClick: onNewGroup, title: t('chat.newGroup'), style: { position: 'relative', width: '44px', height: '44px', borderRadius: '12px', display: 'grid', placeItems: 'center', cursor: 'pointer', background: 'transparent', border: '1px dashed rgba(var(--sb-ink), 0.1)', color: 'var(--sb-text-faint)' }, dangerouslySetInnerHTML: { __html: SB_SVG.users } })
                         ]),
                         h('div', { key: 'new', style: { flex: 'none', padding: '13px 0' } }, h('button', {
                             onClick: onNewChat, title: t('chat.newChat'),
-                            style: { width: '44px', height: '44px', borderRadius: '12px', display: 'grid', placeItems: 'center', border: 'none', background: '#f0892a', color: '#1a0f04', cursor: 'pointer', boxShadow: '0 8px 24px rgba(240,137,42,0.28)' }, dangerouslySetInnerHTML: { __html: SB_SVG.plus }
+                            style: { width: '44px', height: '44px', borderRadius: '12px', display: 'grid', placeItems: 'center', border: 'none', background: 'var(--sb-orange-solid)', color: 'var(--sb-on-accent)', cursor: 'pointer', boxShadow: '0 8px 24px rgba(var(--sb-orange-rgb), 0.28)' }, dangerouslySetInnerHTML: { __html: SB_SVG.plus }
                         })),
                         presencePanelCollapsed
                     ];
 
                     const railWidth = collapsed ? '72px' : '292px';
-                    const railStyle = { flex: 'none', width: railWidth, display: 'flex', flexDirection: 'column', alignItems: collapsed ? 'center' : 'stretch', paddingTop: 'var(--sb-safe-top, 0px)', background: '#0c0c0e', borderInlineEnd: '1px solid rgba(255,255,255,0.06)' };
+                    const railStyle = { flex: 'none', width: railWidth, display: 'flex', flexDirection: 'column', alignItems: collapsed ? 'center' : 'stretch', paddingTop: 'var(--sb-safe-top, 0px)', background: 'var(--sb-bg-deep)', borderInlineEnd: '1px solid rgba(var(--sb-ink), 0.06)' };
                     const inner = collapsed ? collapsedInner : expandedInner;
 
                     return h(React.Fragment, null, [
@@ -2993,7 +3008,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                         h('style', { key: 'css', dangerouslySetInnerHTML: { __html: '@media (max-width:1023px){.sb-rail{display:none !important;}.sb-burger{display:grid !important;}}@media (min-width:1024px){.sb-drawer-overlay{display:none !important;}}.sb-mobile-drawer .sb-collapse-btn{display:none !important;}' +
                             // Dark app background everywhere so mobile safe-areas / overscroll show
                             // black, not the grey landing background (the "grey band" bug).
-                            'html,body{background:#0f0f11 !important;overscroll-behavior:none;}' +
+                            'html,body{background:var(--sb-bg) !important;overscroll-behavior:none;}' +
                             // App-shell height tracks the *visual* viewport (--sb-vh, set from the
                             // VisualViewport API) so the layout shrinks when the on-screen keyboard
                             // opens — no grey gap under the composer. Falls back to 100dvh, then 100vh.
@@ -3066,12 +3081,12 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                             onPointerMove: drawerMove,
                             onPointerUp: drawerUp,
                             onPointerCancel: drawerUp,
-                            style: { position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(6,6,8,0.6)', backdropFilter: 'blur(0px)', WebkitBackdropFilter: 'blur(0px)', opacity: 0, display: drawerMounted ? 'block' : 'none', touchAction: 'pan-y', willChange: 'opacity' }
-                        }, h('aside', { className: 'sb-mobile-drawer', ref: panelRef, onClick: (e) => e.stopPropagation(), style: { position: 'absolute', insetInlineStart: 0, top: 0, bottom: 0, width: 'min(292px, 86vw)', display: 'flex', flexDirection: 'column', paddingTop: 'var(--sb-safe-top, 0px)', background: '#0c0c0e', borderInlineEnd: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 0 60px rgba(0,0,0,0.6)', touchAction: 'pan-y', willChange: 'transform' } }, [
+                            style: { position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(var(--sb-scrim-rgb), 0.6)', backdropFilter: 'blur(0px)', WebkitBackdropFilter: 'blur(0px)', opacity: 0, display: drawerMounted ? 'block' : 'none', touchAction: 'pan-y', willChange: 'opacity' }
+                        }, h('aside', { className: 'sb-mobile-drawer', ref: panelRef, onClick: (e) => e.stopPropagation(), style: { position: 'absolute', insetInlineStart: 0, top: 0, bottom: 0, width: 'min(292px, 86vw)', display: 'flex', flexDirection: 'column', paddingTop: 'var(--sb-safe-top, 0px)', background: 'var(--sb-bg-deep)', borderInlineEnd: '1px solid rgba(var(--sb-ink), 0.06)', boxShadow: '0 0 60px rgba(var(--sb-shadow-rgb), calc(0.6 * var(--sb-shadow-k)))', touchAction: 'pan-y', willChange: 'transform' } }, [
                             // Explicit close button — the drawer's own header only has a
                             // "collapse" chevron (a desktop-rail action), so on mobile there was
                             // no obvious way to dismiss it. This X closes the drawer reliably.
-                            h('button', { key: 'x', onClick: onCloseDrawer, title: t('chat.closeMenu'), 'aria-label': t('chat.closeMenu'), style: { position: 'absolute', top: 'calc(15px + var(--sb-safe-top, 0px))', insetInlineEnd: '13px', zIndex: 2, width: '34px', height: '34px', borderRadius: '9px', display: 'grid', placeItems: 'center', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#cfcfd4', cursor: 'pointer' } }, h('i', { className: 'fas fa-xmark', style: { fontSize: '16px' } })),
+                            h('button', { key: 'x', onClick: onCloseDrawer, title: t('chat.closeMenu'), 'aria-label': t('chat.closeMenu'), style: { position: 'absolute', top: 'calc(15px + var(--sb-safe-top, 0px))', insetInlineEnd: '13px', zIndex: 2, width: '34px', height: '34px', borderRadius: '9px', display: 'grid', placeItems: 'center', border: '1px solid rgba(var(--sb-ink), 0.1)', background: 'rgba(var(--sb-ink), 0.05)', color: 'var(--sb-text-4)', cursor: 'pointer' } }, h('i', { className: 'fas fa-xmark', style: { fontSize: '16px' } })),
                             expandedInner
                         ]))
                     ]);
@@ -6936,7 +6951,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                             React.createElement('button', {
                                 key: 'burger', className: 'sb-burger',
                                 onClick: () => setSidebarDrawerOpen(true),
-                                style: { display: 'none', position: 'fixed', top: 'calc(13px + var(--sb-safe-top, 0px))', insetInlineStart: '13px', zIndex: 55, width: '38px', height: '38px', borderRadius: '10px', placeItems: 'center', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(18,18,20,0.9)', color: '#cfcfd4', cursor: 'pointer' },
+                                style: { display: 'none', position: 'fixed', top: 'calc(13px + var(--sb-safe-top, 0px))', insetInlineStart: '13px', zIndex: 55, width: '38px', height: '38px', borderRadius: '10px', placeItems: 'center', border: '1px solid rgba(var(--sb-ink), 0.1)', background: 'rgba(var(--sb-bg-rgb), 0.9)', color: 'var(--sb-text-4)', cursor: 'pointer' },
                                 dangerouslySetInnerHTML: { __html: SB_SVG.burger }
                             }),
                             React.createElement('div', {
@@ -7036,7 +7051,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                             key: 'sb-burger',
                             className: 'sb-burger',
                             onClick: () => setSidebarDrawerOpen(true),
-                            style: { display: 'none', position: 'fixed', top: 'calc(13px + var(--sb-safe-top, 0px))', insetInlineStart: '13px', zIndex: 55, width: '38px', height: '38px', borderRadius: '10px', placeItems: 'center', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(18,18,20,0.9)', color: '#cfcfd4', cursor: 'pointer' },
+                            style: { display: 'none', position: 'fixed', top: 'calc(13px + var(--sb-safe-top, 0px))', insetInlineStart: '13px', zIndex: 55, width: '38px', height: '38px', borderRadius: '10px', placeItems: 'center', border: '1px solid rgba(var(--sb-ink), 0.1)', background: 'rgba(var(--sb-bg-rgb), 0.9)', color: 'var(--sb-text-4)', cursor: 'pointer' },
                             dangerouslySetInnerHTML: { __html: SB_SVG.burger }
                         }),
                         React.createElement('div', {
@@ -7224,22 +7239,22 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                             return React.createElement('div', {
                                 key: 'qr-scanner-modal',
                                 onClick: closeScanner,
-                                style: { position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px', background: 'rgba(6,6,8,0.82)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', animation: 'sbUp .2s ease' }
+                                style: { position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px', background: 'rgba(var(--sb-scrim-rgb), 0.82)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', animation: 'sbUp .2s ease' }
                             }, [
                                 React.createElement('div', {
                                     key: 'scanner-container',
                                     onClick: (e) => e.stopPropagation(),
-                                    style: { width: '100%', maxWidth: '420px', borderRadius: '22px', border: '1px solid rgba(255,255,255,0.1)', background: '#111113', boxShadow: '0 30px 90px rgba(0,0,0,0.6)', overflow: 'hidden' }
+                                    style: { width: '100%', maxWidth: '420px', borderRadius: '22px', border: '1px solid rgba(var(--sb-ink), 0.1)', background: 'var(--sb-bg)', boxShadow: '0 30px 90px rgba(var(--sb-shadow-rgb), calc(0.6 * var(--sb-shadow-k)))', overflow: 'hidden' }
                                 }, [
                                     // Header
                                     React.createElement('div', {
                                         key: 'scanner-header',
-                                        style: { display: 'flex', alignItems: 'center', gap: '11px', padding: '18px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' }
+                                        style: { display: 'flex', alignItems: 'center', gap: '11px', padding: '18px 20px', borderBottom: '1px solid rgba(var(--sb-ink), 0.06)' }
                                     }, [
                                         React.createElement('span', {
                                             key: 'scanner-icon',
                                             style: { display: 'flex' },
-                                            dangerouslySetInnerHTML: { __html: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5V6.5A2.5 2.5 0 0 1 4.5 4h2M17.5 4h2A2.5 2.5 0 0 1 22 6.5v2M22 15.5v2a2.5 2.5 0 0 1-2.5 2.5h-2M6.5 20h-2A2.5 2.5 0 0 1 2 17.5v-2"/><circle cx="12" cy="12" r="3.2"/></svg>' }
+                                            dangerouslySetInnerHTML: { __html: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--sb-green-solid)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5V6.5A2.5 2.5 0 0 1 4.5 4h2M17.5 4h2A2.5 2.5 0 0 1 22 6.5v2M22 15.5v2a2.5 2.5 0 0 1-2.5 2.5h-2M6.5 20h-2A2.5 2.5 0 0 1 2 17.5v-2"/><circle cx="12" cy="12" r="3.2"/></svg>' }
                                         }),
                                         React.createElement('div', {
                                             key: 'scanner-titles',
@@ -7247,17 +7262,17 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                                         }, [
                                             React.createElement('div', {
                                                 key: 'scanner-title',
-                                                style: { fontSize: '15.5px', fontWeight: 800, color: '#f4f4f6' }
+                                                style: { fontSize: '15.5px', fontWeight: 800, color: 'var(--sb-text-1)' }
                                             }, t('qr.title')),
                                             React.createElement('div', {
                                                 key: 'scanner-hint',
-                                                style: { fontSize: '12px', color: '#7b7b83' }
+                                                style: { fontSize: '12px', color: 'var(--sb-text-8)' }
                                             }, t('qr.subtitle'))
                                         ]),
                                         React.createElement('button', {
                                             key: 'close-btn',
                                             onClick: closeScanner,
-                                            style: { width: '32px', height: '32px', display: 'grid', placeItems: 'center', borderRadius: '9px', border: 'none', background: 'rgba(255,255,255,0.05)', color: '#9a9aa2', cursor: 'pointer' }
+                                            style: { width: '32px', height: '32px', display: 'grid', placeItems: 'center', borderRadius: '9px', border: 'none', background: 'rgba(var(--sb-ink), 0.05)', color: 'var(--sb-text-6)', cursor: 'pointer' }
                                         }, React.createElement('i', { className: 'fas fa-times' }))
                                     ]),
                                     // Body
@@ -7267,11 +7282,11 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                                     }, [
                                         React.createElement('div', {
                                             key: 'viewfinder',
-                                            style: { position: 'relative', aspectRatio: '1', borderRadius: '18px', overflow: 'hidden', background: '#000', border: '1px solid rgba(255,255,255,0.1)' }
+                                            style: { position: 'relative', aspectRatio: '1', borderRadius: '18px', overflow: 'hidden', background: '#000', border: '1px solid rgba(var(--sb-ink), 0.1)' }
                                         }, [
                                             React.createElement('div', {
                                                 key: 'vf-bg',
-                                                style: { position: 'absolute', inset: 0, background: 'radial-gradient(circle at 50% 45%, #1a1a1f, #000)' }
+                                                style: { position: 'absolute', inset: 0, background: 'radial-gradient(circle at 50% 45%, var(--sb-surface-2), #000)' }
                                             }),
                                             // Camera video is injected here by Html5Qrcode
                                             React.createElement('div', {
@@ -7279,13 +7294,13 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                                                 id: 'qr-reader',
                                                 style: { position: 'absolute', inset: 0, zIndex: 1 }
                                             }),
-                                            corner('c-tl', { top: '18px', insetInlineStart: '18px', borderTop: '2.5px solid #3ecf8e', borderInlineStart: '2.5px solid #3ecf8e', borderRadius: '8px 0 0 0' }),
-                                            corner('c-tr', { top: '18px', insetInlineEnd: '18px', borderTop: '2.5px solid #3ecf8e', borderInlineEnd: '2.5px solid #3ecf8e', borderRadius: '0 8px 0 0' }),
-                                            corner('c-bl', { bottom: '18px', insetInlineStart: '18px', borderBottom: '2.5px solid #3ecf8e', borderInlineStart: '2.5px solid #3ecf8e', borderRadius: '0 0 0 8px' }),
-                                            corner('c-br', { bottom: '18px', insetInlineEnd: '18px', borderBottom: '2.5px solid #3ecf8e', borderInlineEnd: '2.5px solid #3ecf8e', borderRadius: '0 0 8px 0' }),
+                                            corner('c-tl', { top: '18px', insetInlineStart: '18px', borderTop: '2.5px solid var(--sb-green-solid)', borderInlineStart: '2.5px solid var(--sb-green-solid)', borderRadius: '8px 0 0 0' }),
+                                            corner('c-tr', { top: '18px', insetInlineEnd: '18px', borderTop: '2.5px solid var(--sb-green-solid)', borderInlineEnd: '2.5px solid var(--sb-green-solid)', borderRadius: '0 8px 0 0' }),
+                                            corner('c-bl', { bottom: '18px', insetInlineStart: '18px', borderBottom: '2.5px solid var(--sb-green-solid)', borderInlineStart: '2.5px solid var(--sb-green-solid)', borderRadius: '0 0 0 8px' }),
+                                            corner('c-br', { bottom: '18px', insetInlineEnd: '18px', borderBottom: '2.5px solid var(--sb-green-solid)', borderInlineEnd: '2.5px solid var(--sb-green-solid)', borderRadius: '0 0 8px 0' }),
                                             React.createElement('span', {
                                                 key: 'scan-line',
-                                                style: { position: 'absolute', left: '18px', right: '18px', height: '2.5px', zIndex: 2, background: 'linear-gradient(90deg, transparent, #3ecf8e, transparent)', boxShadow: '0 0 16px #3ecf8e', animation: 'sbScan 1.5s ease-in-out infinite alternate' }
+                                                style: { position: 'absolute', left: '18px', right: '18px', height: '2.5px', zIndex: 2, background: 'linear-gradient(90deg, transparent, var(--sb-green), transparent)', boxShadow: '0 0 16px var(--sb-green)', animation: 'sbScan 1.5s ease-in-out infinite alternate' }
                                             }),
                                             React.createElement('div', {
                                                 key: 'scan-status',
@@ -7294,17 +7309,17 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                                                 React.createElement('span', {
                                                     key: 'spinner',
                                                     style: { display: 'flex', animation: 'sbSpin 1.4s linear infinite' },
-                                                    dangerouslySetInnerHTML: { __html: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>' }
+                                                    dangerouslySetInnerHTML: { __html: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--sb-green-solid)" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>' }
                                                 }),
                                                 React.createElement('span', {
                                                     key: 'scan-frames',
-                                                    style: { fontSize: '12.5px', fontWeight: 600, color: '#cfcfd4' }
+                                                    style: { fontSize: '12.5px', fontWeight: 600, color: 'var(--sb-text-4)' }
                                                 }, framesText)
                                             ])
                                         ]),
                                         React.createElement('p', {
                                             key: 'scanner-note',
-                                            style: { margin: '16px 0 0', textAlign: 'center', fontSize: '12px', lineHeight: 1.5, color: '#6b6b73' }
+                                            style: { margin: '16px 0 0', textAlign: 'center', fontSize: '12px', lineHeight: 1.5, color: 'var(--sb-text-9)' }
                                         }, t('qr.hint'))
                                     ])
                                 ])

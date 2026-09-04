@@ -218,19 +218,21 @@ function withTwoGroups() {
 
     assert.equal(linkedCount(ready), 3);
     assert.equal(groupSub(ready), '3 members · P2P mesh');
-    assert.equal(groupDot(ready), '#3ecf8e');
+    // Custom properties rather than literals since the app gained a light theme: a dot is
+    // a mark, so it takes the -solid accent, which is the brand colour in both themes.
+    assert.equal(groupDot(ready), 'var(--sb-green-solid)');
 
     const degraded = { ...ready, members: members(MEMBER_STATE.SELF, MEMBER_STATE.LOST, MEMBER_STATE.LINKED) };
     assert.equal(linkedCount(degraded), 2);
     assert.equal(groupSub(degraded), '2 of 3 connected', 'an unreachable member is a member not getting your messages');
-    assert.equal(groupDot(degraded), '#e3b341', 'partial connectivity reads amber, not green');
+    assert.equal(groupDot(degraded), 'var(--sb-yellow-2-solid)', 'partial connectivity reads amber, not green');
 
     const forming = createGroupEntry({ id: 'h', name: 'New', members: members() });
     assert.equal(groupSub(forming), 'Forming…');
-    assert.equal(groupDot(forming), '#e3b341');
+    assert.equal(groupDot(forming), 'var(--sb-yellow-2-solid)');
 
     const failed = { ...forming, phase: GROUP_PHASE.FAILED };
-    assert.equal(groupDot(failed), '#e5727a');
+    assert.equal(groupDot(failed), 'var(--sb-red-solid)');
 
     const d = decorateGroup(ready, 'other');
     assert.equal(d.kind, 'group');

@@ -162,9 +162,12 @@ function withTwoSessions() {
 {
     assert.equal(monoInitials('work laptop'), 'WL');
     assert.equal(monoInitials('atlas'), 'AT');
-    assert.equal(statusDot('verified'), '#3ecf8e');
-    assert.equal(statusDot('connecting'), '#e3b341');
-    assert.equal(statusDot('disconnected'), '#e5727a');
+    // Custom properties rather than literals since the app gained a light theme: a dot
+    // is a mark, so it takes the -solid form of the accent, which is the brand colour in
+    // both themes. What is being asserted is unchanged — which state gets which colour.
+    assert.equal(statusDot('verified'), 'var(--sb-green-solid)');
+    assert.equal(statusDot('connecting'), 'var(--sb-yellow-2-solid)');
+    assert.equal(statusDot('disconnected'), 'var(--sb-red-solid)');
 
     const entry = createSessionEntry({ id: 'a', peerLabel: 'work laptop' });
     entry.unreadCount = 3;

@@ -90,7 +90,7 @@ button:disabled,
 
 /* Keyboard users get the same clarity as pointer users. */
 :focus-visible {
-    outline: 2px solid rgba(249, 115, 22, 0.75);
+    outline: 2px solid rgba(var(--sb-legacy-orange-500-rgb), 0.75);
     outline-offset: 2px;
 }
 
@@ -101,7 +101,7 @@ button:disabled,
    bright top edge — light catching the near face of the glass, which is what
    separates a translucent bar from a washed-out rectangle. */
 .header-minimal {
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    box-shadow: inset 0 1px 0 rgba(var(--sb-ink), 0.05);
 }
 
 /* Cards are a smaller surface than chrome, so they read thinner: less blur,
@@ -139,7 +139,7 @@ h3, .text-3xl           { letter-spacing: -0.018em; line-height: 1.15; }
 .header-minimal .text-secondary,
 .chat-input-area .text-secondary,
 .card-minimal .text-muted {
-    color: #c3c3c9;
+    color: var(--sb-motion-text-3);
     letter-spacing: 0.01em;
 }
 
@@ -244,8 +244,8 @@ h3, .text-3xl           { letter-spacing: -0.018em; line-height: 1.15; }
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
     }
-    .header-minimal { background: #18181a !important; }
-    .card-minimal { background: #202022 !important; }
+    .header-minimal { background: var(--sb-motion-surface) !important; }
+    .card-minimal { background: var(--sb-motion-raise) !important; }
 }
 
 /* ── 6. Increased contrast ───────────────────────────────────────────────── */
@@ -255,10 +255,10 @@ h3, .text-3xl           { letter-spacing: -0.018em; line-height: 1.15; }
     .icon-container,
     .verification-code,
     .security-shield {
-        background: #141416 !important;
-        border-color: rgba(255, 255, 255, 0.42) !important;
+        background: var(--sb-surface) !important;
+        border-color: rgba(var(--sb-ink), 0.42) !important;
     }
-    .text-secondary { color: #e4e4e8 !important; }
-    .text-muted { color: #c8c8cf !important; }
+    .text-secondary { color: var(--sb-motion-text) !important; }
+    .text-muted { color: var(--sb-motion-text-2) !important; }
     :focus-visible { outline-width: 3px; }
 }

@@ -42,12 +42,51 @@
 }
     </script>
     <style>
-    :root { color-scheme: dark; }
+
+    /* These pages carry no script — that is the point of them — so the theme can only
+       come from the media query. There is no toggle here and no stored preference: a
+       reference page follows the reader's system and nothing else. The values are the
+       same two palettes as src/styles/theme.css, restated because these pages do not
+       load the app's stylesheet and are not going to start for eleven declarations. */
+    :root {
+        color-scheme: dark;
+        --d-ink: 255, 255, 255;
+        --d-bg: #0f0f11;
+        --d-bg-deep: #0b0b0e;
+        --d-code-bg: #17171c;
+        --d-text: #d6d6dc;
+        --d-heading: #f4f4f6;
+        --d-strong: #e8e8eb;
+        --d-body: #a9a9b3;
+        --d-pre: #c9c9d1;
+        --d-muted: #8a8a92;
+        --d-faint: #6b6b73;
+        --d-accent: #f0892a;
+        --d-accent-rgb: 240, 137, 42;
+    }
+    @media (prefers-color-scheme: light) {
+        :root {
+            color-scheme: light;
+            --d-ink: 0, 0, 0;
+            --d-bg: #fbfbfc;
+            --d-bg-deep: #f2f3f5;
+            --d-code-bg: #f2f3f5;
+            --d-text: #26262c;
+            --d-heading: #0e0e12;
+            --d-strong: #1b1b20;
+            --d-body: #43434c;
+            --d-pre: #2f3340;
+            --d-muted: #63636c;
+            --d-faint: #7c7c85;
+            --d-accent: #b05c08;
+            --d-accent-rgb: 176, 92, 8;
+        }
+    }
     * { box-sizing: border-box; }
     body {
         margin: 0;
-        background: #0f0f11;
-        color: #d6d6dc;
+        background: var(--d-bg);
+        color: var(--d-text);
         font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
         font-size: 16px;
         line-height: 1.68;
@@ -56,39 +95,39 @@
     .top {
         display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: baseline;
         padding-bottom: 16px; margin-bottom: 40px;
-        border-bottom: 1px solid rgba(255,255,255,.08);
+        border-bottom: 1px solid rgba(var(--d-ink),.08);
         font-size: 13.5px;
     }
-    .top a { color: #8a8a92; text-decoration: none; }
-    .top a:hover, .top a:focus-visible { color: #f0892a; }
-    .top .brand { color: #f0892a; font-weight: 700; letter-spacing: .04em; }
-    .top .here { color: #d6d6dc; margin-inline-start: auto; }
-    h1 { font-size: clamp(28px, 5vw, 36px); font-weight: 800; letter-spacing: -1px; line-height: 1.14; color: #f4f4f6; margin: 0 0 24px; }
-    h2 { font-size: 22px; font-weight: 700; letter-spacing: -.4px; color: #f4f4f6; margin: 46px 0 12px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.07); }
-    h3 { font-size: 17.5px; font-weight: 700; color: #e8e8eb; margin: 30px 0 8px; }
-    h4 { font-size: 15.5px; font-weight: 700; color: #e8e8eb; margin: 22px 0 6px; }
-    p, li { color: #a9a9b3; }
+    .top a { color: var(--d-muted); text-decoration: none; }
+    .top a:hover, .top a:focus-visible { color: var(--d-accent); }
+    .top .brand { color: var(--d-accent); font-weight: 700; letter-spacing: .04em; }
+    .top .here { color: var(--d-text); margin-inline-start: auto; }
+    h1 { font-size: clamp(28px, 5vw, 36px); font-weight: 800; letter-spacing: -1px; line-height: 1.14; color: var(--d-heading); margin: 0 0 24px; }
+    h2 { font-size: 22px; font-weight: 700; letter-spacing: -.4px; color: var(--d-heading); margin: 46px 0 12px; padding-top: 14px; border-top: 1px solid rgba(var(--d-ink),.07); }
+    h3 { font-size: 17.5px; font-weight: 700; color: var(--d-strong); margin: 30px 0 8px; }
+    h4 { font-size: 15.5px; font-weight: 700; color: var(--d-strong); margin: 22px 0 6px; }
+    p, li { color: var(--d-body); }
     p { margin: 0 0 16px; }
     ul, ol { padding-inline-start: 22px; margin: 0 0 16px; }
     li { margin: 5px 0; }
-    a { color: #f0892a; text-underline-offset: 2px; }
-    strong { color: #e8e8eb; }
-    code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .88em; background: #17171c; border: 1px solid rgba(255,255,255,.07); border-radius: 4px; padding: 1px 5px; color: #e8e8eb; }
-    pre { background: #0b0b0e; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 0 0 18px; }
-    pre code { background: none; border: 0; padding: 0; font-size: 13px; line-height: 1.62; color: #c9c9d1; }
+    a { color: var(--d-accent); text-underline-offset: 2px; }
+    strong { color: var(--d-strong); }
+    code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .88em; background: var(--d-code-bg); border: 1px solid rgba(var(--d-ink),.07); border-radius: 4px; padding: 1px 5px; color: var(--d-strong); }
+    pre { background: var(--d-bg-deep); border: 1px solid rgba(var(--d-ink),.08); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 0 0 18px; }
+    pre code { background: none; border: 0; padding: 0; font-size: 13px; line-height: 1.62; color: var(--d-pre); }
     .tablewrap { overflow-x: auto; margin: 0 0 20px; }
     table { border-collapse: collapse; width: 100%; font-size: 14.5px; min-width: 30rem; }
-    th { text-align: start; color: #8a8a92; font-weight: 600; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; padding: 0 14px 8px 0; border-bottom: 1px solid rgba(255,255,255,.12); }
-    td { padding: 9px 14px 9px 0; border-bottom: 1px solid rgba(255,255,255,.06); vertical-align: top; color: #a9a9b3; }
+    th { text-align: start; color: var(--d-muted); font-weight: 600; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; padding: 0 14px 8px 0; border-bottom: 1px solid rgba(var(--d-ink),.12); }
+    td { padding: 9px 14px 9px 0; border-bottom: 1px solid rgba(var(--d-ink),.06); vertical-align: top; color: var(--d-body); }
     td:first-child, th:first-child { padding-inline-start: 0; }
-    blockquote { margin: 0 0 18px; padding: 2px 0 2px 16px; border-inline-start: 3px solid rgba(240,137,42,.4); color: #8a8a92; }
-    hr { border: 0; border-top: 1px solid rgba(255,255,255,.08); margin: 34px 0; }
+    blockquote { margin: 0 0 18px; padding: 2px 0 2px 16px; border-inline-start: 3px solid rgba(var(--d-accent-rgb),.4); color: var(--d-muted); }
+    hr { border: 0; border-top: 1px solid rgba(var(--d-ink),.08); margin: 34px 0; }
     img { max-width: 100%; height: auto; }
-    a:focus-visible { outline: 2px solid #f0892a; outline-offset: 2px; border-radius: 2px; }
-    .more { margin-top: 64px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,.08); }
-    .more h2 { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: #6b6b73; border: 0; margin: 0 0 12px; padding: 0; font-weight: 700; }
+    a:focus-visible { outline: 2px solid var(--d-accent); outline-offset: 2px; border-radius: 2px; }
+    .more { margin-top: 64px; padding-top: 22px; border-top: 1px solid rgba(var(--d-ink),.08); }
+    .more h2 { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--d-faint); border: 0; margin: 0 0 12px; padding: 0; font-weight: 700; }
     .more ul { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 4px 24px; }
-    .more li { margin: 0; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,.05); font-size: 14.5px; }
+    .more li { margin: 0; padding: 7px 0; border-bottom: 1px solid rgba(var(--d-ink),.05); font-size: 14.5px; }
     @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
     </style>
 </head>
@@ -114,7 +153,7 @@
         </thead>
         <tbody><tr>
         <td>Release</td>
-        <td>v6.7.3</td>
+        <td>v6.8.0</td>
         </tr>
         <tr>
         <td>Protocol version</td>
@@ -447,7 +486,7 @@
         shared across every leg, and stopped when the call, the group or the tab ends;
         no leg may stop a capture it borrowed.</p>
         <h2 id="scope">Scope</h2>
-        <p>This describes the browser implementation as it stands in v6.7.3. It is not a
+        <p>This describes the browser implementation as it stands in v6.8.0. It is not a
         substitute for independent cryptographic review.</p>
 
         <nav class="more">

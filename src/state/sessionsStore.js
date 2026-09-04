@@ -34,14 +34,14 @@ export const SESSION_ACTIONS = Object.freeze({
 
 // Availability presence the PEER advertises to us (sent E2E over the data channel, never
 // stored on a server). 'invisible' is sent on the wire as 'offline' so peers can't tell.
-export const PRESENCE_DOT = { available: '#3ecf8e', away: '#e3b341', busy: '#e5727a', offline: '#6b6b73' };
+export const PRESENCE_DOT = { available: 'var(--sb-green-solid)', away: 'var(--sb-yellow-2-solid)', busy: 'var(--sb-red-solid)', offline: 'var(--sb-text-9)' };
 export const PRESENCE_WORD = { available: t('presence.available'), away: t('presence.away'), busy: t('presence.busy'), offline: t('presence.offline') };
 // The statuses the local user can pick for themselves (design: Set your status).
 export const MY_STATUS_OPTIONS = [
-    { key: 'available', word: t('presence.available'), desc: t('presence.availableDesc'), dot: '#3ecf8e' },
-    { key: 'away', word: t('presence.away'), desc: t('presence.awayDesc'), dot: '#e3b341' },
-    { key: 'busy', word: t('presence.busy'), desc: t('presence.busyDesc'), dot: '#e5727a' },
-    { key: 'invisible', word: t('presence.invisible'), desc: t('presence.invisibleDesc'), dot: '#6b6b73' }
+    { key: 'available', word: t('presence.available'), desc: t('presence.availableDesc'), dot: 'var(--sb-green-solid)' },
+    { key: 'away', word: t('presence.away'), desc: t('presence.awayDesc'), dot: 'var(--sb-yellow-2-solid)' },
+    { key: 'busy', word: t('presence.busy'), desc: t('presence.busyDesc'), dot: 'var(--sb-red-solid)' },
+    { key: 'invisible', word: t('presence.invisible'), desc: t('presence.invisibleDesc'), dot: 'var(--sb-text-9)' }
 ];
 
 // Short, human-friendly default label derived from the local sessionId. Never the peer's
@@ -64,13 +64,13 @@ export function statusDot(status) {
     switch (status) {
         case 'connected':
         case 'verified':
-            return '#3ecf8e';
+            return 'var(--sb-green-solid)';
         case 'connecting':
         case 'verifying':
         case 'new':
-            return '#e3b341';
+            return 'var(--sb-yellow-2-solid)';
         default:
-            return '#e5727a'; // disconnected / peer_disconnected / lost
+            return 'var(--sb-red-solid)'; // disconnected / peer_disconnected / lost
     }
 }
 
@@ -349,13 +349,13 @@ export function decorateSession(session, activeSessionId) {
     // otherwise reflect the connection state (amber = connecting, red = dropped).
     let dot, headerSub;
     if (isPending) {
-        dot = '#e3b341';
+        dot = 'var(--sb-yellow-2-solid)';
         headerSub = statusSub(s);
     } else if (isUp) {
-        dot = session.peerPresence ? (PRESENCE_DOT[session.peerPresence] || '#6b6b73') : '#3ecf8e';
+        dot = session.peerPresence ? (PRESENCE_DOT[session.peerPresence] || 'var(--sb-text-9)') : 'var(--sb-green-solid)';
         headerSub = session.peerPresence ? (PRESENCE_WORD[session.peerPresence] || t('presence.online')) : t('conn.p2p');
     } else {
-        dot = '#e5727a';
+        dot = 'var(--sb-red-solid)';
         headerSub = statusSub(s);
     }
     const preview = lastMessage ? (lastMessage.voice ? '🎙 Voice message' : lastMessage.message) : headerSub;

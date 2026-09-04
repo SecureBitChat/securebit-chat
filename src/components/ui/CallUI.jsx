@@ -103,39 +103,39 @@ const CallUIComponent = ({ webrtcManager, peerTitle }) => {
     // ── shared styles (from the design) ──────────────────────────────────────
     const ctrlBase = {
         width: '56px', height: '56px', borderRadius: '50%', display: 'grid', placeItems: 'center',
-        border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)',
-        color: '#cfcfd4', cursor: 'pointer', transition: 'all .15s'
+        border: '1px solid rgba(var(--sb-ink), 0.1)', background: 'rgba(var(--sb-ink), 0.05)',
+        color: 'var(--sb-text-4)', cursor: 'pointer', transition: 'all .15s'
     };
-    const dangerCtrl = { ...ctrlBase, background: '#e5484d', color: '#fff', border: '1px solid transparent' };
+    const dangerCtrl = { ...ctrlBase, background: 'var(--sb-red-strong-solid)', color: '#fff', border: '1px solid transparent' };
     const endBtn = {
         width: '56px', height: '56px', borderRadius: '50%', display: 'grid', placeItems: 'center',
-        border: 'none', background: '#e5484d', color: '#fff', cursor: 'pointer',
-        boxShadow: '0 8px 24px rgba(229,72,77,0.35)', transition: 'transform .15s'
+        border: 'none', background: 'var(--sb-red-strong-solid)', color: '#fff', cursor: 'pointer',
+        boxShadow: '0 8px 24px rgba(var(--sb-red-strong-rgb), 0.35)', transition: 'transform .15s'
     };
     const minimizeBtn = (light) => ({
         width: '36px', height: '36px', borderRadius: '9px', display: 'grid', placeItems: 'center',
-        border: '1px solid rgba(255,255,255,' + (light ? '0.15' : '0.1') + ')',
-        background: light ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.04)',
-        color: light ? '#fff' : '#cfcfd4', cursor: 'pointer', transition: 'all .15s'
+        border: '1px solid rgba(var(--sb-ink), ' + (light ? '0.15' : '0.1') + ')',
+        background: light ? 'rgba(0,0,0,0.35)' : 'rgba(var(--sb-ink), 0.04)',
+        color: light ? '#fff' : 'var(--sb-text-4)', cursor: 'pointer', transition: 'all .15s'
     });
 
-    const encBadge = h('span', { key: 'enc', style: { display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 600, color: '#3ecf8e' } },
+    const encBadge = h('span', { key: 'enc', style: { display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 600, color: 'var(--sb-green)' } },
         [svg(ICON.lock, 11, 2), t('call.encryptedShort')]);
 
     // Connection-quality indicator — driven by the adaptation controller's
     // getStats (loss + RTT). Signal bars + label; hidden until there's data.
     const QUALITY = {
-        excellent: { bars: 4, color: '#3ecf8e', label: t('call.qualityExcellent') },
-        good: { bars: 3, color: '#3ecf8e', label: t('call.qualityGood') },
-        fair: { bars: 2, color: '#e3c84e', label: t('call.qualityFair') },
-        poor: { bars: 1, color: '#e5727a', label: t('call.qualityWeak') },
+        excellent: { bars: 4, color: 'var(--sb-green)', label: t('call.qualityExcellent') },
+        good: { bars: 3, color: 'var(--sb-green)', label: t('call.qualityGood') },
+        fair: { bars: 2, color: 'var(--sb-yellow)', label: t('call.qualityFair') },
+        poor: { bars: 1, color: 'var(--sb-red)', label: t('call.qualityWeak') },
     };
     const qualityIndicator = (compact) => {
         const q = QUALITY[call.quality];
         if (!q) return null;
         const bars = h('span', { key: 'bars', style: { display: 'inline-flex', alignItems: 'flex-end', gap: '2px', height: '14px' } },
             [0, 1, 2, 3].map(i => h('span', {
-                key: i, style: { width: '3px', height: (5 + i * 3) + 'px', borderRadius: '1px', background: i < q.bars ? q.color : 'rgba(255,255,255,0.18)' }
+                key: i, style: { width: '3px', height: (5 + i * 3) + 'px', borderRadius: '1px', background: i < q.bars ? q.color : 'rgba(var(--sb-ink), 0.18)' }
             })));
         if (compact) return bars;
         return h('span', { key: 'q', title: t('call.quality'), style: { display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', fontWeight: 600, color: q.color } }, [bars, q.label]);
@@ -153,73 +153,73 @@ const CallUIComponent = ({ webrtcManager, peerTitle }) => {
     const hiddenAudio = h('audio', { key: 'ra', ref: remoteAudioRef, autoPlay: true, playsInline: true, style: { display: 'none' } });
 
     const labeled = (key, btn, label) => h('div', { key, style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' } },
-        [btn, h('span', { key: 'l', style: { fontFamily: MONO, fontSize: '10.5px', color: '#8a8a92' } }, label)]);
+        [btn, h('span', { key: 'l', style: { fontFamily: MONO, fontSize: '10.5px', color: 'var(--sb-text-7)' } }, label)]);
 
     // Avatar disc with optional ringing pulse (voice + incoming).
     const avatarDisc = (size, ring) => h('div', { key: 'av', style: { position: 'relative', width: '120px', height: '120px', marginBottom: '28px', display: 'grid', placeItems: 'center' } }, [
-        ring && h('span', { key: 'p1', style: { position: 'absolute', inset: 0, borderRadius: '50%', border: '1.5px solid rgba(240,137,42,0.5)', animation: 'sbCallPulse 2s ease-out infinite' } }),
-        ring && h('span', { key: 'p2', style: { position: 'absolute', inset: 0, borderRadius: '50%', border: '1.5px solid rgba(240,137,42,0.4)', animation: 'sbCallPulse 2s ease-out infinite', animationDelay: '1s' } }),
-        h('div', { key: 'c', style: { width: '104px', height: '104px', borderRadius: '50%', display: 'grid', placeItems: 'center', background: 'radial-gradient(circle at 35% 30%, #2a2a30, #161618)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 12px 30px rgba(0,0,0,0.4)', color: '#8a8a92' } }, svg(ICON.user, size, 1.6))
+        ring && h('span', { key: 'p1', style: { position: 'absolute', inset: 0, borderRadius: '50%', border: '1.5px solid rgba(var(--sb-orange-rgb), 0.5)', animation: 'sbCallPulse 2s ease-out infinite' } }),
+        ring && h('span', { key: 'p2', style: { position: 'absolute', inset: 0, borderRadius: '50%', border: '1.5px solid rgba(var(--sb-orange-rgb), 0.4)', animation: 'sbCallPulse 2s ease-out infinite', animationDelay: '1s' } }),
+        h('div', { key: 'c', style: { width: '104px', height: '104px', borderRadius: '50%', display: 'grid', placeItems: 'center', background: 'radial-gradient(circle at 35% 30%, var(--sb-surface-4), var(--sb-surface))', border: '1px solid rgba(var(--sb-ink), 0.1)', boxShadow: '0 12px 30px rgba(var(--sb-shadow-rgb), calc(0.4 * var(--sb-shadow-k)))', color: 'var(--sb-text-7)' } }, svg(ICON.user, size, 1.6))
     ]);
 
     // ── INCOMING (ringing) prompt ────────────────────────────────────────────
     if (phase === 'incoming') {
-        return h('div', { style: { position: 'absolute', inset: 0, zIndex: 40, display: 'flex', flexDirection: 'column', background: 'radial-gradient(680px 460px at 50% 36%, rgba(240,137,42,0.08), transparent 70%), #0d0d0f', animation: 'sbExpand .2s ease' } }, [
+        return h('div', { style: { position: 'absolute', inset: 0, zIndex: 40, display: 'flex', flexDirection: 'column', background: 'radial-gradient(680px 460px at 50% 36%, rgba(var(--sb-orange-rgb), 0.08), transparent 70%), var(--sb-bg-deep)', animation: 'sbExpand .2s ease' } }, [
             hiddenAudio,
             h('div', { key: 'top', style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', padding: '16px 18px' } },
-                h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '12px', fontWeight: 600, color: '#3ecf8e' } }, [svg(ICON.lock, 13, 2), t('call.encrypted')])),
+                h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '12px', fontWeight: 600, color: 'var(--sb-green)' } }, [svg(ICON.lock, 13, 2), t('call.encrypted')])),
             h('div', { key: 'mid', style: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' } }, [
                 avatarDisc(46, true),
-                h('div', { key: 'nm', style: { fontSize: '24px', fontWeight: 800, letterSpacing: '-0.5px', color: '#f4f4f6' } }, name),
-                h('div', { key: 'st', style: { fontFamily: MONO, fontSize: '14px', fontWeight: 500, color: '#9a9aa2', marginTop: '8px' } }, call.withVideo ? t('call.incomingVideo') : t('call.incoming'))
+                h('div', { key: 'nm', style: { fontSize: '24px', fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--sb-text-1)' } }, name),
+                h('div', { key: 'st', style: { fontFamily: MONO, fontSize: '14px', fontWeight: 500, color: 'var(--sb-text-6)', marginTop: '8px' } }, call.withVideo ? t('call.incomingVideo') : t('call.incoming'))
             ]),
             h('div', { key: 'ctrls', style: { flex: 'none', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: '48px', padding: '28px 24px 40px' } }, [
                 labeled('dec', h('button', { onClick: doDecline, title: t('call.decline'), style: { ...endBtn, width: '62px', height: '62px' } }, svg(ICON.phoneHangup, 24, 1.9)), t('call.decline')),
-                labeled('acc', h('button', { onClick: doAccept, title: t('call.accept'), style: { width: '62px', height: '62px', borderRadius: '50%', display: 'grid', placeItems: 'center', border: 'none', background: '#3ecf8e', color: '#06231a', cursor: 'pointer', boxShadow: '0 8px 24px rgba(62,207,142,0.35)' } }, svg(ICON.phone, 24, 1.9)), t('call.accept'))
+                labeled('acc', h('button', { onClick: doAccept, title: t('call.accept'), style: { width: '62px', height: '62px', borderRadius: '50%', display: 'grid', placeItems: 'center', border: 'none', background: 'var(--sb-green-solid)', color: 'var(--sb-on-green)', cursor: 'pointer', boxShadow: '0 8px 24px rgba(var(--sb-green-rgb), 0.35)' } }, svg(ICON.phone, 24, 1.9)), t('call.accept'))
             ])
         ]);
     }
 
     // ── MINIMIZED widget ─────────────────────────────────────────────────────
     if (minimized) {
-        return h('div', { style: { position: 'absolute', bottom: '18px', insetInlineEnd: '18px', zIndex: 40, width: '236px', borderRadius: '14px', overflow: 'hidden', background: '#161618', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 18px 44px rgba(0,0,0,0.55)', animation: 'sbExpand .18s ease' } }, [
+        return h('div', { style: { position: 'absolute', bottom: '18px', insetInlineEnd: '18px', zIndex: 40, width: '236px', borderRadius: '14px', overflow: 'hidden', background: 'var(--sb-surface)', border: '1px solid rgba(var(--sb-ink), 0.1)', boxShadow: '0 18px 44px rgba(var(--sb-shadow-rgb), calc(0.55 * var(--sb-shadow-k)))', animation: 'sbExpand .18s ease' } }, [
             hiddenAudio,
             isVideo && h('div', { key: 'v', style: { position: 'relative', height: '132px', background: '#111' } }, [
                 h('video', { key: 'rv', ref: remoteVideoRef, autoPlay: true, muted: true, playsInline: true, style: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' } }),
-                !call.remoteHasVideo && h('div', { key: 'off', style: { position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'linear-gradient(120deg,#15151b,#1d1a24)', color: '#6b6b73' } }, svg(ICON.camOff, 22, 1.8)),
+                !call.remoteHasVideo && h('div', { key: 'off', style: { position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'linear-gradient(120deg,var(--sb-grad-1),var(--sb-grad-2))', color: 'var(--sb-text-9)' } }, svg(ICON.camOff, 22, 1.8)),
                 h('span', { key: 's', style: { position: 'absolute', top: '8px', insetInlineStart: '9px', fontFamily: MONO, fontSize: '11px', fontWeight: 600, color: '#fff', padding: '3px 7px', borderRadius: '6px', background: 'rgba(0,0,0,0.5)' } }, callStatus)
             ]),
             h('div', { key: 'bar', style: { display: 'flex', alignItems: 'center', gap: '11px', padding: '11px 12px' } }, [
-                h('span', { key: 'ic', style: { position: 'relative', flex: 'none', width: '34px', height: '34px', borderRadius: '9px', display: 'grid', placeItems: 'center', background: 'rgba(62,207,142,0.1)', border: '1px solid rgba(62,207,142,0.25)', color: '#3ecf8e' } }, svg(ICON.user, 16, 1.9)),
+                h('span', { key: 'ic', style: { position: 'relative', flex: 'none', width: '34px', height: '34px', borderRadius: '9px', display: 'grid', placeItems: 'center', background: 'rgba(var(--sb-green-rgb), 0.1)', border: '1px solid rgba(var(--sb-green-rgb), 0.25)', color: 'var(--sb-green)' } }, svg(ICON.user, 16, 1.9)),
                 h('div', { key: 'tx', style: { flex: 1, minWidth: 0 } }, [
-                    h('div', { key: 'n', style: { fontSize: '13px', fontWeight: 700, color: '#f4f4f6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, name),
-                    h('div', { key: 's', style: { display: 'flex', alignItems: 'center', gap: '7px', fontFamily: MONO, fontSize: '11px', color: '#9a9aa2' } }, [
+                    h('div', { key: 'n', style: { fontSize: '13px', fontWeight: 700, color: 'var(--sb-text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, name),
+                    h('div', { key: 's', style: { display: 'flex', alignItems: 'center', gap: '7px', fontFamily: MONO, fontSize: '11px', color: 'var(--sb-text-6)' } }, [
                         (isVideo ? t('call.videoPrefix') : t('call.voicePrefix')) + callStatus,
                         phase === 'active' && qualityIndicator(true)
                     ])
                 ]),
-                h('button', { key: 'exp', onClick: () => setMinimized(false), title: t('call.expand'), style: { flex: 'none', width: '32px', height: '32px', borderRadius: '8px', display: 'grid', placeItems: 'center', border: 'none', background: 'rgba(255,255,255,0.05)', color: '#cfcfd4', cursor: 'pointer', transition: 'all .15s' } }, svg(ICON.expand, 15, 2)),
-                h('button', { key: 'end', onClick: doEnd, title: t('call.end'), style: { flex: 'none', width: '32px', height: '32px', borderRadius: '8px', display: 'grid', placeItems: 'center', border: 'none', background: '#e5484d', color: '#fff', cursor: 'pointer', transition: 'transform .15s' } }, svg(ICON.phoneHangup, 15, 2))
+                h('button', { key: 'exp', onClick: () => setMinimized(false), title: t('call.expand'), style: { flex: 'none', width: '32px', height: '32px', borderRadius: '8px', display: 'grid', placeItems: 'center', border: 'none', background: 'rgba(var(--sb-ink), 0.05)', color: 'var(--sb-text-4)', cursor: 'pointer', transition: 'all .15s' } }, svg(ICON.expand, 15, 2)),
+                h('button', { key: 'end', onClick: doEnd, title: t('call.end'), style: { flex: 'none', width: '32px', height: '32px', borderRadius: '8px', display: 'grid', placeItems: 'center', border: 'none', background: 'var(--sb-red-strong-solid)', color: '#fff', cursor: 'pointer', transition: 'transform .15s' } }, svg(ICON.phoneHangup, 15, 2))
             ])
         ]);
     }
 
     // ── VIDEO call (expanded) ────────────────────────────────────────────────
     if (isVideo) {
-        return h('div', { style: { position: 'absolute', inset: 0, zIndex: 40, overflow: 'hidden', background: '#0a0a0c', animation: 'sbExpand .2s ease' } }, [
+        return h('div', { style: { position: 'absolute', inset: 0, zIndex: 40, overflow: 'hidden', background: 'var(--sb-bg-deepest)', animation: 'sbExpand .2s ease' } }, [
             hiddenAudio,
             call.remoteHasVideo
-                ? h('video', { key: 'rv', ref: remoteVideoRef, autoPlay: true, muted: true, playsInline: true, style: { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', background: '#0a0a0c' } })
-                : h('div', { key: 'ph', style: { position: 'absolute', inset: 0, background: 'linear-gradient(120deg, #15151b, #1d1a24, #161620)', backgroundSize: '200% 200%', animation: 'sbLiveBg 9s ease-in-out infinite', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '18px' } }, [
-                    h('div', { key: 'a', style: { width: '120px', height: '120px', borderRadius: '50%', display: 'grid', placeItems: 'center', background: 'radial-gradient(circle at 35% 30%, #2a2a30, #161618)', border: '1px solid rgba(255,255,255,0.1)', color: '#9a9aa2' } }, svg(ICON.user, 54, 1.5)),
-                    h('div', { key: 't', style: { fontSize: '15px', fontWeight: 600, color: '#8a8a92' } }, t('call.peerCameraOff'))
+                ? h('video', { key: 'rv', ref: remoteVideoRef, autoPlay: true, muted: true, playsInline: true, style: { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', background: 'var(--sb-bg-deepest)' } })
+                : h('div', { key: 'ph', style: { position: 'absolute', inset: 0, background: 'linear-gradient(120deg, var(--sb-grad-1), var(--sb-grad-2), var(--sb-grad-3))', backgroundSize: '200% 200%', animation: 'sbLiveBg 9s ease-in-out infinite', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '18px' } }, [
+                    h('div', { key: 'a', style: { width: '120px', height: '120px', borderRadius: '50%', display: 'grid', placeItems: 'center', background: 'radial-gradient(circle at 35% 30%, var(--sb-surface-4), var(--sb-surface))', border: '1px solid rgba(var(--sb-ink), 0.1)', color: 'var(--sb-text-6)' } }, svg(ICON.user, 54, 1.5)),
+                    h('div', { key: 't', style: { fontSize: '15px', fontWeight: 600, color: 'var(--sb-text-7)' } }, t('call.peerCameraOff'))
                 ]),
             // Top bar
             h('div', { key: 'top', style: { position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '14px', padding: '18px 20px', background: 'linear-gradient(180deg, rgba(0,0,0,0.55), transparent)' } }, [
                 h('div', { key: 'l' }, [
                     h('div', { key: 'n', style: { fontSize: '18px', fontWeight: 800, letterSpacing: '-0.3px', color: '#fff' } }, name),
                     h('div', { key: 's', style: { display: 'inline-flex', alignItems: 'center', gap: '9px', marginTop: '4px' } }, [
-                        h('span', { key: 'st', style: { fontFamily: MONO, fontSize: '12.5px', fontWeight: 500, color: '#e8e8eb' } }, callStatus),
+                        h('span', { key: 'st', style: { fontFamily: MONO, fontSize: '12.5px', fontWeight: 500, color: 'var(--sb-text-2)' } }, callStatus),
                         encBadge,
                         phase === 'active' && qualityIndicator(false)
                     ])
@@ -227,11 +227,11 @@ const CallUIComponent = ({ webrtcManager, peerTitle }) => {
                 h('button', { key: 'min', onClick: () => setMinimized(true), title: t('call.minimize'), style: { flex: 'none', ...minimizeBtn(true) } }, svg(ICON.minimize, 16, 2))
             ]),
             // Self-cam PiP
-            h('div', { key: 'self', style: { position: 'absolute', bottom: '108px', insetInlineEnd: '18px', width: '132px', height: '176px', borderRadius: '14px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.16)', boxShadow: '0 12px 30px rgba(0,0,0,0.5)', background: '#111' } }, [
+            h('div', { key: 'self', style: { position: 'absolute', bottom: '108px', insetInlineEnd: '18px', width: '132px', height: '176px', borderRadius: '14px', overflow: 'hidden', border: '1px solid rgba(var(--sb-ink), 0.16)', boxShadow: '0 12px 30px rgba(var(--sb-shadow-rgb), calc(0.5 * var(--sb-shadow-k)))', background: '#111' } }, [
                 h('video', { key: 'sv', ref: selfVideoRef, autoPlay: true, muted: true, playsInline: true, style: { width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)', display: 'block' } }),
-                !call.cameraEnabled && h('div', { key: 'off', style: { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#161618', color: '#6b6b73' } }, [
+                !call.cameraEnabled && h('div', { key: 'off', style: { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', background: 'var(--sb-surface)', color: 'var(--sb-text-9)' } }, [
                     svg(ICON.camOff, 24, 1.8),
-                    h('span', { key: 't', style: { fontSize: '10.5px', color: '#6b6b73', fontFamily: MONO } }, t('call.cameraOff'))
+                    h('span', { key: 't', style: { fontSize: '10.5px', color: 'var(--sb-text-9)', fontFamily: MONO } }, t('call.cameraOff'))
                 ])
             ]),
             // Control bar
@@ -245,16 +245,16 @@ const CallUIComponent = ({ webrtcManager, peerTitle }) => {
     }
 
     // ── VOICE call (expanded) ────────────────────────────────────────────────
-    return h('div', { style: { position: 'absolute', inset: 0, zIndex: 40, display: 'flex', flexDirection: 'column', background: 'radial-gradient(680px 460px at 50% 36%, rgba(240,137,42,0.08), transparent 70%), #0d0d0f', animation: 'sbExpand .2s ease' } }, [
+    return h('div', { style: { position: 'absolute', inset: 0, zIndex: 40, display: 'flex', flexDirection: 'column', background: 'radial-gradient(680px 460px at 50% 36%, rgba(var(--sb-orange-rgb), 0.08), transparent 70%), var(--sb-bg-deep)', animation: 'sbExpand .2s ease' } }, [
         hiddenAudio,
         h('div', { key: 'top', style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px' } }, [
-            h('span', { key: 'enc', style: { display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '12px', fontWeight: 600, color: '#3ecf8e' } }, [svg(ICON.lock, 13, 2), t('call.encrypted')]),
+            h('span', { key: 'enc', style: { display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '12px', fontWeight: 600, color: 'var(--sb-green)' } }, [svg(ICON.lock, 13, 2), t('call.encrypted')]),
             h('button', { key: 'min', onClick: () => setMinimized(true), title: t('call.minimize'), style: minimizeBtn(false) }, svg(ICON.minimize, 16, 2))
         ]),
         h('div', { key: 'mid', style: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' } }, [
             avatarDisc(46, ringing),
-            h('div', { key: 'nm', style: { fontSize: '24px', fontWeight: 800, letterSpacing: '-0.5px', color: '#f4f4f6' } }, name),
-            h('div', { key: 'st', style: { fontFamily: MONO, fontSize: '14px', fontWeight: 500, color: '#9a9aa2', marginTop: '8px' } }, callStatus),
+            h('div', { key: 'nm', style: { fontSize: '24px', fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--sb-text-1)' } }, name),
+            h('div', { key: 'st', style: { fontFamily: MONO, fontSize: '14px', fontWeight: 500, color: 'var(--sb-text-6)', marginTop: '8px' } }, callStatus),
             phase === 'active' && h('div', { key: 'q', style: { marginTop: '12px' } }, qualityIndicator(false))
         ]),
         h('div', { key: 'ctrls', style: { flex: 'none', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: '26px', padding: '28px 24px 34px' } }, [

@@ -1,0 +1,484 @@
+/**
+ * theme.css — the one place every colour in the interface is decided.
+ *
+ * Until this file existed the palette lived as ~620 literal hex values inside inline
+ * styles in the JSX plus another few hundred in the hand-written sheets, which is why
+ * the app could only ever be dark: there was no single thing to change. Every one of
+ * those literals now reads a custom property declared here, so a theme is a matter of
+ * redeclaring the block rather than touching a component.
+ *
+ * The dark theme is unchanged by this. Every colour declaration the previous build
+ * produced comes out of this one identically once the properties are resolved — that
+ * was checked declaration by declaration against the last release's assets/app.css, and
+ * it is the reason there are tokens here that look like duplicates of each other
+ * (--sb-orange next to --sb-legacy-orange-500, --sb-surface next to --sb-motion-surface).
+ * They were duplicates in the old stylesheets too, a step apart on Tailwind's ramp
+ * versus the redesign's; collapsing them would have been tidier and would also have
+ * quietly restyled the dark theme, which is not what adding a light one is for.
+ * The only values folded together are greys that differed by one or two counts out of
+ * 255 (#0d0d0f into #0c0c0e, #121214 into #0f0f11, #141417 into #141416) — below what
+ * a display resolves, and not worth two light values that must never drift apart.
+ *
+ * Two palettes, plus two fallbacks:
+ *   :root                       — dark, and the default.
+ *   :root[data-theme="light"]   — light, selected by src/scripts/theme-boot.js from
+ *                                 localStorage before the first paint.
+ * "Follow the system" is not a third palette. theme-boot.js resolves the media query
+ * itself and stamps data-theme with the answer, so the cascade only ever sees an
+ * explicit value. Answering prefers-color-scheme in CSS instead would get the first
+ * paint right but could never be overridden — and someone who wants a light page on a
+ * dark laptop is precisely who a theme switch is for. The one place the media query
+ * *is* used is further down, for a client running no JavaScript at all, where there is
+ * no stored preference to honour and nothing to stamp the attribute.
+ *
+ * The last block re-points a handful of Tailwind utility classes that only work on a
+ * dark ground; see the comment above it for why they are overridden rather than
+ * rewritten at the call sites.
+ *
+ * Naming: --sb-bg-* are page and container grounds, --sb-surface-* are things that sit
+ * on them, --sb-text-* is a ramp from loudest (1) to faintest, and the accents keep
+ * their colour name. --sb-ink is the pair of RGB channels used for translucent overlay
+ * tints: white-on-dark inverts to black-on-light, so `rgba(var(--sb-ink), 0.06)`
+ * is a hairline border in either theme without the call site knowing which.
+ */
+
+:root {
+    color-scheme: dark;
+
+    /* Overlay tint base. Everything that used to be rgba(255,255,255,a) reads this. */
+    --sb-ink: 255, 255, 255;
+
+    /* Grounds */
+    --sb-bg-deepest: #0a0a0c;
+    --sb-bg-deep: #0c0c0e;
+    --sb-bg: #0f0f11;
+
+    /* Surfaces, in rising order of elevation */
+    --sb-surface: #141416;
+    --sb-surface-2: #1a1a1f;
+    --sb-surface-warm: #201416;
+    --sb-surface-3: #26262b;
+    --sb-surface-4: #2a2a30;
+    --sb-surface-5: #3f3f47;
+
+    /* Three decorative gradients read as one warm sweep; kept apart so it survives. */
+    --sb-grad-1: #15151b;
+    --sb-grad-2: #1d1a24;
+    --sb-grad-3: #161620;
+
+    /* Text, loudest to faintest */
+    --sb-text-1: #f4f4f6;
+    --sb-text-2: #e8e8eb;
+    --sb-text-3: #d7d7db;
+    --sb-text-4: #cfcfd4;
+    --sb-text-5: #b3b3ba;
+    --sb-text-5b: #a7a7b0;
+    --sb-text-6: #9a9aa2;
+    --sb-text-7: #8a8a92;
+    --sb-text-8: #7b7b83;
+    --sb-text-9: #6b6b73;
+    --sb-text-faint: #56565e;
+    --sb-text-code: #c9ccd8;
+
+    /* Accents */
+    --sb-green: #3ecf8e;
+    --sb-green-soft: #8fe0bb;
+    --sb-green-muted: #a8b8ae;
+    --sb-orange: #f0892a;
+    --sb-orange-hi: #ff9637;
+    --sb-orange-2: #f0a455;
+    --sb-orange-3: #f0b072;
+    --sb-orange-4: #e8b27a;
+    --sb-red: #e5727a;
+    --sb-red-soft: #f0a6ab;
+    --sb-yellow: #e3c84e;
+    --sb-yellow-2: #e3b341;
+
+    /* Text that sits *on* a filled accent. Dark ink on a bright fill reads better than
+       white does at these saturations — but only while the fill stays bright, which is
+       why the light theme darkens the fills and flips these to white. */
+    --sb-on-accent: #1a0f04;
+    --sb-on-green: #06231a;
+    --sb-on-green-2: #08160e;
+
+    /* Warm neutrals used by the hand-drawn SVG diagrams on the landing page. */
+    --sb-diag-text: #d8cfc1;
+    --sb-diag-label: #8f8b84;
+    --sb-diag-stroke: #6b6760;
+    --sb-diag-dim: #85817b;
+
+    /* Legacy surfaces from the pre-redesign screens that are still on the page. */
+    --sb-legacy-1: #1b1c1b;
+    --sb-legacy-2: #222322;
+    --sb-legacy-3: #1f201f;
+    --sb-legacy-panel: #1a1a1a;
+    --sb-legacy-body: #2a2b2a;
+    --sb-legacy-body-2: #252625;
+    /* .header-minimal's own translucent ground, and the drop zone's fill. */
+    --sb-legacy-bar-rgb: 35, 36, 35;
+    --sb-legacy-slate-rgb: 55, 65, 81;
+    --sb-legacy-green-rgb: 52, 211, 153;
+    --sb-legacy-header: #232323;
+    --sb-legacy-table: #1c1c1c;
+
+
+    /* An accent has two jobs and they pull in opposite directions once the page can be
+       light. As a FILL — a button, a chip, a status dot — it should be the brand colour
+       and nothing else, and it stays readable because the text on it is near-black
+       (--sb-on-accent, 7.5:1 on this orange). As TEXT on the page itself it has to
+       clear 4.5:1 against white, and the brand orange manages 2.5:1 there.
+       So: --sb-*-solid is the brand, identical in both themes, and --sb-orange /
+       --sb-green above are the text-safe versions that darken in the light theme.
+       Getting this wrong in the other direction is what made the light theme's buttons
+       brown. */
+    --sb-orange-solid: #f0892a;
+    --sb-green-solid: #3ecf8e;
+    --sb-red-solid: #e5727a;
+    --sb-red-strong-solid: #e5484d;
+    --sb-yellow-solid: #e3c84e;
+    --sb-yellow-2-solid: #e3b341;
+
+    /* Channel triples for the same accents. A translucent tint of an accent
+       (`rgba(var(--sb-orange-rgb), 0.14)`) cannot be built from the hex token, because
+       CSS has no way to add an alpha to a colour a custom property already resolved —
+       so the channels are published separately and the two must be kept in step. */
+    --sb-green-rgb: 62, 207, 142;
+    --sb-orange-rgb: 240, 137, 42;
+    --sb-red-rgb: 229, 114, 122;
+    --sb-red-strong-rgb: 229, 72, 77;
+    --sb-yellow-rgb: 227, 200, 78;
+    --sb-yellow-2-rgb: 227, 179, 65;
+    --sb-blue-rgb: 96, 165, 250;
+    --sb-bg-rgb: 18, 18, 20;
+    --sb-surface-rgb: 20, 20, 22;
+    --sb-text-7-rgb: 138, 138, 146;
+    --sb-text-9-rgb: 107, 107, 115;
+
+    /* What a modal dims the page behind it with. Stays dark in both themes — a light
+       scrim over a light page dims nothing — but lighter and bluer on the light one so
+       it reads as depth rather than as a hole cut in the page. */
+    --sb-scrim-rgb: 6, 6, 8;
+
+    /* The .accent-* and .text-* utility classes predate the redesign and use a slightly
+       different, brighter set than the sb- palette above. They are still on the page, so
+       they keep their own values rather than being snapped to the newer accents — the
+       point here is to give them a light counterpart, not to restyle the dark theme. */
+    --sb-legacy-orange: #fb923c;
+    --sb-legacy-green: #34d399;
+    --sb-legacy-red: #f87171;
+    --sb-legacy-yellow: #fbbf24;
+    --sb-legacy-purple: #a78bfa;
+    --sb-legacy-blue: #60a5fa;
+    --sb-legacy-gray: #9ca3af;
+    --sb-legacy-cyan: #22d3ee;
+    --sb-legacy-text: #f1f5f9;
+    --sb-legacy-text-2: #b6b6b6;
+    --sb-legacy-text-3: #818080;
+    --sb-legacy-body-text: #c5c7ce;
+    /* Borders and fills the older components draw with (Tailwind's gray-600 at low
+       alpha, mostly). Published as channels so their many alphas still work. */
+    --sb-legacy-border-rgb: 75, 85, 99;
+    --sb-legacy-fill-rgb: 42, 43, 42;
+    --sb-legacy-scroll-rgb: 156, 163, 175;
+
+
+    /* The pre-redesign component set (btn-primary, the status dots, the drop zone, the
+       splash) was built on Tailwind's own palette, one step off the sb- accents above.
+       Snapping them together would have been tidier and would also have restyled the
+       dark theme, which is not what adding a light theme is for — so each keeps its
+       exact value here and gets a light counterpart of its own. */
+    --sb-legacy-orange-500: #f97316;
+    --sb-legacy-orange-500-rgb: 249, 115, 22;
+    --sb-legacy-orange-600: #ea580c;
+    --sb-legacy-amber-500: #f59e0b;
+    --sb-legacy-amber-600: #d97706;
+    --sb-legacy-amber-700: #b45309;
+    --sb-legacy-red-500: #ef4444;
+    --sb-legacy-red-600: #dc2626;
+    --sb-legacy-blue-500: #3b82f6;
+    --sb-legacy-emerald-500: #10b981;
+    --sb-legacy-gray-500: #6b7280;
+    --sb-legacy-blue-rgb: 59, 130, 246;
+    --sb-legacy-emerald-rgb: 16, 185, 129;
+    --sb-legacy-amber-rgb: 245, 158, 11;
+    /* The two greys the older gradients step up to. */
+    --sb-legacy-raise-1: #3a3b3a;
+    --sb-legacy-raise-2: #4a4b4a;
+    --sb-legacy-splash: #2d2d2d;
+    /* apple-motion.css draws its own pressed/hover surfaces. */
+    --sb-motion-surface: #18181a;
+    --sb-motion-raise: #202022;
+    --sb-motion-text: #e4e4e8;
+    --sb-motion-text-2: #c8c8cf;
+    --sb-motion-text-3: #c3c3c9;
+    /* The page ground the legacy body rule paints, a shade below --sb-bg-deepest. */
+    --sb-legacy-ground: #07090d;
+
+    /* Shadows. On a dark ground a shadow is nearly invisible and the alphas can be
+       generous; the same alphas on a light page produce grey smears under everything.
+       Rather than restating every shadow in the light block, the call sites keep their
+       own alpha and multiply it by --sb-shadow-k, which the light theme turns down —
+       so one number retunes every shadow in the app at once. */
+    --sb-shadow-rgb: 0, 0, 0;
+    --sb-shadow-k: 1;
+
+}
+
+:root[data-theme="light"] {
+    color-scheme: light;
+
+    --sb-ink: 0, 0, 0;
+
+    /* The grounds invert but do not go to pure white: an all-#fff page under a full-
+       bleed layout is glare, and the cards need something to sit on top of. */
+    --sb-bg-deepest: #e7e7ea;
+    --sb-bg-deep: #eff0f2;
+    --sb-bg: #f6f7f8;
+
+    --sb-surface: #ffffff;
+    --sb-surface-2: #f2f3f5;
+    --sb-surface-warm: #fdeced;
+    --sb-surface-3: #e7e8ec;
+    --sb-surface-4: #e0e1e6;
+    --sb-surface-5: #cfd0d7;
+
+    --sb-grad-1: #f1f1f5;
+    --sb-grad-2: #eae7f0;
+    --sb-grad-3: #eeeef4;
+
+    /* The ramp mirrors rather than inverts: the darkest text stops short of black,
+       and the faint end stops at roughly 4:1 on white so hints stay legible. */
+    --sb-text-1: #0e0e12;
+    --sb-text-2: #1b1b20;
+    --sb-text-3: #26262c;
+    --sb-text-4: #333339;
+    --sb-text-5: #4a4a52;
+    --sb-text-5b: #52525b;
+    --sb-text-6: #56565f;
+    --sb-text-7: #63636c;
+    --sb-text-8: #6f6f78;
+    --sb-text-9: #7c7c85;
+    --sb-text-faint: #85858f;
+    --sb-text-code: #2f3340;
+
+    /* Every accent is darkened until it clears 4.5:1 against white — the dark theme's
+       versions are tuned for a black ground and turn to pastel on a white one. */
+    --sb-green: #0a8657;
+    --sb-green-soft: #0e7a52;
+    --sb-green-muted: #4f6259;
+    --sb-orange: #b05c08;
+    --sb-orange-hi: #ff9637;
+    --sb-orange-2: #f0a455;
+    --sb-orange-3: #96550f;
+    --sb-orange-4: #8d5417;
+    --sb-red: #c62f38;
+    --sb-red-soft: #b8434c;
+    --sb-yellow: #7d6400;
+    --sb-yellow-2: #8a6c00;
+
+    /* The fills above are now dark, so their text flips to white. */
+    --sb-on-accent: #1a0f04;
+    --sb-on-green: #06231a;
+    --sb-on-green-2: #08160e;
+
+    --sb-diag-text: #35302a;
+    --sb-diag-label: #6a665f;
+    --sb-diag-stroke: #a9a49b;
+    --sb-diag-dim: #75716b;
+
+    --sb-legacy-1: #ffffff;
+    --sb-legacy-2: #f4f5f7;
+    --sb-legacy-3: #ffffff;
+    --sb-legacy-panel: #ffffff;
+    --sb-legacy-body: #f6f7f8;
+    --sb-legacy-body-2: #f1f2f4;
+    --sb-legacy-bar-rgb: 250, 250, 251;
+    --sb-legacy-slate-rgb: 226, 228, 233;
+    --sb-legacy-green-rgb: 52, 211, 153;
+    --sb-legacy-header: #ffffff;
+    --sb-legacy-table: #f4f5f7;
+
+
+    /* Identical to the dark theme on purpose — see the note there. A filled accent is
+       the brand mark; only accent *text* moves. */
+    --sb-orange-solid: #f0892a;
+    --sb-green-solid: #3ecf8e;
+    --sb-red-solid: #e5727a;
+    --sb-red-strong-solid: #e5484d;
+    --sb-yellow-solid: #e3c84e;
+    --sb-yellow-2-solid: #e3b341;
+
+    --sb-green-rgb: 62, 207, 142;
+    --sb-orange-rgb: 240, 137, 42;
+    --sb-red-rgb: 229, 114, 122;
+    --sb-red-strong-rgb: 229, 72, 77;
+    --sb-yellow-rgb: 227, 200, 78;
+    --sb-yellow-2-rgb: 227, 179, 65;
+    --sb-blue-rgb: 29, 100, 200;
+    --sb-bg-rgb: 246, 247, 248;
+    --sb-surface-rgb: 255, 255, 255;
+    --sb-text-7-rgb: 99, 99, 108;
+    --sb-text-9-rgb: 124, 124, 133;
+
+    --sb-scrim-rgb: 24, 26, 34;
+
+    --sb-legacy-orange: #b05c08;
+    --sb-legacy-green: #0a8657;
+    --sb-legacy-red: #c62f38;
+    --sb-legacy-yellow: #8a6c00;
+    --sb-legacy-purple: #6d45d9;
+    --sb-legacy-blue: #1d64c8;
+    --sb-legacy-gray: #63636c;
+    --sb-legacy-cyan: #0e7490;
+    --sb-legacy-text: #0e0e12;
+    --sb-legacy-text-2: #4a4a52;
+    --sb-legacy-text-3: #6f6f78;
+    --sb-legacy-body-text: #333339;
+    --sb-legacy-border-rgb: 148, 155, 168;
+    --sb-legacy-fill-rgb: 244, 245, 247;
+    --sb-legacy-scroll-rgb: 120, 126, 138;
+
+
+    --sb-legacy-orange-500: #b05c08;
+    --sb-legacy-orange-500-rgb: 249, 115, 22;
+    --sb-legacy-orange-600: #9c5007;
+    --sb-legacy-amber-500: #8a6c00;
+    --sb-legacy-amber-600: #7a5f00;
+    --sb-legacy-amber-700: #6a5200;
+    --sb-legacy-red-500: #c62f38;
+    --sb-legacy-red-600: #b0212a;
+    --sb-legacy-blue-500: #1d64c8;
+    --sb-legacy-emerald-500: #0a8657;
+    --sb-legacy-gray-500: #63636c;
+    --sb-legacy-blue-rgb: 59, 130, 246;
+    --sb-legacy-emerald-rgb: 16, 185, 129;
+    --sb-legacy-amber-rgb: 245, 158, 11;
+    /* Gradients that stepped *up* from the ground in the dark theme have to step
+       *down* from white here, or the raised end reads as a hole. */
+    --sb-legacy-raise-1: #eceef1;
+    --sb-legacy-raise-2: #e0e2e7;
+    --sb-legacy-splash: #e7e8ec;
+    --sb-motion-surface: #ffffff;
+    --sb-motion-raise: #f2f3f5;
+    --sb-motion-text: #1b1b20;
+    --sb-motion-text-2: #333339;
+    --sb-motion-text-3: #3a3a41;
+    --sb-legacy-ground: #eef0f2;
+
+    --sb-shadow-rgb: 16, 18, 27;
+    --sb-shadow-k: 0.26;
+
+}
+
+/* The one case theme-boot.js cannot answer: a client that does not run scripts, where
+   no data-theme is ever stamped. It gets the system preference, which is the closest
+   thing to a right answer available without storage. Guarded on the attribute being
+   absent so it can never fight the explicit choice — the moment JS runs, data-theme
+   exists and this block stops matching. */
+@media (prefers-color-scheme: light) {
+    :root:not([data-theme]) {
+        color-scheme: light;
+
+        --sb-ink: 0, 0, 0;
+
+        --sb-bg-deepest: #e7e7ea;
+        --sb-bg-deep: #eff0f2;
+        --sb-bg: #f6f7f8;
+
+        --sb-surface: #ffffff;
+        --sb-surface-2: #f2f3f5;
+        --sb-surface-3: #e7e8ec;
+        --sb-surface-4: #e0e1e6;
+        --sb-surface-5: #cfd0d7;
+
+        --sb-text-1: #0e0e12;
+        --sb-text-2: #1b1b20;
+        --sb-text-3: #26262c;
+        --sb-text-4: #333339;
+        --sb-text-5: #4a4a52;
+        --sb-text-6: #56565f;
+        --sb-text-7: #63636c;
+        --sb-text-8: #6f6f78;
+        --sb-text-9: #7c7c85;
+        --sb-text-faint: #85858f;
+
+        --sb-green: #0a8657;
+        --sb-green-rgb: 10, 134, 87;
+        --sb-orange: #b05c08;
+        --sb-orange-rgb: 176, 92, 8;
+    }
+}
+
+/* ── Tailwind utilities that assume a dark ground ────────────────────────────────────
+ *
+ * A handful of screens that predate the redesign — the SAS verification panel, the
+ * password modal, the download cards — are styled with Tailwind classes rather than
+ * inline styles, and Tailwind's palette has no idea a second theme exists. The classes
+ * below are the ones that only work on a dark background: light text (white, gray-200,
+ * gray-400), dark fills (gray-700, gray-900, black at low alpha), and the -300/-400
+ * accent shades, which are picked to glow on black and turn to pastel on white.
+ *
+ * Overriding here rather than rewriting the call sites is deliberate: the alternative is
+ * ~50 edits across five files to swap one palette for another, in screens that are
+ * already scheduled to be replaced. The selector carries the data-theme attribute, so it
+ * outranks Tailwind's single class without needing !important, and it costs nothing in
+ * the dark theme, where none of it matches.
+ *
+ * Not listed, on purpose: bg-black\/50, which is the password modal's backdrop. A scrim
+ * is supposed to be dark in both themes — a light scrim over a light page dims nothing.
+ * The -500/10 fills and -500/20 borders are also left alone; a mid-tone at one tenth
+ * alpha reads correctly against either ground.
+ */
+:root[data-theme="light"] .text-white { color: #1b1b20; }
+:root[data-theme="light"] .text-gray-200 { color: #333339; }
+:root[data-theme="light"] .text-gray-400 { color: #63636c; }
+:root[data-theme="light"] .text-gray-500 { color: #6f6f78; }
+:root[data-theme="light"] .placeholder-gray-500::placeholder { color: #85858f; }
+
+/* A watermark, not text: the huge icon behind each download card. */
+:root[data-theme="light"] .text-white\/10 { color: rgba(0, 0, 0, 0.08); }
+
+:root[data-theme="light"] .bg-gray-700\/40 { background-color: rgba(0, 0, 0, 0.04); }
+:root[data-theme="light"] .bg-gray-700\/50 { background-color: rgba(0, 0, 0, 0.05); }
+:root[data-theme="light"] .bg-gray-700\/60 { background-color: rgba(0, 0, 0, 0.06); }
+:root[data-theme="light"] .bg-gray-900\/30 { background-color: rgba(0, 0, 0, 0.04); }
+:root[data-theme="light"] .bg-black\/20 { background-color: rgba(0, 0, 0, 0.04); }
+/* The hover overlay on a download card. Its text is --sb-text-*, which is dark in this
+   theme, so the overlay has to be light or the label disappears into it. */
+:root[data-theme="light"] .bg-black\/30 { background-color: rgba(255, 255, 255, 0.82); }
+
+/* The -300 and -400 accent shades, darkened to the same targets as the sb- accents. */
+:root[data-theme="light"] .text-green-300,
+:root[data-theme="light"] .text-green-400,
+:root[data-theme="light"] .text-green-500 { color: #0a8657; }
+:root[data-theme="light"] .text-red-300,
+:root[data-theme="light"] .text-red-400,
+:root[data-theme="light"] .text-red-500 { color: #c62f38; }
+:root[data-theme="light"] .text-yellow-400 { color: #7d6400; }
+:root[data-theme="light"] .text-orange-400,
+:root[data-theme="light"] .text-orange-500 { color: #b05c08; }
+:root[data-theme="light"] .text-purple-300,
+:root[data-theme="light"] .text-purple-400 { color: #6d45d9; }
+:root[data-theme="light"] .text-blue-400,
+:root[data-theme="light"] .text-blue-500 { color: #1d64c8; }
+:root[data-theme="light"] .text-sky-300 { color: #0b6fa8; }
+:root[data-theme="light"] .text-amber-300 { color: #8a6c00; }
+:root[data-theme="light"] .border-purple-400 { border-color: #6d45d9; }
+
+/* Switching themes repaints the whole page at once. Without this it happens in one
+   frame and reads as a flash; with it the two palettes cross-fade. Only the two
+   properties that actually carry the theme are transitioned — putting `all` here made
+   every hover and layout animation on the page inherit a 200ms delay.
+   The class is added by theme-boot.js for the duration of a switch only, so a page
+   *load* in either theme still paints instantly with no fade. */
+:root.sb-theme-switching,
+:root.sb-theme-switching * {
+    transition: background-color .2s ease, border-color .2s ease, color .2s ease !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :root.sb-theme-switching,
+    :root.sb-theme-switching * {
+        transition: none !important;
+    }
+}

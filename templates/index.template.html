@@ -32,11 +32,31 @@
 <link rel="manifest" href="{{MANIFEST}}">
 <link rel="icon" type="image/x-icon" href="/logo/favicon.ico?v=BUILD_VERSION">
 
+<!-- Blocking, and above the stylesheet on purpose: this stamps data-theme on <html>
+     from localStorage while the parser is still in <head>, so the page paints in the
+     chosen theme on the first frame instead of flashing dark and correcting itself.
+     Cannot be inline (CSP is script-src 'self') and cannot be a module (deferred). -->
+<script src="/src/scripts/theme-boot.js?v=BUILD_VERSION"></script>
+
+<!-- Blocking, and in <head> on purpose: beforeinstallprompt fires once and is
+     not replayed, so the listener has to exist before Chrome decides the page
+     is installable. Deferred/module scripts are already too late. -->
+<script src="/src/scripts/pwa-install-capture.js?v=BUILD_VERSION"></script>
+
 <!-- PWA Meta Tags -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="format-detection" content="telephone=no">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- "default", not "black-translucent", now that there are two themes.
+     black-translucent draws the clock and battery in white and lets the page run under
+     them; on a light page that is white on near-white, and the meta is read once at
+     launch so no script can correct it. With "default" iOS tints the status bar from
+     <meta name="theme-color"> below and picks the glyph colour to contrast with it, so
+     it follows the theme on its own. The trade is that the page no longer extends under
+     the bar, which makes env(safe-area-inset-top) 0 in standalone — src/styles/pwa.css
+     already derives --sb-safe-top from that env(), so it collapses to 0 and the header
+     sits where it does in a browser tab. -->
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="SecureBit">
 <meta name="application-name" content="SecureBit">
 <meta name="msapplication-TileColor" content="#ff6b35">
@@ -112,9 +132,18 @@
 <meta name="msapplication-TileImage" content="./logo/icon-144x144.png">
 <meta name="msapplication-config" content="/browserconfig.xml">
     
-<!-- Theme colors -->
-<meta name="theme-color" content="#ff6b35">
-<meta name="msapplication-navbutton-color" content="#ff6b35">
+<!-- Theme colors.
+     Two tags with media queries, which is how the browser answers before any script has
+     run and how a client with no JavaScript answers permanently. They are the page's
+     own ground (--sb-bg in src/styles/theme.css), not the brand orange: this paints the
+     Android address bar and the iOS status bar, and a strip in a different colour from
+     the page reads as a rendering fault rather than as branding.
+     Once theme-boot.js runs it drops the media attributes and writes the resolved
+     colour into both, because a media query cannot express "light on a dark system",
+     which is exactly what someone who picked a theme by hand has asked for. -->
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f0f11">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f7f8">
+<meta name="msapplication-navbutton-color" content="#0f0f11">
 
 <!-- Security Headers for PWA - CSP is already defined above -->
 

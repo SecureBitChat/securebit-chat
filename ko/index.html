@@ -30,13 +30,33 @@
 
     <!-- PWA Manifest -->
 <link rel="manifest" href="/ko/manifest.json">
-<link rel="icon" type="image/x-icon" href="/logo/favicon.ico?v=1788496655816">
+<link rel="icon" type="image/x-icon" href="/logo/favicon.ico?v=1788557187846">
+
+<!-- Blocking, and above the stylesheet on purpose: this stamps data-theme on <html>
+     from localStorage while the parser is still in <head>, so the page paints in the
+     chosen theme on the first frame instead of flashing dark and correcting itself.
+     Cannot be inline (CSP is script-src 'self') and cannot be a module (deferred). -->
+<script src="/src/scripts/theme-boot.js?v=1788557187846"></script>
+
+<!-- Blocking, and in <head> on purpose: beforeinstallprompt fires once and is
+     not replayed, so the listener has to exist before Chrome decides the page
+     is installable. Deferred/module scripts are already too late. -->
+<script src="/src/scripts/pwa-install-capture.js?v=1788557187846"></script>
 
 <!-- PWA Meta Tags -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="format-detection" content="telephone=no">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- "default", not "black-translucent", now that there are two themes.
+     black-translucent draws the clock and battery in white and lets the page run under
+     them; on a light page that is white on near-white, and the meta is read once at
+     launch so no script can correct it. With "default" iOS tints the status bar from
+     <meta name="theme-color"> below and picks the glyph colour to contrast with it, so
+     it follows the theme on its own. The trade is that the page no longer extends under
+     the bar, which makes env(safe-area-inset-top) 0 in standalone — src/styles/pwa.css
+     already derives --sb-safe-top from that env(), so it collapses to 0 and the header
+     sits where it does in a browser tab. -->
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="SecureBit">
 <meta name="application-name" content="SecureBit">
 <meta name="msapplication-TileColor" content="#ff6b35">
@@ -96,7 +116,7 @@
     <link rel="apple-touch-startup-image" media="screen and (device-width: 744px) and (device-height: 1133px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/logo/splash/splash_screens/8.3__iPad_Mini_portrait.png">
     
 <!-- Apple Touch Icons -->
-<link rel="apple-touch-icon" href="/logo/icon-180x180.png?v=1788496655816">
+<link rel="apple-touch-icon" href="/logo/icon-180x180.png?v=1788557187846">
 <link rel="apple-touch-icon" sizes="57x57" href="/logo/icon-57x57.png">
 <link rel="apple-touch-icon" sizes="60x60" href="/logo/icon-60x60.png">
 <link rel="apple-touch-icon" sizes="72x72" href="/logo/icon-72x72.png">
@@ -105,16 +125,25 @@
 <link rel="apple-touch-icon" sizes="120x120" href="/logo/icon-120x120.png">
 <link rel="apple-touch-icon" sizes="144x144" href="/logo/icon-144x144.png">
 <link rel="apple-touch-icon" sizes="152x152" href="/logo/icon-152x152.png">
-<link rel="apple-touch-icon" sizes="180x180" href="/logo/icon-180x180.png?v=1788496655816">
+<link rel="apple-touch-icon" sizes="180x180" href="/logo/icon-180x180.png?v=1788557187846">
 
 <!-- Microsoft Tiles -->
 <meta name="msapplication-TileColor" content="#ff6b35">
 <meta name="msapplication-TileImage" content="./logo/icon-144x144.png">
 <meta name="msapplication-config" content="/browserconfig.xml">
     
-<!-- Theme colors -->
-<meta name="theme-color" content="#ff6b35">
-<meta name="msapplication-navbutton-color" content="#ff6b35">
+<!-- Theme colors.
+     Two tags with media queries, which is how the browser answers before any script has
+     run and how a client with no JavaScript answers permanently. They are the page's
+     own ground (--sb-bg in src/styles/theme.css), not the brand orange: this paints the
+     Android address bar and the iOS status bar, and a strip in a different colour from
+     the page reads as a rendering fault rather than as branding.
+     Once theme-boot.js runs it drops the media attributes and writes the resolved
+     colour into both, because a media query cannot express "light on a dark system",
+     which is exactly what someone who picked a theme by hand has asked for. -->
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f0f11">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f7f8">
+<meta name="msapplication-navbutton-color" content="#0f0f11">
 
 <!-- Security Headers for PWA - CSP is already defined above -->
 
@@ -235,7 +264,7 @@
     <!-- Render-blocking JS is deferred: classic deferred scripts and module scripts
          both execute in document order after parsing, so React still runs before the
          app modules below, but the parser / first paint is no longer blocked. -->
-    <script defer src="/config/ice-servers.js?v=1788496655816"></script>
+    <script defer src="/config/ice-servers.js?v=1788557187846"></script>
     <script defer src="/libs/react/react.production.min.js"></script>
     <script defer src="/libs/react-dom/react-dom.production.min.js"></script>
     <!-- Prism syntax highlighting (vendored, offline). Tokenizes code as TEXT only —
@@ -249,8 +278,8 @@
          the end of <body>: 21 KB of CSS in total, but eight round trips before the
          browser could paint, which GTmetrix measured at 441 ms on a throttled mobile
          connection. Bytes were never the problem; requests were. -->
-    <link rel="stylesheet" href="/assets/app.css?v=1788496655816">
-    <link rel="icon" type="image/x-icon" href="/logo/favicon.ico?v=1788496655816">
+    <link rel="stylesheet" href="/assets/app.css?v=1788557187846">
+    <link rel="icon" type="image/x-icon" href="/logo/favicon.ico?v=1788557187846">
     <!-- Preload only the fonts needed for first paint. Inter is one variable file that
          answers for every weight, so there is one to preload rather than the two of five
          copies this used to name. fa-solid covers the bulk of UI icons; fa-regular and
@@ -258,19 +287,19 @@
     <link rel="preload" href="/assets/fontawesome/webfonts/fa-solid-900.subset.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/assets/fonts/inter/files/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
     <!-- Non-critical CSS (FontAwesome ~102KB, Prism) loaded async — no longer blocks paint. -->
-    <script defer src="/src/scripts/load-async-css.js?v=1788496655816"></script>
+    <script defer src="/src/scripts/load-async-css.js?v=1788557187846"></script>
     <noscript>
         <link rel="stylesheet" href="/libs/prism/prism.css">
     </noscript>
-    <script defer src="/src/scripts/fa-check.js?v=1788496655816"></script>
+    <script defer src="/src/scripts/fa-check.js?v=1788557187846"></script>
     <!-- This locale's dictionary, registered before anything can ask for a string.
          Only the default locale's is bundled (src/i18n/index.js imports it, because t()
          falls back to it); every other page loads its own here instead of all thirteen
          riding along inside dist/app.js. Absent on the default locale's own page. -->
-    <script type="module" src="/src/i18n/dict/ko.js?v=1788496655816"></script>
+    <script type="module" src="/src/i18n/dict/ko.js?v=1788557187846"></script>
     <!-- Update Manager - система принудительного обновления -->
-    <script defer src="/src/utils/updateManager.js?v=1788496655816"></script>
-    <script type="module" src="/src/components/UpdateChecker.jsx?v=1788496655816"></script>
+    <script defer src="/src/utils/updateManager.js?v=1788557187846"></script>
+    <script type="module" src="/src/components/UpdateChecker.jsx?v=1788557187846"></script>
     <!-- /dist/qr-local.js is deliberately absent: app-boot.js fetches it once the
          app has mounted and the browser is idle, so the 142 KB it weighs is off the
          first load. src/components/QRScanner.js used to be here too and registered
@@ -280,7 +309,7 @@
     <div id="root">
 <style>
 .sb-pre{display:none}
-.sb-boot{display:flex;align-items:center;justify-content:center;min-height:100vh;min-height:100svh;margin:0;background:#0f0f11}
+.sb-boot{display:flex;align-items:center;justify-content:center;min-height:100vh;min-height:100svh;margin:0;background:var(--sb-bg)}
 .sb-boot svg{width:62px;height:auto;display:block;animation:sbBootPulse 1.8s ease-in-out infinite}
 @keyframes sbBootPulse{0%,100%{opacity:.32;transform:scale(.97)}50%{opacity:1;transform:scale(1)}}
 @media (prefers-reduced-motion:reduce){.sb-boot svg{animation:none;opacity:.75}}
@@ -290,27 +319,27 @@
 .sb-boot{display:none}
 </style></noscript>
 <style>
-.sb-pre{background:#0f0f11;color:#e8e8eb;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.6;padding:56px 24px 72px;margin:0}
+.sb-pre{background:var(--sb-bg);color:var(--sb-text-2);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.6;padding:56px 24px 72px;margin:0}
 .sb-pre .sb-pre-in{max-width:940px;margin:0 auto;display:flex;flex-direction:column;gap:56px}
-.sb-pre .sb-pre-brand{font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#f0892a;margin:0 0 18px}
-.sb-pre h1{font-size:clamp(28px,5vw,40px);font-weight:800;letter-spacing:-1.1px;line-height:1.12;color:#f4f4f6;margin:0 0 14px}
-.sb-pre h2{font-size:23px;font-weight:700;letter-spacing:-.5px;color:#f4f4f6;margin:0 0 8px}
-.sb-pre h3{font-size:17px;font-weight:700;letter-spacing:-.2px;color:#e8e8eb;margin:0 0 6px}
-.sb-pre p{margin:0 0 10px;color:#8a8a92;font-size:15px;max-width:62ch}
-.sb-pre .sb-pre-lead{font-size:16px;color:#a6a6ae;max-width:52ch}
-.sb-pre .sb-pre-eyebrow{font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#6b6b73;margin:0 0 6px}
+.sb-pre .sb-pre-brand{font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--sb-orange);margin:0 0 18px}
+.sb-pre h1{font-size:clamp(28px,5vw,40px);font-weight:800;letter-spacing:-1.1px;line-height:1.12;color:var(--sb-text-1);margin:0 0 14px}
+.sb-pre h2{font-size:23px;font-weight:700;letter-spacing:-.5px;color:var(--sb-text-1);margin:0 0 8px}
+.sb-pre h3{font-size:17px;font-weight:700;letter-spacing:-.2px;color:var(--sb-text-2);margin:0 0 6px}
+.sb-pre p{margin:0 0 10px;color:var(--sb-text-7);font-size:15px;max-width:62ch}
+.sb-pre .sb-pre-lead{font-size:16px;color:var(--sb-text-5);max-width:52ch}
+.sb-pre .sb-pre-eyebrow{font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--sb-text-9);margin:0 0 6px}
 .sb-pre .sb-pre-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;margin-top:22px;padding:0;list-style:none}
-.sb-pre .sb-pre-card{background:#141417;border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:18px 20px}
+.sb-pre .sb-pre-card{background:var(--sb-surface);border:1px solid rgba(var(--sb-ink),.07);border-radius:10px;padding:18px 20px}
 .sb-pre .sb-pre-tags{margin:10px 0 0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:6px}
-.sb-pre .sb-pre-tags li{font-size:11.5px;color:#3ecf8e;background:rgba(62,207,142,.09);border:1px solid rgba(62,207,142,.18);border-radius:4px;padding:2px 7px}
+.sb-pre .sb-pre-tags li{font-size:11.5px;color:var(--sb-green);background:rgba(var(--sb-green-rgb),.09);border:1px solid rgba(var(--sb-green-rgb),.18);border-radius:4px;padding:2px 7px}
 .sb-pre .sb-pre-steps{margin:22px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px}
-.sb-pre .sb-pre-steps li{border-top:1px solid rgba(255,255,255,.06);padding:13px 0;display:flex;flex-wrap:wrap;gap:2px 14px;align-items:baseline}
+.sb-pre .sb-pre-steps li{border-top:1px solid rgba(var(--sb-ink),.06);padding:13px 0;display:flex;flex-wrap:wrap;gap:2px 14px;align-items:baseline}
 .sb-pre .sb-pre-steps h3{margin:0;font-size:15.5px}
-.sb-pre .sb-pre-steps .sb-pre-when{font-size:12px;color:#6b6b73;margin-inline-start:auto;white-space:nowrap}
+.sb-pre .sb-pre-steps .sb-pre-when{font-size:12px;color:var(--sb-text-9);margin-inline-start:auto;white-space:nowrap}
 .sb-pre .sb-pre-steps p{flex:1 1 100%;margin:2px 0 0;font-size:14px}
 .sb-pre .sb-pre-docs{margin:14px 0 0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:2px 24px}
-.sb-pre .sb-pre-docs li{padding:8px 0;border-top:1px solid rgba(255,255,255,.06);font-size:14.5px}
-.sb-pre a{color:#f0892a;text-underline-offset:2px}
+.sb-pre .sb-pre-docs li{padding:8px 0;border-top:1px solid rgba(var(--sb-ink),.06);font-size:14.5px}
+.sb-pre a{color:var(--sb-orange);text-underline-offset:2px}
 @media (prefers-reduced-motion:reduce){.sb-pre *{animation:none!important;transition:none!important}}
 </style>
 <div class="sb-boot" aria-hidden="true">
@@ -458,12 +487,12 @@
   </div>
 </div>
     </div>
-    <script type="module" src="/dist/app-boot.js?v=1788496655816"></script>
-    <script type="module" src="/dist/app.js?v=1788496655816"></script>
+    <script type="module" src="/dist/app-boot.js?v=1788557187846"></script>
+    <script type="module" src="/dist/app.js?v=1788557187846"></script>
 
-<script defer src="/src/scripts/pwa-register.js?v=1788496655816"></script>
-<script src="/src/pwa/install-prompt.js?v=1788496655816" type="module"></script>
-<script src="/src/pwa/pwa-manager.js?v=1788496655816" type="module"></script>
-<script defer src="/src/scripts/pwa-offline-test.js?v=1788496655816"></script>
+<script defer src="/src/scripts/pwa-register.js?v=1788557187846"></script>
+<script src="/src/pwa/install-prompt.js?v=1788557187846" type="module"></script>
+<script src="/src/pwa/pwa-manager.js?v=1788557187846" type="module"></script>
+<script defer src="/src/scripts/pwa-offline-test.js?v=1788557187846"></script>
 </body>
 </html>

@@ -19,11 +19,14 @@ const UniqueFeatureSlider = () => {
     };
   }, []);
 
-  const ACCENT = '#f0892a';
-  const ACTIVE_BG = 'radial-gradient(130% 90% at 28% 0%, rgba(240,137,42,0.11), transparent 60%), #141416';
-  const ACTIVE_BD = 'rgba(240,137,42,0.3)';
-  const IDLE_BG = '#111113';
-  const IDLE_BD = 'rgba(255,255,255,0.06)';
+  const ACCENT = 'var(--sb-orange)';
+  // The icons are stroked with this, and a stroke is a mark, not a label — brand
+  // colour in both themes. ACCENT above is for text and darkens on a light ground.
+  const ACCENT_SOLID = 'var(--sb-orange-solid)';
+  const ACTIVE_BG = 'radial-gradient(130% 90% at 28% 0%, rgba(var(--sb-orange-rgb), 0.11), transparent 60%), var(--sb-surface)';
+  const ACTIVE_BD = 'rgba(var(--sb-orange-rgb), 0.3)';
+  const IDLE_BG = 'var(--sb-bg)';
+  const IDLE_BD = 'rgba(var(--sb-ink), 0.06)';
   const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
   const SANS = "'Manrope', system-ui, -apple-system, sans-serif";
 
@@ -85,12 +88,12 @@ const UniqueFeatureSlider = () => {
       key, onClick, 'aria-label': key, className: 'sb-mirror-rtl',
       style: {
         width: '46px', height: '46px', display: 'grid', placeItems: 'center',
-        borderRadius: '50%', border: '1px solid rgba(255,255,255,0.1)',
-        background: 'rgba(255,255,255,0.025)', color: '#cfcfd4', cursor: 'pointer',
+        borderRadius: '50%', border: '1px solid rgba(var(--sb-ink), 0.1)',
+        background: 'rgba(var(--sb-ink), 0.025)', color: 'var(--sb-text-4)', cursor: 'pointer',
         transition: 'all .2s cubic-bezier(.2,.7,.3,1)'
       },
       onMouseEnter: (e) => { e.currentTarget.style.borderColor = ACTIVE_BD; e.currentTarget.style.color = ACCENT; },
-      onMouseLeave: (e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#cfcfd4'; }
+      onMouseLeave: (e) => { e.currentTarget.style.borderColor = 'rgba(var(--sb-ink), 0.1)'; e.currentTarget.style.color = 'var(--sb-text-4)'; }
     }, svg(path, 18, 'currentColor', 2.1));
 
   const tag = (label) =>
@@ -98,12 +101,12 @@ const UniqueFeatureSlider = () => {
       key: label,
       style: {
         display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '7px 12px',
-        borderRadius: '9px', border: '1px solid rgba(255,255,255,0.07)',
-        background: 'rgba(255,255,255,0.025)', fontFamily: MONO,
-        fontSize: '11.5px', fontWeight: 500, color: '#9a9aa2'
+        borderRadius: '9px', border: '1px solid rgba(var(--sb-ink), 0.07)',
+        background: 'rgba(var(--sb-ink), 0.025)', fontFamily: MONO,
+        fontSize: '11.5px', fontWeight: 500, color: 'var(--sb-text-6)'
       }
     }, [
-      React.createElement('span', { key: 'dot', style: { width: '5px', height: '5px', borderRadius: '50%', background: '#3ecf8e' } }),
+      React.createElement('span', { key: 'dot', style: { width: '5px', height: '5px', borderRadius: '50%', background: 'var(--sb-green-solid)' } }),
       label
     ]);
 
@@ -124,17 +127,17 @@ const UniqueFeatureSlider = () => {
           key: 'ic',
           style: {
             width: '54px', height: '54px', borderRadius: '15px', display: 'grid', placeItems: 'center',
-            background: 'rgba(240,137,42,0.13)', border: '1px solid rgba(240,137,42,0.3)'
+            background: 'rgba(var(--sb-orange-rgb), 0.13)', border: '1px solid rgba(var(--sb-orange-rgb), 0.3)'
           }
-        }, svg(s.icon, 26, ACCENT, 1.9)),
-        React.createElement('span', { key: 'n', style: { fontFamily: MONO, fontSize: '13px', fontWeight: 600, color: '#6b6b73' } }, s.num)
+        }, svg(s.icon, 26, ACCENT_SOLID, 1.9)),
+        React.createElement('span', { key: 'n', style: { fontFamily: MONO, fontSize: '13px', fontWeight: 600, color: 'var(--sb-text-9)' } }, s.num)
       ]),
       React.createElement('div', { key: 'mid' }, [
         React.createElement('h3', {
-          key: 'h', style: { margin: '0 0 12px', fontSize: isMobile ? '24px' : '30px', fontWeight: 800, letterSpacing: '-0.7px', lineHeight: 1.08, color: '#f4f4f6' }
+          key: 'h', style: { margin: '0 0 12px', fontSize: isMobile ? '24px' : '30px', fontWeight: 800, letterSpacing: '-0.7px', lineHeight: 1.08, color: 'var(--sb-text-1)' }
         }, [s.title[0], React.createElement('br', { key: 'br' }), s.title[1]]),
         React.createElement('p', {
-          key: 'p', style: { margin: 0, fontSize: '15px', lineHeight: 1.6, color: '#9a9aa2', maxWidth: '380px' }
+          key: 'p', style: { margin: 0, fontSize: '15px', lineHeight: 1.6, color: 'var(--sb-text-6)', maxWidth: '380px' }
         }, s.desc)
       ]),
       React.createElement('div', { key: 'tags', style: { display: 'flex', flexWrap: 'wrap', gap: '8px' } }, s.tags.map(tag))
@@ -145,19 +148,19 @@ const UniqueFeatureSlider = () => {
         key: 'col',
         style: { display: 'flex', alignItems: 'center', gap: '16px', padding: '20px 22px' }
       }, [
-        React.createElement('span', { key: 'n', style: { fontFamily: MONO, fontSize: '12px', fontWeight: 600, color: '#56565e' } }, s.num),
-        React.createElement('span', { key: 'l', style: { fontSize: '16px', fontWeight: 800, letterSpacing: '-0.2px', color: '#cfcfd4' } }, s.collapsed)
+        React.createElement('span', { key: 'n', style: { fontFamily: MONO, fontSize: '12px', fontWeight: 600, color: 'var(--sb-text-faint)' } }, s.num),
+        React.createElement('span', { key: 'l', style: { fontSize: '16px', fontWeight: 800, letterSpacing: '-0.2px', color: 'var(--sb-text-4)' } }, s.collapsed)
       ])
     : React.createElement('div', {
         key: 'col',
         style: { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', padding: '24px 0' }
       }, [
-        React.createElement('span', { key: 'n', style: { fontFamily: MONO, fontSize: '12px', fontWeight: 600, color: '#56565e' } }, s.num),
+        React.createElement('span', { key: 'n', style: { fontFamily: MONO, fontSize: '12px', fontWeight: 600, color: 'var(--sb-text-faint)' } }, s.num),
         React.createElement('span', {
           key: 'l',
-          style: { writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: '17px', fontWeight: 800, letterSpacing: '-0.2px', color: '#cfcfd4', whiteSpace: 'nowrap' }
+          style: { writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: '17px', fontWeight: 800, letterSpacing: '-0.2px', color: 'var(--sb-text-4)', whiteSpace: 'nowrap' }
         }, s.collapsed),
-        svg(s.icon, 22, '#56565e', 1.8)
+        svg(s.icon, 22, 'var(--sb-text-faint)', 1.8)
       ]);
 
   const panels = slides.map((s, i) => {
@@ -178,7 +181,7 @@ const UniqueFeatureSlider = () => {
         cursor: 'pointer',
         background: isActive ? ACTIVE_BG : IDLE_BG,
         border: '1px solid ' + (isActive ? ACTIVE_BD : IDLE_BD),
-        color: '#8a8a92',
+        color: 'var(--sb-text-7)',
         transition: 'flex .46s cubic-bezier(.2,.7,.3,1), background .3s ease, border-color .3s ease, filter .2s ease'
       }
     }, isActive ? expandedContent(s) : collapsedContent(s));
@@ -199,11 +202,11 @@ const UniqueFeatureSlider = () => {
       React.createElement('div', { key: 'titles' }, [
         React.createElement('div', {
           key: 'eyebrow',
-          style: { fontFamily: MONO, fontSize: '11px', fontWeight: 600, color: '#6b6b73', textTransform: 'uppercase', letterSpacing: '1.4px', marginBottom: '12px' }
+          style: { fontFamily: MONO, fontSize: '11px', fontWeight: 600, color: 'var(--sb-text-9)', textTransform: 'uppercase', letterSpacing: '1.4px', marginBottom: '12px' }
         }, t('unique.eyebrow')),
         React.createElement('h2', {
           key: 'h2',
-          style: { margin: 0, fontSize: isMobile ? '28px' : '38px', fontWeight: 800, letterSpacing: '-1.1px', lineHeight: 1.05, color: '#f4f4f6' }
+          style: { margin: 0, fontSize: isMobile ? '28px' : '38px', fontWeight: 800, letterSpacing: '-1.1px', lineHeight: 1.05, color: 'var(--sb-text-1)' }
         }, t('unique.heading'))
       ]),
       React.createElement('div', { key: 'nav', style: { display: 'flex', alignItems: 'center', gap: '10px', flex: 'none' } }, [
@@ -227,9 +230,9 @@ const UniqueFeatureSlider = () => {
   // Full-bleed dark band with the radial accent glow — matches the design mockup.
   return React.createElement('section', {
     style: {
-      width: '100%', color: '#e8e8eb', fontFamily: SANS,
+      width: '100%', color: 'var(--sb-text-2)', fontFamily: SANS,
       padding: isMobile ? '44px 0' : '64px 0',
-      background: 'radial-gradient(1100px 700px at 18% 8%, rgba(240,137,42,0.05), transparent 60%), #0f0f11'
+      background: 'radial-gradient(1100px 700px at 18% 8%, rgba(var(--sb-orange-rgb), 0.05), transparent 60%), var(--sb-bg)'
     }
   }, [
     React.createElement('style', { key: 'kf', dangerouslySetInnerHTML: { __html: '@keyframes wuUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}' } }),
