@@ -41,6 +41,40 @@ const purgeLegacyOfferRecords = () => {
     }
 };
 
+/**
+ * QR generation and scanning live in their own bundle — 142 KB gzipped, the third
+ * largest thing this site serves. It used to be a <script type="module"> in <head>,
+ * which meant every first visit paid for it before the app was interactive, on a
+ * screen that has no QR on it: the scanner only exists behind a button, and the
+ * generator only runs once a channel is being created.
+ *
+ * So it is fetched after the app has mounted and the browser is idle. Every call site
+ * already checks `typeof window.<fn> === 'function'` before using it, so arriving late
+ * is not an error condition — but the scanner effect in app.jsx keys off this event to
+ * start the camera for anyone who opened the modal in the meantime.
+ */
+const loadQrBundle = () => {
+    if (window.__qrReady) return window.__qrReady;
+    window.__qrReady = import('/dist/qr-local.js')
+        .then(() => {
+            window.dispatchEvent(new Event('securebit:qr-ready'));
+        })
+        .catch((error) => {
+            console.warn('QR bundle failed to load:', error && error.message);
+            // Let a later attempt retry rather than caching the rejection forever.
+            window.__qrReady = null;
+        });
+    return window.__qrReady;
+};
+
+const scheduleQrBundle = () => {
+    if (typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(loadQrBundle, { timeout: 3000 });
+    } else {
+        setTimeout(loadQrBundle, 1200);
+    }
+};
+
 // Mount application once DOM and modules are ready
 const start = () => {
     purgeLegacyOfferRecords();
@@ -49,6 +83,7 @@ const start = () => {
   } else if (window.DEBUG_MODE) {
     console.error('initializeApp is not defined on window');
   }
+  scheduleQrBundle();
 };
 
 if (document.readyState === 'loading') {

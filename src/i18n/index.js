@@ -11,9 +11,32 @@
  * language the recipient happened to pick last, which makes links unshareable.
  */
 
-import { DEFAULT_LOCALE, SUPPORTED_LOCALES, LOCALE_META, DICTIONARIES } from './generated.js';
+import { DEFAULT_LOCALE, SUPPORTED_LOCALES, LOCALE_META, CROSS_LOCALE_STRINGS } from './generated.js';
+// Side-effect import: loading the default locale's dictionary registers the strings
+// t() falls back to when a translation is missing a key. It is the one dictionary that
+// has to be present on every page, so it is the one that gets bundled.
+import './dict/default.js';
 
 export { DEFAULT_LOCALE, SUPPORTED_LOCALES, LOCALE_META };
+
+/**
+ * Loaded dictionaries, by locale code.
+ *
+ * On a global rather than in module scope, and that is the point. index.js exists twice
+ * on a page: once bundled inside dist/app.js, and once as raw source, because the PWA
+ * install prompt, the PWA manager and the update checker import it directly. Two module
+ * instances mean two module-scoped registries, and the /ru/ dictionary loaded by the
+ * page would have been invisible to the half of the app that needed it.
+ *
+ * A page loads its own dictionary through a <script type="module"> that runs before the
+ * bundles; every locale other than the default arrives that way. See scripts/build-i18n.js.
+ */
+const REGISTRY = globalThis.__SECUREBIT_I18N__ || (globalThis.__SECUREBIT_I18N__ = Object.create(null));
+
+/** The dictionary for a locale, or an empty one if that locale was never loaded. */
+function dictionary(code) {
+    return REGISTRY[code] || null;
+}
 
 const STORAGE_KEY = 'securebit-locale';
 
@@ -191,7 +214,7 @@ export function suggestedLocale({ pathname = '/', languages = [], stored = null 
  * the count belongs to the translation, not to the component.
  */
 export function tList(key, locale = currentLocale()) {
-    const value = DICTIONARIES[locale]?.[key] ?? DICTIONARIES[DEFAULT_LOCALE]?.[key];
+    const value = dictionary(locale)?.[key] ?? dictionary(DEFAULT_LOCALE)?.[key];
     return Array.isArray(value) ? value : [];
 }
 
@@ -224,8 +247,12 @@ export function languageLinks({ pathname = '/', active = DEFAULT_LOCALE } = {}) 
  */
 export function t(key, vars, locale = currentLocale()) {
     const template =
-        DICTIONARIES[locale]?.[key] ??
-        DICTIONARIES[DEFAULT_LOCALE]?.[key] ??
+        dictionary(locale)?.[key] ??
+        // Asked for a locale whose dictionary is not on this page. Only the language
+        // suggestion does that, and only for the handful of keys it needs, so those
+        // ship for every locale; anything else falls through to the default below.
+        CROSS_LOCALE_STRINGS[locale]?.[key] ??
+        dictionary(DEFAULT_LOCALE)?.[key] ??
         key;
     if (!vars) return template;
     return String(template).replace(/\{(\w+)\}/g, (match, name) =>

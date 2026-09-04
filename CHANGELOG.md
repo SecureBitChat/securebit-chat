@@ -1,5 +1,35 @@
 # Changelog
 
+## v6.7.3 — Faster loading, and pages search engines can actually read
+
+Loading got a lot lighter. The bundles used to carry all thirteen translations at once,
+and a page fetched them a third time as raw source; now each page loads only its own
+language. On top of that the JavaScript is minified, the eight stylesheets are served as
+one file, the QR scanner is fetched only once the app is up rather than on every visit,
+and the fonts and icons ship at the size they are actually used at — Inter was shipping
+the same file five times over, and Font Awesome was sending 2468 icons for the 82 this
+app draws.
+
+The page went from 1.85 MB across 43 requests to under 700 KB across 33. On a mobile
+connection it now starts drawing in 1.6 s instead of 6.3 s and is usable in 4.5 s
+instead of 11 s.
+
+Pages also arrive with their text already in the HTML. Everything used to be drawn by
+JavaScript into an empty div, so a search engine saw correct metadata wrapped around
+nothing — which is why twelve of the thirteen language pages had never been shown to
+anyone. Each page now carries its own headline, features and roadmap in the markup,
+visible to crawlers and to anyone without JavaScript, and replaced by the app the moment
+it loads. The documentation is published as real pages under `/docs/` with a new FAQ,
+and an address that does not exist returns a proper 404 instead of the app.
+
+One fix worth calling out: the localized pages were being served with a year-long cache
+header meant for static assets. Anyone who opened `/de/` or `/ru/` was pinned to that
+build and could not receive an update. The header is corrected, and the service worker
+now refreshes what it cached, so affected browsers recover on their next visit.
+
+Three unused components were removed along the way, and the placeholder testimonials
+that were never wired into the site are gone from the repository.
+
 ## v6.7.2 — Desktop 1.0.1
 
 Download links point at desktop 1.0.1, which is the first build that works on

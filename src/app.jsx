@@ -3597,6 +3597,19 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     // slice (declared in the active-session view block above).
                     const [showQRScanner, setShowQRScanner] = React.useState(false);
                     const [showQRScannerModal, setShowQRScannerModal] = React.useState(false);
+                    // The QR bundle is fetched on idle after mount (see app-boot.js), so on a
+                    // cold load it can still be in flight when someone opens the scanner. This
+                    // flips when it lands and re-runs the effect that starts the camera;
+                    // without it, opening the modal early left a permanently black viewfinder.
+                    const [qrBundleReady, setQrBundleReady] = React.useState(() => typeof window !== 'undefined' && !!window.Html5Qrcode);
+                    React.useEffect(() => {
+                        if (qrBundleReady) return undefined;
+                        const onReady = () => setQrBundleReady(true);
+                        window.addEventListener('securebit:qr-ready', onReady);
+                        // The event may have fired before this component mounted.
+                        if (window.Html5Qrcode) setQrBundleReady(true);
+                        return () => window.removeEventListener('securebit:qr-ready', onReady);
+                    }, [qrBundleReady]);
 
                     // isVerified + mutual-verification flags → per-session SAS slice (above).
                     const [securityLevel, setSecurityLevel] = React.useState(null);
@@ -6863,7 +6876,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                                 }
                             };
                         }
-                    }, [showQRScannerModal]);
+                    }, [showQRScannerModal, qrBundleReady]);
         
                     const sessionChats = decorateSessions(sessionsState);
                     const groupChats = decorateGroups(groupsState);

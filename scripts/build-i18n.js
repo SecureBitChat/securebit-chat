@@ -15,6 +15,9 @@
 const fs = require('fs');
 const path = require('path');
 
+const { prerenderShell } = require('./prerender-shell');
+const { docPages } = require('./build-docs');
+
 const ROOT = path.join(__dirname, '..');
 const TEMPLATE = path.join(ROOT, 'templates', 'index.template.html');
 
@@ -81,12 +84,25 @@ function structuredData(site, code) {
         '@context': 'https://schema.org',
         '@graph': [
             {
+                // Named and given an @id so the documentation pages under /docs/ can
+                // point their publisher at the same entity instead of each declaring a
+                // separate one. sameAs is the only part search engines can actually
+                // check, so it lists the two places the project genuinely exists.
+                '@type': 'Organization',
+                '@id': `${site.baseUrl}/#organization`,
+                name: site.siteName,
+                url: `${site.baseUrl}/`,
+                logo: `${site.baseUrl}/logo/icon-512x512.png`,
+                sameAs: [site.repository, 'https://snapcraft.io/securebit-chat'],
+            },
+            {
                 '@type': 'WebSite',
                 '@id': `${site.baseUrl}/#website`,
                 name: site.siteName,
                 url: `${site.baseUrl}/`,
                 description: locale.schema.siteDescription,
                 inLanguage: locale.htmlLang,
+                publisher: { '@id': `${site.baseUrl}/#organization` },
             },
             {
                 '@type': 'WebApplication',
@@ -163,7 +179,6 @@ function buildPages(site, template, version) {
             HTML_DIR: attr(locale.dir || 'ltr'),
             TITLE: attr(locale.meta.title),
             DESCRIPTION: attr(locale.meta.description),
-            KEYWORDS: attr(locale.meta.keywords),
             AUTHOR: attr(site.author),
             SITE_NAME: attr(site.siteName),
             CANONICAL: attr(localeUrl(site, code)),
@@ -179,6 +194,15 @@ function buildPages(site, template, version) {
             TWITTER_IMAGE_ALT: attr(locale.meta.twitterImageAlt),
             SOCIAL_CARD: attr(site.baseUrl + site.socialCard),
             JSONLD: structuredData(site, code),
+            // The default locale's dictionary is already inside the bundles, so its
+            // page must not fetch it a second time; render() drops the whole line
+            // when this is empty.
+            LOCALE_DICT: code === site.defaultLocale
+                ? ''
+                : `    <script type="module" src="/src/i18n/dict/${code}.js?v=BUILD_VERSION"></script>`,
+            // Static landing inside <div id="root">, so the page carries its own text
+            // instead of waiting on the bundles. See scripts/prerender-shell.js.
+            PRERENDER: prerenderShell(site, code, docPages()),
         }).replace(/\?v=BUILD_VERSION/g, `?v=${version}`);
 
         const dest = outputPath(site, code);
@@ -260,7 +284,23 @@ function stampServiceWorker(site) {
         return [];
     }
     const secondary = site.locales.filter((code) => code !== site.defaultLocale);
-    const next = sw.replace(marker, `const SW_LOCALES = [${secondary.map((c) => `'${c}'`).join(', ')}];`);
+    let next = sw.replace(marker, `const SW_LOCALES = [${secondary.map((c) => `'${c}'`).join(', ')}];`);
+
+    // The dictionary list, kept in step the same way. default.js is the stable alias
+    // index.js imports; the default locale's own file is what it resolves to.
+    const dictRegion = /([ \t]*)\/\/ BEGIN generated locale dictionaries\n[\s\S]*?[ \t]*\/\/ END generated locale dictionaries/;
+    if (dictRegion.test(next)) {
+        const dicts = ['/src/i18n/dict/default.js', ...site.locales.map((c) => `/src/i18n/dict/${c}.js`)];
+        const precache = ['/src/i18n/dict/default.js', `/src/i18n/dict/${site.defaultLocale}.js`];
+        next = next.replace(dictRegion, [
+            '// BEGIN generated locale dictionaries',
+            `const SW_DICTS = [${dicts.map((d) => `'${d}'`).join(', ')}];`,
+            `const SW_PRECACHE_DICTS = [${precache.map((d) => `'${d}'`).join(', ')}];`,
+            '// END generated locale dictionaries',
+        ].join('\n'));
+    } else {
+        console.warn('   ⚠️  dictionary markers not found in sw.js — locale strings will not be cached');
+    }
     // Rendering into a scratch directory must never write back over the real sw.js.
     if (next === sw && dest === source) return [];
     fs.writeFileSync(dest, next, 'utf8');
@@ -268,65 +308,37 @@ function stampServiceWorker(site) {
 }
 
 /**
- * Rewrite the generated block between BEGIN/END markers in a served-config file.
- * Both web server configs need to know the locale list, and a list kept by hand in
- * three files is a list that drifts.
- */
-function stampConfig(site, relPath, renderLines) {
-    const source = path.join(ROOT, relPath);
-    const dest = path.join(OUT_ROOT, relPath);
-    if (!fs.existsSync(source)) return [];
-    const text = read(source);
-    const region = /([ \t]*)# BEGIN generated locale shells\n[\s\S]*?[ \t]*# END generated locale shells/;
-    const match = text.match(region);
-    if (!match) {
-        console.warn(`   ⚠️  locale-shell markers not found in ${relPath}`);
-        return [];
-    }
-    const indent = match[1];
-    const secondary = site.locales.filter((code) => code !== site.defaultLocale);
-    const body = renderLines(secondary)
-        .map((line) => `${indent}${line}`)
-        .join('\n');
-    const replacement = [
-        `${indent}# BEGIN generated locale shells`,
-        ...(body ? [body] : []),
-        `${indent}# END generated locale shells`,
-    ].join('\n');
-    const next = text.replace(region, replacement);
-    if (next === text && dest === source) return [];
-    fs.mkdirSync(path.dirname(dest), { recursive: true });
-    fs.writeFileSync(dest, next, 'utf8');
-    return [relPath];
-}
-
-function stampServerConfigs(site) {
-    return [
-        // One plain regex per locale rather than one clever one: a named capture or an
-        // alternation that nginx rejects takes the whole site down at boot, and this
-        // file cannot be syntax-checked without nginx present.
-        ...stampConfig(site, 'deploy/nginx.conf', (codes) =>
-            codes.map((code) => `~^/${code}/  /${code}/index.html;`)
-        ),
-        ...stampConfig(site, '.htaccess', (codes) =>
-            codes.flatMap((code) => [
-                'RewriteCond %{REQUEST_FILENAME} !-f',
-                'RewriteCond %{REQUEST_FILENAME} !-d',
-                `RewriteRule ^${code}(/.*)?$ /${code}/index.html [L]`,
-            ])
-        ),
-    ];
-}
-
-/**
- * Emit the locale registry and UI dictionaries as a plain ES module.
+ * Emit the locale registry, and one dictionary module per locale.
  *
  * The strings live in locales/*.json next to the SEO copy, so a translator edits one
- * file per language rather than two. They reach the app through a generated module
- * instead of a direct JSON import: esbuild would handle the import, but the Node test
+ * file per language rather than two. They reach the app through generated modules
+ * rather than a direct JSON import: esbuild would handle the import, but the Node test
  * runner needs import attributes for it, and a generated .js file works in both
  * without anyone having to remember which.
+ *
+ * Why one file per locale instead of one file with all of them. The single DICTIONARIES
+ * export used to be imported by src/i18n/index.js, which meant every one of the thirteen
+ * languages was bundled into dist/app.js AND dist/app-boot.js AND fetched a third time as
+ * raw source, because three page-level modules import the runtime directly. Lighthouse
+ * measured that third copy alone at 215 KB transferred — the third largest resource on
+ * the page — to hand a Russian reader twelve dictionaries they will never read.
+ *
+ * Now each dictionary registers itself on a global when its module runs, index.js reads
+ * that registry, and a page loads exactly two: the default locale (bundled, because t()
+ * falls back to it for any key a translation is missing) and its own.
  */
+
+// Keys that must answer for a locale whose dictionary was never loaded. The language
+// suggestion is the whole of it: a bar shown on the German page offering the Russian
+// one has to be written in Russian, or it is addressed to someone who cannot read it.
+// Kept as an explicit list rather than a prefix match, so adding a cross-locale string
+// is a deliberate act — every key here ships thirteen times.
+const CROSS_LOCALE_KEYS = [
+    'language.suggest.text',
+    'language.suggest.cta',
+    'language.suggest.dismiss',
+];
+
 function buildDictionaries(site) {
     const meta = {};
     const dictionaries = {};
@@ -344,22 +356,78 @@ function buildDictionaries(site) {
         dictionaries[code] = locale.ui || {};
     }
 
-    const body = `// Generated by scripts/build-i18n.js from locales/*.json — do not edit by hand.
-// Add or change strings in locales/<code>.json, then run \`npm run build:i18n\`.
+    const cross = {};
+    for (const code of site.locales) {
+        const picked = {};
+        for (const key of CROSS_LOCALE_KEYS) {
+            const value = dictionaries[code]?.[key];
+            if (value !== undefined) picked[key] = value;
+        }
+        cross[code] = picked;
+    }
+
+    const header = `// Generated by scripts/build-i18n.js from locales/*.json — do not edit by hand.
+// Add or change strings in locales/<code>.json, then run \`npm run build:i18n\`.`;
+
+    const body = `${header}
 
 export const DEFAULT_LOCALE = ${JSON.stringify(site.defaultLocale)};
 export const SUPPORTED_LOCALES = ${JSON.stringify(site.locales)};
 export const LOCALE_META = ${JSON.stringify(meta, null, 4)};
-export const DICTIONARIES = ${JSON.stringify(dictionaries, null, 4)};
+
+// Strings a page may need for a locale it did not load. See CROSS_LOCALE_KEYS in
+// scripts/build-i18n.js for why this list is short on purpose.
+export const CROSS_LOCALE_STRINGS = ${JSON.stringify(cross, null, 4)};
 `;
 
+    const written = [];
     const dest = path.join(OUT_ROOT, 'src', 'i18n', 'generated.js');
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     fs.writeFileSync(dest, body, 'utf8');
-    return [path.relative(OUT_ROOT, dest)];
+    written.push(path.relative(OUT_ROOT, dest));
+
+    // One module per locale. It registers itself on a global rather than importing the
+    // runtime, which keeps it free of a cycle (index.js -> dict/default.js -> index.js)
+    // and, more importantly, makes the registry shared between the bundled copy of
+    // index.js inside dist/app.js and the raw one the page modules import.
+    const dictDir = path.join(OUT_ROOT, 'src', 'i18n', 'dict');
+    fs.mkdirSync(dictDir, { recursive: true });
+    for (const code of site.locales) {
+        const module = `${header}
+
+export const DICTIONARY = ${JSON.stringify(dictionaries[code], null, 4)};
+
+const registry = globalThis.__SECUREBIT_I18N__ || (globalThis.__SECUREBIT_I18N__ = Object.create(null));
+registry[${JSON.stringify(code)}] = DICTIONARY;
+`;
+        const file = path.join(dictDir, `${code}.js`);
+        fs.writeFileSync(file, module, 'utf8');
+        written.push(path.relative(OUT_ROOT, file));
+    }
+
+    // A stable path for "whichever locale is the default", so index.js can import it
+    // statically. t() falls back to the default for any key a translation is missing,
+    // so this one is bundled everywhere and every other locale is not.
+    const defaultModule = `${header}
+// The default locale's dictionary, under a name that does not change when the default
+// does. Imported for its side effect: loading it registers the strings t() falls back to.
+
+import ${JSON.stringify(`./${site.defaultLocale}.js`)};
+`;
+    const defaultFile = path.join(dictDir, 'default.js');
+    fs.writeFileSync(defaultFile, defaultModule, 'utf8');
+    written.push(path.relative(OUT_ROOT, defaultFile));
+    return written;
 }
 
-function buildSitemap(site) {
+function buildSitemap(site, version) {
+    // <lastmod> from the build stamp rather than the clock: the sitemap is regenerated
+    // by `npm run build` and committed with the release, so the date it carries is the
+    // date the pages actually changed. A W3C date (no time) is what Google reads here.
+    const stamp = Number(version);
+    const lastmod = Number.isFinite(stamp) && stamp > 0
+        ? new Date(stamp).toISOString().slice(0, 10)
+        : new Date().toISOString().slice(0, 10);
     const entries = site.locales
         .map((code) => {
             const alternates = site.locales.length < 2
@@ -370,16 +438,30 @@ function buildSitemap(site) {
                   + `\n        <xhtml:link rel="alternate" hreflang="x-default" href="${attr(localeUrl(site, site.defaultLocale))}"/>`;
             return `    <url>
         <loc>${attr(localeUrl(site, code))}</loc>${alternates}
+        <lastmod>${lastmod}</lastmod>
         <changefreq>weekly</changefreq>
         <priority>1.0</priority>
     </url>`;
         })
         .join('\n');
 
+    // The documentation pages are English-only, so they carry no hreflang cluster —
+    // a cluster that points thirteen ways at one language is worse than none. Lower
+    // priority than the app itself: they support it rather than replace it.
+    const docs = docPages()
+        .map((page) => `    <url>
+        <loc>${attr(site.baseUrl + page.url)}</loc>
+        <lastmod>${lastmod}</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.7</priority>
+    </url>`)
+        .join('\n');
+
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
 ${entries}
+${docs}
 </urlset>
 `;
     fs.writeFileSync(path.join(OUT_ROOT, 'sitemap.xml'), xml, 'utf8');
@@ -415,8 +497,7 @@ function main() {
         ...buildManifests(site),
         ...buildDictionaries(site),
         ...stampServiceWorker(site),
-        ...stampServerConfigs(site),
-        buildSitemap(site),
+        buildSitemap(site, version),
         buildRobots(site),
     ];
 
@@ -435,4 +516,4 @@ if (require.main === module) {
     }
 }
 
-module.exports = { loadSite, buildManifests, localeUrl, outputPath, hreflangLinks, structuredData, render };
+module.exports = { loadSite, buildManifests, localeUrl, outputPath, hreflangLinks, structuredData, prerenderShell, render };

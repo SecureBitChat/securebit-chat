@@ -7,7 +7,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync, existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -94,9 +94,13 @@ for (const code of site.locales) {
         const loc = `<loc>${urlFor(code)}</loc>`;
         assert.equal(sitemap.split(loc).length - 1, 1, `sitemap.xml must list ${urlFor(code)} exactly once`);
     }
+    // The sitemap also carries the documentation pages, which are not locales and have
+    // no hreflang cluster of their own. Count them from doc/ rather than hard-coding a
+    // number, so adding a document does not fail this for the wrong reason.
+    const docCount = readdirSync(path.join(ROOT, 'doc')).filter((f) => f.endsWith('.md')).length;
     assert.equal(
-        (sitemap.match(/<url>/g) || []).length, site.locales.length,
-        'sitemap.xml has entries for URLs that are not locales'
+        (sitemap.match(/<url>/g) || []).length, site.locales.length + docCount,
+        'sitemap.xml has entries that are neither a locale nor a documentation page'
     );
 }
 
@@ -240,6 +244,33 @@ for (const code of site.locales) {
     }
     assert.ok(secondary.includes('<meta property="og:locale:alternate" content="en_US">'));
 
+    // Every page must carry its own text inside <div id="root">, not just metadata
+    // around an empty div. This is the whole reason the locales have separate URLs:
+    // pages that differ only in <meta> gave Google nothing to prefer, and eleven of
+    // the thirteen were never shown to anyone. React empties the container on mount,
+    // so the only contract to keep is that the strings come from the locale file.
+    for (const [page, name] of [[primary, 'en'], [secondary, 'xx']]) {
+        const shell = page.slice(page.indexOf('<div id="root">'), page.indexOf('</body>'));
+        const heading = shell.match(/<h1>([\s\S]*?)<\/h1>/);
+        assert.ok(heading, `${name}: the prerendered landing must carry an <h1>`);
+        assert.ok(heading[1].includes(en.ui['hero.headlineTop']),
+            `${name}: the <h1> must be the locale's own headline, not a placeholder`);
+        assert.ok(shell.includes(en.ui['unique.heading']), `${name}: lost the feature section`);
+        assert.ok(shell.includes(en.ui['roadmap.heading']), `${name}: lost the roadmap section`);
+        assert.ok(!/\{\{|undefined|\[object /.test(shell),
+            `${name}: the prerendered landing leaked an unresolved value`);
+
+        // The mark that stands in until React mounts. Without something contentful in
+        // the markup the first paint is the app itself, which measured 6.3 s on mobile.
+        // It must be visible by default — the text block is the one hidden behind
+        // <noscript> — and it must be inline, or it costs a request to be a placeholder.
+        assert.ok(shell.includes('class="sb-boot"'), `${name}: no loading mark before the app mounts`);
+        assert.match(shell, /<div class="sb-boot"[^>]*>\s*<svg/,
+            `${name}: the loading mark must be inline SVG, not a fetched image`);
+        assert.ok(shell.includes('.sb-boot{display:none}'),
+            `${name}: the loading mark must give way to the text block when there is no JavaScript`);
+    }
+
     // Nothing on a subdirectory page may use a relative asset path: "src/app.js" from
     // /xx/ resolves to /xx/src/app.js and 404s. CSP forbids <base>, so absolute is the
     // only option available.
@@ -266,16 +297,65 @@ for (const code of site.locales) {
         'scripts/build-i18n.js must stamp the secondary locales into sw.js');
     assert.ok(sw.includes('LOCALE_SHELLS'), 'sw.js lost the localized-shell wiring');
 
-    // Both served configs must route deep links inside a locale to that locale's shell.
-    const nginx = at('deploy/nginx.conf');
-    assert.ok(nginx.includes('~^/xx/  /xx/index.html;'), 'nginx.conf lost its locale shell entry');
-    assert.ok(nginx.includes('try_files $uri $uri/ $sb_shell;'), 'nginx.conf must use the shell map');
-    const htaccess = at('.htaccess');
-    assert.ok(htaccess.includes('RewriteRule ^xx(/.*)?$ /xx/index.html [L]'), '.htaccess lost its locale rewrite');
+    // Neither served config may answer an unknown address with the app shell. Doing so
+    // returns 200 OK for every typo and every scanner probe, which is how an infinite
+    // URL space becomes indexable pages and Search Console fills with soft 404s. These
+    // read the repo's own configs, not the throwaway render: the locale list is no
+    // longer stamped into them, because try_files and mod_dir resolve /xx/ on their own.
+    const nginx = readFileSync(path.join(ROOT, 'deploy/nginx.conf'), 'utf8');
+    assert.ok(nginx.includes('try_files $uri $uri/ =404;'),
+        'nginx.conf must refuse unknown paths, not fall back to the app shell');
+    assert.ok(nginx.includes('error_page 404 /404.html;'), 'nginx.conf lost its 404 page');
+
+    // Every app shell must land in the no-cache group. The patterns here were once
+    // anchored at the root only (~^/index\.html$, ~^/$), so /de/ and /ru/index.html
+    // fell through to the one-year immutable default and a visitor who opened a
+    // localized page was frozen on that build — new releases could not reach them.
+    // Read the map rather than the source line, so the assertion is about behaviour.
+    {
+        const block = nginx.match(/map \$uri \$sb_cache \{([\s\S]*?)\n    \}/);
+        assert.ok(block, 'nginx.conf lost the $sb_cache map');
+        // A map key is either bare or double-quoted; a regex containing { or } has to
+        // be quoted, because nginx otherwise reads the brace as the start of a block
+        // and refuses to boot. That failure is invisible until deploy, so pin it here.
+        const entries = [...block[1].matchAll(/^\s*(?:"([^"]+)"|(\S+))\s+"([^"]*)";/gm)]
+            .map((m) => ({ key: m[1] ?? m[2], quoted: m[1] !== undefined, value: m[3] }));
+        for (const entry of entries) {
+            if (/[{}]/.test(entry.key)) {
+                assert.ok(entry.quoted,
+                    `nginx.conf: ${entry.key} contains a brace and must be quoted, or nginx will not start`);
+            }
+        }
+        const noCache = entries
+            .filter((e) => e.key.startsWith('~') && e.value.startsWith('no-cache'))
+            .map((e) => new RegExp(e.key.slice(1)));
+        const shells = ['/', '/index.html', ...site.locales
+            .filter((c) => c !== site.defaultLocale)
+            .flatMap((c) => [`/${c}/`, `/${c}/index.html`, `/${c}/manifest.json`])];
+        for (const shell of [...shells, '/manifest.json', '/sw.js', '/meta.json']) {
+            assert.ok(noCache.some((re) => re.test(shell)),
+                `nginx.conf would cache ${shell} for a year — it must revalidate`);
+        }
+        // The point of the immutable default is still that static assets keep it.
+        // /dist/ is excluded on purpose: those revalidate by design, so that a release
+        // is picked up immediately while an unchanged bundle still comes back as a 304.
+        for (const asset of ['/assets/tailwind.css', '/logo/icon-192x192.png', '/assets/fonts/inter/inter.css']) {
+            assert.equal(noCache.some((re) => re.test(asset)), false,
+                `nginx.conf now refuses to cache ${asset}, which should stay immutable`);
+        }
+    }
+    const htaccess = readFileSync(path.join(ROOT, '.htaccess'), 'utf8');
+    assert.ok(!/RewriteRule \^\(\.\*\)\$ \/index\.html/.test(htaccess),
+        '.htaccess must not rewrite unknown paths to the app shell');
+    assert.ok(htaccess.includes('ErrorDocument 404 /404.html'), '.htaccess lost its 404 page');
+    assert.ok(existsSync(path.join(ROOT, '404.html')), 'both configs point at a 404.html that must exist');
 
     // The sitemap must carry the alternates too, not just the URLs.
     const sitemap = at('sitemap.xml');
-    assert.equal((sitemap.match(/<url>/g) || []).length, 2);
+    // Two locales plus the documentation, which is rendered from the real doc/ and is
+    // not part of the throwaway locale fixture.
+    const docCount = readdirSync(path.join(ROOT, 'doc')).filter((f) => f.endsWith('.md')).length;
+    assert.equal((sitemap.match(/<url>/g) || []).length, 2 + docCount);
     assert.ok(sitemap.includes('<xhtml:link rel="alternate" hreflang="xx" href="https://securebit.chat/xx/"/>'));
 
     rmSync(tmp, { recursive: true, force: true });

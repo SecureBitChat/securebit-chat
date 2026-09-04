@@ -50,8 +50,24 @@ function sources() {
             `${code}: an installed PWA would launch left-to-right`);
     }
 
-    assert.ok(read('templates/index.template.html').includes('src/styles/rtl.css'),
-        'the mirroring stylesheet is not linked from the template');
+    // The sheets are no longer linked one by one; scripts/build-css.js concatenates
+    // them into assets/app.css to save eight render-blocking round trips. So check the
+    // two things that actually matter: rtl.css is still in the bundle's list, and it is
+    // still last in it — its rules exist to win over everything above them.
+    const cssBuild = read('scripts/build-css.js');
+    const order = [...cssBuild.matchAll(/'((?:src|assets)\/[^']+\.css)'/g)].map((m) => m[1]);
+    assert.ok(order.includes('src/styles/rtl.css'),
+        'the mirroring stylesheet is not in the CSS bundle, so it never reaches the page');
+    assert.ok(order.indexOf('src/styles/rtl.css') > order.indexOf('src/styles/components.css'),
+        'rtl.css must come after the sheets it overrides, or the mirroring loses on source order');
+    assert.ok(read('templates/index.template.html').includes('/assets/app.css'),
+        'the template does not link the bundled stylesheet');
+
+    // And that the built file really carries them: a bundler that silently dropped an
+    // input would leave every one of these assertions above still passing.
+    const bundled = read('assets/app.css');
+    assert.match(bundled, /\[dir=["']?rtl["']?\]/,
+        'assets/app.css carries no right-to-left rules (the minifier drops the quotes)');
 }
 
 // ── The runtime exposes direction ────────────────────────────────────────────────────

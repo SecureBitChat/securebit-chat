@@ -197,59 +197,13 @@
 # (see CLOUDFLARE_SETUP.md documentation)
 
 # ============================================
-# SPA FALLBACK
+# NOT-FOUND HANDLING
 # ============================================
 
-# If file not found, redirect to index.html (for SPA routing)
-<IfModule mod_rewrite.c>
-    # Locale shells first: a deep link under /de/ must fall back to the German page,
-    # not the English one. Rewritten by scripts/build-i18n.js from locales/site.json.
-    # BEGIN generated locale shells
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^de(/.*)?$ /de/index.html [L]
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^fr(/.*)?$ /fr/index.html [L]
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^es(/.*)?$ /es/index.html [L]
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^uk(/.*)?$ /uk/index.html [L]
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^ru(/.*)?$ /ru/index.html [L]
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^zh(/.*)?$ /zh/index.html [L]
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^ko(/.*)?$ /ko/index.html [L]
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^hi(/.*)?$ /hi/index.html [L]
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^ar(/.*)?$ /ar/index.html [L]
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^he(/.*)?$ /he/index.html [L]
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^fa(/.*)?$ /fa/index.html [L]
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^ur(/.*)?$ /ur/index.html [L]
-    # END generated locale shells
-
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_URI} !^/meta\.json$
-    RewriteCond %{REQUEST_URI} !^/sw\.js$
-    RewriteCond %{REQUEST_URI} !^/manifest\.json$
-    RewriteRule ^(.*)$ /index.html [L]
-</IfModule>
+# There is no client-side routing, so an address that is not a file and not a
+# directory is a mistake rather than a route. Rewriting those to index.html answered
+# every typo with 200 OK and turned an infinite URL space into indexable pages.
+ErrorDocument 404 /404.html
 
 # ============================================
 # LOGGING (optional)

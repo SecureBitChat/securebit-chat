@@ -7,7 +7,6 @@
   "meta": {
     "title": "SecureBit.chat - 종단 간 암호화 비공개 메신저",
     "description": "SecureBit.chat은 브라우저 안에서만 동작하는 무료 P2P 메신저로, 종단 간 암호화를 사용합니다. 계정도 없고 메시지를 보관하는 서버도 없습니다 - ECDH P-384, AES-256-GCM, 그리고 직접 만나서 하는 SAS 확인.",
-    "keywords": "암호화 메신저, 종단 간 암호화, P2P 채팅, P2P 메신저, ECDH, DTLS, SAS 확인, WebRTC, 비공개 채팅, 안전한 채팅, 서버 없음, 계정 없음, 중간자 공격 방어, 순방향 비밀성",
     "ogTitle": "SecureBit.chat - 종단 간 암호화 P2P 채팅",
     "ogDescription": "브라우저 안에서만 동작하는 안전한 메신저입니다. 계정도 없고 메시지를 보관하는 서버도 없습니다. 직접 운영하는 STUN/TURN 서버를 쓸 수 있습니다 - 무엇도 강요하지 않습니다.",
     "ogImageAlt": "SecureBit.chat - 종단 간 암호화 P2P 채팅",

@@ -255,10 +255,16 @@ assert.ok(!app.includes("behavior: 'smooth'"),
     "no raw behavior:'smooth' — it must go through scrollBehavior()");
 assert.match(app, /const scrollBehavior = \(\) =>/);
 
-// The stylesheet has to load, and it has to load last.
-assert.match(html, /apple-motion\.css/, 'apple-motion.css must be linked');
-const idxMotion = html.indexOf('apple-motion.css');
-const idxComponents = html.indexOf('components.css');
+// The stylesheet has to reach the page, and it has to come after the one it argues
+// with. The sheets are no longer linked individually — scripts/build-css.js concatenates
+// them into assets/app.css to save eight render-blocking round trips — so the order that
+// matters is the order in that list, which is the order they end up in the file.
+assert.match(html, /\/assets\/app\.css/, 'the page must link the bundled stylesheet');
+const cssOrder = [...readFileSync(new URL('../scripts/build-css.js', import.meta.url), 'utf8')
+    .matchAll(/'((?:src|assets)\/[^']+\.css)'/g)].map((m) => m[1]);
+const idxMotion = cssOrder.indexOf('src/styles/apple-motion.css');
+const idxComponents = cssOrder.indexOf('src/styles/components.css');
+assert.ok(idxMotion !== -1, 'apple-motion.css is not in the CSS bundle, so it never reaches the page');
 assert.ok(idxMotion > idxComponents,
     'apple-motion.css must come after components.css — it settles arguments on source order');
 

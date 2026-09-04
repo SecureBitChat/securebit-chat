@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<!-- Served by nginx (error_page) and Apache (ErrorDocument) for any address that is
+     not a file, the root, or a locale directory. Deliberately self-contained: no
+     stylesheet, no script, no font — a 404 must render even when the thing that is
+     broken is the asset pipeline itself. -->
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, follow">
+    <title>Page not found - SecureBit.chat</title>
+    <style>
+        html { color-scheme: dark; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 24px;
+            background: #0f0f11;
+            color: #e8e8eb;
+            font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+            line-height: 1.6;
+        }
+        main { max-width: 34rem; }
+        .code {
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .16em;
+            color: #f0892a;
+            margin: 0 0 14px;
+        }
+        h1 {
+            font-size: clamp(26px, 5vw, 34px);
+            font-weight: 800;
+            letter-spacing: -1px;
+            line-height: 1.15;
+            color: #f4f4f6;
+            margin: 0 0 12px;
+        }
+        p { color: #8a8a92; font-size: 15.5px; margin: 0 0 22px; }
+        a {
+            display: inline-block;
+            color: #f0892a;
+            border: 1px solid rgba(240, 137, 42, .35);
+            border-radius: 8px;
+            padding: 9px 18px;
+            text-decoration: none;
+            font-size: 14.5px;
+            font-weight: 600;
+        }
+        a:hover, a:focus-visible { background: rgba(240, 137, 42, .08); }
+        a:focus-visible { outline: 2px solid #f0892a; outline-offset: 2px; }
+    </style>
+</head>
+<body>
+    <main>
+        <p class="code">404</p>
+        <h1>There is no page at this address.</h1>
+        <p>The link may be mistyped, or it pointed at something that has since moved. Nothing was lost on our side — the app keeps no server-side state to lose.</p>
+        <a href="/">Open SecureBit.chat</a>
+    </main>
+</body>
+</html>

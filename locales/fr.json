@@ -6,8 +6,7 @@
   "abbr": "FR",
   "meta": {
     "title": "SecureBit.chat - Messagerie privée et chiffrée",
-    "description": "SecureBit.chat est une messagerie pair-à-pair gratuite et chiffrée de bout en bout, qui fonctionne entièrement dans votre navigateur. Aucun compte, aucun serveur ne conserve vos messages : ECDH P-384, AES-256-GCM et vérification SAS en personne.",
-    "keywords": "messagerie chiffrée, chiffrement de bout en bout, chat pair-à-pair, messagerie P2P, ECDH, DTLS, vérification SAS, WebRTC, chat privé, chat sécurisé, sans serveur, sans compte, protection MITM, PFS",
+    "description": "Messagerie P2P gratuite et chiffrée de bout en bout, entièrement dans votre navigateur. Aucun compte, aucun serveur ne conserve vos messages.",
     "ogTitle": "SecureBit.chat - Chat pair-à-pair chiffré de bout en bout",
     "ogDescription": "Une messagerie sécurisée qui fonctionne entièrement dans votre navigateur. Aucun compte, aucun serveur ne conserve vos messages. Utilisez vos propres serveurs STUN/TURN : nous ne vous imposons rien.",
     "ogImageAlt": "SecureBit.chat - chat pair-à-pair chiffré de bout en bout",

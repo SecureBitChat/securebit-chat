@@ -6,8 +6,7 @@
   "abbr": "EN",
   "meta": {
     "title": "SecureBit.chat - Private, Encrypted Messenger",
-    "description": "SecureBit.chat is a free, end-to-end encrypted peer-to-peer messenger that runs entirely in your browser. No accounts, no servers storing your messages - ECDH P-384, AES-256-GCM and in-person SAS verification.",
-    "keywords": "encrypted messenger, end-to-end encryption, peer-to-peer chat, P2P messenger, ECDH, DTLS, SAS verification, WebRTC, private chat, secure chat, no servers, no accounts, MITM protection, PFS",
+    "description": "Free end-to-end encrypted P2P messenger that runs entirely in your browser. No accounts, no servers storing your messages, nothing to install.",
     "ogTitle": "SecureBit.chat - End-to-End Encrypted Peer-to-Peer Chat",
     "ogDescription": "A secure messenger that runs entirely in your browser. No accounts, no servers storing your messages. Bring your own STUN/TURN servers - we don't impose anything.",
     "ogImageAlt": "SecureBit.chat - end-to-end encrypted, peer-to-peer chat",

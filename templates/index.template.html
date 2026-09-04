@@ -122,7 +122,6 @@
     <!-- SEO -->
     <title>{{TITLE}}</title>
     <meta name="description" content="{{DESCRIPTION}}">
-    <meta name="keywords" content="{{KEYWORDS}}">
     <meta name="author" content="{{AUTHOR}}">
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
     <link rel="canonical" href="{{CANONICAL}}">
@@ -164,41 +163,44 @@
          it never executes the snippet. Loaded in manual mode (no auto-highlight).
          Its CSS is loaded async via load-async-css.js (not paint-critical). -->
     <script defer src="/libs/prism/prism.js"></script>
-    <!-- Critical, paint-defining CSS stays render-blocking (avoids FOUC / layout shift). -->
-    <link rel="stylesheet" href="/assets/tailwind.css?v=BUILD_VERSION">
+    <!-- One render-blocking stylesheet, built by scripts/build-css.js from the Tailwind
+         output, the Inter @font-face declarations and the five hand-written sheets, in
+         that order — they argue with each other on source order, and concatenation
+         preserves it exactly. There used to be eight separate <link> tags here and at
+         the end of <body>: 21 KB of CSS in total, but eight round trips before the
+         browser could paint, which GTmetrix measured at 441 ms on a throttled mobile
+         connection. Bytes were never the problem; requests were. -->
+    <link rel="stylesheet" href="/assets/app.css?v=BUILD_VERSION">
     <link rel="icon" type="image/x-icon" href="/logo/favicon.ico?v=BUILD_VERSION">
-    <!-- Preload only the fonts needed for first paint. fa-solid covers the bulk of UI
-         icons; fa-regular/fa-brands are loaded on demand by their CSS (rarely on the
-         first screen). Inter latin 400/700 cover body text and headings/buttons. -->
-    <link rel="preload" href="/assets/fontawesome/webfonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="preload" href="/assets/fonts/inter/files/inter-latin-400.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="preload" href="/assets/fonts/inter/files/inter-latin-700.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="/assets/fonts/inter/inter.css">
-    <link rel="stylesheet" href="/src/styles/main.css?v=BUILD_VERSION">
-    <link rel="stylesheet" href="/src/styles/animations.css?v=BUILD_VERSION">
-    <link rel="stylesheet" href="/src/styles/components.css?v=BUILD_VERSION">
-    <!-- Loads after components.css on purpose: press feedback, material weight,
-         size-specific tracking and the reduced-motion / -transparency / -contrast
-         answers all need to settle arguments with the sheets above on source order. -->
-    <link rel="stylesheet" href="/src/styles/apple-motion.css?v=BUILD_VERSION">
-    <!-- Last of the hand-written sheets: the mirroring rules must win over anything
-         above them, and they only ever apply under [dir="rtl"]. -->
-    <link rel="stylesheet" href="/src/styles/rtl.css?v=BUILD_VERSION">
+    <!-- Preload only the fonts needed for first paint. Inter is one variable file that
+         answers for every weight, so there is one to preload rather than the two of five
+         copies this used to name. fa-solid covers the bulk of UI icons; fa-regular and
+         fa-brands are loaded on demand by their CSS, rarely on the first screen. -->
+    <link rel="preload" href="/assets/fontawesome/webfonts/fa-solid-900.subset.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/assets/fonts/inter/files/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
     <!-- Non-critical CSS (FontAwesome ~102KB, Prism) loaded async — no longer blocks paint. -->
     <script defer src="/src/scripts/load-async-css.js?v=BUILD_VERSION"></script>
     <noscript>
-        <link rel="stylesheet" href="/assets/fontawesome/css/all.min.css">
         <link rel="stylesheet" href="/libs/prism/prism.css">
     </noscript>
     <script defer src="/src/scripts/fa-check.js?v=BUILD_VERSION"></script>
+    <!-- This locale's dictionary, registered before anything can ask for a string.
+         Only the default locale's is bundled (src/i18n/index.js imports it, because t()
+         falls back to it); every other page loads its own here instead of all thirteen
+         riding along inside dist/app.js. Absent on the default locale's own page. -->
+{{LOCALE_DICT}}
     <!-- Update Manager - система принудительного обновления -->
     <script defer src="/src/utils/updateManager.js?v=BUILD_VERSION"></script>
     <script type="module" src="/src/components/UpdateChecker.jsx?v=BUILD_VERSION"></script>
-    <script type="module" src="/dist/qr-local.js?v=BUILD_VERSION"></script>
-    <script type="module" src="/src/components/QRScanner.js?v=BUILD_VERSION"></script>
+    <!-- /dist/qr-local.js is deliberately absent: app-boot.js fetches it once the
+         app has mounted and the browser is idle, so the 142 KB it weighs is off the
+         first load. src/components/QRScanner.js used to be here too and registered
+         window.QRScanner, which nothing has ever read. -->
 </head>
 <body>
-    <div id="root"></div>
+    <div id="root">
+{{PRERENDER}}
+    </div>
     <script type="module" src="/dist/app-boot.js?v=BUILD_VERSION"></script>
     <script type="module" src="/dist/app.js?v=BUILD_VERSION"></script>
 
@@ -206,6 +208,5 @@
 <script src="/src/pwa/install-prompt.js?v=BUILD_VERSION" type="module"></script>
 <script src="/src/pwa/pwa-manager.js?v=BUILD_VERSION" type="module"></script>
 <script defer src="/src/scripts/pwa-offline-test.js?v=BUILD_VERSION"></script>
-<link rel="stylesheet" href="/src/styles/pwa.css?v=BUILD_VERSION">
 </body>
 </html>

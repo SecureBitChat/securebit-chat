@@ -23,17 +23,23 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url));
     );
 }
 
-// The dictionaries have to reach the bundle the browser actually downloads, not just
-// the module on disk. `build:js` bundles whatever src/i18n/generated.js says at the
-// moment it runs, so if generation happened after bundling, a newly added language
-// would ship a correct page — right <html lang>, right <html dir> — wrapped around an
-// app that has never heard of it and quietly falls back to English. That failure looks
-// like a translation bug and is really a build-order bug, so it is pinned here.
+// A dictionary has to reach the page that needs it — and only that page.
+//
+// Every locale used to be bundled into dist/app.js, into dist/app-boot.js, and fetched
+// a third time as raw source by the page modules that import the runtime directly: 215 KB
+// transferred to hand a Russian reader twelve dictionaries they will never read. Now the
+// default locale is bundled (t() falls back to it) and each other locale is a module its
+// own shell loads. Both halves of that are pinned here, because either one failing is
+// silent: bundling them all again only shows up as a slow page, and dropping the shell's
+// script only shows up as an English page under a Russian <html lang>.
 {
     const bundle = readFileSync(path.join(ROOT, 'dist/app.js'), 'utf8');
-    const { SUPPORTED_LOCALES, DICTIONARIES } = await import(
+    const { DEFAULT_LOCALE, SUPPORTED_LOCALES } = await import(
         pathToFileURL(path.join(ROOT, 'src/i18n/generated.js'))
     );
+    const dictOf = async (code) => (await import(
+        pathToFileURL(path.join(ROOT, `src/i18n/dict/${code}.js`))
+    )).DICTIONARY;
 
     // esbuild escapes anything outside ASCII, so nothing but pure Latin is findable as
     // literal text: Latin-1 becomes \xNN, everything above it \uXXXX, both uppercase.
@@ -49,14 +55,44 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url));
             })
             .join('');
 
-    const absent = SUPPORTED_LOCALES.filter(
-        (code) => !bundle.includes(asEmitted(DICTIONARIES[code]['hero.headlineTop']))
-    );
-    assert.deepEqual(absent, [],
-        `dist/app.js carries no strings for: ${absent.join(', ')} — run \`npm run build\`, ` +
+    const headlineOf = async (code) => (await dictOf(code))['hero.headlineTop'];
+
+    assert.ok(bundle.includes(asEmitted(await headlineOf(DEFAULT_LOCALE))),
+        `dist/app.js carries no strings for the default locale — run \`npm run build\`, ` +
         'and check that build:i18n still runs before build:js');
 
-    assert.ok(bundle.includes(`SUPPORTED_LOCALES = ${JSON.stringify(SUPPORTED_LOCALES).replace(/,/g, ', ')}`),
+    // The saving is the assertion. If another locale turns up in the bundle, something
+    // has started importing dictionaries statically again and the page grew by 200 KB.
+    for (const code of SUPPORTED_LOCALES.filter((c) => c !== DEFAULT_LOCALE)) {
+        assert.equal(bundle.includes(asEmitted(await headlineOf(code))), false,
+            `dist/app.js bundles the ${code} dictionary — only the default locale belongs in it`);
+    }
+
+    // ...and each of those locales must still reach its own page.
+    const site = JSON.parse(readFileSync(path.join(ROOT, 'locales/site.json'), 'utf8'));
+    for (const code of SUPPORTED_LOCALES) {
+        const shell = readFileSync(
+            path.join(ROOT, code === site.defaultLocale ? 'index.html' : `${code}/index.html`), 'utf8'
+        );
+        const tag = `src="/src/i18n/dict/${code}.js`;
+        if (code === site.defaultLocale) {
+            assert.equal(shell.includes('/src/i18n/dict/'), false,
+                'the default locale already has its dictionary in the bundle; loading it again is dead weight');
+        } else {
+            assert.ok(shell.includes(tag), `${code}/index.html never loads its own dictionary`);
+            // It has to run before anything that asks for a string.
+            assert.ok(shell.indexOf(tag) < shell.indexOf('/dist/app-boot.js'),
+                `${code}/index.html loads its dictionary after the app that reads it`);
+        }
+    }
+
+    // The registry has to survive into the bundle as a whole list, not just as loose
+    // strings the assertion above would also accept. What it must NOT depend on is the
+    // shape esbuild emits: --minify drops the spaces after the commas and renames the
+    // binding, so match the array literal in either spelling and never the variable
+    // name — otherwise turning minification on reads as a missing locale.
+    const registry = JSON.stringify(SUPPORTED_LOCALES);
+    assert.ok(bundle.includes(registry) || bundle.includes(registry.replace(/,/g, ', ')),
         'the bundled locale registry disagrees with src/i18n/generated.js');
 }
 
@@ -80,6 +116,15 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url));
         const tmp = mkdtempSync(path.join(tmpdir(), 'sb-i18n-win-'));
         copyFileSync(path.join(ROOT, 'src/i18n/generated.js'), path.join(tmp, 'generated.js'));
         copyFileSync(path.join(ROOT, 'src/i18n/index.js'), path.join(tmp, 'index.js'));
+        // index.js imports its default dictionary for the fallback, so a copy of the
+        // module is only a working copy if that comes with it.
+        const { DEFAULT_LOCALE: fallbackLocale } = await import(
+            pathToFileURL(path.join(ROOT, 'src/i18n/generated.js'))
+        );
+        mkdirSync(path.join(tmp, 'dict'), { recursive: true });
+        for (const name of ['default.js', `${fallbackLocale}.js`]) {
+            copyFileSync(path.join(ROOT, 'src/i18n/dict', name), path.join(tmp, 'dict', name));
+        }
         const partial = await import(pathToFileURL(path.join(tmp, 'index.js')));
         assert.equal(partial.currentLocale(), partial.DEFAULT_LOCALE,
             'a window without location must fall back to the default locale, not throw');
@@ -95,7 +140,7 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url));
 // copy of the module in a temp directory and exercise it there.
 {
     const tmp = mkdtempSync(path.join(tmpdir(), 'sb-i18n-rt-'));
-    mkdirSync(tmp, { recursive: true });
+    mkdirSync(path.join(tmp, 'dict'), { recursive: true });
     writeFileSync(path.join(tmp, 'generated.js'), `
 export const DEFAULT_LOCALE = "en";
 export const SUPPORTED_LOCALES = ["en", "de"];
@@ -103,13 +148,26 @@ export const LOCALE_META = {
     en: { htmlLang: "en", nativeName: "English", dir: "ltr", path: "/" },
     de: { htmlLang: "de", nativeName: "Deutsch", dir: "ltr", path: "/de/" }
 };
-export const DICTIONARIES = {
-    en: { "greeting": "Hello", "only.en": "English only", "welcome": "Hello, {name}" },
-    de: { "greeting": "Hallo" }
-};
+export const CROSS_LOCALE_STRINGS = { en: {}, de: { "language.suggest.cta": "Auf Deutsch lesen" } };
 `);
+    // Dictionaries register themselves on a global, the same way the generated ones do.
+    const fixtureDict = (code, entries) => writeFileSync(path.join(tmp, 'dict', `${code}.js`), `
+export const DICTIONARY = ${JSON.stringify(entries)};
+const registry = globalThis.__SECUREBIT_I18N__ || (globalThis.__SECUREBIT_I18N__ = Object.create(null));
+registry[${JSON.stringify(code)}] = DICTIONARY;
+`);
+    fixtureDict('en', { greeting: 'Hello', 'only.en': 'English only', welcome: 'Hello, {name}' });
+    fixtureDict('de', { greeting: 'Hallo' });
+    writeFileSync(path.join(tmp, 'dict', 'default.js'), 'import "./en.js";\n');
     copyFileSync(path.join(ROOT, 'src/i18n/index.js'), path.join(tmp, 'index.js'));
+
+    // That global is shared with the real module imported earlier in this file, so the
+    // fixture is swapped in around this block rather than left to overwrite it.
+    const savedRegistry = globalThis.__SECUREBIT_I18N__;
+    globalThis.__SECUREBIT_I18N__ = Object.create(null);
     const i18n = await import(pathToFileURL(path.join(tmp, 'index.js')));
+    // The German dictionary is one the fixture's page would have loaded for itself.
+    await import(pathToFileURL(path.join(tmp, 'dict', 'de.js')));
 
     // Reading a path.
     assert.equal(i18n.localeFromPathname('/de/'), 'de');
@@ -173,6 +231,12 @@ export const DICTIONARIES = {
     assert.equal(i18n.t('welcome', { name: 'Ada' }, 'en'), 'Hello, Ada');
     assert.equal(i18n.t('welcome', {}, 'en'), 'Hello, {name}', 'an absent variable stays literal rather than blank');
 
+    // A locale whose dictionary this page never loaded still answers for the handful of
+    // keys the language suggestion needs, and falls back to the default for the rest.
+    assert.equal(i18n.t('language.suggest.cta', null, 'de'), 'Auf Deutsch lesen',
+        'the suggestion bar must speak the language it is offering');
+
+    globalThis.__SECUREBIT_I18N__ = savedRegistry;
     rmSync(tmp, { recursive: true, force: true });
 }
 

@@ -6,8 +6,7 @@
   "abbr": "ES",
   "meta": {
     "title": "SecureBit.chat - Mensajería privada y cifrada",
-    "description": "SecureBit.chat es un mensajero entre pares, gratuito y cifrado de extremo a extremo, que funciona por completo en tu navegador. Sin cuentas y sin servidores que guarden tus mensajes: ECDH P-384, AES-256-GCM y verificación SAS en persona.",
-    "keywords": "mensajería cifrada, cifrado de extremo a extremo, chat entre pares, mensajero P2P, ECDH, DTLS, verificación SAS, WebRTC, chat privado, chat seguro, sin servidores, sin cuentas, protección MITM, PFS",
+    "description": "Mensajería P2P gratuita y cifrada de extremo a extremo, íntegramente en tu navegador. Sin cuentas y sin servidores que guarden tus mensajes.",
     "ogTitle": "SecureBit.chat - Chat entre pares cifrado de extremo a extremo",
     "ogDescription": "Un mensajero seguro que funciona por completo en tu navegador. Sin cuentas y sin servidores que guarden tus mensajes. Usa tus propios servidores STUN/TURN: no te imponemos nada.",
     "ogImageAlt": "SecureBit.chat - chat entre pares cifrado de extremo a extremo",

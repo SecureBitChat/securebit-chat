@@ -11,13 +11,27 @@ let DYNAMIC_CACHE = 'securebit-pwa-dynamic-v4.7.56';
 // Build stamp — rewritten by scripts/post-build.js on every release so this file's
 // bytes change each deploy. That is what makes the browser detect a new Service Worker,
 // reinstall it, drop stale caches and (via controllerchange) prompt the page to update.
-const SW_BUILD_VERSION = '1788390440675';
+const SW_BUILD_VERSION = '1788496655816';
 
 // Locale subdirectories, rewritten by scripts/build-i18n.js. Each localized page is a
 // separate document at its own URL, so the shell has to be cached and served per
 // locale — otherwise an offline visitor on /de/ is handed the English page back.
 const SW_LOCALES = ['de', 'fr', 'es', 'uk', 'ru', 'zh', 'ko', 'hi', 'ar', 'he', 'fa', 'ur'];
 const LOCALE_SHELLS = SW_LOCALES.flatMap((code) => [`/${code}/`, `/${code}/index.html`, `/${code}/manifest.json`]);
+
+// Dictionary modules, rewritten by scripts/build-i18n.js alongside SW_LOCALES. Each
+// locale now ships its own strings rather than all thirteen riding inside the bundles,
+// so a shell cached for offline use is only half a page without the matching dictionary
+// — the visitor would get their own language's layout wrapped around English text.
+//
+// Only two of these are precached: the default locale's, which every page needs because
+// t() falls back to it, and the alias index.js imports. Downloading the other twelve up
+// front would put back most of the weight this split was for. They are allowlisted for
+// caching instead, so the one a visitor actually loads is stored on the way past.
+// BEGIN generated locale dictionaries
+const SW_DICTS = ['/src/i18n/dict/default.js', '/src/i18n/dict/en.js', '/src/i18n/dict/de.js', '/src/i18n/dict/fr.js', '/src/i18n/dict/es.js', '/src/i18n/dict/uk.js', '/src/i18n/dict/ru.js', '/src/i18n/dict/zh.js', '/src/i18n/dict/ko.js', '/src/i18n/dict/hi.js', '/src/i18n/dict/ar.js', '/src/i18n/dict/he.js', '/src/i18n/dict/fa.js', '/src/i18n/dict/ur.js'];
+const SW_PRECACHE_DICTS = ['/src/i18n/dict/default.js', '/src/i18n/dict/en.js'];
+// END generated locale dictionaries
 
 // The locale a request belongs to, as a shell path. Falls back to the root shell.
 function shellFor(pathname) {
@@ -77,6 +91,7 @@ const STATIC_ASSETS = [
     // would fail to load offline, which is exactly when it is most likely to be shown.
     '/src/i18n/index.js',
     '/src/i18n/generated.js',
+    ...SW_PRECACHE_DICTS,
 
     // Localized app shells (empty when the site is single-locale).
     ...LOCALE_SHELLS
@@ -128,6 +143,7 @@ const CACHEABLE_PATHS = new Set([
     '/src/scripts/pwa-offline-test.js',
     '/src/i18n/index.js',
     '/src/i18n/generated.js',
+    ...SW_DICTS,
     ...LOCALE_SHELLS
 ]);
 
@@ -171,7 +187,13 @@ self.addEventListener('install', (event) => {
                                 url = url + '?t=' + Date.now();
                             }
                             
-                            await cache.add(url);
+                            // cache: 'reload' bypasses the browser's own HTTP cache
+                            // for this fetch and replaces what is in it. Without it a
+                            // client that once received a shell under the year-long
+                            // immutable header (see deploy/nginx.conf) would keep
+                            // re-caching that same stale copy on every install, and
+                            // never see a release again.
+                            await cache.add(new Request(url, { cache: 'reload' }));
                         } catch (error) {
                             console.warn(`⚠️ Failed to cache ${url}:`, error.message);
                             // Continue with other assets even if one fails

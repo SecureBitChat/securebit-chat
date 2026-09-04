@@ -38,7 +38,11 @@ const BecomePartner = () => {
         {
             id: 'furi',
             name: 'FuriLabs',
-            logo: '/logo/furi.png',
+            // Renamed on resize rather than replaced: the file carries no ?v= stamp and is
+            // served immutable for a year, so Cloudflare and every browser that had already
+            // seen it kept handing back the old 164 KB original. A new path is the only
+            // thing that reliably busts a cache entry that has no version in its URL.
+            logo: '/logo/furi-160.png',
             logoHeight: '54px',
             url: 'https://furilabs.com/',
             desc: t('partners.furilabs.desc'),
@@ -78,6 +82,11 @@ const BecomePartner = () => {
         React.createElement('div', { key: 'logo', style: { display: 'flex', alignItems: 'center', marginBottom: '30px', height: '54px' } },
             React.createElement('img', {
                 src: p.logo, alt: p.name,
+                // The partner strip sits well below the fold, so these are never part of
+                // the first screen — but they were being fetched as though they were.
+                // furi.png in particular arrived at 500×500 and 164 KB to be drawn 54px
+                // tall, which Lighthouse counted as the largest single waste on the page.
+                loading: 'lazy', decoding: 'async',
                 style: { height: p.logoHeight, width: 'auto', maxWidth: '190px', objectFit: 'contain', display: 'block' }
             })
         ),

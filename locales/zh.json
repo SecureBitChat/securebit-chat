@@ -7,7 +7,6 @@
   "meta": {
     "title": "SecureBit.chat - 私密的端到端加密通讯工具",
     "description": "SecureBit.chat 是一款免费的端到端加密点对点通讯工具，完全在浏览器中运行。无需账号，没有服务器保存你的消息 —— 采用 ECDH P-384、AES-256-GCM 与当面 SAS 校验。",
-    "keywords": "加密通讯, 端到端加密, 点对点聊天, P2P 通讯, ECDH, DTLS, SAS 校验, WebRTC, 私密聊天, 安全聊天, 无服务器, 无需注册, 中间人攻击防护, 前向保密",
     "ogTitle": "SecureBit.chat - 端到端加密的点对点聊天",
     "ogDescription": "完全在浏览器中运行的安全通讯工具。无需账号，没有服务器保存你的消息。可以接入你自己的 STUN/TURN 服务器 —— 我们不做任何强制。",
     "ogImageAlt": "SecureBit.chat - 端到端加密的点对点聊天",

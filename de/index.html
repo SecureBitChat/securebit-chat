@@ -30,7 +30,7 @@
 
     <!-- PWA Manifest -->
 <link rel="manifest" href="/de/manifest.json">
-<link rel="icon" type="image/x-icon" href="/logo/favicon.ico?v=1788390440675">
+<link rel="icon" type="image/x-icon" href="/logo/favicon.ico?v=1788496655816">
 
 <!-- PWA Meta Tags -->
 <meta name="mobile-web-app-capable" content="yes">
@@ -96,7 +96,7 @@
     <link rel="apple-touch-startup-image" media="screen and (device-width: 744px) and (device-height: 1133px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/logo/splash/splash_screens/8.3__iPad_Mini_portrait.png">
     
 <!-- Apple Touch Icons -->
-<link rel="apple-touch-icon" href="/logo/icon-180x180.png?v=1788390440675">
+<link rel="apple-touch-icon" href="/logo/icon-180x180.png?v=1788496655816">
 <link rel="apple-touch-icon" sizes="57x57" href="/logo/icon-57x57.png">
 <link rel="apple-touch-icon" sizes="60x60" href="/logo/icon-60x60.png">
 <link rel="apple-touch-icon" sizes="72x72" href="/logo/icon-72x72.png">
@@ -105,7 +105,7 @@
 <link rel="apple-touch-icon" sizes="120x120" href="/logo/icon-120x120.png">
 <link rel="apple-touch-icon" sizes="144x144" href="/logo/icon-144x144.png">
 <link rel="apple-touch-icon" sizes="152x152" href="/logo/icon-152x152.png">
-<link rel="apple-touch-icon" sizes="180x180" href="/logo/icon-180x180.png?v=1788390440675">
+<link rel="apple-touch-icon" sizes="180x180" href="/logo/icon-180x180.png?v=1788496655816">
 
 <!-- Microsoft Tiles -->
 <meta name="msapplication-TileColor" content="#ff6b35">
@@ -121,8 +121,7 @@
 
     <!-- SEO -->
     <title>SecureBit.chat - Privater, verschlüsselter Messenger</title>
-    <meta name="description" content="SecureBit.chat ist ein kostenloser, Ende-zu-Ende-verschlüsselter Peer-to-Peer-Messenger, der vollständig im Browser läuft. Keine Konten, keine Server, die Ihre Nachrichten speichern - ECDH P-384, AES-256-GCM und persönliche SAS-Verifizierung.">
-    <meta name="keywords" content="verschlüsselter Messenger, Ende-zu-Ende-Verschlüsselung, Peer-to-Peer-Chat, P2P-Messenger, ECDH, DTLS, SAS-Verifizierung, WebRTC, privater Chat, sicherer Chat, ohne Server, ohne Konto, MITM-Schutz, PFS">
+    <meta name="description" content="Kostenloser Ende-zu-Ende-verschlüsselter P2P-Messenger, der komplett im Browser läuft. Keine Konten, keine Server, die Ihre Nachrichten speichern.">
     <meta name="author" content="Volodymyr">
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
     <link rel="canonical" href="https://securebit.chat/de/">
@@ -180,12 +179,26 @@
       "@context": "https://schema.org",
       "@graph": [
         {
+          "@type": "Organization",
+          "@id": "https://securebit.chat/#organization",
+          "name": "SecureBit.chat",
+          "url": "https://securebit.chat/",
+          "logo": "https://securebit.chat/logo/icon-512x512.png",
+          "sameAs": [
+            "https://github.com/SecureBitChat/securebit-chat",
+            "https://snapcraft.io/securebit-chat"
+          ]
+        },
+        {
           "@type": "WebSite",
           "@id": "https://securebit.chat/#website",
           "name": "SecureBit.chat",
           "url": "https://securebit.chat/",
           "description": "Ende-zu-Ende-verschlüsselter Peer-to-Peer-Chat, der vollständig im Browser läuft.",
-          "inLanguage": "de"
+          "inLanguage": "de",
+          "publisher": {
+            "@id": "https://securebit.chat/#organization"
+          }
         },
         {
           "@type": "WebApplication",
@@ -222,55 +235,235 @@
     <!-- Render-blocking JS is deferred: classic deferred scripts and module scripts
          both execute in document order after parsing, so React still runs before the
          app modules below, but the parser / first paint is no longer blocked. -->
-    <script defer src="/config/ice-servers.js?v=1788390440675"></script>
+    <script defer src="/config/ice-servers.js?v=1788496655816"></script>
     <script defer src="/libs/react/react.production.min.js"></script>
     <script defer src="/libs/react-dom/react-dom.production.min.js"></script>
     <!-- Prism syntax highlighting (vendored, offline). Tokenizes code as TEXT only —
          it never executes the snippet. Loaded in manual mode (no auto-highlight).
          Its CSS is loaded async via load-async-css.js (not paint-critical). -->
     <script defer src="/libs/prism/prism.js"></script>
-    <!-- Critical, paint-defining CSS stays render-blocking (avoids FOUC / layout shift). -->
-    <link rel="stylesheet" href="/assets/tailwind.css?v=1788390440675">
-    <link rel="icon" type="image/x-icon" href="/logo/favicon.ico?v=1788390440675">
-    <!-- Preload only the fonts needed for first paint. fa-solid covers the bulk of UI
-         icons; fa-regular/fa-brands are loaded on demand by their CSS (rarely on the
-         first screen). Inter latin 400/700 cover body text and headings/buttons. -->
-    <link rel="preload" href="/assets/fontawesome/webfonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="preload" href="/assets/fonts/inter/files/inter-latin-400.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="preload" href="/assets/fonts/inter/files/inter-latin-700.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="/assets/fonts/inter/inter.css">
-    <link rel="stylesheet" href="/src/styles/main.css?v=1788390440675">
-    <link rel="stylesheet" href="/src/styles/animations.css?v=1788390440675">
-    <link rel="stylesheet" href="/src/styles/components.css?v=1788390440675">
-    <!-- Loads after components.css on purpose: press feedback, material weight,
-         size-specific tracking and the reduced-motion / -transparency / -contrast
-         answers all need to settle arguments with the sheets above on source order. -->
-    <link rel="stylesheet" href="/src/styles/apple-motion.css?v=1788390440675">
-    <!-- Last of the hand-written sheets: the mirroring rules must win over anything
-         above them, and they only ever apply under [dir="rtl"]. -->
-    <link rel="stylesheet" href="/src/styles/rtl.css?v=1788390440675">
+    <!-- One render-blocking stylesheet, built by scripts/build-css.js from the Tailwind
+         output, the Inter @font-face declarations and the five hand-written sheets, in
+         that order — they argue with each other on source order, and concatenation
+         preserves it exactly. There used to be eight separate <link> tags here and at
+         the end of <body>: 21 KB of CSS in total, but eight round trips before the
+         browser could paint, which GTmetrix measured at 441 ms on a throttled mobile
+         connection. Bytes were never the problem; requests were. -->
+    <link rel="stylesheet" href="/assets/app.css?v=1788496655816">
+    <link rel="icon" type="image/x-icon" href="/logo/favicon.ico?v=1788496655816">
+    <!-- Preload only the fonts needed for first paint. Inter is one variable file that
+         answers for every weight, so there is one to preload rather than the two of five
+         copies this used to name. fa-solid covers the bulk of UI icons; fa-regular and
+         fa-brands are loaded on demand by their CSS, rarely on the first screen. -->
+    <link rel="preload" href="/assets/fontawesome/webfonts/fa-solid-900.subset.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/assets/fonts/inter/files/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
     <!-- Non-critical CSS (FontAwesome ~102KB, Prism) loaded async — no longer blocks paint. -->
-    <script defer src="/src/scripts/load-async-css.js?v=1788390440675"></script>
+    <script defer src="/src/scripts/load-async-css.js?v=1788496655816"></script>
     <noscript>
-        <link rel="stylesheet" href="/assets/fontawesome/css/all.min.css">
         <link rel="stylesheet" href="/libs/prism/prism.css">
     </noscript>
-    <script defer src="/src/scripts/fa-check.js?v=1788390440675"></script>
+    <script defer src="/src/scripts/fa-check.js?v=1788496655816"></script>
+    <!-- This locale's dictionary, registered before anything can ask for a string.
+         Only the default locale's is bundled (src/i18n/index.js imports it, because t()
+         falls back to it); every other page loads its own here instead of all thirteen
+         riding along inside dist/app.js. Absent on the default locale's own page. -->
+    <script type="module" src="/src/i18n/dict/de.js?v=1788496655816"></script>
     <!-- Update Manager - система принудительного обновления -->
-    <script defer src="/src/utils/updateManager.js?v=1788390440675"></script>
-    <script type="module" src="/src/components/UpdateChecker.jsx?v=1788390440675"></script>
-    <script type="module" src="/dist/qr-local.js?v=1788390440675"></script>
-    <script type="module" src="/src/components/QRScanner.js?v=1788390440675"></script>
+    <script defer src="/src/utils/updateManager.js?v=1788496655816"></script>
+    <script type="module" src="/src/components/UpdateChecker.jsx?v=1788496655816"></script>
+    <!-- /dist/qr-local.js is deliberately absent: app-boot.js fetches it once the
+         app has mounted and the browser is idle, so the 142 KB it weighs is off the
+         first load. src/components/QRScanner.js used to be here too and registered
+         window.QRScanner, which nothing has ever read. -->
 </head>
 <body>
-    <div id="root"></div>
-    <script type="module" src="/dist/app-boot.js?v=1788390440675"></script>
-    <script type="module" src="/dist/app.js?v=1788390440675"></script>
+    <div id="root">
+<style>
+.sb-pre{display:none}
+.sb-boot{display:flex;align-items:center;justify-content:center;min-height:100vh;min-height:100svh;margin:0;background:#0f0f11}
+.sb-boot svg{width:62px;height:auto;display:block;animation:sbBootPulse 1.8s ease-in-out infinite}
+@keyframes sbBootPulse{0%,100%{opacity:.32;transform:scale(.97)}50%{opacity:1;transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.sb-boot svg{animation:none;opacity:.75}}
+</style>
+<noscript><style>
+.sb-pre{display:block}
+.sb-boot{display:none}
+</style></noscript>
+<style>
+.sb-pre{background:#0f0f11;color:#e8e8eb;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.6;padding:56px 24px 72px;margin:0}
+.sb-pre .sb-pre-in{max-width:940px;margin:0 auto;display:flex;flex-direction:column;gap:56px}
+.sb-pre .sb-pre-brand{font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#f0892a;margin:0 0 18px}
+.sb-pre h1{font-size:clamp(28px,5vw,40px);font-weight:800;letter-spacing:-1.1px;line-height:1.12;color:#f4f4f6;margin:0 0 14px}
+.sb-pre h2{font-size:23px;font-weight:700;letter-spacing:-.5px;color:#f4f4f6;margin:0 0 8px}
+.sb-pre h3{font-size:17px;font-weight:700;letter-spacing:-.2px;color:#e8e8eb;margin:0 0 6px}
+.sb-pre p{margin:0 0 10px;color:#8a8a92;font-size:15px;max-width:62ch}
+.sb-pre .sb-pre-lead{font-size:16px;color:#a6a6ae;max-width:52ch}
+.sb-pre .sb-pre-eyebrow{font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#6b6b73;margin:0 0 6px}
+.sb-pre .sb-pre-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;margin-top:22px;padding:0;list-style:none}
+.sb-pre .sb-pre-card{background:#141417;border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:18px 20px}
+.sb-pre .sb-pre-tags{margin:10px 0 0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:6px}
+.sb-pre .sb-pre-tags li{font-size:11.5px;color:#3ecf8e;background:rgba(62,207,142,.09);border:1px solid rgba(62,207,142,.18);border-radius:4px;padding:2px 7px}
+.sb-pre .sb-pre-steps{margin:22px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px}
+.sb-pre .sb-pre-steps li{border-top:1px solid rgba(255,255,255,.06);padding:13px 0;display:flex;flex-wrap:wrap;gap:2px 14px;align-items:baseline}
+.sb-pre .sb-pre-steps h3{margin:0;font-size:15.5px}
+.sb-pre .sb-pre-steps .sb-pre-when{font-size:12px;color:#6b6b73;margin-inline-start:auto;white-space:nowrap}
+.sb-pre .sb-pre-steps p{flex:1 1 100%;margin:2px 0 0;font-size:14px}
+.sb-pre .sb-pre-docs{margin:14px 0 0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:2px 24px}
+.sb-pre .sb-pre-docs li{padding:8px 0;border-top:1px solid rgba(255,255,255,.06);font-size:14.5px}
+.sb-pre a{color:#f0892a;text-underline-offset:2px}
+@media (prefers-reduced-motion:reduce){.sb-pre *{animation:none!important;transition:none!important}}
+</style>
+<div class="sb-boot" aria-hidden="true">
+  <svg viewBox="276 240 700 760" xmlns="http://www.w3.org/2000/svg" focusable="false">
+    <defs>
+      <linearGradient id="sbBootSilver" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0" stop-color="#fdfdff"/><stop offset="0.20" stop-color="#e7e7ec"/><stop offset="0.46" stop-color="#c4c4cb"/><stop offset="0.72" stop-color="#a4a4ac"/><stop offset="1" stop-color="#86868d"/></linearGradient>
+      <linearGradient id="sbBootOrange" x1="0" y1="0" x2="0.25" y2="1"><stop offset="0" stop-color="#ffb84d"/><stop offset="0.27" stop-color="#ff9a33"/><stop offset="0.58" stop-color="#fb7d16"/><stop offset="1" stop-color="#db5d04"/></linearGradient>
+    </defs>
+    <path fill="url(#sbBootSilver)" fill-rule="nonzero" d="m 835.26446,352.56633 102.39051,-103.90366 -418.64101,1.00877 c 0,0 -171.69323,1.22309 -222.43455,167.96079 -52.34251,171.99925 77.67556,253.20215 77.67556,253.20215 0,0 35.54922,23.82856 79.77792,31.68982 15.73869,2.39372 79.16695,1.09532 79.16695,1.09532 54.47377,-10.08773 41.40629,-81.22528 -10.65516,-77.67557 C 492.06451,630.5166 372.5156,615.45079 386.86464,469.07968 415.02639,353.31661 520.52712,353.57511 520.52712,353.57511 Z"/>
+    <path fill="url(#sbBootOrange)" fill-rule="nonzero" d="m 289.24744,881.29522 95.22696,-95.94027 369.13823,1.06997 C 873.15229,774.31964 863.51011,647.63259 863.51011,647.63259 846.7608,546.1216 749.51871,545.49427 749.51871,545.49427 l -232.01791,0.25219 c -37.80546,-8.91638 -37.85435,-49.4299 -37.85435,-49.4299 0,0 -1.56131,-38.07813 40.52401,-46.63785 l 260.62023,-0.7745 c 170.83788,24.60922 185.61432,187.63187 185.61432,187.63187 0,0 18.85523,117.07655 -90.63794,200.89054 l -0.62454,154.4184 -144.79052,-110.68137 z"/>
+    <path fill="url(#sbBootOrange)" d="m 658.38568,658.74237 a 27.462458,27.462458 0 0 1 -27.43073,27.46244 27.462458,27.462458 0 0 1 -27.49412,-27.39898 27.462458,27.462458 0 0 1 27.36719,-27.52575 27.462458,27.462458 0 0 1 27.55736,27.33536 z"/>
+    <path fill="url(#sbBootOrange)" d="m 748.42871,659.07971 a 27.462458,27.462458 0 0 1 -27.43073,27.46244 27.462458,27.462458 0 0 1 -27.49412,-27.39898 27.462458,27.462458 0 0 1 27.36719,-27.52575 27.462458,27.462458 0 0 1 27.55736,27.33537 z"/>
+  </svg>
+</div>
+<div class="sb-pre">
+  <div class="sb-pre-in">
+  <header>
+    <p class="sb-pre-brand">SecureBit.chat</p>
+    <h1>Eine direkte Leitung,<br>die nur Sie beide lesen können.</h1>
+    <p class="sb-pre-lead">Die Schlüssel entstehen auf Ihrem Gerät und werden direkt zwischen den Geräten ausgetauscht. Keine Konten, keine Server, die Ihre Nachrichten speichern.</p>
+  </header>
+  <section>
+    <p class="sb-pre-eyebrow">Was uns unterscheidet</p>
+    <h2>Warum SecureBit einzigartig ist</h2>
+    <ul class="sb-pre-grid">
+      <li class="sb-pre-card">
+        <h3>Mehrschichtiger Verschlüsselungskern</h3>
+        <p>ECDH-P-384-Schlüsselaustausch, AES-256-GCM-Nutzdaten, ECDSA-Signaturen und vollständige ASN.1-Validierung - zu einer gehärteten Pipeline verbunden.</p>
+        <ul class="sb-pre-tags"><li>ECDH P-384</li><li>AES-256-GCM</li><li>ECDSA</li><li>ASN.1</li></ul>
+      </li>
+      <li class="sb-pre-card">
+        <h3>Reines P2P über WebRTC</h3>
+        <p>Nachrichten laufen über WebRTC direkt von Gerät zu Gerät. Kein Relay hält Ihre Daten - der Server hilft zwei Teilnehmern nur, sich zu finden.</p>
+        <ul class="sb-pre-tags"><li>DTLS 1.3</li><li>Kein Relay</li></ul>
+      </li>
+      <li class="sb-pre-card">
+        <h3>Perfekte Forward Secrecy</h3>
+        <p>Sitzungsschlüssel wechseln fortlaufend und werden nach Gebrauch verworfen. Ein einzelner kompromittierter Schlüssel öffnet damit niemals frühere Gespräche.</p>
+        <ul class="sb-pre-tags"><li>Ephemere Schlüssel</li><li>Automatischer Wechsel</li></ul>
+      </li>
+      <li class="sb-pre-card">
+        <h3>Verschleierung des Datenverkehrs</h3>
+        <p>Paketgrößen und Zeitabstände werden aufgefüllt und zufällig verändert. Metadatenmuster bleiben damit verborgen, auch für jemanden, der die Leitung beobachtet.</p>
+        <ul class="sb-pre-tags"><li>Paket-Padding</li><li>Zeit-Jitter</li></ul>
+      </li>
+      <li class="sb-pre-card">
+        <h3>Keinerlei Datenerfassung</h3>
+        <p>Keine Konten, keine Protokolle, keine gespeicherten Nachrichten. Auf einem Server liegt nichts, was durchsickern, beschlagnahmt oder verkauft werden könnte.</p>
+        <ul class="sb-pre-tags"><li>Keine Konten</li><li>Keine Protokolle</li></ul>
+      </li>
+    </ul>
+  </section>
+  <section>
+    <p class="sb-pre-eyebrow">Entwicklungs-Roadmap</p>
+    <h2>Die Entwicklung von SecureBit</h2>
+    <p>Vom ersten Prototyp zu einem quantensicheren, dezentralen Netzwerk - mit vollständiger ASN.1-Validierung auf jeder Ebene.</p>
+    <ol class="sb-pre-steps">
+      <li>
+        <h3>Entwicklungsbeginn</h3>
+        <span class="sb-pre-when">Anfang 2025</span>
+        <p>Idee, Prototyp und Aufbau der Infrastruktur</p>
+      </li>
+      <li>
+        <h3>Alpha-Release</h3>
+        <span class="sb-pre-when">Frühjahr 2025</span>
+        <p>Erste öffentliche Alpha: einfacher Chat und Schlüsselaustausch</p>
+      </li>
+      <li>
+        <h3>Sicherheit gehärtet</h3>
+        <span class="sb-pre-when">Sommer 2025</span>
+        <p>Sicherheit gestärkt, stabiler Zweig veröffentlicht</p>
+      </li>
+      <li>
+        <h3>Skalierung &amp; Stabilität</h3>
+        <span class="sb-pre-when">Herbst 2025</span>
+        <p>Skalierung des Netzwerks und mehr Stabilität</p>
+      </li>
+      <li>
+        <h3>Privatsphäre zuerst</h3>
+        <span class="sb-pre-when">Winter 2025</span>
+        <p>Schwerpunkt Privatsphäre: Metadaten minimieren</p>
+      </li>
+      <li>
+        <h3>Enhanced Security Edition</h3>
+        <span class="sb-pre-when">Ende 2025</span>
+        <p>18-schichtige Kryptografie auf militärischem Niveau mit vollständiger ASN.1-Validierung</p>
+      </li>
+      <li>
+        <h3>Desktop Edition</h3>
+        <span class="sb-pre-when">Anfang 2026</span>
+        <p>Native Desktop-Apps für Windows, macOS und Linux</p>
+      </li>
+      <li>
+        <h3>Sichere Sprache &amp; Anrufe</h3>
+        <span class="sb-pre-when">Anfang 2026</span>
+        <p>Verschlüsselte Sprachnachrichten, Audio- und Videoanrufe</p>
+      </li>
+      <li>
+        <h3>Gruppenkommunikation</h3>
+        <span class="sb-pre-when">Jetzt</span>
+        <p>Gruppenchats ohne Verlust der Privatsphäre</p>
+      </li>
+      <li>
+        <h3>Mobile Edition</h3>
+        <span class="sb-pre-when">Q2 2027</span>
+        <p>Native Apps für iOS und Android</p>
+      </li>
+      <li>
+        <h3>Quantensichere Edition</h3>
+        <span class="sb-pre-when">Q4 2027</span>
+        <p>Schutz vor Quantencomputern</p>
+      </li>
+      <li>
+        <h3>Dezentrales Netzwerk</h3>
+        <span class="sb-pre-when">2028</span>
+        <p>Vollständig dezentrales Netzwerk</p>
+      </li>
+      <li>
+        <h3>KI-Assistent für Privatsphäre</h3>
+        <span class="sb-pre-when">2028+</span>
+        <p>KI für Privatsphäre und Sicherheit</p>
+      </li>
+    </ol>
+  </section>
+  <section lang="en" dir="ltr">
+    <p class="sb-pre-eyebrow">Documentation</p>
+    <ul class="sb-pre-docs">
+      <li><a href="/docs/" hreflang="en">Documentation</a></li>
+      <li><a href="/docs/faq/" hreflang="en">Frequently asked questions</a></li>
+      <li><a href="/docs/architecture/" hreflang="en">Architecture</a></li>
+      <li><a href="/docs/cryptography/" hreflang="en">Cryptography</a></li>
+      <li><a href="/docs/descriptor-sbq2/" hreflang="en">SBQ2 — connection descriptor v2</a></li>
+      <li><a href="/docs/configuration/" hreflang="en">Configuration</a></li>
+      <li><a href="/docs/calls/" hreflang="en">Voice and video calls</a></li>
+      <li><a href="/docs/api/" hreflang="en">API Notes</a></li>
+      <li><a href="/docs/contributing/" hreflang="en">Contributing</a></li>
+      <li><a href="/docs/use-policy/" hreflang="en">Use policy and limitations</a></li>
+    </ul>
+  </section>
+  <section>
+    <h2>Gestalten Sie die Zukunft der Privatsphäre mit</h2>
+    <p>SecureBit wächst durch seine Community. Ihre Ideen und Ihr Feedback prägen die Zukunft sicherer Kommunikation - offen entwickelt, mit vollständiger ASN.1-Validierung von Ende zu Ende.</p>
+    <p><a href="https://github.com/SecureBitChat/securebit-chat" rel="noopener">GitHub-Repository</a></p>
+  </section>
+  </div>
+</div>
+    </div>
+    <script type="module" src="/dist/app-boot.js?v=1788496655816"></script>
+    <script type="module" src="/dist/app.js?v=1788496655816"></script>
 
-<script defer src="/src/scripts/pwa-register.js?v=1788390440675"></script>
-<script src="/src/pwa/install-prompt.js?v=1788390440675" type="module"></script>
-<script src="/src/pwa/pwa-manager.js?v=1788390440675" type="module"></script>
-<script defer src="/src/scripts/pwa-offline-test.js?v=1788390440675"></script>
-<link rel="stylesheet" href="/src/styles/pwa.css?v=1788390440675">
+<script defer src="/src/scripts/pwa-register.js?v=1788496655816"></script>
+<script src="/src/pwa/install-prompt.js?v=1788496655816" type="module"></script>
+<script src="/src/pwa/pwa-manager.js?v=1788496655816" type="module"></script>
+<script defer src="/src/scripts/pwa-offline-test.js?v=1788496655816"></script>
 </body>
 </html>
