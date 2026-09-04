@@ -27,9 +27,21 @@ It is designed for people who need a small, auditable, zero-infrastructure way t
 
 ## Screenshots
 
-| Open a secure channel | Encrypted conversation |
+From the web app at [securebit.chat](https://securebit.chat) — no install, no account.
+
+| Open a channel | Verify the safety code |
 | :---: | :---: |
-| ![Open a channel](assets/screenshots/login.png) | ![Encrypted chat](assets/screenshots/chat.png) |
+| ![The landing page, with the option to create a channel or join one with an invitation](assets/screenshots/web-start.png) | ![The security verification screen, showing a seven-digit safety code to compare with the other person](assets/screenshots/web-verification.png) |
+| Your device generates the keys and a one-time invitation. Nothing touches a server. | Compare the code out of band. Until both sides confirm, the chat stays locked. |
+
+| Encrypted conversation | Voice and video |
+| :---: | :---: |
+| ![An open chat, header showing Secure 10/10, Connected, and a verified channel with perfect forward secrecy](assets/screenshots/web-chat.png) | ![A group call in progress with two participants and an encrypted indicator](assets/screenshots/web-group-call.png) |
+| Every message is encrypted on your device before it leaves. Files, voice notes, view-once and timed messages travel the same channel. | Calls run over the same verified connection, one to one or in a group of up to eight. |
+
+| Incoming call |
+| :---: |
+| ![An incoming encrypted group call, offering to join or decline](assets/screenshots/web-call-ringing.png) |
 
 ## Features
 
