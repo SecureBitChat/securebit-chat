@@ -23,10 +23,19 @@ const C = {
     ink: 'var(--sb-text-1)',
     ink2: 'var(--sb-text-5b)',
     ink3: 'var(--sb-text-9)',
+    // Two forms of each accent. The plain one is for text and darkens in the light
+    // theme so it clears 4.5:1 on white; the -Solid one is for anything painted — a
+    // button's ground, a checkbox, a dot, the safety code — and is the brand colour in
+    // both themes, because what sits on it is near-black either way. Reaching for the
+    // wrong one is how every accent button in this file came out brown.
     accent: 'var(--sb-orange)',
     good: 'var(--sb-green)',
     warn: 'var(--sb-yellow-2)',
     bad: 'var(--sb-red)',
+    accentSolid: 'var(--sb-orange-solid)',
+    goodSolid: 'var(--sb-green-solid)',
+    warnSolid: 'var(--sb-yellow-2-solid)',
+    badSolid: 'var(--sb-red-solid)',
     mono: "'JetBrains Mono', ui-monospace, monospace",
 };
 
@@ -52,7 +61,7 @@ const btn = (accent = false) => ({
     padding: '11px 18px', borderRadius: '10px', cursor: 'pointer',
     fontFamily: 'inherit', fontSize: '14px', fontWeight: 700,
     border: accent ? 'none' : `1px solid ${C.line2}`,
-    background: accent ? C.accent : 'transparent',
+    background: accent ? C.accentSolid : 'transparent',
     color: accent ? 'var(--sb-on-accent)' : C.ink2,
 });
 
@@ -175,7 +184,7 @@ export function GroupSasModal({ group, onConfirm, onCancel }) {
                     dir: 'ltr',
                     style: {
                         fontFamily: C.mono, fontSize: 'clamp(30px, 9vw, 42px)', fontWeight: 700,
-                        letterSpacing: '9px', color: C.accent, unicodeBidi: 'isolate',
+                        letterSpacing: '9px', color: C.accentSolid, unicodeBidi: 'isolate',
                     },
                 }, group.sasCode)),
 
@@ -302,8 +311,8 @@ export function CreateGroupModal({ candidates, relayOnly, onCreate, onCancel }) 
                                 key: 'tick',
                                 style: {
                                     flex: 'none', width: '18px', height: '18px', borderRadius: '5px',
-                                    background: on ? C.accent : 'transparent',
-                                    border: `1px solid ${on ? C.accent : C.line2}`,
+                                    background: on ? C.accentSolid : 'transparent',
+                                    border: `1px solid ${on ? C.accentSolid : C.line2}`,
                                 },
                             }),
                         ]);
@@ -430,8 +439,8 @@ export function AddMembersModal({ candidates, remaining, onAdd, onCancel }) {
                             key: 'tick',
                             style: {
                                 flex: 'none', width: '18px', height: '18px', borderRadius: '5px',
-                                background: on ? C.accent : 'transparent',
-                                border: `1px solid ${on ? C.accent : C.line2}`,
+                                background: on ? C.accentSolid : 'transparent',
+                                border: `1px solid ${on ? C.accentSolid : C.line2}`,
                             },
                         }),
                     ]);
@@ -504,8 +513,8 @@ function MemberStrip({ group, onRemove, isAdmin }) {
     }, group.members.map((m) => {
         const self = m.state === MEMBER_STATE.SELF;
         const lost = m.state === MEMBER_STATE.LOST;
-        const dot = self || m.state === MEMBER_STATE.LINKED ? C.good
-            : m.state === MEMBER_STATE.PENDING ? C.warn : C.bad;
+        const dot = self || m.state === MEMBER_STATE.LINKED ? C.goodSolid
+            : m.state === MEMBER_STATE.PENDING ? C.warnSolid : C.badSolid;
         const via = m.state === MEMBER_STATE.PENDING;
         return h('span', {
             key: m.fp,

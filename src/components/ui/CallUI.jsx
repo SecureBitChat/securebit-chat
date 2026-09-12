@@ -124,18 +124,20 @@ const CallUIComponent = ({ webrtcManager, peerTitle }) => {
 
     // Connection-quality indicator — driven by the adaptation controller's
     // getStats (loss + RTT). Signal bars + label; hidden until there's data.
+    // `color` labels the quality in words; `solid` fills the signal bars. A bar is a
+    // mark, so it keeps the brand colour in both themes — see src/styles/theme.css.
     const QUALITY = {
-        excellent: { bars: 4, color: 'var(--sb-green)', label: t('call.qualityExcellent') },
-        good: { bars: 3, color: 'var(--sb-green)', label: t('call.qualityGood') },
-        fair: { bars: 2, color: 'var(--sb-yellow)', label: t('call.qualityFair') },
-        poor: { bars: 1, color: 'var(--sb-red)', label: t('call.qualityWeak') },
+        excellent: { bars: 4, color: 'var(--sb-green)', solid: 'var(--sb-green-solid)', label: t('call.qualityExcellent') },
+        good: { bars: 3, color: 'var(--sb-green)', solid: 'var(--sb-green-solid)', label: t('call.qualityGood') },
+        fair: { bars: 2, color: 'var(--sb-yellow)', solid: 'var(--sb-yellow-solid)', label: t('call.qualityFair') },
+        poor: { bars: 1, color: 'var(--sb-red)', solid: 'var(--sb-red-solid)', label: t('call.qualityWeak') },
     };
     const qualityIndicator = (compact) => {
         const q = QUALITY[call.quality];
         if (!q) return null;
         const bars = h('span', { key: 'bars', style: { display: 'inline-flex', alignItems: 'flex-end', gap: '2px', height: '14px' } },
             [0, 1, 2, 3].map(i => h('span', {
-                key: i, style: { width: '3px', height: (5 + i * 3) + 'px', borderRadius: '1px', background: i < q.bars ? q.color : 'rgba(var(--sb-ink), 0.18)' }
+                key: i, style: { width: '3px', height: (5 + i * 3) + 'px', borderRadius: '1px', background: i < q.bars ? q.solid : 'rgba(var(--sb-ink), 0.18)' }
             })));
         if (compact) return bars;
         return h('span', { key: 'q', title: t('call.quality'), style: { display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', fontWeight: 600, color: q.color } }, [bars, q.label]);

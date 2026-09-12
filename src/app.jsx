@@ -1351,6 +1351,8 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     const isAnswerCred = !isCreate && showAnswerStep && !showVerification;
                     const atIntro = !showVerification && !isGenerating && !isOfferCred && !isAnswerCred;
                     const accent = isCreate ? C_ORANGE : C_GREEN;
+                    // Same pair as a mark: fa() puts `color` on the icon's stroke.
+                    const accentSolid = isCreate ? C_ORANGE_SOLID : C_GREEN_SOLID;
                     const kicker = showVerification
                         ? t('step.verification')
                         : ((isOfferCred || isAnswerCred) ? t('step.exchange') : t('step.open'));
@@ -1552,7 +1554,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     ]);
 
                     const showQrButton = qrCodeUrl && h('button', { key: 'showqr', onClick: () => setQrModalOpen(true), style: { width: '100%', display: 'flex', alignItems: 'center', gap: '13px', padding: '15px 16px', borderRadius: '14px', border: `1px solid ${isCreate ? 'rgba(var(--sb-orange-rgb), 0.3)' : 'rgba(var(--sb-green-rgb), 0.3)'}`, background: isCreate ? 'rgba(var(--sb-orange-rgb), 0.06)' : 'rgba(var(--sb-green-rgb), 0.06)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'start', marginBottom: '14px' } }, [
-                        h('span', { key: 'ic', style: { flex: 'none', width: '42px', height: '42px', borderRadius: '12px', display: 'grid', placeItems: 'center', background: isCreate ? 'rgba(var(--sb-orange-rgb), 0.12)' : 'rgba(var(--sb-green-rgb), 0.12)', border: `1px solid ${isCreate ? 'rgba(var(--sb-orange-rgb), 0.28)' : 'rgba(var(--sb-green-rgb), 0.28)'}` } }, fa('fa-qrcode', { color: accent, fontSize: '18px' })),
+                        h('span', { key: 'ic', style: { flex: 'none', width: '42px', height: '42px', borderRadius: '12px', display: 'grid', placeItems: 'center', background: isCreate ? 'rgba(var(--sb-orange-rgb), 0.12)' : 'rgba(var(--sb-green-rgb), 0.12)', border: `1px solid ${isCreate ? 'rgba(var(--sb-orange-rgb), 0.28)' : 'rgba(var(--sb-green-rgb), 0.28)'}` } }, fa('fa-qrcode', { color: accentSolid, fontSize: '18px' })),
                         h('span', { key: 'tx', style: { flex: 1 } }, [
                             h('span', { key: 't', style: { display: 'block', fontSize: '14.5px', fontWeight: 700, color: 'var(--sb-text-1)' } }, t('qr.showTitle')),
                             h('span', { key: 's', style: { display: 'block', fontSize: '12.5px', color: 'var(--sb-text-7)', marginTop: '1px' } }, (qrFramesTotal || 0) > 1 ? t('qr.showSubtitleFrames', { frames: qrFramesTotal }) : t('qr.showSubtitle'))
@@ -1568,14 +1570,14 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                         inner = h('div', { key: 'verify', style: { animation: 'sbUp .3s ease' } }, [
                             !verified && backButton('vback'),
                             h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', gap: '11px', marginBottom: '8px' } }, [
-                                h('div', { key: 'i', style: { width: '34px', height: '34px', flex: 'none', borderRadius: '10px', display: 'grid', placeItems: 'center', background: 'rgba(var(--sb-green-rgb), 0.1)', border: '1px solid rgba(var(--sb-green-rgb), 0.25)' } }, fa('fa-shield-alt', { color: C_GREEN })),
+                                h('div', { key: 'i', style: { width: '34px', height: '34px', flex: 'none', borderRadius: '10px', display: 'grid', placeItems: 'center', background: 'rgba(var(--sb-green-rgb), 0.1)', border: '1px solid rgba(var(--sb-green-rgb), 0.25)' } }, fa('fa-shield-alt', { color: C_GREEN_SOLID })),
                                 h('h2', { key: 't', style: { margin: 0, fontSize: '21px', fontWeight: 800, letterSpacing: '-0.4px', color: 'var(--sb-text-1)' } }, t('verify.title'))
                             ]),
                             h('p', { key: 'sub', style: { margin: '0 0 18px', fontSize: '13.5px', lineHeight: 1.55, color: 'var(--sb-text-7)' } }, t('verify.desc')),
                             h('div', { key: 'cells', dir: 'ltr', style: { display: 'flex', gap: '6px', justifyContent: 'center', marginBottom: '20px', flexWrap: 'wrap' } }, cells),
                             verified
                                 ? h('div', { key: 'ok', style: { display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '24px 16px', borderRadius: '16px', border: '1px solid rgba(var(--sb-green-rgb), 0.25)', background: 'rgba(var(--sb-green-rgb), 0.06)', animation: 'sbUp .3s ease' } }, [
-                                    h('div', { key: 'i', style: { width: '54px', height: '54px', borderRadius: '16px', display: 'grid', placeItems: 'center', background: 'rgba(var(--sb-green-rgb), 0.14)', border: '1px solid rgba(var(--sb-green-rgb), 0.35)', marginBottom: '14px' } }, fa('fa-check', { color: C_GREEN, fontSize: '24px' })),
+                                    h('div', { key: 'i', style: { width: '54px', height: '54px', borderRadius: '16px', display: 'grid', placeItems: 'center', background: 'rgba(var(--sb-green-rgb), 0.14)', border: '1px solid rgba(var(--sb-green-rgb), 0.35)', marginBottom: '14px' } }, fa('fa-check', { color: C_GREEN_SOLID, fontSize: '24px' })),
                                     h('div', { key: 't', style: { fontSize: '18px', fontWeight: 800, color: 'var(--sb-text-1)' } }, t('verify.verified')),
                                     h('div', { key: 's', style: { fontSize: '13.5px', color: 'var(--sb-text-7)', marginTop: '5px' } }, t('verify.bothConfirmed'))
                                 ])
@@ -1603,7 +1605,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                         const genSteps = [t('handshake.step1'), t('handshake.step2'), t('handshake.step3')];
                         inner = h('div', { key: 'gen', style: { animation: 'sbUp .28s ease' } }, [
                             h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', gap: '13px', marginBottom: '22px' } }, [
-                                h('div', { key: 'sp', style: { width: '44px', height: '44px', flex: 'none', display: 'grid', placeItems: 'center' } }, fa('fa-circle-notch', { color: C_ORANGE, fontSize: '32px', animation: 'sbSpin 1s linear infinite' })),
+                                h('div', { key: 'sp', style: { width: '44px', height: '44px', flex: 'none', display: 'grid', placeItems: 'center' } }, fa('fa-circle-notch', { color: C_ORANGE_SOLID, fontSize: '32px', animation: 'sbSpin 1s linear infinite' })),
                                 h('div', { key: 'tx' }, [
                                     h('h2', { key: 't', style: { margin: 0, fontSize: '20px', fontWeight: 800, letterSpacing: '-0.4px', color: 'var(--sb-text-1)' } }, isCreate ? t('handshake.securingTitle') : t('handshake.answerTitle')),
                                     h('p', { key: 's', style: { margin: '3px 0 0', fontSize: '13px', color: 'var(--sb-text-7)' } }, t('handshake.securingDesc'))
@@ -1616,7 +1618,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                                     return h('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: '12px', padding: '13px 15px', borderTop: i ? '1px solid rgba(var(--sb-ink), 0.05)' : 'none', transition: 'background .3s', background: done ? 'rgba(var(--sb-green-rgb), 0.04)' : 'transparent' } }, [
                                         h('div', { key: 'd', style: { flex: 'none', width: '20px', height: '20px', borderRadius: '50%', display: 'grid', placeItems: 'center', background: done ? 'rgba(var(--sb-green-rgb), 0.12)' : (active ? 'rgba(var(--sb-orange-rgb), 0.12)' : 'rgba(var(--sb-ink), 0.04)'), border: `1px solid ${done ? 'rgba(var(--sb-green-rgb), 0.3)' : (active ? 'rgba(var(--sb-orange-rgb), 0.3)' : 'rgba(var(--sb-ink), 0.1)')}`, transition: 'all .3s' } },
                                             done
-                                                ? fa('fa-check', { color: C_GREEN, fontSize: '11px' })
+                                                ? fa('fa-check', { color: C_GREEN_SOLID, fontSize: '11px' })
                                                 : h('span', { style: { width: '6px', height: '6px', borderRadius: '50%', background: active ? C_ORANGE_SOLID : 'var(--sb-text-faint)', animation: active ? 'sbBlink 1s ease-in-out infinite' : 'none' } })),
                                         h('span', { key: 'l', style: { fontSize: '13.5px', color: done ? 'var(--sb-text-4)' : (active ? 'var(--sb-text-2)' : 'var(--sb-text-9)'), transition: 'color .3s' } }, label)
                                     ]);
@@ -1640,7 +1642,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                                 ])
                             ]),
                             isAnswerCred && h('div', { key: 'answerextra', style: { marginTop: '4px', display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', borderRadius: '12px', border: '1px solid rgba(var(--sb-green-rgb), 0.18)', background: 'rgba(var(--sb-green-rgb), 0.05)' } }, [
-                                fa('fa-circle-notch', { key: 'i', color: C_GREEN, animation: 'sbSpin 1.4s linear infinite' }),
+                                fa('fa-circle-notch', { key: 'i', color: C_GREEN_SOLID, animation: 'sbSpin 1.4s linear infinite' }),
                                 h('span', { key: 't', style: { fontSize: '13px', color: 'var(--sb-text-4)', fontWeight: 500 } }, t('handshake.answerSentNote'))
                             ])
                         ]);
@@ -1657,7 +1659,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                             h('h2', { key: 'h', style: { margin: '0 0 6px', fontSize: '23px', fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--sb-text-1)' } }, t('intro.joinTitle')),
                             h('p', { key: 'p', style: { margin: '0 0 16px', fontSize: '14px', lineHeight: 1.55, color: 'var(--sb-text-7)' } }, "Scan your peer's QR with your camera, or paste their invitation code."),
                             h('button', { key: 'scan', className: 'sb-scan-btn', onClick: () => { requestNotificationPermissionOnInteraction(); setShowQRScannerModal(true); }, style: { width: '100%', display: 'flex', alignItems: 'center', gap: '13px', padding: '15px 16px', borderRadius: '14px', border: '1px solid rgba(var(--sb-green-rgb), 0.3)', background: 'rgba(var(--sb-green-rgb), 0.06)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'start', marginBottom: '14px' } }, [
-                                h('span', { key: 'ic', style: { flex: 'none', width: '42px', height: '42px', borderRadius: '12px', display: 'grid', placeItems: 'center', background: 'rgba(var(--sb-green-rgb), 0.12)', border: '1px solid rgba(var(--sb-green-rgb), 0.28)' } }, fa('fa-camera', { color: C_GREEN, fontSize: '18px' })),
+                                h('span', { key: 'ic', style: { flex: 'none', width: '42px', height: '42px', borderRadius: '12px', display: 'grid', placeItems: 'center', background: 'rgba(var(--sb-green-rgb), 0.12)', border: '1px solid rgba(var(--sb-green-rgb), 0.28)' } }, fa('fa-camera', { color: C_GREEN_SOLID, fontSize: '18px' })),
                                 h('span', { key: 'tx', style: { flex: 1 } }, [
                                     h('span', { key: 't', style: { display: 'block', fontSize: '14.5px', fontWeight: 700, color: 'var(--sb-text-1)' } }, t('intro.scanTitle')),
                                     h('span', { key: 's', style: { display: 'block', fontSize: '12.5px', color: 'var(--sb-text-7)', marginTop: '1px' } }, t('intro.scanSubtitle'))
@@ -1687,7 +1689,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     // /download/v0.3.0/SecureBit.Chat_0.1.0_x64-setup.exe, a file that never
                     // existed, and the download 404s. A pinned tag keeps serving a real
                     // installer instead.
-                    const SB_DESKTOP_VERSION = '1.0.1';
+                    const SB_DESKTOP_VERSION = '1.0.3';
                     const SB_DESKTOP_RELEASE = `https://github.com/SecureBitChat/securebit-desktop/releases/download/v${SB_DESKTOP_VERSION}`;
                     const DOWNLOADS = {
                         mac: { name: 'macOS', format: '.dmg · Apple Silicon & Intel', icon: 'fab fa-apple', url: `${SB_DESKTOP_RELEASE}/SecureBit.Chat_${SB_DESKTOP_VERSION}_x64.dmg` },
@@ -1720,7 +1722,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                                     h('span', { key: 'n', style: { display: 'block', fontSize: '13.5px', fontWeight: 700, color: 'var(--sb-text-1)' } }, DOWNLOADS[detectedOS].name),
                                     h('span', { key: 'f', style: { display: 'block', fontSize: '11px', color: 'var(--sb-orange-3)', marginTop: '1px' } }, `Recommended for this device · ${DOWNLOADS[detectedOS].format}`)
                                 ]),
-                                fa('fa-download', { color: C_ORANGE })
+                                fa('fa-download', { color: C_ORANGE_SOLID })
                             ])),
                         h('div', { key: 'others', style: { padding: '0 12px 8px', display: 'flex', flexDirection: 'column', gap: '2px' } },
                             otherOS.map((k) => h('button', { key: k, onClick: () => dlLink(DOWNLOADS[k].url), style: { width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 14px', borderRadius: '11px', border: 'none', background: 'transparent', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'start' } }, [
@@ -1739,7 +1741,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
 
                     const footer = h('div', { key: 'footer', className: 'sb-conn-footer', style: { position: 'relative', marginTop: '30px', paddingTop: '18px', borderTop: '1px solid rgba(var(--sb-ink), 0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' } }, [
                         h('button', { key: 'dl', onClick: () => setPlatformsOpen((v) => !v), style: { display: 'inline-flex', alignItems: 'center', gap: '9px', paddingBlock: '8px', paddingInlineStart: '9px', paddingInlineEnd: '13px', borderRadius: '10px', border: `1px solid ${platformsOpen ? 'rgba(var(--sb-orange-rgb), 0.4)' : 'rgba(var(--sb-ink), 0.08)'}`, background: platformsOpen ? 'rgba(var(--sb-orange-rgb), 0.06)' : 'rgba(var(--sb-ink), 0.02)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', transition: 'all .15s' } }, [
-                            fa('fa-download', { key: 'i', color: C_ORANGE }),
+                            fa('fa-download', { key: 'i', color: C_ORANGE_SOLID }),
                             h('span', { key: 't', style: { fontSize: '12.5px', fontWeight: 700, color: 'var(--sb-text-2)' } }, t('action.downloadDesktop')),
                             fa('fa-chevron-down', { key: 'c', color: 'var(--sb-text-9)', style: { fontSize: '11px', transform: platformsOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s' } })
                         ]),

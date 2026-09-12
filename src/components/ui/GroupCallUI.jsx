@@ -55,11 +55,13 @@ const minimizeBtn = {
     color: '#fff', cursor: 'pointer', transition: 'all .15s',
 };
 
+// `color` labels the quality in words; `solid` fills the signal bars. A bar is a
+// mark, so it keeps the brand colour in both themes — see src/styles/theme.css.
 const QUALITY = {
-    excellent: { bars: 4, color: 'var(--sb-green)' },
-    good: { bars: 3, color: 'var(--sb-green)' },
-    fair: { bars: 2, color: 'var(--sb-yellow)' },
-    poor: { bars: 1, color: 'var(--sb-red)' },
+    excellent: { bars: 4, color: 'var(--sb-green)', solid: 'var(--sb-green-solid)' },
+    good: { bars: 3, color: 'var(--sb-green)', solid: 'var(--sb-green-solid)' },
+    fair: { bars: 2, color: 'var(--sb-yellow)', solid: 'var(--sb-yellow-solid)' },
+    poor: { bars: 1, color: 'var(--sb-red)', solid: 'var(--sb-red-solid)' },
 };
 
 function qualityBars(quality) {
@@ -70,7 +72,7 @@ function qualityBars(quality) {
             key: i,
             style: {
                 width: '2.5px', height: (4 + i * 2.6) + 'px', borderRadius: '1px',
-                background: i < q.bars ? q.color : 'rgba(var(--sb-ink), 0.18)',
+                background: i < q.bars ? q.solid : 'rgba(var(--sb-ink), 0.18)',
             },
         })));
 }

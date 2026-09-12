@@ -141,8 +141,21 @@ const template = read('templates/index.template.html');
         // a helper argument: svg(icon, size, ACCENT, width) puts its third argument on
         // `stroke`, so the colour reaches a mark without ever naming a property.
         /\bsvg\([^)]*?\b(C_ORANGE|C_GREEN|ACCENT)\b(?!_SOLID)/g,
-        // a variable whose name says it is a dot. A dot is always a mark.
-        /\b\w*[Dd]ot\w*\s*=\s*[^;]{0,120}var\(--sb-(orange|green|red|red-strong|yellow|yellow-2)\)/g,
+        // a variable whose name says it is a dot. A dot is always a mark, and it can be
+        // assigned either a token or a palette member, so both spellings are checked.
+        /\b\w*[Dd]ot\w*\s*=\s*[^;]{0,140}var\(--sb-(orange|green|red|red-strong|yellow|yellow-2)\)/g,
+        /\b\w*[Dd]ot\w*\s*=\s*[^;]{0,140}\.(accent|good|warn|bad)\b(?!Solid)/g,
+        // a member of a palette or lookup object — `background: C.accent`,
+        // `background: q.color`. GroupChat keeps its whole palette this way, and every
+        // accent button in it came out brown because no property named a token and no
+        // constant carried one either.
+        // `opts` is excluded: it is the parameter of the generic fa() icon helper, which
+        // paints whatever its caller hands it. Checking the helper would say nothing —
+        // the call sites are checked instead, just below.
+        /(background|backgroundColor|borderColor|fill|stroke)[a-zA-Z-]*\s*:\s*[^,;}]{0,50}\b(?!opts\b)\w+\.(accent|good|warn|bad|color)\b(?!Solid)/g,
+        // fa('name', { color: X }) puts X on the icon's stroke, so an accent passed here
+        // is a mark and must be the fill form.
+        /fa\('[a-z0-9-]+',\s*\{[^{}]{0,80}color:\s*(C_GREEN|C_ORANGE|accent)(?![_A-Za-z])/g,
     ];
     const offenders = [];
     for (const rel of sources) {
@@ -161,6 +174,20 @@ const template = read('templates/index.template.html');
         const bare = [...read(rel).matchAll(/var\(--sb-(orange|green|red|red-strong|yellow|yellow-2)\)/g)];
         assert.deepEqual(bare.map((m) => m[0]), [],
             `${rel} only paints dots; every accent there must be the -solid form`);
+    }
+
+    // A palette object that names an accent must publish both forms, so a call site can
+    // pick the right one instead of having only the wrong one available.
+    {
+        const groupChat = read('src/components/ui/GroupChat.jsx');
+        for (const key of ['accent', 'good', 'warn', 'bad']) {
+            assert.match(groupChat, new RegExp(`${key}Solid: 'var\\(--sb-[a-z0-9-]+-solid\\)'`),
+                `GroupChat's palette needs a ${key}Solid for anything it paints`);
+        }
+        for (const rel of ['src/components/ui/CallUI.jsx', 'src/components/ui/GroupCallUI.jsx']) {
+            assert.match(read(rel), /solid: 'var\(--sb-[a-z0-9-]+-solid\)'/,
+                `${rel}'s quality table needs the fill form for its signal bars`);
+        }
     }
 
     // A constant that feeds a fill has to be the solid one. Both forms must exist

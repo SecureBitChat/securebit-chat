@@ -1,5 +1,16 @@
 # Changelog
 
+## v6.8.1 — Desktop 1.0.3
+
+The download buttons point at desktop 1.0.3. That release fixes video on a call
+placed after a group call — the two shared one connection, opened a second video
+section, and the call carried sound with no picture — and it carries the same
+STUN and TURN servers this web client uses, so a desktop and a browser can agree
+on a path instead of one of them offering no relay at all.
+
+Light theme colours: the group status dot now reads its colour from the theme in
+the call and group views as well.
+
 ## v6.8.0 — Light theme
 
 Added a light theme. The switch is in the header next to the language menu, with three
