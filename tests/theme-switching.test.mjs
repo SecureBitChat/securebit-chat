@@ -212,7 +212,7 @@ const template = read('templates/index.template.html');
     // Layout variables that predate this file and are declared elsewhere.
     const elsewhere = new Set([
         '--sb-press', '--sb-settle', '--sb-bar-h', '--sb-bar-extra',
-        '--sb-safe-top', '--sb-safe-bottom', '--sb-vh',
+        '--sb-safe-top', '--sb-safe-bottom', '--sb-vh', '--sb-vv-top',
     ]);
 
     const sources = [

@@ -1,5 +1,21 @@
 # Changelog
 
+## v6.8.2 — The keyboard no longer pushes the chat off the screen
+
+On iPhone, tapping the message box used to shove the whole chat off the top of the
+screen: the header disappeared, only the bottom edge of the message box was left, and
+everything under it was empty black down to the keyboard. Safari moves the visible part
+of the page up to show the field you tapped, and the app was not following it. Now it
+is, so the conversation stays where it is and the message box sits just above the
+keyboard. The chat also stays scrolled to the newest message when the keyboard opens and
+closes, instead of leaving you a screen behind.
+
+The QR code now closes by itself once the other side has scanned it and the security
+code appears — it used to stay on top of the code you were meant to be checking.
+
+The disconnect button in the chat header is a clean square again on small screens; its
+label was still taking up room inside it and pushing the icon off centre.
+
 ## v6.8.1 — Desktop 1.0.3
 
 The download buttons point at desktop 1.0.3. That release fixes video on a call

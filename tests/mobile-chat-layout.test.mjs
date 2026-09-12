@@ -38,12 +38,24 @@ assert.ok(app.includes('env(safe-area-inset-bottom'),
     'the composer must pad for the home indicator');
 
 // ---------------------------------------------------------------------------
-// the shell is sized, not pinned
+// the shell is sized AND pinned to the visible rect
 //
-// An earlier fix pinned the shell with position:fixed and chased the visual
-// viewport offset from JS. That is the wrong instrument — the reference iOS chat
-// implementations drive HEIGHT from visualViewport and leave positioning alone —
-// and it made the layout feel nailed down instead of laid out.
+// Sizing came first, and on its own it was not enough. Reported from iOS Safari,
+// with a screenshot: tap the composer, the keyboard comes up, and the entire app
+// has slid off the top of the screen — the bottom sliver of the composer at the
+// very top, black underneath it all the way down to the keyboard, header gone.
+//
+// That is the visual viewport being PANNED. WebKit shrinks it for the keyboard
+// and then moves it down inside the layout viewport (which it never shrinks) to
+// reveal the focused field. The shell had shrunk correctly, to the top --sb-vh of
+// the layout viewport; the window had simply moved off it. No CSS declines that
+// pan, and it is not a document scroll, so there is no scrollTop to put back.
+//
+// So the shell is fixed to the layout viewport and translated by
+// visualViewport.offsetTop. The earlier objection to pinning is still honoured
+// where it was right: HEIGHT never moves on a scroll event (that is what made the
+// layout twitch under the finger), and the offset rides a transform rather than
+// `top`. Off iOS nothing pans, --sb-vv-top stays 0, and this is inert.
 // ---------------------------------------------------------------------------
 assert.match(app, /\.sb-app-shell\{height:var\(--sb-vh,100dvh\) !important/,
     'the shell must be sized from the visual viewport, with a dvh fallback');
@@ -62,13 +74,12 @@ assert.match(app, /\.sb-app-shell\{[^}]*min-height:0 !important/,
     '--sb-vh can never shrink it and the whole viewport-tracking path is inert');
 assert.match(app, /\.sb-app-col\{[^}]*min-height:0 !important/,
     'the column carries .minimal-bg too and needs the same floor removed');
-assert.ok(!/\.sb-app-shell\{position:fixed/.test(app),
-    'the shell must not be position:fixed: a fixed box is laid out against the ' +
-    'layout viewport, which iOS never shrinks for the keyboard, so it has to be ' +
-    'chased with JS forever');
-assert.ok(!/--sb-vv-top/.test(app),
-    'chasing visualViewport.offsetTop belongs to the pinned approach and should ' +
-    'be gone with it');
+assert.match(app, /\.sb-app-shell\{[^}]*position:fixed/,
+    'the shell must be pinned to the layout viewport, or an iOS pan leaves it ' +
+    'off the top of the screen with the keyboard up');
+assert.match(app, /\.sb-app-shell\{[^}]*transform:translate3d\(0,var\(--sb-vv-top, 0px\),0\)/,
+    'the pin must follow visualViewport.offsetTop, and it must do so with a ' +
+    'transform — `top` on a fixed box relayouts the whole shell every frame');
 assert.ok(!/sb-scroll-locked/.test(app),
     'the body scroll lock existed only to stop rubber-banding behind a pinned ' +
     'shell; without the pin it just breaks normal scrolling');
@@ -122,14 +133,24 @@ assert.match(app, /var\(--sb-safe-bottom, env\(safe-area-inset-bottom, 0px\)\)/,
 {
     const i = app.indexOf('const applyHeight = ');
     assert.notEqual(i, -1, 'height tracking must exist');
-    const block = app.slice(i, i + 2500);
+    const block = app.slice(i, i + 6000);
 
     assert.match(block, /vv\.addEventListener\('resize', apply\)/,
         'height must be recomputed on resize');
-    assert.ok(!/vv\.addEventListener\('scroll'/.test(block),
-        'nothing may be recomputed on visualViewport scroll: on iOS that fires ' +
-        'while the URL bar collapses and during rubber-banding, and resizing the ' +
-        'shell there is what made the layout twitch under the finger');
+    assert.ok(!/vv\.addEventListener\('scroll', apply\)/.test(block),
+        'HEIGHT must not be recomputed on visualViewport scroll: on iOS that ' +
+        'fires while the URL bar collapses and during rubber-banding, and ' +
+        'resizing the shell there is what made the layout twitch under the finger');
+    assert.match(block, /vv\.addEventListener\('scroll', onPan\)/,
+        'the pan, on the other hand, must be followed on scroll — that event is ' +
+        'the only notice iOS gives that the visible rect has moved');
+    assert.match(block, /requestAnimationFrame\(\(\) => \{ raf = 0; applyOffset\(\); \}\)/,
+        'a burst of scroll events must collapse into one style write per frame');
+    assert.match(block, /const zoomed = !!vv && vv\.scale > 1\.01/,
+        'the only thing that may switch the pan off is a pinch-zoomed page. It ' +
+        'must not be gated on the window being taller than the visual viewport: ' +
+        'that assumes iOS never shrinks the layout viewport, and the day it does ' +
+        'the guard turns the whole fix off without a word');
 
     // Redundant writes cause a style recalculation on every event.
     assert.match(block, /h !== lastH/, 'skip no-op height writes');

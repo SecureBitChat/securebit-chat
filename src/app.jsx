@@ -1169,10 +1169,16 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     React.useEffect(() => { setSasInput(''); setSasError(''); }, [verificationCode]);
                     // Close the QR popup and re-hide (blur) the code whenever the
                     // exchange step changes — every new offer/answer starts concealed.
+                    // Verification is also a step change, and the one that matters most:
+                    // the peer has scanned the code and the channel is up, so a QR still
+                    // covering the screen is a one-time credential left on display over
+                    // the safety number the user is now supposed to be reading. The
+                    // offer/answer flags stay set underneath, which is why this cannot
+                    // be left to the !showOfferStep && !showAnswerStep case alone.
                     React.useEffect(() => {
-                        if (!showOfferStep && !showAnswerStep) setQrModalOpen(false);
+                        if (showVerification || (!showOfferStep && !showAnswerStep)) setQrModalOpen(false);
                         setCodeRevealed(false);
-                    }, [showOfferStep, showAnswerStep]);
+                    }, [showOfferStep, showAnswerStep, showVerification]);
                     // Animate the "Securing your channel" steps while keys generate.
                     React.useEffect(() => {
                         const generating = isGeneratingKeys && !showOfferStep && !showAnswerStep && !showVerification;
@@ -1867,6 +1873,48 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                 };
         
                 // Global scroll function - defined outside components to ensure availability
+                // ── viewport read-out (?vvdebug=1) ───────────────────────────────
+                // A phone cannot be attached to a debugger the way a laptop can, and
+                // the numbers that decide this layout — how tall the visible rect is,
+                // where it has been moved to, whether the shell followed — are not
+                // visible in a screenshot of the result. This paints them on top of
+                // the app so one screenshot answers the question. Off unless asked
+                // for by name in the URL; it costs nothing when it is not.
+                function startViewportDebug(vv) {
+                    let on = false;
+                    try { on = new URLSearchParams(window.location.search).get('vvdebug') === '1'; } catch (_) { return null; }
+                    if (!on) return null;
+                    const box = document.createElement('div');
+                    box.setAttribute('data-sb-vvdebug', '');
+                    box.style.cssText = 'position:fixed;top:0;left:0;z-index:2147483647;max-width:100vw;padding:6px 8px;' +
+                        'font:600 10.5px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre;' +
+                        'color:#fff;background:#000;pointer-events:none;';
+                    document.body.appendChild(box);
+                    const src = (() => {
+                        const el = document.querySelector('script[src*="dist/app.js"]');
+                        return el ? String(el.getAttribute('src') || '').split('?v=')[1] || '?' : '?';
+                    })();
+                    const paint = () => {
+                        const shell = document.querySelector('.sb-app-shell');
+                        const cs = shell ? getComputedStyle(shell) : null;
+                        const r = shell ? shell.getBoundingClientRect() : null;
+                        const root = getComputedStyle(document.documentElement);
+                        box.textContent = [
+                            'build ' + src,
+                            'innerH ' + window.innerHeight + '  scrollY ' + Math.round(window.scrollY),
+                            'vv h ' + (vv ? Math.round(vv.height) : '—') + '  top ' + (vv ? Math.round(vv.offsetTop) : '—') + '  scale ' + (vv ? vv.scale.toFixed(2) : '—'),
+                            'var vh ' + root.getPropertyValue('--sb-vh').trim() + '  vvtop ' + root.getPropertyValue('--sb-vv-top').trim(),
+                            'shell ' + (shell ? (cs.position + ' h' + Math.round(r.height) + ' y' + Math.round(r.top)) : 'ABSENT')
+                        ].join('\n');
+                        // The read-out must stay readable even when the thing it is
+                        // reporting on has been moved off the screen.
+                        box.style.transform = 'translate3d(0,' + (vv ? Math.round(vv.offsetTop) : 0) + 'px,0)';
+                    };
+                    paint();
+                    const iv = setInterval(paint, 200);
+                    return () => { clearInterval(iv); box.remove(); };
+                }
+
                 const createScrollToBottomFunction = (chatMessagesRef) => {
                     return () => {
                         if (chatMessagesRef && chatMessagesRef.current) {
@@ -2124,6 +2172,11 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     '.sb-chat-header .sb-hdr-sub{display:none !important;}' +
                     // Disconnect: compact icon-only square, red-tinted, matching the call buttons.
                     '.sb-chat-header .sb-disconnect{width:40px !important;height:40px !important;padding:0 !important;gap:0 !important;justify-content:center !important;border-radius:9px !important;color:var(--sb-red) !important;border-color:rgba(var(--sb-red-rgb), 0.28) !important;}' +
+                    // The label has to go wherever the button becomes a square. Its own
+                    // rule (.sb-hide-sm, components.css) stops at 560px, so between there
+                    // and 768 the word "Disconnect" was still inside a 40px box, shouldering
+                    // the icon off-centre — the button read as crooked rather than icon-only.
+                    '.sb-chat-header .sb-disconnect .sb-hide-sm{display:none !important;}' +
                     '}' +
                     // Composer mode chips: one horizontally-scrollable row instead of wrapping
                     // to two ugly rows on narrow screens.
@@ -2291,6 +2344,33 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                 }
             }, [pendingIncomingFiles.length]);
 
+            // Whether the conversation was sitting at its bottom, remembered from the
+            // last scroll. It has to be remembered rather than measured on demand:
+            // by the time the keyboard has opened the list is already shorter, and
+            // "how far from the bottom" then reads as the height of the keyboard for
+            // a view that had not moved at all.
+            const atBottomRef = React.useRef(true);
+
+            // Follow the conversation when the visual viewport resizes — the keyboard
+            // opening or closing. The list keeps its scrollTop while its height drops
+            // by a few hundred pixels, which leaves whoever tapped the composer
+            // looking at messages from a minute ago.
+            React.useEffect(() => {
+                const vv = (typeof window !== 'undefined') ? window.visualViewport : null;
+                if (!vv) return;
+                const stick = () => {
+                    if (!atBottomRef.current) return;
+                    const el = chatMessagesRef.current;
+                    if (!el) return;
+                    el.scrollTop = el.scrollHeight;
+                };
+                // Twice: once for this frame, once after iOS has finished animating
+                // the keyboard in and settled on a final height.
+                const onResize = () => { requestAnimationFrame(stick); setTimeout(stick, 300); };
+                vv.addEventListener('resize', onResize);
+                return () => vv.removeEventListener('resize', onResize);
+            }, [chatMessagesRef]);
+
             React.useEffect(() => {
                 if (chatMessagesRef.current && messages.length > 0) {
                     const { scrollTop, scrollHeight, clientHeight } = chatMessagesRef.current;
@@ -2315,11 +2395,13 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                 if (chatMessagesRef.current) {
                     const { scrollTop, scrollHeight, clientHeight } = chatMessagesRef.current;
                     const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+                    atBottomRef.current = isNearBottom;
                     setShowScrollButton(!isNearBottom);
                 }
             };
 
             const handleScrollToBottom = () => {
+                atBottomRef.current = true;
                 if (typeof scrollToBottom === 'function') {
                     scrollToBottom();
                     setShowScrollButton(false);
@@ -3042,7 +3124,32 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                             // viewport tracking, the dvh fallback — was inert until this
                             // floor was removed: --sb-vh could shrink all it liked and the
                             // shell would not follow it below 100vh.
-                            '.sb-app-shell{height:var(--sb-vh,100dvh) !important;min-height:0 !important;overflow:hidden;}' +
+                            //
+                            // Sizing alone turned out not to be enough on iOS, and the
+                            // screenshot of the failure is worth writing down: keyboard up,
+                            // the whole app had slid off the top of the screen, only the
+                            // bottom sliver of the composer still showing, and black — the
+                            // body, past the end of a 400px-tall shell — filling everything
+                            // down to the keyboard.
+                            //
+                            // That is the *visual* viewport being panned. When the keyboard
+                            // opens, WebKit shrinks the visual viewport and moves it down
+                            // inside the layout viewport (which it never shrinks) to reveal
+                            // the focused field. The shell had correctly shrunk to the top
+                            // var(--sb-vh) of the layout viewport — and the visible window
+                            // had moved off it. Nothing in CSS can decline that pan, and it
+                            // is not a document scroll, so there is no scrollTop to reset.
+                            //
+                            // So the shell is pinned to the visible rect after all: fixed to
+                            // the layout viewport and translated by visualViewport.offsetTop.
+                            // The earlier objection to pinning stands for what it described —
+                            // chasing the offset with `top`, and recomputing HEIGHT on every
+                            // scroll event, which twitched under the finger. Height still
+                            // moves on resize only. The offset rides a transform on the
+                            // compositor, which is the cheap half, and only it follows the
+                            // pan. --sb-vv-top is 0 everywhere that does not pan (desktop,
+                            // Chrome on Android), so this is inert off iOS.
+                            '.sb-app-shell{height:var(--sb-vh,100dvh) !important;min-height:0 !important;overflow:hidden;position:fixed;top:0;inset-inline:0;transform:translate3d(0,var(--sb-vv-top, 0px),0);}' +
                             // Pin the header, and nothing else.
                             //
                             // Sticky is the whole fix: if an ancestor scrolls — which is what
@@ -3519,7 +3626,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     React.useEffect(() => {
                         const vv = (typeof window !== 'undefined') ? window.visualViewport : null;
                         const root = document.documentElement;
-                        let lastH = -1, lastInset = '';
+                        let lastH = -1, lastInset = '', lastY = -1, raf = 0;
 
                         // HEIGHT changes only on resize. It deliberately does NOT follow
                         // `scroll`: on iOS the visual viewport also moves while the URL bar
@@ -3530,25 +3637,75 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                             const h = Math.round(vv ? vv.height : (window.innerHeight || 0));
                             if (h && h !== lastH) { lastH = h; root.style.setProperty('--sb-vh', h + 'px'); }
                         };
+                        // True while something the browser drew — in practice the on-screen
+                        // keyboard — is covering a large part of the window.
+                        const keyboardUp = () => !!vv && (window.innerHeight - vv.height) > 120;
                         // The home-indicator inset must collapse while the keyboard is up.
                         // Once the shell has shrunk to the visible area, that padding is no
                         // longer clearing the indicator — it is just dead space between the
                         // composer and the keyboard.
                         const applyInset = () => {
-                            const covered = !!vv && (window.innerHeight - vv.height) > 120;
+                            const covered = keyboardUp();
                             const v = covered ? '0px' : 'env(safe-area-inset-bottom, 0px)';
                             if (v !== lastInset) { lastInset = v; root.style.setProperty('--sb-safe-bottom', v); }
                         };
-                        const apply = () => { applyHeight(); applyInset(); };
+                        // WHERE the visible rect is, as opposed to how tall it is. iOS pans
+                        // the visual viewport down inside the layout viewport to reveal a
+                        // focused field, and a shell that only knows its height is left
+                        // behind — off the top of the screen, which is the bug this fixes.
+                        // Only a transform follows this (see --sb-vv-top in the shell rule):
+                        // it is the half cheap enough to run on every scroll event, and rAF
+                        // collapses a burst of them into one write per frame.
+                        //
+                        // The one case that must NOT be followed is a pinch-zoomed page,
+                        // which pans too — chasing that drags the shell out from under
+                        // whoever is reading. `scale` says so directly. An earlier version
+                        // of this guard asked instead whether the window was much taller
+                        // than the visual viewport, i.e. "is a keyboard covering us", which
+                        // assumes iOS never shrinks the layout viewport — true until it
+                        // isn't, and when it isn't the guard silently turns the whole fix
+                        // off. offsetTop is only ever non-zero when something moved us, so
+                        // it needs no permission to be believed.
+                        const applyOffset = () => {
+                            const zoomed = !!vv && vv.scale > 1.01;
+                            const y = (vv && !zoomed) ? Math.max(0, Math.round(vv.offsetTop)) : 0;
+                            if (y !== lastY) { lastY = y; root.style.setProperty('--sb-vv-top', y + 'px'); }
+                        };
+                        const apply = () => { applyHeight(); applyInset(); applyOffset(); };
+                        const onPan = () => {
+                            if (raf) return;
+                            raf = requestAnimationFrame(() => { raf = 0; applyOffset(); });
+                        };
+
+                        // Focus is the other notice we get, and on iOS 26 it is the more
+                        // reliable one: the pan that reveals a focused field can land after
+                        // the last resize event, and on dismissal the viewport is documented
+                        // not to settle back for a moment. So the offset is re-read a few
+                        // times across the keyboard's own animation rather than once.
+                        const timers = [];
+                        const resettle = () => {
+                            applyOffset();
+                            [60, 180, 360, 600].forEach((ms) => timers.push(setTimeout(() => { applyHeight(); applyInset(); applyOffset(); }, ms)));
+                        };
 
                         apply();
-                        if (vv) vv.addEventListener('resize', apply);
+                        if (vv) { vv.addEventListener('resize', apply); vv.addEventListener('scroll', onPan); }
                         window.addEventListener('resize', apply);
                         window.addEventListener('orientationchange', apply);
+                        window.addEventListener('scroll', onPan, { passive: true });
+                        document.addEventListener('focusin', resettle);
+                        document.addEventListener('focusout', resettle);
+                        const stopDebug = startViewportDebug(vv);
                         return () => {
-                            if (vv) vv.removeEventListener('resize', apply);
+                            if (raf) cancelAnimationFrame(raf);
+                            timers.forEach(clearTimeout);
+                            if (vv) { vv.removeEventListener('resize', apply); vv.removeEventListener('scroll', onPan); }
                             window.removeEventListener('resize', apply);
                             window.removeEventListener('orientationchange', apply);
+                            window.removeEventListener('scroll', onPan);
+                            document.removeEventListener('focusin', resettle);
+                            document.removeEventListener('focusout', resettle);
+                            if (stopDebug) stopDebug();
                         };
                     }, []);
                     const [relayOnlyMode, setRelayOnlyMode] = React.useState(() => {
