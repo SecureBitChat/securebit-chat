@@ -14104,9 +14104,33 @@ async processMessage(data) {
         this._trackActiveTimer(r.retryTimer);
     }
 
+    /**
+     * Hand the peer connection the ICE server list as it is NOW.
+     *
+     * A connection keeps the servers it was built with, and our relay's credential
+     * expires after a day (src/network/turnCredentials.js renews it in place on the
+     * shared list). A restart gathers new relay candidates, so it must present the
+     * current credential or a long-lived session would lose its relay path exactly
+     * when it needs one. Best effort: an engine that refuses the update restarts
+     * with what it had.
+     */
+    _applyCurrentIceServers(pc) {
+        try {
+            if (!pc || typeof pc.getConfiguration !== 'function' || typeof pc.setConfiguration !== 'function') return;
+            const servers = this._config?.webrtc?.iceServers;
+            if (!Array.isArray(servers) || servers.length === 0) return;
+            pc.setConfiguration({ ...pc.getConfiguration(), iceServers: servers });
+        } catch (error) {
+            this._secureLog('warn', 'Could not refresh ICE servers before restart', {
+                errorType: error?.constructor?.name || 'Unknown'
+            });
+        }
+    }
+
     async _sendIceRestartOffer() {
         const pc = this.peerConnection;
         if (!pc) return;
+        this._applyCurrentIceServers(pc);
 
         // Rolling back to 'stable' first: a previous restart round-trip may have
         // left a local offer pending that was never answered.
@@ -14189,6 +14213,7 @@ async processMessage(data) {
                 }
                 this._reconnect.phase = 'restarting';
 
+                this._applyCurrentIceServers(pc);
                 await pc.setRemoteDescription({ type: 'offer', sdp: data.sdp });
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);

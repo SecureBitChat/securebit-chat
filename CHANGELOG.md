@@ -1,5 +1,14 @@
 # Changelog
 
+## v6.8.4 — The relay password now changes every day
+
+When two people cannot connect directly, the app routes the call through our own
+relay server. Until now every copy of the app carried the same password for that
+server, valid for years, and anyone could copy it and push their own traffic
+through it. The site now hands each app a fresh password that runs out after a
+day, and only gives them out at a limited pace. Nothing changes for you: the app
+picks up a new one on its own, including during long conversations.
+
 ## v6.8.3 — Private project files are no longer published with the site
 
 A few files meant only for the developer's own machine — local editor settings and

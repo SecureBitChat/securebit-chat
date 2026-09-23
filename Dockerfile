@@ -11,6 +11,10 @@ COPY deploy/nginx.conf /etc/nginx/nginx.conf
 # /sw.js, which is the real, caching worker.
 COPY deploy/www-sw.js /etc/nginx/www-sw.js
 
+# The TURN credential endpoint (POST /api/turn-credentials), run by nginx's njs
+# module. The secret it signs with comes from the TURN_SECRET Fly secret.
+COPY deploy/turn-credentials.js /etc/nginx/njs/turn-credentials.js
+
 # Serve the repository (src/, assets/, libs/, dist/, config/, logo/, sw.js, ...).
 COPY . /usr/share/nginx/html
 

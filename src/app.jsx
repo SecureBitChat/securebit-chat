@@ -1,5 +1,6 @@
 import { installDebugWindowHooks } from './utils/debugWindowHooks.js';
 import { loadIceSettings, saveIceSettings, clearIceSettings } from './network/iceSettingsStore.js';
+import { startTurnCredentialRefresh } from './network/turnCredentials.js';
 import {
     sessionsReducer,
     createInitialState,
@@ -3861,7 +3862,11 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                             onClearData: handleClearData
                         });
                     }, []);
-        
+
+                    // Our relay's credential is minted by the site and expires daily;
+                    // fetch one now and keep it renewed. See network/turnCredentials.js.
+                    React.useEffect(() => { startTurnCredentialRefresh(); }, []);
+
                     const addMessageWithAutoScroll = React.useCallback((message, type, opts = {}) => {
                         const newId = Date.now() + Math.random();
                         const newMessage = {

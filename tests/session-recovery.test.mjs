@@ -114,6 +114,7 @@ function makeManager(overrides = {}) {
         _attemptIceRestart: P._attemptIceRestart,
         _scheduleReconnectRetry: P._scheduleReconnectRetry,
         _sendIceRestartOffer: P._sendIceRestartOffer,
+        _applyCurrentIceServers: P._applyCurrentIceServers,
         _currentRemoteDtlsFingerprint: P._currentRemoteDtlsFingerprint,
         _assertSameRemoteIdentity: P._assertSameRemoteIdentity,
         _handleIceRestartSignal: P._handleIceRestartSignal,
@@ -339,6 +340,35 @@ try {
         assert.deepEqual(sent, [], 'a self-healing glitch must not renegotiate');
         assert.deepEqual(statuses, ['reconnecting', 'connected']);
         mgr._resetReconnectState();
+    }
+
+    // ── a restart presents the ICE list as it is now ─────────────────────────
+    // Our relay's credential expires daily and is renewed in place on the shared
+    // list; a restart gathers new relay candidates, so it must hand the peer
+    // connection the current list rather than the one it was built with.
+    {
+        const iceServers = [{ urls: 'turn:turn.securebit.chat:3478', username: 'old', credential: 'old' }];
+        const applied = [];
+        const { mgr, sent } = makeManager({ isInitiator: true, _config: { webrtc: { iceServers } } });
+        mgr.peerConnection.getConfiguration = () => ({ iceServers: [], bundlePolicy: 'balanced' });
+        mgr.peerConnection.setConfiguration = (cfg) => applied.push(cfg);
+        iceServers[0].username = 'fresh';
+        mgr._reconnect.startedAt = Date.now();
+        await mgr._attemptIceRestart();
+        assert.equal(sent.length, 1, 'the restart still goes out');
+        assert.equal(applied.length, 1, 'the current ICE list is applied before restarting');
+        assert.equal(applied[0].iceServers[0].username, 'fresh');
+        assert.equal(applied[0].bundlePolicy, 'balanced', 'the rest of the configuration is kept');
+
+        // An engine that refuses the update must not stop the restart.
+        const { mgr: stubborn, sent: sent2 } = makeManager({ isInitiator: true, _config: { webrtc: { iceServers } } });
+        stubborn.peerConnection.getConfiguration = () => ({});
+        stubborn.peerConnection.setConfiguration = () => { throw new Error('InvalidModificationError'); };
+        stubborn._reconnect.startedAt = Date.now();
+        await stubborn._attemptIceRestart();
+        assert.equal(sent2.length, 1, 'a refused update still restarts with what it had');
+        mgr._resetReconnectState();
+        stubborn._resetReconnectState();
     }
 
     // ── role split: the offerer restarts, the answerer asks ─────────────────
