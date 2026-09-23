@@ -1,5 +1,13 @@
 # Changelog
 
+## v6.8.3 — Private project files are no longer published with the site
+
+A few files meant only for the developer's own machine — local editor settings and
+tool notes — were being uploaded along with the website and could be opened by anyone
+who knew the address. They held no passwords or keys, but they had no business being
+public. They are now left out of every deploy, along with anything else kept private
+in the project.
+
 ## v6.8.2 — The keyboard no longer pushes the chat off the screen
 
 On iPhone, tapping the message box used to shove the whole chat off the top of the

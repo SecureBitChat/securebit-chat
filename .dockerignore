@@ -24,3 +24,19 @@ assets/screenshots
 # The Snap Store badge is served from this origin so the page makes no
 # third-party request; it has to actually ship for that to be true.
 !assets/badges/*.svg
+
+# Everything COPY'd here becomes a public URL under securebit.chat, so anything
+# git-ignored as private has to be listed again here: .dockerignore does not read
+# .gitignore. Without these, the local agent settings were being served from the
+# live site, and a security-audit file left in the folder during a deploy would
+# have been published with it.
+.claude
+.agents
+skills-lock.json
+SECURITY_AUDIT*.md
+audit
+# Replaced by config/ice-servers.prod.js in the Dockerfile; the local copy may
+# hold a developer's TURN credentials.
+config/ice-servers.js
+# Local proof-of-concept and scratch scripts at the repo root.
+/*.mjs
