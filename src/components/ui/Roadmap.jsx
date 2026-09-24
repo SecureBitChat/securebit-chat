@@ -44,32 +44,20 @@ function Roadmap() {
         features: tList(`roadmap.${d.k}.features`)
     }));
 
-    // `rgb` is the same colour as `color`, published as bare channels. The pill draws
-    // its fill and border from it at low alpha, and there is no way to add an alpha to
-    // a colour that a custom property has already resolved — hence the pair, which has
-    // to be kept in step.
-    // Three forms of the same status colour, because they are used three ways and only
-    // one of them is text. `color` is the word — it darkens in the light theme so it can
-    // be read on white. `solid` is the dot, which is a mark rather than a label and
-    // stays the brand colour in both themes. `rgb` is the channels, for the pill's fill
-    // and border at low alpha. The three have to be kept in step.
+    // The status of a milestone is shown by its marker on the timeline and the colour of
+    // its bullets, not by a word: the labels (Released, In development, ...) were taken
+    // out. `solid` is the dot colour, `line` the spine below it.
     const META = {
-        released: { word: t('roadmap.status.released'), color: "var(--sb-green)", solid: "var(--sb-green-solid)", rgb: "var(--sb-green-rgb)", line: "rgba(var(--sb-green-rgb), 0.32)" },
-        current: { word: t('roadmap.status.current'), color: "var(--sb-orange)", solid: "var(--sb-orange-solid)", rgb: "var(--sb-orange-rgb)", line: "rgba(var(--sb-orange-rgb), 0.32)" },
-        dev: { word: t('roadmap.status.dev'), color: "var(--sb-yellow-2)", solid: "var(--sb-yellow-2-solid)", rgb: "var(--sb-yellow-2-rgb)", line: "rgba(var(--sb-ink), 0.08)" },
-        planned: { word: t('roadmap.status.planned'), color: "var(--sb-text-7)", solid: "var(--sb-text-7)", rgb: "var(--sb-text-7-rgb)", line: "rgba(var(--sb-ink), 0.08)" },
-        research: { word: t('roadmap.status.research'), color: "var(--sb-text-9)", solid: "var(--sb-text-9)", rgb: "var(--sb-text-9-rgb)", line: "rgba(var(--sb-ink), 0.08)" }
+        released: { solid: "var(--sb-green-solid)", line: "rgba(var(--sb-green-rgb), 0.32)" },
+        current: { solid: "var(--sb-orange-solid)", line: "rgba(var(--sb-orange-rgb), 0.32)" },
+        dev: { solid: "var(--sb-yellow-2-solid)", line: "rgba(var(--sb-ink), 0.08)" },
+        planned: { solid: "var(--sb-text-7)", line: "rgba(var(--sb-ink), 0.08)" },
+        research: { solid: "var(--sb-text-9)", line: "rgba(var(--sb-ink), 0.08)" }
     };
 
     const [open, setOpen] = React.useState({});
     const isOpen = (i) => (open[i] === undefined ? DATA[i].status === 'current' : open[i]);
     const toggle = (i) => setOpen((s) => ({ ...s, [i]: !isOpen(i) }));
-
-    // Was hexA(), which took the literal hex out of META and split it into channels by
-    // hand. Those literals are custom properties now, so there is nothing to parse at
-    // runtime — the browser does the substitution instead, and it does it again when
-    // the theme changes, which the old version could not.
-    const tint = (channels, a) => `rgba(${channels}, ${a})`;
 
     const total = DATA.length;
     const shipped = DATA.filter((d) => d.status === 'released' || d.status === 'current').length;
@@ -162,18 +150,6 @@ function Roadmap() {
                                         {!isMobile && <div style={{ marginTop: '3px', fontSize: '13.5px', color: 'var(--sb-text-6)' }}>{d.sub}</div>}
                                     </div>
                                     <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '14px' }}>
-                                        {/* The status pill is desktop-only. On a phone its
-                                            word does not fit, and what was left — a bordered
-                                            box around a single coloured dot — said nothing the
-                                            marker on the timeline was not already saying in
-                                            the same colour, while taking room from the title.
-                                            So the whole pill goes, not just its label. */}
-                                        {!isMobile && (
-                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '6px 11px', borderRadius: '8px', background: tint(meta.rgb, 0.1), border: `1px solid ${tint(meta.rgb, 0.22)}`, fontFamily: MONO, fontSize: '10.5px', fontWeight: 600, color: meta.color, textTransform: 'uppercase', letterSpacing: '0.8px', whiteSpace: 'nowrap' }}>
-                                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: meta.solid }} />
-                                                {meta.word}
-                                            </span>
-                                        )}
                                         {!isMobile && <span style={{ fontFamily: MONO, fontSize: '12px', fontWeight: 500, color: 'var(--sb-text-7)', whiteSpace: 'nowrap', minWidth: '74px', textAlign: 'end' }}>{d.date}</span>}
                                         <span style={{ color: 'var(--sb-text-9)', display: 'inline-flex', transition: 'transform .22s cubic-bezier(.2,.7,.3,1)', transform: opened ? 'rotate(180deg)' : 'rotate(0deg)' }}>
                                             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>

@@ -1,5 +1,12 @@
 # Changelog
 
+## v6.8.6 — Desktop 1.0.4 downloads, and a simpler roadmap
+
+The download buttons now give you desktop version 1.0.4, which fetches its relay
+password from the site like the web app does. The roadmap no longer puts a label
+such as "Released" or "Planned" on each step; the timeline shows where each one
+stands on its own.
+
 ## v6.8.5 — The relay password is no longer built into the app
 
 When two people cannot connect directly, calls and chats go through our relay

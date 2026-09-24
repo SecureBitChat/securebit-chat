@@ -384,13 +384,19 @@ const template = read('templates/index.template.html');
     const roadmap = read('src/components/ui/Roadmap.jsx');
     assert.equal(/parseInt\([^)]*\.slice\(1\)/.test(roadmap), false,
         'a var() reference cannot be split into channels by hand; publish the channels instead');
-    assert.match(roadmap, /rgb: "var\(--sb-[a-z0-9-]+-rgb\)"/,
-        'the status table must carry the channels alongside the colour');
 
-    // The status pill is desktop-only: on a phone the word does not fit, and a bordered
-    // box around one dot repeats what the timeline marker already shows.
-    assert.match(roadmap, /\{!isMobile && \(\s*\n\s*<span style=\{\{ display: 'inline-flex'/,
-        'the whole status pill must be hidden on mobile, not only its label');
+    // The status pills (Released, In development, ...) were removed on every screen: the
+    // timeline marker already says where a milestone stands. Neither the component nor
+    // any language may bring the words back half-way.
+    assert.equal(/roadmap\.status\./.test(roadmap), false,
+        'the roadmap must not render a status label');
+    const localeFiles = readdirSync(new URL('../locales', import.meta.url))
+        .filter((f) => /^[a-z]{2}\.json$/.test(f));
+    assert.ok(localeFiles.length >= 13, 'every language file is checked');
+    for (const file of localeFiles) {
+        const raw = read(`locales/${file}`);
+        assert.equal(/"roadmap\.status\./.test(raw), false, `${file} still carries roadmap status labels`);
+    }
 }
 
 console.log('✅ theme switching');
