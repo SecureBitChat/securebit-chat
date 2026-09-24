@@ -7,7 +7,7 @@ this document describes.
 
 | | |
 | --- | --- |
-| Release | v6.8.4 |
+| Release | v6.8.5 |
 | Protocol version | 4.1 |
 | Ratchet wire version | 1 |
 
@@ -347,5 +347,5 @@ no leg may stop a capture it borrowed.
 
 ## Scope
 
-This describes the browser implementation as it stands in v6.8.4. It is not a
+This describes the browser implementation as it stands in v6.8.5. It is not a
 substitute for independent cryptographic review.

@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import endpoint from '../deploy/turn-credentials.js';
-import { applyTurnCredentials, isOwnRelayEntry } from '../src/network/turnCredentials.js';
+import { applyTurnCredentials, isOwnRelayEntry, parseCredentialResponse } from '../src/network/turnCredentials.js';
 
 const SECRET = 'test-secret';
 const NOW = 1_800_000_000;
@@ -87,6 +87,45 @@ const ownEntry = () => ({
         assert.equal(applyTurnCredentials([own], bad), false);
     }
     assert.equal(own.credential, 'old');
+}
+
+{
+    // The web build ships no relay entry: the first fetch adds it.
+    const stun = { urls: 'stun:stun.l.google.com:19302' };
+    const list = [stun];
+    const body = endpoint.decide({ method: 'POST', origin: 'https://securebit.chat', secret: SECRET, nowSeconds: NOW }).body;
+    const cred = parseCredentialResponse(body, NOW);
+    assert.ok(cred, 'a real endpoint response parses');
+    assert.equal(applyTurnCredentials(list, cred), true);
+    assert.equal(list.length, 2, 'the relay is added to the same array');
+    assert.equal(list[0], stun);
+    assert.deepEqual(list[1].urls, endpoint.TURN_URLS);
+    assert.equal(list[1].credential, cred.credential);
+
+    // A second fetch renews that entry instead of adding another.
+    const next = parseCredentialResponse(endpoint.decide({ method: 'POST', origin: undefined, secret: SECRET, nowSeconds: NOW + 60 }).body, NOW + 60);
+    applyTurnCredentials(list, next);
+    assert.equal(list.length, 2);
+    assert.equal(list[1].username, next.username);
+
+    // The response may renew a password; it may not point us at another server.
+    const hijack = [stun];
+    assert.equal(applyTurnCredentials(hijack, { username: 'u:securebit', credential: 'c', urls: ['turn:relay.evil.example:3478'] }), false);
+    assert.equal(hijack.length, 1);
+    const mixed = [];
+    applyTurnCredentials(mixed, { username: 'u:securebit', credential: 'c', urls: ['turn:relay.evil.example:3478', 'turn:turn.securebit.chat:3478'] });
+    assert.deepEqual(mixed[0].urls, ['turn:turn.securebit.chat:3478']);
+
+    // Expired credentials are refused outright.
+    assert.equal(parseCredentialResponse(body, NOW + endpoint.TTL_SECONDS + 1), null);
+}
+
+// The shipped production config carries no relay password any more.
+{
+    const fs = await import('node:fs');
+    const prod = fs.readFileSync(new URL('../config/ice-servers.prod.js', import.meta.url), 'utf8');
+    assert.doesNotMatch(prod, /credential\s*:/, 'config/ice-servers.prod.js must not ship a TURN password');
+    assert.doesNotMatch(prod, /urls:\s*\[?\s*'turns?:/, 'the relay is added at runtime, not listed statically');
 }
 
 console.log('turn-credentials.test.mjs: all assertions passed');

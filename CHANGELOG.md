@@ -1,21 +1,16 @@
 # Changelog
 
-## v6.8.4 — The relay password now changes every day
+## v6.8.5 — The relay password is no longer built into the app
 
-When two people cannot connect directly, the app routes the call through our own
-relay server. Until now every copy of the app carried the same password for that
-server, valid for years, and anyone could copy it and push their own traffic
-through it. The site now hands each app a fresh password that runs out after a
-day, and only gives them out at a limited pace. Nothing changes for you: the app
-picks up a new one on its own, including during long conversations.
+When two people cannot connect directly, calls and chats go through our relay
+server. Until now every copy of the app carried the same password for it, valid
+for years, so anyone could copy it and send their own traffic through our server.
+That password is gone. The app now asks the site for a new one that works for a
+day and renews it by itself, including during long conversations. The site hands
+them out only at a limited pace. You do not need to do anything.
 
-## v6.8.3 — Private project files are no longer published with the site
-
-A few files meant only for the developer's own machine — local editor settings and
-tool notes — were being uploaded along with the website and could be opened by anyone
-who knew the address. They held no passwords or keys, but they had no business being
-public. They are now left out of every deploy, along with anything else kept private
-in the project.
+A few files meant only for the developer's own computer were being published
+along with the site. They held no passwords, but they are no longer published.
 
 ## v6.8.2 — The keyboard no longer pushes the chat off the screen
 

@@ -10,9 +10,12 @@
 // connection — and the next in-band ICE restart, which re-reads the list — picks
 // up the new credential without anything else having to know it changed.
 //
-// If the endpoint cannot be reached, nothing is changed and the entry keeps the
-// credential it shipped with. Only our relay's entries are touched; a TURN server
-// the user configured themselves is never modified.
+// The web build ships no relay entry at all: a TURN entry without a credential
+// is refused by RTCPeerConnection, and a built-in credential is exactly what this
+// replaced. So the first successful fetch ADDS the entry, and later ones renew it.
+// Until then — or if the site cannot be reached — connections use STUN only.
+// Only our relay's entries are touched; a TURN server the user configured
+// themselves is never modified.
 
 const ENDPOINT = '/api/turn-credentials';
 const OWN_RELAY_HOSTS = ['turn.securebit.chat', '144.172.96.126'];
@@ -42,7 +45,8 @@ function isCleanField(value) {
 }
 
 /**
- * Write a fresh credential into every own-relay entry of `list`, in place.
+ * Write a fresh credential into every own-relay entry of `list`, in place. When
+ * the list has no such entry yet and `cred.urls` names our relay, one is added.
  * @returns {boolean} whether anything was updated
  */
 export function applyTurnCredentials(list, cred) {
@@ -56,6 +60,15 @@ export function applyTurnCredentials(list, cred) {
         entry.credential = cred.credential;
         updated = true;
     }
+    if (!updated && Array.isArray(cred.urls)) {
+        // Only our relay's addresses may come from the response: the endpoint
+        // is trusted to renew a password, not to point connections elsewhere.
+        const urls = cred.urls.filter((u) => isCleanField(u) && OWN_RELAY_HOSTS.includes(relayHost(u)));
+        if (urls.length > 0) {
+            list.push({ urls, username: cred.username, credential: cred.credential });
+            updated = true;
+        }
+    }
     return updated;
 }
 
@@ -68,6 +81,7 @@ export function parseCredentialResponse(body, nowSeconds) {
     if (!Number.isFinite(expiry) || expiry <= nowSeconds) return null;
     const ttl = Number(body.ttl);
     return {
+        urls: Array.isArray(server.urls) ? server.urls.slice(0, 8) : [],
         username: server.username,
         credential: server.credential,
         expiry,
