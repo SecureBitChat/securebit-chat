@@ -38,6 +38,14 @@ const DIR = direction();
 // someone who asked for less motion does not want. The jump still happens and
 // still lands in the same place — it just stops travelling to get there.
 const scrollBehavior = () => (prefersReducedMotion() ? 'auto' : 'smooth');
+
+// After a chat ends, the start page scrolls to the donation card. The flag covers the
+// usual case where the card only mounts once the chat is gone; the event covers a card
+// that is already on screen. See src/components/ui/DonateCrypto.jsx.
+const requestDonateScroll = () => {
+    window.__sbScrollToDonate = Date.now();
+    document.dispatchEvent(new CustomEvent('securebit:scroll-to-donate'));
+};
 import { GroupChatView, GroupSasModal, CreateGroupModal, GroupInviteModal, GroupErrorModal, AddMembersModal } from './components/ui/GroupChat.jsx';
 import { GroupCallUI } from './components/ui/GroupCallUI.jsx';
 import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
@@ -1825,6 +1833,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     const uniqueSection = atIntro && h(UniqueFeatureSlider, { key: 'unique-features-slider' });
                     const partnersSection = atIntro && h(BecomePartner, { key: 'become-partner' });
                     const roadmapSection = atIntro && h(Roadmap, { key: 'roadmap' });
+                    const donateSection = atIntro && h(DonateCrypto, { key: 'donate-crypto' });
                     const communitySection = atIntro && h(CommunityCTA, { key: 'community-cta' });
 
                     // Ship the keyframes inside app.js so the animations can never go
@@ -1870,7 +1879,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                         return h('div', { className: 'sb-start', style: { flex: 1, minHeight: 0, width: '100%', display: 'flex', flexDirection: 'column', background: 'var(--sb-bg)', color: 'var(--sb-text-2)' } }, [keyframeStyle, rightPanel, qrModal]);
                     }
 
-                    return h('div', { className: 'sb-start', style: { width: '100%' } }, [keyframeStyle, hero, uniqueSection, partnersSection, roadmapSection, communitySection, qrModal]);
+                    return h('div', { className: 'sb-start', style: { width: '100%' } }, [keyframeStyle, hero, uniqueSection, partnersSection, roadmapSection, donateSection, communitySection, qrModal]);
                 };
         
                 // Global scroll function - defined outside components to ensure availability
@@ -6880,6 +6889,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     const handleDisconnect = () => {
                         try {
                             const id = activeIdRef.current;
+                            requestDonateScroll();
                             setSessionTimeLeft(0);
                             // Global lifecycle events (consumed by any remaining listeners).
                             document.dispatchEvent(new CustomEvent('peer-disconnect'));
@@ -6941,6 +6951,17 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     }, []);
 
                     const isConnectedAndVerified = (connectionStatus === 'connected' || connectionStatus === 'verified' || connectionStatus === 'reconnecting') && isVerified;
+
+                    // A chat that ends — the peer leaves, the link drops for good — lands
+                    // back on the start page; bring the donation card into view there. Only
+                    // for the SAME session going from chatting to not: switching to another
+                    // tab's blank session is not an ending.
+                    const prevChatRef = React.useRef({ id: activeSessionId, live: isConnectedAndVerified });
+                    React.useEffect(() => {
+                        const prev = prevChatRef.current;
+                        prevChatRef.current = { id: activeSessionId, live: isConnectedAndVerified };
+                        if (prev.live && !isConnectedAndVerified && prev.id === activeSessionId) requestDonateScroll();
+                    }, [isConnectedAndVerified, activeSessionId]);
 
                     // The PWA "Install app" pill is a landing-page affordance — hide it once
                     // we're inside the chat (CSS: body.sb-in-chat #pwa-install-button).

@@ -1,5 +1,9 @@
 # Changelog
 
+## v6.8.8 — Project support section
+
+Added a section to support the project.
+
 ## v6.8.6 — Desktop 1.0.4 downloads, and a simpler roadmap
 
 The download buttons now give you desktop version 1.0.4, which fetches its relay

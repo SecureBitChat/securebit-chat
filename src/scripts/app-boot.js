@@ -10,6 +10,7 @@ import '../components/ui/DownloadApps.jsx';
 import '../components/ui/BecomePartner.jsx';
 import '../components/ui/UniqueFeatureSlider.jsx';
 import '../components/ui/Roadmap.jsx';
+import '../components/ui/DonateCrypto.jsx';
 import '../components/ui/CommunityCTA.jsx';
 import '../components/ui/FileTransfer.jsx';
 import '../components/ui/IceServerSettings.jsx';
