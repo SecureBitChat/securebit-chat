@@ -798,6 +798,7 @@ button i {
 .sb-start .sb-sc::-webkit-scrollbar-thumb { background: rgba(var(--sb-ink), 0.1); border-radius: 99px; }
 .sb-seg-btn { transition: color .2s; }
 .sb-soft-btn { transition: all .15s; }
+.sb-qr-row:hover { background: rgba(var(--sb-ink), 0.025) !important; }
 .sb-soft-btn:hover { border-color: rgba(var(--sb-ink), 0.18) !important; color: var(--sb-text-2) !important; }
 .sb-scan-btn:hover { border-color: rgba(var(--sb-green-rgb), 0.5) !important; background: rgba(var(--sb-green-rgb), 0.1) !important; }
 .sb-gen-btn:hover { background: var(--sb-orange-hi) !important; }

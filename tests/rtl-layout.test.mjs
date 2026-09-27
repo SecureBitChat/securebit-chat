@@ -176,6 +176,13 @@ function sources() {
     assert.ok(app.slice(cells, cells + 60).includes("dir: 'ltr'"),
         'the safety-code tiles sit in a flex row, so they must be pinned left-to-right');
 
+    // The same code printed large above the tiles, in two groups side by side — another
+    // flex row, so in a right-to-left locale the groups would swap places.
+    const big = app.indexOf("key: 'code', style: { padding: '20px 0 22px'");
+    assert.notEqual(big, -1, 'the large safety-code display is gone — this guard now protects nothing');
+    assert.ok(app.slice(big, big + 400).includes("dir: 'ltr'"),
+        'the large safety-code display must be pinned left-to-right');
+
     // The group code, wherever it is put on screen. A plain `group.sasCode` also appears
     // in guard conditions, which render nothing — so the window looks both ways and only
     // the sites that are actually inside an element have to carry the direction.

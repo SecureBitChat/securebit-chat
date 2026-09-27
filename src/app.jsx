@@ -1170,9 +1170,23 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     const [copied, setCopied] = React.useState(false);
                     const [sasInput, setSasInput] = React.useState('');
                     const [sasError, setSasError] = React.useState('');
+                    const [sasFocused, setSasFocused] = React.useState(false);
+                    const [sasShake, setSasShake] = React.useState(0);
                     const [platformsOpen, setPlatformsOpen] = React.useState(false);
                     const [codeRevealed, setCodeRevealed] = React.useState(false);
                     const [genProgress, setGenProgress] = React.useState(0);
+                    // Countdown on the invitation: the joining side refuses an offer older
+                    // than 30 minutes (MAX_OFFER_AGE in EnhancedSecureWebRTCManager), measured
+                    // from the offer's own timestamp.
+                    const OFFER_TTL_MS = 30 * 60 * 1000;
+                    const offerTs = (offerData && typeof offerData === 'object' && Number(offerData.ts || offerData.timestamp)) || null;
+                    const [nowTick, setNowTick] = React.useState(() => Date.now());
+                    React.useEffect(() => {
+                        if (!showOfferStep || !offerTs) return undefined;
+                        setNowTick(Date.now());
+                        const id = setInterval(() => setNowTick(Date.now()), 1000);
+                        return () => clearInterval(id);
+                    }, [showOfferStep, offerTs]);
 
                     // Reset the typed SAS whenever a fresh verification code arrives
                     React.useEffect(() => { setSasInput(''); setSasError(''); }, [verificationCode]);
@@ -1549,72 +1563,151 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
 
                     const backButton = (key) => h('button', { key: key || 'back', className: 'sb-soft-btn', onClick: resetToSelect, style: { display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '14px', paddingBlock: '6px', paddingInlineStart: '8px', paddingInlineEnd: '11px', borderRadius: '8px', border: '1px solid rgba(var(--sb-ink), 0.08)', background: 'transparent', color: 'var(--sb-text-6)', fontFamily: 'inherit', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' } }, [fa('fa-chevron-left', { key: 'i' }), t('action.back')]);
 
-                    // credential code block (offer/answer text fallback + copy)
-                    const credBlock = h('div', { key: 'codeblock', style: { borderRadius: '13px', border: '1px solid rgba(var(--sb-ink), 0.08)', background: 'var(--sb-surface)', overflow: 'hidden', marginBottom: '16px' } }, [
-                        h('div', { key: 'bar', style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 12px', borderBottom: '1px solid rgba(var(--sb-ink), 0.06)', background: 'rgba(0,0,0,0.2)' } }, [
-                            h('span', { key: 'dot', style: { width: '7px', height: '7px', borderRadius: '50%', background: accent } }),
-                            h('span', { key: 'tag', style: { fontFamily: MONO, fontSize: '10.5px', fontWeight: 600, color: 'var(--sb-text-7)' } }, isCreate ? t('cred.offerTag') : t('cred.answerTag')),
-                            h('button', { key: 'copy', onClick: copyCred, style: { marginInlineStart: 'auto', padding: '4px 9px', borderRadius: '6px', border: `1px solid ${copied ? 'rgba(var(--sb-green-rgb), 0.4)' : 'rgba(var(--sb-ink), 0.1)'}`, background: copied ? 'rgba(var(--sb-green-rgb), 0.1)' : 'rgba(var(--sb-ink), 0.04)', color: copied ? C_GREEN : 'var(--sb-text-5)', fontFamily: 'inherit', fontSize: '11px', fontWeight: 600, cursor: 'pointer', transition: 'all .14s' } }, copied ? t('action.copied') : t('action.copy'))
+                    // Invitation card (Share Invitation v3 design): QR preview row on top,
+                    // the text code with copy + countdown below, one bordered surface.
+                    const offerLeft = (isCreate && offerTs) ? Math.max(0, Math.ceil((offerTs + OFFER_TTL_MS - nowTick) / 1000)) : null;
+                    const offerExpires = offerLeft === null ? null : `${Math.floor(offerLeft / 60)}:${String(offerLeft % 60).padStart(2, '0')}`;
+                    const credCard = h('div', { key: 'card', style: { borderRadius: '16px', border: '1px solid rgba(var(--sb-ink), 0.07)', background: 'var(--sb-surface)', overflow: 'hidden', marginBottom: isCreate ? '26px' : '16px' } }, [
+                        qrCodeUrl && h('button', { key: 'showqr', className: 'sb-qr-row', onClick: () => setQrModalOpen(true), style: { width: '100%', display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 16px', border: 'none', background: 'transparent', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'start', transition: 'background .15s' } }, [
+                            h('span', { key: 'ic', style: { flex: 'none', width: '48px', height: '48px', padding: '5px', borderRadius: '9px', background: '#fff' } },
+                                h('img', { src: qrCodeUrl, alt: '', style: { width: '100%', height: '100%', objectFit: 'contain', display: 'block', imageRendering: 'pixelated' } })),
+                            h('span', { key: 'tx', style: { flex: 1, minWidth: 0 } }, [
+                                h('span', { key: 't', style: { display: 'block', fontSize: '15px', fontWeight: 700, color: 'var(--sb-text-1)' } }, t('qr.showTitle')),
+                                h('span', { key: 's', style: { display: 'block', fontSize: '12.5px', color: 'var(--sb-text-7)', marginTop: '2px' } }, (qrFramesTotal || 0) > 1 ? t('qr.showSubtitleFrames', { frames: qrFramesTotal }) : t('qr.showSubtitle'))
+                            ]),
+                            fa('fa-chevron-right', { color: 'var(--sb-text-9)' })
                         ]),
-                        // The handshake code is sensitive — keep it blurred until the
-                        // user deliberately reveals it, underscoring that it must be
-                        // shared only over a channel they trust.
-                        h('div', { key: 'codewrap', style: { position: 'relative' } }, [
-                            h('div', { key: 'code', className: 'sb-sc', style: { fontFamily: MONO, fontSize: '11px', lineHeight: 1.55, color: 'var(--sb-text-code)', wordBreak: 'break-all', padding: '11px 12px', maxHeight: '72px', overflowY: 'auto', filter: codeRevealed ? 'none' : 'blur(6px)', userSelect: codeRevealed ? 'text' : 'none', transition: 'filter .2s' } }, credCode),
-                            !codeRevealed && h('button', { key: 'reveal', onClick: () => setCodeRevealed(true), style: { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', border: 'none', background: 'rgba(var(--sb-surface-rgb), 0.25)', color: 'var(--sb-text-4)', fontFamily: 'inherit', fontSize: '12px', fontWeight: 600, cursor: 'pointer' } }, [
-                                fa('fa-eye', { key: 'i', fontSize: '15px' }),
-                                t('cred.reveal')
+                        qrCodeUrl && h('div', { key: 'div', style: { height: '1px', background: 'rgba(var(--sb-ink), 0.06)' } }),
+                        h('div', { key: 'code', style: { padding: '12px 16px 16px' } }, [
+                            h('div', { key: 'bar', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '10px' } }, [
+                                h('span', { key: 'l', style: { fontSize: '12.5px', fontWeight: 600, color: 'var(--sb-text-6)' } }, t('cred.orCopy')),
+                                h('span', { key: 'r', style: { display: 'flex', alignItems: 'center', gap: '12px' } }, [
+                                    offerExpires && h('span', { key: 'exp', dir: 'ltr', style: { fontFamily: MONO, fontSize: '11px', color: offerLeft < 60 ? 'var(--sb-red)' : 'var(--sb-text-9)' } }, offerExpires),
+                                    h('button', { key: 'copy', className: 'sb-soft-btn', onClick: copyCred, style: { display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 11px', borderRadius: '8px', border: '1px solid rgba(var(--sb-ink), 0.1)', background: 'rgba(var(--sb-ink), 0.03)', color: 'var(--sb-text-2)', fontFamily: 'inherit', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer' } }, [
+                                        copied && fa('fa-check', { key: 'i', color: C_GREEN_SOLID }),
+                                        copied ? t('action.copied') : t('action.copy')
+                                    ])
+                                ])
+                            ]),
+                            // The handshake code is sensitive — keep it blurred until the
+                            // user deliberately reveals it, underscoring that it must be
+                            // shared only over a channel they trust.
+                            h('div', { key: 'codewrap', onClick: () => setCodeRevealed((v) => !v), style: { position: 'relative', borderRadius: '11px', border: '1px solid rgba(var(--sb-ink), 0.05)', background: 'var(--sb-bg)', overflow: 'hidden', cursor: 'pointer' } }, [
+                                h('div', { key: 'code', dir: 'ltr', className: 'sb-sc', style: { fontFamily: MONO, fontSize: '11.5px', lineHeight: 1.6, color: 'var(--sb-text-code)', wordBreak: 'break-all', padding: '11px 13px', maxHeight: '78px', overflowY: codeRevealed ? 'auto' : 'hidden', filter: codeRevealed ? 'none' : 'blur(5px)', userSelect: codeRevealed ? 'text' : 'none', transition: 'filter .25s' } }, credCode),
+                                !codeRevealed && h('span', { key: 'reveal', style: { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '0 12px', textAlign: 'center', color: 'var(--sb-text-3)', fontSize: '12.5px', fontWeight: 600 } }, [
+                                    fa('fa-eye', { key: 'i' }),
+                                    t('cred.reveal')
+                                ])
                             ])
                         ])
                     ]);
 
-                    const showQrButton = qrCodeUrl && h('button', { key: 'showqr', onClick: () => setQrModalOpen(true), style: { width: '100%', display: 'flex', alignItems: 'center', gap: '13px', padding: '15px 16px', borderRadius: '14px', border: `1px solid ${isCreate ? 'rgba(var(--sb-orange-rgb), 0.3)' : 'rgba(var(--sb-green-rgb), 0.3)'}`, background: isCreate ? 'rgba(var(--sb-orange-rgb), 0.06)' : 'rgba(var(--sb-green-rgb), 0.06)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'start', marginBottom: '14px' } }, [
-                        h('span', { key: 'ic', style: { flex: 'none', width: '42px', height: '42px', borderRadius: '12px', display: 'grid', placeItems: 'center', background: isCreate ? 'rgba(var(--sb-orange-rgb), 0.12)' : 'rgba(var(--sb-green-rgb), 0.12)', border: `1px solid ${isCreate ? 'rgba(var(--sb-orange-rgb), 0.28)' : 'rgba(var(--sb-green-rgb), 0.28)'}` } }, fa('fa-qrcode', { color: accentSolid, fontSize: '18px' })),
-                        h('span', { key: 'tx', style: { flex: 1 } }, [
-                            h('span', { key: 't', style: { display: 'block', fontSize: '14.5px', fontWeight: 700, color: 'var(--sb-text-1)' } }, t('qr.showTitle')),
-                            h('span', { key: 's', style: { display: 'block', fontSize: '12.5px', color: 'var(--sb-text-7)', marginTop: '1px' } }, (qrFramesTotal || 0) > 1 ? t('qr.showSubtitleFrames', { frames: qrFramesTotal }) : t('qr.showSubtitle'))
-                        ]),
-                        fa('fa-chevron-right', { color: 'var(--sb-text-9)' })
-                    ]);
-
                     let inner;
                     if (showVerification) {
+                        // Transcribed from the Claude Design component (SAS Verification.dc.html),
+                        // without its card: it sits straight in the setup column like the other steps.
                         const verified = bothVerificationsConfirmed;
-                        const cells = (verificationCode || '').split('').map((ch, i) =>
-                            h('div', { key: i, style: { flex: 1, maxWidth: '46px', aspectRatio: '0.82', display: 'grid', placeItems: 'center', borderRadius: '10px', border: '1px solid rgba(var(--sb-green-rgb), 0.25)', background: 'rgba(var(--sb-green-rgb), 0.05)', fontFamily: MONO, fontSize: '22px', fontWeight: 700, color: C_GREEN } }, ch));
+                        const code = (verificationCode || '').replace(/[-\s]/g, '');
+                        const n = code.length;
+                        const typed = sasInput.replace(/[-\s]/g, '');
+                        const full = n > 0 && typed.length === n;
+                        // Comparing against the code already on this screen reveals nothing; it
+                        // only spares a typo one of the limited real attempts in onVerifyConnection.
+                        const match = full && typed === code;
+                        const wrong = full && !match;
+                        const youOk = localVerificationConfirmed;
+                        const peerOk = remoteVerificationConfirmed;
+                        const waiting = youOk && !peerOk;
+                        const split = Math.min(3, n);
+                        const confirmable = canConfirm && match;
+                        const check = (k) => h('svg', { key: k, width: 12, height: 12, viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--sb-on-green-2)', strokeWidth: 3.2, strokeLinecap: 'round', strokeLinejoin: 'round' },
+                            h('path', { d: 'M5 12.5l4.2 4.2L19 7', strokeDasharray: 24, style: { animation: 'svDraw .35s ease-out .1s both' } }));
+                        const ring = (ok, soft) => ({
+                            position: 'relative', width: '22px', height: '22px', flex: 'none', borderRadius: '50%', display: 'grid', placeItems: 'center', transition: 'all .3s',
+                            border: `1.5px solid ${ok ? C_GREEN_SOLID : (soft ? 'rgba(var(--sb-green-rgb), 0.5)' : 'rgba(var(--sb-ink), 0.18)')}`,
+                            background: ok ? C_GREEN_SOLID : 'transparent'
+                        });
+                        const who = (k, label) => h('span', { key: k, style: { fontSize: '13px', fontWeight: 600, color: 'var(--sb-text-4)' } }, label);
+
+                        const cells = code.split('').map((_, i) => {
+                            const v = typed[i] || '';
+                            const active = sasFocused && !youOk && i === typed.length && !full;
+                            let border = 'rgba(var(--sb-ink), 0.09)';
+                            let color = 'var(--sb-text-1)';
+                            let anim = 'none';
+                            if (v) { border = 'rgba(var(--sb-ink), 0.2)'; anim = 'otpPop .28s cubic-bezier(.2,.8,.3,1.2) both'; }
+                            if (active) border = 'rgba(var(--sb-orange-rgb), 0.65)';
+                            if (wrong) { border = 'rgba(var(--sb-red-rgb), 0.6)'; color = 'var(--sb-red)'; }
+                            if (match) anim = `otpOk .45s cubic-bezier(.2,.8,.3,1) ${i * 55}ms both`;
+                            return h('span', { key: i, style: {
+                                position: 'relative', flex: 1, minWidth: 0, height: '56px', display: 'grid', placeItems: 'center', borderRadius: '12px',
+                                border: `1px solid ${border}`, background: 'var(--sb-surface)', fontFamily: MONO, fontSize: '22px', fontWeight: 600, color,
+                                transition: 'border-color .15s, color .15s, box-shadow .15s', animation: anim,
+                                marginInlineStart: i === split && n > split ? '10px' : 0,
+                                boxShadow: active ? '0 0 0 3px rgba(var(--sb-orange-rgb), 0.12)' : 'none'
+                            } }, [
+                                v,
+                                active && h('span', { key: 'caret', style: { position: 'absolute', left: '50%', top: '50%', width: '2px', height: '22px', margin: '-11px 0 0 -1px', borderRadius: '1px', background: C_ORANGE_SOLID, animation: 'otpCaret 1s steps(1) infinite' } })
+                            ]);
+                        });
+
                         inner = h('div', { key: 'verify', style: { animation: 'sbUp .3s ease' } }, [
                             !verified && backButton('vback'),
-                            h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', gap: '11px', marginBottom: '8px' } }, [
-                                h('div', { key: 'i', style: { width: '34px', height: '34px', flex: 'none', borderRadius: '10px', display: 'grid', placeItems: 'center', background: 'rgba(var(--sb-green-rgb), 0.1)', border: '1px solid rgba(var(--sb-green-rgb), 0.25)' } }, fa('fa-shield-alt', { color: C_GREEN_SOLID })),
-                                h('h2', { key: 't', style: { margin: 0, fontSize: '21px', fontWeight: 800, letterSpacing: '-0.4px', color: 'var(--sb-text-1)' } }, t('verify.title'))
+                            h('h2', { key: 't', style: { margin: '0 0 8px', fontSize: '22px', fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--sb-text-1)' } }, verified ? t('sasv.titleDone') : t('sasv.title')),
+                            h('p', { key: 'sub', style: { margin: '0 0 24px', fontSize: '13.5px', lineHeight: 1.55, color: 'var(--sb-text-7)', textWrap: 'pretty' } }, verified ? t('sasv.descDone') : t('sasv.desc')),
+                            h('div', { key: 'code', style: { padding: '20px 0 22px', borderTop: '1px solid rgba(var(--sb-ink), 0.06)', borderBottom: '1px solid rgba(var(--sb-ink), 0.06)', marginBottom: '22px', textAlign: 'center' } },
+                                h('div', { dir: 'ltr', style: { display: 'inline-flex', alignItems: 'center', gap: '18px', fontFamily: MONO, fontSize: '34px', fontWeight: 600, letterSpacing: '8px', lineHeight: 1, color: verified ? C_GREEN : 'var(--sb-text-1)', transition: 'color .4s' } },
+                                    n ? [h('span', { key: 'a' }, code.slice(0, split)), h('span', { key: 'b' }, code.slice(split))]
+                                      : h('span', { style: { fontSize: '14px', letterSpacing: 0, color: 'var(--sb-text-8)' } }, t('verify.waiting')))),
+                            !verified && h('div', { key: 'form' }, [
+                                h('div', { key: 'lbl', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' } }, [
+                                    h('span', { key: 'l', style: { fontSize: '12.5px', fontWeight: 600, color: 'var(--sb-text-6)' } }, t('sasv.enter')),
+                                    h('span', { key: 'h', style: { fontFamily: MONO, fontSize: '11px', transition: 'color .2s', color: full ? (match ? C_GREEN : 'var(--sb-red)') : 'var(--sb-text-faint)' } },
+                                        full ? (match ? t('sasv.match') : t('sasv.noMatch')) : `${typed.length} / ${n || SAS_CODE_LENGTH}`)
+                                ]),
+                                h('label', { key: 'cells', dir: 'ltr', style: { position: 'relative', display: 'flex', gap: '6px', marginBottom: sasError ? '8px' : '18px', cursor: 'text', animation: wrong ? `otpShake .4s ease ${sasShake % 2 ? '0s' : '0.001s'}` : 'none' } }, [
+                                    ...cells,
+                                    h('input', { key: 'in', dir: 'ltr', value: sasInput, disabled: youOk || !n, autoFocus: true, autoComplete: 'one-time-code', spellCheck: false, type: 'text', inputMode: 'numeric', pattern: '[0-9]*', maxLength: n || SAS_CODE_LENGTH, 'aria-label': t('sasv.enter'),
+                                        onChange: (e) => {
+                                            const v = e.target.value.replace(/\D/g, '').slice(0, n || SAS_CODE_LENGTH);
+                                            if (n && v.length === n && v !== code) setSasShake((k) => k + 1);
+                                            setSasInput(v);
+                                            if (sasError) setSasError('');
+                                        },
+                                        onFocus: () => setSasFocused(true), onBlur: () => setSasFocused(false),
+                                        style: { position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, border: 'none', outline: 'none', background: 'transparent', color: 'transparent', caretColor: 'transparent', fontSize: '16px' } })
+                                ]),
+                                sasError && h('p', { key: 'err', style: { color: 'var(--sb-red)', fontSize: '12.5px', margin: '0 0 16px' } }, sasError)
                             ]),
-                            h('p', { key: 'sub', style: { margin: '0 0 18px', fontSize: '13.5px', lineHeight: 1.55, color: 'var(--sb-text-7)' } }, t('verify.desc')),
-                            h('div', { key: 'cells', dir: 'ltr', style: { display: 'flex', gap: '6px', justifyContent: 'center', marginBottom: '20px', flexWrap: 'wrap' } }, cells),
-                            verified
-                                ? h('div', { key: 'ok', style: { display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '24px 16px', borderRadius: '16px', border: '1px solid rgba(var(--sb-green-rgb), 0.25)', background: 'rgba(var(--sb-green-rgb), 0.06)', animation: 'sbUp .3s ease' } }, [
-                                    h('div', { key: 'i', style: { width: '54px', height: '54px', borderRadius: '16px', display: 'grid', placeItems: 'center', background: 'rgba(var(--sb-green-rgb), 0.14)', border: '1px solid rgba(var(--sb-green-rgb), 0.35)', marginBottom: '14px' } }, fa('fa-check', { color: C_GREEN_SOLID, fontSize: '24px' })),
-                                    h('div', { key: 't', style: { fontSize: '18px', fontWeight: 800, color: 'var(--sb-text-1)' } }, t('verify.verified')),
-                                    h('div', { key: 's', style: { fontSize: '13.5px', color: 'var(--sb-text-7)', marginTop: '5px' } }, t('verify.bothConfirmed'))
+                            h('div', { key: 'link', style: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' } }, [
+                                h('div', { key: 'you', style: { display: 'flex', alignItems: 'center', gap: '9px', flex: 'none' } }, [
+                                    h('span', { key: 'r', style: ring(youOk, false) }, youOk && check('c')),
+                                    who('l', t('sasv.you'))
+                                ]),
+                                h('div', { key: 'bar', style: { position: 'relative', flex: 1, height: '2px', borderRadius: '2px', background: 'rgba(var(--sb-ink), 0.08)', overflow: 'hidden' } }, [
+                                    h('div', { key: 'fill', style: { position: 'absolute', insetInlineStart: 0, top: 0, bottom: 0, width: peerOk ? '100%' : (youOk ? '50%' : '0%'), background: C_GREEN_SOLID, transition: 'width .6s cubic-bezier(.4,0,.2,1)' } }),
+                                    waiting && h('div', { key: 'scan', style: { position: 'absolute', top: 0, bottom: 0, width: '30%', background: 'linear-gradient(90deg, transparent, rgba(var(--sb-green-rgb), 0.9), transparent)', animation: 'svScan 1.1s ease-in-out infinite' } })
+                                ]),
+                                h('div', { key: 'peer', style: { display: 'flex', alignItems: 'center', gap: '9px', flex: 'none' } }, [
+                                    who('l', t('sasv.peer')),
+                                    h('span', { key: 'r', style: ring(peerOk, youOk) }, peerOk && check('c'))
                                 ])
-                                : h('div', { key: 'form' }, [
-                                    h('div', { key: 'lbl', style: { fontSize: '12.5px', fontWeight: 600, color: 'var(--sb-text-6)', marginBottom: '8px' } }, t('verify.enterLabel')),
-                                    h('input', { key: 'in', dir: 'ltr', value: sasInput, onChange: (e) => { setSasInput(e.target.value.replace(/\D/g, '').slice(0, SAS_CODE_LENGTH)); if (sasError) setSasError(''); }, disabled: localVerificationConfirmed, autoFocus: true, autoComplete: 'one-time-code', spellCheck: false, type: 'text', inputMode: 'numeric', pattern: '[0-9]*', maxLength: SAS_CODE_LENGTH, placeholder: verificationCode ? t('verify.placeholder') : t('verify.waiting'), style: { width: '100%', textAlign: 'center', letterSpacing: '6px', borderRadius: '12px', border: `1px solid ${sasInput.length ? (canConfirm || localVerificationConfirmed ? 'rgba(var(--sb-green-rgb), 0.5)' : 'rgba(var(--sb-ink), 0.14)') : 'rgba(var(--sb-ink), 0.08)'}`, background: 'var(--sb-surface)', color: 'var(--sb-text-1)', fontFamily: MONO, fontSize: '20px', fontWeight: 700, padding: '14px', outline: 'none', marginBottom: sasError ? '8px' : '16px' } }),
-                                    sasError && h('p', { key: 'err', style: { color: 'var(--sb-red)', fontSize: '12.5px', margin: '0 0 16px' } }, sasError),
-                                    h('div', { key: 'status', style: { display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' } }, [
-                                        h('div', { key: 'you', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderRadius: '11px', border: '1px solid rgba(var(--sb-ink), 0.06)', background: 'var(--sb-surface)' } }, [
-                                            h('span', { key: 'l', style: { fontSize: '13px', color: 'var(--sb-text-4)', fontWeight: 600 } }, t('verify.yours')),
-                                            h('span', { key: 'v', style: { display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: localVerificationConfirmed ? C_GREEN : 'var(--sb-text-8)' } }, [fa(localVerificationConfirmed ? 'fa-check-circle' : 'fa-clock', { key: 'i' }), localVerificationConfirmed ? t('verify.confirmed') : t('verify.pending')])
-                                        ]),
-                                        h('div', { key: 'peer', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderRadius: '11px', border: '1px solid rgba(var(--sb-ink), 0.06)', background: 'var(--sb-surface)' } }, [
-                                            h('span', { key: 'l', style: { fontSize: '13px', color: 'var(--sb-text-4)', fontWeight: 600 } }, t('verify.peer')),
-                                            h('span', { key: 'v', style: { display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: remoteVerificationConfirmed ? C_GREEN : 'var(--sb-text-8)' } }, [fa(remoteVerificationConfirmed ? 'fa-check-circle' : 'fa-clock', { key: 'i' }), remoteVerificationConfirmed ? t('verify.confirmed') : t('verify.pending')])
-                                        ])
-                                    ]),
-                                    h('div', { key: 'btns', style: { display: 'flex', gap: '10px' } }, [
-                                        h('button', { key: 'ok', onClick: handleSasConfirm, disabled: !canConfirm, style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', borderRadius: '13px', border: 'none', background: canConfirm ? C_GREEN_SOLID : 'rgba(var(--sb-ink), 0.05)', color: canConfirm ? 'var(--sb-on-green-2)' : 'var(--sb-text-faint)', fontFamily: 'inherit', fontSize: '14.5px', fontWeight: 700, cursor: canConfirm ? 'pointer' : 'not-allowed', boxShadow: canConfirm ? '0 8px 24px rgba(var(--sb-green-rgb), 0.25)' : 'none' } }, [fa(localVerificationConfirmed ? 'fa-check-circle' : 'fa-check', { key: 'i' }), localVerificationConfirmed ? t('verify.confirmed') : t('verify.confirm')]),
-                                        h('button', { key: 'no', onClick: handleVerificationReject, style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', padding: '14px 16px', borderRadius: '13px', border: '1px solid rgba(var(--sb-red-rgb), 0.3)', background: 'transparent', color: 'var(--sb-red)', fontFamily: 'inherit', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' } }, [fa('fa-times', { key: 'i' }), t('verify.mismatch')])
-                                    ])
+                            ]),
+                            !verified
+                                ? h('div', { key: 'btns' }, [
+                                    h('button', { key: 'ok', onClick: handleSasConfirm, disabled: !confirmable, style: { width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', borderRadius: '13px', border: 'none', fontFamily: 'inherit', fontSize: '14.5px', fontWeight: 700, transition: 'background .25s, color .25s',
+                                        background: youOk ? 'rgba(var(--sb-green-rgb), 0.12)' : (confirmable ? C_GREEN_SOLID : 'rgba(var(--sb-ink), 0.05)'),
+                                        color: youOk ? C_GREEN : (confirmable ? 'var(--sb-on-green-2)' : 'var(--sb-text-faint)'),
+                                        cursor: confirmable ? 'pointer' : 'default' } }, youOk ? t('sasv.waitingPeer') : t('verify.confirm')),
+                                    h('button', { key: 'no', onClick: handleVerificationReject, className: 'sb-sas-mismatch', style: { display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', marginTop: '10px', padding: '8px', border: 'none', background: 'transparent', color: 'var(--sb-text-7)', fontFamily: 'inherit', fontSize: '13px', fontWeight: 600, cursor: 'pointer', transition: 'color .15s' },
+                                        onMouseEnter: (e) => { e.currentTarget.style.color = 'var(--sb-red)'; }, onMouseLeave: (e) => { e.currentTarget.style.color = 'var(--sb-text-7)'; } }, t('sasv.codesDiffer'))
                                 ])
+                                : h('div', { key: 'opening', style: { animation: 'svFade .35s ease .3s both' } },
+                                    h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '14px 0 4px', fontSize: '13.5px', fontWeight: 600, color: 'var(--sb-text-4)' } }, [
+                                        t('sasv.opening'),
+                                        h('span', { key: 'd', style: { display: 'inline-flex', gap: '4px' } }, [0, 0.15, 0.3].map((d, i) =>
+                                            h('span', { key: i, style: { width: '4px', height: '4px', borderRadius: '50%', background: C_GREEN_SOLID, animation: `svDot 1.2s ease-in-out ${d}s infinite` } })))
+                                    ]))
                         ]);
                     } else if (isGenerating) {
                         const genSteps = [t('handshake.step1'), t('handshake.step2'), t('handshake.step3')];
@@ -1643,22 +1736,24 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     } else if (isOfferCred || isAnswerCred) {
                         inner = h('div', { key: 'cred', style: { animation: 'sbUp .3s ease' } }, [
                             backButton('cback'),
-                            h('h2', { key: 'h', style: { margin: '0 0 6px', fontSize: '23px', fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--sb-text-1)' } }, isCreate ? t('handshake.shareTitle') : t('handshake.sendAnswerTitle')),
-                            h('p', { key: 'p', style: { margin: '0 0 18px', fontSize: '14px', lineHeight: 1.55, color: 'var(--sb-text-7)' } }, isCreate ? t('handshake.shareDesc') : t('handshake.sendAnswerDesc')),
-                            showQrButton,
-                            credBlock,
-                            isOfferCred && h('div', { key: 'offerextra', style: { marginTop: '4px' } }, [
-                                h('div', { key: 'lbl', style: { fontSize: '12.5px', fontWeight: 600, color: 'var(--sb-text-6)', marginBottom: '8px' } }, t('handshake.thenReceive')),
-                                h('div', { key: 'ta', style: { borderRadius: '12px', border: `1px solid ${hasAnswer ? 'rgba(var(--sb-ink), 0.18)' : 'rgba(var(--sb-ink), 0.07)'}`, background: 'var(--sb-surface)', padding: '11px 14px', marginBottom: '10px' } },
-                                    h('textarea', { dir: 'ltr', value: answerInput, onChange: (e) => { setAnswerInput(e.target.value); if (e.target.value.trim().length > 0 && typeof markAnswerCreated === 'function') markAnswerCreated(); }, rows: 2, placeholder: t('handshake.pasteAnswerPlaceholder'), style: { width: '100%', resize: 'none', border: 'none', outline: 'none', background: 'transparent', color: 'var(--sb-text-3)', fontFamily: MONO, fontSize: '12px', lineHeight: 1.55, minHeight: '44px' } })),
+                            h('h2', { key: 'h', style: { margin: '0 0 8px', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.7px', color: 'var(--sb-text-1)' } }, isCreate ? t('handshake.shareTitle') : t('handshake.sendAnswerTitle')),
+                            h('p', { key: 'p', style: { margin: '0 0 24px', fontSize: '14px', lineHeight: 1.55, color: 'var(--sb-text-7)' } }, isCreate ? t('handshake.shareDesc') : t('handshake.sendAnswerDesc')),
+                            credCard,
+                            isOfferCred && h('div', { key: 'offerextra' }, [
+                                h('div', { key: 'lbl', style: { fontSize: '13.5px', fontWeight: 600, color: 'var(--sb-text-3)', marginBottom: '10px' } }, t('handshake.thenReceive')),
+                                h('textarea', { key: 'ta', dir: 'ltr', value: answerInput, onChange: (e) => { setAnswerInput(e.target.value); if (e.target.value.trim().length > 0 && typeof markAnswerCreated === 'function') markAnswerCreated(); }, rows: 3, placeholder: t('handshake.pasteAnswerPlaceholder'), style: { display: 'block', width: '100%', resize: 'none', borderRadius: '14px', border: `1px solid ${hasAnswer ? 'rgba(var(--sb-orange-rgb), 0.45)' : 'rgba(var(--sb-ink), 0.08)'}`, background: 'var(--sb-surface)', outline: 'none', color: 'var(--sb-text-2)', fontFamily: MONO, fontSize: '12.5px', lineHeight: 1.5, padding: '13px 15px', marginBottom: '12px', transition: 'border-color .15s' } }),
                                 h('div', { key: 'btns', style: { display: 'flex', gap: '10px' } }, [
-                                    h('button', { key: 'scan', className: 'sb-scan-btn', onClick: () => setShowQRScannerModal(true), style: { flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px 16px', borderRadius: '13px', border: '1px solid rgba(var(--sb-ink), 0.1)', background: 'rgba(var(--sb-ink), 0.04)', color: 'var(--sb-text-4)', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, cursor: 'pointer' } }, [fa('fa-camera', { key: 'i' }), t('action.scan')]),
-                                    h('button', { key: 'est', onClick: onConnect, disabled: !hasAnswer, style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '14px', borderRadius: '13px', border: 'none', background: hasAnswer ? C_ORANGE_SOLID : 'rgba(var(--sb-ink), 0.05)', color: hasAnswer ? 'var(--sb-on-accent)' : 'var(--sb-text-faint)', fontFamily: 'inherit', fontSize: '14.5px', fontWeight: 700, cursor: hasAnswer ? 'pointer' : 'not-allowed', boxShadow: hasAnswer ? '0 8px 24px rgba(var(--sb-orange-rgb), 0.28)' : 'none' } }, t('handshake.establish'))
+                                    h('button', { key: 'scan', className: 'sb-scan-btn', onClick: () => setShowQRScannerModal(true), style: { flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '0 18px', height: '50px', borderRadius: '13px', border: '1px solid rgba(var(--sb-ink), 0.1)', background: 'transparent', color: 'var(--sb-text-2)', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, cursor: 'pointer' } }, [
+                                        h('svg', { key: 'i', width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+                                            h('path', { d: 'M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10' })),
+                                        t('action.scan')
+                                    ]),
+                                    h('button', { key: 'est', onClick: onConnect, disabled: !hasAnswer, style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px', height: '50px', borderRadius: '13px', border: 'none', background: hasAnswer ? C_ORANGE_SOLID : 'rgba(var(--sb-ink), 0.05)', color: hasAnswer ? 'var(--sb-on-accent)' : 'var(--sb-text-faint)', fontFamily: 'inherit', fontSize: '14.5px', fontWeight: 700, cursor: hasAnswer ? 'pointer' : 'not-allowed', transition: 'background .2s, color .2s' } }, t('handshake.establish'))
                                 ])
                             ]),
-                            isAnswerCred && h('div', { key: 'answerextra', style: { marginTop: '4px', display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', borderRadius: '12px', border: '1px solid rgba(var(--sb-green-rgb), 0.18)', background: 'rgba(var(--sb-green-rgb), 0.05)' } }, [
-                                fa('fa-circle-notch', { key: 'i', color: C_GREEN_SOLID, animation: 'sbSpin 1.4s linear infinite' }),
-                                h('span', { key: 't', style: { fontSize: '13px', color: 'var(--sb-text-4)', fontWeight: 500 } }, t('handshake.answerSentNote'))
+                            isAnswerCred && h('div', { key: 'answerextra', style: { display: 'flex', alignItems: 'center', gap: '12px', padding: '4px 2px' } }, [
+                                h('span', { key: 'i', style: { flex: 'none', width: '16px', height: '16px', borderRadius: '50%', border: '2px solid rgba(var(--sb-ink), 0.1)', borderTopColor: C_ORANGE_SOLID, animation: 'sbSpin .9s linear infinite' } }),
+                                h('span', { key: 't', style: { fontSize: '13px', lineHeight: 1.5, color: 'var(--sb-text-7)' } }, t('handshake.answerSentNote'))
                             ])
                         ]);
                     } else if (isCreate) {
@@ -1669,26 +1764,30 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                             h('button', { key: 'gen', className: 'sb-gen-btn', onClick: () => { requestNotificationPermissionOnInteraction(); if (webrtcManagerRef.current) handleCreateOffer(); }, style: { width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '15px', borderRadius: '13px', border: 'none', background: C_ORANGE_SOLID, color: 'var(--sb-on-accent)', fontFamily: 'inherit', fontSize: '15px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 8px 24px rgba(var(--sb-orange-rgb), 0.28)' } }, [fa('fa-bolt', { key: 'i' }), t('intro.createCta')])
                         ]);
                     } else {
-                        // JOIN intro
+                        // JOIN intro — same card language as the invitation/answer screens:
+                        // scan row on top, the paste field below, one bordered surface.
+                        const canJoin = hasInvite && connectionStatus !== 'connecting';
                         inner = h('div', { key: 'introJ', style: { animation: 'sbUp .28s ease' } }, [
-                            h('h2', { key: 'h', style: { margin: '0 0 6px', fontSize: '23px', fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--sb-text-1)' } }, t('intro.joinTitle')),
-                            h('p', { key: 'p', style: { margin: '0 0 16px', fontSize: '14px', lineHeight: 1.55, color: 'var(--sb-text-7)' } }, "Scan your peer's QR with your camera, or paste their invitation code."),
-                            h('button', { key: 'scan', className: 'sb-scan-btn', onClick: () => { requestNotificationPermissionOnInteraction(); setShowQRScannerModal(true); }, style: { width: '100%', display: 'flex', alignItems: 'center', gap: '13px', padding: '15px 16px', borderRadius: '14px', border: '1px solid rgba(var(--sb-green-rgb), 0.3)', background: 'rgba(var(--sb-green-rgb), 0.06)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'start', marginBottom: '14px' } }, [
-                                h('span', { key: 'ic', style: { flex: 'none', width: '42px', height: '42px', borderRadius: '12px', display: 'grid', placeItems: 'center', background: 'rgba(var(--sb-green-rgb), 0.12)', border: '1px solid rgba(var(--sb-green-rgb), 0.28)' } }, fa('fa-camera', { color: C_GREEN_SOLID, fontSize: '18px' })),
-                                h('span', { key: 'tx', style: { flex: 1 } }, [
-                                    h('span', { key: 't', style: { display: 'block', fontSize: '14.5px', fontWeight: 700, color: 'var(--sb-text-1)' } }, t('intro.scanTitle')),
-                                    h('span', { key: 's', style: { display: 'block', fontSize: '12.5px', color: 'var(--sb-text-7)', marginTop: '1px' } }, t('intro.scanSubtitle'))
+                            h('h2', { key: 'h', style: { margin: '0 0 8px', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.7px', color: 'var(--sb-text-1)' } }, t('intro.joinTitle')),
+                            h('p', { key: 'p', style: { margin: '0 0 24px', fontSize: '14px', lineHeight: 1.55, color: 'var(--sb-text-7)' } }, t('intro.joinDesc')),
+                            h('div', { key: 'card', style: { borderRadius: '16px', border: '1px solid rgba(var(--sb-ink), 0.07)', background: 'var(--sb-surface)', overflow: 'hidden', marginBottom: '12px' } }, [
+                                h('button', { key: 'scan', className: 'sb-qr-row', onClick: () => { requestNotificationPermissionOnInteraction(); setShowQRScannerModal(true); }, style: { width: '100%', display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 16px', border: 'none', background: 'transparent', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'start', transition: 'background .15s' } }, [
+                                    h('span', { key: 'ic', style: { flex: 'none', width: '48px', height: '48px', borderRadius: '9px', display: 'grid', placeItems: 'center', background: 'rgba(var(--sb-ink), 0.05)', border: '1px solid rgba(var(--sb-ink), 0.08)', color: 'var(--sb-text-2)' } },
+                                        h('svg', { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+                                            h('path', { d: 'M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10' }))),
+                                    h('span', { key: 'tx', style: { flex: 1, minWidth: 0 } }, [
+                                        h('span', { key: 't', style: { display: 'block', fontSize: '15px', fontWeight: 700, color: 'var(--sb-text-1)' } }, t('intro.scanTitle')),
+                                        h('span', { key: 's', style: { display: 'block', fontSize: '12.5px', color: 'var(--sb-text-7)', marginTop: '2px' } }, t('intro.scanSubtitle'))
+                                    ]),
+                                    fa('fa-chevron-right', { color: 'var(--sb-text-9)' })
                                 ]),
-                                fa('fa-chevron-right', { color: 'var(--sb-text-9)' })
+                                h('div', { key: 'div', style: { height: '1px', background: 'rgba(var(--sb-ink), 0.06)' } }),
+                                h('div', { key: 'paste', style: { padding: '12px 16px 16px' } }, [
+                                    h('div', { key: 'l', style: { fontSize: '12.5px', fontWeight: 600, color: 'var(--sb-text-6)', marginBottom: '10px' } }, t('intro.orPasteCode')),
+                                    h('textarea', { key: 'ta', dir: 'ltr', value: offerInput, onChange: (e) => { setOfferInput(e.target.value); if (e.target.value.trim().length > 0 && typeof markAnswerCreated === 'function') markAnswerCreated(); }, rows: 3, placeholder: t('intro.pastePlaceholder'), style: { display: 'block', width: '100%', resize: 'none', borderRadius: '11px', border: `1px solid ${hasInvite ? 'rgba(var(--sb-orange-rgb), 0.45)' : 'rgba(var(--sb-ink), 0.05)'}`, background: 'var(--sb-bg)', outline: 'none', color: 'var(--sb-text-2)', fontFamily: MONO, fontSize: '12.5px', lineHeight: 1.5, padding: '11px 13px', transition: 'border-color .15s' } })
+                                ])
                             ]),
-                            h('div', { key: 'or', style: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' } }, [
-                                h('span', { key: 'a', style: { flex: 1, height: '1px', background: 'rgba(var(--sb-ink), 0.07)' } }),
-                                h('span', { key: 'm', style: { fontSize: '11px', fontWeight: 600, color: 'var(--sb-text-faint)', textTransform: 'uppercase', letterSpacing: '0.7px' } }, t('intro.orPasteCode')),
-                                h('span', { key: 'b', style: { flex: 1, height: '1px', background: 'rgba(var(--sb-ink), 0.07)' } })
-                            ]),
-                            h('div', { key: 'ta', style: { borderRadius: '13px', border: `1px solid ${hasInvite ? 'rgba(var(--sb-ink), 0.18)' : 'rgba(var(--sb-ink), 0.07)'}`, background: 'var(--sb-surface)', padding: '13px 15px', marginBottom: '12px' } },
-                                h('textarea', { dir: 'ltr', value: offerInput, onChange: (e) => { setOfferInput(e.target.value); if (e.target.value.trim().length > 0 && typeof markAnswerCreated === 'function') markAnswerCreated(); }, rows: 3, placeholder: t('intro.pastePlaceholder'), style: { width: '100%', resize: 'none', border: 'none', outline: 'none', background: 'transparent', color: 'var(--sb-text-3)', fontFamily: MONO, fontSize: '12.5px', lineHeight: 1.6, minHeight: '66px' } })),
-                            h('button', { key: 'connect', onClick: () => { requestNotificationPermissionOnInteraction(); onCreateAnswer(); }, disabled: !hasInvite || connectionStatus === 'connecting', style: { width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '14px', borderRadius: '13px', border: 'none', background: (hasInvite && connectionStatus !== 'connecting') ? C_ORANGE_SOLID : 'rgba(var(--sb-ink), 0.05)', color: (hasInvite && connectionStatus !== 'connecting') ? 'var(--sb-on-accent)' : 'var(--sb-text-faint)', fontFamily: 'inherit', fontSize: '15px', fontWeight: 700, cursor: (hasInvite && connectionStatus !== 'connecting') ? 'pointer' : 'not-allowed', boxShadow: (hasInvite && connectionStatus !== 'connecting') ? '0 8px 24px rgba(var(--sb-orange-rgb), 0.28)' : 'none' } }, connectionStatus === 'connecting' ? t('intro.connecting') : t('intro.connect'))
+                            h('button', { key: 'connect', onClick: () => { requestNotificationPermissionOnInteraction(); onCreateAnswer(); }, disabled: !canJoin, style: { width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px', height: '50px', borderRadius: '13px', border: 'none', background: canJoin ? C_ORANGE_SOLID : 'rgba(var(--sb-ink), 0.05)', color: canJoin ? 'var(--sb-on-accent)' : 'var(--sb-text-faint)', fontFamily: 'inherit', fontSize: '14.5px', fontWeight: 700, cursor: canJoin ? 'pointer' : 'not-allowed', transition: 'background .2s, color .2s' } }, connectionStatus === 'connecting' ? t('intro.connecting') : t('intro.connect'))
                         ]);
                     }
 
@@ -1704,7 +1803,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     // /download/v0.3.0/SecureBit.Chat_0.1.0_x64-setup.exe, a file that never
                     // existed, and the download 404s. A pinned tag keeps serving a real
                     // installer instead.
-                    const SB_DESKTOP_VERSION = '1.0.4';
+                    const SB_DESKTOP_VERSION = '1.0.5';
                     const SB_DESKTOP_RELEASE = `https://github.com/SecureBitChat/securebit-desktop/releases/download/v${SB_DESKTOP_VERSION}`;
                     const DOWNLOADS = {
                         mac: { name: 'macOS', format: '.dmg · Apple Silicon & Intel', icon: 'fab fa-apple', url: `${SB_DESKTOP_RELEASE}/SecureBit.Chat_${SB_DESKTOP_VERSION}_x64.dmg` },
@@ -1847,6 +1946,15 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                         '@keyframes sbNode{0%,100%{box-shadow:0 0 0 0 rgba(var(--sb-green-rgb), 0)}50%{box-shadow:0 0 0 6px rgba(var(--sb-green-rgb), .06)}}' +
                         '@keyframes sbScan{0%{top:8%}100%{top:88%}}' +
                         '@keyframes sbBlink{0%,100%{opacity:1}50%{opacity:.35}}' +
+                        // SAS verification step (SAS Verification.dc.html).
+                        '@keyframes otpPop{0%{transform:translateY(6px) scale(.9);opacity:0}60%{transform:translateY(-1px) scale(1.04);opacity:1}100%{transform:none;opacity:1}}' +
+                        '@keyframes otpOk{0%{transform:none}45%{transform:translateY(-4px)}100%{transform:none;background:rgba(var(--sb-green-rgb),.07);border-color:rgba(var(--sb-green-rgb),.55);color:var(--sb-green)}}' +
+                        '@keyframes otpShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(2px)}}' +
+                        '@keyframes otpCaret{0%,100%{opacity:1}50%{opacity:0}}' +
+                        '@keyframes svDot{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}' +
+                        '@keyframes svDraw{from{stroke-dashoffset:24}to{stroke-dashoffset:0}}' +
+                        '@keyframes svScan{from{left:-30%}to{left:100%}}' +
+                        '@keyframes svFade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}' +
                         // P2P / mesh animation (left panel). One 14s loop: the direct line is
                         // already up, then two peers join it. `sbTrav` moves a dot along the
                         // same geometry the line is drawn from, via offset-path, so the packet

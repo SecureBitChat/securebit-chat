@@ -9,7 +9,7 @@
 No accounts. No servers storing your messages. No installation required.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-f0892a.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-6.8.8-3ecf8e.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-6.8.12-3ecf8e.svg)](CHANGELOG.md)
 [![Get it from the Snap Store](https://snapcraft.io/securebit-chat/badge.svg)](https://snapcraft.io/securebit-chat)
 [![PWA](https://img.shields.io/badge/PWA-installable-3ecf8e.svg)](#install-as-an-app)
 [![Encryption](https://img.shields.io/badge/crypto-ECDH%20P--384%20%C2%B7%20AES--256--GCM-blue.svg)](#security-model)
@@ -31,7 +31,7 @@ From the web app at [securebit.chat](https://securebit.chat) — no install, no 
 
 | Open a channel | Verify the safety code |
 | :---: | :---: |
-| ![The landing page, with the option to create a channel or join one with an invitation](assets/screenshots/web-start.png) | ![The security verification screen, showing a seven-digit safety code to compare with the other person](assets/screenshots/web-verification.png) |
+| ![The landing page, with the option to create a channel or join one with an invitation](assets/screenshots/web-start.png) | ![The Verify your peer screen: a seven-digit safety code to read aloud, boxes to type it in, and You and Peer confirmation marks](assets/screenshots/web-verification.png) |
 | Your device generates the keys and a one-time invitation. Nothing touches a server. | Compare the code out of band. Until both sides confirm, the chat stays locked. |
 
 | Encrypted conversation | Voice and video |

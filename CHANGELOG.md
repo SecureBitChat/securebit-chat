@@ -1,5 +1,11 @@
 # Changelog
 
+## v6.8.12 — New design for exchanging invitations
+
+New design for the screens where you exchange invitations and answers with your
+peer, and for the safety code check. The download buttons now give you desktop
+version 1.0.5.
+
 ## v6.8.8 — Project support section
 
 Added a section to support the project.
