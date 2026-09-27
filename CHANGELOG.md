@@ -1,5 +1,11 @@
 # Changelog
 
+## v6.8.14 — Desktop 1.0.6 downloads
+
+The download buttons now give you desktop version 1.0.6, which adds a light theme
+and the new invitation screens. The window with the QR code no longer has the
+coloured dots.
+
 ## v6.8.12 — New design for exchanging invitations
 
 New design for the screens where you exchange invitations and answers with your

@@ -1379,9 +1379,6 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     const isOfferCred = isCreate && showOfferStep && !showVerification;
                     const isAnswerCred = !isCreate && showAnswerStep && !showVerification;
                     const atIntro = !showVerification && !isGenerating && !isOfferCred && !isAnswerCred;
-                    const accent = isCreate ? C_ORANGE : C_GREEN;
-                    // Same pair as a mark: fa() puts `color` on the icon's stroke.
-                    const accentSolid = isCreate ? C_ORANGE_SOLID : C_GREEN_SOLID;
                     const kicker = showVerification
                         ? t('step.verification')
                         : ((isOfferCred || isAnswerCred) ? t('step.exchange') : t('step.open'));
@@ -1803,7 +1800,7 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     // /download/v0.3.0/SecureBit.Chat_0.1.0_x64-setup.exe, a file that never
                     // existed, and the download 404s. A pinned tag keeps serving a real
                     // installer instead.
-                    const SB_DESKTOP_VERSION = '1.0.5';
+                    const SB_DESKTOP_VERSION = '1.0.6';
                     const SB_DESKTOP_RELEASE = `https://github.com/SecureBitChat/securebit-desktop/releases/download/v${SB_DESKTOP_VERSION}`;
                     const DOWNLOADS = {
                         mac: { name: 'macOS', format: '.dmg · Apple Silicon & Intel', icon: 'fab fa-apple', url: `${SB_DESKTOP_RELEASE}/SecureBit.Chat_${SB_DESKTOP_VERSION}_x64.dmg` },
@@ -1900,7 +1897,6 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     const qrModal = (qrModalOpen && qrCodeUrl) && h('div', { key: 'qrmodal', onClick: () => setQrModalOpen(false), style: { position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px', background: 'rgba(var(--sb-scrim-rgb), 0.82)', backdropFilter: 'blur(10px)', animation: 'sbUp .2s ease' } },
                         h('div', { onClick: (e) => e.stopPropagation(), style: { width: '100%', maxWidth: '460px', borderRadius: '22px', border: '1px solid rgba(var(--sb-ink), 0.1)', background: 'var(--sb-bg)', boxShadow: '0 30px 90px rgba(var(--sb-shadow-rgb), calc(0.6 * var(--sb-shadow-k)))', overflow: 'hidden' } }, [
                             h('div', { key: 'head', style: { display: 'flex', alignItems: 'center', gap: '11px', padding: '18px 20px', borderBottom: '1px solid rgba(var(--sb-ink), 0.06)' } }, [
-                                h('span', { key: 'd', style: { width: '9px', height: '9px', borderRadius: '50%', background: accent } }),
                                 h('div', { key: 'tx', style: { flex: 1, lineHeight: 1.2 } }, [
                                     h('div', { key: 't', style: { fontSize: '15.5px', fontWeight: 800, color: 'var(--sb-text-1)' } }, isCreate ? t('handshake.shareTitle') : t('handshake.sendAnswerTitle')),
                                     h('div', { key: 's', style: { fontSize: '12px', color: 'var(--sb-text-8)' } }, `${isCreate ? 'offer' : 'answer'} · one-time`)
@@ -1913,7 +1909,6 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                                 h('div', { key: 'ctrls', style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginTop: '18px' } }, [
                                     (qrFramesTotal || 0) >= 1 && h('div', { key: 'frame', style: { display: 'flex', alignItems: 'center', gap: '9px' } }, [
                                         h('span', { key: 'l', style: { fontFamily: MONO, fontSize: '12px', fontWeight: 600, color: 'var(--sb-text-6)' } }, `Frame ${Math.max(1, qrFrameIndex || 1)} / ${qrFramesTotal || 1}`),
-                                        h('div', { key: 'dots', style: { display: 'flex', gap: '5px' } }, Array.from({ length: qrFramesTotal || 1 }, (_, i) => h('span', { key: i, style: { width: '7px', height: '7px', borderRadius: '50%', background: (i + 1) === (qrFrameIndex || 1) ? accent : 'rgba(var(--sb-ink), 0.14)', transition: 'background .25s' } })))
                                     ]),
                                     (qrFramesTotal || 0) > 1 && h('div', { key: 'nav', style: { display: 'flex', alignItems: 'center', gap: '6px' } }, [
                                         h('button', { key: 'prev', onClick: prevQrFrame, style: { width: '40px', height: '36px', display: 'grid', placeItems: 'center', borderRadius: '10px', border: '1px solid rgba(var(--sb-ink), 0.1)', background: 'rgba(var(--sb-ink), 0.04)', color: 'var(--sb-text-4)', cursor: 'pointer' } }, fa('fa-chevron-left')),
