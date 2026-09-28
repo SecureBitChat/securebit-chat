@@ -29,11 +29,11 @@ function Roadmap() {
         { v: "v4.5", k: 'r6', status: "released" },
         { v: "v5.0", k: 'r7', status: "released" },
         { v: "v5.5", k: 'r8', status: "released" },
-        { v: "v6.0", k: 'r9', status: "current" },
-        { v: "v6.5", k: 'r10', status: "dev" },
-        { v: "v7.0", k: 'r11', status: "planned" },
-        { v: "v7.5", k: 'r12', status: "research" },
-        { v: "v8.0", k: 'r13', status: "research" }
+        { v: "v6.0", k: 'r9', status: "released" },
+        { v: "v6.8", k: 'r10', status: "current" },
+        { v: "v7.0", k: 'r11', status: "dev" },
+        { v: "v8.0", k: 'r12', status: "planned" },
+        { v: "v9.0", k: 'r13', status: "research" }
     ].map((d) => ({
         ...d,
         // Version tag and status are identifiers, not copy; everything a reader

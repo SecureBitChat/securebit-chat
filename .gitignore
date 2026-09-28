@@ -25,3 +25,6 @@ audit/
 .agents/
 .claude/
 skills-lock.json
+
+# Android APKs are served from the Fly image, never committed (45 MB each).
+downloads/*.apk

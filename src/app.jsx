@@ -1802,29 +1802,49 @@ import { GroupCallMedia, mediaErrorCode } from './group/groupCallMedia.js';
                     // installer instead.
                     const SB_DESKTOP_VERSION = '1.0.6';
                     const SB_DESKTOP_RELEASE = `https://github.com/SecureBitChat/securebit-desktop/releases/download/v${SB_DESKTOP_VERSION}`;
+                    // The Android APK is served from this site (/downloads/, see
+                    // deploy/nginx.conf), not from a store. Keep ANDROID_APK_VERSION in
+                    // step with CommunityCTA.jsx and DownloadApps.jsx.
+                    const ANDROID_APK_VERSION = '0.8.1';
                     const DOWNLOADS = {
+                        android: { name: 'Android', format: '.apk · Android 8.0+', icon: 'fab fa-android', url: `/downloads/SecureBit-${ANDROID_APK_VERSION}.apk` },
                         mac: { name: 'macOS', format: '.dmg · Apple Silicon & Intel', icon: 'fab fa-apple', url: `${SB_DESKTOP_RELEASE}/SecureBit.Chat_${SB_DESKTOP_VERSION}_x64.dmg` },
                         win: { name: 'Windows', format: '.exe · 64-bit installer', icon: 'fab fa-windows', url: `${SB_DESKTOP_RELEASE}/SecureBit.Chat_${SB_DESKTOP_VERSION}_x64-setup.exe` },
                         linux: { name: 'Linux', format: '.AppImage', icon: 'fab fa-linux', url: `${SB_DESKTOP_RELEASE}/SecureBit.Chat_${SB_DESKTOP_VERSION}_amd64.AppImage` }
                     };
                     const detectOS = () => {
                         const ua = (navigator.userAgent || '') + ' ' + (navigator.platform || '');
-                        if (/Mac|iPhone|iPad|iPod/i.test(ua) && !/Android/i.test(ua)) return 'mac';
+                        if (/Android/i.test(ua)) return 'android';
+                        if (/Mac|iPhone|iPad|iPod/i.test(ua)) return 'mac';
                         if (/Win/i.test(ua)) return 'win';
                         if (/Linux/i.test(ua) && !/Android/i.test(ua)) return 'linux';
                         return 'win';
                     };
                     const detectedOS = detectOS();
-                    const otherOS = ['mac', 'win', 'linux'].filter((k) => k !== detectedOS);
-                    const dlLink = (url) => { try { window.open(url, '_blank', 'noopener'); } catch (e) {} };
+                    const otherOS = ['mac', 'win', 'linux', 'android'].filter((k) => k !== detectedOS);
+                    // A file from this site is downloaded in place; a release on GitHub
+                    // opens in a new tab as before.
+                    const dlLink = (url) => {
+                        try {
+                            if (url.startsWith('/')) {
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = '';
+                                document.body.appendChild(a);
+                                a.click();
+                                a.remove();
+                                return;
+                            }
+                            window.open(url, '_blank', 'noopener');
+                        } catch (e) {}
+                    };
 
                     const platformsMenu = platformsOpen && h('div', { key: 'platmenu', className: 'sb-platforms-menu', style: { position: 'absolute', insetInlineStart: 0, bottom: 'calc(100% + 10px)', width: '344px', maxWidth: '100%', borderRadius: '16px', border: '1px solid rgba(var(--sb-ink), 0.1)', background: 'var(--sb-surface)', boxShadow: '0 24px 60px rgba(var(--sb-shadow-rgb), calc(0.55 * var(--sb-shadow-k)))', overflow: 'hidden', zIndex: 25, animation: 'sbUp .2s ease' } }, [
                         h('div', { key: 'mh', style: { display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px', borderBottom: '1px solid rgba(var(--sb-ink), 0.06)' } }, [
                             h('div', { key: 't', style: { flex: 1, lineHeight: 1.2 } }, [
                                 h('div', { key: 'a', style: { fontSize: '14px', fontWeight: 800, color: 'var(--sb-text-1)' } }, t('dl.title')),
                                 h('div', { key: 'b', style: { fontSize: '11.5px', color: 'var(--sb-text-8)' } }, t('dl.free'))
-                            ]),
-                            h('span', { key: 'pill', style: { fontFamily: MONO, fontSize: '10px', fontWeight: 600, color: C_GREEN, padding: '3px 8px', borderRadius: '6px', background: 'rgba(var(--sb-green-rgb), 0.1)', border: '1px solid rgba(var(--sb-green-rgb), 0.22)' } }, t('chat.onWeb'))
+                            ])
                         ]),
                         h('div', { key: 'rec', style: { padding: '12px 12px 6px' } },
                             h('button', { key: 'b', onClick: () => dlLink(DOWNLOADS[detectedOS].url), style: { width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '13px 14px', borderRadius: '12px', border: '1px solid rgba(var(--sb-orange-rgb), 0.4)', background: 'rgba(var(--sb-orange-rgb), 0.08)', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'start' } }, [

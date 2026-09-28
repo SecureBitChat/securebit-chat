@@ -228,7 +228,7 @@
     ],
     "roadmap.r9.title": "Групповое общение",
     "roadmap.r9.sub": "Групповые чаты без потери приватности",
-    "roadmap.r9.date": "Сейчас",
+    "roadmap.r9.date": "Осень 2026",
     "roadmap.r9.features": [
       "Групповые чаты P2P до 8 участников",
       "Доставка по сети с подписанным relay как запасным путём",
@@ -241,7 +241,7 @@
     ],
     "roadmap.r10.title": "Mobile Edition",
     "roadmap.r10.sub": "Отдельные приложения для iOS и Android",
-    "roadmap.r10.date": "II квартал 2027",
+    "roadmap.r10.date": "Сейчас",
     "roadmap.r10.features": [
       "Приложение для iOS (Swift/SwiftUI)",
       "Приложение для Android (Kotlin/Jetpack Compose)",
@@ -254,7 +254,7 @@
     ],
     "roadmap.r11.title": "Стойкость к квантовым вычислениям",
     "roadmap.r11.sub": "Защита от квантовых компьютеров",
-    "roadmap.r11.date": "IV квартал 2027",
+    "roadmap.r11.date": "2027",
     "roadmap.r11.features": [
       "Постквантовая криптография CRYSTALS-Kyber",
       "Цифровые подписи SPHINCS+",
@@ -651,7 +651,7 @@
     "sec.simulatedWarning": "Внимание: соединение может быть не полностью установлено - значения могут быть смоделированы.",
     "dl.title": "Скачать SecureBit",
     "dl.free": "Бесплатно · открытый код",
-    "dl.soon": "Приложения для iOS и Android и расширения для Chrome, Firefox и Opera появятся скоро.",
+    "dl.soon": "Приложение для iOS и расширения для Chrome, Firefox и Opera появятся скоро.",
     "chatHdr.chat": "Чат",
     "chatHdr.chats": "Чаты",
     "chatHdr.newChat": "+ Новый",
@@ -800,7 +800,6 @@
     "offline.disconnect": "Отключиться",
     "offline.learnMore": "Подробнее",
     "pwa.installApp": "Установить приложение",
-    "chat.onWeb": "Вы в веб-версии",
     "groupCall.startVoice": "Начать групповой голосовой звонок",
     "groupCall.startVideo": "Начать групповой видеозвонок",
     "groupCall.join": "Присоединиться",

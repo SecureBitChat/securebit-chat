@@ -69,6 +69,14 @@ const CommunityCTA = () => {
         t('community.feedback')
     ]);
 
+    // Keep ANDROID_APK_VERSION in step with src/app.jsx and DownloadApps.jsx —
+    // tests/desktop-download-links.test.mjs fails the build if they disagree.
+    const ANDROID_APK_VERSION = '0.8.1';
+    const ANDROID_APK_URL = `/downloads/SecureBit-${ANDROID_APK_VERSION}.apk`;
+    const badgeStyle = { display: 'inline-flex', opacity: 0.9, transition: 'opacity .2s' };
+    const badgeHover = (e) => { e.currentTarget.style.opacity = 1; };
+    const badgeLeave = (e) => { e.currentTarget.style.opacity = 0.9; };
+
     const card = React.createElement('div', {
         key: 'card',
         style: {
@@ -107,36 +115,61 @@ const CommunityCTA = () => {
             key: 'btns',
             style: { display: 'flex', gap: '14px', justifyContent: 'center', flexWrap: 'wrap' }
         }, [githubBtn, feedbackBtn]),
-        // Snap Store, bottom right.
+        // Snap Store and the Android APK, bottom right.
         //
-        // Served from this origin, not snapcraft.io. The site's CSP is
-        // `img-src 'self' data:` and would block a hotlink anyway, but the
-        // reason to keep it that way is the product's own claim: fetching a
-        // badge from someone else's server hands them the address of every
-        // visitor to a page that promises no servers are involved.
+        // Both badges are served from this origin, not snapcraft.io. The site's CSP
+        // is `img-src 'self' data:` and would block a hotlink anyway, but the
+        // reason to keep it that way is the product's own claim: fetching a badge
+        // from someone else's server hands them the address of every visitor to a
+        // page that promises no servers are involved. The APK itself is served from
+        // here too (/downloads/, see deploy/nginx.conf).
+        //
+        // Both badges are dark plates with a light hairline, so they read on the
+        // light theme and do not dissolve into the dark one.
         React.createElement('div', {
-            key: 'snap',
+            key: 'stores',
             style: {
                 display: 'flex',
+                flexWrap: 'wrap',
+                gap: '12px',
                 justifyContent: isMobile ? 'center' : 'flex-end',
                 marginTop: '28px'
             }
-        }, React.createElement('a', {
-            href: 'https://snapcraft.io/securebit-chat',
-            target: '_blank',
-            rel: 'noopener noreferrer',
-            'aria-label': 'Get it from the Snap Store',
-            style: { display: 'inline-flex', opacity: 0.9, transition: 'opacity .2s' },
-            onMouseEnter: (e) => { e.currentTarget.style.opacity = 1; },
-            onMouseLeave: (e) => { e.currentTarget.style.opacity = 0.9; }
-        }, React.createElement('img', {
-            src: '/assets/badges/snap-store.svg',
-            alt: 'Get it from the Snap Store',
-            width: 182,
-            height: 56,
-            loading: 'lazy',
-            style: { display: 'block' }
-        })))
+        }, [
+            React.createElement('a', {
+                key: 'apk',
+                href: ANDROID_APK_URL,
+                download: '',
+                'aria-label': 'Download Android APK',
+                style: badgeStyle,
+                onMouseEnter: badgeHover,
+                onMouseLeave: badgeLeave
+            }, React.createElement('img', {
+                src: '/assets/badges/android-apk.svg',
+                alt: 'Download Android APK',
+                width: 171,
+                height: 56,
+                loading: 'lazy',
+                style: { display: 'block' }
+            })),
+            React.createElement('a', {
+                key: 'snap',
+                href: 'https://snapcraft.io/securebit-chat',
+                target: '_blank',
+                rel: 'noopener noreferrer',
+                'aria-label': 'Get it from the Snap Store',
+                style: badgeStyle,
+                onMouseEnter: badgeHover,
+                onMouseLeave: badgeLeave
+            }, React.createElement('img', {
+                src: '/assets/badges/snap-store.svg',
+                alt: 'Get it from the Snap Store',
+                width: 182,
+                height: 56,
+                loading: 'lazy',
+                style: { display: 'block' }
+            }))
+        ])
     ]);
 
     return React.createElement('section', {

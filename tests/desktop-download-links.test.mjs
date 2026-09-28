@@ -102,3 +102,24 @@ assert.equal(
 );
 
 console.log(`Desktop download link tests passed (v${VERSION}, ${urls.length} assets reachable)`);
+
+// ---------- the Android APK: one version, and the file it names exists ----------
+// The APK is served from this site (downloads/, git-ignored, shipped in the Fly
+// image), so a version bumped in one place and not the others is a 404.
+const APK_SOURCES = ['src/app.jsx', 'src/components/ui/DownloadApps.jsx', 'src/components/ui/CommunityCTA.jsx'];
+const apkVersions = APK_SOURCES.map((f) => {
+  const m = /ANDROID_APK_VERSION\s*=\s*'([^']+)'/.exec(read(f));
+  assert.ok(m, `${f} must declare ANDROID_APK_VERSION`);
+  return { file: f, version: m[1] };
+});
+const apkUnique = [...new Set(apkVersions.map((v) => v.version))];
+assert.equal(
+  apkUnique.length, 1,
+  `every source must link the same APK, found: ${apkVersions.map((v) => `${v.file}=${v.version}`).join(', ')}`
+);
+const apkFile = path.join(ROOT, 'downloads', `SecureBit-${apkUnique[0]}.apk`);
+if (!fs.existsSync(apkFile)) {
+  // Not an error on a fresh clone: the APK is never committed. It is one before a deploy.
+  console.warn(`! downloads/SecureBit-${apkUnique[0]}.apk is missing — copy the release APK there before deploying`);
+}
+console.log(`✓ Android APK ${apkUnique[0]} linked consistently`);

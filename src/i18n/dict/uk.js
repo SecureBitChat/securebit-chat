@@ -196,7 +196,7 @@ export const DICTIONARY = {
     ],
     "roadmap.r9.title": "Групове спілкування",
     "roadmap.r9.sub": "Групові чати без втрати приватності",
-    "roadmap.r9.date": "Зараз",
+    "roadmap.r9.date": "Осінь 2026",
     "roadmap.r9.features": [
         "Групові чати P2P до 8 учасників",
         "Доставка через мережу з підписаним relay як запасним шляхом",
@@ -209,7 +209,7 @@ export const DICTIONARY = {
     ],
     "roadmap.r10.title": "Mobile Edition",
     "roadmap.r10.sub": "Власні застосунки для iOS та Android",
-    "roadmap.r10.date": "II квартал 2027",
+    "roadmap.r10.date": "Зараз",
     "roadmap.r10.features": [
         "Застосунок для iOS (Swift/SwiftUI)",
         "Застосунок для Android (Kotlin/Jetpack Compose)",
@@ -222,7 +222,7 @@ export const DICTIONARY = {
     ],
     "roadmap.r11.title": "Стійкість до квантових обчислень",
     "roadmap.r11.sub": "Захист від квантових комп'ютерів",
-    "roadmap.r11.date": "IV квартал 2027",
+    "roadmap.r11.date": "2027",
     "roadmap.r11.features": [
         "Постквантова криптографія CRYSTALS-Kyber",
         "Цифрові підписи SPHINCS+",
@@ -619,7 +619,7 @@ export const DICTIONARY = {
     "sec.simulatedWarning": "Увага: з'єднання може бути не повністю встановлене - значення можуть бути змодельовані.",
     "dl.title": "Завантажити SecureBit",
     "dl.free": "Безкоштовно · відкритий код",
-    "dl.soon": "Застосунки для iOS та Android і розширення для Chrome, Firefox і Opera з'являться незабаром.",
+    "dl.soon": "Застосунок для iOS і розширення для Chrome, Firefox і Opera з'являться незабаром.",
     "chatHdr.chat": "Чат",
     "chatHdr.chats": "Чати",
     "chatHdr.newChat": "+ Новий",
@@ -768,7 +768,6 @@ export const DICTIONARY = {
     "offline.disconnect": "Від'єднатися",
     "offline.learnMore": "Докладніше",
     "pwa.installApp": "Встановити застосунок",
-    "chat.onWeb": "Ви у вебверсії",
     "groupCall.startVoice": "Почати груповий голосовий дзвінок",
     "groupCall.startVideo": "Почати груповий відеодзвінок",
     "groupCall.join": "Приєднатися",

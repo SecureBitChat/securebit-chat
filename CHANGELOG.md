@@ -1,5 +1,12 @@
 # Changelog
 
+## v6.8.15 — Android app for testing
+
+The Android app is now available for testing. Download the APK with the "Download
+Android APK" button at the bottom of the page, or from the download menu. The
+roadmap is updated too: mobile apps are now the current step, and the
+quantum-resistant edition is in development.
+
 ## v6.8.14 — Desktop 1.0.6 downloads
 
 The download buttons now give you desktop version 1.0.6, which adds a light theme

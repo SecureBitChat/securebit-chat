@@ -223,7 +223,7 @@
     ],
     "roadmap.r9.title": "Communication de groupe",
     "roadmap.r9.sub": "Discussions de groupe sans renoncer à la vie privée",
-    "roadmap.r9.date": "Maintenant",
+    "roadmap.r9.date": "Automne 2026",
     "roadmap.r9.features": [
       "Groupes P2P jusqu'à 8 participants",
       "Distribution en maillage, avec relais signé en secours",
@@ -236,7 +236,7 @@
     ],
     "roadmap.r10.title": "Mobile Edition",
     "roadmap.r10.sub": "Applications natives pour iOS et Android",
-    "roadmap.r10.date": "2e trimestre 2027",
+    "roadmap.r10.date": "Maintenant",
     "roadmap.r10.features": [
       "Application iOS native (Swift/SwiftUI)",
       "Application Android native (Kotlin/Jetpack Compose)",
@@ -249,7 +249,7 @@
     ],
     "roadmap.r11.title": "Édition résistante au quantique",
     "roadmap.r11.sub": "Protection contre les ordinateurs quantiques",
-    "roadmap.r11.date": "4e trimestre 2027",
+    "roadmap.r11.date": "2027",
     "roadmap.r11.features": [
       "Cryptographie post-quantique CRYSTALS-Kyber",
       "Signatures numériques SPHINCS+",
@@ -646,7 +646,7 @@
     "sec.simulatedWarning": "Attention : la connexion n'est peut-être pas entièrement établie - les valeurs peuvent être simulées.",
     "dl.title": "Télécharger SecureBit",
     "dl.free": "Gratuit · code ouvert",
-    "dl.soon": "Les applications mobiles (iOS, Android) et les extensions de navigateur (Chrome, Firefox, Opera) arrivent bientôt.",
+    "dl.soon": "L'application iOS et les extensions de navigateur (Chrome, Firefox, Opera) arrivent bientôt.",
     "chatHdr.chat": "Discussion",
     "chatHdr.chats": "Discussions",
     "chatHdr.newChat": "+ Nouvelle",
@@ -795,7 +795,6 @@
     "offline.disconnect": "Se déconnecter",
     "offline.learnMore": "En savoir plus",
     "pwa.installApp": "Installer l'application",
-    "chat.onWeb": "Vous êtes sur la version web",
     "groupCall.startVoice": "Démarrer un appel vocal de groupe",
     "groupCall.startVideo": "Démarrer un appel vidéo de groupe",
     "groupCall.join": "Rejoindre",

@@ -8,6 +8,10 @@
 const DESKTOP_VERSION = '1.0.6';
 const DESKTOP_RELEASE = `https://github.com/SecureBitChat/securebit-desktop/releases/download/v${DESKTOP_VERSION}`;
 
+// The Android APK is served from this site (/downloads/, see deploy/nginx.conf).
+// Keep in step with src/app.jsx and CommunityCTA.jsx.
+const ANDROID_APK_VERSION = '0.8.1';
+
 const DownloadApps = () => {
     const apps = [
         { id: 'web', name: 'Web App', subtitle: 'Browser Version', icon: 'fas fa-globe', platform: 'Web', isActive: true, url: 'https://securebit.chat/', color: 'green' },
@@ -15,7 +19,7 @@ const DownloadApps = () => {
         { id: 'macos', name: 'macOS', subtitle: 'Desktop App', icon: 'fab fa-safari', platform: 'Desktop', isActive: true, url: `${DESKTOP_RELEASE}/SecureBit.Chat_${DESKTOP_VERSION}_x64.dmg`, color: 'gray' },
         { id: 'linux', name: 'Linux', subtitle: 'Desktop App', icon: 'fab fa-linux', platform: 'Desktop', isActive: true, url: `${DESKTOP_RELEASE}/SecureBit.Chat_${DESKTOP_VERSION}_amd64.AppImage`, color: 'orange' },
         { id: 'ios', name: 'iOS', subtitle: 'iPhone & iPad', icon: 'fab fa-apple', platform: 'Mobile', isActive: false, url: 'https://apps.apple.com/app/securebit-chat/', color: 'white' },
-        { id: 'android', name: 'Android', subtitle: 'Google Play', icon: 'fab fa-android', platform: 'Mobile', isActive: false, url: 'https://play.google.com/store/apps/details?id=com.securebit.chat', color: 'green' },
+        { id: 'android', name: 'Android', subtitle: 'APK', icon: 'fab fa-android', platform: 'Mobile', isActive: true, url: `/downloads/SecureBit-${ANDROID_APK_VERSION}.apk`, color: 'green' },
         { id: 'chrome', name: 'Chrome', subtitle: 'Browser Extension', icon: 'fab fa-chrome', platform: 'Browser', isActive: false, url: '#', color: 'yellow' },
         { id: 'edge', name: 'Edge', subtitle: 'Browser Extension', icon: 'fab fa-edge', platform: 'Browser', isActive: false, url: '#', color: 'blue' },
         { id: 'opera', name: 'Opera', subtitle: 'Browser Extension', icon: 'fab fa-opera', platform: 'Browser', isActive: false, url: '#', color: 'red' },
